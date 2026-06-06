@@ -24,7 +24,7 @@ import {
 } from "@/app/admin/transactions/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import LightboxView from "../../../treasury/[id]/components/LightboxView";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 
