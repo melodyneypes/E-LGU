@@ -7,8 +7,14 @@ import { useSession } from "next-auth/react";
 import {
     ArrowLeft,
     BadgeCheck,
-    Check
+    Check,
+    ZoomIn,
+    ZoomOut,
+    RotateCw,
+    RefreshCcw
 } from "lucide-react";
+import Image from "next/image";
+import { isValidUrl } from "@/utils/image";
 import { toast } from "sonner";
 import {
     getTransactionById,
@@ -36,7 +42,6 @@ interface PageProps {
     params: Promise<{ id: string }>;
 }
 
-/*
 function LightboxView({ src, alt, label }: { src: string; alt: string; label: string }) {
     const [scale, setScale] = useState(1);
     const [rotate, setRotate] = useState(0);
@@ -162,7 +167,6 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
         </DialogContent>
     );
 }
-*/
 
 export default function BuildingPermitReinspectionPage({ params }: PageProps) {
     const { id } = use(params);
@@ -387,9 +391,19 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
                         </Button>
                     </Link>
                 </div>
-                <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
-                    Re-inspection Portal Active
-                </Badge>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 mr-2">
+                        <Badge className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 border border-orange-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
+                            Revision Count: {transaction?.revisionCount || 0} / 3
+                        </Badge>
+                        <Badge className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 border border-blue-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
+                            Re-inspection Count: {transaction?.additionalData?.reinspectionCount || 0} / 4
+                        </Badge>
+                    </div>
+                    <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
+                        Re-inspection Portal Active
+                    </Badge>
+                </div>
             </header>
 
             <main className="max-w-[1400px] mx-auto px-8 grid grid-cols-12 gap-8 mt-4">
@@ -493,19 +507,169 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
                             <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
                                 Resident <span className="text-primary">Identity Profile</span>
                             </h2>
+                            <p className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] italic mt-2">Verified Citizen Data Dossier</p>
                         </div>
                         <div className="grid grid-cols-12 gap-6">
-                            <div className="col-span-12 md:col-span-4 space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">First Name</label>
-                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm">{resident?.firstName || "--"}</div>
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">First Name</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.firstName || "--"}</div>
+                            </div>
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Middle Name</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.middleName || "--"}</div>
+                            </div>
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Last Name</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.lastName || "--"}</div>
+                            </div>
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Suffix</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.suffix || "--"}</div>
+                            </div>
+
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Birth Date</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
+                                    {resident?.dateOfBirth ? new Date(resident.dateOfBirth).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "--"}
+                                </div>
+                            </div>
+                            <div className="col-span-12 md:col-span-2 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Age</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
+                                    {resident?.age ?? (resident?.dateOfBirth ? Math.floor((new Date().getTime() - new Date(resident.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : "--")}
+                                </div>
+                            </div>
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Civil Status</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 uppercase">{resident?.civilStatus || "--"}</div>
                             </div>
                             <div className="col-span-12 md:col-span-4 space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Middle Name</label>
-                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm">{resident?.middleName || "--"}</div>
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Contact Number</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.contactNumber || "--"}</div>
                             </div>
-                            <div className="col-span-12 md:col-span-4 space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Last Name</label>
-                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm">{resident?.lastName || "--"}</div>
+
+                            <div className="col-span-12 md:col-span-6 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Occupation</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.occupation || "--"}</div>
+                            </div>
+                            <div className="col-span-12 md:col-span-6 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Barangay & Complete Address</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
+                                    {resident?.houseNumber || ""} {resident?.street || ""} {resident?.barangay ? `${resident.barangay}, Mapandan, Pangasinan` : "--"}
+                                </div>
+                            </div>
+
+                            {/* Government ID Section */}
+                            {(() => {
+                                const newIdFile = additional?.documents?.newIdFile;
+                                if (newIdFile) {
+                                    return (
+                                        <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
+                                            <div className="flex items-center gap-2">
+                                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Uploaded Government ID</label>
+                                            </div>
+                                            <div className="grid grid-cols-1 gap-6 max-w-sm">
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
+                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID</p>
+                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
+                                                                <Image src={isValidUrl(newIdFile) ? newIdFile : "/placeholder.png"} alt="Government ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                            </div>
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                                    <ZoomIn className="w-4 h-4 text-white" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </DialogTrigger>
+                                                    <LightboxView src={newIdFile} alt="Government ID" label="Government ID" />
+                                                </Dialog>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
+                                const idFront = additional?.validIdFront || additional?.idFrontUrl || resident?.idFrontUrl || resident?.idFileUrl;
+                                const idBack = additional?.validIdBack || additional?.idBackUrl || resident?.idBackUrl;
+                                if (!idFront && !idBack) return null;
+                                return (
+                                    <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Resident ID Verification Documents</label>
+                                            {resident?.idType && (
+                                                <Badge variant="outline" className="text-[9px] font-bold uppercase border-primary/20 text-primary py-0 px-2 h-5">
+                                                    ID Type: {resident.idType}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-6 max-w-2xl">
+                                            {idFront && (
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
+                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Front ID</p>
+                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
+                                                                <Image src={isValidUrl(idFront) ? idFront : "/placeholder.png"} alt="Front ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                            </div>
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                                    <ZoomIn className="w-4 h-4 text-white" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </DialogTrigger>
+                                                    <LightboxView src={idFront} alt="Front ID" label="Front ID" />
+                                                </Dialog>
+                                            )}
+                                            {idBack && (
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
+                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Back ID</p>
+                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
+                                                                <Image src={isValidUrl(idBack) ? idBack : "/placeholder.png"} alt="Back ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                            </div>
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                                    <ZoomIn className="w-4 h-4 text-white" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </DialogTrigger>
+                                                    <LightboxView src={idBack} alt="Back ID" label="Back ID" />
+                                                </Dialog>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    </div>
+
+                    {/* Card 2: Application Details */}
+                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
+                        <div>
+                            <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
+                                Application <span className="text-primary">Details</span>
+                            </h2>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Description of Work</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.descriptionOfWork || "--"}</div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Occupancy Use</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.occupancyUse || "--"}</div>
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Location of Construction</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.locationOfConstruction || additional?.location || "--"}</div>
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Estimated Cost</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-black text-sm text-primary min-h-[48px]">₱{Number(additional?.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                             </div>
                         </div>
                     </div>

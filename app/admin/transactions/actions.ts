@@ -2709,6 +2709,7 @@ export async function markForReinspection(id: string, reason: string, details?: 
                 rejectionRemarks,
                 additionalData: newAdditionalData,
                 processedBy: user.id,
+                revisionCount: 0,
                 updatedAt: new Date()
             },
             include: { type: true, user: true }
