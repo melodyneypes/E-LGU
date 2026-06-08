@@ -98,6 +98,7 @@ export default function CedulaApplicationPage() {
     const [submitting, setSubmitting] = useState(false);
     const [baseDraft, setBaseDraft] = useState<string | null>(null);
     const [calcResult, setCalcResult] = useState<CedulaResult | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [initialResident, setInitialResident] = useState<any>(null);
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
     const [existingIdUrl, setExistingIdUrl] = useState<string | null>(null);
@@ -393,7 +394,7 @@ export default function CedulaApplicationPage() {
                 return !!formData.typeId;
             case "RESIDENT":
                 const r = formData.residentData;
-                return !!(r?.firstName && r?.lastName && r?.dateOfBirth && r?.occupation && r?.contactNumber);
+                return !!r?.contactNumber;
              case "DECLARATION":
                 if (formData.isStudent) {
                     return !!formData.purpose?.trim();
@@ -474,6 +475,12 @@ export default function CedulaApplicationPage() {
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: "idFile" | "proofFile") => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
+            const maxBytes = 5 * 1024 * 1024; // 5MB limit
+            if (file.size > maxBytes) {
+                toast.error(`The file "${file.name}" is too large! Maximum limit is 5MB`);
+                e.target.value = ""; // Reset the input element
+                return;
+            }
             setFormData(prev => ({ ...prev, [field]: file }));
             await persistDraftFile(field, file);
         }
@@ -676,21 +683,7 @@ export default function CedulaApplicationPage() {
                 })}
             </div>
 
-            {/* Revision Remarks Alert Banner — sticky, rides with user inside the form */}
-            {revisionTx && (
-                <div className="sticky top-[64px] z-30 bg-[#8c0a0a] dark:bg-[#5c0606] border border-[#a81616] p-6 rounded-[2rem] shadow-xl shadow-red-950/20 text-white animate-in fade-in slide-in-from-top-4 duration-300">
-                    <div className="flex flex-col gap-3">
-                        <div className="flex items-center">
-                            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 dark:bg-black/30 text-amber-300 border border-amber-500/20 text-[9px] font-black uppercase tracking-widest font-sans shrink-0 w-fit shadow-inner">
-                                ⚠️ Attention: Revision Needed
-                            </span>
-                        </div>
-                        <div className="text-xs text-white font-bold bg-white/10 dark:bg-black/20 border border-white/15 p-4 rounded-xl italic font-sans leading-relaxed shadow-inner">
-                            &quot;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&quot;
-                        </div>
-                    </div>
-                </div>
-            )}
+
 
             {/* Step Content */}
             <div className="mt-4 md:mt-8 md:bg-white md:dark:bg-[#11131a] md:rounded-[2.5rem] md:border md:border-slate-200 md:dark:border-white/10 p-0 md:p-12 md:shadow-2xl relative md:overflow-hidden group/container min-h-[400px] md:min-h-[500px] flex flex-col">
@@ -807,137 +800,143 @@ export default function CedulaApplicationPage() {
                                 )}
 
                                 {currentStep === "RESIDENT" && (
-                                <div className="space-y-6 md:space-y-8">
-                                    <div className="space-y-1">
-                                        <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight">Identity <span className="text-primary italic">Confirmation</span></h2>
-                                        <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">Verify and refine your personal records for this certificate.</p>
-                                    </div>
+                                 <div className="space-y-6 md:space-y-8">
+                                     <div className="space-y-1">
+                                         <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight">Identity <span className="text-primary italic">Confirmation</span></h2>
+                                         <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">Verify your personal records. Only the contact number should be provided/updated.</p>
+                                     </div>
 
-                                    <div className="space-y-4 md:space-y-6">
-                                        {/* Row 1: Names */}
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">First Name</Label>
-                                                <Input
-                                                    value={formData.residentData?.firstName || ""}
-                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, firstName: e.target.value } }))}
-                                                    readOnly={!!initialResident?.firstName}
-                                                    className={cn("h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm", !!initialResident?.firstName && "bg-slate-50 text-slate-400")}
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Middle Name</Label>
-                                                <Input
-                                                    value={formData.residentData?.middleName || ""}
-                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, middleName: e.target.value } }))}
-                                                    readOnly={!!initialResident?.middleName}
-                                                    className={cn("h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm", !!initialResident?.middleName && "bg-slate-50 text-slate-400")}
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Last Name</Label>
-                                                <Input
-                                                    value={formData.residentData?.lastName || ""}
-                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, lastName: e.target.value } }))}
-                                                    readOnly={!!initialResident?.lastName}
-                                                    className={cn("h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm", !!initialResident?.lastName && "bg-slate-50 text-slate-400")}
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Suffix</Label>
-                                                <Input
-                                                    value={formData.residentData?.suffix || ""}
-                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, suffix: e.target.value } }))}
-                                                    readOnly={!!initialResident?.suffix}
-                                                    className={cn("h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm", !!initialResident?.suffix && "bg-slate-50 text-slate-400")}
-                                                    placeholder="Jr."
-                                                />
-                                            </div>
-                                        </div>
+                                     {revisionTx && (
+                                         <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
+                                             <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                             <div className="text-left space-y-1">
+                                                 <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                                     &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                                 </p>
+                                             </div>
+                                         </div>
+                                     )}
 
-                                        <Separator className="opacity-50" />
+                                     <div className="space-y-4 md:space-y-6">
+                                         {/* Row 1: Names */}
+                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                                             <div className="space-y-1.5">
+                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">First Name</Label>
+                                                 <Input
+                                                     value={formData.residentData?.firstName || ""}
+                                                     readOnly={true}
+                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                 />
+                                             </div>
+                                             <div className="space-y-1.5">
+                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Middle Name</Label>
+                                                 <Input
+                                                     value={formData.residentData?.middleName || ""}
+                                                     readOnly={true}
+                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                 />
+                                             </div>
+                                             <div className="space-y-1.5">
+                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Last Name</Label>
+                                                 <Input
+                                                     value={formData.residentData?.lastName || ""}
+                                                     readOnly={true}
+                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                 />
+                                             </div>
+                                             <div className="space-y-1.5">
+                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Suffix</Label>
+                                                 <Input
+                                                     value={formData.residentData?.suffix || ""}
+                                                     readOnly={true}
+                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                 />
+                                             </div>
+                                         </div>
 
-                                        {/* Row 2: Personal */}
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Birth Date</Label>
-                                                <Input
-                                                    type="date"
-                                                    value={formData.residentData?.dateOfBirth ? new Date(formData.residentData.dateOfBirth).toISOString().split('T')[0] : ""}
-                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, dateOfBirth: e.target.value } }))}
-                                                    readOnly={!!initialResident?.dateOfBirth}
-                                                    className={cn("h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm", !!initialResident?.dateOfBirth && "bg-slate-50 text-slate-400")}
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Age</Label>
-                                                <Input
-                                                    value={(() => {
-                                                        if (!formData.residentData?.dateOfBirth) return "";
-                                                        const today = new Date();
-                                                        const birthDate = new Date(formData.residentData.dateOfBirth);
-                                                        let age = today.getFullYear() - birthDate.getFullYear();
-                                                        const m = today.getMonth() - birthDate.getMonth();
-                                                        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
-                                                        return age;
-                                                    })()}
-                                                    readOnly
-                                                    className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm"
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Civil Status</Label>
-                                                <Input
-                                                    value={formData.residentData?.civilStatus || "N/A"}
-                                                    readOnly
-                                                    className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm"
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Citizenship</Label>
-                                                <Input
-                                                    value={formData.residentData?.citizenship || "Filipino"}
-                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, citizenship: e.target.value } }))}
-                                                    readOnly={!!initialResident?.citizenship}
-                                                    className={cn("h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm", !!initialResident?.citizenship && "bg-slate-50 text-slate-400")}
-                                                />
-                                            </div>
-                                        </div>
+                                         <Separator className="opacity-50" />
 
-                                        {/* Row 3: Contact & Occupation */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Occupation</Label>
-                                                <div className="relative">
-                                                    <Input
-                                                        value={formData.residentData?.occupation || ""}
-                                                        onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, occupation: e.target.value } }))}
-                                                        readOnly={!!initialResident?.occupation}
-                                                        className={cn("h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm", !!initialResident?.occupation && "bg-slate-50 text-slate-400")}
-                                                        placeholder="e.g. Employee"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Contact Number</Label>
-                                                <Input
-                                                    ref={contactInputRef}
-                                                    value={formData.residentData?.contactNumber || ""}
-                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, contactNumber: e.target.value } }))}
-                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm"
-                                                    placeholder="09xx xxx xxxx"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
+                                         {/* Row 2: Personal */}
+                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                                             <div className="space-y-1.5">
+                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Birth Date</Label>
+                                                 <Input
+                                                     type="date"
+                                                     value={formData.residentData?.dateOfBirth ? new Date(formData.residentData.dateOfBirth).toISOString().split('T')[0] : ""}
+                                                     readOnly={true}
+                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                 />
+                                             </div>
+                                             <div className="space-y-1.5">
+                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Age</Label>
+                                                 <Input
+                                                     value={(() => {
+                                                         if (!formData.residentData?.dateOfBirth) return "";
+                                                         const today = new Date();
+                                                         const birthDate = new Date(formData.residentData.dateOfBirth);
+                                                         let age = today.getFullYear() - birthDate.getFullYear();
+                                                         const m = today.getMonth() - birthDate.getMonth();
+                                                         if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+                                                         return age;
+                                                     })()}
+                                                     readOnly
+                                                     className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm"
+                                                 />
+                                             </div>
+                                             <div className="space-y-1.5">
+                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Civil Status</Label>
+                                                 <Input
+                                                     value={formData.residentData?.civilStatus || "N/A"}
+                                                     readOnly
+                                                     className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm"
+                                                 />
+                                             </div>
+                                             <div className="space-y-1.5">
+                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Citizenship</Label>
+                                                 <Input
+                                                     value={formData.residentData?.citizenship || "Filipino"}
+                                                     readOnly={true}
+                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                 />
+                                             </div>
+                                         </div>
 
-                                    <div className="bg-primary/5 border border-primary/10 p-3 md:p-4 rounded-2xl md:rounded-3xl flex items-center gap-2 md:gap-3">
-                                        <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
-                                        <p className="text-[8px] md:text-[10px] text-primary font-black italic leading-tight uppercase tracking-widest">
-                                            Note: Changes will update your Resident Profile upon submission.
-                                        </p>
-                                    </div>
-                                </div>
+                                         {/* Row 3: Contact & Occupation */}
+                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                                             <div className="space-y-1.5">
+                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Occupation</Label>
+                                                 <div className="relative">
+                                                     <Input
+                                                         value={formData.residentData?.occupation || ""}
+                                                         readOnly={true}
+                                                         className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                     />
+                                                 </div>
+                                             </div>
+                                             <div className="space-y-1.5">
+                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Contact Number</Label>
+                                                 <Input
+                                                     ref={contactInputRef}
+                                                     value={formData.residentData?.contactNumber || ""}
+                                                     onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, contactNumber: e.target.value } }))}
+                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm"
+                                                     placeholder="09xx xxx xxxx"
+                                                 />
+                                                 <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider ml-1 animate-pulse">
+                                                     * Note: Please use your active contact number. This will be used to contact you regarding your transaction.
+                                                 </p>
+                                             </div>
+                                         </div>
+                                     </div>
+
+                                     <div className="bg-primary/5 border border-primary/10 p-3 md:p-4 rounded-2xl md:rounded-3xl flex items-center gap-2 md:gap-3">
+                                         <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                                         <p className="text-[8px] md:text-[10px] text-primary font-black italic leading-tight uppercase tracking-widest">
+                                             Note: Changes will update your Resident Profile upon submission.
+                                         </p>
+                                     </div>
+                                 </div>
                             )}                             {/* Step 3: FINANCIAL DECLARATION */}
                               {currentStep === "DECLARATION" && (
                                 <div className="space-y-8 md:space-y-12">
@@ -951,6 +950,18 @@ export default function CedulaApplicationPage() {
                                                 : "Declare your annual financial status for the tax computation."}
                                         </p>
                                     </div>
+
+                                     {revisionTx && (
+                                         <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
+                                             <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                             <div className="text-left space-y-1">
+                                                 <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                                     &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                                 </p>
+                                             </div>
+                                         </div>
+                                     )}
 
                                     <div className={cn("grid grid-cols-1 gap-6 md:gap-10", !formData.isStudent && "md:grid-cols-2")}>
                                         <div className="space-y-6 md:space-y-8">
@@ -1194,6 +1205,18 @@ export default function CedulaApplicationPage() {
                                         <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter leading-tight">Review <span className="text-primary italic">& Finalize</span></h2>
                                         <p className="text-slate-500 font-medium italic text-xs md:text-lg leading-relaxed">Review your declaration before submitting for evaluation.</p>
                                     </div>
+
+                                     {revisionTx && (
+                                         <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
+                                             <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                             <div className="text-left space-y-1">
+                                                 <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                                     &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                                 </p>
+                                             </div>
+                                         </div>
+                                     )}
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
                                         <div className="space-y-4 md:space-y-6" ref={idSectionRef}>

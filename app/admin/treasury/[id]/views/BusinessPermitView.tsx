@@ -149,7 +149,14 @@ export default function BusinessPermitView({
             style={{ "--theme_color": themeColor, "--primary-theme": themeColor } as React.CSSProperties}
         >
             {/* Minimal Header */}
-            <header className="h-16 px-8 flex items-center justify-end border-b border-transparent dark:border-white/5">
+            <header className="h-16 px-8 flex items-center justify-between border-b border-transparent dark:border-white/5">
+                <Link
+                    href={backUrl}
+                    className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-primary transition-all group"
+                >
+                    <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                    Back to Registry
+                </Link>
                 <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
                     Type Of Request: {transaction.fulfillmentType?.replace("_", " ") || "Processing"}
                 </Badge>
@@ -453,7 +460,7 @@ export default function BusinessPermitView({
                             >
                                 <div className="flex items-center gap-2">
                                     <BadgeCheck className="w-5 h-5 text-primary" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">All Requirments</span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">All Requirements</span>
                                 </div>
                                 <div className="w-10 h-10 rounded-full hover:bg-slate-50 dark:hover:bg-white/5 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-primary dark:hover:text-white transition-all focus:outline-none shrink-0">
                                     {isRequirementsOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}

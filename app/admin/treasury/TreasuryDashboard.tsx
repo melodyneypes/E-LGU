@@ -32,10 +32,10 @@ import { supabase } from "@/lib/supabase";
 
 const STATUS_TABS = [
     { value: "ALL", label: "All Status", color: "text-slate-600", activeColor: "bg-slate-900 text-white dark:bg-white dark:text-slate-900" },
-    { value: "FOR_REQUESTING", label: "Evaluation", color: "text-amber-600", activeColor: "bg-amber-500 text-white" },
+    { value: "FOR_REQUESTING", label: "For Evaluation", color: "text-amber-600", activeColor: "bg-amber-500 text-white" },
     { value: "FOR_INSPECTION", label: "Inspection", color: "text-blue-600", activeColor: "bg-blue-500 text-white" },
     { value: "FOR_REVISION", label: "For Revision", color: "text-amber-600", activeColor: "bg-amber-600 text-white" },
-    { value: "FOR_PROCESSING", label: "Processing", color: "text-sky-600", activeColor: "bg-sky-500 text-white" },
+    { value: "FOR_PROCESSING", label: "For Processing", color: "text-sky-600", activeColor: "bg-sky-500 text-white" },
     { value: "FOR_CLAIM", label: "For Claim", color: "text-indigo-600", activeColor: "bg-indigo-500 text-white" },
     { value: "FOR_PICKING", label: "For Picking", color: "text-pink-600", activeColor: "bg-pink-500 text-white" },
     { value: "IN_ROUTE", label: "In Route", color: "text-orange-600", activeColor: "bg-orange-500 text-white" },
@@ -45,8 +45,8 @@ const STATUS_TABS = [
     { value: "RELEASED", label: "Released", color: "text-slate-600", activeColor: "bg-slate-700 text-white" },
     { value: "REJECTED", label: "Rejected", color: "text-red-500", activeColor: "bg-red-500 text-white" },
     { value: "CANCELLED", label: "Cancelled", color: "text-red-400", activeColor: "bg-red-600 text-white" },
-    { value: "RETURN_REQUESTED", label: "Return Req.", color: "text-orange-500", activeColor: "bg-orange-500 text-white" },
-    { value: "REFUND_REQUESTED", label: "Refund Req.", color: "text-orange-500", activeColor: "bg-orange-500 text-white" },
+    { value: "RETURN_REQUESTED", label: "Request for Return", color: "text-orange-500", activeColor: "bg-orange-500 text-white" },
+    { value: "REFUND_REQUESTED", label: "Request for Refund", color: "text-orange-500", activeColor: "bg-orange-500 text-white" },
 ];
 
 // Helper: format exact date & time
@@ -561,7 +561,15 @@ export default function TreasuryDashboard() {
                                                                 "DISPUTE_REJECTED": "text-red-700",
                                                             } as Record<string, string>)[tx.status] || "text-slate-500"
                                                         )}>
-                                                            {tx.isCancelled ? "CANCELLED" : tx.status?.replace(/_/g, " ")}
+                                                            {tx.isCancelled 
+                                                                ? "CANCELLED" 
+                                                                : ({
+                                                                    "FOR_REQUESTING": "FOR EVALUATION",
+                                                                    "FOR_PROCESSING": "FOR PROCESSING",
+                                                                    "FOR_REINSPECTION": "FOR PROCESSING",
+                                                                    "RETURN_REQUESTED": "REQUEST FOR RETURN",
+                                                                    "REFUND_REQUESTED": "REQUEST FOR REFUND",
+                                                                } as Record<string, string>)[tx.status] || tx.status?.replace(/_/g, " ")}
                                                         </span>
                                                     </TableCell>
                                                     <TableCell>

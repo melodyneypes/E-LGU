@@ -56,9 +56,9 @@ import {
     getCurrentUserResident,
     getTransactionTypes,
     ensureCivilRegistryTransactionTypes,
-    submitCivilRegistryTransaction,
     getSystemSettingAction
 } from "@/app/admin/transactions/actions";
+import { submitMarriageRegistrationTransaction } from "@/app/admin/transactions/marriage-regis-actions";
 import { searchResidents, getResidentDataById } from "@/app/admin/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -180,6 +180,7 @@ export default function MarriageRegistrationPage() {
     const [loading, setLoading] = useState(true);
 
     const [themeColor, setThemeColor] = useState("theme_color");
+    const [lateFee, setLateFee] = useState<number>(300);
 
     useEffect(() => {
         getSystemSettingAction("theme_color").then((res) => {
@@ -333,6 +334,9 @@ export default function MarriageRegistrationPage() {
                     const currentDbType = lcrTypes.find((t: any) => t.code === "LCR_MARRIAGE_REG");
                     if (currentDbType) {
                         setForm(prev => ({ ...prev, typeId: currentDbType.id }));
+                        if (currentDbType.lateFee !== undefined && currentDbType.lateFee !== null) {
+                            setLateFee(Number(currentDbType.lateFee));
+                        }
                     }
                 }
             } catch (err) {
@@ -428,7 +432,7 @@ export default function MarriageRegistrationPage() {
                 contactNumber: form.contactNumber,
                 relationship: form.relationship,
                 subjectName: `${form.app1FullName} & ${form.app2FullName}`,
-                totalAmount: form.registrationType === "LATE" ? 300 : 0
+                totalAmount: form.registrationType === "LATE" ? lateFee : 0
             };
 
             // Debug: log additionalData to browser console to verify dateOfMarriage
@@ -469,7 +473,7 @@ export default function MarriageRegistrationPage() {
                 if (file) formData.append(key, file);
             });
 
-            const result = await submitCivilRegistryTransaction(formData);
+            const result = await submitMarriageRegistrationTransaction(formData);
             if (result.success) {
                 localStorage.removeItem(STORAGE_KEY);
                 await clearDraftFiles(STORAGE_KEY);
@@ -1241,7 +1245,7 @@ export default function MarriageRegistrationPage() {
                                                             "text-2xl font-black uppercase italic tracking-tight",
                                                             form.registrationType === "LATE" ? "text-rose-500" : "text-emerald-500"
                                                         )}>
-                                                            {form.registrationType === "LATE" ? "₱300.00" : "FREE"}
+                                                            {form.registrationType === "LATE" ? `₱${lateFee.toFixed(2)}` : "FREE"}
                                                         </span>
                                                     </div>
                                                 </div>

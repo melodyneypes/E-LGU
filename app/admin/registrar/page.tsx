@@ -192,6 +192,8 @@ export default function RegistrarPage() {
                 matchesCategory = tx.type?.code === "LCR_DEATH";
             } else if (categoryParam === "Marriage License") {
                 matchesCategory = tx.type?.code === "LCR_MARRIAGE_LICENSE";
+            } else if (categoryParam === "Marriage Registration") {
+                matchesCategory = tx.type?.code === "LCR_MARRIAGE_REG";
             }
 
             return matchesSearch && matchesService && matchesCategory;

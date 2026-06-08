@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, use, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -56,6 +56,7 @@ import { releaseBirthCertificate } from "@/app/admin/transactions/birth-cert-act
 import { releaseDeathRegistry } from "@/app/admin/transactions/death-regis-actions";
 import { releaseDeathCertificate, evaluateDeathCertificateTransaction } from "@/app/admin/transactions/death-cert-actions";
 import { releaseMarriageLicense, evaluateMarriageLicenseTransaction } from "@/app/admin/transactions/marriage-license-actions";
+import { releaseMarriageRegistry, evaluateMarriageRegistrationTransaction } from "@/app/admin/transactions/marriage-regis-actions";
 import { evaluateStudentCedulaTransaction } from "@/app/admin/transactions/student-actions";
 import { cn } from "@/lib/utils";
 import { calculateCedula } from "@/lib/cedula";
@@ -86,6 +87,7 @@ import BirthCertificateView from "./views/BirthCertificateView";
 import DeathRegistrationView from "./views/DeathRegistrationView";
 import DeathCertificateView from "./views/DeathCertificateView";
 import MarriageLicenseView from "./views/MarriageLicenseView";
+import MarriageRegistrationView from "./views/MarriageRegistrationView";
 import GenericServiceView from "./views/GenericServiceView";
 import BirthPsaEndorsementView from "./views/BirthPsaEndorsement";
 import MarraigeCertificateView from "./views/MarraigeCertificateView";
@@ -263,11 +265,25 @@ export default function TreasuryDetailPage({ params }: PageProps) {
     const userRole = isBPLOAdmin ? "ADMIN_AIDE" : rawUserRole;
     // Treasury Staff can only upload OR; Permit No., Sticker No., and Waybill are BPLO Admin only
     const isTreasuryStaff = rawUserRole === "TREASURY_STAFF";
+    const searchParams = useSearchParams();
+    const categoryQuery = searchParams.get("category");
     const [transaction, setTransaction] = useState<any>(null);
     const typeCodeForBack = (transaction?.type?.code || "").toUpperCase();
     const isLcrTx = typeCodeForBack.startsWith("LCR_") || typeCodeForBack.startsWith("CIVIL_REGISTRY") || (transaction?.type?.name && (transaction.type.name.includes("Certificate") || transaction.type.name.includes("Registration")));
-    const backUrl = isLcrTx
-        ? "/admin/treasury?category=Civil%20Registry"
+    
+    const fallbackCategory = isLcrTx
+        ? "Civil Registry"
+        : (typeCodeForBack.includes("CEDULA")
+            ? "CEDULA"
+            : (typeCodeForBack.startsWith("BUSINESS_PERMIT")
+                ? "Business Permit"
+                : (typeCodeForBack.startsWith("BUILDING_PERMIT")
+                    ? "Building Permit"
+                    : null)));
+
+    const activeCategory = categoryQuery || fallbackCategory;
+    const backUrl = activeCategory && activeCategory !== "ALL"
+        ? `/admin/treasury?category=${encodeURIComponent(activeCategory)}`
         : "/admin/treasury";
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
@@ -986,11 +1002,11 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         if (isBusinessPermit) {
             const stepsList = [
                 { id: "FOR_INSPECTION", label: "INSPECTION" },
-                { id: "FOR_REQUESTING", label: "EVALUATION" },
+                { id: "FOR_REQUESTING", label: "FOR EVALUATION" },
                 { id: "EVALUATED", label: "ASSESSMENT" },
                 { id: "PAID", label: "PAID" },
-                { id: "FOR_PROCESSING", label: "PROCESSING" },
-                { id: "FOR_REINSPECTION", label: "PROCESS" },
+                { id: "FOR_PROCESSING", label: "FOR PROCESSING" },
+                { id: "FOR_REINSPECTION", label: "FOR PROCESSING" },
             ];
             if (transaction.fulfillmentType === "DELIVERY") {
                 stepsList.push(
@@ -1015,14 +1031,14 @@ export default function TreasuryDetailPage({ params }: PageProps) {
             ];
         }
         const stepsList = [
-            { id: "FOR_REQUESTING", label: "EVALUATION" },
+            { id: "FOR_REQUESTING", label: "FOR EVALUATION" },
             { id: "EVALUATED", label: "ASSESSMENT" },
             { id: "PAID", label: "PAID" },
         ];
         if (isLcrBirthCertifiedCopy) {
             stepsList.push({ id: "VERIFY_OR", label: "VERIFY & ISSUE O.R." });
         }
-        stepsList.push({ id: "FOR_PROCESSING", label: "PROCESSING" });
+        stepsList.push({ id: "FOR_PROCESSING", label: "FOR PROCESSING" });
         if (transaction.fulfillmentType === "DELIVERY") {
             stepsList.push(
                 { id: "FOR_PICKING", label: "FOR PICKING" },
@@ -1046,12 +1062,12 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         // Maintain standard 4 steps
     } else if (status === "REJECTED") {
         steps = [
-            { id: "FOR_REQUESTING", label: "EVALUATION" },
+            { id: "FOR_REQUESTING", label: "FOR EVALUATION" },
             { id: "REJECTED", label: "REJECTED" }
         ];
     } else if (status === "FOR_REVISION") {
         steps = [
-            { id: "FOR_REQUESTING", label: "EVALUATION" },
+            { id: "FOR_REQUESTING", label: "FOR EVALUATION" },
             { id: "FOR_REVISION", label: "REVISION REQ." }
         ];
     } else if (status === "FOR_REINSPECTION" && !isBusinessPermit) {
@@ -1060,7 +1076,9 @@ export default function TreasuryDetailPage({ params }: PageProps) {
             { id: "FOR_REINSPECTION", label: "RE-INSPECTION" }
         ];
     } else if (status.includes("RETURN") || status.includes("REFUND") || status === "DISPUTE_REJECTED") {
-        const disputeLabel = status === "DISPUTE_REJECTED" ? "RETURN REJECTED" : status.replace(/_/g, " ");
+        let disputeLabel = status === "DISPUTE_REJECTED" ? "RETURN REJECTED" : status.replace(/_/g, " ");
+        if (status === "RETURN_REQUESTED") disputeLabel = "REQUEST FOR RETURN";
+        if (status === "REFUND_REQUESTED") disputeLabel = "REQUEST FOR REFUND";
         steps.push({ id: status, label: disputeLabel });
     }
 
@@ -1359,9 +1377,11 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 ? await evaluateStudentCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber)
                 : typeCode === "LCR_DEATH"
                     ? await evaluateDeathCertificateTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee)
-                    : typeCode === "LCR_MARRIAGE_LICENSE"
-                        ? await evaluateMarriageLicenseTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee)
-                        : await evaluateCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee);
+                    : typeCode === "LCR_MARRIAGE_REG"
+                        ? await evaluateMarriageRegistrationTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee)
+                        : typeCode === "LCR_MARRIAGE_LICENSE"
+                            ? await evaluateMarriageLicenseTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee)
+                            : await evaluateCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee);
             if (res.success) {
                 toast.success("Evaluated Successfully");
                 router.push(backUrl);
@@ -1406,9 +1426,11 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                             ? releaseDeathCertificate
                             : typeCode === "LCR_DEATH_REG"
                                 ? releaseDeathRegistry
-                                : typeCode === "LCR_MARRIAGE_LICENSE"
-                                    ? releaseMarriageLicense
-                                    : releaseCedula;
+                                : typeCode === "LCR_MARRIAGE_REG"
+                                    ? releaseMarriageRegistry
+                                    : typeCode === "LCR_MARRIAGE_LICENSE"
+                                        ? releaseMarriageLicense
+                                        : releaseCedula;
                 const rel = await releaseFn(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "");
                 if (rel.success) {
                     toast.success(isLCR || isBusinessPermit ? "Proceeding to Re-Inspection" : "Proceeding to Processing");
@@ -1928,6 +1950,23 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         return (
             <>
                 <MarriageLicenseView {...viewProps} />
+                <DocumentViewerModal
+                    isOpen={viewerOpen}
+                    onClose={() => setViewerOpen(false)}
+                    file={null}
+                    fileUrl={viewerUrl}
+                    title={viewerTitle}
+                    themeColor={themeColor}
+                    documents={viewerDocs}
+                    initialIndex={viewerIndex}
+                />
+            </>
+        );
+    }
+    if (typeCode === "LCR_MARRIAGE_REG") {
+        return (
+            <>
+                <MarriageRegistrationView {...viewProps} />
                 <DocumentViewerModal
                     isOpen={viewerOpen}
                     onClose={() => setViewerOpen(false)}

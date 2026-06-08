@@ -30,19 +30,19 @@ import { supabase } from "@/lib/supabase";
 const STATUS_TABS = [
     { value: "ALL", label: "All Status", color: "text-slate-600", activeColor: "bg-slate-900 text-white dark:bg-white dark:text-slate-900" },
     { value: "DRAFT", label: "Draft", color: "text-slate-400", activeColor: "bg-slate-400 text-white" },
-    { value: "FOR_REQUESTING", label: "Pending Req.", color: "text-yellow-600", activeColor: "bg-yellow-500 text-white" },
+    { value: "FOR_REQUESTING", label: "For Evaluation", color: "text-yellow-600", activeColor: "bg-yellow-500 text-white" },
     { value: "FOR_REVISION", label: "For Revision", color: "text-purple-600", activeColor: "bg-purple-500 text-white" },
     { value: "FOR_INSPECTION", label: "Inspection", color: "text-blue-600", activeColor: "bg-blue-500 text-white" },
     { value: "FOR_REINSPECTION", label: "Re-inspection", color: "text-orange-600", activeColor: "bg-orange-500 text-white" },
-    { value: "FOR_PROCESSING", label: "Processing", color: "text-sky-600", activeColor: "bg-sky-500 text-white" },
+    { value: "FOR_PROCESSING", label: "For Processing", color: "text-sky-600", activeColor: "bg-sky-500 text-white" },
     { value: "EVALUATED", label: "Evaluated", color: "text-emerald-600", activeColor: "bg-emerald-500 text-white" },
     { value: "UNPAID", label: "Unpaid", color: "text-amber-600", activeColor: "bg-amber-500 text-white" },
     { value: "PAID", label: "Paid", color: "text-emerald-500", activeColor: "bg-emerald-600 text-white" },
     { value: "FOR_CLAIM", label: "For Claim", color: "text-indigo-600", activeColor: "bg-indigo-500 text-white" },
     { value: "FOR_PICKING", label: "For Picking", color: "text-pink-600", activeColor: "bg-pink-500 text-white" },
     { value: "IN_ROUTE", label: "In Route", color: "text-cyan-600", activeColor: "bg-cyan-500 text-white" },
-    { value: "RETURN_REQUESTED", label: "Return Req.", color: "text-amber-600", activeColor: "bg-amber-600 text-white" },
-    { value: "REFUND_REQUESTED", label: "Refund Req.", color: "text-amber-600", activeColor: "bg-amber-600 text-white" },
+    { value: "RETURN_REQUESTED", label: "Request for Return", color: "text-amber-600", activeColor: "bg-amber-600 text-white" },
+    { value: "REFUND_REQUESTED", label: "Request for Refund", color: "text-amber-600", activeColor: "bg-amber-600 text-white" },
     { value: "RELEASED", label: "Released", color: "text-slate-600", activeColor: "bg-slate-700 text-white" },
     { value: "DELIVERED", label: "Delivered", color: "text-teal-600", activeColor: "bg-teal-500 text-white" },
     { value: "REJECTED", label: "Rejected", color: "text-red-500", activeColor: "bg-red-500 text-white" },
@@ -390,7 +390,15 @@ export default function BploDashboard() {
                                                             "DISPUTE_REJECTED": "text-red-700",
                                                         } as Record<string, string>)[tx.status] || "text-slate-500"
                                                     )}>
-                                                        {tx.isCancelled ? "CANCELLED" : tx.status?.replace(/_/g, " ")}
+                                                        {tx.isCancelled 
+                                                            ? "CANCELLED" 
+                                                            : ({
+                                                                "FOR_REQUESTING": "FOR EVALUATION",
+                                                                "FOR_PROCESSING": "FOR PROCESSING",
+                                                                "FOR_REINSPECTION": "FOR PROCESSING",
+                                                                "RETURN_REQUESTED": "REQUEST FOR RETURN",
+                                                                "REFUND_REQUESTED": "REQUEST FOR REFUND",
+                                                            } as Record<string, string>)[tx.status] || tx.status?.replace(/_/g, " ")}
                                                     </span>
                                                 </TableCell>
                                                 <TableCell>

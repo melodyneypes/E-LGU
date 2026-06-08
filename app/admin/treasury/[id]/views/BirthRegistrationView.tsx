@@ -185,7 +185,14 @@ export default function BirthRegistrationView(props: TreasuryViewProps) {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
 
                 {/* Back Button & Navigation */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4 animate-in fade-in duration-300">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-in fade-in duration-300">
+                    <Link
+                        href={backUrl}
+                        className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors group"
+                    >
+                        <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                        Back to Registry
+                    </Link>
                     <div className="flex items-center gap-2">
                         <Badge variant="outline" className="px-3 py-1 text-[9px] font-black uppercase tracking-widest border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 rounded-full">
                             ID: {transaction.id}

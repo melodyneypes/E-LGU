@@ -106,12 +106,12 @@ export default function UserServiceRequestsPage() {
         const status = req.status;
         switch (status) {
             case "FOR_REVISION": return { color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20", icon: AlertCircle, label: "NEEDS REVISION", opacity: 1 };
-            case "FOR_REQUESTING": return { color: "text-white", bg: "bg-[var(--primary-theme)]", border: "border-transparent", icon: Clock, label: "PENDING", opacity: 0.8 };
+            case "FOR_REQUESTING": return { color: "text-white", bg: "bg-[var(--primary-theme)]", border: "border-transparent", icon: Clock, label: "FOR EVALUATION", opacity: 0.8 };
             case "FOR_INSPECTION": return { color: "text-white", bg: "bg-blue-600", border: "border-transparent", icon: Search, label: "UNDER INSPECTION", opacity: 0.9 };
             case "EVALUATED": return { color: "text-white", bg: "bg-[var(--primary-theme)]", border: "border-transparent", icon: DollarSign, label: "EVALUATED", opacity: 0.9 };
             case "PAID": return { color: "text-white", bg: "bg-emerald-500", border: "border-transparent", icon: CheckCircle2, label: "PAID", opacity: 1 };
-            case "FOR_PROCESSING": return { color: "text-white", bg: "bg-blue-500", border: "border-transparent", icon: Activity, label: "PROCESSING", opacity: 1 };
-            case "FOR_REINSPECTION": return { color: "text-white", bg: "bg-blue-500", border: "border-transparent", icon: Activity, label: "PROCESSING", opacity: 1 };
+            case "FOR_PROCESSING": return { color: "text-white", bg: "bg-blue-500", border: "border-transparent", icon: Activity, label: "FOR PROCESSING", opacity: 1 };
+            case "FOR_REINSPECTION": return { color: "text-white", bg: "bg-blue-500", border: "border-transparent", icon: Activity, label: "FOR PROCESSING", opacity: 1 };
             case "FOR_PICKING": return { color: "text-white", bg: "bg-amber-500", border: "border-transparent", icon: Package, label: "FOR PICKING", opacity: 1 };
             case "FOR_CLAIM": return { color: "text-white", bg: "bg-amber-500", border: "border-transparent", icon: UserCheck, label: "FOR CLAIMING", opacity: 1 };
             case "IN_ROUTE": return { color: "text-white", bg: "bg-indigo-500", border: "border-transparent", icon: Truck, label: "IN ROUTE", opacity: 1 };
@@ -120,8 +120,8 @@ export default function UserServiceRequestsPage() {
             case "REJECTED": return { color: "text-red-500", bg: "bg-red-500/10", border: "border-red-500/20", icon: X, label: "DECLINED" };
             
             // Dispute Lifecycle
-            case "RETURN_REQUESTED": return { color: "text-white", bg: "bg-[var(--primary-theme)]", border: "border-transparent", icon: Activity, label: "RETURN REQUESTED", opacity: 1 };
-            case "REFUND_REQUESTED": return { color: "text-white", bg: "bg-[var(--primary-theme)]", border: "border-transparent", icon: DollarSign, label: "REFUND REQUESTED", opacity: 1 };
+            case "RETURN_REQUESTED": return { color: "text-white", bg: "bg-[var(--primary-theme)]", border: "border-transparent", icon: Activity, label: "REQUEST FOR RETURN", opacity: 1 };
+            case "REFUND_REQUESTED": return { color: "text-white", bg: "bg-[var(--primary-theme)]", border: "border-transparent", icon: DollarSign, label: "REQUEST FOR REFUND", opacity: 1 };
             case "RETURNED": return { color: "text-white", bg: "bg-slate-600", border: "border-transparent", icon: Package, label: "RETURNED", opacity: 1 };
             case "REFUNDED": return { color: "text-white", bg: "bg-slate-600", border: "border-transparent", icon: DollarSign, label: "REFUNDED", opacity: 1 };
             case "DISPUTE_REJECTED": return { color: "text-white", bg: "bg-red-600", border: "border-transparent", icon: X, label: "RETURN REJECTED", opacity: 1 };

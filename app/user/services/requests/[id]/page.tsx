@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { calculateCedula } from "@/lib/cedula";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -688,13 +689,13 @@ export default function RequestHubPage() {
             case "FOR_REVISION":
                 return { label: "NEEDS REVISION", color: "bg-amber-500 text-white border-amber-500", icon: AlertCircle };
             case "FOR_REQUESTING":
-                return { label: "PENDING", color: "bg-primary text-white border-transparent", icon: Clock };
+                return { label: "FOR EVALUATION", color: "bg-primary text-white border-transparent", icon: Clock };
             case "FOR_INSPECTION":
                 return { label: "UNDER INSPECTION", color: "bg-blue-600 text-white border-blue-600", icon: Search };
             case "FOR_PROCESSING":
-                return { label: "PROCESSING", color: "bg-primary text-white border-primary", icon: Activity };
+                return { label: "FOR PROCESSING", color: "bg-primary text-white border-primary", icon: Activity };
             case "FOR_REINSPECTION":
-                return { label: "PROCESSING", color: "bg-primary text-white border-primary", icon: Activity };
+                return { label: "FOR PROCESSING", color: "bg-primary text-white border-primary", icon: Activity };
             case "FOR_CLAIM":
                 return { label: "FOR CLAIM", color: "bg-blue-600 text-white border-blue-600", icon: Clock };
             case "EVALUATED":
@@ -717,9 +718,9 @@ export default function RequestHubPage() {
             case "REJECTED":
                 return { label: "REJECTED", color: "bg-red-500 text-white border-red-500", icon: XCircle };
             case "RETURN_REQUESTED":
-                return { label: "RETURN REQ", color: "bg-orange-500 text-white", icon: Activity };
+                return { label: "REQUEST FOR RETURN", color: "bg-orange-500 text-white", icon: Activity };
             case "REFUND_REQUESTED":
-                return { label: "REFUND REQ", color: "bg-orange-500 text-white", icon: DollarSign };
+                return { label: "REQUEST FOR REFUND", color: "bg-orange-500 text-white", icon: DollarSign };
             case "RETURNED":
                 return { label: "RETURNED", color: "bg-slate-600 text-white", icon: Package };
             case "REFUNDED":
@@ -731,7 +732,7 @@ export default function RequestHubPage() {
         }
     };
 
-    const additionalData = request?.additionalData || {};
+    const additionalData = useMemo(() => request?.additionalData || {}, [request?.additionalData]);
     const residentData = request?.user?.residentProfile || request?.residentSnapshot || {};
     const statusConfig = request ? getStatusConfig(request.status) : null;
     const typeCode = request?.type?.code || "";
@@ -739,6 +740,31 @@ export default function RequestHubPage() {
     const isBusinessPermit = typeCode.startsWith("BUSINESS_PERMIT");
     const isBuildingPermit = typeCode.startsWith("BUILDING_PERMIT");
     const isCedula = typeCode.startsWith("CEDULA");
+    const estimatedCedulaAmount = useMemo(() => {
+        if (!isCedula || !request) return 0;
+        if (request.isStudent) {
+            const baseStudentFee = Number(request.type?.studentFee || 0);
+            const deliveryFee = request.fulfillmentType === "DELIVERY" ? (request.type?.deliveryFee || 0) : 0;
+            return baseStudentFee + deliveryFee;
+        } else {
+            const incomeValue = Number(additionalData.income || 0);
+            const propertyValue = Number(additionalData.propertyValue || 0);
+            const type = typeCode === "CEDULA_JUR" ? "JURIDICAL" : "INDIVIDUAL";
+            const fulfillmentType = request.fulfillmentType;
+            const deliveryFee = request.type?.deliveryFee || 0;
+            const baseFee = request.type?.baseFee;
+            
+            const calc = calculateCedula({
+                type,
+                income: incomeValue,
+                propertyValue,
+                fulfillmentType,
+                deliveryFee,
+                baseFee
+            });
+            return calc.totalAmount;
+        }
+    }, [isCedula, request, additionalData, typeCode]);
     const isCivilRegistry = typeCode.startsWith("CIVIL_REGISTRY") || typeCode.startsWith("LCR_");
     const isLcrBirth = typeCode === "LCR_BIRTH";
     const isPsaEndorsement = typeCode === "LCR_PSA_ENDORSEMENT";
@@ -971,7 +997,7 @@ export default function RequestHubPage() {
                                         >
                                             {statusConfig?.label}
                                         </Badge>
-                                        {isPermitNewReleasedOrDelivered ? (
+                                        {isPermitNewReleasedOrDelivered && (
                                             <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-[8px] md:text-[10px] font-semibold text-slate-400 uppercase tracking-widest opacity-80">
                                                 <div className="flex items-center gap-1.5">
                                                     <span>Permit No: {request.businessPermit.permitNumber}</span>
@@ -996,8 +1022,6 @@ export default function RequestHubPage() {
                                                     <span className="text-primary font-extrabold bg-primary/10 px-2 py-0.5 rounded-full">Sticker No: {additionalData.stickerNumber}</span>
                                                 )}
                                             </div>
-                                        ) : (
-                                            <span className="text-[8px] md:text-[10px] font-semibold text-slate-400 uppercase tracking-widest opacity-60">ID: {request.id.slice(-8).toUpperCase()}</span>
                                         )}
                                     </div>
                                 </div>
@@ -1109,16 +1133,17 @@ export default function RequestHubPage() {
                                 <div className="bg-white dark:bg-[#0d0f14] rounded-2xl md:rounded-[2.5rem] border border-slate-200 dark:border-white/5 p-5 md:p-10 shadow-2xl space-y-8 md:space-y-12">
                                     {/* Treasury Rejection Remarks Notice */}
                                     {request?.status === "UNPAID" && request?.rejectionRemarks && (
-                                        <div className="bg-red-500/10 border-2 border-red-500/20 rounded-[1.5rem] p-6 space-y-2 animate-in zoom-in-95">
-                                            <div className="flex items-center gap-2 text-red-500 font-black italic uppercase tracking-wider text-[10px]">
-                                                <span>⚠️ TREASURY REVISION REQUESTED</span>
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
+                                            <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                            <div className="text-left space-y-1">
+                                                <p className="text-[10px] font-black uppercase tracking-wider italic">Treasury Revision Requested</p>
+                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                                    &ldquo;{request.rejectionRemarks}&rdquo;
+                                                </p>
+                                                <p className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 tracking-widest italic pt-1">
+                                                    Please review the details, replace the GCash Reference/Proof of payment below, and resubmit.
+                                                </p>
                                             </div>
-                                            <p className="text-sm font-bold text-slate-800 dark:text-slate-200 leading-relaxed italic">
-                                                &ldquo;{request.rejectionRemarks}&rdquo;
-                                            </p>
-                                            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest italic pt-2">
-                                                Please review the details, replace the GCash Reference/Proof of payment below, and resubmit.
-                                            </p>
                                         </div>
                                     )}
 
@@ -1321,8 +1346,8 @@ export default function RequestHubPage() {
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 md:gap-x-16 gap-y-10 md:gap-y-12">
                                                 <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Service Requested</p><p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">{request.type?.name}</p></div>
                                                 <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Date Submitted</p><p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">{formatPHDate(request.createdAt)}</p></div>
-                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Logistics Phase</p><p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">{request.fulfillmentType?.replace(/_/g, " ") || "PENDING EVAL"}</p></div>
-                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Payment</p><p className="text-base md:text-xl font-semibold text-primary italic leading-tight uppercase">{((request.type?.code === "LCR_BIRTH" || request.type?.code?.startsWith("LCR_")) && ["FOR_REQUESTING", "UNDER_REVIEW"].includes(request.status)) ? "TBD" : (request.paymentType?.replace(/_/g, " ") || "PENDING ASSESS")}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Logistics Phase</p><p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">{request.fulfillmentType?.replace(/_/g, " ") || "PENDING EVALUATION"}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Payment</p><p className="text-base md:text-xl font-semibold text-primary italic leading-tight uppercase">{((request.type?.code === "LCR_BIRTH" || request.type?.code?.startsWith("LCR_")) && ["FOR_REQUESTING", "UNDER_REVIEW"].includes(request.status)) ? "TBD" : (request.paymentType?.replace(/_/g, " ") || "PENDING ASSESSMENT")}</p></div>
                                             </div>
                                         </div>
                                     </Card>
@@ -1343,7 +1368,7 @@ export default function RequestHubPage() {
                                                         </Badge>
                                                     </div>
                                                     <p className="text-xs text-slate-500 leading-relaxed font-semibold italic">
-                                                        Remarks: <span className="font-bold" style={{ color: themeColor }}>{request.rejectionRemarks}</span>
+                                                        Remarks: <span className="font-bold" style={{ color: "#ef4444" }}>{request.rejectionRemarks}</span>
                                                     </p>
                                                     <p className="text-[8px] md:text-[9px] text-red-600 dark:text-red-400 font-black uppercase tracking-widest flex items-center gap-1 bg-red-500/10 dark:bg-red-500/5 border border-red-500/20 dark:border-red-500/10 rounded-lg px-2 py-1 w-fit">
                                                         ⚠️ Declines in {remainingRevisions} attempts
@@ -1416,6 +1441,8 @@ export default function RequestHubPage() {
                                                 <div className="flex items-end justify-between">
                                                     {((request.type?.code === "LCR_BIRTH" || request.type?.code?.startsWith("LCR_")) && ["FOR_REQUESTING", "UNDER_REVIEW"].includes(request.status)) ? (
                                                         <div><p className="text-[8px] font-black uppercase tracking-widest text-primary/50 italic leading-none">Total Payable</p><p className="text-xl md:text-2xl font-black text-primary/60 italic leading-tight">TBD</p></div>
+                                                    ) : (isCedula && request.status === "FOR_REQUESTING") ? (
+                                                        <div><p className="text-[8px] font-black uppercase tracking-widest text-primary/50 italic leading-none">Total Payable (Estimated)</p><p className="text-xl md:text-2xl font-black text-primary italic leading-tight">₱{estimatedCedulaAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
                                                     ) : (
                                                         <div><p className="text-[8px] font-black uppercase tracking-widest text-primary/50 italic leading-none">Total Payable</p><p className="text-xl md:text-2xl font-black text-primary italic leading-tight">₱{(request.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
                                                     )}

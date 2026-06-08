@@ -163,7 +163,16 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
             if (result.success) {
                 toast.success("Account setup complete!");
                 onSuccess();
-                window.location.href = "/";
+                
+                // Fetch current session to determine role and auto-set portal cookie
+                const response = await fetch("/api/auth/session");
+                const session = await response.json();
+                if (session && session.user && session.user.role !== "USER") {
+                    document.cookie = `active_portal=admin; path=/; max-age=86400; SameSite=Lax`;
+                    window.location.href = "/admin/dashboard";
+                } else {
+                    window.location.href = "/";
+                }
             } else {
                 toast.error(result.error || "Failed to update password.");
             }

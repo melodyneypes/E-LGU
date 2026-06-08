@@ -279,7 +279,10 @@ export function LoginForm({ themeColor = "#2563eb" }: LoginFormProps) {
                         router.push("/");
                         toast.success("Logged in successfully");
                     } else {
-                        router.push("/auth/portal-select");
+                        // Auto-set admin portal cookie so page.tsx won't redirect to landing
+                        document.cookie = `active_portal=admin; path=/; max-age=86400; SameSite=Lax`;
+                        toast.success("Logged in successfully");
+                        router.push("/admin/dashboard");
                     }
                 };
 

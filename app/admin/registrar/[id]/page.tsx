@@ -42,6 +42,7 @@ import { releaseBirthCertificate } from "@/app/admin/transactions/birth-cert-act
 import { releaseDeathRegistry, evaluateDeathRegistrationTransaction } from "@/app/admin/transactions/death-regis-actions";
 import { releaseDeathCertificate, evaluateDeathCertificateTransaction } from "@/app/admin/transactions/death-cert-actions";
 import { releaseMarriageLicense, evaluateMarriageLicenseTransaction, processMarriageLicenseRequest } from "@/app/admin/transactions/marriage-license-actions";
+import { releaseMarriageRegistry, evaluateMarriageRegistrationTransaction } from "@/app/admin/transactions/marriage-regis-actions";
 import { calculateCedula } from "@/lib/cedula";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,7 @@ import BirthCertificateView from "./views/BirthCertificateView";
 import DeathRegistrationView from "./views/DeathRegistrationView";
 import DeathCertificateView from "./views/DeathCertificateView";
 import MarriageLicenseView from "./views/MarriageLicenseView";
+import MarriageRegistrationView from "./views/MarriageRegistrationView";
 import GenericServiceView from "@/app/admin/treasury/[id]/views/GenericServiceView";
 import BirthPsaEndorsementView from "./views/BirthPsaEndorsement";
 import DocumentViewerModal from "@/app/admin/treasury/[id]/components/DocumentViewerModal";
@@ -248,7 +250,9 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                     ? "/admin/registrar?category=Death%20Certificate"
                     : typeCodeForBack === "LCR_MARRIAGE_LICENSE"
                         ? "/admin/registrar?category=Marriage%20License"
-                        : "/admin/registrar";
+                        : typeCodeForBack === "LCR_MARRIAGE_REG"
+                            ? "/admin/registrar?category=Marriage%20Registration"
+                            : "/admin/registrar";
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [remarks, setRemarks] = useState("");
@@ -654,9 +658,11 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                         ? await releaseDeathCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl, registryBookVerification, verificationDocUrl)
                         : typeCode === "LCR_DEATH_REG"
                             ? await releaseDeathRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                            : typeCode === "LCR_MARRIAGE_LICENSE"
-                                ? await releaseMarriageLicense(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
+                            : typeCode === "LCR_MARRIAGE_REG"
+                                ? await releaseMarriageRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                : typeCode === "LCR_MARRIAGE_LICENSE"
+                                    ? await releaseMarriageLicense(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                    : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
             if (res.success) {
                 const status = res.data?.status;
                 const message = status === "FOR_PICKING"
@@ -787,7 +793,9 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                     ? await evaluateDeathCertificateTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee))
                     : typeCode === "LCR_MARRIAGE_LICENSE"
                         ? await evaluateMarriageLicenseTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee))
-                        : await evaluateCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee));
+                        : typeCode === "LCR_MARRIAGE_REG"
+                            ? await evaluateMarriageRegistrationTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee))
+                            : await evaluateCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee));
             if (res.success) {
                 toast.success("Evaluated Successfully");
                 router.push(backUrl);
@@ -1232,7 +1240,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             const isBirthReg = typeCode === "LCR_BIRTH_REG";
             const isDeathReg = typeCode === "LCR_DEATH_REG";
             const isMarriageLicense = typeCode === "LCR_MARRIAGE_LICENSE";
-            const baseFee = (isCertifiedCopy || isBirthReg || isDeathReg || (isMarriageReg && !isLate) || isMarriageLicense)
+            const baseFee = (isCertifiedCopy || isBirthReg || isDeathReg || isMarriageReg || isMarriageLicense)
                 ? 0
                 : Number(transaction.type?.baseFee || additional.totalAmount || transaction.totalAmount || 0);
             const typeDelivery = Number(transaction.type?.deliveryFee || 0);
@@ -1793,6 +1801,23 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         return (
             <>
                 <MarriageLicenseView {...viewProps} />
+                <DocumentViewerModal
+                    isOpen={viewerOpen}
+                    onClose={() => setViewerOpen(false)}
+                    file={null}
+                    fileUrl={viewerUrl}
+                    title={viewerTitle}
+                    themeColor={themeColor}
+                    documents={viewerDocs}
+                    initialIndex={viewerInitialIdx}
+                />
+            </>
+        );
+    }
+    if (typeCode === "LCR_MARRIAGE_REG") {
+        return (
+            <>
+                <MarriageRegistrationView {...viewProps} />
                 <DocumentViewerModal
                     isOpen={viewerOpen}
                     onClose={() => setViewerOpen(false)}

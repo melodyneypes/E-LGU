@@ -18,7 +18,8 @@ import {
     HelpCircle,
     X,
     ChevronDown,
-    Eye
+    Eye,
+    AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -250,6 +251,7 @@ export default function BusinessPermitWizardPage() {
     const [isSuspended, setIsSuspended] = useState(false); // 3-Strike Penalty Flag
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [calcResult, setCalcResult] = useState<any | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [initialResident, setInitialResident] = useState<any>(null);
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
     const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
@@ -1133,21 +1135,7 @@ export default function BusinessPermitWizardPage() {
             {/* Secure Idle Inactivity Timer */}
             <SecureIdleTimer />
 
-            {/* Revision Remarks Alert Banner — sticky, rides with user inside the form */}
-            {revisionTx && (
-                <div className="sticky top-[64px] z-30 bg-[#8c0a0a] dark:bg-[#5c0606] border border-[#a81616] p-6 rounded-[2rem] shadow-xl shadow-red-950/20 text-white animate-in fade-in slide-in-from-top-4 duration-300">
-                    <div className="flex flex-col gap-3">
-                        <div className="flex items-center">
-                            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 dark:bg-black/30 text-amber-300 border border-amber-500/20 text-[9px] font-black uppercase tracking-widest font-sans shrink-0 w-fit shadow-inner">
-                                ⚠️ Attention: Revision Needed
-                            </span>
-                        </div>
-                        <div className="text-xs text-white font-bold bg-white/10 dark:bg-black/20 border border-white/15 p-4 rounded-xl italic font-sans leading-relaxed shadow-inner">
-                            &quot;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&quot;
-                        </div>
-                    </div>
-                </div>
-            )}
+
 
             {/* Step Content */}
             <div className="mt-4 md:mt-8 md:bg-white md:dark:bg-[#11131a] md:rounded-[2.5rem] md:border md:border-slate-200 md:dark:border-white/10 p-0 md:p-12 md:shadow-2xl relative md:overflow-hidden group/container min-h-[400px] md:min-h-[500px] flex flex-col">
@@ -1248,6 +1236,18 @@ export default function BusinessPermitWizardPage() {
                                         </p>
                                     </div>
 
+                                    {revisionTx && (
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
+                                            <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                            <div className="text-left space-y-1">
+                                                <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                                    &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="space-y-4 md:space-y-6">
                                         {/* Row 1: Names */}
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
@@ -1256,18 +1256,16 @@ export default function BusinessPermitWizardPage() {
                                                 <Input
                                                     id="resident-firstName"
                                                     value={formData.residentData?.firstName || ""}
-                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, firstName: e.target.value } }))}
-                                                    readOnly={!!initialResident?.firstName}
-                                                    className={cn("h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm", !!initialResident?.firstName && "bg-slate-50 text-slate-400")}
+                                                    readOnly={true}
+                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Middle Name</Label>
                                                 <Input
                                                     value={formData.residentData?.middleName || ""}
-                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, middleName: e.target.value } }))}
-                                                    readOnly={!!initialResident?.middleName}
-                                                    className={cn("h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm", !!initialResident?.middleName && "bg-slate-50 text-slate-400")}
+                                                    readOnly={true}
+                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
@@ -1275,19 +1273,16 @@ export default function BusinessPermitWizardPage() {
                                                 <Input
                                                     id="resident-lastName"
                                                     value={formData.residentData?.lastName || ""}
-                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, lastName: e.target.value } }))}
-                                                    readOnly={!!initialResident?.lastName}
-                                                    className={cn("h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm", !!initialResident?.lastName && "bg-slate-50 text-slate-400")}
+                                                    readOnly={true}
+                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Suffix</Label>
                                                 <Input
                                                     value={formData.residentData?.suffix || ""}
-                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, suffix: e.target.value } }))}
-                                                    readOnly={!!initialResident?.suffix}
-                                                    className={cn("h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm", !!initialResident?.suffix && "bg-slate-50 text-slate-400")}
-                                                    placeholder="Jr."
+                                                    readOnly={true}
+                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
                                                 />
                                             </div>
                                         </div>
@@ -1302,9 +1297,8 @@ export default function BusinessPermitWizardPage() {
                                                     id="resident-dateOfBirth"
                                                     type="date"
                                                     value={formData.residentData?.dateOfBirth ? new Date(formData.residentData.dateOfBirth).toISOString().split('T')[0] : ""}
-                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, dateOfBirth: e.target.value } }))}
-                                                    readOnly={!!initialResident?.dateOfBirth}
-                                                    className={cn("h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm", !!initialResident?.dateOfBirth && "bg-slate-50 text-slate-400")}
+                                                    readOnly={true}
+                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
@@ -1326,7 +1320,7 @@ export default function BusinessPermitWizardPage() {
                                             <div className="space-y-1.5">
                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Civil Status</Label>
                                                 <Input
-                                                    value={formData.residentData?.civilStatus || "N/A"}
+                                                    value={formData.residentData?.civilStatus || ""}
                                                     readOnly
                                                     className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm"
                                                 />
@@ -1334,10 +1328,9 @@ export default function BusinessPermitWizardPage() {
                                             <div className="space-y-1.5">
                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Citizenship</Label>
                                                 <Input
-                                                    value={formData.residentData?.citizenship || "Filipino"}
-                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, citizenship: e.target.value } }))}
-                                                    readOnly={!!initialResident?.citizenship}
-                                                    className={cn("h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm", !!initialResident?.citizenship && "bg-slate-50 text-slate-400")}
+                                                    value={formData.residentData?.citizenship || ""}
+                                                    readOnly={true}
+                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
                                                 />
                                             </div>
                                         </div>
@@ -1350,10 +1343,8 @@ export default function BusinessPermitWizardPage() {
                                                     <Input
                                                         id="resident-occupation"
                                                         value={formData.residentData?.occupation || ""}
-                                                        onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, occupation: e.target.value } }))}
-                                                        readOnly={!!initialResident?.occupation}
-                                                        className={cn("h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm", !!initialResident?.occupation && "bg-slate-50 text-slate-400")}
-                                                        placeholder="e.g. Employee"
+                                                        readOnly={true}
+                                                        className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
                                                     />
                                                 </div>
                                             </div>
@@ -1367,6 +1358,9 @@ export default function BusinessPermitWizardPage() {
                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm"
                                                     placeholder="09xx xxx xxxx"
                                                 />
+                                                <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider ml-1 animate-pulse">
+                                                    * Note: Please use your active contact number. This will be used to contact you regarding your transaction.
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
@@ -1392,6 +1386,18 @@ export default function BusinessPermitWizardPage() {
                                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Provide legal and financial registration metrics</p>
                                         </div>
                                     </div>
+
+                                    {revisionTx && (
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
+                                            <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                            <div className="text-left space-y-1">
+                                                <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                                    &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
@@ -1688,6 +1694,18 @@ export default function BusinessPermitWizardPage() {
                                         </div>
                                     </div>
 
+                                    {revisionTx && (
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
+                                            <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                            <div className="text-left space-y-1">
+                                                <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                                    &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                         {((formData.businessType === "NEW"
                                             ? [
@@ -1875,6 +1893,18 @@ export default function BusinessPermitWizardPage() {
                                         <h2 className="text-2xl font-black uppercase italic text-slate-900 dark:text-white tracking-tighter">Final Assessment & Submission</h2>
                                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Review your assessed bill and confirm your permit request</p>
                                     </div>
+
+                                    {revisionTx && (
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
+                                            <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                            <div className="text-left space-y-1">
+                                                <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                                    &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="grid grid-cols-1 gap-8">
                                         {/* Column A: Summary & Declarations */}
