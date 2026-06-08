@@ -18,9 +18,11 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { getCurrentUserResident, getTransactionTypes, ensureCivilRegistryTransactionTypes, submitCivilRegistryTransaction, getSystemSettingAction } from "@/app/admin/transactions/actions";
+import { getCurrentUserResident, getTransactionTypes, ensureCivilRegistryTransactionTypes, getSystemSettingAction } from "@/app/admin/transactions/actions";
+import { submitMarriageLicenseTransaction } from "@/app/admin/transactions/marriage-license-actions";
 import { searchResidents, getResidentDataById } from "@/app/admin/actions";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
+import { supabase } from "@/lib/supabase";
 
 const checkIsPdf = (file: any, url: string | null) => {
 	if (file && file instanceof File) {
@@ -98,6 +100,32 @@ function formatCurrency(amount: number) {
 	}
 }
 
+// --- UPLOAD FILE CLIENT-SIDE TO SUPABASE STORAGE (bypasses Vercel 4.5MB limit) ---
+async function uploadFileClientSide(file: File, fieldName: string, userId: string): Promise<string> {
+	const fileExt = file.name.split('.').pop() || 'bin';
+	const fileName = `${userId}/${fieldName}_${Date.now()}.${fileExt}`;
+	const filePath = `services/lcr/marriage_license/${fileName}`;
+
+	const { error } = await supabase.storage
+		.from("system-assets")
+		.upload(filePath, file, {
+			cacheControl: '3600',
+			upsert: true
+		});
+
+	if (error) {
+		console.error(`[ClientUpload] Upload error for ${fieldName}:`, error);
+		throw new Error(`Failed to upload ${file.name}: ${error.message}`);
+	}
+
+	const { data: { publicUrl } } = supabase.storage
+		.from("system-assets")
+		.getPublicUrl(filePath);
+
+	return publicUrl;
+}
+
+
 // Resident search component (copied from marriage-registration)
 const ResidentSearch = ({ onSelect, placeholder = "Search resident..." }: { onSelect: (r: any) => void; placeholder?: string }) => {
 	const [query, setQuery] = useState("");
@@ -171,6 +199,7 @@ export default function MarriageLicenseApplicationPage() {
 	}, []);
 
 	const [typeId, setTypeId] = useState("");
+	const [dbMiscFee, setDbMiscFee] = useState<number>(MISC_FEE);
 
 	const [resident, setResident] = useState<any>(null);
 	const [, setHasDraft] = useState(false);
@@ -257,6 +286,7 @@ export default function MarriageLicenseApplicationPage() {
 							}
 							if (marriageLicense) {
 								setTypeId(marriageLicense.id);
+								setDbMiscFee(Number(marriageLicense.baseFee));
 							} else {
 								// Fallback: pick any type that mentions 'marriage' but warn (this may pick the certified-copy service)
 								const marriageFallback = allTypes.find((t: any) => {
@@ -266,6 +296,7 @@ export default function MarriageLicenseApplicationPage() {
 								});
 								if (marriageFallback) {
 									setTypeId(marriageFallback.id);
+									setDbMiscFee(Number(marriageFallback.baseFee));
 									toast.warning("Selected fallback marriage service: " + marriageFallback.name + ". If this is the certified-copy service, please ensure a 'marriage license' transaction type exists.");
 								} else {
 									console.error("No marriage-related transaction types found; check database seeding.");
@@ -500,36 +531,7 @@ export default function MarriageLicenseApplicationPage() {
 
 		setSubmitting(true);
 		try {
-			const formData = new FormData();
-			formData.append("typeId", typeId);
-			formData.append("registryType", "MARRIAGE_LICENSE");
-			formData.append("residentSnapshot", JSON.stringify(resident || {}));
-
-			const selectedDocs = Object.keys(form.requiredDocs || {}).filter((k) => (form.requiredDocs || {})[k]);
-
-			const additionalData = {
-				applicant1: {
-					fullName: form.app1FullName,
-					birthDate: form.app1BirthDate,
-					birthPlace: form.app1BirthPlace,
-					citizenship: form.app1Citizenship
-				},
-				applicant2: {
-					fullName: form.app2FullName,
-					birthDate: form.app2BirthDate,
-					birthPlace: form.app2BirthPlace,
-					citizenship: form.app2Citizenship
-				},
-				requiredDocs: selectedDocs,
-				subjectName: `${form.app1FullName} & ${form.app2FullName}`,
-				payments: [
-					{ label: "Misc Fee", amount: MISC_FEE }
-				],
-				totalAmount: MISC_FEE
-			};
-
-			console.log("[LCR Submit] additionalData:", additionalData);
-			formData.append("additionalData", JSON.stringify(additionalData));
+			toast.loading("Submitting application...", { id: "ml-upload-toast" });
 
 			// Helper function to convert base64 to File object
 			const dataURLtoFile = (dataurl: string, filename: string): File | null => {
@@ -550,7 +552,12 @@ export default function MarriageLicenseApplicationPage() {
 			};
 
 			// Reconstruct any missing files from data URL previews (so reloads survive!)
-			const finalFiles = { ...(form.files || {}) };
+			const finalFiles: Record<string, File> = {};
+			// First, collect actual File objects
+			Object.entries(form.files || {}).forEach(([key, file]) => {
+				if (file) finalFiles[key] = file as File;
+			});
+			// Then, reconstruct missing files from base64 data URL previews
 			Object.entries(form.previews || {}).forEach(([key, previewUrl]) => {
 				if (previewUrl && typeof previewUrl === "string" && previewUrl.startsWith("data:") && !finalFiles[key]) {
 					const reconstructedFile = dataURLtoFile(previewUrl, `${key}.png`);
@@ -560,13 +567,75 @@ export default function MarriageLicenseApplicationPage() {
 				}
 			});
 
-			Object.entries(finalFiles).forEach(([key, file]) => { if (file) formData.append(key, file as File); });
+			// Upload ALL files directly to Supabase Storage from client-side
+			// This bypasses the Vercel 4.5MB serverless function payload limit
+			const userId = resident?.id || "anonymous";
+			const fileUrls: Record<string, string> = {};
 
-			const res = await submitCivilRegistryTransaction(formData);
+			const fileEntries = Object.entries(finalFiles);
+			for (let i = 0; i < fileEntries.length; i++) {
+				const [key, file] = fileEntries[i];
+				const sanitizedKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+				try {
+					const url = await uploadFileClientSide(file, sanitizedKey, userId);
+					fileUrls[key] = url;
+					console.log(`[ClientUpload] ${i + 1}/${fileEntries.length} uploaded: ${key}`);
+				} catch (uploadErr) {
+					console.error(`[ClientUpload] Failed to upload ${key}:`, uploadErr);
+					toast.error(`Failed to upload document: ${key}. Please try again.`, { id: "ml-upload-toast" });
+					setSubmitting(false);
+					return;
+				}
+			}
+
+			const selectedDocs = Object.keys(form.requiredDocs || {}).filter((k) => (form.requiredDocs || {})[k]);
+
+			// Build additionalData with file URLs instead of binary files
+			const additionalData = {
+				applicant1: {
+					fullName: form.app1FullName,
+					birthDate: form.app1BirthDate,
+					birthPlace: form.app1BirthPlace,
+					citizenship: form.app1Citizenship
+				},
+				applicant2: {
+					fullName: form.app2FullName,
+					birthDate: form.app2BirthDate,
+					birthPlace: form.app2BirthPlace,
+					citizenship: form.app2Citizenship
+				},
+				requiredDocs: selectedDocs,
+				subjectName: `${form.app1FullName} & ${form.app2FullName}`,
+				payments: [
+					{ label: "Misc Fee", amount: dbMiscFee }
+				],
+				totalAmount: dbMiscFee,
+				// Include uploaded file URLs directly in additionalData
+				...fileUrls
+			};
+
+			console.log("[LCR Submit] additionalData (with URLs):", additionalData);
+
+			// Build lightweight FormData — NO binary files appended!
+			const formData = new FormData();
+			formData.append("typeId", typeId);
+			formData.append("registryType", "MARRIAGE_LICENSE");
+			formData.append("residentSnapshot", JSON.stringify(resident || {}));
+			formData.append("additionalData", JSON.stringify(additionalData));
+
+			// Console log payload sizes to help debug
+			console.log("=== MARRIAGE LICENSE SUBMIT PAYLOAD DIAGNOSTICS ===");
+			for (const [key, value] of (formData as any).entries()) {
+				if (typeof value === "string") {
+					console.log(`Key: ${key}, Length: ${value.length} chars (approx ${(value.length / 1024).toFixed(2)} KB)`);
+				}
+			}
+
+			const res = await submitMarriageLicenseTransaction(formData);
 			if (res.success) {
 				localStorage.removeItem(STORAGE_KEY);
 				await clearDraftFiles(STORAGE_KEY);
-				toast.success("Marriage License Application Submitted");
+				toast.success("Marriage License Application Submitted", { id: "ml-upload-toast" });
 				router.push('/user/services/requests');
 			} else {
 				const missingFields = (res as any)?.missingFields;
@@ -574,14 +643,14 @@ export default function MarriageLicenseApplicationPage() {
 					const markers: Record<string, boolean> = {};
 					missingFields.forEach((f: string) => (markers[f] = true));
 					setMissingFiles((prev) => ({ ...prev, ...markers }));
-					toast.error("Please complete the required fields before submitting: " + missingFields.join(", "));
+					toast.error("Please complete the required fields before submitting: " + missingFields.join(", "), { id: "ml-upload-toast" });
 				} else {
-					toast.error((res as any)?.error || "Submission failed");
+					toast.error((res as any)?.error || "Submission failed", { id: "ml-upload-toast" });
 				}
 			}
 		} catch (e) {
 			console.error(e);
-			toast.error("Something went wrong");
+			toast.error("Something went wrong during submission.", { id: "ml-upload-toast" });
 		} finally {
 			setSubmitting(false);
 		}
@@ -853,7 +922,7 @@ export default function MarriageLicenseApplicationPage() {
 															</span>
 														</div>
 													) : (
-														<img src={form.previews?.[d] ?? ""} alt="Document preview" className="absolute inset-0 w-full h-full object-cover" />
+														<img src={form.previews?.[d] || undefined} alt="Document preview" className="absolute inset-0 w-full h-full object-cover" />
 													)}
 													<div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover/preview:opacity-100 transition-opacity z-20 gap-2">
 														<Button
@@ -935,7 +1004,7 @@ export default function MarriageLicenseApplicationPage() {
 												{checkIsPdf(form.files?.[d], form.previews?.[d]) ? (
 													<FileText className="w-6 h-6 text-red-500" />
 												) : (
-													<img src={form.previews?.[d] || ""} alt="Document thumbnail" className="w-full h-full object-cover" />
+													<img src={form.previews?.[d] || undefined} alt="Document thumbnail" className="w-full h-full object-cover" />
 												)}
 												<div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
 													<Eye className="w-4 h-4 text-white" />
@@ -956,11 +1025,11 @@ export default function MarriageLicenseApplicationPage() {
 								<div className="mt-3">
 									<div className="flex justify-between items-center">
 										<div className="text-xs text-slate-600">Misc Fee</div>
-										<div className="font-black">{formatCurrency(MISC_FEE)}</div>
+										<div className="font-black">{formatCurrency(dbMiscFee)}</div>
 									</div>
 									<div className="flex justify-between items-center mt-3 border-t pt-3">
 										<div className="text-sm font-black">Total</div>
-										<div className="text-sm font-black text-amber-600">{formatCurrency(MISC_FEE)}</div>
+										<div className="text-sm font-black text-amber-600">{formatCurrency(dbMiscFee)}</div>
 									</div>
 								</div>
 							</div>
@@ -991,9 +1060,9 @@ export default function MarriageLicenseApplicationPage() {
 					)}
 
 					{currentStep !== 'CONFIRM' ? (
-						<Button onClick={nextStep} className="h-14 px-10 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black uppercase italic tracking-widest">Next</Button>
+						<Button onClick={nextStep} style={{ backgroundColor: themeColor }} className="h-14 px-10 rounded-2xl text-white font-black uppercase italic tracking-widest hover:opacity-90 transition-all">Next</Button>
 					) : (
-						<Button onClick={handleSubmit} disabled={!policyAccepted || submitting} className="h-14 px-10 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black uppercase italic tracking-widest">
+						<Button onClick={handleSubmit} disabled={!policyAccepted || submitting} style={{ backgroundColor: themeColor }} className="h-14 px-10 rounded-2xl text-white font-black uppercase italic tracking-widest hover:opacity-90 transition-all disabled:opacity-50">
 							{submitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
 							Submit Application
 						</Button>

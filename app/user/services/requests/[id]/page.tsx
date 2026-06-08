@@ -124,7 +124,8 @@ import {
     requestReturnOrRefund,
     resubmitTransaction,
     checkPaymongoPaymentStatus,
-    saveLogisticsDetails
+    saveLogisticsDetails,
+    requestPsaEndorsement
 } from "@/app/admin/transactions/actions";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -188,6 +189,12 @@ export default function RequestHubPage() {
     const [isDisputing, setIsDisputing] = useState(false);
     const [isResubmitting, setIsResubmitting] = useState(false);
     const [revisionFiles, setRevisionFiles] = useState<{ [key: string]: File | null }>({});
+
+    // PSA Endorsement States
+    const [psaEndorsementOpen, setPsaEndorsementOpen] = useState(false);
+    const [psaNegFile, setPsaNegFile] = useState<File | null>(null);
+    const [psaNegPreview, setPsaNegPreview] = useState<string | null>(null);
+    const [isSubmittingPsaEndorsement, setIsSubmittingPsaEndorsement] = useState(false);
 
     // Dispute States
     const [disputeOpen, setDisputeOpen] = useState(false);
@@ -644,6 +651,33 @@ export default function RequestHubPage() {
         }
     };
 
+    const handlePsaEndorsementSubmit = async () => {
+        if (!psaNegFile) {
+            toast.error("Please upload the PSA Negative Certification document.");
+            return;
+        }
+        setIsSubmittingPsaEndorsement(true);
+        try {
+            const formData = new FormData();
+            formData.append("transactionId", id);
+            formData.append("psaNegCertFile", psaNegFile);
+
+            const res = await requestPsaEndorsement(formData);
+            if (res.success) {
+                toast.success("PSA Endorsement requested successfully!");
+                setPsaEndorsementOpen(false);
+                window.location.reload();
+            } else {
+                toast.error(res.error || "Failed to request PSA endorsement");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("An error occurred during submission.");
+        } finally {
+            setIsSubmittingPsaEndorsement(false);
+        }
+    };
+
     const getStatusConfig = (status: string) => {
         if (request?.isCancelled) {
             return { label: "CANCELLED", color: "bg-red-600 text-white border-transparent", icon: XCircle };
@@ -707,6 +741,7 @@ export default function RequestHubPage() {
     const isCedula = typeCode.startsWith("CEDULA");
     const isCivilRegistry = typeCode.startsWith("CIVIL_REGISTRY") || typeCode.startsWith("LCR_");
     const isLcrBirth = typeCode === "LCR_BIRTH";
+    const isPsaEndorsement = typeCode === "LCR_PSA_ENDORSEMENT";
     const isRenewal = request?.type?.code === "BUSINESS_PERMIT_RENEW" || additionalData.businessType === "RENEWAL" || additionalData.businessType === "RENEW" || additionalData.businessType?.toLowerCase()?.includes("renew");
     const remainingRevisions = request ? Math.max(0, 3 - (request.revisionCount || 0)) : 3;
     const isPermitNewReleasedOrDelivered = isBusinessPermit &&
@@ -1730,26 +1765,26 @@ export default function RequestHubPage() {
                                                 const config = getVerificationConfig(formType);
                                                 return (
                                                     <div
-                                                        className={cn(
-                                                            "p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] border space-y-6 md:space-y-8 shadow-2xl relative overflow-hidden group transition-all duration-300 hover:scale-[1.01] w-full text-left bg-white dark:bg-slate-900/40",
-                                                            config.borderColor,
-                                                            config.glowColor
-                                                        )}
+                                                        className="p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] border space-y-6 md:space-y-8 shadow-2xl relative overflow-hidden group transition-all duration-300 hover:scale-[1.01] w-full text-left bg-white dark:bg-slate-900/40"
+                                                        style={{
+                                                            borderColor: `${themeColor}20`,
+                                                            boxShadow: `0 20px 25px -5px ${themeColor}10`
+                                                        }}
                                                     >
                                                         <div className="absolute top-0 right-0 p-6 opacity-5 rotate-12 group-hover:rotate-0 transition-transform duration-700">
-                                                            <ShieldCheck className="w-24 h-24" style={{ color: config.themeColor }} />
+                                                            <ShieldCheck className="w-24 h-24" style={{ color: themeColor }} />
                                                         </div>
                                                         <div className="relative z-10 space-y-6">
                                                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                                                 <div className="flex items-center gap-4">
                                                                     <div
                                                                         className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg"
-                                                                        style={{ backgroundColor: config.themeColor }}
+                                                                        style={{ backgroundColor: themeColor }}
                                                                     >
                                                                         <FileText className="w-5 h-5 text-white" />
                                                                     </div>
                                                                     <div>
-                                                                        <p className="text-[8px] font-black uppercase tracking-widest italic opacity-70 leading-none" style={{ color: config.themeColor }}>
+                                                                        <p className="text-[8px] font-black uppercase tracking-widest italic opacity-70 leading-none" style={{ color: themeColor }}>
                                                                             Registry Book Verification
                                                                         </p>
                                                                         <p className="text-xs md:text-sm font-black italic tracking-tight uppercase leading-none mt-1.5 text-slate-900 dark:text-white">
@@ -1757,7 +1792,10 @@ export default function RequestHubPage() {
                                                                         </p>
                                                                     </div>
                                                                 </div>
-                                                                <Badge className={cn("text-[8px] font-black uppercase tracking-widest italic px-3 py-1 rounded-full", config.badgeColor)}>
+                                                                <Badge 
+                                                                    className="text-[8px] font-black uppercase tracking-widest italic px-3 py-1 rounded-full text-white border-transparent"
+                                                                    style={{ backgroundColor: themeColor }}
+                                                                >
                                                                     {formType.replace(/_/g, " ")}
                                                                 </Badge>
                                                             </div>
@@ -1769,23 +1807,179 @@ export default function RequestHubPage() {
                                                             </div>
 
                                                             {formType === "FORM_1B" && (
-                                                                <div className="p-5 bg-amber-500/10 dark:bg-amber-500/5 rounded-2xl border border-amber-500/20 shadow-inner space-y-4 animate-in slide-in-from-top-2 duration-300">
+                                                                <div 
+                                                                    className="p-5 rounded-2xl border shadow-inner space-y-4 animate-in slide-in-from-top-2 duration-300 bg-white dark:bg-white/[0.02]"
+                                                                    style={{ borderColor: `${themeColor}20` }}
+                                                                >
                                                                     <div className="flex items-start gap-3">
-                                                                        <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                                                                        <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: themeColor }} />
                                                                         <div className="space-y-1">
-                                                                            <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 leading-none">MCR negative verification notice</h4>
+                                                                            <h4 className="text-[10px] font-black uppercase tracking-widest leading-none" style={{ color: themeColor }}>MCR negative verification notice</h4>
                                                                             <p className="text-xs font-bold text-slate-700 dark:text-slate-200 leading-normal italic">
-                                                                                MCR issued Form 1B (Negative Result). Please proceed with Late Registration to create a record.
+                                                                                MCR issued Form 1B (Negative Result). Please proceed with Registration to create a record.
                                                                             </p>
                                                                         </div>
                                                                     </div>
                                                                     <Button
                                                                         asChild
-                                                                        className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 shadow-lg shadow-amber-500/20 transition-all duration-200 active:scale-95 flex items-center justify-center border-none"
+                                                                        className="w-full h-11 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 shadow-lg transition-all duration-200 active:scale-95 flex items-center justify-center border-none hover:opacity-90"
+                                                                        style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}30` }}
                                                                     >
                                                                         <Link href="/user/services/civil-registry/birth-registration">
-                                                                            Proceed with Late Registration
+                                                                            Proceed to Registration
                                                                         </Link>
+                                                                    </Button>
+                                                                </div>
+                                                            )}
+
+                                                            {formType === "FORM_1A" && (
+                                                                <div className="p-5 bg-slate-50 dark:bg-white/[0.02] rounded-2xl border border-slate-200 dark:border-white/5 shadow-inner space-y-4">
+                                                                    <div className="flex flex-col gap-2">
+                                                                        <div className="space-y-1">
+                                                                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 leading-none">Need to forward to Manila?</h4>
+                                                                            <p className="text-[10px] text-slate-400 italic">Initiate Birth PSA endorsement to forward the certificate to PSA Main office.</p>
+                                                                        </div>
+                                                                        {additionalData.psaEndorsementRequested ? (
+                                                                            <div 
+                                                                                className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest italic mt-1 p-3 rounded-xl border"
+                                                                                style={{ color: themeColor, backgroundColor: `${themeColor}10`, borderColor: `${themeColor}20` }}
+                                                                            >
+                                                                                <Check className="w-4 h-4 shrink-0" />
+                                                                                <span>Birth PSA Endorsement Requested (₱200)</span>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <Dialog open={psaEndorsementOpen} onOpenChange={setPsaEndorsementOpen}>
+                                                                                <DialogTrigger asChild>
+                                                                                    <Button
+                                                                                        className="w-full h-12 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 shadow-lg hover:opacity-90 active:scale-95 transition-all"
+                                                                                        style={{
+                                                                                            backgroundColor: themeColor,
+                                                                                            boxShadow: `0 10px 20px -5px ${themeColor}30`
+                                                                                        }}
+                                                                                    >
+                                                                                        Request Birth PSA Endorsement (₱200)
+                                                                                    </Button>
+                                                                                </DialogTrigger>
+                                                                                <DialogContent className="max-w-[360px] w-full bg-white dark:bg-slate-950 border-none rounded-[1.5rem] shadow-2xl p-6 z-[150]">
+                                                                                    <DialogHeader className="space-y-1">
+                                                                                        <DialogTitle className="text-md font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
+                                                                                            Birth PSA <span style={{ color: themeColor }}>Endorsement</span>
+                                                                                        </DialogTitle>
+                                                                                        <DialogDescription className="text-[8px] font-bold text-slate-400 uppercase tracking-widest italic opacity-60">
+                                                                                            Official Manila Dispatch Protocol
+                                                                                        </DialogDescription>
+                                                                                    </DialogHeader>
+                                                                                    <div className="space-y-4 py-3">
+                                                                                        <p className="text-xs font-medium text-slate-500 leading-relaxed italic">
+                                                                                            Please upload your PSA Negative Certification document to initiate the endorsement process. This service carries a government fee of ₱200.
+                                                                                        </p>
+                                                                                        <div className="space-y-1.5">
+                                                                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic ml-1 leading-none">PSA Negative Cert (PDF/Image)</Label>
+                                                                                            <div className="w-full aspect-[21/8] bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-white/10 flex items-center justify-center relative overflow-hidden group">
+                                                                                                {psaNegPreview ? (
+                                                                                                    <>
+                                                                                                        <div className="absolute inset-0 flex items-center justify-center font-bold text-xs uppercase text-slate-800 dark:text-white">
+                                                                                                            File Selected
+                                                                                                        </div>
+                                                                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                                                            <Button variant="secondary" size="sm" className="h-7 px-3 font-black italic uppercase text-[8px] tracking-widest rounded-lg relative overflow-hidden">
+                                                                                                                Change
+                                                                                                                <input
+                                                                                                                    type="file"
+                                                                                                                    accept=".pdf,image/*"
+                                                                                                                    onChange={(e) => {
+                                                                                                                        const file = e.target.files?.[0];
+                                                                                                                        if (file) {
+                                                                                                                            setPsaNegFile(file);
+                                                                                                                            setPsaNegPreview(URL.createObjectURL(file));
+                                                                                                                        }
+                                                                                                                    }}
+                                                                                                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                                                                                                />
+                                                                                                            </Button>
+                                                                                                        </div>
+                                                                                                    </>
+                                                                                                ) : (
+                                                                                                    <div className="relative w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
+                                                                                                        <Upload className="w-4 h-4 text-slate-350 mb-0.5" />
+                                                                                                        <p className="text-[8px] font-black uppercase text-slate-400 italic">Upload Document</p>
+                                                                                                        <input
+                                                                                                            type="file"
+                                                                                                            accept=".pdf,image/*"
+                                                                                                            onChange={(e) => {
+                                                                                                                const file = e.target.files?.[0];
+                                                                                                                if (file) {
+                                                                                                                    setPsaNegFile(file);
+                                                                                                                    setPsaNegPreview(URL.createObjectURL(file));
+                                                                                                                }
+                                                                                                            }}
+                                                                                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                                                                                        />
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <DialogFooter className="pt-2">
+                                                                                        <Button
+                                                                                            onClick={handlePsaEndorsementSubmit}
+                                                                                            disabled={isSubmittingPsaEndorsement || !psaNegFile}
+                                                                                            className="w-full h-11 text-white rounded-xl text-[9px] font-black uppercase tracking-widest italic transition-all active:scale-95 gap-2 hover:opacity-90 border-none"
+                                                                                            style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}30` }}
+                                                                                        >
+                                                                                            {isSubmittingPsaEndorsement ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                                                                            Submit Request
+                                                                                        </Button>
+                                                                                    </DialogFooter>
+                                                                                </DialogContent>
+                                                                            </Dialog>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {additionalData.scannedDocUrl && (
+                                                                <div className="grid grid-cols-2 gap-3 pt-2">
+                                                                    <Button
+                                                                        onClick={async () => {
+                                                                            if (!additionalData.scannedDocUrl) return;
+                                                                            try {
+                                                                                const response = await fetch(additionalData.scannedDocUrl);
+                                                                                const blob = await response.blob();
+                                                                                const url = window.URL.createObjectURL(blob);
+                                                                                const link = document.createElement("a");
+                                                                                link.href = url;
+                                                                                const ext = blob.type.includes("pdf") ? "pdf" : "png";
+                                                                                link.download = `Scanned_Verification_${id.slice(-6).toUpperCase()}.${ext}`;
+                                                                                document.body.appendChild(link);
+                                                                                link.click();
+                                                                                document.body.removeChild(link);
+                                                                                window.URL.revokeObjectURL(url);
+                                                                                toast.success("Document downloaded!");
+                                                                            } catch {
+                                                                                toast.error("Download failed. Try opening in a new tab.");
+                                                                            }
+                                                                        }}
+                                                                        className="h-12 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 shadow-lg hover:opacity-90 active:scale-95 transition-all"
+                                                                        style={{
+                                                                            backgroundColor: themeColor,
+                                                                            boxShadow: `0 10px 20px -5px ${themeColor}30`
+                                                                        }}
+                                                                    >
+                                                                        <Download className="w-4 h-4" />
+                                                                        Verification Form
+                                                                    </Button>
+                                                                    <Button
+                                                                        onClick={() => {
+                                                                            if (additionalData.scannedDocUrl) {
+                                                                                handleViewFile(additionalData.scannedDocUrl, "Verification Document");
+                                                                            }
+                                                                        }}
+                                                                        variant="outline"
+                                                                        className="h-12 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 hover:bg-slate-50 dark:hover:bg-white/5 bg-transparent"
+                                                                    >
+                                                                        <Eye className="w-4 h-4" />
+                                                                        Preview Form
                                                                     </Button>
                                                                 </div>
                                                             )}
@@ -1823,7 +2017,89 @@ export default function RequestHubPage() {
                                             })()
                                         )}
 
-                                        {!isLcrBirth && (request.status === "RELEASED" || request.status === "DELIVERED") && (request.eCopyUrl || request.cedula?.documentUrl || request.businessPermit?.documentUrl) && (
+                                        {isPsaEndorsement && (request.status === "RELEASED" || request.status === "DELIVERED") && (
+                                            <div
+                                                className="p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] border space-y-6 md:space-y-8 shadow-2xl relative overflow-hidden group transition-all duration-300 hover:scale-[1.01] w-full text-left bg-white dark:bg-slate-900/40"
+                                                style={{
+                                                    borderColor: `${themeColor}20`,
+                                                    boxShadow: `0 20px 25px -5px ${themeColor}10`
+                                                }}
+                                            >
+                                                <div className="absolute top-0 right-0 p-6 opacity-5 rotate-12 group-hover:rotate-0 transition-transform duration-700">
+                                                    <ShieldCheck className="w-24 h-24" style={{ color: themeColor }} />
+                                                </div>
+                                                <div className="relative z-10 space-y-6">
+                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                        <div className="flex items-center gap-4">
+                                                            <div
+                                                                className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg"
+                                                                style={{ backgroundColor: themeColor }}
+                                                            >
+                                                                <FileText className="w-5 h-5 text-white" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[8px] font-black uppercase tracking-widest italic opacity-70 leading-none" style={{ color: themeColor }}>
+                                                                    PSA Endorsement Protocol
+                                                                </p>
+                                                                <p className="text-xs md:text-sm font-black italic tracking-tight uppercase leading-none mt-1.5 text-slate-900 dark:text-white">
+                                                                    Endorsement Transmitted to PSA
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <Badge 
+                                                            className="text-[8px] font-black uppercase tracking-widest italic px-3 py-1 rounded-full text-white border-transparent"
+                                                            style={{ backgroundColor: themeColor }}
+                                                        >
+                                                            TRANSMITTED
+                                                        </Badge>
+                                                    </div>
+
+                                                    <div className="p-5 bg-[#f8fafd] dark:bg-[#121620]/60 rounded-2xl border border-slate-100 dark:border-white/5 shadow-sm space-y-4">
+                                                        <p className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 leading-relaxed italic">
+                                                            The Municipal Civil Registrar has officially endorsed and transmitted your Form 1A to the Philippine Statistics Authority (PSA).
+                                                        </p>
+                                                        <div className="space-y-2 border-t border-slate-200/20 dark:border-white/5 pt-4">
+                                                            <span className="text-[9px] font-black uppercase tracking-widest italic leading-none" style={{ color: themeColor }}>📝 Next Steps for the Applicant:</span>
+                                                            <ul className="list-disc pl-5 text-xs text-slate-600 dark:text-slate-400 space-y-2 font-medium italic">
+                                                                <li>Download or view your Endorsement Copy below to serve as your personal receiving proof.</li>
+                                                                <li>Please wait 3 to 4 weeks to allow the PSA to successfully encode your forwarded records into their national database.</li>
+                                                                <li>After the waiting period, you may directly request your PSA-Authenticated Birth Certificate (SECPA) at any PSA Serbilis Center or online.</li>
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+
+                                                    {request.eCopyUrl && (
+                                                        <div className="grid grid-cols-2 gap-3 pt-2">
+                                                            <Button
+                                                                onClick={handleECopyDownload}
+                                                                className="h-12 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 shadow-lg hover:opacity-90 active:scale-95 transition-all"
+                                                                style={{
+                                                                    backgroundColor: themeColor,
+                                                                    boxShadow: `0 10px 20px -5px ${themeColor}30`
+                                                                }}
+                                                            >
+                                                                <Download className="w-4 h-4" />
+                                                                Download Endorsement Copy
+                                                            </Button>
+                                                            <Button
+                                                                onClick={() => {
+                                                                    if (request.eCopyUrl) {
+                                                                        handleViewFile(request.eCopyUrl, "Official Endorsement Copy");
+                                                                    }
+                                                                }}
+                                                                variant="outline"
+                                                                className="h-12 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 hover:bg-slate-50 dark:hover:bg-white/5 bg-transparent"
+                                                            >
+                                                                <Eye className="w-4 h-4" />
+                                                                Preview Copy
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {!isLcrBirth && !isPsaEndorsement && (request.status === "RELEASED" || request.status === "DELIVERED") && (request.eCopyUrl || request.cedula?.documentUrl || request.businessPermit?.documentUrl) && (
                                             <div className="bg-slate-950 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] text-white space-y-6 md:space-y-8 shadow-2xl relative overflow-hidden group">
                                                 <div className="absolute top-0 right-0 p-6 opacity-5 rotate-12 group-hover:rotate-0 transition-transform"><ShieldCheck className="w-24 h-24" /></div>
                                                 <div className="relative z-10 space-y-6">

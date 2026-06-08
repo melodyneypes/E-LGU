@@ -13,7 +13,7 @@ async function getSession() {
     return await getServerSession(authOptions);
 }
 
-export async function releaseDeathRegistry(id: string, registryNumber: string, eCopyUrl?: string, orUrl?: string) {
+export async function releaseDeathCertificate(id: string, registryNumber: string, eCopyUrl?: string, orUrl?: string, registryBookVerification?: string, verificationDocUrl?: string) {
     try {
         id = sanitizeString(id);
         registryNumber = sanitizeString(registryNumber);
@@ -31,7 +31,7 @@ export async function releaseDeathRegistry(id: string, registryNumber: string, e
             include: {
                 type: true,
                 user: true,
-                deathRegistration: true
+                deathCertificateRequest: true
             }
         });
 
@@ -40,6 +40,12 @@ export async function releaseDeathRegistry(id: string, registryNumber: string, e
         }
 
         const additionalData = (transaction.additionalData as any) || {};
+        if (registryBookVerification) {
+            additionalData.registryBookVerification = registryBookVerification;
+        }
+        if (verificationDocUrl) {
+            additionalData.scannedDocUrl = verificationDocUrl;
+        }
         const isInitialRelease = (transaction.status as any) === "FOR_PROCESSING" || (transaction.status as any) === "PAID" || (transaction.status as any) === "FOR_REINSPECTION";
 
         const targetStatus = (transaction.status as any) === "PAID"
@@ -70,30 +76,32 @@ export async function releaseDeathRegistry(id: string, registryNumber: string, e
             }
         }
 
-        const drExisting = (transaction as any).deathRegistration;
-        if (!drExisting && targetStatus === "RELEASED") {
-            const subjectName = additionalData.fullName || additionalData.subjectName || null;
-            const dateOfEvent = additionalData.dateOfDeath ? new Date(additionalData.dateOfDeath) : null;
-            const placeOfEvent = additionalData.placeOfDeath || null;
+        const dcrExisting = (transaction as any).deathCertificateRequest;
+        if (!dcrExisting && targetStatus === "RELEASED") {
+            const src: any = additionalData || {};
+            const subjectName = src.subjectName || src.fullName || null;
+            const dateOfEvent = src.dateOfEvent ? new Date(src.dateOfEvent) : null;
+            const placeOfEvent = src.placeOfEvent || null;
 
-            if (subjectName) {
-                const generatedRegistryNumber = registryNumber?.trim() || additionalData.registryNumber || `DEATH-${new Date().getFullYear()}-${id.slice(-6).toUpperCase()}`;
+            if (subjectName && dateOfEvent && placeOfEvent) {
+                const generatedRegistryNumber = registryNumber?.trim() || src.registryNumber || `REQ-DEATH-${new Date().getFullYear()}-${id.slice(-6).toUpperCase()}`;
                 try {
-                    await prisma.deathRegistration.create({
+                    await prisma.deathCertificateRequest.create({
                         data: {
                             transactionId: id,
                             registryNumber: generatedRegistryNumber,
+                            subjectName: subjectName,
                             dateOfEvent: dateOfEvent,
                             placeOfEvent: placeOfEvent,
-                            subjectName: subjectName,
-                            fatherName: additionalData.fathersName || additionalData.fatherName || null,
-                            motherName: additionalData.mothersName || additionalData.motherName || null,
+                            fatherName: src.fatherName || src.father || null,
+                            motherName: src.motherName || src.mother || null,
                             issuedBy: user.name || "System Administrator",
-                            documentUrl: eCopyUrl || transaction.eCopyUrl || null
+                            documentUrl: eCopyUrl || transaction.eCopyUrl || null,
+                            verificationId: `VER-DCR-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`
                         }
                     });
                 } catch (createErr) {
-                    console.error("Failed to create DeathRegistration record:", createErr);
+                    console.error("Failed to create DeathCertificateRequest:", createErr);
                 }
             }
         }
@@ -124,12 +132,12 @@ export async function releaseDeathRegistry(id: string, registryNumber: string, e
         revalidatePath("/user/services");
         return { success: true, data: { status: targetStatus } };
     } catch (error: any) {
-        console.error("Release death registry error:", error);
-        return { success: false, error: error?.message || "Failed to release death registry." };
+        console.error("Release death certificate error:", error);
+        return { success: false, error: error?.message || "Failed to release death certificate." };
     }
 }
 
-export async function evaluateDeathRegistrationTransaction(
+export async function evaluateDeathCertificateTransaction(
     id: string,
     deliveryFeeOverride?: number,
     adminNotes?: string,
@@ -169,15 +177,11 @@ export async function evaluateDeathRegistrationTransaction(
         if (!transaction) return { success: false, error: "Transaction not found" };
 
         const typeCode = (transaction.type?.code || "").toUpperCase();
-        if (typeCode !== "LCR_DEATH_REG") {
+        if (typeCode !== "LCR_DEATH") {
             return { success: false, error: "Unsupported transaction type" };
         }
 
         const additionalData = transaction.additionalData as any || {};
-        const isLate = (additionalData.registrationType || "").toUpperCase() === "LATE";
-        
-        // Base fee is always 0 for death registration
-        const baseFee = 0;
 
         let dynamicDeliveryFee = transaction.type.deliveryFee;
         if (transaction.fulfillmentType === "DELIVERY" && (transaction.deliveryAddress || (transaction as any).residentSnapshot)) {
@@ -196,28 +200,22 @@ export async function evaluateDeathRegistrationTransaction(
             }
         }
 
+        const baseFee = 0;
+        const feeDelivery = Number(transaction.type?.deliveryFee || 0);
         const deliveryFeeUsed = transaction.fulfillmentType === "DELIVERY"
-            ? (deliveryFeeOverride !== undefined ? deliveryFeeOverride : dynamicDeliveryFee || 0)
+            ? (deliveryFeeOverride !== undefined ? deliveryFeeOverride : dynamicDeliveryFee || feeDelivery)
             : 0;
 
         const miscFee = sanitizedMiscFeeOverride !== undefined
             ? sanitizedMiscFeeOverride
-            : (additionalData.miscFee !== undefined ? Number(additionalData.miscFee) : (isLate ? ((transaction.type as any).lateFee || 0) : 0));
+            : (additionalData.miscFee !== undefined ? Number(additionalData.miscFee) : 0);
 
         const itemsSum = sanitizedBpFeeLineItems ? sanitizedBpFeeLineItems.reduce((acc, curr) => acc + Number(curr.amount || 0), 0) : 0;
         const total = baseFee + deliveryFeeUsed + miscFee + itemsSum;
 
-        // Determine Status
-        const regType = (additionalData.registrationType || "").toUpperCase();
-        const hasAdditionalFees = sanitizedBpFeeLineItems && sanitizedBpFeeLineItems.length > 0;
-        
         let newStatus = "EVALUATED";
         if (transaction.status === "FOR_INSPECTION") {
-            if ((regType === "STANDARD" || !regType) && !hasAdditionalFees) {
-                newStatus = "EVALUATED";
-            } else {
-                newStatus = "FOR_REQUESTING";
-            }
+            newStatus = "FOR_REQUESTING";
         }
 
         const updatedTransaction = await prisma.transaction.update({
@@ -247,7 +245,6 @@ export async function evaluateDeathRegistrationTransaction(
             include: { user: true }
         }) as any;
 
-        // Trigger email notification for payment / processing
         if (updatedTransaction.user?.email) {
             const resident = updatedTransaction.residentSnapshot as any;
             await sendEmail({
@@ -255,7 +252,7 @@ export async function evaluateDeathRegistrationTransaction(
                 to: updatedTransaction.user.email,
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : updatedTransaction.user.name || "Resident",
                 transactionId: sanitizedId.slice(-8).toUpperCase(),
-                serviceName: updatedTransaction.type?.name || "Death Registration Service",
+                serviceName: updatedTransaction.type?.name || "Death Certificate Request",
                 amount: total
             });
         }
@@ -266,7 +263,7 @@ export async function evaluateDeathRegistrationTransaction(
 
         return { success: true, data: updatedTransaction };
     } catch (error: any) {
-        console.error("Evaluate death registration error:", error);
+        console.error("Evaluate death certificate error:", error);
         return { success: false, error: error?.message || "Failed to evaluate transaction" };
     }
 }

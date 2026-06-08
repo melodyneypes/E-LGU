@@ -256,12 +256,36 @@ export default function BirthRegistrationPage() {
 
             setForm(prev => {
                 const desired = isLate ? "LATE" : "STANDARD";
-                if (prev.registrationType === desired) return prev;
+                let lateDuration = prev.lateDuration;
+                let miscFee = prev.miscFee;
+
+                if (isLate) {
+                    let age = todayNorm.getFullYear() - dobNorm.getFullYear();
+                    const m = todayNorm.getMonth() - dobNorm.getMonth();
+                    if (m < 0 || (m === 0 && todayNorm.getDate() < dobNorm.getDate())) {
+                        age--;
+                    }
+                    if (age >= 20) {
+                        lateDuration = "20+";
+                        miscFee = 1015;
+                    } else if (age >= 10) {
+                        lateDuration = "10-20";
+                        miscFee = 515;
+                    } else {
+                        lateDuration = "1-10";
+                        miscFee = 315;
+                    }
+                } else {
+                    lateDuration = "";
+                    miscFee = 0;
+                }
+
+                if (prev.registrationType === desired && prev.lateDuration === lateDuration && prev.miscFee === miscFee) return prev;
                 return {
                     ...prev,
                     registrationType: desired,
-                    lateDuration: isLate ? prev.lateDuration : "",
-                    miscFee: isLate ? prev.miscFee : 0
+                    lateDuration,
+                    miscFee
                 };
             });
         } catch {
@@ -285,8 +309,8 @@ export default function BirthRegistrationPage() {
         form.lateDuration === "1-10" ? 315 : form.lateDuration === "10-20" ? 515 : form.lateDuration === "20+" ? 1015 : 0
     );
 
-    // Misc fee is display-only and represents the total amount payable
-    const totalAmount = Number(baseFee || 0);
+    // Misc fee represents the total amount payable (base fee + 215 for e-copy and hardcopy)
+    const totalAmount = Number(baseFee || 0) + 215;
 
     // Restore progress from session storage & IndexedDB
     useEffect(() => {
@@ -499,13 +523,33 @@ export default function BirthRegistrationPage() {
 
             const isLate = diffDays > 30; // more than ~1 month
 
+            let lateDuration = "";
+            let miscFee = 0;
+
+            if (isLate) {
+                let age = todayNorm.getFullYear() - dobNorm.getFullYear();
+                const m = todayNorm.getMonth() - dobNorm.getMonth();
+                if (m < 0 || (m === 0 && todayNorm.getDate() < dobNorm.getDate())) {
+                    age--;
+                }
+                if (age >= 20) {
+                    lateDuration = "20+";
+                    miscFee = 1015;
+                } else if (age >= 10) {
+                    lateDuration = "10-20";
+                    miscFee = 515;
+                } else {
+                    lateDuration = "1-10";
+                    miscFee = 315;
+                }
+            }
+
             setForm(prev => ({
                 ...prev,
                 dateOfEvent: value,
                 registrationType: isLate ? "LATE" : "STANDARD",
-                // Clear lateDuration when switching back to STANDARD
-                lateDuration: isLate ? prev.lateDuration : "",
-                miscFee: isLate ? prev.miscFee : 0
+                lateDuration,
+                miscFee
             }));
 
             // Do not show toast here to avoid popping while typing; notify user when they proceed.
@@ -806,7 +850,14 @@ export default function BirthRegistrationPage() {
                 if (!(form.files['communityTaxCertificate'] || form.previews['communityTaxCertificate'])) missingDocsQuick.push('Community Tax Certificate');
             }
         } else if (form.registrationType === "LATE") {
-            const lateReqs = ['negativePSA', 'colb', 'affidavitDelayed', 'supportingEvidence1', 'supportingEvidence2'];
+            const lateReqs = [
+                'negativePSA',
+                'colb',
+                'affidavitDelayed',
+                'supportingEvidence1',
+                'supportingEvidence2',
+                ...(form.parentsMarried ? ['marriageCertificate', 'municipalForm102'] : ['communityTaxCertificate'])
+            ];
             lateReqs.forEach(k => {
                 if (!(form.files[k] || form.previews[k])) {
                     const map: any = {
@@ -814,7 +865,10 @@ export default function BirthRegistrationPage() {
                         colb: 'Certificate of Live Birth (COLB)',
                         affidavitDelayed: 'Affidavit of Delayed Registration',
                         supportingEvidence1: 'Supporting Evidence 1',
-                        supportingEvidence2: 'Supporting Evidence 2'
+                        supportingEvidence2: 'Supporting Evidence 2',
+                        marriageCertificate: 'Marriage Certificate of Parents',
+                        municipalForm102: 'Municipal Form 102',
+                        communityTaxCertificate: 'Community Tax Certificate'
                     };
                     missingDocsQuick.push(map[k] || k);
                 }
@@ -1715,58 +1769,40 @@ export default function BirthRegistrationPage() {
 
                                             {form.registrationType === "LATE" && (
                                                 <div id="late-duration-section" className="mt-4">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Late Registration Period <span className="text-red-500">*</span></Label>
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Late Registration Period <span className="text-slate-400 font-medium">(Auto-selected based on age)</span></Label>
                                                     <div className="mt-2 flex flex-col md:flex-row gap-3">
                                                         <button
                                                             type="button"
-                                                            onClick={() => {
-                                                                setForm(prev => ({ ...prev, lateDuration: "1-10", miscFee: 315 }));
-                                                                setErrors(prev => {
-                                                                    if (!prev.lateDuration) return prev;
-                                                                    const copy = { ...prev };
-                                                                    delete copy.lateDuration;
-                                                                    return copy;
-                                                                });
-                                                            }}
+                                                            disabled
                                                             className={cn(
-                                                                "px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                                                                form.lateDuration === "1-10" ? "bg-blue-600 text-white" : "bg-white dark:bg-slate-900 text-slate-600 border border-slate-200"
+                                                                "px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-not-allowed",
+                                                                form.lateDuration === "1-10" 
+                                                                    ? "bg-blue-600 text-white" 
+                                                                    : "bg-slate-100 dark:bg-slate-900/50 text-slate-400 border border-slate-200/60 dark:border-white/5 opacity-60"
                                                             )}
                                                         >
                                                             1 month - 10 years (P315)
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            onClick={() => {
-                                                                setForm(prev => ({ ...prev, lateDuration: "10-20", miscFee: 515 }));
-                                                                setErrors(prev => {
-                                                                    if (!prev.lateDuration) return prev;
-                                                                    const copy = { ...prev };
-                                                                    delete copy.lateDuration;
-                                                                    return copy;
-                                                                });
-                                                            }}
+                                                            disabled
                                                             className={cn(
-                                                                "px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                                                                form.lateDuration === "10-20" ? "bg-blue-600 text-white" : "bg-white dark:bg-slate-900 text-slate-600 border border-slate-200"
+                                                                "px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-not-allowed",
+                                                                form.lateDuration === "10-20" 
+                                                                    ? "bg-blue-600 text-white" 
+                                                                    : "bg-slate-100 dark:bg-slate-900/50 text-slate-400 border border-slate-200/60 dark:border-white/5 opacity-60"
                                                             )}
                                                         >
                                                             10 - 20 years (P515)
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            onClick={() => {
-                                                                setForm(prev => ({ ...prev, lateDuration: "20+", miscFee: 1015 }));
-                                                                setErrors(prev => {
-                                                                    if (!prev.lateDuration) return prev;
-                                                                    const copy = { ...prev };
-                                                                    delete copy.lateDuration;
-                                                                    return copy;
-                                                                });
-                                                            }}
+                                                            disabled
                                                             className={cn(
-                                                                "px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                                                                form.lateDuration === "20+" ? "bg-blue-600 text-white" : "bg-white dark:bg-slate-900 text-slate-600 border border-slate-200"
+                                                                "px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-not-allowed",
+                                                                form.lateDuration === "20+" 
+                                                                    ? "bg-blue-600 text-white" 
+                                                                    : "bg-slate-100 dark:bg-slate-900/50 text-slate-400 border border-slate-200/60 dark:border-white/5 opacity-60"
                                                             )}
                                                         >
                                                             20 years and above (P1015)
@@ -1805,7 +1841,13 @@ export default function BirthRegistrationPage() {
                                                              {[
                                                                  { key: "negativePSA", label: "Negative Certification from PSA" },
                                                                  { key: "colb", label: "Certificate of Live Birth (COLB)" },
-                                                                 { key: "affidavitDelayed", label: "Affidavit of Delayed Registration" }
+                                                                 { key: "affidavitDelayed", label: "Affidavit of Delayed Registration" },
+                                                                 ...(form.parentsMarried ? [
+                                                                     { key: "marriageCertificate", label: "Marriage Certificate of Parents" },
+                                                                     { key: "municipalForm102", label: "Municipal Form 102" }
+                                                                 ] : [
+                                                                     { key: "communityTaxCertificate", label: "Community Tax Certificate" }
+                                                                 ])
                                                              ].map((doc) => renderDocCard(doc))}
 
                                                             <div className="col-span-1 md:col-span-2 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4">
@@ -1888,16 +1930,25 @@ export default function BirthRegistrationPage() {
                                             </div>
                                             <button type="button" onClick={() => setPolicyOpen(true)} className="text-[10px] font-black italic text-blue-600">Review</button>
                                         </div>
+                                        <div className="p-5 rounded-2xl border border-slate-200/20 bg-white/30 dark:bg-white/5 space-y-3">
+                                             <div className="flex justify-between items-center text-xs font-semibold italic text-slate-500">
+                                                 <span>Registration Fee ({form.registrationType === "STANDARD" ? "Standard" : "Late"})</span>
+                                                 <span className="font-extrabold text-slate-800 dark:text-slate-200">₱{baseFee}</span>
+                                             </div>
+                                             <div className="flex justify-between items-center text-xs font-semibold italic text-slate-500 pb-2 border-b border-dashed border-slate-200/50">
+                                                 <span>E-Copy & Hardcopy Fee</span>
+                                                 <span className="font-extrabold text-slate-800 dark:text-slate-200">₱215</span>
+                                             </div>
+                                             <div className="flex justify-between items-center">
+                                                 <div>
+                                                     <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Total Amount Due</div>
+                                                     <div className="text-[9px] text-slate-400 italic">Payable upon municipal verification</div>
+                                                 </div>
+                                                 <div className="text-xl font-black text-blue-600 dark:text-blue-400">₱{totalAmount}</div>
+                                             </div>
+                                         </div>
 
-                                        <div className="p-3 rounded-2xl border border-slate-200/20 bg-white/30 dark:bg-white/5 flex items-center justify-between gap-4">
-                                            <div className="flex-1">
-                                                <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Misc. Fee</div>
-                                                <div className="text-lg font-extrabold mt-2">P{totalAmount > 0 ? totalAmount.toString() : "—"}</div>
-                                            </div>
-                                            <div className="text-xs text-slate-400 italic">{form.registrationType === "STANDARD" ? "Standard registration fee" : (form.lateDuration ? "Late registration fee" : "Select late period to compute fee")}</div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                                             <Button
                                                 variant="ghost"
                                                 onClick={() => setCurrentStep("PARENTS")}

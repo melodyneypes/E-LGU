@@ -75,6 +75,7 @@ export default function TreasuryDashboard() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const categoryParam = searchParams.get("category");
+    const hasSelectedCategory = Boolean(categoryParam && categoryParam !== "ALL");
     const { data: session } = useSession();
 
     const userRole = (session?.user as any)?.role;
@@ -135,7 +136,11 @@ export default function TreasuryDashboard() {
         } else if (categoryParam && categoryParam !== "ALL") {
             filtered = filtered.filter((t: any) => t.category === categoryParam);
         }
-        return filtered.map((t: any) => t.name).filter(Boolean);
+        const names = filtered.map((t: any) => t.name).filter(Boolean);
+        if (categoryParam === "CEDULA") {
+            names.push("Student");
+        }
+        return names;
     }, [serviceTypes, isAdminAide, categoryParam]);
 
     const filteredServices = useMemo(() => {
@@ -261,7 +266,15 @@ export default function TreasuryDashboard() {
         const matchesCategory = !categoryParam || categoryParam === "ALL" || tx.type?.category === categoryParam;
 
         // Specific service name filter: match selected service from dropdown if set
-        const matchesService = !serviceFilter || serviceFilter === "ALL" || tx.type?.name === serviceFilter;
+        let matchesService = !serviceFilter || serviceFilter === "ALL";
+        if (!matchesService && serviceFilter) {
+            const isStudentCedula = tx.isStudent === true && (tx.typeId === "cmpgkxwyz0011vpjk2arznkmt" || tx.type?.id === "cmpgkxwyz0011vpjk2arznkmt");
+            if (serviceFilter === "Student") {
+                matchesService = isStudentCedula;
+            } else {
+                matchesService = tx.type?.name === serviceFilter && !isStudentCedula;
+            }
+        }
 
         // For LCR Certified Copy / LCR Registration evaluation phases, only the Registrar department should see it
         const isLcrBirthCertifiedCopy = tx.type?.code === "LCR_BIRTH" || tx.type?.code === "LCR_DEATH" || tx.type?.code === "LCR_MARRIAGE" || (tx.type?.name && (tx.type.name.includes("Birth Certificate") || tx.type.name.includes("Death Certificate") || tx.type.name.includes("Marriage Certificate"))) || false;
@@ -344,7 +357,17 @@ export default function TreasuryDashboard() {
 
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* Dashboard Controls */}
+            {!hasSelectedCategory ? (
+                <div className="min-h-[420px] flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 dark:border-[#2a3040] bg-white/60 dark:bg-[#151b2b]/60 px-6 text-center animate-in fade-in duration-500">
+                    <Archive className="w-16 h-16 mb-5 text-slate-300 dark:text-slate-600" />
+                    <h2 className="text-2xl font-black text-slate-800 dark:text-slate-200">
+                        Select a treasury category
+                    </h2>
+                    <p className="mt-2 max-w-md text-slate-500 dark:text-slate-400">
+                        Choose a category from the Treasury Hub sidebar to view and manage its transactions.
+                    </p>
+                </div>
+            ) : (
             <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-2xl shadow-blue-500/5 overflow-hidden ring-1 ring-slate-200 dark:ring-white/5">
                 <Tabs value={status} onValueChange={setStatus} className="w-full">
                     {/* Filters Section — matching ResidentFilters style */}
@@ -619,6 +642,7 @@ export default function TreasuryDashboard() {
                     )}
                 </Tabs>
             </div>
+            )}
         </div>
     );
 }

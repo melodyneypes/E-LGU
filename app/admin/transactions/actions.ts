@@ -489,17 +489,17 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
         console.log("[submitCivilRegistryTransaction] additionalData:", additionalData);
         console.log("[submitCivilRegistryTransaction] files:", files);
 
-        // Handle default miscFee for Birth Certificate requests (LCR_BIRTH)
+        // Handle default miscFee for Birth/Death/Marriage Certificate requests (LCR_BIRTH, LCR_DEATH, LCR_MARRIAGE)
         let initialMiscFee = additionalData.miscFee;
         let initialTotalAmount = additionalData.totalAmount;
         let initialFiscalSnapshot: any = null;
 
-        if (registryType === "BIRTH") {
+        if (registryType === "BIRTH" || registryType === "DEATH" || registryType === "MARRIAGE") {
             const transType = await prisma.transactionType.findUnique({
                 where: { id: typeId }
             });
             if (initialMiscFee === undefined || initialMiscFee === null) {
-                initialMiscFee = transType ? Number(transType.baseFee) : 115;
+                initialMiscFee = transType ? Number(transType.baseFee) : 150;
             }
             // No basicTax. Total is just the miscFee.
             initialTotalAmount = Number(initialMiscFee);
@@ -1285,11 +1285,11 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
             const additional = transaction.additionalData as any || {};
             const isLate = (additional.registrationType || "").toUpperCase() === "LATE";
             const isMarriageReg = typeCode === "LCR_MARRIAGE_REG";
-            const isBirthCert = typeCode === "LCR_BIRTH";
+            const isCertifiedCopy = ["LCR_BIRTH", "LCR_DEATH", "LCR_MARRIAGE"].includes(typeCode);
             const isBirthReg = typeCode === "LCR_BIRTH_REG";
             const isDeathReg = typeCode === "LCR_DEATH_REG";
 
-            const baseFee = isBirthCert
+            const baseFee = isCertifiedCopy
                 ? 0
                 : ((isMarriageReg && !isLate) || isBirthReg || isDeathReg)
                     ? 0
@@ -1327,7 +1327,10 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
             const typeCode = (transaction.type?.code || "").toUpperCase();
             const regType = (additionalData?.registrationType || "").toUpperCase();
             const hasAdditionalFees = sanitizedBpFeeLineItems && sanitizedBpFeeLineItems.length > 0;
-            if (typeCode === "LCR_DEATH_REG" && (regType === "STANDARD" || !regType) && !hasAdditionalFees) {
+            const isCertifiedCopy = ["LCR_BIRTH", "LCR_MARRIAGE"].includes(typeCode);
+            if (isCertifiedCopy) {
+                newStatus = "EVALUATED";
+            } else if (typeCode === "LCR_DEATH_REG" && (regType === "STANDARD" || !regType) && !hasAdditionalFees) {
                 newStatus = "EVALUATED";
             } else {
                 newStatus = "FOR_REQUESTING";
@@ -4052,3 +4055,56 @@ export async function processRegistrarRequest(id: string) {
         return { success: false, error: "Failed to process request" };
     }
 }
+
+/**
+ * Get the latest completed birth transaction for the current user that has an issued Form 1A document.
+ */
+export async function getLatestForm1AForCurrentUser() {
+    try {
+        const session = await getSession();
+        if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+        const transactions = await prisma.transaction.findMany({
+            where: {
+                userId: session.user.id,
+                type: {
+                    code: {
+                        in: ["LCR_BIRTH", "LCR_BIRTH_REG"]
+                    }
+                }
+            },
+            include: {
+                type: true
+            },
+            orderBy: {
+                createdAt: "desc"
+            }
+        });
+
+        for (const tx of transactions) {
+            const addData = (tx.additionalData as any) || {};
+            if (addData.registryBookVerification === "FORM_1A") {
+                const docUrl = addData.scannedDocUrl || addData.verificationDocUrl || tx.eCopyUrl;
+                if (docUrl) {
+                    const snap = (tx.residentSnapshot as any) || {};
+                    return {
+                        success: true,
+                        data: {
+                            transactionId: tx.id,
+                            docUrl: docUrl,
+                            subjectName: addData.subjectName || addData.fullName || (snap.firstName ? `${snap.firstName} ${snap.lastName}` : null),
+                            dateOfBirth: addData.dateOfBirth || addData.dateOfEvent || snap.dateOfBirth || null,
+                            mothersMaidenName: addData.mothersMaidenName || addData.motherName || addData.mother || null
+                        }
+                    };
+                }
+            }
+        }
+
+        return { success: false, error: "No issued Form 1A found for the user" };
+    } catch (error) {
+        console.error("getLatestForm1AForCurrentUser error:", error);
+        return { success: false, error: "Failed to fetch latest Form 1A" };
+    }
+}
+

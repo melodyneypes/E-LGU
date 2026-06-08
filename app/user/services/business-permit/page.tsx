@@ -902,7 +902,7 @@ export default function BusinessPermitWizardPage() {
     const onSubmit = async () => {
         setSubmitting(true);
         try {
-            toast.loading("Uploading files to secure storage...", { id: "bp-upload-toast" });
+            toast.loading("Submitting application...", { id: "bp-upload-toast" });
 
             // Process residentSnapshot base64 files if present (e.g. webcam selfie or scanned IDs)
             const updatedResidentData = { ...formData.residentData };
@@ -949,8 +949,6 @@ export default function BusinessPermitWizardPage() {
             const previousPermitUrl = formData.previousPermitFile 
                 ? await uploadFileClientSide(formData.previousPermitFile, 'previousPermit') 
                 : (revisionTx?.additionalData?.previousPermitUrl || null);
-
-            toast.success("All files uploaded successfully! Submitting application...", { id: "bp-upload-toast" });
 
             const submitData = new FormData();
             submitData.append("typeId", formData.typeId);
@@ -1003,10 +1001,10 @@ export default function BusinessPermitWizardPage() {
             const res = await submitBusinessPermitTransaction(submitData);
             if (res.success) {
                 clearDraft(); // Purge draft upon successful submission
-                toast.success("Business Permit application submitted successfully!");
+                toast.success("Business Permit application submitted successfully!", { id: "bp-upload-toast" });
                 router.push("/user/services/requests");
             } else {
-                toast.error(res.error || "Submission failed. Please check inputs.");
+                toast.error(res.error || "Submission failed. Please check inputs.", { id: "bp-upload-toast" });
             }
         } catch (err) {
             console.error("Submit error:", err);

@@ -39,6 +39,15 @@ const REGISTRY_TYPES = [
         available: true
     },
     {
+        id: "PSA_ENDORSEMENT",
+        label: "Birth PSA Endorsement",
+        icon: FileText,
+        description: "Request endorsement of a verified local birth certificate record to the PSA.",
+        color: "blue",
+        href: "/user/services/civil-registry/birth-psa-endorsement",
+        available: true
+    },
+    {
         id: "DEATH_REQ",
         label: "Death Certificate Request (True Copy)",
         icon: FileText,
@@ -96,8 +105,8 @@ const STEPS = [
 const REGISTRY_SECTIONS = [
     {
         title: "Birth Registry Services",
-        subtitle: "Registration & Certified True Copy Requests",
-        items: ["BIRTH_REG", "BIRTH_REQ"]
+        subtitle: "Registration, Certified Copies & Endorsements",
+        items: ["BIRTH_REG", "BIRTH_REQ", "PSA_ENDORSEMENT"]
     },
     {
         title: "Death Registry Services",
@@ -272,7 +281,7 @@ export default function CivilRegistryPage() {
                                                         </div>
                                                         {!type.available ? (
                                                             <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-full">
-                                                                Coming Soon
+                                                                Info
                                                             </span>
                                                         ) : (
                                                             <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center transition-colors theme-bg-hover group-hover:text-white border border-slate-100 dark:border-white/10 text-slate-900 dark:text-white">
@@ -303,7 +312,13 @@ export default function CivilRegistryPage() {
                                             return (
                                                 <div
                                                     key={type.id}
-                                                    onClick={() => toast.info(`${type.label} is currently under development.`)}
+                                                    onClick={() => {
+                                                        if (type.id === "PSA_ENDORSEMENT") {
+                                                            toast.info("Birth PSA Endorsement can be requested from your completed Birth Certificate Request details page if the local record is found (Form 1A).");
+                                                        } else {
+                                                            toast.info(`${type.label} is currently under development.`);
+                                                        }
+                                                    }}
                                                     className="block h-full"
                                                 >
                                                     {cardContent}

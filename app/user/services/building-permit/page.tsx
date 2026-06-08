@@ -1036,7 +1036,7 @@ export default function BuildingPermitPage() {
 
     setIsSubmitting(true);
     try {
-      toast.loading("Uploading documents to secure storage...", { id: "bp-upload-toast" });
+      toast.loading("Submitting application...", { id: "bp-upload-toast" });
 
       const displayResident = selectedApplication?.residentSnapshot || residentData;
 
@@ -1091,8 +1091,6 @@ export default function BuildingPermitPage() {
           if (existingUrl) finalPermitUrls[`permit_${i}`] = existingUrl;
         }
       }
-
-      toast.success("All files uploaded successfully! Submitting application...", { id: "bp-upload-toast" });
 
       const data = new FormData();
       const parts: string[] = [];
@@ -1149,14 +1147,15 @@ export default function BuildingPermitPage() {
           const newApp = permitsRes.data.find((a: any) => a.id === result.transactionId);
           if (newApp) setSelectedApplication(newApp);
         }
+        toast.success("Building Permit application submitted successfully!", { id: "bp-upload-toast" });
         setCurrentStep("EVALUATION");
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
-        toast.error(result.error || "Failed to submit.");
+        toast.error(result.error || "Failed to submit.", { id: "bp-upload-toast" });
       }
     } catch (error) {
       console.error(error);
-      toast.error("An error occurred during submission.");
+      toast.error("An error occurred during submission.", { id: "bp-upload-toast" });
     } finally {
       setIsSubmitting(false);
     }

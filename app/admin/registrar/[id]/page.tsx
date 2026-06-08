@@ -39,7 +39,9 @@ import {
 } from "@/app/admin/transactions/cedula-actions";
 import { releaseBirthRegistry } from "@/app/admin/transactions/birth-regis-actions";
 import { releaseBirthCertificate } from "@/app/admin/transactions/birth-cert-actions";
-import { releaseDeathRegistry, releaseDeathCertificate, evaluateDeathRegistrationTransaction } from "@/app/admin/transactions/death-regis-actions";
+import { releaseDeathRegistry, evaluateDeathRegistrationTransaction } from "@/app/admin/transactions/death-regis-actions";
+import { releaseDeathCertificate, evaluateDeathCertificateTransaction } from "@/app/admin/transactions/death-cert-actions";
+import { releaseMarriageLicense, evaluateMarriageLicenseTransaction, processMarriageLicenseRequest } from "@/app/admin/transactions/marriage-license-actions";
 import { calculateCedula } from "@/lib/cedula";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { Button } from "@/components/ui/button";
@@ -54,7 +56,10 @@ import BuildingPermitView from "@/app/admin/treasury/[id]/views/BuildingPermitVi
 import BirthRegistrationView from "./views/BirthRegistrationView";
 import BirthCertificateView from "./views/BirthCertificateView";
 import DeathRegistrationView from "./views/DeathRegistrationView";
+import DeathCertificateView from "./views/DeathCertificateView";
+import MarriageLicenseView from "./views/MarriageLicenseView";
 import GenericServiceView from "@/app/admin/treasury/[id]/views/GenericServiceView";
+import BirthPsaEndorsementView from "./views/BirthPsaEndorsement";
 import DocumentViewerModal from "@/app/admin/treasury/[id]/components/DocumentViewerModal";
 
 interface PageProps {
@@ -231,8 +236,19 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     const isBPLOAdmin = rawUserRole === "ADMIN" && userDepartment?.toUpperCase() === "BPLO";
     const userRole = isBPLOAdmin ? "ADMIN_AIDE" : rawUserRole;
     const isTreasuryStaff = rawUserRole === "TREASURY_STAFF";
-    const backUrl = "/admin/registrar";
     const [transaction, setTransaction] = useState<any>(null);
+    const typeCodeForBack = (transaction?.type?.code || "").toUpperCase();
+    const backUrl = typeCodeForBack === "LCR_BIRTH_REG"
+        ? "/admin/registrar?category=Birth%20Registration"
+        : typeCodeForBack === "LCR_BIRTH"
+            ? "/admin/registrar?category=Birth%20Certificate"
+            : typeCodeForBack === "LCR_DEATH_REG"
+                ? "/admin/registrar?category=Death%20Registration"
+                : typeCodeForBack === "LCR_DEATH"
+                    ? "/admin/registrar?category=Death%20Certificate"
+                    : typeCodeForBack === "LCR_MARRIAGE_LICENSE"
+                        ? "/admin/registrar?category=Marriage%20License"
+                        : "/admin/registrar";
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [remarks, setRemarks] = useState("");
@@ -387,7 +403,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     const isLCR = (transaction?.type?.code?.startsWith("LCR_") ?? false) || (transaction?.type?.code?.startsWith("CIVIL_REGISTRY") ?? false);
     const typeCode = (transaction?.type?.code || "").toUpperCase();
     const isLcrCertifiedCopy = typeCode === "LCR_BIRTH" || typeCode === "LCR_DEATH" || typeCode === "LCR_MARRIAGE" || (transaction?.type?.name && (transaction.type.name.includes("Birth Certificate") || transaction.type.name.includes("Death Certificate") || transaction.type.name.includes("Marriage Certificate"))) || false;
-    const isLcrBirthCertifiedCopy = isLcrCertifiedCopy;
+    const isLcrBirthCertifiedCopy = typeCode === "LCR_BIRTH" || (transaction?.type?.name && transaction.type.name.includes("Birth Certificate")) || false;
     const _isBirth = typeCode.includes("BIRTH");
     const isDeath = typeCode.includes("DEATH");
     const isMarriage = typeCode.includes("MARRIAGE") || typeCode.includes("LICENSE");
@@ -571,7 +587,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             toast.error("CTC Number Required");
             return;
         }
-        if (isLCR && typeCode !== "LCR_BIRTH" && !eCopyFile && !transaction.eCopyUrl) {
+        if (isLCR && typeCode !== "LCR_BIRTH" && typeCode !== "LCR_DEATH" && !eCopyFile && !transaction.eCopyUrl) {
             toast.error("Official Digital E-Copy registry record is required before releasing.");
             return;
         }
@@ -587,7 +603,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             }
 
             let verificationDocUrl = "";
-            if (isLCR && typeCode === "LCR_BIRTH" && transaction?.status === "FOR_PROCESSING") {
+            if (isLCR && (typeCode === "LCR_BIRTH" || typeCode === "LCR_DEATH") && transaction?.status === "FOR_PROCESSING") {
                 if (!registryBookVerification) {
                     toast.error("Registry Book Verification Form Choice is required.");
                     setActionLoading(false);
@@ -635,10 +651,12 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 : typeCode === "LCR_BIRTH_REG"
                     ? await releaseBirthRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
                     : typeCode === "LCR_DEATH"
-                        ? await releaseDeathCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                        ? await releaseDeathCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl, registryBookVerification, verificationDocUrl)
                         : typeCode === "LCR_DEATH_REG"
                             ? await releaseDeathRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                            : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
+                            : typeCode === "LCR_MARRIAGE_LICENSE"
+                                ? await releaseMarriageLicense(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
             if (res.success) {
                 const status = res.data?.status;
                 const message = status === "FOR_PICKING"
@@ -658,7 +676,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             }
             else toast.error(res.error || "Failed");
         } finally { setActionLoading(false); }
-    }, [transaction, ctcNumber, eCopyFile, orFile, router, isBusinessPermit, isLCR, isLcrBirthCertifiedCopy, typeCode, birthRegDocFile, registryBookVerification]);
+    }, [transaction, ctcNumber, eCopyFile, orFile, router, isBusinessPermit, isLCR, isLcrBirthCertifiedCopy, typeCode, birthRegDocFile, registryBookVerification, backUrl]);
 
     // Handle QR Scan Landing: Auto-focus or Auto-release
     useEffect(() => {
@@ -765,7 +783,11 @@ export default function RegistrarDetailPage({ params }: PageProps) {
 
             const res = typeCode === "LCR_DEATH_REG"
                 ? await evaluateDeathRegistrationTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee))
-                : await evaluateCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee));
+                : typeCode === "LCR_DEATH"
+                    ? await evaluateDeathCertificateTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee))
+                    : typeCode === "LCR_MARRIAGE_LICENSE"
+                        ? await evaluateMarriageLicenseTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee))
+                        : await evaluateCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee));
             if (res.success) {
                 toast.success("Evaluated Successfully");
                 router.push(backUrl);
@@ -786,7 +808,9 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                             ? releaseDeathCertificate
                             : typeCode === "LCR_DEATH_REG"
                                 ? releaseDeathRegistry
-                                : releaseCedula;
+                                : typeCode === "LCR_MARRIAGE_LICENSE"
+                                    ? releaseMarriageLicense
+                                    : releaseCedula;
                 const rel = await releaseFn(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "");
                 if (rel.success) {
                     toast.success("Proceeding to Processing");
@@ -817,7 +841,9 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                             ? releaseDeathCertificate
                             : typeCode === "LCR_DEATH_REG"
                                 ? releaseDeathRegistry
-                                : releaseCedula;
+                                : typeCode === "LCR_MARRIAGE_LICENSE"
+                                    ? releaseMarriageLicense
+                                    : releaseCedula;
                 const rel = await releaseFn(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "");
                 if (rel.success) {
                     toast.success("Proceeding to Processing");
@@ -832,7 +858,17 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     const handleProcessRequest = async () => {
         setActionLoading(true);
         try {
-            const res = await processRegistrarRequest(transaction.id);
+            let res;
+            if (typeCode === "LCR_MARRIAGE_LICENSE" && transaction.status !== "FOR_REINSPECTION") {
+                const validItems = feeLineItems.filter(item => item.label.trim() !== "" && item.amount.trim() !== "");
+                const itemsToSend = validItems.map(item => ({
+                    label: item.label.trim(),
+                    amount: parseFloat(item.amount) || 0
+                }));
+                res = await processMarriageLicenseRequest(transaction.id, deliveryFee, itemsToSend, Number(miscFee));
+            } else {
+                res = await processRegistrarRequest(transaction.id);
+            }
             if (res.success) {
                 toast.success("Request processed successfully!");
                 router.push(backUrl);
@@ -1084,7 +1120,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     if (!transaction) return <div className="p-20 text-center dark:text-white">Protocol Error: Transaction Inaccessible</div>;
 
     const isRegistrar = rawUserRole === "REGISTRAR" || userDepartment?.toUpperCase() === "REGISTRAR";
-    if (isLcrBirthCertifiedCopy && isRegistrar && ["PAID", "PENDING_PAYMENT_VERIFICATION"].includes(transaction?.status)) {
+    if ((isLcrBirthCertifiedCopy || typeCode === "LCR_PSA_ENDORSEMENT") && isRegistrar && ["PAID", "PENDING_PAYMENT_VERIFICATION"].includes(transaction?.status)) {
         return (
             <div className="min-h-[50vh] flex flex-col items-center justify-center text-center p-8 space-y-6">
                 <div className="p-6 rounded-[2.5rem] bg-white dark:bg-[#151b28] border border-amber-500/20 shadow-2xl relative">
@@ -1192,10 +1228,11 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         if (isLCR) {
             const isLate = (additional.registrationType || "").toUpperCase() === "LATE";
             const isMarriageReg = typeCode === "LCR_MARRIAGE_REG";
-            const isBirthCert = typeCode === "LCR_BIRTH" || isLcrBirthCertifiedCopy;
+            const isCertifiedCopy = ["LCR_BIRTH", "LCR_DEATH", "LCR_MARRIAGE"].includes(typeCode) || isLcrBirthCertifiedCopy;
             const isBirthReg = typeCode === "LCR_BIRTH_REG";
             const isDeathReg = typeCode === "LCR_DEATH_REG";
-            const baseFee = (isBirthCert || isBirthReg || isDeathReg || (isMarriageReg && !isLate))
+            const isMarriageLicense = typeCode === "LCR_MARRIAGE_LICENSE";
+            const baseFee = (isCertifiedCopy || isBirthReg || isDeathReg || (isMarriageReg && !isLate) || isMarriageLicense)
                 ? 0
                 : Number(transaction.type?.baseFee || additional.totalAmount || transaction.totalAmount || 0);
             const typeDelivery = Number(transaction.type?.deliveryFee || 0);
@@ -1263,6 +1300,14 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             }
             return stepsList;
         }
+        if (typeCode === "LCR_PSA_ENDORSEMENT") {
+            return [
+                { id: "VERIFY_BILL", label: "Registrar: Verify & Bill" },
+                { id: "USER_PAYMENT", label: "User: Payment" },
+                { id: "TREASURY_OR", label: "Treasury: Verify & OR" },
+                { id: "REGISTRAR_RELEASE", label: "Registrar: Release" }
+            ];
+        }
         const stepsList = [
             { id: isLCR ? "FOR_INSPECTION" : "FOR_REQUESTING", label: "EVALUATION" },
             { id: "EVALUATED", label: "ASSESSMENT" },
@@ -1290,7 +1335,9 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     let steps = [...baseSteps];
     const status = transaction.status as string;
 
-    if (status === "REJECTED") {
+    if (typeCode === "LCR_PSA_ENDORSEMENT") {
+        // Maintain the standard 4 steps
+    } else if (status === "REJECTED") {
         steps = [
             { id: isLCR ? "FOR_INSPECTION" : "FOR_REQUESTING", label: "EVALUATION" },
             { id: "REJECTED", label: "REJECTED" }
@@ -1320,6 +1367,18 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     });
 
     const getEffectiveStatus = (s: string) => {
+        if (typeCode === "LCR_PSA_ENDORSEMENT") {
+            if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED"].includes(s)) {
+                return "VERIFY_BILL";
+            }
+            if (["EVALUATED", "UNPAID"].includes(s)) {
+                return "USER_PAYMENT";
+            }
+            if (["PAID", "PENDING_PAYMENT_VERIFICATION"].includes(s)) {
+                return "TREASURY_OR";
+            }
+            return "REGISTRAR_RELEASE";
+        }
         if (isLcrBirthCertifiedCopy && (s === "PAID" || s === "PENDING_PAYMENT_VERIFICATION")) {
             return "VERIFY_OR";
         }
@@ -1500,6 +1559,11 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                         key !== 'paymentReference' &&
                         key !== 'eCopyUrl' &&
                         key !== 'orUrl' &&
+                        key !== 'scannedDocUrl' &&
+                        key !== 'orSeriesNumber' &&
+                        key !== 'orNumber' &&
+                        key !== 'orNo' &&
+                        key !== 'orDocumentUrl' &&
                         key !== 'idFrontUrl' &&
                         key !== 'idBackUrl' &&
                         key !== 'validIdFront' &&
@@ -1657,6 +1721,23 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             </>
         );
     }
+    if (typeCode === "LCR_PSA_ENDORSEMENT") {
+        return (
+            <>
+                <BirthPsaEndorsementView {...viewProps} />
+                <DocumentViewerModal
+                    isOpen={viewerOpen}
+                    onClose={() => setViewerOpen(false)}
+                    file={null}
+                    fileUrl={viewerUrl}
+                    title={viewerTitle}
+                    themeColor={themeColor}
+                    documents={viewerDocs}
+                    initialIndex={viewerInitialIdx}
+                />
+            </>
+        );
+    }
     if (typeCode === "LCR_BIRTH" || isLcrBirthCertifiedCopy) {
         return (
             <>
@@ -1678,6 +1759,40 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         return (
             <>
                 <DeathRegistrationView {...viewProps} />
+                <DocumentViewerModal
+                    isOpen={viewerOpen}
+                    onClose={() => setViewerOpen(false)}
+                    file={null}
+                    fileUrl={viewerUrl}
+                    title={viewerTitle}
+                    themeColor={themeColor}
+                    documents={viewerDocs}
+                    initialIndex={viewerInitialIdx}
+                />
+            </>
+        );
+    }
+    if (typeCode === "LCR_DEATH") {
+        return (
+            <>
+                <DeathCertificateView {...viewProps} />
+                <DocumentViewerModal
+                    isOpen={viewerOpen}
+                    onClose={() => setViewerOpen(false)}
+                    file={null}
+                    fileUrl={viewerUrl}
+                    title={viewerTitle}
+                    themeColor={themeColor}
+                    documents={viewerDocs}
+                    initialIndex={viewerInitialIdx}
+                />
+            </>
+        );
+    }
+    if (typeCode === "LCR_MARRIAGE_LICENSE") {
+        return (
+            <>
+                <MarriageLicenseView {...viewProps} />
                 <DocumentViewerModal
                     isOpen={viewerOpen}
                     onClose={() => setViewerOpen(false)}

@@ -92,7 +92,17 @@ export default function BirthCertificateView(props: TreasuryViewProps) {
 
     const [isAssessmentOpen, setIsAssessmentOpen] = React.useState(true);
     const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
-    const additional = transaction.additionalData || {};
+    const additional = (() => {
+        if (!transaction?.additionalData) return {};
+        if (typeof transaction.additionalData === "string") {
+            try {
+                return JSON.parse(transaction.additionalData);
+            } catch {
+                return {};
+            }
+        }
+        return transaction.additionalData;
+    })();
     const isTreasuryContext = backUrl?.includes("/admin/treasury") || rawUserRole === "TREASURY_STAFF";
 
     const subjectName = transaction.birthCertificateRequest?.subjectName || additional.fullName || additional.subjectName || "N/A";
@@ -299,7 +309,7 @@ export default function BirthCertificateView(props: TreasuryViewProps) {
                         />
 
                         {/* Primary LCR Specific Details Panel */}
-                        <div className="bg-[#111827] border border-slate-800 rounded-[2.5rem] p-8 md:p-12 shadow-2xl space-y-8 animate-in fade-in duration-300">
+                        <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 md:p-12 shadow-2xl space-y-8 animate-in fade-in duration-300">
                             <div className="flex items-center gap-3">
                                 <div className="p-2.5 bg-primary rounded-xl text-white shadow-lg shadow-primary/20">
                                     <FileText className="w-5 h-5" />
@@ -309,36 +319,14 @@ export default function BirthCertificateView(props: TreasuryViewProps) {
                                 </h3>
                             </div>
 
-                            {additional.registryBookVerification && !["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "EVALUATED"].includes(transaction.status) && (
-                                <div className="flex items-center justify-between gap-4 animate-in fade-in duration-300">
-                                    <div className="space-y-1.5 flex-1">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Registry Book Verification Status</span>
-                                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                            {additional.registryBookVerification === "FORM_1A" ? "Form 1A (Record Found)" :
-                                                additional.registryBookVerification === "FORM_1B" ? "Form 1B (Record Not Available)" :
-                                                    additional.registryBookVerification === "FORM_1C" ? "Form 1C (Record Destroyed)" :
-                                                        additional.registryBookVerification}
-                                        </div>
-                                    </div>
-                                    <Badge className={cn(
-                                        "px-4.5 py-2 rounded-full font-black uppercase text-[10px] tracking-wider italic text-white shadow-md border-none shrink-0 self-end mb-0.5",
-                                        additional.registryBookVerification === "FORM_1A" ? "bg-emerald-500 hover:bg-emerald-500 shadow-emerald-500/10" :
-                                            additional.registryBookVerification === "FORM_1B" ? "bg-amber-500 hover:bg-amber-500 shadow-amber-500/10" :
-                                                "bg-rose-500 hover:bg-rose-500 shadow-rose-500/10"
-                                    )}>
-                                        {additional.registryBookVerification === "FORM_1A" ? "Record Found" :
-                                            additional.registryBookVerification === "FORM_1B" ? "Not Available" :
-                                                "Destroyed"}
-                                    </Badge>
-                                </div>
-                            )}
+
 
                             {(additional.orSeriesNumber || additional.scannedDocUrl) && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300">
                                     {additional.orSeriesNumber && (
                                         <div className="flex flex-col justify-center gap-2">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">O.R. Series Number</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {additional.orSeriesNumber}
                                             </div>
                                         </div>
@@ -354,7 +342,7 @@ export default function BirthCertificateView(props: TreasuryViewProps) {
                                     <div className="space-y-6">
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Subject Full Name</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {subjectName}
                                             </div>
                                         </div>
@@ -362,13 +350,13 @@ export default function BirthCertificateView(props: TreasuryViewProps) {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Date of Birth</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {safeFormatDate(additional.dateOfEvent)}
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Registry No.</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {transaction.birthCertificateRequest?.registryNumber || "PENDING"}
                                                 </div>
                                             </div>
@@ -376,7 +364,7 @@ export default function BirthCertificateView(props: TreasuryViewProps) {
 
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Birth</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {additional.placeOfEvent || "—"}
                                             </div>
                                         </div>
@@ -521,6 +509,18 @@ export default function BirthCertificateView(props: TreasuryViewProps) {
                                         Reject
                                     </Button>
                                 </div>
+                            </div>
+                        )}
+
+                        {transaction.status === "FOR_REQUESTING" && (
+                            <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center animate-in fade-in duration-300">
+                                <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
+                                    <Clock className="w-6 h-6 animate-pulse" />
+                                </div>
+                                <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Payment & Verification</h4>
+                                <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
+                                    This request is currently waiting for the citizen to settle the payment and for the Treasury Department to verify the transaction. No action is required from the Registrar at this time.
+                                </p>
                             </div>
                         )}
 

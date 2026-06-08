@@ -9,12 +9,11 @@ import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     User,
-    Search,
     Loader2,
     Check,
     AlertCircle,
     Home,
-    Skull,
+    Baby,
     ArrowRight,
     Upload,
     CheckCircle2,
@@ -47,9 +46,9 @@ import {
     ensureCivilRegistryTransactionTypes,
     submitCivilRegistryTransaction,
     getTransactionTypes,
-    getSystemSettingAction
+    getSystemSettingAction,
+    getLatestForm1AForCurrentUser
 } from "@/app/admin/transactions/actions";
-import { searchResidents, getResidentDataById } from "@/app/admin/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
@@ -73,80 +72,19 @@ const PreviewImage = ({ file, fallbackUrl, alt, className }: { file: File | null
     return <img src={src} alt={alt} className={className} />;
 };
 
-const STORAGE_KEY = "lcr_death_registration_draft";
+const STORAGE_KEY = "lcr_birth_psa_endorsement_draft";
 
-type Step = "IDENTITY" | "DETAILS" | "CONFIRM";
+type Step = "INFORMANT" | "SUBJECT" | "REVIEW";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
-    { id: "IDENTITY", label: "Informant Info", icon: User },
-    { id: "DETAILS", label: "Deceased Details", icon: Skull },
-    { id: "CONFIRM", label: "Review & Submit", icon: CheckCircle2 },
+    { id: "INFORMANT", label: "Informant Info", icon: User },
+    { id: "SUBJECT", label: "Subject & Documents", icon: FileText },
+    { id: "REVIEW", label: "Review & Submit", icon: CheckCircle2 },
 ];
 
-// --- Resident Search Component ---
-const ResidentSearch = ({ onSelect, placeholder = "Search resident..." }: { onSelect: (r: any) => void; placeholder?: string }) => {
-    const [query, setQuery] = useState("");
-    const [results, setResults] = useState<any[]>([]);
-
-    useEffect(() => {
-        if (query.length > 2) {
-            const delayDebounceFn = setTimeout(async () => {
-                const res = await searchResidents(query);
-                if (res.success && res.data) {
-                    setResults(res.data as any[]);
-                } else {
-                    setResults([]);
-                }
-            }, 300);
-            return () => clearTimeout(delayDebounceFn);
-        } else {
-            setResults([]);
-        }
-    }, [query]);
-
-    return (
-        <div className="relative w-full">
-            <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                    placeholder={placeholder}
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    className="pl-12 h-12 bg-slate-50 dark:bg-white/5 border-none font-bold"
-                />
-            </div>
-
-            {results.length > 0 && (
-                <div className="absolute z-[110] w-full mt-2 bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto p-2 space-y-1">
-                    {results.map((r) => (
-                        <button
-                            key={r.id}
-                            type="button"
-                            onClick={() => {
-                                onSelect(r);
-                                setQuery("");
-                                setResults([]);
-                            }}
-                            className="w-full text-left px-4 py-3 hover:bg-emerald-500/10 dark:hover:bg-white/5 rounded-xl flex items-center gap-3 transition-colors"
-                        >
-                            <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center">
-                                <User className="w-4 h-4 text-slate-400" />
-                            </div>
-                            <div>
-                                <p className="text-xs font-black uppercase italic">{r.firstName} {r.lastName}</p>
-                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{r.barangay}</p>
-                            </div>
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-};
-
-export default function DeathRegistrationPage() {
+export default function BirthPsaEndorsementPage() {
     const router = useRouter();
-    const [currentStep, setCurrentStep] = useState<Step>("IDENTITY");
+    const [currentStep, setCurrentStep] = useState<Step>("INFORMANT");
     const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -166,7 +104,6 @@ export default function DeathRegistrationPage() {
     const [submitting, setSubmitting] = useState(false);
     const [resident, setResident] = useState<any>(null);
     const [typeId, setTypeId] = useState<string>("");
-    const [lateFee, setLateFee] = useState<number>(0);
     const [showErrors, setShowErrors] = useState(false);
 
     const [viewerOpen, setViewerOpen] = useState(false);
@@ -183,17 +120,7 @@ export default function DeathRegistrationPage() {
 
     // Form State
     const [formData, setFormData] = useState({
-        fullName: "",
-        dateOfBirth: "",
-        dateOfDeath: "",
-        placeOfDeath: "",
-        causeOfDeath: "",
-        gender: "",
-        civilStatus: "",
-        fathersName: "",
-        mothersName: "",
         relationship: "",
-        registrationType: "STANDARD" as "STANDARD" | "LATE",
         email: "",
         contactNumber: "",
         informantFirstName: "",
@@ -205,15 +132,18 @@ export default function DeathRegistrationPage() {
         informantCivilStatus: "",
         informantCitizenship: "",
         informantOccupation: "",
+        // Subject fields
+        subjectFullName: "",
+        subjectDateOfBirth: "",
+        mothersMaidenName: "",
     });
 
     const [files, setFiles] = useState<Record<string, File | null>>({
-        municipalForm103: null,
-        psaNegative: null,
-        affidavitOfDelay: null
+        psaNegativeCert: null,
+        form1a: null,
     });
 
-    // Privacy / Terms modal state (shared key across LCR pages)
+    // Privacy / Terms modal state
     const [policyOpen, setPolicyOpen] = useState(false);
     const [policyAccepted, setPolicyAccepted] = useState(false);
 
@@ -224,8 +154,8 @@ export default function DeathRegistrationPage() {
 
     // Restore progress from session storage & IndexedDB
     useEffect(() => {
-        const savedStep = sessionStorage.getItem("death-reg-step");
-        const savedForm = sessionStorage.getItem("death-reg-form");
+        const savedStep = sessionStorage.getItem("psa-endorsement-step");
+        const savedForm = sessionStorage.getItem("psa-endorsement-form");
 
         if (savedStep) setCurrentStep(savedStep as Step);
         if (savedForm) {
@@ -263,8 +193,8 @@ export default function DeathRegistrationPage() {
 
     useEffect(() => {
         if (!loading) {
-            sessionStorage.setItem("death-reg-step", currentStep);
-            sessionStorage.setItem("death-reg-form", JSON.stringify(formData));
+            sessionStorage.setItem("psa-endorsement-step", currentStep);
+            sessionStorage.setItem("psa-endorsement-form", JSON.stringify(formData));
         }
     }, [currentStep, formData, loading]);
 
@@ -293,15 +223,14 @@ export default function DeathRegistrationPage() {
                         informantAge: r.age?.toString() || "",
                         informantCivilStatus: r.civilStatus || "",
                         informantCitizenship: r.citizenship || "FILIPINO",
-                        informantOccupation: r.occupation || ""
+                        informantOccupation: r.occupation || "",
                     }));
                 }
 
                 if (typesResult.success && typesResult.data) {
-                    const deathRegType = typesResult.data.find((t: any) => t.code === "LCR_DEATH_REG");
-                    if (deathRegType) {
-                        setTypeId(deathRegType.id);
-                        setLateFee((deathRegType as any).lateFee || 0);
+                    const psaType = typesResult.data.find((t: any) => t.code === "LCR_PSA_ENDORSEMENT");
+                    if (psaType) {
+                        setTypeId(psaType.id);
                     }
                 }
             } catch (error) {
@@ -319,7 +248,72 @@ export default function DeathRegistrationPage() {
     };
 
     const handleSelectChange = (name: string, value: string) => {
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => {
+            const next = { ...prev, [name]: value };
+            if (name === "relationship") {
+                if (value === "SELF" && resident) {
+                    const sName = [resident.firstName, resident.middleName, resident.lastName].filter(Boolean).join(" ") + (resident.suffix ? " " + resident.suffix : "");
+                    const sDob = resident.dateOfBirth ? new Date(resident.dateOfBirth).toISOString().split('T')[0] : "";
+                    const mName = [resident.motherFirstName, resident.motherMiddleName, resident.motherLastName].filter(Boolean).join(" ");
+                    
+                    next.subjectFullName = sName.toUpperCase();
+                    next.subjectDateOfBirth = sDob;
+                    next.mothersMaidenName = mName.toUpperCase();
+                } else {
+                    next.subjectFullName = "";
+                    next.subjectDateOfBirth = "";
+                    next.mothersMaidenName = "";
+                }
+            }
+            return next;
+        });
+
+        if (name === "relationship" && value !== "SELF") {
+            setFiles(prev => ({ ...prev, form1a: null }));
+            saveDraftFile(STORAGE_KEY, "form1a", null).catch(err => {
+                console.error("Failed to delete draft Form 1A file from IndexedDB:", err);
+            });
+        }
+
+        if (name === "relationship" && value === "SELF") {
+            const promise = (async () => {
+                const res = await getLatestForm1AForCurrentUser();
+                if (res.success && res.data) {
+                    const { docUrl, subjectName, dateOfBirth, mothersMaidenName } = res.data;
+                    
+                    setFormData(prev => ({
+                        ...prev,
+                        subjectFullName: subjectName ? subjectName.toUpperCase() : prev.subjectFullName,
+                        subjectDateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString().split('T')[0] : prev.subjectDateOfBirth,
+                        mothersMaidenName: mothersMaidenName ? mothersMaidenName.toUpperCase() : prev.mothersMaidenName
+                    }));
+
+                    if (docUrl) {
+                        try {
+                            const response = await fetch(docUrl);
+                            const blob = await response.blob();
+                            const filename = docUrl.split('/').pop() || "form_1a.pdf";
+                            const file = new File([blob], filename, { type: blob.type });
+                            
+                            setFiles(prev => ({
+                                ...prev,
+                                form1a: file
+                            }));
+                            
+                            await saveDraftFile(STORAGE_KEY, "form1a", file);
+                            toast.success("Latest Form 1A found and automatically attached from your transactions!");
+                        } catch (err) {
+                            console.error("Failed to download Form 1A file:", err);
+                        }
+                    }
+                }
+            })();
+            toast.promise(promise, {
+                loading: "Checking for your latest issued Form 1A in transactions...",
+                success: "Form 1A status checked.",
+                error: "Failed to check or fetch Form 1A document."
+            });
+        }
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
@@ -334,7 +328,7 @@ export default function DeathRegistrationPage() {
         }
     };
 
-    const renderDocCard = (label: string, fileKey: string, uploadId: string) => {
+    const renderDocCard = (label: string, fileKey: string, uploadId: string, required: boolean = true) => {
         const file = files[fileKey];
 
         const formatFileSize = (bytes?: number) => {
@@ -349,9 +343,9 @@ export default function DeathRegistrationPage() {
             <div className="p-4 rounded-2xl border border-slate-200/60 dark:border-white/5 bg-slate-50/30 dark:bg-white/5 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col gap-3 relative overflow-hidden group">
                 <div className="flex items-start justify-between gap-2">
                     <div className="space-y-0.5">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 italic block">Required Document</span>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 italic block">{required ? "Required Document" : "Optional Document"}</span>
                         <h4 className="text-[10px] font-black uppercase tracking-tight text-slate-700 dark:text-slate-200 leading-tight">
-                            {label} <span className="text-red-500">*</span>
+                            {label} {required && <span className="text-red-500">*</span>}
                         </h4>
                     </div>
                     {file ? (
@@ -360,7 +354,7 @@ export default function DeathRegistrationPage() {
                         </span>
                     ) : (
                         <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full animate-pulse shrink-0">
-                            Pending
+                            {required ? "Pending" : "Optional"}
                         </span>
                     )}
                 </div>
@@ -460,7 +454,6 @@ export default function DeathRegistrationPage() {
     };
 
     const handleSubmit = async () => {
-        // Require privacy terms acceptance before allowing submit
         if (!policyAccepted) {
             setShowErrors(true);
             toast.error("Please review and accept the Privacy Policy & Terms before submitting. Click Review to open the agreement.");
@@ -471,27 +464,16 @@ export default function DeathRegistrationPage() {
             return;
         }
 
-        if (formData.registrationType === "STANDARD" && !files.municipalForm103) {
-            toast.error("Please upload Municipal Form No. 103");
+        if (!files.psaNegativeCert) {
+            toast.error("Please upload PSA Negative Certification");
             return;
-        }
-
-        if (formData.registrationType === "LATE") {
-            if (!files.psaNegative) {
-                toast.error("Please upload PSA Negative Certification");
-                return;
-            }
-            if (!files.affidavitOfDelay) {
-                toast.error("Please upload Affidavit of Delayed Registration");
-                return;
-            }
         }
 
         setSubmitting(true);
         try {
             const data = new FormData();
             data.append("typeId", typeId);
-            data.append("registryType", "DEATH_REG");
+            data.append("registryType", "BIRTH_PSA_ENDORSEMENT");
 
             const residentSnapshot = {
                 firstName: resident?.firstName || "",
@@ -506,11 +488,10 @@ export default function DeathRegistrationPage() {
 
             data.append("residentSnapshot", JSON.stringify(residentSnapshot));
 
-            const miscFee = formData.registrationType === "LATE" ? lateFee : 0;
             const additionalData = {
                 ...formData,
-                subjectName: formData.fullName,
-                miscFee,
+                subjectName: formData.subjectFullName,
+                psaEndorsementFee: 200,
             };
             data.append("additionalData", JSON.stringify(additionalData));
 
@@ -524,13 +505,13 @@ export default function DeathRegistrationPage() {
             const res = await submitCivilRegistryTransaction(data);
 
             if (res.success && res.data) {
-                toast.success("Death Registration submitted successfully!");
-                sessionStorage.removeItem("death-reg-step");
-                sessionStorage.removeItem("death-reg-form");
+                toast.success("Birth PSA Endorsement submitted successfully!");
+                sessionStorage.removeItem("psa-endorsement-step");
+                sessionStorage.removeItem("psa-endorsement-form");
                 await clearDraftFiles(STORAGE_KEY);
                 router.push(`/user/services/requests/${res.data.id}`);
             } else {
-                toast.error(res.error || "Failed to submit registration");
+                toast.error(res.error || "Failed to submit endorsement request");
             }
         } catch (error) {
             console.error("Submission error:", error);
@@ -544,7 +525,7 @@ export default function DeathRegistrationPage() {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
                 <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mb-4" />
-                <p className="font-black uppercase tracking-widest text-[10px] text-slate-400 italic">Initializing Registration Form...</p>
+                <p className="font-black uppercase tracking-widest text-[10px] text-slate-400 italic">Initializing Endorsement Form...</p>
             </div>
         );
     }
@@ -636,7 +617,7 @@ export default function DeathRegistrationPage() {
                         </BreadcrumbItem>
                         <BreadcrumbSeparator />
                         <BreadcrumbItem>
-                            <BreadcrumbPage>Death Registration</BreadcrumbPage>
+                            <BreadcrumbPage>Birth PSA Endorsement</BreadcrumbPage>
                         </BreadcrumbItem>
                     </BreadcrumbList>
                 </Breadcrumb>
@@ -646,14 +627,14 @@ export default function DeathRegistrationPage() {
                         <div className="space-y-2">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-emerald-500/10 rounded-xl">
-                                    <Skull className="w-6 h-6 text-emerald-500" />
+                                    <Baby className="w-6 h-6 text-emerald-500" />
                                 </div>
                                 <span className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-500">Local Civil Registry</span>
                             </div>
                             <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">
-                                Death <span className="text-emerald-500">Registration</span>
+                                Birth PSA <span className="text-emerald-500">Endorsement</span>
                             </h1>
-                            <p className="text-slate-500 font-medium text-sm italic">Submit timely or late registration applications for death records.</p>
+                            <p className="text-slate-500 font-medium text-sm italic">Request endorsement of a verified local birth certificate record to the Philippine Statistics Authority (PSA).</p>
                         </div>
                     </div>
 
@@ -723,9 +704,10 @@ export default function DeathRegistrationPage() {
 
                     <Card className="p-6 md:p-10 rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 bg-white dark:bg-[#0f1117] shadow-xl shadow-slate-200/40 dark:shadow-none overflow-hidden min-h-[400px]">
                         <AnimatePresence mode="wait">
-                            {currentStep === "IDENTITY" && (
+                            {/* ===== STEP 1: INFORMANT ===== */}
+                            {currentStep === "INFORMANT" && (
                                 <motion.div
-                                    key="identity-step"
+                                    key="informant-step"
                                     initial={{ opacity: 0, scale: 0.95 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 1.05 }}
@@ -733,12 +715,12 @@ export default function DeathRegistrationPage() {
                                 >
                                     <div className="space-y-2">
                                         <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Informant Information</h2>
-                                        <p className="text-xs text-slate-500 font-medium italic">Details of the person registering the death</p>
+                                        <p className="text-xs text-slate-500 font-medium italic">Your details as the requesting informant</p>
                                     </div>
 
                                     <div className="space-y-6">
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Informant&apos;s Relationship to Deceased <span className="text-red-500">*</span></Label>
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Relationship to Subject <span className="text-red-500">*</span></Label>
                                             <Select
                                                 value={formData.relationship}
                                                 onValueChange={(v) => handleSelectChange("relationship", v)}
@@ -747,7 +729,7 @@ export default function DeathRegistrationPage() {
                                                     <SelectValue placeholder="SELECT RELATIONSHIP" />
                                                 </SelectTrigger>
                                                 <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
-                                                    <SelectItem value="SPOUSE">SPOUSE</SelectItem>
+                                                    <SelectItem value="SELF">SELF (I AM THE SUBJECT)</SelectItem>
                                                     <SelectItem value="CHILD">CHILD</SelectItem>
                                                     <SelectItem value="PARENT">PARENT</SelectItem>
                                                     <SelectItem value="SIBLING">SIBLING</SelectItem>
@@ -831,11 +813,11 @@ export default function DeathRegistrationPage() {
                                             onClick={() => {
                                                 if (!formData.relationship || !formData.contactNumber) {
                                                     setShowErrors(true);
-                                                    toast.error("Please fill in all informant details.");
+                                                    toast.error("Please fill in all required informant details.");
                                                     return;
                                                 }
                                                 setShowErrors(false);
-                                                setCurrentStep("DETAILS");
+                                                setCurrentStep("SUBJECT");
                                             }}
                                             className="rounded-full px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-emerald-500/20"
                                         >
@@ -846,9 +828,10 @@ export default function DeathRegistrationPage() {
                                 </motion.div>
                             )}
 
-                            {currentStep === "DETAILS" && (
+                            {/* ===== STEP 2: SUBJECT & DOCUMENTS ===== */}
+                            {currentStep === "SUBJECT" && (
                                 <motion.div
-                                    key="details-step"
+                                    key="subject-step"
                                     initial={{ opacity: 0, scale: 0.95 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 1.05 }}
@@ -856,75 +839,25 @@ export default function DeathRegistrationPage() {
                                 >
                                     <div className="space-y-2">
                                         <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight flex items-center gap-2">
-                                            Deceased Information
+                                            Subject Information & Documents
                                         </h2>
-                                        <p className="text-xs text-slate-500 font-medium italic">Provide the details of the deceased individual</p>
-                                    </div>
-
-                                    {/* Resident Database Search */}
-                                    <div className="space-y-3 p-6 rounded-[2rem] bg-slate-500/5 border border-slate-200/50 dark:border-white/5">
-                                        <div className="flex items-center gap-2">
-                                            <Search className="w-4 h-4 text-emerald-500" />
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                                Search Deceased in Resident Database
-                                            </Label>
-                                        </div>
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider italic">
-                                            If the deceased was a registered resident of Mapandan, you can search and select their profile to automatically pre-fill all available information.
-                                        </p>
-                                        <ResidentSearch
-                                            placeholder="Type resident name to search..."
-                                            onSelect={async (r) => {
-                                                try {
-                                                    const res = await getResidentDataById(r.id);
-                                                    if (res.success && res.data) {
-                                                        const fullResident = res.data;
-                                                        const middleInit = fullResident.middleName ? ` ${fullResident.middleName.charAt(0)}.` : "";
-                                                        const suffixStr = fullResident.suffix ? ` ${fullResident.suffix}` : "";
-                                                        
-                                                        const fatherMiddle = fullResident.fatherMiddleName ? ` ${fullResident.fatherMiddleName}` : "";
-                                                        const fatherLast = fullResident.fatherLastName ? ` ${fullResident.fatherLastName}` : "";
-                                                        const fatherFullName = fullResident.fatherFirstName ? `${fullResident.fatherFirstName}${fatherMiddle}${fatherLast}`.trim().toUpperCase() : "";
-
-                                                        const motherMiddle = fullResident.motherMiddleName ? ` ${fullResident.motherMiddleName}` : "";
-                                                        const motherLast = fullResident.motherLastName ? ` ${fullResident.motherLastName}` : "";
-                                                        const motherFullName = fullResident.motherFirstName ? `${fullResident.motherFirstName}${motherMiddle}${motherLast}`.trim().toUpperCase() : "";
-
-                                                        setFormData(prev => ({
-                                                            ...prev,
-                                                            fullName: `${fullResident.firstName}${middleInit} ${fullResident.lastName}${suffixStr}`.toUpperCase(),
-                                                            dateOfBirth: fullResident.dateOfBirth ? new Date(fullResident.dateOfBirth).toISOString().split('T')[0] : "",
-                                                            gender: (fullResident.gender || "").toUpperCase(),
-                                                            civilStatus: (fullResident.civilStatus || "").toUpperCase(),
-                                                            fathersName: fatherFullName,
-                                                            mothersName: motherFullName
-                                                        }));
-                                                        toast.success(`Selected ${fullResident.firstName} ${fullResident.lastName} as the deceased.`);
-                                                    } else {
-                                                        toast.error("Failed to load full resident details.");
-                                                    }
-                                                } catch (err) {
-                                                    console.error("Error loading resident details:", err);
-                                                    toast.error("An error occurred while fetching details.");
-                                                }
-                                            }}
-                                        />
+                                        <p className="text-xs text-slate-500 font-medium italic">Provide the details of the person whose birth record needs PSA endorsement</p>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Full Name <span className="text-red-500">*</span></Label>
+                                        <div className="md:col-span-2 space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Subject&apos;s Full Name <span className="text-red-500">*</span></Label>
                                             <Input
-                                                name="fullName"
-                                                placeholder="ENTER FULL NAME"
-                                                value={formData.fullName}
+                                                name="subjectFullName"
+                                                placeholder="ENTER FULL NAME OF SUBJECT"
+                                                value={formData.subjectFullName}
                                                 onChange={handleInputChange}
                                                 className={cn(
                                                     "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                    (showErrors && !formData.fullName) && "border-red-500/50 bg-red-50/10"
+                                                    (showErrors && !formData.subjectFullName) && "border-red-500/50 bg-red-50/10"
                                                 )}
                                             />
-                                            {(showErrors && !formData.fullName) && (
+                                            {(showErrors && !formData.subjectFullName) && (
                                                 <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                             )}
                                         </div>
@@ -932,154 +865,67 @@ export default function DeathRegistrationPage() {
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Date of Birth <span className="text-red-500">*</span></Label>
                                             <Input
                                                 type="date"
-                                                name="dateOfBirth"
-                                                value={formData.dateOfBirth}
+                                                name="subjectDateOfBirth"
+                                                value={formData.subjectDateOfBirth}
                                                 onChange={handleInputChange}
                                                 className={cn(
                                                     "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-medium",
-                                                    (showErrors && !formData.dateOfBirth) && "border-red-500/50 bg-red-50/10"
+                                                    (showErrors && !formData.subjectDateOfBirth) && "border-red-500/50 bg-red-50/10"
                                                 )}
                                             />
-                                            {(showErrors && !formData.dateOfBirth) && (
+                                            {(showErrors && !formData.subjectDateOfBirth) && (
                                                 <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                             )}
                                         </div>
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Date of Death <span className="text-red-500">*</span></Label>
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Mother&apos;s Maiden Name <span className="text-red-500">*</span></Label>
                                             <Input
-                                                type="date"
-                                                name="dateOfDeath"
-                                                value={formData.dateOfDeath}
-                                                onChange={handleInputChange}
-                                                className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-medium",
-                                                    (showErrors && !formData.dateOfDeath) && "border-red-500/50 bg-red-50/10"
-                                                )}
-                                            />
-                                            {(showErrors && !formData.dateOfDeath) && (
-                                                <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
-                                            )}
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Place of Death <span className="text-red-500">*</span></Label>
-                                            <Input
-                                                name="placeOfDeath"
-                                                placeholder="ENTER PLACE"
-                                                value={formData.placeOfDeath}
+                                                name="mothersMaidenName"
+                                                placeholder="ENTER MOTHER'S MAIDEN NAME"
+                                                value={formData.mothersMaidenName}
                                                 onChange={handleInputChange}
                                                 className={cn(
                                                     "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                    (showErrors && !formData.placeOfDeath) && "border-red-500/50 bg-red-50/10"
+                                                    (showErrors && !formData.mothersMaidenName) && "border-red-500/50 bg-red-50/10"
                                                 )}
                                             />
-                                            {(showErrors && !formData.placeOfDeath) && (
-                                                <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
-                                            )}
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Cause of Death <span className="text-red-500">*</span></Label>
-                                            <Input
-                                                name="causeOfDeath"
-                                                placeholder="ENTER CAUSE"
-                                                value={formData.causeOfDeath}
-                                                onChange={handleInputChange}
-                                                className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                    (showErrors && !formData.causeOfDeath) && "border-red-500/50 bg-red-50/10"
-                                                )}
-                                            />
-                                            {(showErrors && !formData.causeOfDeath) && (
-                                                <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
-                                            )}
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Gender <span className="text-red-500">*</span></Label>
-                                            <Select
-                                                value={formData.gender}
-                                                onValueChange={(v) => handleSelectChange("gender", v)}
-                                            >
-                                                <SelectTrigger className={cn(
-                                                    "h-12 rounded-xl border-slate-200 focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
-                                                    (showErrors && !formData.gender) && "border-red-500/50 bg-red-50/10"
-                                                )}>
-                                                    <SelectValue placeholder="SELECT GENDER" />
-                                                </SelectTrigger>
-                                                <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
-                                                    <SelectItem value="MALE">MALE</SelectItem>
-                                                    <SelectItem value="FEMALE">FEMALE</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            {(showErrors && !formData.gender) && (
-                                                <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
-                                            )}
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Civil Status <span className="text-red-500">*</span></Label>
-                                            <Select
-                                                value={formData.civilStatus}
-                                                onValueChange={(v) => handleSelectChange("civilStatus", v)}
-                                            >
-                                                <SelectTrigger className={cn(
-                                                    "h-12 rounded-xl border-slate-200 focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
-                                                    (showErrors && !formData.civilStatus) && "border-red-500/50 bg-red-50/10"
-                                                )}>
-                                                    <SelectValue placeholder="SELECT STATUS" />
-                                                </SelectTrigger>
-                                                <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
-                                                    <SelectItem value="SINGLE">SINGLE</SelectItem>
-                                                    <SelectItem value="MARRIED">MARRIED</SelectItem>
-                                                    <SelectItem value="WIDOWED">WIDOWED</SelectItem>
-                                                    <SelectItem value="DIVORCED">DIVORCED</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            {(showErrors && !formData.civilStatus) && (
+                                            {(showErrors && !formData.mothersMaidenName) && (
                                                 <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                             )}
                                         </div>
                                     </div>
 
-                                    <div className="space-y-2 pt-4">
-                                        <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Parental Information</h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Father&apos;s Name <span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    name="fathersName"
-                                                    placeholder="ENTER FATHER'S NAME"
-                                                    value={formData.fathersName}
-                                                    onChange={handleInputChange}
-                                                    className={cn(
-                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                        (showErrors && !formData.fathersName) && "border-red-500/50 bg-red-50/10"
-                                                    )}
-                                                />
-                                                {(showErrors && !formData.fathersName) && (
-                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
-                                                )}
+                                    {/* Documents Section */}
+                                    <div className="space-y-4 pt-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-1.5 bg-emerald-500/10 rounded-lg">
+                                                <Upload className="w-3.5 h-3.5 text-emerald-500" />
                                             </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Mother&apos;s Maiden Name <span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    name="mothersName"
-                                                    placeholder="ENTER MOTHER'S MAIDEN NAME"
-                                                    value={formData.mothersName}
-                                                    onChange={handleInputChange}
-                                                    className={cn(
-                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                        (showErrors && !formData.mothersName) && "border-red-500/50 bg-red-50/10"
-                                                    )}
-                                                />
-                                                {(showErrors && !formData.mothersName) && (
-                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
-                                                )}
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Required Documents</span>
+                                        </div>
+
+                                        <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200/60 dark:border-amber-500/20">
+                                            <div className="flex items-start gap-3">
+                                                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">PSA Negative Certification Required</p>
+                                                    <p className="text-[9px] text-amber-600/80 dark:text-amber-400/80 italic mt-1">
+                                                        This is strictly required as proof that the record is not available in the national database. Obtain this from any PSA Serbilis outlet.
+                                                    </p>
+                                                </div>
                                             </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {renderDocCard("PSA Negative Certification", "psaNegativeCert", "doc-upload-psa-neg", true)}
+                                            {renderDocCard("Form 1A (Local Registry Copy)", "form1a", "doc-upload-form1a", false)}
                                         </div>
                                     </div>
 
                                     <div className="flex justify-end gap-3 pt-6">
                                         <Button
                                             variant="ghost"
-                                            onClick={() => setCurrentStep("IDENTITY")}
+                                            onClick={() => setCurrentStep("INFORMANT")}
                                             className="rounded-full px-8 border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[10px] h-12"
                                         >
                                             <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
@@ -1087,13 +933,18 @@ export default function DeathRegistrationPage() {
                                         </Button>
                                         <Button
                                             onClick={() => {
-                                                if (!formData.fullName || !formData.dateOfBirth || !formData.dateOfDeath || !formData.placeOfDeath || !formData.causeOfDeath || !formData.gender || !formData.civilStatus || !formData.fathersName || !formData.mothersName) {
+                                                if (!formData.subjectFullName || !formData.subjectDateOfBirth || !formData.mothersMaidenName) {
                                                     setShowErrors(true);
-                                                    toast.error("Please fill in all deceased details.");
+                                                    toast.error("Please fill in all subject details.");
+                                                    return;
+                                                }
+                                                if (!files.psaNegativeCert) {
+                                                    setShowErrors(true);
+                                                    toast.error("Please upload PSA Negative Certification.");
                                                     return;
                                                 }
                                                 setShowErrors(false);
-                                                setCurrentStep("CONFIRM");
+                                                setCurrentStep("REVIEW");
                                             }}
                                             className="rounded-full px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-emerald-500/20"
                                         >
@@ -1104,9 +955,10 @@ export default function DeathRegistrationPage() {
                                 </motion.div>
                             )}
 
-                            {currentStep === "CONFIRM" && (
+                            {/* ===== STEP 3: REVIEW & SUBMIT ===== */}
+                            {currentStep === "REVIEW" && (
                                 <motion.div
-                                    key="confirm-step"
+                                    key="review-step"
                                     initial={{ opacity: 0, scale: 0.95 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 1.05 }}
@@ -1114,106 +966,70 @@ export default function DeathRegistrationPage() {
                                 >
                                     <div className="flex items-center gap-4 mb-4">
                                         <div>
-                                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Registration Review</h2>
-                                            <p className="text-xs text-slate-500 font-medium italic">Verify information and upload required documents</p>
+                                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Endorsement Review</h2>
+                                            <p className="text-xs text-slate-500 font-medium italic">Verify information before submission</p>
                                         </div>
                                     </div>
 
                                     <Card className="bg-slate-50 dark:bg-white/5 border-none p-6 rounded-[2rem] space-y-4">
                                         <div className="grid grid-cols-2 gap-6">
                                             <div className="space-y-1">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Deceased Name</span>
-                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.fullName}</p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Date of Death</span>
-                                                <p className="font-black text-slate-900 dark:text-white italic">{formData.dateOfDeath}</p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Place of Death</span>
-                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.placeOfDeath}</p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Cause of Death</span>
-                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.causeOfDeath}</p>
-                                            </div>
-                                            <div className="space-y-1">
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Informant</span>
                                                 <p className="font-black text-slate-900 dark:text-white italic uppercase">{resident?.firstName} {resident?.lastName} ({formData.relationship})</p>
                                             </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Contact</span>
+                                                <p className="font-black text-slate-900 dark:text-white italic">{formData.contactNumber}</p>
+                                            </div>
+                                            <div className="col-span-2 border-t border-slate-200 dark:border-white/5 pt-4 space-y-1">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500 italic">Subject Name (To Endorse)</span>
+                                                <p className="font-black text-slate-900 dark:text-white italic uppercase text-lg">{formData.subjectFullName}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Date of Birth</span>
+                                                <p className="font-black text-slate-900 dark:text-white italic">{formData.subjectDateOfBirth}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Mother&apos;s Maiden Name</span>
+                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.mothersMaidenName}</p>
+                                            </div>
                                         </div>
 
-                                        {/* Registration Type Toggle */}
-                                        <div className="pt-4 border-t border-slate-200 dark:border-white/5 space-y-4">
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Registration Type:</span>
-                                                <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-full border border-slate-200 dark:border-white/10">
-                                                    <button
-                                                        onClick={() => setFormData(prev => ({ ...prev, registrationType: "STANDARD" }))}
-                                                        className={cn(
-                                                            "px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300",
-                                                            formData.registrationType === "STANDARD"
-                                                                ? "bg-white dark:bg-slate-800 text-emerald-600 shadow-sm"
-                                                                : "text-slate-400 hover:text-slate-600"
-                                                        )}
-                                                    >
-                                                        Standard
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setFormData(prev => ({ ...prev, registrationType: "LATE" }))}
-                                                        className={cn(
-                                                            "px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300",
-                                                            formData.registrationType === "LATE"
-                                                                ? "bg-white dark:bg-slate-800 text-emerald-600 shadow-sm"
-                                                                : "text-slate-400 hover:text-slate-600"
-                                                        )}
-                                                    >
-                                                        Late
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {/* Miscellaneous Fee */}
-                                            <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20">
-                                                <div>
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Miscellaneous Fee</span>
-                                                    <p className="text-[9px] text-slate-400 italic mt-0.5">
-                                                        {formData.registrationType === "STANDARD" ? "No additional fee for standard registration" : "Late registration surcharge"}
-                                                    </p>
-                                                </div>
-                                                <div className="text-right">
-                                                    {formData.registrationType === "STANDARD" ? (
-                                                        <span className="text-lg font-black text-emerald-600 tracking-tight">FREE</span>
-                                                    ) : (
-                                                        <span className="text-lg font-black text-amber-600 tracking-tight">₱{lateFee.toFixed(2)}</span>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-4">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="p-1.5 bg-emerald-500/10 rounded-lg">
-                                                        <Upload className="w-3.5 h-3.5 text-emerald-500" />
-                                                    </div>
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Required Documents</span>
-                                                </div>
-
-
-
-                                                <div className="pb-4">
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        {formData.registrationType === "STANDARD" && (
-                                                            renderDocCard("Municipal Form No. 103", "municipalForm103", "doc-upload")
-                                                        )}
-
-                                                        {formData.registrationType === "LATE" && (
-                                                            <>
-                                                                {renderDocCard("PSA Negative Certification", "psaNegative", "doc-upload-psa")}
-                                                                {renderDocCard("Affidavit of Delayed Registration", "affidavitOfDelay", "doc-upload-affidavit")}
-                                                            </>
-                                                        )}
+                                        {/* Documents Summary */}
+                                        <div className="pt-4 border-t border-slate-200 dark:border-white/5 space-y-3">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Uploaded Documents</span>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                <div className={cn(
+                                                    "flex items-center gap-3 p-3 rounded-xl border",
+                                                    files.psaNegativeCert ? "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/20" : "bg-red-50/30 border-red-200/50"
+                                                )}>
+                                                    {files.psaNegativeCert ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
+                                                    <div>
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">PSA Negative Certification</p>
+                                                        <p className="text-[8px] text-slate-400 italic">{files.psaNegativeCert ? files.psaNegativeCert.name : "Not uploaded"}</p>
                                                     </div>
                                                 </div>
+                                                <div className={cn(
+                                                    "flex items-center gap-3 p-3 rounded-xl border",
+                                                    files.form1a ? "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/20" : "bg-slate-50/30 border-slate-200/50 dark:border-white/5"
+                                                )}>
+                                                    {files.form1a ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <FileText className="w-4 h-4 text-slate-400 shrink-0" />}
+                                                    <div>
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Form 1A</p>
+                                                        <p className="text-[8px] text-slate-400 italic">{files.form1a ? files.form1a.name : "Not uploaded (optional)"}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Fee Display */}
+                                        <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20">
+                                            <div>
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">PSA Endorsement Fee</span>
+                                                <p className="text-[9px] text-slate-400 italic mt-0.5">Standard processing fee for PSA endorsement</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-lg font-black text-emerald-600 tracking-tight">₱200.00</span>
                                             </div>
                                         </div>
                                     </Card>
@@ -1280,7 +1096,7 @@ export default function DeathRegistrationPage() {
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                                             <Button
                                                 variant="ghost"
-                                                onClick={() => setCurrentStep("DETAILS")}
+                                                onClick={() => setCurrentStep("SUBJECT")}
                                                 className="h-14 rounded-full border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[11px]"
                                             >
                                                 <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
@@ -1288,27 +1104,24 @@ export default function DeathRegistrationPage() {
                                             </Button>
                                             <Button
                                                 onClick={handleSubmit}
-                                                disabled={
-                                                    submitting ||
-                                                    (formData.registrationType === "STANDARD" ? !files.municipalForm103 : (!files.psaNegative || !files.affidavitOfDelay))
-                                                }
+                                                disabled={submitting || !files.psaNegativeCert}
                                                 className={cn(
                                                     "md:col-span-3 h-14 rounded-full font-black uppercase tracking-widest italic text-[11px] transition-all duration-300",
-                                                    (formData.registrationType === "STANDARD" ? !files.municipalForm103 : (!files.psaNegative || !files.affidavitOfDelay))
+                                                    !files.psaNegativeCert
                                                         ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                                                         : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-500/20"
                                                 )}
                                             >
                                                 {submitting ? (
                                                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                                                ) : ((formData.registrationType === "STANDARD" ? !files.municipalForm103 : (!files.psaNegative || !files.affidavitOfDelay))) ? (
+                                                ) : !files.psaNegativeCert ? (
                                                     <>
                                                         Upload Required Documents
                                                         <AlertCircle className="w-5 h-5 ml-2" />
                                                     </>
                                                 ) : (
                                                     <>
-                                                        Submit Death Registration Application
+                                                        Submit Birth PSA Endorsement Application
                                                         <CheckCircle2 className="w-5 h-5 ml-2" />
                                                     </>
                                                 )}

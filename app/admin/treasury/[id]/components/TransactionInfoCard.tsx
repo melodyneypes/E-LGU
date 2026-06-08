@@ -11,7 +11,7 @@ interface TransactionInfoCardProps {
 
 export default function TransactionInfoCard({ transactionName, themeColor }: TransactionInfoCardProps) {
     return (
-        <div className="bg-[#111827] border border-slate-800 rounded-[2rem] p-8 shadow-xl flex items-center justify-between gap-4">
+        <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 rounded-[2rem] p-8 shadow-xl flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
                 <div 
                     className="w-10 h-10 rounded-2xl flex items-center justify-center border transition-colors"
@@ -30,7 +30,7 @@ export default function TransactionInfoCard({ transactionName, themeColor }: Tra
                     >
                         Transaction Information
                     </span>
-                    <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white mt-1 leading-none">
+                    <h2 className="text-3xl font-black italic uppercase tracking-tighter text-slate-800 dark:text-white mt-1 leading-none">
                         {transactionName}
                     </h2>
                 </div>

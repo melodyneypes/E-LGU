@@ -51,7 +51,7 @@ export default function ResidentIdentityProfile({
     })();
 
     return (
-        <div className="bg-[#111827] border border-slate-800 rounded-[2.5rem] p-8 shadow-2xl space-y-6 transition-all duration-500 overflow-hidden">
+        <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-2xl space-y-6 transition-all duration-500 overflow-hidden">
             {/* Header section with toggle button */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -73,7 +73,7 @@ export default function ResidentIdentityProfile({
                             >
                                 {titleColorText || "Resident"}
                             </span>
-                            <span className="text-xl font-black italic tracking-tighter text-white uppercase">
+                            <span className="text-xl font-black italic tracking-tighter text-slate-800 dark:text-white uppercase">
                                 {titleWhiteText || "Identity Profile"}
                             </span>
                         </div>
@@ -84,18 +84,18 @@ export default function ResidentIdentityProfile({
                 </div>
                 <button
                     onClick={() => setIsOpen(!isOpen)}
-                    className="w-10 h-10 rounded-full hover:bg-white/5 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-all focus:outline-none"
+                    className="w-10 h-10 rounded-full hover:bg-slate-50 dark:hover:bg-white/5 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-white transition-all focus:outline-none"
                 >
                     {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
             </div>
 
             {isOpen && (
-                <div className="grid grid-cols-12 gap-5 pt-4 border-t border-slate-800 animate-in fade-in duration-500">
+                <div className="grid grid-cols-12 gap-5 pt-4 border-t border-slate-100 dark:border-slate-800 animate-in fade-in duration-500">
                     {/* First Name */}
                     <div className="col-span-12 sm:col-span-3 space-y-1.5">
                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">First Name</span>
-                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                             {resident.firstName || "—"}
                         </div>
                     </div>
@@ -103,7 +103,7 @@ export default function ResidentIdentityProfile({
                     {/* Middle Name */}
                     <div className="col-span-12 sm:col-span-3 space-y-1.5">
                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Middle Name</span>
-                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                             {resident.middleName || "—"}
                         </div>
                     </div>
@@ -111,7 +111,7 @@ export default function ResidentIdentityProfile({
                     {/* Last Name */}
                     <div className="col-span-12 sm:col-span-3 space-y-1.5">
                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Last Name</span>
-                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                             {resident.lastName || "—"}
                         </div>
                     </div>
@@ -119,7 +119,7 @@ export default function ResidentIdentityProfile({
                     {/* Suffix */}
                     <div className="col-span-12 sm:col-span-3 space-y-1.5">
                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Suffix</span>
-                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                             {resident.suffix || "--"}
                         </div>
                     </div>
@@ -127,7 +127,7 @@ export default function ResidentIdentityProfile({
                     {/* Birth Date */}
                     <div className="col-span-12 sm:col-span-3 space-y-1.5">
                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Birth Date</span>
-                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                             {safeFormatDate(resident.dateOfBirth)}
                         </div>
                     </div>
@@ -135,7 +135,7 @@ export default function ResidentIdentityProfile({
                     {/* Age */}
                     <div className="col-span-12 sm:col-span-3 space-y-1.5">
                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Age</span>
-                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                             {age}
                         </div>
                     </div>
@@ -143,7 +143,7 @@ export default function ResidentIdentityProfile({
                     {/* Civil Status */}
                     <div className="col-span-12 sm:col-span-3 space-y-1.5">
                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Civil Status</span>
-                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                             {resident.civilStatus || "—"}
                         </div>
                     </div>
@@ -151,7 +151,7 @@ export default function ResidentIdentityProfile({
                     {/* Contact Number */}
                     <div className="col-span-12 sm:col-span-3 space-y-1.5">
                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Contact Number</span>
-                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                             {resident.contactNumber || resident.phoneNumber || "—"}
                         </div>
                     </div>
@@ -159,7 +159,7 @@ export default function ResidentIdentityProfile({
                     {/* Occupation */}
                     <div className="col-span-12 sm:col-span-12 space-y-1.5">
                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Occupation</span>
-                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                             {resident.occupation || "—"}
                         </div>
                     </div>
@@ -168,7 +168,7 @@ export default function ResidentIdentityProfile({
                     {relationship && (
                         <div className="col-span-12 sm:col-span-12 space-y-1.5 animate-in fade-in duration-300">
                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Relationship to Subject / Deceased</span>
-                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                 {relationship || "—"}
                             </div>
                         </div>
@@ -178,7 +178,7 @@ export default function ResidentIdentityProfile({
                     <div className="col-span-12 sm:col-span-12 space-y-1.5">
                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Barangay & Complete Address</span>
                         <div 
-                            className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none truncate cursor-help"
+                            className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none truncate cursor-help"
                             title={completeAddress}
                         >
                             {completeAddress}

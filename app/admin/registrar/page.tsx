@@ -101,6 +101,7 @@ export default function RegistrarPage() {
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
     const searchParams = useSearchParams();
     const categoryParam = searchParams.get("category");
+    const hasSelectedCategory = Boolean(categoryParam && categoryParam !== "ALL");
     const [serviceFilter, setServiceFilter] = useState<string | null>(null);
 
     // Reset service filter when category param changes
@@ -166,6 +167,8 @@ export default function RegistrarPage() {
 
     // --- List Filtering and Sorting ---
     const filteredTransactions = useMemo(() => {
+        if (!hasSelectedCategory) return [];
+
         return transactions.filter(tx => {
             const rs = getResidentSnapshot(tx);
             const name = `${rs.firstName || ''} ${rs.lastName || ''}`.trim().toLowerCase();
@@ -178,22 +181,22 @@ export default function RegistrarPage() {
 
             const matchesService = !serviceFilter || serviceFilter === "ALL" || tx.type?.name === serviceFilter;
 
-            let matchesCategory = true;
-            if (categoryParam && categoryParam !== "ALL") {
-                if (categoryParam === "Birth Registration") {
-                    matchesCategory = tx.type?.code === "LCR_BIRTH_REG";
-                } else if (categoryParam === "Birth Certificate") {
-                    matchesCategory = tx.type?.code === "LCR_BIRTH";
-                } else if (categoryParam === "Death Registration") {
-                    matchesCategory = tx.type?.code === "LCR_DEATH_REG";
-                } else if (categoryParam === "Death Certificate") {
-                    matchesCategory = tx.type?.code === "LCR_DEATH";
-                }
+            let matchesCategory = false;
+            if (categoryParam === "Birth Registration") {
+                matchesCategory = tx.type?.code === "LCR_BIRTH_REG";
+            } else if (categoryParam === "Birth Certificate") {
+                matchesCategory = tx.type?.code === "LCR_BIRTH";
+            } else if (categoryParam === "Death Registration") {
+                matchesCategory = tx.type?.code === "LCR_DEATH_REG";
+            } else if (categoryParam === "Death Certificate") {
+                matchesCategory = tx.type?.code === "LCR_DEATH";
+            } else if (categoryParam === "Marriage License") {
+                matchesCategory = tx.type?.code === "LCR_MARRIAGE_LICENSE";
             }
 
             return matchesSearch && matchesService && matchesCategory;
         });
-    }, [transactions, search, serviceFilter, categoryParam]);
+    }, [transactions, search, serviceFilter, categoryParam, hasSelectedCategory]);
 
     const sortedTransactions = useMemo(() => {
         return [...filteredTransactions].sort((a, b) => {
@@ -261,7 +264,7 @@ export default function RegistrarPage() {
                     <div className="flex items-center gap-3 mb-1">
                         <div className="w-2 h-8 bg-primary rounded-full" />
                         <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">
-                            {categoryParam && categoryParam !== "ALL" ? categoryParam : "Registrar Hub"}
+                            {hasSelectedCategory ? categoryParam : "Registrar Hub"}
                         </h1>
                     </div>
                     <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">
@@ -270,7 +273,18 @@ export default function RegistrarPage() {
                 </div>
             </div>
 
-            {/* Consolidated Dynamic List Queue */}
+            {!hasSelectedCategory ? (
+                <div className="min-h-[420px] flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 dark:border-[#2a3040] bg-white/60 dark:bg-[#151b2b]/60 px-6 text-center animate-in fade-in duration-500">
+                    <Archive className="w-16 h-16 mb-5 text-slate-300 dark:text-slate-600" />
+                    <h2 className="text-2xl font-black text-slate-800 dark:text-slate-200">
+                        Select a request type
+                    </h2>
+                    <p className="mt-2 max-w-md text-slate-500 dark:text-slate-400">
+                        Choose a category from the Registrar Hub sidebar to view and manage its requests.
+                    </p>
+                </div>
+            ) : (
+            /* Consolidated Dynamic List Queue */
             <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-2xl shadow-blue-500/5 overflow-hidden ring-1 ring-slate-200 dark:ring-white/5 animate-in fade-in duration-500">
                 {/* Filters Row */}
                 <div className="flex flex-col border-b border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#151b2b]">
@@ -546,6 +560,7 @@ export default function RegistrarPage() {
                     </div>
                 </div>
             </div>
+            )}
         </div>
     );
 }

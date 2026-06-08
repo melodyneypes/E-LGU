@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import {
     LayoutDashboard, Users, Newspaper,
@@ -48,6 +48,7 @@ export function Sidebar({
     pendingTransactionsCount = 0
 }: SidebarProps) {
     const pathname = usePathname();
+    const router = useRouter();
     const searchParams = useSearchParams();
     const role = session?.user?.role || "ADMIN";
     const { isOpen: isSidebarOpen, close } = useSidebar();
@@ -176,13 +177,17 @@ export function Sidebar({
             category: "Registrar",
             isDropdown: true,
             isOpen: isRegistrarOpen,
-            onToggle: () => setIsRegistrarOpen(!isRegistrarOpen),
+            onToggle: () => {
+                setIsRegistrarOpen(true);
+                router.push("/admin/registrar");
+            },
             subItems: [
-                { href: "/admin/registrar?category=ALL", label: "All Requests" },
                 { href: "/admin/registrar?category=Birth Registration", label: "Birth Registration" },
                 { href: "/admin/registrar?category=Birth Certificate", label: "Birth Certificate" },
+                { href: "/admin/registrar?category=Birth PSA Endorsement", label: "PSA Endorsement" },
                 { href: "/admin/registrar?category=Death Registration", label: "Death Registration" },
                 { href: "/admin/registrar?category=Death Certificate", label: "Death Certificate" },
+                { href: "/admin/registrar?category=Marriage License", label: "Marriage License" },
             ]
         },
         {
@@ -191,9 +196,11 @@ export function Sidebar({
             category: "Treasury",
             isDropdown: true,
             isOpen: isTreasuryOpen,
-            onToggle: () => setIsTreasuryOpen(!isTreasuryOpen),
+            onToggle: () => {
+                setIsTreasuryOpen(true);
+                router.push("/admin/treasury");
+            },
             subItems: [
-                { href: "/admin/treasury?category=ALL", label: "All Categories" },
                 { href: "/admin/treasury?category=CEDULA", label: "CEDULA" },
                 { href: "/admin/treasury?category=Business Permit", label: "Business Permit" },
                 { href: "/admin/treasury?category=Civil Registry", label: "Civil Registry" },

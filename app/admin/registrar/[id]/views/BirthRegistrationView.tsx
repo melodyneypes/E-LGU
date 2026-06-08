@@ -269,14 +269,33 @@ export default function BirthRegistrationView(props: TreasuryViewProps) {
                                             Fee Assessment Breakdown
                                         </h3>
                                         <div className="space-y-4">
-                                            <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
-                                                <span>Miscellaneous Fee</span>
-                                                <span className="dark:text-slate-200 font-black">
-                                                    {parseFloat(miscFee || "0") > 0
-                                                        ? `₱${(parseFloat(miscFee || "0")).toFixed(2)}`
-                                                        : "FREE"}
-                                                </span>
-                                            </div>
+                                            {transaction.type?.code === "LCR_BIRTH_REG" ? (
+                                                <>
+                                                    <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
+                                                        <span>Registration Fee</span>
+                                                        <span className="dark:text-slate-200 font-black">
+                                                            {(() => {
+                                                                const mVal = parseFloat(miscFee || "0");
+                                                                const baseVal = mVal >= 215 ? mVal - 215 : mVal;
+                                                                return baseVal > 0 ? `₱${baseVal.toFixed(2)}` : "FREE";
+                                                            })()}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
+                                                        <span>E-Copy & Hardcopy Fee</span>
+                                                        <span className="dark:text-slate-200 font-black">₱215.00</span>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
+                                                    <span>Miscellaneous Fee</span>
+                                                    <span className="dark:text-slate-200 font-black">
+                                                        {parseFloat(miscFee || "0") > 0
+                                                            ? `₱${(parseFloat(miscFee || "0")).toFixed(2)}`
+                                                            : "FREE"}
+                                                    </span>
+                                                </div>
+                                            )}
 
                                             {transaction.fulfillmentType === "DELIVERY" && (
                                                 <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
@@ -416,8 +435,13 @@ export default function BirthRegistrationView(props: TreasuryViewProps) {
                                 </div>
                             )}
 
-                            {(additional.orSeriesNumber || additional.scannedDocUrl) && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300">
+                            {(additional.orSeriesNumber || additional.scannedDocUrl || transaction.eCopyUrl) && (
+                                <div className={cn(
+                                    "grid grid-cols-1 gap-4 animate-in fade-in duration-300",
+                                    [additional.orSeriesNumber, additional.scannedDocUrl, transaction.eCopyUrl].filter(Boolean).length >= 3
+                                        ? "md:grid-cols-3"
+                                        : "md:grid-cols-2"
+                                )}>
                                     {additional.orSeriesNumber && (
                                         <div className="flex flex-col justify-center gap-2">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">O.R. Series Number</span>
@@ -437,6 +461,21 @@ export default function BirthRegistrationView(props: TreasuryViewProps) {
                                                     className="text-[10px] font-black uppercase tracking-wider flex items-center gap-2 bg-[#1f2937]/50 border-slate-800 text-white hover:bg-[#1f2937] h-8"
                                                 >
                                                     <FileText className="w-3.5 h-3.5" /> View Scanned Document
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {transaction.eCopyUrl && (
+                                        <div className="flex flex-col justify-center gap-2">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Released Document (E-Copy)</span>
+                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center">
+                                                <Button
+                                                    onClick={() => handleViewFile?.(transaction.eCopyUrl, "Released Digital E-Copy Document")}
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="text-[10px] font-black uppercase tracking-wider flex items-center gap-2 bg-[#1f2937]/50 border-slate-800 text-white hover:bg-[#1f2937] h-8"
+                                                >
+                                                    <FileText className="w-3.5 h-3.5" /> View Released Document
                                                 </Button>
                                             </div>
                                         </div>
@@ -579,6 +618,46 @@ export default function BirthRegistrationView(props: TreasuryViewProps) {
                                                     </div>
                                                 </div>
                                             </div>
+
+                                             {!isDeath && !isMarriage && (
+                                                 <>
+                                                     {/* Place of Birth */}
+                                                     <div className="space-y-1.5 pt-2">
+                                                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Birth</span>
+                                                         <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                             {additional.placeOfEvent || "—"}
+                                                         </div>
+                                                     </div>
+
+                                                     {/* Registration Type & Late Duration / Parents Marital Status */}
+                                                     <div className="grid grid-cols-2 gap-4">
+                                                         <div className="space-y-1.5">
+                                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Registration Type</span>
+                                                             <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                                 {additional.registrationType || "STANDARD"}
+                                                             </div>
+                                                         </div>
+                                                         <div className="space-y-1.5">
+                                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Parents Marital Status</span>
+                                                             <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                                 {additional.parentsMarried === true ? "MARRIED" : additional.parentsMarried === false ? "NOT MARRIED" : "—"}
+                                                             </div>
+                                                         </div>
+                                                     </div>
+
+                                                     {additional.registrationType === "LATE" && additional.lateDuration && (
+                                                         <div className="space-y-1.5">
+                                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Late Registration Period</span>
+                                                             <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                                 {additional.lateDuration === "1-10" ? "1 Month - 10 Years" :
+                                                                  additional.lateDuration === "10-20" ? "10 - 20 Years" :
+                                                                  additional.lateDuration === "20+" ? "20 Years and Above" :
+                                                                  additional.lateDuration}
+                                                             </div>
+                                                         </div>
+                                                     )}
+                                                 </>
+                                             )}
 
                                             {/* Extra Fields specifically for Marriage */}
                                             {isMarriage && (
@@ -916,24 +995,28 @@ export default function BirthRegistrationView(props: TreasuryViewProps) {
                                 <h3 className="text-md font-black italic uppercase tracking-wider text-slate-800 dark:text-slate-200">Status Tracker</h3>
                                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest italic mt-1">Status phase progress</p>
                             </div>
-                            <div className="relative border-l border-slate-100 dark:border-white/5 ml-3 space-y-6">
+                            <div className="relative pl-6 space-y-6">
+                                <div className="absolute top-2 bottom-2 left-2.5 w-0.5 bg-slate-100 dark:bg-white/5" />
                                 {steps.map((step, idx) => {
-                                    const isCompleted = idx < currentStepIdx;
-                                    const isCurrent = idx === currentStepIdx;
+                                    const isCompleted = currentStepIdx > idx || (currentStepIdx === idx && ["RELEASED", "DELIVERED", "COMPLETED"].includes(transaction.status));
+                                    const isCurrent = currentStepIdx === idx && !["RELEASED", "DELIVERED", "COMPLETED"].includes(transaction.status);
                                     return (
-                                        <div key={step.id} className="relative pl-6">
+                                        <div key={idx} className="flex gap-4 relative items-center">
                                             <div className={cn(
-                                                "absolute -left-[9px] top-1 w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center transition-all duration-300",
-                                                isCompleted ? "bg-primary border-primary text-white" :
-                                                    isCurrent ? "bg-white dark:bg-slate-900 border-primary text-primary shadow-lg shadow-primary/20 scale-110" :
-                                                        "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-300"
+                                                "w-6.5 h-6.5 rounded-full flex items-center justify-center relative z-10 shrink-0 text-[10px] font-bold border-2 transition-all",
+                                                isCompleted ? "bg-[#10b981] border-[#10b981] text-white shadow-lg shadow-emerald-500/10" :
+                                                    isCurrent ? "bg-primary border-primary text-white shadow-lg shadow-primary/10" :
+                                                        "bg-white dark:bg-[#151b28] border-slate-200 dark:border-slate-800 text-slate-400"
                                             )}>
-                                                {isCompleted ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : <span className="text-[8px] font-black">{idx + 1}</span>}
+                                                {isCompleted ? <Check className="w-3 h-3" /> : idx + 1}
                                             </div>
-                                            <div>
-                                                <p className={cn("text-xs font-black uppercase leading-none", isCurrent ? "text-primary italic" : isCompleted ? "text-slate-500 dark:text-slate-400" : "text-slate-300 dark:text-slate-600")}>
+                                            <div className="flex flex-col">
+                                                <span className={cn(
+                                                    "text-[10px] font-black uppercase tracking-widest leading-none",
+                                                    isCurrent ? "text-primary font-black" : "text-slate-500"
+                                                )}>
                                                     {step.label}
-                                                </p>
+                                                </span>
                                             </div>
                                         </div>
                                     );
@@ -1083,18 +1166,21 @@ export default function BirthRegistrationView(props: TreasuryViewProps) {
 
                         {/* Interactive Decision / Actions box */}
                         {["FOR_REQUESTING", "EVALUATED", "PAID", "UNPAID"].includes(transaction.status) ? (
-                            <div className="p-8 text-center rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-3">
-                                <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-600 mx-auto">
+                            <div className="p-8 text-center rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-3 animate-in fade-in duration-300">
+                                <div className={cn(
+                                    "w-12 h-12 rounded-full flex items-center justify-center mx-auto",
+                                    transaction.status === "FOR_REQUESTING" ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-600"
+                                )}>
                                     <Clock className="w-6 h-6 animate-pulse" />
                                 </div>
                                 <h4 className="text-xs font-black uppercase tracking-[0.25em] text-slate-700 dark:text-slate-200">
-                                    {transaction.status === "FOR_REQUESTING" && "Checking by Treasury"}
+                                    {transaction.status === "FOR_REQUESTING" && "Awaiting Payment & Verification"}
                                     {transaction.status === "EVALUATED" && "Assessment Sent"}
                                     {transaction.status === "UNPAID" && "Awaiting Payment"}
                                     {transaction.status === "PAID" && "Payment Confirmed"}
                                 </h4>
                                 <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
-                                    {transaction.status === "FOR_REQUESTING" && "This request is currently under checking/verification by the Treasury department."}
+                                    {transaction.status === "FOR_REQUESTING" && "This request is currently waiting for the citizen to settle the payment and for the Treasury Department to verify the transaction. No action is required from the Registrar at this time."}
                                     {transaction.status === "EVALUATED" && "Assessment has been submitted. Waiting for the citizen to complete GCash payment or walk-in transaction."}
                                     {transaction.status === "UNPAID" && "This request is currently awaiting payment from the citizen."}
                                     {transaction.status === "PAID" && "Payment has been confirmed. The request is proceeding to the next processing phase."}
@@ -1107,11 +1193,11 @@ export default function BirthRegistrationView(props: TreasuryViewProps) {
                                     <div className="space-y-4">
                                         {isBirthReg && transaction.status === "FOR_REQUESTING" ? (
                                             <div className="p-8 text-center rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-3">
-                                                <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-600 mx-auto">
+                                                <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
                                                     <Clock className="w-6 h-6 animate-pulse" />
                                                 </div>
-                                                <h4 className="text-xs font-black uppercase tracking-[0.25em] text-slate-700 dark:text-slate-200">Checking by Treasury</h4>
-                                                <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">This transaction is currently under checking/verification by the Treasury department.</p>
+                                                <h4 className="text-xs font-black uppercase tracking-[0.25em] text-slate-700 dark:text-slate-200">Awaiting Payment & Verification</h4>
+                                                <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">This request is currently waiting for the citizen to settle the payment and for the Treasury Department to verify the transaction. No action is required from the Registrar at this time.</p>
                                             </div>
                                         ) : transaction.status === "EVALUATED" ? (
                                             <div className="p-8 text-center rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-3">

@@ -8,7 +8,8 @@ import {
     Shield, Menu, X, LogIn, LogOut,
     ChevronDown, Briefcase, Sun, Moon,
     Newspaper, PhoneCall, Info,
-    Compass, MapPin, Globe, Activity, Archive
+    Compass, MapPin, Globe, Activity, Archive,
+    Building2, Hammer, CreditCard, FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,8 @@ export function Navbar({
     const [isOpen, setIsOpen] = React.useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
     const [isBarangayModalOpen, setIsBarangayModalOpen] = React.useState(false);
+    const [isServicesHovered, setIsServicesHovered] = React.useState(false);
+    const [isMobileServicesOpen, setIsMobileServicesOpen] = React.useState(false);
     const { selectedBarangay } = useBarangay();
     const { scrollY } = useScroll();
     const isTransparentNavPage = pathname === "/";
@@ -208,6 +211,13 @@ export function Navbar({
         { name: "Safety", href: "/#hotlines", icon: PhoneCall },
     ];
 
+    const serviceCategories = [
+        { name: "Civil Registry", href: "/user/services/civil-registry", desc: "Birth, Marriage, Death Certs & Endorsements", icon: FileText, color: "text-blue-500 bg-blue-500/10" },
+        { name: "Business Permit", href: "/user/services/business-permit", desc: "Apply for New Business & Renewal Permits", icon: Building2, color: "text-emerald-500 bg-emerald-500/10" },
+        { name: "Building Permit", href: "/user/services/building-permit", desc: "Construction, Electrical & Occupancy Permits", icon: Hammer, color: "text-amber-500 bg-amber-500/10" },
+        { name: "Cedula (CTC)", href: "/user/services/cedula", desc: "Community Tax Certificate Issuance", icon: CreditCard, color: "text-indigo-500 bg-indigo-500/10" },
+    ];
+
     // Dropdown-specific links (only shown when authenticated)
     const userDropdownLinks = [
         { name: "My Reports", href: "/user/reports", icon: Archive },
@@ -291,6 +301,82 @@ export function Navbar({
                     {/* Main nav links */}
                     {mainLinks.map((link) => {
                         const isActive = isLinkActive(link.href);
+                        if (link.name === "Services") {
+                            return (
+                                <div
+                                    key={link.name}
+                                    className="relative group/services"
+                                    onMouseEnter={() => setIsServicesHovered(true)}
+                                    onMouseLeave={() => setIsServicesHovered(false)}
+                                >
+                                    <button
+                                        type="button"
+                                        className="relative px-3 xl:px-4 py-2.5 pb-3 group overflow-hidden rounded-full flex items-center gap-1 xl:gap-1.5 transition-colors duration-200"
+                                        style={{ color: isActive ? themeColor : undefined }}
+                                    >
+                                        {isActive && (
+                                            <motion.div
+                                                layoutId="activeTab"
+                                                className="absolute inset-0 rounded-full -z-0"
+                                                style={{ backgroundColor: `${themeColor}18` }}
+                                                initial={false}
+                                                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                            />
+                                        )}
+                                        <div className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5">
+                                            <link.icon
+                                                className={cn(
+                                                    "w-3.5 h-3.5 transition-all duration-200",
+                                                    isActive ? "opacity-100 scale-110" : "opacity-60 group-hover/services:opacity-100"
+                                                )}
+                                            />
+                                            <motion.span style={{ color: isActive ? themeColor : (isDark ? darkColor : color) }}>
+                                                {link.name}
+                                            </motion.span>
+                                            <ChevronDown className="w-3 h-3 text-slate-400 transition-transform duration-355 group-hover/services:rotate-180" />
+                                        </div>
+                                    </button>
+
+                                    <AnimatePresence>
+                                        {isServicesHovered && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                exit={{ opacity: 0, y: 12, scale: 0.95 }}
+                                                transition={{ duration: 0.2, ease: "easeOut" }}
+                                                className="absolute left-1/2 -translate-x-1/2 top-[80%] pt-4 w-[340px] z-[120]"
+                                            >
+                                                <div 
+                                                    className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/10 rounded-[2rem] shadow-2xl overflow-hidden p-3 grid grid-cols-1 gap-1.5"
+                                                    style={{ boxShadow: "0 30px 60px -15px rgba(0,0,0,0.15)" }}
+                                                >
+                                                    {serviceCategories.map((cat) => (
+                                                        <Link
+                                                            key={cat.name}
+                                                            href={cat.href}
+                                                            className="flex items-center gap-3.5 p-3.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group/item"
+                                                        >
+                                                            <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 group-hover/item:scale-105 shadow-sm", cat.color)}>
+                                                                <cat.icon className="w-5 h-5" />
+                                                            </div>
+                                                            <div className="flex flex-col text-left">
+                                                                <span className="text-[10px] xl:text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider leading-none">
+                                                                    {cat.name}
+                                                                </span>
+                                                                <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold tracking-tight mt-1 leading-tight uppercase italic">
+                                                                    {cat.desc}
+                                                                </span>
+                                                            </div>
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            );
+                        }
+
                         return (
                             <Link
                                 key={link.name}
@@ -629,6 +715,81 @@ export function Navbar({
                                     <div className="grid grid-cols-1 gap-1.5">
                                         {mainLinks.map((link) => {
                                             const isMobileActive = isLinkActive(link.href);
+                                            if (link.name === "Services") {
+                                                return (
+                                                    <div key={link.name} className="flex flex-col gap-1">
+                                                        <button
+                                                            onClick={() => setIsMobileServicesOpen(!isMobileServicesOpen)}
+                                                            className="flex items-center justify-between p-3 rounded-xl border transition-all active:scale-[0.98] w-full text-left"
+                                                            style={isMobileActive
+                                                                ? { borderColor: `${themeColor}40`, backgroundColor: `${themeColor}0d` }
+                                                                : { borderColor: "transparent", backgroundColor: undefined }
+                                                            }
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <div
+                                                                    className="w-9 h-9 rounded-xl flex items-center justify-center transition-all bg-slate-100 dark:bg-white/10"
+                                                                    style={isMobileActive ? { backgroundColor: themeColor } : undefined}
+                                                                >
+                                                                    <link.icon
+                                                                        className="w-4 h-4"
+                                                                        style={{ color: isMobileActive ? "#fff" : themeColor }}
+                                                                    />
+                                                                </div>
+                                                                <span
+                                                                    className="text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-white"
+                                                                    style={isMobileActive ? { color: themeColor } : undefined}
+                                                                >
+                                                                    {link.name}
+                                                                </span>
+                                                            </div>
+                                                            <ChevronDown
+                                                                className={cn(
+                                                                    "w-4 h-4 text-slate-400 transition-transform duration-250",
+                                                                    isMobileServicesOpen && "rotate-180"
+                                                                )}
+                                                            />
+                                                        </button>
+
+                                                        <AnimatePresence>
+                                                            {isMobileServicesOpen && (
+                                                                <motion.div
+                                                                    initial={{ height: 0, opacity: 0 }}
+                                                                    animate={{ height: "auto", opacity: 1 }}
+                                                                    exit={{ height: 0, opacity: 0 }}
+                                                                    transition={{ duration: 0.25 }}
+                                                                    className="overflow-hidden pl-4 pr-1 flex flex-col gap-1"
+                                                                >
+                                                                    {serviceCategories.map((cat) => (
+                                                                        <Link
+                                                                            key={cat.name}
+                                                                            href={cat.href}
+                                                                            onClick={() => {
+                                                                                setIsOpen(false);
+                                                                                setIsMobileServicesOpen(false);
+                                                                            }}
+                                                                            className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                                                                        >
+                                                                            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm", cat.color)}>
+                                                                                <cat.icon className="w-4 h-4" />
+                                                                            </div>
+                                                                            <div className="flex flex-col text-left">
+                                                                                <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider leading-none">
+                                                                                    {cat.name}
+                                                                                </span>
+                                                                                <span className="text-[8px] text-slate-400 dark:text-slate-500 font-bold tracking-tight mt-0.5 leading-tight uppercase italic">
+                                                                                    {cat.desc}
+                                                                                </span>
+                                                                            </div>
+                                                                        </Link>
+                                                                    ))}
+                                                                </motion.div>
+                                                            )}
+                                                        </AnimatePresence>
+                                                    </div>
+                                                );
+                                            }
+
                                             return (
                                                 <Link
                                                     key={link.name}
