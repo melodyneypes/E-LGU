@@ -354,6 +354,7 @@ export default function BuildingPermitPage() {
     subOccupancyOthersSpecify: "",
     estimatedCost: "",
     locationOfConstruction: "",
+    isLotOwner: "",
     newIdFile: null as File | null,
     tctFile: null as File | null,
     occupancyUse: "",
@@ -387,6 +388,7 @@ export default function BuildingPermitPage() {
             subOccupancyOthersSpecify: oldSpecify,
             selectedSubOccupancies: parsed.formData.selectedSubOccupancies || [],
             locationOfConstruction: parsed.formData.locationOfConstruction || "",
+            isLotOwner: parsed.formData.isLotOwner || "",
             scopeNewConstruction: parsed.formData.scopeNewConstruction ?? parsedDesc.newConstruction,
             scopeAddition: parsed.formData.scopeAddition ?? parsedDesc.addition,
             scopeAdditionText: parsed.formData.scopeAdditionText ?? parsedDesc.additionText,
@@ -468,6 +470,7 @@ export default function BuildingPermitPage() {
         subOccupancyOthersSpecify: formData.subOccupancyOthersSpecify,
         estimatedCost: formData.estimatedCost,
         locationOfConstruction: formData.locationOfConstruction,
+        isLotOwner: formData.isLotOwner,
         occupancyUse: formData.occupancyCategory === "Other Construction" ? "Other" : formData.occupancyCategory,
         otherOccupancyUse: formData.subOccupancyOthersSpecify,
       },
@@ -499,6 +502,7 @@ export default function BuildingPermitPage() {
     formData.subOccupancyOthersSpecify,
     formData.estimatedCost,
     formData.locationOfConstruction,
+    formData.isLotOwner,
     currentStep,
     idChoice,
     signatureData,
@@ -515,12 +519,16 @@ export default function BuildingPermitPage() {
     }
   }, [currentStep, maxStepIdx]);
 
-  const requirementsProgress = selectedApplication
-    ? new Set([
-      ...Object.keys(selectedApplication.additionalData?.documents || {}).filter(k => k.startsWith("req_")),
-      ...Object.keys(uploadedRequirements).map(k => `req_${k}`)
-    ]).size
-    : Object.keys(uploadedRequirements).length;
+  const isAffidavitOfConsentRequired = formData.isLotOwner === "No";
+  const requiredRequirementIndexes = Array.from({ length: 10 }, (_, index) => index)
+    .filter(index => index !== 5 && (isAffidavitOfConsentRequired || index !== 7));
+  const requiredRequirementsCount = requiredRequirementIndexes.length;
+  const uploadedRequirementKeys = new Set([
+    ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("req_")),
+    ...Object.keys(uploadedRequirements).map(k => `req_${k}`)
+  ]);
+  const requirementsProgress = requiredRequirementIndexes
+    .filter(index => uploadedRequirementKeys.has(`req_${index}`)).length;
 
   const permitsProgress = selectedApplication
     ? new Set([
@@ -530,6 +538,7 @@ export default function BuildingPermitPage() {
     : Object.keys(uploadedPermits).length;
 
   const totalUploaded = requirementsProgress + permitsProgress;
+  const totalRequiredItems = requiredRequirementsCount + 7;
 
   // UPDATED: Exclude CANCELLED and isCancelled from blocking new applications
   const hasActiveApplication = existingApplications.some(app =>
@@ -622,6 +631,7 @@ export default function BuildingPermitPage() {
         subOccupancyOthersSpecify: parsedOccupancy.specify,
         estimatedCost: addData.estimatedCost || "",
         locationOfConstruction: addData.locationOfConstruction || "",
+        isLotOwner: addData.isLotOwner || "",
         newIdFile: null,
         tctFile: null,
         occupancyUse: addData.occupancyUse || "",
@@ -1018,10 +1028,10 @@ export default function BuildingPermitPage() {
   };
 
   const handleSubmit = async () => {
-    if (requirementsProgress < 10 || permitsProgress < 7 || !signatureData || !privacyAccepted) {
+    if (requirementsProgress < requiredRequirementsCount || permitsProgress < 7 || !signatureData || !privacyAccepted) {
       setShowValidationErrors(true);
-      if (requirementsProgress < 10) {
-        toast.warning("Please ensure ALL 10 required documents are provided.");
+      if (requirementsProgress < requiredRequirementsCount) {
+        toast.warning(`Please ensure ALL ${requiredRequirementsCount} required documents are provided.`);
         setActiveDocTab("REQUIREMENTS");
       } else if (permitsProgress < 7) {
         toast.warning("Please ensure ALL 7 required permits are provided.");
@@ -1069,6 +1079,7 @@ export default function BuildingPermitPage() {
       // 3. Upload Requirements
       const finalReqUrls: Record<string, string> = {};
       for (let i = 0; i < 10; i++) {
+        if (i === 7 && !isAffidavitOfConsentRequired) continue;
         const file = uploadedRequirements[i];
         if (file) {
           const url = await uploadFileClientSide(file, "requirements", `req_${i}`);
@@ -1112,6 +1123,7 @@ export default function BuildingPermitPage() {
 
       data.append("estimatedCost", formData.estimatedCost);
       data.append("locationOfConstruction", formData.locationOfConstruction);
+      data.append("isLotOwner", formData.isLotOwner);
 
       if (idFileUrl) {
         data.append("newIdFile", idFileUrl);
@@ -1291,6 +1303,7 @@ export default function BuildingPermitPage() {
                       occupancyUse: app.additionalData?.occupancyUse?.startsWith("Other") ? "Other" : (app.additionalData?.occupancyUse || "Residential (Single Family)"),
                       otherOccupancyUse: app.additionalData?.occupancyUse?.startsWith("Other") ? app.additionalData.occupancyUse.replace("Other - ", "") : "",
                       estimatedCost: app.additionalData?.estimatedCost || "",
+                      isLotOwner: app.additionalData?.isLotOwner || "",
                       newIdFile: null,
                       tctFile: null
                     }));
@@ -1386,6 +1399,7 @@ export default function BuildingPermitPage() {
                       subOccupancyOthersSpecify: "",
                       estimatedCost: "",
                       locationOfConstruction: "",
+                      isLotOwner: "",
                       newIdFile: null,
                       tctFile: null,
                       occupancyUse: "Residential (Single Family)",
@@ -2408,6 +2422,35 @@ export default function BuildingPermitPage() {
                           disabled={!isEditable}
                         />
                       </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                          f. Is the applicant the owner of the lot? <span className="text-red-500 text-lg">*</span>
+                        </label>
+                        <Select
+                          value={formData.isLotOwner}
+                          onValueChange={value => {
+                            setFormData({ ...formData, isLotOwner: value });
+                            if (value === "Yes") {
+                              setUploadedRequirements(prev => {
+                                const next = { ...prev };
+                                delete next[7];
+                                return next;
+                              });
+                              persistDraftFile("req_7", null);
+                            }
+                          }}
+                          disabled={!isEditable}
+                        >
+                          <SelectTrigger className={cn("w-full h-auto bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer", (showValidationErrors && !formData.isLotOwner) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}>
+                            <SelectValue placeholder="Select Yes or No" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white dark:bg-[#11131a] border-slate-200 dark:border-white/10 rounded-xl">
+                            <SelectItem value="Yes">Yes</SelectItem>
+                            <SelectItem value="No">No</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
 
@@ -2444,6 +2487,7 @@ export default function BuildingPermitPage() {
                           !formData.estimatedCost ||
                           Number(formData.estimatedCost) <= 0 ||
                           !formData.locationOfConstruction ||
+                          !formData.isLotOwner ||
                           !formData.occupancyCategory ||
                           (formData.occupancyCategory !== "Other Construction" && formData.selectedSubOccupancies.length === 0) ||
                           (formData.occupancyCategory === "Other Construction" && !formData.subOccupancyOthersSpecify) ||
@@ -2457,6 +2501,7 @@ export default function BuildingPermitPage() {
                           estimatedCost: formData.estimatedCost,
                           estimatedCostValid: !formData.estimatedCost || Number(formData.estimatedCost) <= 0,
                           locationOfConstruction: formData.locationOfConstruction,
+                          isLotOwner: formData.isLotOwner,
                           occupancyCategory: formData.occupancyCategory,
                           selectedSubOccupancies: formData.selectedSubOccupancies,
                           subOccupancyOthersSpecify: formData.subOccupancyOthersSpecify,
@@ -2533,7 +2578,7 @@ export default function BuildingPermitPage() {
                 )}
               >
                 <FileText className="w-4 h-4" />
-                Requirements (10 items)
+                Requirements ({requiredRequirementsCount} items)
               </button>
               <button
                 onClick={() => setActiveDocTab("PERMITS")}
@@ -2555,12 +2600,18 @@ export default function BuildingPermitPage() {
 
             {/* Document Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-              {(activeDocTab === "REQUIREMENTS" ? documentRequirementsList : permitTypesList).map((docName, idx) => {
+              {(activeDocTab === "REQUIREMENTS"
+                ? documentRequirementsList
+                  .map((docName, idx) => ({ docName, idx }))
+                  .filter(({ idx }) => isAffidavitOfConsentRequired || idx !== 7)
+                : permitTypesList.map((docName, idx) => ({ docName, idx }))
+              ).map(({ docName, idx }) => {
                 const key = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;
                 const fileUrl = selectedApplication?.additionalData?.documents?.[key];
                 const newlyUploaded = activeDocTab === "REQUIREMENTS" ? !!uploadedRequirements[idx] : !!uploadedPermits[idx];
                 const isUploaded = !isEditable ? !!fileUrl : (!!fileUrl || newlyUploaded);
-                const hasError = showValidationErrors && !isUploaded;
+                const isRequired = activeDocTab === "PERMITS" || requiredRequirementIndexes.includes(idx);
+                const hasError = showValidationErrors && isRequired && !isUploaded;
                 return (
                   <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group", hasError ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
                     <div className="flex justify-between items-start gap-4 mb-4">
@@ -2568,7 +2619,11 @@ export default function BuildingPermitPage() {
                         <span className="inline-flex items-center gap-1.5 flex-wrap">
                           <span className="text-lg">📄</span>
                           <span className="break-words">{docName}</span>
-                          <span className="text-red-500 ml-0.5 text-lg">*</span>
+                          {isRequired ? (
+                            <span className="text-red-500 ml-0.5 text-lg">*</span>
+                          ) : (
+                            <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1">Optional</span>
+                          )}
                         </span>
                       </h4>
                       {isUploaded ? (
@@ -2767,7 +2822,7 @@ export default function BuildingPermitPage() {
                 <UploadCloud className="w-5 h-5 text-emerald-700 dark:text-emerald-400 shrink-0" />
                 <p className="text-xs md:text-sm font-bold text-emerald-800 dark:text-emerald-300">
                   {activeDocTab === "REQUIREMENTS"
-                    ? `Requirements Progress: ${requirementsProgress}/10 documents uploaded`
+                    ? `Requirements Progress: ${requirementsProgress}/${requiredRequirementsCount} documents uploaded`
                     : `Permits Progress: ${permitsProgress}/7 permits uploaded`}
                 </p>
               </div>
@@ -2775,11 +2830,11 @@ export default function BuildingPermitPage() {
                 <div className="flex items-center gap-3">
                   <CheckCircle className="w-5 h-5 text-blue-700 dark:text-blue-400 shrink-0" />
                   <p className="text-xs md:text-sm font-bold text-blue-800 dark:text-blue-300">
-                    Total Progress: {totalUploaded}/17 items uploaded
+                    Total Progress: {totalUploaded}/{totalRequiredItems} items uploaded
                   </p>
                 </div>
                 {!selectedApplication && (
-                  <span className="text-[10px] text-blue-600/60 dark:text-blue-400/60 font-medium uppercase tracking-widest hidden sm:block">All 17 items must be uploaded</span>
+                  <span className="text-[10px] text-blue-600/60 dark:text-blue-400/60 font-medium uppercase tracking-widest hidden sm:block">All {totalRequiredItems} items must be uploaded</span>
                 )}
               </div>
             </div>
