@@ -521,7 +521,7 @@ export default function BuildingPermitPage() {
 
   const isAffidavitOfConsentRequired = formData.isLotOwner === "No";
   const requiredRequirementIndexes = Array.from({ length: 10 }, (_, index) => index)
-    .filter(index => index !== 5 && (isAffidavitOfConsentRequired || index !== 7));
+    .filter(index => ![2, 5, 8].includes(index) && (isAffidavitOfConsentRequired || index !== 7));
   const requiredRequirementsCount = requiredRequirementIndexes.length;
   const uploadedRequirementKeys = new Set([
     ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("req_")),
@@ -530,15 +530,18 @@ export default function BuildingPermitPage() {
   const requirementsProgress = requiredRequirementIndexes
     .filter(index => uploadedRequirementKeys.has(`req_${index}`)).length;
 
-  const permitsProgress = selectedApplication
-    ? new Set([
-      ...Object.keys(selectedApplication.additionalData?.documents || {}).filter(k => k.startsWith("permit_")),
-      ...Object.keys(uploadedPermits).map(k => `permit_${k}`)
-    ]).size
-    : Object.keys(uploadedPermits).length;
+  const requiredPermitIndexes = Array.from({ length: 7 }, (_, index) => index)
+    .filter(index => ![0, 4].includes(index));
+  const requiredPermitsCount = requiredPermitIndexes.length;
+  const uploadedPermitKeys = new Set([
+    ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("permit_")),
+    ...Object.keys(uploadedPermits).map(k => `permit_${k}`)
+  ]);
+  const permitsProgress = requiredPermitIndexes
+    .filter(index => uploadedPermitKeys.has(`permit_${index}`)).length;
 
   const totalUploaded = requirementsProgress + permitsProgress;
-  const totalRequiredItems = requiredRequirementsCount + 7;
+  const totalRequiredItems = requiredRequirementsCount + requiredPermitsCount;
 
   // UPDATED: Exclude CANCELLED and isCancelled from blocking new applications
   const hasActiveApplication = existingApplications.some(app =>
@@ -1028,13 +1031,13 @@ export default function BuildingPermitPage() {
   };
 
   const handleSubmit = async () => {
-    if (requirementsProgress < requiredRequirementsCount || permitsProgress < 7 || !signatureData || !privacyAccepted) {
+    if (requirementsProgress < requiredRequirementsCount || permitsProgress < requiredPermitsCount || !signatureData || !privacyAccepted) {
       setShowValidationErrors(true);
       if (requirementsProgress < requiredRequirementsCount) {
         toast.warning(`Please ensure ALL ${requiredRequirementsCount} required documents are provided.`);
         setActiveDocTab("REQUIREMENTS");
-      } else if (permitsProgress < 7) {
-        toast.warning("Please ensure ALL 7 required permits are provided.");
+      } else if (permitsProgress < requiredPermitsCount) {
+        toast.warning(`Please ensure ALL ${requiredPermitsCount} required permits are provided.`);
         setActiveDocTab("PERMITS");
       } else if (!signatureData) {
         toast.warning("Please provide your digital signature before submitting.");
@@ -1109,7 +1112,6 @@ export default function BuildingPermitPage() {
       if (formData.scopeAddition) parts.push(`ADDITION: ${formData.scopeAdditionText}`);
       if (formData.scopeRepair) parts.push(`REPAIR: ${formData.scopeRepairText}`);
       if (formData.scopeRenovation) parts.push(`RENOVATION: ${formData.scopeRenovationText}`);
-      if (formData.scopeDemolition) parts.push(`DEMOLITION: ${formData.scopeDemolitionText}`);
       if (formData.scopeOthers1) parts.push(`OTHERS: ${formData.scopeOthers1Text1} OF ${formData.scopeOthers1Text2}`);
       if (formData.scopeOthers2) parts.push(`OTHERS: ${formData.scopeOthers2Text1} OF ${formData.scopeOthers2Text2}`);
       if (formData.descriptionOfWorkLegacyText) parts.push(formData.descriptionOfWorkLegacyText);
@@ -1876,7 +1878,6 @@ export default function BuildingPermitPage() {
                           !formData.scopeAddition &&
                           !formData.scopeRepair &&
                           !formData.scopeRenovation &&
-                          !formData.scopeDemolition &&
                           !formData.scopeOthers1 &&
                           !formData.descriptionOfWorkLegacyText
                         )) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}>
@@ -2041,50 +2042,6 @@ export default function BuildingPermitPage() {
                                 className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeRenovationText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
                                 value={formData.scopeRenovationText}
                                 onChange={e => setFormData({ ...formData, scopeRenovationText: e.target.value })}
-                                disabled={!isEditable}
-                              />
-                            )}
-                          </div>
-
-                          {/* Demolition Of */}
-                          <div className="flex flex-col md:flex-row md:items-center gap-2 py-1">
-                            <div className="flex items-center space-x-3">
-                              <Checkbox
-                                id="scope-demolition"
-                                checked={formData.scopeDemolition}
-                                disabled={!isEditable}
-                                onCheckedChange={checked => {
-                                  if (checked) {
-                                    setFormData({
-                                      ...formData,
-                                      scopeNewConstruction: false,
-                                      scopeAddition: false,
-                                      scopeAdditionText: "",
-                                      scopeRepair: false,
-                                      scopeRepairText: "",
-                                      scopeRenovation: false,
-                                      scopeRenovationText: "",
-                                      scopeDemolition: true,
-                                      scopeOthers1: false,
-                                      scopeOthers1Text1: "",
-                                      scopeOthers1Text2: ""
-                                    });
-                                  } else {
-                                    setFormData({ ...formData, scopeDemolition: false });
-                                  }
-                                }}
-                              />
-                              <label htmlFor="scope-demolition" className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none shrink-0">
-                                Demolition of
-                              </label>
-                            </div>
-                            {formData.scopeDemolition && (
-                              <input
-                                type="text"
-                                placeholder="Specify details"
-                                className={cn("flex-1 bg-white dark:bg-black/20 border rounded-lg px-3 py-1 text-xs outline-none focus:ring-1 focus:ring-primary", (showValidationErrors && !formData.scopeDemolitionText) ? "border-red-500" : "border-slate-200 dark:border-white/10")}
-                                value={formData.scopeDemolitionText}
-                                onChange={e => setFormData({ ...formData, scopeDemolitionText: e.target.value })}
                                 disabled={!isEditable}
                               />
                             )}
@@ -2471,7 +2428,6 @@ export default function BuildingPermitPage() {
                           !formData.scopeAddition &&
                           !formData.scopeRepair &&
                           !formData.scopeRenovation &&
-                          !formData.scopeDemolition &&
                           !formData.scopeOthers1 &&
                           !formData.scopeOthers2 &&
                           !formData.descriptionOfWorkLegacyText;
@@ -2479,7 +2435,6 @@ export default function BuildingPermitPage() {
                         const hasMissingScopeTexts = (formData.scopeAddition && !formData.scopeAdditionText) ||
                           (formData.scopeRepair && !formData.scopeRepairText) ||
                           (formData.scopeRenovation && !formData.scopeRenovationText) ||
-                          (formData.scopeDemolition && !formData.scopeDemolitionText) ||
                           (formData.scopeOthers1 && (!formData.scopeOthers1Text1 || !formData.scopeOthers1Text2));
 
                         const hasMissingFields = hasNoScopeSelected ||
@@ -2520,7 +2475,6 @@ export default function BuildingPermitPage() {
                           addition: !!(formData.scopeAddition && !formData.scopeAdditionText),
                           repair: !!(formData.scopeRepair && !formData.scopeRepairText),
                           renovation: !!(formData.scopeRenovation && !formData.scopeRenovationText),
-                          demolition: !!(formData.scopeDemolition && !formData.scopeDemolitionText),
                           others1: !!(formData.scopeOthers1 && (!formData.scopeOthers1Text1 || !formData.scopeOthers1Text2)),
                           others2: !!(formData.scopeOthers2 && (!formData.scopeOthers2Text1 || !formData.scopeOthers2Text2))
                         });
@@ -2590,7 +2544,7 @@ export default function BuildingPermitPage() {
                 )}
               >
                 <FileSignature className="w-4 h-4" />
-                Permits (7 items)
+                Permits ({requiredPermitsCount} required)
               </button>
             </div>
 
@@ -2610,7 +2564,9 @@ export default function BuildingPermitPage() {
                 const fileUrl = selectedApplication?.additionalData?.documents?.[key];
                 const newlyUploaded = activeDocTab === "REQUIREMENTS" ? !!uploadedRequirements[idx] : !!uploadedPermits[idx];
                 const isUploaded = !isEditable ? !!fileUrl : (!!fileUrl || newlyUploaded);
-                const isRequired = activeDocTab === "PERMITS" || requiredRequirementIndexes.includes(idx);
+                const isRequired = activeDocTab === "PERMITS"
+                  ? requiredPermitIndexes.includes(idx)
+                  : requiredRequirementIndexes.includes(idx);
                 const hasError = showValidationErrors && isRequired && !isUploaded;
                 return (
                   <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group", hasError ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
@@ -2823,7 +2779,7 @@ export default function BuildingPermitPage() {
                 <p className="text-xs md:text-sm font-bold text-emerald-800 dark:text-emerald-300">
                   {activeDocTab === "REQUIREMENTS"
                     ? `Requirements Progress: ${requirementsProgress}/${requiredRequirementsCount} documents uploaded`
-                    : `Permits Progress: ${permitsProgress}/7 permits uploaded`}
+                    : `Permits Progress: ${permitsProgress}/${requiredPermitsCount} permits uploaded`}
                 </p>
               </div>
               <div className="bg-blue-50 dark:bg-blue-500/5 border-l-4 border-blue-500 p-4 rounded-r-xl flex items-center justify-between gap-3">
