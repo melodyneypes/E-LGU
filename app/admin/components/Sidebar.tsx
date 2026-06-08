@@ -64,7 +64,7 @@ export function Sidebar({
     React.useEffect(() => {
         setMounted(true);
     }, []);
- 
+
     React.useEffect(() => {
         setIsSettingsOpen(pathname.startsWith("/admin/settings"));
         setIsAboutOpen(pathname.startsWith("/admin/about"));
@@ -72,7 +72,7 @@ export function Sidebar({
         setIsTreasuryOpen(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings"));
         setIsRegistrarOpen(pathname.startsWith("/admin/registrar"));
     }, [pathname]);
- 
+
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
     const scrollToActive = React.useCallback((behavior: "smooth" | "instant" = "smooth") => {
@@ -81,11 +81,11 @@ export function Sidebar({
         if (container && activeElement) {
             const containerRect = container.getBoundingClientRect();
             const elementRect = activeElement.getBoundingClientRect();
-            
+
             // Calculate center scroll offset relative to the container boundaries
             const relativeTop = elementRect.top - containerRect.top;
             const targetScrollTop = container.scrollTop + relativeTop - (containerRect.height / 2) + (elementRect.height / 2);
-            
+
             container.scrollTo({
                 top: Math.max(0, targetScrollTop),
                 behavior
@@ -189,6 +189,7 @@ export function Sidebar({
                 { href: "/admin/registrar?category=Death Certificate", label: "Death Certificate" },
                 { href: "/admin/registrar?category=Marriage License", label: "Marriage License" },
                 { href: "/admin/registrar?category=Marriage Registration", label: "Marriage Registration" },
+                { href: "/admin/registrar?category=Marriage Certificate", label: "Marriage Certificate" },
             ]
         },
         {
@@ -408,18 +409,18 @@ export function Sidebar({
                                                     {(normalizedQuery && !parentMatches ? subMatches : item.subItems)?.map((sub) => {
                                                         const currentCategory = searchParams.get("category") || "ALL";
                                                         const currentTab = searchParams.get("tab") || "general";
-                                                        
+
                                                         const urlObj = new URL(sub.href, "http://localhost");
                                                         const subCategory = urlObj.searchParams.get("category");
                                                         const subTab = urlObj.searchParams.get("tab");
-                                                        
+
                                                         const isSubActive = (
                                                             pathname === urlObj.pathname ||
                                                             (pathname.startsWith("/admin/treasury/") && !pathname.includes("/payment-settings") && !pathname.includes("/payments") && urlObj.pathname === "/admin/treasury") ||
                                                             (pathname.startsWith("/admin/registrar/") && urlObj.pathname === "/admin/registrar")
-                                                        ) && 
-                                                             (subCategory ? currentCategory === subCategory : true) &&
-                                                             (subTab ? currentTab === subTab : true);
+                                                        ) &&
+                                                            (subCategory ? currentCategory === subCategory : true) &&
+                                                            (subTab ? currentTab === subTab : true);
                                                         return (
                                                             <Link
                                                                 key={sub.href}

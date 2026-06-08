@@ -48,6 +48,15 @@ const REGISTRY_TYPES = [
         available: true
     },
     {
+        id: "DEATH_PSA_ENDORSEMENT",
+        label: "Death PSA Endorsement",
+        icon: FileText,
+        description: "Request endorsement of a verified local death certificate record to the PSA.",
+        color: "slate",
+        href: "/user/services/civil-registry/death-psa-endorsement",
+        available: true
+    },
+    {
         id: "DEATH_REQ",
         label: "Death Certificate Request (True Copy)",
         icon: FileText,
@@ -105,13 +114,13 @@ const STEPS = [
 const REGISTRY_SECTIONS = [
     {
         title: "Birth Registry Services",
-        subtitle: "Registration, Certified Copies & Endorsements",
+        subtitle: "Registration & Certified Copies & Endorsements",
         items: ["BIRTH_REG", "BIRTH_REQ", "PSA_ENDORSEMENT"]
     },
     {
         title: "Death Registry Services",
         subtitle: "Registration & Certified True Copy Requests",
-        items: ["DEATH", "DEATH_REQ"]
+        items: ["DEATH", "DEATH_REQ", "DEATH_PSA_ENDORSEMENT"]
     },
     {
         title: "Marriage Registry & Licenses",

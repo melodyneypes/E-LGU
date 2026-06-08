@@ -129,6 +129,131 @@ export async function releaseDeathRegistry(id: string, registryNumber: string, e
     }
 }
 
+export async function releaseDeathCertificate(id: string, registryNumber: string, eCopyUrl?: string, orUrl?: string, registryBookVerification?: string, verificationDocUrl?: string) {
+    try {
+        id = sanitizeString(id);
+        registryNumber = sanitizeString(registryNumber);
+        eCopyUrl = eCopyUrl ? sanitizeUrl(eCopyUrl) : undefined;
+        orUrl = orUrl ? sanitizeUrl(orUrl) : undefined;
+        verificationDocUrl = verificationDocUrl ? sanitizeUrl(verificationDocUrl) : undefined;
+
+        const session = await getSession();
+        const user = session?.user as any;
+        if (!user || (user.role !== "TREASURY_STAFF" && user.role !== "ADMIN" && !isUserAdminAide(user) && user.role !== "ENGINEER" && user.role !== "REGISTRAR")) {
+            return { success: false, error: "Forbidden" };
+        }
+
+        const transaction = await prisma.transaction.findUnique({
+            where: { id },
+            include: {
+                type: true,
+                user: true,
+                deathCertificateRequest: true
+            }
+        });
+
+        if (!transaction || !["PAID", "FOR_CLAIM", "FOR_PICKING", "FOR_PROCESSING", "FOR_REINSPECTION"].includes(transaction.status as any)) {
+            return { success: false, error: "Transaction must be paid, processing, ready for claiming, or under re-inspection before release" };
+        }
+
+        const additionalData = (transaction.additionalData as any) || {};
+        if (registryBookVerification) {
+            additionalData.registryBookVerification = registryBookVerification;
+        }
+        if (verificationDocUrl) {
+            additionalData.scannedDocUrl = verificationDocUrl;
+        }
+        const isInitialRelease = (transaction.status as any) === "FOR_PROCESSING" || (transaction.status as any) === "PAID" || (transaction.status as any) === "FOR_REINSPECTION";
+
+        const targetStatus = (transaction.status as any) === "PAID"
+            ? "FOR_REINSPECTION"
+            : isInitialRelease
+                ? (transaction.fulfillmentType === "DELIVERY" ? "FOR_PICKING" : "FOR_CLAIM")
+                : "RELEASED";
+
+        if (targetStatus === "FOR_PICKING") {
+            try {
+                const riders = await prisma.user.findMany({
+                    where: { role: "RIDER" } as any,
+                    select: { email: true, name: true }
+                });
+
+                await Promise.all(riders.map(async (rider) => {
+                    if (rider.email) {
+                        return sendEmail({
+                            type: "NEW_PICKUP_ALERT" as any,
+                            to: rider.email,
+                            name: rider.name || "Rider",
+                            transactionId: transaction.id
+                        });
+                    }
+                }));
+            } catch (notifyError) {
+                console.error("Failed to notify riders:", notifyError);
+            }
+        }
+
+        const dcrExisting = (transaction as any).deathCertificateRequest;
+        if (!dcrExisting && targetStatus === "RELEASED") {
+            const src: any = additionalData || {};
+            const subjectName = src.subjectName || src.fullName || null;
+            const dateOfEvent = src.dateOfEvent ? new Date(src.dateOfEvent) : null;
+            const placeOfEvent = src.placeOfEvent || null;
+
+            if (subjectName && dateOfEvent && placeOfEvent) {
+                const generatedRegistryNumber = registryNumber?.trim() || src.registryNumber || `REQ-DEATH-${new Date().getFullYear()}-${id.slice(-6).toUpperCase()}`;
+                try {
+                    await prisma.deathCertificateRequest.create({
+                        data: {
+                            transactionId: id,
+                            registryNumber: generatedRegistryNumber,
+                            subjectName: subjectName,
+                            dateOfEvent: dateOfEvent,
+                            placeOfEvent: placeOfEvent,
+                            fatherName: src.fatherName || src.father || null,
+                            motherName: src.motherName || src.mother || null,
+                            issuedBy: user.name || "System Administrator",
+                            documentUrl: eCopyUrl || verificationDocUrl || transaction.eCopyUrl || null,
+                            verificationId: `VER-DCR-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`
+                        }
+                    });
+                } catch (createErr) {
+                    console.error("Failed to create DeathCertificateRequest:", createErr);
+                }
+            }
+        }
+
+        await prisma.transaction.update({
+            where: { id },
+            data: {
+                status: targetStatus as any,
+                additionalData: additionalData as any,
+                ...(eCopyUrl || verificationDocUrl ? { eCopyUrl: eCopyUrl || verificationDocUrl } : {}),
+                ...(orUrl ? { orUrl } : {})
+            }
+        });
+
+        if (transaction.user?.email) {
+            const resident = transaction.residentSnapshot as any;
+            await sendEmail({
+                type: targetStatus as any,
+                to: transaction.user.email,
+                name: `${resident.firstName} ${resident.lastName}`,
+                transactionId: id.slice(-8).toUpperCase(),
+                amount: transaction.totalAmount,
+                serviceName: transaction.type.name
+            });
+        }
+
+        revalidatePath("/admin/treasury");
+        revalidatePath("/user/services");
+        return { success: true, data: { status: targetStatus } };
+    } catch (error: any) {
+        console.error("Release death certificate request error:", error);
+        return { success: false, error: error?.message || "Failed to release death certificate request." };
+    }
+}
+
 export async function evaluateDeathRegistrationTransaction(
     id: string,
     deliveryFeeOverride?: number,
@@ -175,7 +300,7 @@ export async function evaluateDeathRegistrationTransaction(
 
         const additionalData = transaction.additionalData as any || {};
         const isLate = (additionalData.registrationType || "").toUpperCase() === "LATE";
-        
+
         // Base fee is always 0 for death registration
         const baseFee = 0;
 
@@ -210,7 +335,7 @@ export async function evaluateDeathRegistrationTransaction(
         // Determine Status
         const regType = (additionalData.registrationType || "").toUpperCase();
         const hasAdditionalFees = sanitizedBpFeeLineItems && sanitizedBpFeeLineItems.length > 0;
-        
+
         let newStatus = "EVALUATED";
         if (transaction.status === "FOR_INSPECTION") {
             if ((regType === "STANDARD" || !regType) && !hasAdditionalFees) {

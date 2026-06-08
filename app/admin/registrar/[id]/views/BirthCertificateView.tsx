@@ -783,9 +783,27 @@ export default function BirthCertificateView(props: TreasuryViewProps) {
                                                 </label>
                                                 <input
                                                     type="file"
-                                                    accept=".pdf,image/*"
+                                                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                                                     onChange={(e) => {
                                                         const file = e.target.files?.[0] || null;
+                                                        if (file && file.size > 5 * 1024 * 1024) {
+                                                            toast.error("File size exceeds 5MB limit.");
+                                                            if (e.target.parentElement) {
+                                                                const parent = e.target.parentElement;
+                                                                let errEl = parent.querySelector('.file-error-msg');
+                                                                if (!errEl) {
+                                                                    errEl = document.createElement('div');
+                                                                    errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
+                                                                    parent.appendChild(errEl);
+                                                                }
+                                                                errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
+                                                                setTimeout(() => errEl && errEl.remove(), 4000);
+                                                            }
+                                                            e.target.value = "";
+                                                            setBirthRegDocFile?.(null);
+                                                            setBirthRegDocPreview?.(null);
+                                                            return;
+                                                        }
                                                         setBirthRegDocFile?.(file);
                                                         if (file) {
                                                             const url = URL.createObjectURL(file);

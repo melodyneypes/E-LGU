@@ -160,6 +160,39 @@ const getVerificationConfig = (formType: string) => {
                 textColor: "text-rose-600 dark:text-rose-400",
                 glowColor: "shadow-rose-500/10",
             };
+        case "FORM_2B":
+            return {
+                title: "Record Not Available (Form 2B)",
+                description: "Your requested death certificate record is not available in our archives.",
+                badgeColor: "bg-amber-500 text-white border-transparent",
+                themeColor: "#f59e0b",
+                bgColor: "bg-amber-500/5 dark:bg-amber-500/10",
+                borderColor: "border-amber-500/20 dark:border-amber-500/30",
+                textColor: "text-amber-600 dark:text-amber-400",
+                glowColor: "shadow-amber-500/10",
+            };
+        case "FORM_2C":
+            return {
+                title: "Record Destroyed (Form 2C)",
+                description: "Your requested death certificate record has been destroyed in our archives.",
+                badgeColor: "bg-rose-500 text-white border-transparent",
+                themeColor: "#f43f5e",
+                bgColor: "bg-rose-500/5 dark:bg-rose-500/10",
+                borderColor: "border-rose-500/20 dark:border-rose-500/30",
+                textColor: "text-rose-600 dark:text-rose-400",
+                glowColor: "shadow-rose-500/10",
+            };
+        case "FORM_2A":
+            return {
+                title: "Record Found (Form 2A)",
+                description: "Your requested death certificate has been retrieved and certified.",
+                badgeColor: "bg-emerald-500 text-white border-transparent",
+                themeColor: "#10b981",
+                bgColor: "bg-emerald-500/5 dark:bg-emerald-500/10",
+                borderColor: "border-emerald-500/20 dark:border-emerald-500/30",
+                textColor: "text-emerald-600 dark:text-emerald-400",
+                glowColor: "shadow-emerald-500/10",
+            };
         case "FORM_1A":
         default:
             return {
@@ -173,7 +206,7 @@ const getVerificationConfig = (formType: string) => {
                 glowColor: "shadow-emerald-500/10",
             };
     }
-};
+}
 
 export default function RequestHubPage() {
     const params = useParams();
@@ -767,7 +800,10 @@ export default function RequestHubPage() {
     }, [isCedula, request, additionalData, typeCode]);
     const isCivilRegistry = typeCode.startsWith("CIVIL_REGISTRY") || typeCode.startsWith("LCR_");
     const isLcrBirth = typeCode === "LCR_BIRTH";
-    const isPsaEndorsement = typeCode === "LCR_PSA_ENDORSEMENT";
+    const isLcrDeath = typeCode === "LCR_DEATH";
+    const isBirthPsaEndorsement = typeCode === "LCR_PSA_ENDORSEMENT";
+    const isDeathPsaEndorsement = typeCode === "LCR_DEATH_PSA_ENDORSEMENT";
+    const isPsaEndorsement = isBirthPsaEndorsement || isDeathPsaEndorsement;
     const isRenewal = request?.type?.code === "BUSINESS_PERMIT_RENEW" || additionalData.businessType === "RENEWAL" || additionalData.businessType === "RENEW" || additionalData.businessType?.toLowerCase()?.includes("renew");
     const remainingRevisions = request ? Math.max(0, 3 - (request.revisionCount || 0)) : 3;
     const isPermitNewReleasedOrDelivered = isBusinessPermit &&
@@ -1641,8 +1677,8 @@ export default function RequestHubPage() {
                                     </div>
 
                                     <div className="space-y-6">
-                                        {/* Payment Proof Card - Visible only when paymentReference is an uploaded file URL */}
-                                        {paymentProofUrl && (
+                                        {/* Payment Proof Card - Visible only when paymentReference is an uploaded file URL and OR is not yet uploaded */}
+                                        {paymentProofUrl && !(request.orUrl || additionalData.orDocumentUrl) && (
                                             <div className="bg-slate-950 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] text-white space-y-6 md:space-y-8 shadow-2xl relative overflow-hidden group">
                                                 <div className="absolute top-0 right-0 p-6 opacity-5 rotate-12 group-hover:rotate-0 transition-transform"><Wallet className="w-24 h-24" /></div>
                                                 <div className="relative z-10 space-y-6">
@@ -1730,9 +1766,9 @@ export default function RequestHubPage() {
                                             </div>
                                         )}
 
-                                        {/* Official Receipt (OR) Card - Visible in FOR_CLAIM, FOR_PICKING, IN_ROUTE, RELEASED, or DELIVERED */}
-                                        {["FOR_CLAIM", "FOR_PICKING", "IN_ROUTE", "RELEASED", "DELIVERED"].includes(request.status) &&
-                                            request.orUrl && (
+                                        {/* Official Receipt (OR) Card - Visible in FOR_PROCESSING, FOR_REINSPECTION, FOR_CLAIM, FOR_PICKING, IN_ROUTE, RELEASED, or DELIVERED */}
+                                        {["FOR_PROCESSING", "FOR_REINSPECTION", "FOR_CLAIM", "FOR_PICKING", "IN_ROUTE", "RELEASED", "DELIVERED"].includes(request.status) &&
+                                            (request.orUrl || additionalData.orDocumentUrl) && (
                                                 <div className="bg-slate-950 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] text-white space-y-6 md:space-y-8 shadow-2xl relative overflow-hidden group">
                                                     <div className="absolute top-0 right-0 p-6 opacity-5 rotate-12 group-hover:rotate-0 transition-transform"><ShieldCheck className="w-24 h-24" /></div>
                                                     <div className="relative z-10 space-y-6">
@@ -1746,9 +1782,10 @@ export default function RequestHubPage() {
                                                         <div className="grid grid-cols-2 gap-3">
                                                             <Button
                                                                 onClick={async () => {
-                                                                    if (!request.orUrl) return;
+                                                                    const orUrlToUse = request.orUrl || additionalData.orDocumentUrl;
+                                                                    if (!orUrlToUse) return;
                                                                     try {
-                                                                        const response = await fetch(request.orUrl);
+                                                                        const response = await fetch(orUrlToUse);
                                                                         const blob = await response.blob();
                                                                         const url = window.URL.createObjectURL(blob);
                                                                         const link = document.createElement("a");
@@ -1771,8 +1808,9 @@ export default function RequestHubPage() {
                                                             </Button>
                                                             <Button
                                                                 onClick={() => {
-                                                                    if (request.orUrl) {
-                                                                        handleViewFile(request.orUrl, "Official Receipt");
+                                                                    const orUrlToUse = request.orUrl || additionalData.orDocumentUrl;
+                                                                    if (orUrlToUse) {
+                                                                        handleViewFile(orUrlToUse, "Official Receipt");
                                                                     }
                                                                 }}
                                                                 variant="outline"
@@ -1786,9 +1824,9 @@ export default function RequestHubPage() {
                                                 </div>
                                             )}
 
-                                        {isLcrBirth && (request.status === "RELEASED" || request.status === "DELIVERED") && (
+                                        {(isLcrBirth || isLcrDeath) && (request.status === "RELEASED" || request.status === "DELIVERED") && (
                                             (() => {
-                                                const formType = additionalData.registryBookVerification || "FORM_1A";
+                                                const formType = additionalData.registryBookVerification || (isLcrDeath ? "FORM_2A" : "FORM_1A");
                                                 const config = getVerificationConfig(formType);
                                                 return (
                                                     <div
@@ -1819,7 +1857,7 @@ export default function RequestHubPage() {
                                                                         </p>
                                                                     </div>
                                                                 </div>
-                                                                <Badge 
+                                                                <Badge
                                                                     className="text-[8px] font-black uppercase tracking-widest italic px-3 py-1 rounded-full text-white border-transparent"
                                                                     style={{ backgroundColor: themeColor }}
                                                                 >
@@ -1833,8 +1871,8 @@ export default function RequestHubPage() {
                                                                 </p>
                                                             </div>
 
-                                                            {formType === "FORM_1B" && (
-                                                                <div 
+                                                            {(formType === "FORM_1B" || formType === "FORM_2B") && (
+                                                                <div
                                                                     className="p-5 rounded-2xl border shadow-inner space-y-4 animate-in slide-in-from-top-2 duration-300 bg-white dark:bg-white/[0.02]"
                                                                     style={{ borderColor: `${themeColor}20` }}
                                                                 >
@@ -1843,7 +1881,7 @@ export default function RequestHubPage() {
                                                                         <div className="space-y-1">
                                                                             <h4 className="text-[10px] font-black uppercase tracking-widest leading-none" style={{ color: themeColor }}>MCR negative verification notice</h4>
                                                                             <p className="text-xs font-bold text-slate-700 dark:text-slate-200 leading-normal italic">
-                                                                                MCR issued Form 1B (Negative Result). Please proceed with Registration to create a record.
+                                                                                MCR issued {formType} (Negative Result). Please proceed with Registration to create a record.
                                                                             </p>
                                                                         </div>
                                                                     </div>
@@ -1852,28 +1890,41 @@ export default function RequestHubPage() {
                                                                         className="w-full h-11 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 shadow-lg transition-all duration-200 active:scale-95 flex items-center justify-center border-none hover:opacity-90"
                                                                         style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}30` }}
                                                                     >
-                                                                        <Link href="/user/services/civil-registry/birth-registration">
+                                                                        <Link href={isLcrDeath ? "/user/services/civil-registry/death-registration" : "/user/services/civil-registry/birth-registration"}>
                                                                             Proceed to Registration
                                                                         </Link>
                                                                     </Button>
                                                                 </div>
                                                             )}
 
-                                                            {formType === "FORM_1A" && (
+                                                            {(formType === "FORM_1A" || formType === "FORM_2A") && (
                                                                 <div className="p-5 bg-slate-50 dark:bg-white/[0.02] rounded-2xl border border-slate-200 dark:border-white/5 shadow-inner space-y-4">
                                                                     <div className="flex flex-col gap-2">
                                                                         <div className="space-y-1">
                                                                             <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 leading-none">Need to forward to Manila?</h4>
-                                                                            <p className="text-[10px] text-slate-400 italic">Initiate Birth PSA endorsement to forward the certificate to PSA Main office.</p>
+                                                                            <p className="text-[10px] text-slate-400 italic">Initiate {isLcrDeath ? "Death" : "Birth"} PSA endorsement to forward the certificate to PSA Main office.</p>
                                                                         </div>
                                                                         {additionalData.psaEndorsementRequested ? (
-                                                                            <div 
+                                                                            <div
                                                                                 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest italic mt-1 p-3 rounded-xl border"
                                                                                 style={{ color: themeColor, backgroundColor: `${themeColor}10`, borderColor: `${themeColor}20` }}
                                                                             >
                                                                                 <Check className="w-4 h-4 shrink-0" />
-                                                                                <span>Birth PSA Endorsement Requested (₱200)</span>
+                                                                                <span>{isLcrDeath ? "Death" : "Birth"} PSA Endorsement Requested (₱200)</span>
                                                                             </div>
+                                                                        ) : isLcrDeath ? (
+                                                                            <Button
+                                                                                asChild
+                                                                                className="w-full h-12 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 shadow-lg hover:opacity-90 active:scale-95 transition-all border-none"
+                                                                                style={{
+                                                                                    backgroundColor: themeColor,
+                                                                                    boxShadow: `0 10px 20px -5px ${themeColor}30`
+                                                                                }}
+                                                                            >
+                                                                                <Link href="/user/services/civil-registry/death-psa-endorsement">
+                                                                                    Request Death PSA Endorsement (₱200)
+                                                                                </Link>
+                                                                            </Button>
                                                                         ) : (
                                                                             <Dialog open={psaEndorsementOpen} onOpenChange={setPsaEndorsementOpen}>
                                                                                 <DialogTrigger asChild>
@@ -2073,7 +2124,7 @@ export default function RequestHubPage() {
                                                                 </p>
                                                             </div>
                                                         </div>
-                                                        <Badge 
+                                                        <Badge
                                                             className="text-[8px] font-black uppercase tracking-widest italic px-3 py-1 rounded-full text-white border-transparent"
                                                             style={{ backgroundColor: themeColor }}
                                                         >
@@ -2083,14 +2134,14 @@ export default function RequestHubPage() {
 
                                                     <div className="p-5 bg-[#f8fafd] dark:bg-[#121620]/60 rounded-2xl border border-slate-100 dark:border-white/5 shadow-sm space-y-4">
                                                         <p className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 leading-relaxed italic">
-                                                            The Municipal Civil Registrar has officially endorsed and transmitted your Form 1A to the Philippine Statistics Authority (PSA).
+                                                            The Municipal Civil Registrar has officially endorsed and transmitted your {isDeathPsaEndorsement ? "Form 2A" : "Form 1A"} to the Philippine Statistics Authority (PSA).
                                                         </p>
                                                         <div className="space-y-2 border-t border-slate-200/20 dark:border-white/5 pt-4">
                                                             <span className="text-[9px] font-black uppercase tracking-widest italic leading-none" style={{ color: themeColor }}>📝 Next Steps for the Applicant:</span>
                                                             <ul className="list-disc pl-5 text-xs text-slate-600 dark:text-slate-400 space-y-2 font-medium italic">
                                                                 <li>Download or view your Endorsement Copy below to serve as your personal receiving proof.</li>
                                                                 <li>Please wait 3 to 4 weeks to allow the PSA to successfully encode your forwarded records into their national database.</li>
-                                                                <li>After the waiting period, you may directly request your PSA-Authenticated Birth Certificate (SECPA) at any PSA Serbilis Center or online.</li>
+                                                                <li>After the waiting period, you may directly request your PSA-Authenticated {isDeathPsaEndorsement ? "Death" : "Birth"} Certificate (SECPA) at any PSA Serbilis Center or online.</li>
                                                             </ul>
                                                         </div>
                                                     </div>

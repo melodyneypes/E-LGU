@@ -421,9 +421,26 @@ export default function CivilRegistryPage() {
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
         if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error("File size exceeds 5MB limit.");
+                if (e.target.parentElement) {
+                    const parent = e.target.parentElement;
+                    let errEl = parent.querySelector('.file-error-msg');
+                    if (!errEl) {
+                        errEl = document.createElement('div');
+                        errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
+                        parent.appendChild(errEl);
+                    }
+                    errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
+                    setTimeout(() => errEl && errEl.remove(), 4000);
+                }
+                e.target.value = "";
+                return;
+            }
             setForm(prev => ({
                 ...prev,
-                files: { ...prev.files, [key]: e.target.files![0] }
+                files: { ...prev.files, [key]: file }
             }));
         }
     };
@@ -1322,7 +1339,7 @@ export default function CivilRegistryPage() {
                                                     type="file"
                                                     onChange={(e) => handleFileChange(e, "validIdFront")}
                                                     className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                                                    accept="image/*,.pdf"
+                                                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                                                 />
                                                 {(form.files["validIdFront"] || resident?.idFrontUrl) ? (
                                                     <div className="relative w-full aspect-[16/9] rounded-xl overflow-hidden group/preview shadow-lg">
@@ -1384,7 +1401,7 @@ export default function CivilRegistryPage() {
                                                     type="file"
                                                     onChange={(e) => handleFileChange(e, "validIdBack")}
                                                     className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                                                    accept="image/*,.pdf"
+                                                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                                                 />
                                                 {(form.files["validIdBack"] || resident?.idBackUrl) ? (
                                                     <div className="relative w-full aspect-[16/9] rounded-xl overflow-hidden group/preview shadow-lg">

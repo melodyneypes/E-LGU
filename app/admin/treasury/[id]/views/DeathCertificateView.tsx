@@ -332,8 +332,8 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                                     )}>
                                         {additional.registryBookVerification === "FORM_2A" ? "Available / Not Available" :
                                             additional.registryBookVerification === "FORM_1A" ? "Record Found" :
-                                            additional.registryBookVerification === "FORM_1B" ? "Not Available" :
-                                            "Destroyed"}
+                                                additional.registryBookVerification === "FORM_1B" ? "Not Available" :
+                                                    "Destroyed"}
                                     </Badge>
                                 </div>
                             )}
@@ -722,7 +722,7 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                                         additional.gcashReferenceNo ||
                                         additional.reference_number ||
                                         (transaction.paymentReference && !transaction.paymentReference.startsWith("http") && !transaction.paymentReference.startsWith("/") ? transaction.paymentReference : null);
-                                    
+
                                     if (!refNo) return null;
 
                                     return (

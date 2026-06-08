@@ -56,12 +56,14 @@ import BusinessPermitView from "@/app/admin/treasury/[id]/views/BusinessPermitVi
 import BuildingPermitView from "@/app/admin/treasury/[id]/views/BuildingPermitView";
 import BirthRegistrationView from "./views/BirthRegistrationView";
 import BirthCertificateView from "./views/BirthCertificateView";
-import DeathRegistrationView from "./views/DeathRegistrationView";
 import DeathCertificateView from "./views/DeathCertificateView";
+import DeathRegistrationView from "./views/DeathRegistrationView";
 import MarriageLicenseView from "./views/MarriageLicenseView";
 import MarriageRegistrationView from "./views/MarriageRegistrationView";
 import GenericServiceView from "@/app/admin/treasury/[id]/views/GenericServiceView";
+import MarriageCertificateRequestView from "./views/MarriageCertificateRequestView";
 import BirthPsaEndorsementView from "./views/BirthPsaEndorsement";
+import DeathPsaEndorsementView from "./views/DeathPsaEndorsement";
 import DocumentViewerModal from "@/app/admin/treasury/[id]/components/DocumentViewerModal";
 
 interface PageProps {
@@ -1308,7 +1310,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             }
             return stepsList;
         }
-        if (typeCode === "LCR_PSA_ENDORSEMENT") {
+        if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT") {
             return [
                 { id: "VERIFY_BILL", label: "Registrar: Verify & Bill" },
                 { id: "USER_PAYMENT", label: "User: Payment" },
@@ -1343,7 +1345,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     let steps = [...baseSteps];
     const status = transaction.status as string;
 
-    if (typeCode === "LCR_PSA_ENDORSEMENT") {
+    if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT") {
         // Maintain the standard 4 steps
     } else if (status === "REJECTED") {
         steps = [
@@ -1356,10 +1358,12 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             { id: "FOR_REVISION", label: "REVISION REQ." }
         ];
     } else if (status === "FOR_REINSPECTION" && !isBusinessPermit) {
-        steps = [
-            { id: "FOR_INSPECTION", label: "INSPECTION" },
-            { id: "FOR_REINSPECTION", label: "RE-INSPECTION" }
-        ];
+        const procIdx = steps.findIndex(s => s.id === "FOR_PROCESSING");
+        if (procIdx >= 0) {
+            steps.splice(procIdx + 1, 0, { id: "FOR_REINSPECTION", label: "RE-INSPECTION" });
+        } else {
+            steps.push({ id: "FOR_REINSPECTION", label: "RE-INSPECTION" });
+        }
     } else if (status.includes("RETURN") || status.includes("REFUND") || status === "DISPUTE_REJECTED") {
         const disputeLabel = status === "DISPUTE_REJECTED" ? "RETURN REJECTED" : status.replace(/_/g, " ");
         steps.push({ id: status, label: disputeLabel });
@@ -1375,7 +1379,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     });
 
     const getEffectiveStatus = (s: string) => {
-        if (typeCode === "LCR_PSA_ENDORSEMENT") {
+        if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT") {
             if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED"].includes(s)) {
                 return "VERIFY_BILL";
             }
@@ -1733,6 +1737,57 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         return (
             <>
                 <BirthPsaEndorsementView {...viewProps} />
+                <DocumentViewerModal
+                    isOpen={viewerOpen}
+                    onClose={() => setViewerOpen(false)}
+                    file={null}
+                    fileUrl={viewerUrl}
+                    title={viewerTitle}
+                    themeColor={themeColor}
+                    documents={viewerDocs}
+                    initialIndex={viewerInitialIdx}
+                />
+            </>
+        );
+    }
+    if (typeCode === "LCR_DEATH_PSA_ENDORSEMENT") {
+        return (
+            <>
+                <DeathPsaEndorsementView {...viewProps} />
+                <DocumentViewerModal
+                    isOpen={viewerOpen}
+                    onClose={() => setViewerOpen(false)}
+                    file={null}
+                    fileUrl={viewerUrl}
+                    title={viewerTitle}
+                    themeColor={themeColor}
+                    documents={viewerDocs}
+                    initialIndex={viewerInitialIdx}
+                />
+            </>
+        );
+    }
+    if (typeCode === "LCR_MARRIAGE") {
+        return (
+            <>
+                <MarriageCertificateRequestView {...viewProps} />
+                <DocumentViewerModal
+                    isOpen={viewerOpen}
+                    onClose={() => setViewerOpen(false)}
+                    file={null}
+                    fileUrl={viewerUrl}
+                    title={viewerTitle}
+                    themeColor={themeColor}
+                    documents={viewerDocs}
+                    initialIndex={viewerInitialIdx}
+                />
+            </>
+        );
+    }
+    if (typeCode === "LCR_DEATH" || (transaction?.type?.name && (transaction.type.name.includes("Death Certificate") || transaction.type.name.includes("Certified Copy of Death")))) {
+        return (
+            <>
+                <DeathCertificateView {...viewProps} />
                 <DocumentViewerModal
                     isOpen={viewerOpen}
                     onClose={() => setViewerOpen(false)}

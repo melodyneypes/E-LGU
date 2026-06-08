@@ -460,9 +460,26 @@ export default function DeathCertificateRequestPage() {
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
         if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error("File size exceeds 5MB limit.");
+                if (e.target.parentElement) {
+                    const parent = e.target.parentElement;
+                    let errEl = parent.querySelector('.file-error-msg');
+                    if (!errEl) {
+                        errEl = document.createElement('div');
+                        errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
+                        parent.appendChild(errEl);
+                    }
+                    errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
+                    setTimeout(() => errEl && errEl.remove(), 4000);
+                }
+                e.target.value = "";
+                return;
+            }
             setForm(prev => ({
                 ...prev,
-                files: { ...prev.files, [key]: e.target.files![0] }
+                files: { ...prev.files, [key]: file }
             }));
         }
     };
@@ -1337,7 +1354,7 @@ export default function DeathCertificateRequestPage() {
                                         <div className="relative group">
                                             <input
                                                 type="file"
-                                                accept="image/*,application/pdf"
+                                                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                                                 onChange={(e) => handleFileChange(e, "validIdFront")}
                                                 className="hidden"
                                                 id="id-front-input"
@@ -1432,7 +1449,7 @@ export default function DeathCertificateRequestPage() {
                                         <div className="relative group">
                                             <input
                                                 type="file"
-                                                accept="image/*,application/pdf"
+                                                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                                                 onChange={(e) => handleFileChange(e, "validIdBack")}
                                                 className="hidden"
                                                 id="id-back-input"

@@ -352,8 +352,20 @@ export default function MarriageRegistrationPage() {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
         const file = e.target.files?.[0] || null;
         if (file) {
-            if (file.size > 5 * 1024 * 1024) {
+            if (file && file.size > 5 * 1024 * 1024) {
                 toast.error("File size exceeds 5MB limit.");
+                if (e && e.target && e.target.parentElement) {
+                    const parent = e.target.parentElement;
+                    let errEl = parent.querySelector('.file-error-msg');
+                    if (!errEl) {
+                        errEl = document.createElement('div');
+                        errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
+                        parent.appendChild(errEl);
+                    }
+                    errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
+                    setTimeout(() => errEl && errEl.remove(), 4000);
+                }
+                if (e && e.target) e.target.value = "";
                 return;
             }
             // Save raw file to IndexedDB
@@ -999,7 +1011,7 @@ export default function MarriageRegistrationPage() {
                                                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Click to Upload</span>
                                                             </>
                                                         )}
-                                                        <input type="file" id="marriageCert" className="hidden" onChange={e => handleFileChange(e, 'marriageCert')} accept="image/*,.pdf" />
+                                                        <input type="file" id="marriageCert" className="hidden" onChange={e => handleFileChange(e, 'marriageCert')} accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" />
                                                     </div>
                                                     {!(form.files.marriageCert || form.previews.marriageCert) && showDetailsErrors && (
                                                         <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-center gap-2 mt-1.5 text-rose-500 animate-in fade-in slide-in-from-top-1 duration-200">
@@ -1053,7 +1065,7 @@ export default function MarriageRegistrationPage() {
                                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Click to Upload</span>
                                                                 </>
                                                             )}
-                                                            <input type="file" id="psaNeg" className="hidden" onChange={e => handleFileChange(e, 'psaNeg')} accept="image/*,.pdf" />
+                                                            <input type="file" id="psaNeg" className="hidden" onChange={e => handleFileChange(e, 'psaNeg')} accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" />
                                                         </div>
                                                         {!(form.files.psaNeg || form.previews.psaNeg) && showDetailsErrors && (
                                                             <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-center gap-2 mt-1.5 text-rose-500 animate-in fade-in slide-in-from-top-1 duration-200">
@@ -1105,7 +1117,7 @@ export default function MarriageRegistrationPage() {
                                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Click to Upload</span>
                                                                 </>
                                                             )}
-                                                            <input type="file" id="affidavitDelay" className="hidden" onChange={e => handleFileChange(e, 'affidavitDelay')} accept="image/*,.pdf" />
+                                                            <input type="file" id="affidavitDelay" className="hidden" onChange={e => handleFileChange(e, 'affidavitDelay')} accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" />
                                                         </div>
                                                         {!(form.files.affidavitDelay || form.previews.affidavitDelay) && showDetailsErrors && (
                                                             <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-center gap-2 mt-1.5 text-rose-500 animate-in fade-in slide-in-from-top-1 duration-200">
@@ -1157,7 +1169,7 @@ export default function MarriageRegistrationPage() {
                                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Click to Upload</span>
                                                                 </>
                                                             )}
-                                                            <input type="file" id="marriageLicense" className="hidden" onChange={e => handleFileChange(e, 'marriageLicense')} accept="image/*,.pdf" />
+                                                            <input type="file" id="marriageLicense" className="hidden" onChange={e => handleFileChange(e, 'marriageLicense')} accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" />
                                                         </div>
                                                         {!(form.files.marriageLicense || form.previews.marriageLicense) && showDetailsErrors && (
                                                             <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-center gap-2 mt-1.5 text-rose-500 animate-in fade-in slide-in-from-top-1 duration-200">

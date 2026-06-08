@@ -5,32 +5,33 @@ import Link from "next/link";
 import {
     ArrowLeft,
     Check,
-    Coins,
     FileText,
     AlertCircle,
-    RotateCw,
-    ExternalLink,
     Upload,
     Clock,
     Eye,
-    Plus,
-    Trash2,
     ChevronDown,
     ChevronUp,
-    Copy,
-    Hash
+    Hash,
+    Plus,
+    Trash2,
+    RotateCw,
+    Coins,
+    ExternalLink,
+    Copy
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import LightboxView from "@/app/admin/treasury/[id]/components/LightboxView";
 import ResidentIdentityProfile from "@/app/admin/treasury/[id]/components/ResidentIdentityProfile";
 import TransactionInfoCard from "@/app/admin/treasury/[id]/components/TransactionInfoCard";
 import RejectionRevisionControls from "@/app/admin/treasury/[id]/components/RejectionRevisionControls";
-import PrintWaybill from "@/app/admin/treasury/[id]/components/PrintWaybill";
 import { cn } from "@/lib/utils";
 
-export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
+export default function MarriageCertificateRequestView(props: TreasuryViewProps) {
     const {
         transaction,
         rawUserRole,
@@ -74,10 +75,6 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
         calcResult,
         registryBookVerification,
         setRegistryBookVerification,
-        birthRegDocFile,
-        setBirthRegDocFile,
-        birthRegDocPreview,
-        setBirthRegDocPreview,
         orSeriesNumber,
         setOrSeriesNumber,
         handleViewFile,
@@ -88,26 +85,19 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
         miscFee,
         setMiscFee,
         handleProcessRequest,
-        handlePrintWaybill
+        handlePrintWaybill,
+        birthRegDocFile,
+        setBirthRegDocFile,
+        birthRegDocPreview,
+        setBirthRegDocPreview
     } = props;
 
     const [isAssessmentOpen, setIsAssessmentOpen] = React.useState(true);
     const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
     const additional = transaction.additionalData || {};
-
-    const deliveryAddr = transaction.deliveryAddress
-        ? (typeof transaction.deliveryAddress === 'string' ? JSON.parse(transaction.deliveryAddress) : transaction.deliveryAddress)
-        : null;
-    const fiscal = transaction.fiscalSnapshot || null;
-
     const isTreasuryContext = backUrl?.includes("/admin/treasury") || rawUserRole === "TREASURY_STAFF";
-    const subjectName = additional.subjectFullName || additional.subjectName || "N/A";
-    const subjectDateOfBirth = additional.subjectDateOfBirth || additional.dateOfEvent || "";
-    const mothersMaidenName = additional.mothersMaidenName || additional.motherName || "";
 
-    // Evidences particular to PSA Endorsement
-    const psaNegativeCertUrl = additional.psaNegativeCert || null;
-    const form1aUrl = additional.form1a || null;
+    const subjectName = additional.fullName || additional.subjectName || additional.husbandName || additional.wifeName || "N/A";
 
     return (
         <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0f172a] transition-colors duration-300">
@@ -143,8 +133,8 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                     <div className="lg:col-span-8 space-y-8">
                         {/* TRANSACTION CATEGORY CARD */}
                         <TransactionInfoCard
-                            transactionName="Birth PSA Endorsement Request"
-                            categoryLabel="Local Civil Registry"
+                            transactionName="Marriage Certificate Request"
+                            categoryLabel="Certified True Copy"
                             themeColor={themeColor}
                         />
 
@@ -158,7 +148,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-3">
                                         <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary italic">
-                                            Subject / Record Owner Name
+                                            Document Owner / Subject Name
                                         </span>
                                     </div>
                                     <h1 className="text-3xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
@@ -173,28 +163,22 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                             {isAssessmentOpen && (
                                 <div className="space-y-12 animate-in fade-in slide-in-from-top-4 duration-300">
                                     {/* TOP METRICS GRID */}
-                                    <div className="grid grid-cols-4 gap-4">
-                                        <div className="bg-[#f8fafd] dark:bg-white/5 p-5 rounded-2xl space-y-1">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Relationship to Subject</span>
-                                            <p className="text-lg font-black italic tracking-tighter dark:text-slate-200 uppercase">
-                                                {additional.relationship || "SELF"}
-                                            </p>
-                                        </div>
-                                        <div className="bg-[#f8fafd] dark:bg-white/5 p-5 rounded-2xl space-y-1">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Fulfillment</span>
-                                            <p className="text-lg font-black italic tracking-tighter dark:text-slate-200 leading-none uppercase">
+                                    <div className="grid grid-cols-3 gap-6">
+                                        <div className="bg-[#f8fafd] dark:bg-white/5 p-8 rounded-3xl space-y-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Fulfillment Type</span>
+                                            <p className="text-2xl font-black italic tracking-tighter dark:text-slate-200 uppercase">
                                                 {transaction.fulfillmentType?.replace(/_/g, " ") || "--"}
                                             </p>
                                         </div>
-                                        <div className="bg-[#f8fafd] dark:bg-white/5 p-5 rounded-2xl space-y-1">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Payment Mode</span>
-                                            <p className="text-lg font-black italic tracking-tighter dark:text-slate-200 leading-none uppercase">
+                                        <div className="bg-[#f8fafd] dark:bg-white/5 p-8 rounded-3xl space-y-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Payment Mode</span>
+                                            <p className="text-2xl font-black italic tracking-tighter dark:text-slate-200 leading-none uppercase">
                                                 {transaction.paymentType?.replace(/_/g, " ") || "--"}
                                             </p>
                                         </div>
-                                        <div className="bg-[#f8fafd] dark:bg-white/5 p-5 rounded-2xl space-y-1">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary">Total Amount</span>
-                                            <p className="text-lg font-black italic tracking-tighter text-primary">₱{calcResult.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                                        <div className="bg-[#f8fafd] dark:bg-white/5 p-8 rounded-3xl space-y-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-primary">Total Amount</span>
+                                            <p className="text-2xl font-black italic tracking-tighter text-primary">₱{(transaction.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                                         </div>
                                     </div>
 
@@ -205,9 +189,11 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                         </h3>
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
-                                                <span>PSA Endorsement Fee</span>
+                                                <span>Miscellaneous Fee</span>
                                                 <span className="dark:text-slate-200 font-black">
-                                                    ₱200.00
+                                                    {parseFloat(miscFee || "0") > 0
+                                                        ? `₱${(parseFloat(miscFee || "0")).toFixed(2)}`
+                                                        : "FREE"}
                                                 </span>
                                             </div>
 
@@ -223,13 +209,11 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                                 if (!item.readonly && ["FOR_INSPECTION", "FOR_REQUESTING"].includes(transaction.status)) {
                                                     return null;
                                                 }
-                                                const feeAmt = parseFloat(item.amount) || 0;
-                                                if (feeAmt === 0) return null;
                                                 return (
                                                     <div key={idx} className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
                                                         <span>{item.label || "Additional Fee"}</span>
                                                         <span className="dark:text-slate-200 font-black">
-                                                            ₱{feeAmt.toFixed(2)}
+                                                            ₱{(parseFloat(item.amount) || 0).toFixed(2)}
                                                         </span>
                                                     </div>
                                                 );
@@ -285,7 +269,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                                                         <div className="w-8 h-8 shrink-0" />
                                                                     )}
                                                                 </div>
-                                                            );
+                                                            )
                                                         })}
                                                         <Button
                                                             type="button"
@@ -302,7 +286,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                             <div className="border-t border-dotted border-slate-300 dark:border-white/10 pt-4 mt-4 flex justify-between items-center">
                                                 <span className="text-base font-black uppercase italic tracking-widest text-slate-900 dark:text-white leading-none">Total Amount</span>
                                                 <span className="text-3xl font-black italic tracking-tighter text-primary leading-none">
-                                                    ₱{calcResult.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                    ₱{displayTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                 </span>
                                             </div>
                                         </div>
@@ -322,21 +306,58 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                             relationship={additional.relationship}
                         />
 
-                        {/* Birth PSA Endorsement Specific details panel */}
+                        {/* Primary LCR Specific Details Panel */}
                         <div className="bg-[#111827] border border-slate-800 rounded-[2.5rem] p-8 md:p-12 shadow-2xl space-y-8 animate-in fade-in duration-300">
                             <div className="flex items-center gap-3">
                                 <div className="p-2.5 bg-primary rounded-xl text-white shadow-lg shadow-primary/20">
                                     <FileText className="w-5 h-5" />
                                 </div>
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500 italic">
-                                    Birth PSA Endorsement Information
+                                    Marriage Certificate Search Information
                                 </h3>
                             </div>
+
+                            {additional.registryBookVerification && !["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "EVALUATED"].includes(transaction.status) && (
+                                <div className="flex items-center justify-between gap-4 animate-in fade-in duration-300">
+                                    <div className="space-y-1.5 flex-1">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Registry Book Verification Status</span>
+                                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            {additional.registryBookVerification === "FORM_1A" ? "Form 1A (Record Found)" :
+                                                additional.registryBookVerification === "FORM_1B" ? "Form 1B (Record Not Available)" :
+                                                    additional.registryBookVerification === "FORM_1C" ? "Form 1C (Record Destroyed)" :
+                                                        additional.registryBookVerification}
+                                        </div>
+                                    </div>
+                                    <Badge className={cn(
+                                        "px-4.5 py-2 rounded-full font-black uppercase text-[10px] tracking-wider italic text-white shadow-md border-none shrink-0 self-end mb-0.5",
+                                        additional.registryBookVerification === "FORM_1A" ? "bg-emerald-500 hover:bg-emerald-500 shadow-emerald-500/10" :
+                                            additional.registryBookVerification === "FORM_1B" ? "bg-amber-500 hover:bg-amber-500 shadow-amber-500/10" :
+                                                "bg-rose-500 hover:bg-rose-500 shadow-rose-500/10"
+                                    )}>
+                                        {additional.registryBookVerification === "FORM_1A" ? "Record Found" :
+                                            additional.registryBookVerification === "FORM_1B" ? "Not Available" :
+                                                "Destroyed"}
+                                    </Badge>
+                                </div>
+                            )}
+
+                            {(additional.orSeriesNumber || additional.scannedDocUrl) && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300">
+                                    {additional.orSeriesNumber && (
+                                        <div className="flex flex-col justify-center gap-2">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">O.R. Series Number</span>
+                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                {additional.orSeriesNumber}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                 <div className="space-y-6">
                                     <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic">
-                                        Subject Details
+                                        Marriage Details
                                     </h4>
                                     <div className="space-y-6">
                                         <div className="space-y-1.5">
@@ -346,17 +367,25 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                             </div>
                                         </div>
 
-                                        <div className="space-y-1.5">
-                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Date of Birth</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                {safeFormatDate(subjectDateOfBirth)}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1.5">
+                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Date of Marriage</span>
+                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                    {safeFormatDate(additional.dateOfEvent || additional.dateOfMarriage)}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Registry No.</span>
+                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                    {additional.registryNumber || "PENDING"}
+                                                </div>
                                             </div>
                                         </div>
 
                                         <div className="space-y-1.5">
-                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">{"Mother's Maiden Name"}</span>
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Marriage</span>
                                             <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                {mothersMaidenName || "—"}
+                                                {additional.placeOfEvent || additional.placeOfMarriage || "—"}
                                             </div>
                                         </div>
                                     </div>
@@ -364,28 +393,20 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
 
                                 <div className="space-y-6">
                                     <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic">
-                                        Informant Details
+                                        Contracting Parties
                                     </h4>
                                     <div className="space-y-6">
                                         <div className="space-y-1.5">
-                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Informant Full Name</span>
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">{"Husband's Full Name"}</span>
                                             <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                {[additional.informantFirstName, additional.informantMiddleName, additional.informantLastName].filter(Boolean).join(" ") + (additional.informantSuffix ? " " + additional.informantSuffix : "") || "—"}
+                                                {additional.husbandName || additional.fatherName || "—"}
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1.5">
-                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Contact Number</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                    {additional.contactNumber || "—"}
-                                                </div>
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Civil Status</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                    {additional.informantCivilStatus || "—"}
-                                                </div>
+                                        <div className="space-y-1.5">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">{"Wife's Full Name"}</span>
+                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                {additional.wifeName || additional.motherName || "—"}
                                             </div>
                                         </div>
                                     </div>
@@ -394,78 +415,57 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                         </div>
 
                         {/* ATTACHMENT CARD FOR EVIDENCE */}
-                        {((psaNegativeCertUrl || form1aUrl) && (
+                        {evidenceDocs && evidenceDocs.length > 0 && (
                             <div className="bg-white dark:bg-[#151b28] rounded-[2.5rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e293b] dark:text-white leading-none">
                                     Submitted Identifications & Requirements
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {psaNegativeCertUrl && (
-                                        <div
-                                            onClick={() => handleViewFile?.(psaNegativeCertUrl, "PSA Negative Certification")}
-                                            className="relative group rounded-3xl overflow-hidden aspect-[3/2] bg-[#f8fafd] dark:bg-white/5 border border-slate-200/50 dark:border-white/5 cursor-pointer shadow-md hover:shadow-xl transition-all"
-                                        >
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img
-                                                src={psaNegativeCertUrl}
-                                                alt="PSA Negative Certification"
-                                                className="w-full h-full object-cover group-hover:scale-[1.03] transition-all duration-500"
-                                            />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center z-10">
-                                                <div
-                                                    style={{ backgroundColor: themeColor }}
-                                                    className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg animate-in zoom-in-75 duration-200"
-                                                >
-                                                    <span>VIEW</span>
+                                <div className="grid grid-cols-2 gap-6">
+                                    {evidenceDocs.map((doc: any, idx: number) => {
+                                        if (!doc.url) return null;
+                                        return (
+                                            <div
+                                                key={idx}
+                                                onClick={() => handleViewFile?.(doc.url, doc.label, evidenceDocs, idx)}
+                                                className="relative group rounded-3xl overflow-hidden aspect-[3/2] bg-[#f8fafd] dark:bg-white/5 border border-slate-200/50 dark:border-white/5 cursor-pointer shadow-md hover:shadow-xl transition-all"
+                                            >
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                    src={doc.url}
+                                                    alt={doc.label}
+                                                    className="w-full h-full object-cover group-hover:scale-[1.03] transition-all duration-500"
+                                                />
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center z-10">
+                                                    <div
+                                                        style={{ backgroundColor: themeColor }}
+                                                        className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg animate-in zoom-in-75 duration-200"
+                                                    >
+                                                        <span>VIEW</span>
+                                                    </div>
+                                                </div>
+                                                <div className="absolute bottom-2 left-2 right-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-white font-black italic uppercase tracking-wider text-[8px] truncate z-10">
+                                                    {doc.label}
                                                 </div>
                                             </div>
-                                            <div className="absolute bottom-2 left-2 right-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-white font-black italic uppercase tracking-wider text-[8px] truncate z-10">
-                                                PSA Negative Certification (Required)
-                                            </div>
-                                        </div>
-                                    )}
-                                    {form1aUrl && (
-                                        <div
-                                            onClick={() => handleViewFile?.(form1aUrl, "Form 1A (Local Copy)")}
-                                            className="relative group rounded-3xl overflow-hidden aspect-[3/2] bg-[#f8fafd] dark:bg-white/5 border border-slate-200/50 dark:border-white/5 cursor-pointer shadow-md hover:shadow-xl transition-all"
-                                        >
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img
-                                                src={form1aUrl}
-                                                alt="Form 1A (Local Copy)"
-                                                className="w-full h-full object-cover group-hover:scale-[1.03] transition-all duration-500"
-                                            />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center z-10">
-                                                <div
-                                                    style={{ backgroundColor: themeColor }}
-                                                    className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg animate-in zoom-in-75 duration-200"
-                                                >
-                                                    <span>VIEW</span>
-                                                </div>
-                                            </div>
-                                            <div className="absolute bottom-2 left-2 right-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-white font-black italic uppercase tracking-wider text-[8px] truncate z-10">
-                                                Form 1A (Local Registry Copy)
-                                            </div>
-                                        </div>
-                                    )}
+                                        );
+                                    })}
                                 </div>
                             </div>
-                        ))}
+                        )}
                     </div>
 
                     {/* Right Column: Workflow Actions Controls */}
                     <div className="lg:col-span-4 space-y-8 lg:sticky lg:top-8 animate-in fade-in duration-300">
                         {/* PHASE TRACKER STEPPER */}
-                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 md:p-10 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-6">
-                            <div>
-                                <h3 className="text-md font-black italic uppercase tracking-wider text-slate-800 dark:text-slate-200">Status Tracker</h3>
-                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest italic mt-1">Status phase progress</p>
-                            </div>
+                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
+                            <h3 className="text-[10px] font-black uppercase tracking-widest text-[#1e293b] dark:text-slate-400">
+                                Service Request Progress
+                            </h3>
                             <div className="relative pl-6 space-y-6">
                                 <div className="absolute top-2 bottom-2 left-2.5 w-0.5 bg-slate-100 dark:bg-white/5" />
                                 {steps.map((step, idx) => {
-                                    const isCompleted = currentStepIdx > idx || (currentStepIdx === idx && ["RELEASED", "DELIVERED", "COMPLETED"].includes(transaction.status));
-                                    const isCurrent = currentStepIdx === idx && !["RELEASED", "DELIVERED", "COMPLETED"].includes(transaction.status);
+                                    const isCompleted = currentStepIdx > idx;
+                                    const isCurrent = currentStepIdx === idx;
                                     return (
                                         <div key={idx} className="flex gap-4 relative items-center">
                                             <div className={cn(
@@ -532,160 +532,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                             </div>
                         )}
 
-                        {/* REGISTRAR FOR_REQUESTING / UNDER_REVIEW CONTROLLER */}
-                        {!isTreasuryContext && (transaction.status === "FOR_REQUESTING" || transaction.status === "UNDER_REVIEW") && (
-                            <div className="space-y-6">
-                                <Button
-                                    onClick={handleEvaluate}
-                                    disabled={actionLoading}
-                                    className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-green-500/10"
-                                >
-                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                    Approve & Send Assessment
-                                </Button>
-
-                                <div className="flex gap-2">
-                                    <Button
-                                        onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
-                                        className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
-                                    >
-                                        Revision
-                                    </Button>
-                                    <Button
-                                        onClick={() => { setIsRejecting(true); setRemarks(""); }}
-                                        className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
-                                    >
-                                        Reject
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* REGISTRAR FOR_REINSPECTION CONTROLLER */}
-                        {transaction.status === "FOR_REINSPECTION" && (
-                            <div className="space-y-6">
-                                {/* Payment Reference Card */}
-                                {(() => {
-                                    const refNo =
-                                        additional?.paymentId ||
-                                        additional?.reference_number ||
-                                        additional?.gcashReferenceNo ||
-                                        (transaction.paymentReference && !transaction.paymentReference.startsWith("http") && !transaction.paymentReference.startsWith("/") ? transaction.paymentReference : null) ||
-                                        additional?.payment_id ||
-                                        transaction.paymentId;
-
-                                    if (!refNo) return null;
-
-                                    return (
-                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                                                    <Hash className="w-4 h-4" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 block italic leading-none">Payment Reference</span>
-                                                    <span className="text-sm font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">Reference ID</span>
-                                                </div>
-                                            </div>
-
-                                            <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5 space-y-2 mt-2 group/ref relative overflow-hidden transition-all hover:border-primary/20 shadow-sm">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                                        Reference ID (Read-only)
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            navigator.clipboard.writeText(refNo);
-                                                            toast.success("Reference number copied!");
-                                                        }}
-                                                        className="text-slate-400 hover:text-primary transition-colors p-1 rounded hover:bg-slate-100 dark:hover:bg-white/5"
-                                                    >
-                                                        <Copy className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                                <p className="text-sm font-black italic tracking-widest font-mono text-slate-800 dark:text-slate-200 select-all">
-                                                    {refNo}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-
-                                {/* O.R. Details Card */}
-                                {(() => {
-                                    const orNo = additional?.orSeriesNumber || transaction.orSeriesNumber || additional?.orNumber || additional?.orNo;
-                                    const orDocUrl = additional?.orDocumentUrl || transaction.orUrl || additional?.orUrl;
-
-                                    if (!orNo && !orDocUrl) return null;
-
-                                    return (
-                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 rounded-xl bg-green-500/10 text-green-500">
-                                                    <FileText className="w-4 h-4" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 block italic leading-none">Treasury Official Receipt</span>
-                                                    <span className="text-sm font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">O.R. Details</span>
-                                                </div>
-                                            </div>
-
-                                            {orNo && (
-                                                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5 space-y-1">
-                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block leading-none">O.R. Series Number</span>
-                                                    <p className="text-xs font-black uppercase italic tracking-wider text-slate-800 dark:text-slate-200">
-                                                        {orNo}
-                                                    </p>
-                                                </div>
-                                            )}
-
-                                            {orDocUrl && (
-                                                <div className="space-y-2">
-                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1 block leading-none">Scanned O.R. Copy</span>
-                                                    <div className="bg-[#f8fafd] dark:bg-[#0c111d] border border-slate-200 dark:border-[#2a3040] rounded-3xl p-3 flex items-center justify-between shadow-sm">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center shrink-0">
-                                                                <FileText className="w-5 h-5 text-emerald-500" />
-                                                            </div>
-                                                            <div className="flex flex-col">
-                                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Official Receipt</span>
-                                                                <span className="text-[8px] text-slate-400 italic">Attached OR Document</span>
-                                                            </div>
-                                                        </div>
-                                                        <Button
-                                                            onClick={() => handleViewFile?.(orDocUrl, "Official Receipt Document")}
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="w-8 h-8 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/10"
-                                                        >
-                                                            <Eye className="w-4 h-4" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })()}
-
-                                <div className="p-6 text-center rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-3">
-                                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mx-auto">
-                                        <Clock className="w-6 h-6 animate-pulse" />
-                                    </div>
-                                    <h4 className="text-xs font-black uppercase tracking-[0.25em] text-slate-700 dark:text-slate-200 font-bold">Ready for Registrar Processing</h4>
-                                    <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">Payment has been confirmed. Click below to begin processing this document and officially notify the resident.</p>
-                                </div>
-
-                                <Button
-                                    onClick={handleProcessRequest}
-                                    disabled={actionLoading}
-                                    className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all"
-                                >
-                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                    Process the request
-                                </Button>
-                            </div>
-                        )}
+                        {/* TREASURY SPECIFIC READY FOR PAYMENT STEP CONTROLLER */}
                         {isTreasuryContext && transaction.status === "FOR_REQUESTING" && (
                             <div className="space-y-6">
                                 <Button
@@ -694,7 +541,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                     className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-green-500/10"
                                 >
                                     {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                    PROCEED TO PAYMENT
+                                    Ready for Payment
                                 </Button>
                             </div>
                         )}
@@ -706,7 +553,9 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                     <Clock className="w-6 h-6 animate-pulse" />
                                 </div>
                                 <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Citizen Payment</h4>
-                                <p className="text-[10px] text-slate-400 italic">Assessment invoice sent. The request is currently pending official citizen payment verification.</p>
+                                <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
+                                    The assessment fee has been computed. We are currently waiting for the citizen to complete the payment online or upload their proof of payment.
+                                </p>
                             </div>
                         )}
 
@@ -827,7 +676,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                                 }
                                             }}
                                             className="hidden"
-                                            id="or-document-upload-paid"
+                                            id="marriage-or-document-upload-paid"
                                         />
                                         {orFile || transaction.orUrl ? (
                                             <div className="space-y-3">
@@ -845,7 +694,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                                                 onClick={() => handleViewFile?.(orPreview || transaction.orUrl, "Official Receipt PDF")}
                                                                 className="w-full flex items-center justify-between p-5 bg-[#151b28]/60 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-primary/50 hover:bg-primary/5 transition-all text-left animate-in fade-in duration-300 group"
                                                             >
-                                                                 <div className="flex items-center gap-4">
+                                                                <div className="flex items-center gap-4">
                                                                     <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 text-xl shrink-0 group-hover:scale-110 transition-transform">
                                                                         📕
                                                                     </div>
@@ -885,7 +734,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                                 })()}
                                                 <div className="flex justify-end">
                                                     <label
-                                                        htmlFor="or-document-upload-paid"
+                                                        htmlFor="marriage-or-document-upload-paid"
                                                         className="h-8 px-3 rounded-lg border border-transparent bg-slate-200 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white text-[9px] font-black uppercase tracking-widest italic flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-sm select-none"
                                                     >
                                                         <Upload className="w-3 h-3" /> Replace O.R. File
@@ -894,7 +743,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                             </div>
                                         ) : (
                                             <label
-                                                htmlFor="or-document-upload-paid"
+                                                htmlFor="marriage-or-document-upload-paid"
                                                 className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed transition-all h-28 bg-white dark:bg-[#151b28]/60 overflow-hidden relative group cursor-pointer border-slate-200 dark:border-white/10 hover:border-primary/30"
                                             >
                                                 <Upload className="w-4.5 h-4.5 text-slate-400 group-hover:text-primary transition-colors mb-1" />
@@ -917,51 +766,80 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                             </div>
                         )}
 
-                        {/* REGISTRAR RELEASE PROCESSOR CONTROLLER */}
-                        {transaction.status === "FOR_PROCESSING" && !isTreasuryContext && (
-                            <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-6">
-                                <h4 className="text-[10px] font-black uppercase tracking-widest text-[#1e293b] dark:text-slate-400">
-                                    Endorsement Document Attachment
-                                </h4>
+                        {/* REGISTRAR UPLOAD E-COPY AND OR RELEASE ACTION */}
+                        {transaction.status === "FOR_PROCESSING" && (
+                            <div className="bg-[#111827] border border-slate-800 rounded-[2rem] p-8 shadow-2xl space-y-6">
+                                <div className="space-y-1">
+                                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#10b981] italic">Upload & Release Document</h4>
+                                    <p className="text-xs font-bold text-slate-500 italic">Verify registry book, attach records, and release e-copy.</p>
+                                </div>
 
                                 <div className="space-y-4">
-                                    <div className="space-y-1">
-                                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Upload Official Endorsement E-Copy *</span>
-                                        {eCopyPreview ? (
-                                            <div className="bg-[#f8fafd] dark:bg-[#0c111d] border border-slate-200 dark:border-[#2a3040] rounded-3xl p-3 flex items-center justify-between shadow-sm animate-in fade-in duration-300">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center shrink-0">
-                                                        <Check className="w-5 h-5 text-emerald-500" />
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 truncate max-w-[120px]">
-                                                            {eCopyFile ? eCopyFile.name : "Uploaded"}
-                                                        </span>
-                                                        <span className="text-[8px] text-slate-400 italic">Ready for Release</span>
-                                                    </div>
-                                                </div>
-                                                <Button
-                                                    onClick={() => setECopyFile(null)}
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="w-8 h-8 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <label className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 italic block">
+                                                Registry Book Status <span className="text-rose-500 font-extrabold">*Required</span>
+                                            </label>
+                                            {registryBookVerification && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setRegistryBookVerification?.("");
+                                                        setBirthRegDocFile?.(null);
+                                                        setBirthRegDocPreview?.(null);
+                                                    }}
+                                                    className="text-[9px] font-black uppercase tracking-widest text-primary hover:underline italic focus:outline-none"
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
-                                            </div>
-                                        ) : (
-                                            <label className="flex flex-col items-center justify-center py-6 px-4 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-primary/50 dark:hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-white/[0.01] transition-all cursor-pointer text-center group/ecopy animate-in fade-in duration-300">
-                                                <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center mb-2 group-hover/ecopy:scale-105 transition-transform">
-                                                    <Upload className="w-4 h-4 text-slate-400" />
-                                                </div>
-                                                <span className="text-[10px] font-black uppercase tracking-wider text-primary">Upload Official Registry Document</span>
-                                                <span className="text-[7px] text-slate-400 dark:text-slate-500 italic mt-0.5">PDF or Image up to 5MB</span>
-                                                <input
-                                                    type="file"
-                                                    className="hidden"
-                                                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                                                    onChange={(e) => {
-                                                        const file = e.target.files?.[0] || null;
+                                                    Change Choice
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-2.5">
+                                            {[
+                                                { id: "FORM_1A", title: "Form 1A", desc: "Record Found & Verified" },
+                                                { id: "FORM_1B", title: "Form 1B", desc: "Record Not Available" },
+                                                { id: "FORM_1C", title: "Form 1C", desc: "Record Destroyed" }
+                                            ]
+                                                .filter(opt => !registryBookVerification || registryBookVerification === opt.id)
+                                                .map((opt) => {
+                                                    const isSelected = registryBookVerification === opt.id;
+                                                    return (
+                                                        <button
+                                                            key={opt.id}
+                                                            type="button"
+                                                            onClick={() => setRegistryBookVerification?.(opt.id)}
+                                                            className={cn(
+                                                                "flex items-center justify-between p-4 rounded-2xl border text-left transition-all duration-300 active:scale-98 select-none w-full",
+                                                                isSelected ? `${themeColor} bg-[#1f2937]/10 border-primary shadow-md font-bold text-white` : "border-slate-800 text-slate-400 bg-[#1f2937]/30 hover:bg-[#1f2937]/50"
+                                                            )}
+                                                        >
+                                                            <div className="flex flex-col">
+                                                                <span className="text-xs font-black uppercase tracking-wider">{opt.title}</span>
+                                                                <span className="text-[10px] italic opacity-85 mt-0.5">{opt.desc}</span>
+                                                            </div>
+                                                            <div className={cn(
+                                                                "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+                                                                isSelected ? "border-current bg-current/15" : "border-slate-700"
+                                                            )}>
+                                                                {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-current" />}
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                        </div>
+                                    </div>
+
+                                    {/* E-Copy/Verification PDF/Image Upload Block (Required once status is selected) */}
+                                    {registryBookVerification && (
+                                        <div className="space-y-3 pt-4 border-t border-slate-800/50">
+                                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
+                                                Attach Verification Scanned Document (PDF/Image) <span className="text-rose-500 font-extrabold">*Required</span>
+                                            </label>
+                                            <input
+                                                type="file"
+                                                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0] || null;
                                                         if (file && file.size > 5 * 1024 * 1024) {
                                                             toast.error("File size exceeds 5MB limit.");
                                                             if (e.target.parentElement) {
@@ -976,152 +854,155 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                                                 setTimeout(() => errEl && errEl.remove(), 4000);
                                                             }
                                                             e.target.value = "";
-                                                            setECopyFile(null);
-                                                            setECopyPreview(null);
+                                                            setBirthRegDocFile?.(null);
                                                             return;
                                                         }
-                                                        setECopyFile(file);
-                                                        if (file) {
-                                                            setECopyPreview(URL.createObjectURL(file));
-                                                        } else {
-                                                            setECopyPreview(null);
-                                                        }
-                                                    }}
-                                                />
+                                                    setBirthRegDocFile?.(file);
+                                                    if (file) {
+                                                        const url = URL.createObjectURL(file);
+                                                        setBirthRegDocPreview?.(url);
+                                                    } else {
+                                                        setBirthRegDocPreview?.(null);
+                                                    }
+                                                }}
+                                                className="hidden"
+                                                id="marriage-verification-doc-upload"
+                                            />
+                                            <label
+                                                htmlFor="marriage-verification-doc-upload"
+                                                className={cn(
+                                                    "flex flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed transition-all h-36 bg-[#1f2937]/20 overflow-hidden relative group cursor-pointer",
+                                                    birthRegDocFile
+                                                        ? "border-primary/30 bg-primary/5 shadow-inner"
+                                                        : "border-slate-800 hover:border-primary/30"
+                                                )}
+                                            >
+                                                {birthRegDocFile ? (
+                                                    <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center select-none">
+                                                        {birthRegDocFile.type.startsWith("image/") ? (
+                                                            <div className="relative w-full h-full group select-none">
+                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                <img
+                                                                    src={birthRegDocPreview || ""}
+                                                                    alt="Verification Preview"
+                                                                    className="w-full h-full object-cover opacity-60 group-hover:opacity-85 transition-opacity"
+                                                                />
+                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center z-10">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            e.preventDefault();
+                                                                            handleViewFile?.(birthRegDocPreview || null, "Verification Document File");
+                                                                        }}
+                                                                        style={{ backgroundColor: themeColor }}
+                                                                        className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg hover:scale-105 transition-all"
+                                                                    >
+                                                                        <span>VIEW</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="relative w-full h-full flex flex-col items-center justify-center gap-2 group">
+                                                                <FileText className="w-8 h-8 text-primary" style={{ color: themeColor }} />
+                                                                <span className="text-[9px] font-black uppercase italic tracking-widest text-white max-w-[200px] truncate">{birthRegDocFile.name}</span>
+                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center z-10">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            e.preventDefault();
+                                                                            handleViewFile?.(birthRegDocPreview || null, "Verification Document File");
+                                                                        }}
+                                                                        style={{ backgroundColor: themeColor }}
+                                                                        className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg hover:scale-105 transition-all"
+                                                                    >
+                                                                        <span>VIEW</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-col items-center justify-center gap-2">
+                                                        <Upload className="w-5 h-5 text-slate-400 group-hover:text-primary transition-colors" />
+                                                        <span className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 text-center px-4">
+                                                            Upload Scanned Verification Document
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </label>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <Button
-                                    onClick={handleRelease}
-                                    disabled={actionLoading}
-                                    className="w-full h-14 bg-[#10b981] hover:bg-[#0d9488] text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
-                                >
-                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                    Release & Send to Citizen
-                                </Button>
-                            </div>
-                        )}
-
-                        {/* REGISTRAR RELEASE FOR CLAIM ACTION */}
-                        {transaction.status === "FOR_CLAIM" && (
-                            <div className="space-y-6">
-                                <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-6">
-                                    <div className="text-center space-y-3">
-                                        <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 mx-auto">
-                                            <Check className="w-8 h-8" />
                                         </div>
-                                        <h4 className="text-sm font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200 font-bold">Document Ready for Claiming</h4>
-                                        <p className="text-xs text-slate-400 italic max-w-sm mx-auto">
-                                            The document has been verified and processed. Please click below to officially release the document and notify the resident.
-                                        </p>
-                                    </div>
-                                </div>
+                                    )}
 
-                                <Button
-                                    onClick={handleRelease}
-                                    disabled={actionLoading}
-                                    className={`w-full h-14 rounded-2xl text-xs font-black uppercase tracking-wider italic text-white ${themeColor} shadow-lg active:scale-95 transition-all shadow-emerald-500/10`}
-                                >
-                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                    Release the Document
-                                </Button>
+                                    {/* Official E-Copy Registry Record (PDF/Image) */}
+                                    {registryBookVerification && birthRegDocFile && (
+                                        <div className="space-y-3 pt-4 border-t border-slate-800/50">
+                                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest block leading-none">Official E-Copy Registry Record (PDF/Image)</span>
+                                            <div className="relative border border-dashed border-slate-800 rounded-xl p-4 text-center cursor-pointer hover:bg-white/[0.02]">
+                                                <input
+                                                    type="file"
+                                                    onChange={(e) => setECopyFile(e.target.files?.[0] || null)}
+                                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                                    accept="image/*,.pdf"
+                                                />
+                                                <Upload className="w-5 h-5 mx-auto text-slate-500 mb-2" />
+                                                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                                                    {eCopyFile ? eCopyFile.name : "Select Official Release E-Copy File"}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {transaction.fulfillmentType === "DELIVERY" && (
+                                        <Button
+                                            onClick={handlePrintWaybill}
+                                            variant="outline"
+                                            className="w-full h-12 rounded-xl border-2 border-primary/20 text-primary font-black italic uppercase tracking-widest text-[10px] hover:bg-primary/5 transition-all"
+                                        >
+                                            Generate & Print Waybill
+                                        </Button>
+                                    )}
+
+                                    <Button
+                                        onClick={handleRelease}
+                                        disabled={actionLoading || !registryBookVerification || !birthRegDocFile || !eCopyFile}
+                                        className={`w-full rounded-xl h-12 text-xs font-black uppercase tracking-widest italic text-white ${themeColor}`}
+                                    >
+                                        {actionLoading ? "Releasing Request..." : "UPLOAD AND RELEASE CERTIFICATE"}
+                                    </Button>
+                                </div>
                             </div>
                         )}
 
-                        {/* REGISTRAR RELEASED / DELIVERED DETAILS VIEW */}
-                        {(transaction.status === "RELEASED" || transaction.status === "DELIVERED") && (
+                        {/* TREASURY RELEASE FOR PICKING ACTION */}
+                        {transaction.status === "FOR_PICKING" && (
                             <div className="space-y-6">
                                 <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-6">
                                     <div className="text-center space-y-3">
                                         <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 mx-auto">
-                                            <Check className="w-8 h-8" />
+                                            <FileText className="w-8 h-8" />
                                         </div>
-                                        <h4 className="text-sm font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200 font-bold">
-                                            {transaction.status === "DELIVERED" ? "Endorsement Delivered" : "Endorsement Transmitted"}
-                                        </h4>
+                                        <h4 className="text-sm font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200 font-bold">Awaiting Rider Pickup</h4>
                                         <p className="text-xs text-slate-400 italic max-w-sm mx-auto">
-                                            {transaction.status === "DELIVERED"
-                                                ? "The PSA Endorsement document has been successfully delivered to the resident."
-                                                : "The LCR registry Form 1A has been successfully endorsed and transmitted to the Philippine Statistics Authority (PSA)."}
+                                            The document is ready for delivery. Generate the waybill below for the delivery rider.
                                         </p>
                                     </div>
-
-                                    {/* Released E-Copy Details */}
-                                    {transaction.eCopyUrl && (
-                                        <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-white/5 space-y-4 text-left">
-                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Released Endorsement Copy</span>
-                                            {(() => {
-                                                const docUrl = transaction.eCopyUrl;
-                                                const isPdf = docUrl.toLowerCase().endsWith(".pdf") || docUrl.includes("application/pdf") || docUrl.includes(".pdf?");
-                                                if (isPdf) {
-                                                    return (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleViewFile?.(docUrl, "Issued Registry Endorsement PDF")}
-                                                            className="w-full flex items-center justify-between p-4 bg-[#151b28]/60 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-primary/50 hover:bg-primary/5 transition-all text-left group"
-                                                        >
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 text-lg shrink-0 group-hover:scale-110 transition-transform">
-                                                                    📕
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 leading-none">Endorsement PDF</p>
-                                                                    <p className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic mt-0.5 leading-none">Click to view</p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="h-8 px-3 rounded-lg border border-primary/20 text-primary font-black italic uppercase tracking-widest text-[8px] group-hover:bg-primary/10 flex items-center gap-1 transition-all shrink-0" style={{ color: themeColor, borderColor: `${themeColor}33` }}>
-                                                                Open PDF ➔
-                                                            </div>
-                                                        </button>
-                                                    );
-                                                }
-
-                                                return (
-                                                    <div
-                                                        onClick={() => handleViewFile?.(docUrl, "Issued Registry Endorsement Document")}
-                                                        className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all cursor-pointer select-none"
-                                                    >
-                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                        <img
-                                                            src={docUrl}
-                                                            alt="Endorsement Document Preview"
-                                                            className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
-                                                        />
-                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-300 backdrop-blur-[2px]">
-                                                            <button
-                                                                type="button"
-                                                                style={{ backgroundColor: themeColor }}
-                                                                className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg hover:scale-105 transition-all"
-                                                            >
-                                                                <span>VIEW</span>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })()}
-                                        </div>
-                                    )}
                                 </div>
-                            </div>
-                        )}
 
-                        {/* COMPLETED RELEASE STATE ACTION (PRINT RECEIPT / WAYBILL) */}
-                        {["FOR_CLAIM", "FOR_PICKING", "IN_ROUTE", "DELIVERED", "RELEASED"].includes(transaction.status) && (
-                            <div className="space-y-4">
-                                <PrintWaybill
-                                    transaction={transaction}
-                                    resident={resident}
-                                    deliveryAddr={deliveryAddr}
-                                    fiscal={fiscal}
-                                    branding={branding}
-                                    themeColor={themeColor}
-                                />
+                                <Button
+                                    onClick={handlePrintWaybill}
+                                    variant="outline"
+                                    className="w-full h-14 rounded-2xl border-2 border-primary/20 text-primary font-black italic uppercase tracking-widest text-[10px] hover:bg-primary/5 transition-all"
+                                >
+                                    Generate & Print Waybill
+                                </Button>
                             </div>
                         )}
                     </div>
+
                 </div>
+
             </div>
         </div>
     );

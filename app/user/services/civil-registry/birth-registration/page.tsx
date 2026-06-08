@@ -305,7 +305,7 @@ export default function BirthRegistrationPage() {
 
     const isRestoredRef = useRef(false);
 
-    const baseFee = form.registrationType === "STANDARD" ? 215 : (
+    const baseFee = form.registrationType === "STANDARD" ? 0 : (
         form.lateDuration === "1-10" ? 315 : form.lateDuration === "10-20" ? 515 : form.lateDuration === "20+" ? 1015 : 0
     );
 
@@ -562,8 +562,20 @@ export default function BirthRegistrationPage() {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
         const file = e.target.files?.[0] || null;
         if (file) {
-            if (file.size > 5 * 1024 * 1024) {
+            if (file && file.size > 5 * 1024 * 1024) {
                 toast.error("File size exceeds 5MB limit.");
+                if (e && e.target && e.target.parentElement) {
+                    const parent = e.target.parentElement;
+                    let errEl = parent.querySelector('.file-error-msg');
+                    if (!errEl) {
+                        errEl = document.createElement('div');
+                        errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
+                        parent.appendChild(errEl);
+                    }
+                    errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
+                    setTimeout(() => errEl && errEl.remove(), 4000);
+                }
+                if (e && e.target) e.target.value = "";
                 return;
             }
 
@@ -672,7 +684,7 @@ export default function BirthRegistrationPage() {
                                         type="file"
                                         onChange={(e) => handleFileChange(e, doc.key)}
                                         className="absolute inset-0 opacity-0 cursor-pointer z-30"
-                                        accept="image/*,.pdf"
+                                        accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                                     />
                                     <button
                                         type="button"
@@ -698,7 +710,7 @@ export default function BirthRegistrationPage() {
                                 type="file"
                                 onChange={(e) => handleFileChange(e, doc.key)}
                                 className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                                accept="image/*,.pdf"
+                                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                             />
                             <div className="p-3 bg-slate-200/50 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-2xl transition-all duration-300 group-hover:bg-slate-900 dark:group-hover:bg-white group-hover:text-white dark:group-hover:text-black group-hover:scale-105 shadow-sm">
                                 <Upload className="w-5 h-5" />
@@ -806,10 +818,7 @@ export default function BirthRegistrationPage() {
             toast.error("Please review and accept the Privacy Policy & Terms before submitting. Click Review to open the agreement.");
             return;
         }
-        if (!resident) {
-            toast.error("Resident profile not found. Please complete your profile first.");
-            return;
-        }
+
 
         if (!form.relationship) {
             toast.error("Please specify your relationship.");
@@ -826,10 +835,7 @@ export default function BirthRegistrationPage() {
             return;
         }
 
-        if (!form.idTypeOverride && !resident?.idType) {
-            toast.error("Please select an ID type.");
-            return;
-        }
+
 
         if (form.registrationType === "LATE" && !form.lateDuration) {
             setErrors(prev => ({ ...prev, lateDuration: "Please select late registration period to compute the fee." }));
@@ -1223,7 +1229,7 @@ export default function BirthRegistrationPage() {
                                                     <SelectItem value="MOTHER">Mother</SelectItem>
                                                     <SelectItem value="FATHER">Father</SelectItem>
                                                     <SelectItem value="GUARDIAN">Guardian/Relative</SelectItem>
-                                                    <SelectItem value="HOSPITAL_REPRESENTATIVE">Hospital Representative</SelectItem>
+                                                    {/* <SelectItem value="HOSPITAL_REPRESENTATIVE">Hospital Representative</SelectItem> */}
                                                 </SelectContent>
                                             </Select>
                                             {errors.relationship && (
@@ -1776,8 +1782,8 @@ export default function BirthRegistrationPage() {
                                                             disabled
                                                             className={cn(
                                                                 "px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-not-allowed",
-                                                                form.lateDuration === "1-10" 
-                                                                    ? "bg-blue-600 text-white" 
+                                                                form.lateDuration === "1-10"
+                                                                    ? "bg-blue-600 text-white"
                                                                     : "bg-slate-100 dark:bg-slate-900/50 text-slate-400 border border-slate-200/60 dark:border-white/5 opacity-60"
                                                             )}
                                                         >
@@ -1788,8 +1794,8 @@ export default function BirthRegistrationPage() {
                                                             disabled
                                                             className={cn(
                                                                 "px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-not-allowed",
-                                                                form.lateDuration === "10-20" 
-                                                                    ? "bg-blue-600 text-white" 
+                                                                form.lateDuration === "10-20"
+                                                                    ? "bg-blue-600 text-white"
                                                                     : "bg-slate-100 dark:bg-slate-900/50 text-slate-400 border border-slate-200/60 dark:border-white/5 opacity-60"
                                                             )}
                                                         >
@@ -1800,8 +1806,8 @@ export default function BirthRegistrationPage() {
                                                             disabled
                                                             className={cn(
                                                                 "px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-not-allowed",
-                                                                form.lateDuration === "20+" 
-                                                                    ? "bg-blue-600 text-white" 
+                                                                form.lateDuration === "20+"
+                                                                    ? "bg-blue-600 text-white"
                                                                     : "bg-slate-100 dark:bg-slate-900/50 text-slate-400 border border-slate-200/60 dark:border-white/5 opacity-60"
                                                             )}
                                                         >
@@ -1836,19 +1842,19 @@ export default function BirthRegistrationPage() {
                                                         ] : [
                                                             { key: "communityTaxCertificate", label: "Community Tax Certificate" }
                                                         ]).map((doc) => renderDocCard(doc))
-                                                     ) : (
-                                                         <>
-                                                             {[
-                                                                 { key: "negativePSA", label: "Negative Certification from PSA" },
-                                                                 { key: "colb", label: "Certificate of Live Birth (COLB)" },
-                                                                 { key: "affidavitDelayed", label: "Affidavit of Delayed Registration" },
-                                                                 ...(form.parentsMarried ? [
-                                                                     { key: "marriageCertificate", label: "Marriage Certificate of Parents" },
-                                                                     { key: "municipalForm102", label: "Municipal Form 102" }
-                                                                 ] : [
-                                                                     { key: "communityTaxCertificate", label: "Community Tax Certificate" }
-                                                                 ])
-                                                             ].map((doc) => renderDocCard(doc))}
+                                                    ) : (
+                                                        <>
+                                                            {[
+                                                                { key: "negativePSA", label: "Negative Certification from PSA" },
+                                                                { key: "colb", label: "Certificate of Live Birth (COLB)" },
+                                                                { key: "affidavitDelayed", label: "Affidavit of Delayed Registration" },
+                                                                ...(form.parentsMarried ? [
+                                                                    { key: "marriageCertificate", label: "Marriage Certificate of Parents" },
+                                                                    { key: "municipalForm102", label: "Municipal Form 102" }
+                                                                ] : [
+                                                                    { key: "communityTaxCertificate", label: "Community Tax Certificate" }
+                                                                ])
+                                                            ].map((doc) => renderDocCard(doc))}
 
                                                             <div className="col-span-1 md:col-span-2 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4">
                                                                 <div className="space-y-3 w-full">
@@ -1931,24 +1937,24 @@ export default function BirthRegistrationPage() {
                                             <button type="button" onClick={() => setPolicyOpen(true)} className="text-[10px] font-black italic text-blue-600">Review</button>
                                         </div>
                                         <div className="p-5 rounded-2xl border border-slate-200/20 bg-white/30 dark:bg-white/5 space-y-3">
-                                             <div className="flex justify-between items-center text-xs font-semibold italic text-slate-500">
-                                                 <span>Registration Fee ({form.registrationType === "STANDARD" ? "Standard" : "Late"})</span>
-                                                 <span className="font-extrabold text-slate-800 dark:text-slate-200">₱{baseFee}</span>
-                                             </div>
-                                             <div className="flex justify-between items-center text-xs font-semibold italic text-slate-500 pb-2 border-b border-dashed border-slate-200/50">
-                                                 <span>E-Copy & Hardcopy Fee</span>
-                                                 <span className="font-extrabold text-slate-800 dark:text-slate-200">₱215</span>
-                                             </div>
-                                             <div className="flex justify-between items-center">
-                                                 <div>
-                                                     <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Total Amount Due</div>
-                                                     <div className="text-[9px] text-slate-400 italic">Payable upon municipal verification</div>
-                                                 </div>
-                                                 <div className="text-xl font-black text-blue-600 dark:text-blue-400">₱{totalAmount}</div>
-                                             </div>
-                                         </div>
+                                            <div className="flex justify-between items-center text-xs font-semibold italic text-slate-500">
+                                                <span>Registration Fee ({form.registrationType === "STANDARD" ? "Standard" : "Late"})</span>
+                                                <span className="font-extrabold text-slate-800 dark:text-slate-200">₱{baseFee}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs font-semibold italic text-slate-500 pb-2 border-b border-dashed border-slate-200/50">
+                                                <span>E-Copy & Hardcopy Fee</span>
+                                                <span className="font-extrabold text-slate-800 dark:text-slate-200">₱215</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Total Amount Due</div>
+                                                    <div className="text-[9px] text-slate-400 italic">Payable upon municipal verification</div>
+                                                </div>
+                                                <div className="text-xl font-black text-blue-600 dark:text-blue-400">₱{totalAmount}</div>
+                                            </div>
+                                        </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                                             <Button
                                                 variant="ghost"
                                                 onClick={() => setCurrentStep("PARENTS")}

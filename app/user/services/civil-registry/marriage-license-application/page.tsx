@@ -407,8 +407,20 @@ export default function MarriageLicenseApplicationPage() {
 	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
 		const file = e.target.files?.[0] || null;
 		if (file) {
-			if (file.size > 5 * 1024 * 1024) {
+			if (file && file.size > 5 * 1024 * 1024) {
 				toast.error("File size exceeds 5MB limit.");
+				if (e && e.target && e.target.parentElement) {
+					const parent = e.target.parentElement;
+					let errEl = parent.querySelector('.file-error-msg');
+					if (!errEl) {
+						errEl = document.createElement('div');
+						errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
+						parent.appendChild(errEl);
+					}
+					errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
+					setTimeout(() => errEl && errEl.remove(), 4000);
+				}
+				if (e && e.target) e.target.value = "";
 				return;
 			}
 			// Save raw file to IndexedDB
@@ -946,7 +958,7 @@ export default function MarriageLicenseApplicationPage() {
 													<span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Click to Upload</span>
 												</>
 											)}
-											<input id={id} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => handleFileChange(e, d)} />
+											<input id={id} type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" className="hidden" onChange={(e) => handleFileChange(e, d)} />
 											{missingFiles[d] && !form.files?.[d] && (
 												<div className="absolute -bottom-6 left-4 text-xs text-red-600 font-bold">Required</div>
 											)}
