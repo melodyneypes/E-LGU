@@ -967,7 +967,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
 
                                     {additional.eCopyUrl && (
                                         <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-white/5 space-y-4 text-left">
-                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Scanned Registry Record</span>
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">E-copy of the Requirements</span>
                                             <div
                                                 onClick={() => handleViewFile?.(additional.eCopyUrl, "Issued Registry Record")}
                                                 className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all cursor-pointer select-none"
@@ -1023,7 +1023,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
 
                                     {additional.eCopyUrl && (
                                         <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-white/5 space-y-4 text-left">
-                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Scanned Registry Record</span>
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">E-copy of the Requirements</span>
                                             <div
                                                 onClick={() => handleViewFile?.(additional.eCopyUrl, "Issued Registry Record")}
                                                 className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all cursor-pointer select-none"

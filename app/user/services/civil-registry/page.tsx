@@ -6,7 +6,6 @@ import {
     Skull,
     Heart,
     FileText,
-    ArrowRight,
     Sparkles,
     Home,
     User,
@@ -288,15 +287,6 @@ export default function CivilRegistryPage() {
                                                         <div className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 theme-icon-bg">
                                                             <Icon className="w-5 h-5 stroke-[2.5] theme-icon-text" />
                                                         </div>
-                                                        {!type.available ? (
-                                                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-full">
-                                                                Info
-                                                            </span>
-                                                        ) : (
-                                                            <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center transition-colors theme-bg-hover group-hover:text-white border border-slate-100 dark:border-white/10 text-slate-900 dark:text-white">
-                                                                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-                                                            </div>
-                                                        )}
                                                     </div>
 
                                                     <div className="space-y-1.5 mt-6">

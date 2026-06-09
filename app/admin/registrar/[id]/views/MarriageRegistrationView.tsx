@@ -30,6 +30,7 @@ import PrintWaybill from "@/app/admin/treasury/[id]/components/PrintWaybill";
 import ResidentIdentityProfile from "@/app/admin/treasury/[id]/components/ResidentIdentityProfile";
 import TransactionInfoCard from "@/app/admin/treasury/[id]/components/TransactionInfoCard";
 import RejectionRevisionControls from "@/app/admin/treasury/[id]/components/RejectionRevisionControls";
+import RegistrarPaymentDetailsPanel from "../components/RegistrarPaymentDetailsPanel";
 import { cn } from "@/lib/utils";
 
 export default function MarriageRegistrationView(props: TreasuryViewProps) {
@@ -100,7 +101,7 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
     const isTreasuryContext = backUrl?.includes("/admin/treasury") || rawUserRole === "TREASURY_STAFF";
     const regType = (additional.registrationType || "").toUpperCase();
 
-    const contractingCouples = additional.app1FullName && additional.app2FullName 
+    const contractingCouples = additional.app1FullName && additional.app2FullName
         ? `${additional.app1FullName} & ${additional.app2FullName}`
         : transaction.marriageRegistration?.businessName || additional.subjectName || "N/A";
 
@@ -547,96 +548,12 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
 
                         {/* PAYMENT REFERENCE AND O.R. DETAILS */}
                         {transaction.status === "FOR_REINSPECTION" && (
-                            <div className="space-y-4">
-                                {/* Payment Reference Card */}
-                                {(() => {
-                                    const refNo =
-                                        additional?.paymentId ||
-                                        additional?.reference_number ||
-                                        additional?.gcashReferenceNo ||
-                                        (transaction.paymentReference && !transaction.paymentReference.startsWith("http") && !transaction.paymentReference.startsWith("/") ? transaction.paymentReference : null) ||
-                                        additional?.payment_id ||
-                                        transaction.paymentId;
-
-                                    if (!refNo) return null;
-
-                                    return (
-                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                                                    <Hash className="w-4 h-4" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 block italic leading-none">Payment Reference</span>
-                                                    <span className="text-sm font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">Reference ID</span>
-                                                </div>
-                                            </div>
-
-                                            <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5 space-y-2 mt-2 group/ref relative overflow-hidden transition-all hover:border-primary/20 shadow-sm">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                                        Reference ID (Read-only)
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            navigator.clipboard.writeText(refNo);
-                                                            toast.success("Reference number copied!");
-                                                        }}
-                                                        className="text-slate-400 hover:text-primary transition-colors p-1 rounded hover:bg-slate-100 dark:hover:bg-white/5"
-                                                    >
-                                                        <Copy className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                                <p className="text-sm font-black italic tracking-widest font-mono text-slate-800 dark:text-slate-200 select-all">
-                                                    {refNo}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-
-                                {/* O.R. Details Card */}
-                                {(() => {
-                                    const orNo = additional?.orSeriesNumber || transaction.orSeriesNumber || additional?.orNumber || additional?.orNo;
-                                    const orDocUrl = additional?.orDocumentUrl || transaction.orUrl || additional?.orUrl;
-
-                                    if (!orNo && !orDocUrl) return null;
-
-                                    return (
-                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 rounded-xl bg-green-500/10 text-green-500">
-                                                    <FileText className="w-4 h-4" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 block italic leading-none">Treasury Official Receipt</span>
-                                                    <span className="text-sm font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">O.R. Details</span>
-                                                </div>
-                                            </div>
-
-                                            {orNo && (
-                                                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5 space-y-1">
-                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-450 dark:text-slate-500 block leading-none">Receipt Serial Number</span>
-                                                    <span className="text-xs font-black uppercase italic tracking-wider text-slate-800 dark:text-slate-200 font-mono block">
-                                                        {orNo}
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            {orDocUrl && (
-                                                <Button
-                                                    onClick={() => handleViewFile?.(orDocUrl, "Official Receipt Copy")}
-                                                    variant="outline"
-                                                    className="w-full h-11 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 border-slate-200 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
-                                                >
-                                                    <FileText className="w-4 h-4" /> VIEW OFFICIAL RECEIPT FILE
-                                                </Button>
-                                            )}
-                                        </div>
-                                    );
-                                })()}
-                            </div>
+                            <RegistrarPaymentDetailsPanel
+                                transaction={transaction}
+                                additional={additional}
+                                handleViewFile={handleViewFile}
+                                themeColor={themeColor}
+                            />
                         )}
                         {/* REGISTRAR FOR_REINSPECTION CONTROLLER */}
                         {transaction.status === "FOR_REINSPECTION" && (
@@ -879,7 +796,7 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                                                                 htmlFor="or-document-upload-paid"
                                                                 className="h-8 px-3 rounded-lg border border-transparent bg-slate-200 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white text-[9px] font-black uppercase tracking-widest italic flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-sm select-none"
                                                             >
-                                                                 Replace O.R. File
+                                                                Replace O.R. File
                                                             </label>
                                                         </div>
                                                     </div>
@@ -907,19 +824,19 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                                         </Button>
                                     </>
                                 )}
+                            </div>
+                        )}
 
-                                {/* Registrar Read-Only Note */}
-                                {!isTreasuryContext && (
-                                    <div className="p-6 text-center rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-3">
-                                        <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
-                                            <Clock className="w-6 h-6 animate-pulse" />
-                                        </div>
-                                        <h4 className="text-xs font-black uppercase tracking-[0.25em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Treasury Verification</h4>
-                                        <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
-                                            This request is currently read-only for Registrar Staff. We are waiting for the Treasury Department to verify the payment and upload the Official Receipt (O.R.).
-                                        </p>
-                                    </div>
-                                )}
+                        {/* Registrar Read-Only Note */}
+                        {!isTreasuryContext && ["EVALUATED", "UNPAID", "PAID", "PENDING_PAYMENT_VERIFICATION"].includes(transaction.status) && (
+                            <div className="p-6 text-center rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-3">
+                                <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
+                                    <Clock className="w-6 h-6 animate-pulse" />
+                                </div>
+                                <h4 className="text-xs font-black uppercase tracking-[0.25em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Treasury Verification</h4>
+                                <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
+                                    This request is currently read-only for Registrar Staff. We are waiting for the Treasury Department to verify the payment and upload the Official Receipt (O.R.).
+                                </p>
                             </div>
                         )}
 
@@ -1031,8 +948,8 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                                     {actionLoading
                                         ? "Releasing Request..."
                                         : transaction.fulfillmentType === "DELIVERY"
-                                            ? "Ready For Picking"
-                                            : "Ready For Claim"}
+                                            ? "Ready for Rider Pickup"
+                                            : "Ready for Claim"}
                                 </Button>
                             </div>
                         )}
@@ -1078,7 +995,7 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
 
                                     {additional.eCopyUrl && (
                                         <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-white/5 space-y-4 text-left">
-                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Scanned Registry Record</span>
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">E-copy of the Requirements</span>
                                             <div
                                                 onClick={() => handleViewFile?.(additional.eCopyUrl, "Issued Registry Record")}
                                                 className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all cursor-pointer select-none"
@@ -1132,29 +1049,58 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                                         </p>
                                     </div>
 
-                                    {additional.eCopyUrl && (
+                                    {(transaction.eCopyUrl || additional.eCopyUrl) && (
                                         <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-white/5 space-y-4 text-left">
-                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Scanned Registry Record</span>
-                                            <div
-                                                onClick={() => handleViewFile?.(additional.eCopyUrl, "Issued Registry Record")}
-                                                className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all cursor-pointer select-none"
-                                            >
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img
-                                                    src={additional.eCopyUrl}
-                                                    alt="Registry Record Preview"
-                                                    className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
-                                                />
-                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-300 backdrop-blur-[2px]">
-                                                    <button
-                                                        type="button"
-                                                        style={{ backgroundColor: themeColor }}
-                                                        className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg hover:scale-105 transition-all"
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">E-copy of the Requirements</span>
+                                            {(() => {
+                                                const url = transaction.eCopyUrl || additional.eCopyUrl;
+                                                const isPdf = url.toLowerCase().endsWith(".pdf") || url.includes("application/pdf") || url.includes(".pdf?");
+                                                if (isPdf) {
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleViewFile?.(url, "Digital Registry Record PDF")}
+                                                            className="w-full flex items-center justify-between p-4 bg-[#151b28]/60 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-primary/50 hover:bg-primary/5 transition-all text-left group"
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 text-lg shrink-0 group-hover:scale-110 transition-transform">
+                                                                    📕
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 leading-none">Registry Record PDF</p>
+                                                                    <p className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic mt-0.5 leading-none">Click to view</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="h-8 px-3 rounded-lg border border-primary/20 text-primary font-black italic uppercase tracking-widest text-[8px] group-hover:bg-primary/10 flex items-center gap-1 transition-all shrink-0">
+                                                                Open PDF ➔
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <div
+                                                        onClick={() => handleViewFile?.(url, "Issued Registry Record")}
+                                                        className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all cursor-pointer select-none"
                                                     >
-                                                        <span>VIEW</span>
-                                                    </button>
-                                                </div>
-                                            </div>
+                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                        <img
+                                                            src={url}
+                                                            alt="Registry Record Preview"
+                                                            className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-300 backdrop-blur-[2px]">
+                                                            <button
+                                                                type="button"
+                                                                style={{ backgroundColor: themeColor }}
+                                                                className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg hover:scale-105 transition-all"
+                                                            >
+                                                                <span>VIEW</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     )}
                                 </div>

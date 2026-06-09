@@ -31,6 +31,7 @@ import LightboxView from "../components/LightboxView";
 import ResidentIdentityProfile from "../components/ResidentIdentityProfile";
 import TransactionInfoCard from "../components/TransactionInfoCard";
 import RejectionRevisionControls from "../components/RejectionRevisionControls";
+import TreasuryPaymentCollectionPanel from "../components/TreasuryPaymentCollectionPanel";
 import { TreasuryViewProps } from "./types";
 import { cn } from "@/lib/utils";
 
@@ -105,6 +106,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         orFile,
         setOrFile,
         orPreview,
+        setOrPreview,
         handleRelease,
         handlePrintWaybill,
         userRole,
@@ -342,8 +344,18 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                                     Additional Fees
                                                 </p>
                                                 <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-100 dark:border-white/5 rounded-2xl p-4 space-y-3">
-                                                    {feeLineItems.map((item, idx) => (
-                                                        <div key={idx} className="flex gap-3 items-center group bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 px-3 py-1.5 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                                                    {feeLineItems.map((item, idx) => {
+                                                        const labelEmpty = item.label.trim() === "";
+                                                        const amountEmpty = item.amount.trim() === "" || item.amount === "0";
+                                                        const labelInvalid = labelEmpty && !amountEmpty;   // label missing but amount filled
+                                                        const amountInvalid = !labelEmpty && amountEmpty;  // amount missing but label filled
+                                                        return (
+                                                        <div key={idx} className={cn(
+                                                            "flex gap-3 items-center group bg-white dark:bg-slate-900 border px-3 py-1.5 rounded-xl shadow-sm focus-within:ring-2 transition-all",
+                                                            (labelInvalid || amountInvalid)
+                                                                ? "border-red-500 focus-within:ring-red-500/20"
+                                                                : "border-slate-100 dark:border-white/5 focus-within:ring-primary/20"
+                                                        )}>
                                                             <span className="text-[9px] font-mono font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-white/5 w-6 h-6 flex items-center justify-center rounded-lg select-none shrink-0">
                                                                 {String(idx + 1).padStart(2, '0')}
                                                             </span>
@@ -352,16 +364,28 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                                                 placeholder={transaction.isStudent ? "Add a Additional fee here" : "Fee Description"}
                                                                 value={item.label}
                                                                 onChange={(e) => updateFeeLineItem(idx, 'label', e.target.value)}
-                                                                className="flex-1 h-9 bg-transparent text-sm font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none border-none p-0 focus:ring-0"
+                                                                className={cn(
+                                                                    "flex-1 h-9 bg-transparent text-sm font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none border-none p-0 focus:ring-0",
+                                                                    labelInvalid && "placeholder-red-400"
+                                                                )}
                                                             />
-                                                            <div className="relative w-28 shrink-0 flex items-center border-l border-slate-100 dark:border-white/5 pl-3">
-                                                                <span className="text-xs font-black text-slate-400 mr-1 select-none">₱</span>
+                                                            <div className={cn(
+                                                                "relative w-28 shrink-0 flex items-center border-l pl-3",
+                                                                amountInvalid ? "border-red-500" : "border-slate-100 dark:border-white/5"
+                                                            )}>
+                                                                <span className={cn(
+                                                                    "text-xs font-black mr-1 select-none",
+                                                                    amountInvalid ? "text-red-400" : "text-slate-400"
+                                                                )}>₱</span>
                                                                 <input
                                                                     type="number"
                                                                     placeholder="0.00"
                                                                     value={item.amount}
                                                                     onChange={(e) => updateFeeLineItem(idx, 'amount', e.target.value)}
-                                                                    className="w-full bg-transparent text-sm font-black text-right text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                                    className={cn(
+                                                                        "w-full bg-transparent text-sm font-black text-right text-slate-800 dark:text-white focus:outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                                                        amountInvalid ? "placeholder-red-400" : "placeholder-slate-400"
+                                                                    )}
                                                                 />
                                                             </div>
                                                             {feeLineItems.length > 1 ? (
@@ -377,7 +401,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                                                 <div className="w-8 h-8 shrink-0" />
                                                             )}
                                                         </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                     <Button
                                                         type="button"
                                                         variant="ghost"
@@ -638,28 +663,38 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                     {canApprove && (
                         <div className="space-y-3">
                             {/* APPROVE — full width */}
-                            {transaction.status !== "PAID" && (
-                                <Button
-                                    onClick={transaction.status === "PAID" ? handleConfirmPayment : handleEvaluate}
-                                    disabled={actionLoading}
-                                    className="w-full h-14 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all"
-                                >
-                                    {actionLoading ? "Processing..." : transaction.status === "PAID" ? "Approve Payment & Start Processing" : "Approve & Proceed to Payment"}
-                                </Button>
-                            )}
+                            {transaction.status !== "PAID" && (() => {
+                                const hasInvalidFees = feeLineItems.some(item => {
+                                    const labelEmpty = item.label.trim() === "";
+                                    const amountEmpty = item.amount.trim() === "" || item.amount === "0";
+                                    return (labelEmpty && !amountEmpty) || (!labelEmpty && amountEmpty);
+                                });
+                                return (
+                                    <Button
+                                        onClick={transaction.status === "PAID" ? handleConfirmPayment : handleEvaluate}
+                                        disabled={actionLoading || hasInvalidFees}
+                                        title={hasInvalidFees ? "Please complete all fee descriptions and amounts before approving." : undefined}
+                                        className="w-full h-14 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                                    >
+                                        {actionLoading ? "Processing..." : transaction.status === "PAID" ? "Approve Payment & Start Processing" : "Approve & Proceed to Payment"}
+                                    </Button>
+                                );
+                            })()}
 
                             {/* REVISION + REJECT — side by side */}
                             <div className="flex gap-3">
-                                <Button
-                                    onClick={() => {
-                                        setRemarks("");
-                                        setIsRequestingRevision(true);
-                                    }}
-                                    disabled={actionLoading}
-                                    className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-amber-500/10 active:scale-95 transition-all"
-                                >
-                                    {transaction.status === "PAID" ? "Decline Payment Proof" : "Request Revision"}
-                                </Button>
+                                {transaction.revisionCount < 3 && (
+                                    <Button
+                                        onClick={() => {
+                                            setRemarks("");
+                                            setIsRequestingRevision(true);
+                                        }}
+                                        disabled={actionLoading}
+                                        className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-amber-500/10 active:scale-95 transition-all"
+                                    >
+                                        {transaction.status === "PAID" ? "Decline Payment Proof" : "Request Revision"}
+                                    </Button>
+                                )}
                                 <Button
                                     onClick={() => { setRemarks(""); setIsRejecting(true); }}
                                     disabled={actionLoading}
@@ -668,6 +703,42 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                     Decline
                                 </Button>
                             </div>
+                        </div>
+                    )}
+
+                    {/* PENDING PAYMENT NOTE — shown when status is EVALUATED */}
+                    {transaction.status === "EVALUATED" && (
+                        <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
+                            <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                </svg>
+                            </div>
+                            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Citizen Payment</h4>
+                            <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
+                                The assessment fee has been computed. We are currently waiting for the citizen to complete the payment online or upload their proof of payment.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* PENDING REVISION NOTE — shown when status is FOR_REVISION */}
+                    {transaction.status === "FOR_REVISION" && (
+                        <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
+                            <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
+                                <AlertCircle className="w-6 h-6 animate-pulse" />
+                            </div>
+                            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Resident Revision</h4>
+                            <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
+                                This request has been sent back to the resident for revisions. We are currently waiting for them to update and resubmit their application.
+                            </p>
+                            {transaction.rejectionRemarks && (
+                                <div className="mt-2 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl text-left border border-slate-100 dark:border-white/5">
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-1">Requested Corrections</span>
+                                    <p className="text-xs font-bold text-slate-755 dark:text-slate-200 italic">
+                                        &ldquo;{transaction.rejectionRemarks}&rdquo;
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -681,149 +752,21 @@ export default function GenericServiceView(props: TreasuryViewProps) {
 
                             {/* Document Inputs Block */}
                             <div className="space-y-4">
-                                {/* Official Receipt (OR) upload — Required only when status is PAID */}
-                                {transaction.status === "PAID" && (
-                                    <div className="space-y-4 w-full">
-                                        {/* Separate Card 1: Citizen Payment Proof */}
-                                        {((transaction.paymentType === "E_PAYMENT" || transaction.paymentType === "BANK_TRANSFER") || transaction.paymentProofUrl || additional.gcashReferenceNo || additional.paymentReference || transaction.paymentReference) && (
-                                            <div className="bg-slate-50 dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-white/5 space-y-4">
-                                                <div className="flex justify-between items-center">
-                                                    <Label className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 italic">Citizen Payment Proof</Label>
-                                                </div>
-
-                                                {/* Proof of Payment Image */}
-                                                {(transaction.paymentProofUrl || additional.paymentReferenceUrl || (transaction.paymentReference && (transaction.paymentReference.startsWith("http") || transaction.paymentReference.startsWith("/")))) ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleViewFile?.(transaction.paymentProofUrl || additional.paymentReferenceUrl || transaction.paymentReference, "GCash Payment Proof")}
-                                                        className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all text-left block"
-                                                    >
-                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                        <img
-                                                            src={transaction.paymentProofUrl || additional.paymentReferenceUrl || transaction.paymentReference}
-                                                            alt="Payment Proof"
-                                                            className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
-                                                        />
-                                                        <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 backdrop-blur-[2px]">
-                                                            <div
-                                                                style={{ backgroundColor: themeColor }}
-                                                                className="backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px]"
-                                                            >
-                                                                <span>View</span>
-                                                            </div>
-                                                        </div>
-                                                    </button>
-                                                ) : null}
-
-                                                {/* Reference Number with Copy Button */}
-                                                {(() => {
-                                                    const refNo = additional.gcashReferenceNo || (transaction as any).gcashReferenceNo || (transaction.paymentReference && !(transaction.paymentReference.startsWith("http") || transaction.paymentReference.startsWith("/")) ? transaction.paymentReference : null) || additional.paymentReference || "N/A";
-                                                    if (refNo === "N/A" || refNo.toLowerCase() === "n/a" || refNo.toLowerCase() === "na") return null;
-                                                    return (
-                                                        <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-slate-200/50 dark:border-white/5 space-y-2 group/ref relative overflow-hidden transition-all hover:border-primary/20 shadow-sm">
-                                                            <div className="flex items-center justify-between gap-4">
-                                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">GCash Reference No.</span>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        navigator.clipboard.writeText(refNo);
-                                                                        toast.success("Reference Number Copied!");
-                                                                    }}
-                                                                    className="text-[8px] font-black uppercase tracking-widest text-primary hover:opacity-80 transition-all flex items-center gap-1.5 bg-primary/5 px-2.5 py-1.5 rounded-lg border border-primary/10 hover:scale-105 active:scale-95 shrink-0"
-                                                                >
-                                                                    <Copy className="w-3 h-3" />
-                                                                    Copy
-                                                                </button>
-                                                            </div>
-                                                            <div className="text-sm font-black italic tracking-widest font-mono text-slate-800 dark:text-slate-200 select-all">
-                                                                {refNo}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
-                                        )}
-
-                                        {/* Separate Card 2: Official Receipt (OR) Upload */}
-                                        <div className="bg-slate-50 dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-white/5 space-y-4">
-                                            {/* O.R. Series Number input */}
-                                            <div className="space-y-2">
-                                                <Label className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 italic">O.R. Series Number <span className="text-rose-500">*</span></Label>
-                                                <Input
-                                                    type="text"
-                                                    value={orSeriesNumber || ""}
-                                                    onChange={(e) => setOrSeriesNumber?.(e.target.value)}
-                                                    placeholder="Enter O.R. Series Number..."
-                                                    className="h-12 rounded-xl border-slate-100 dark:border-white/5 italic font-black text-sm tracking-[0.2em] focus:ring-primary/10 dark:bg-slate-950 dark:text-white"
-                                                />
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 italic">Upload Official Receipt (OR) <span className="text-rose-500">*</span></Label>
-                                                <Input
-                                                    type="file"
-                                                    accept="image/*,.pdf"
-                                                    onChange={(e) => setOrFile(e.target.files?.[0] || null)}
-                                                    className="h-12 rounded-xl border-slate-100 dark:border-white/5 text-xs focus:ring-primary/10 dark:bg-slate-950 dark:text-white"
-                                                />
-                                            </div>
-                                            {(orPreview || (transaction.orUrl && transaction.orUrl !== "null" && transaction.orUrl !== "undefined" && transaction.orUrl !== "")) && (
-                                                <div className="mt-2">
-                                                    {(() => {
-                                                        const isOrPdf = orFile
-                                                            ? (orFile.type === "application/pdf" || orFile.name.toLowerCase().endsWith(".pdf"))
-                                                            : (transaction.orUrl?.toLowerCase()?.includes(".pdf") || false);
-
-                                                        if (isOrPdf) {
-                                                            return (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleViewFile?.(orPreview || transaction.orUrl, "Official Receipt PDF")}
-                                                                    className="w-full flex items-center justify-between p-5 bg-slate-900/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-primary/50 hover:bg-primary/5 transition-all text-left animate-in fade-in duration-300 group"
-                                                                >
-                                                                    <div className="flex items-center gap-4">
-                                                                        <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 text-xl shrink-0 group-hover:scale-110 transition-transform">
-                                                                            📕
-                                                                        </div>
-                                                                        <div className="space-y-1">
-                                                                            <p className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 leading-none">Official Receipt PDF</p>
-                                                                            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic leading-none">Click to View Document in Modal</p>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="h-9 px-4 rounded-xl border border-primary/20 text-primary font-black italic uppercase tracking-widest text-[9px] group-hover:bg-primary/10 flex items-center gap-1.5 transition-all shrink-0">
-                                                                        Open PDF ➔
-                                                                    </div>
-                                                                </button>
-                                                            );
-                                                        }
-                                                        return (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleViewFile?.(orPreview || transaction.orUrl, "Official Receipt Document")}
-                                                                className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all text-left block"
-                                                            >
-                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                                <img
-                                                                    src={orPreview || transaction.orUrl}
-                                                                    alt="OR Preview"
-                                                                    className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
-                                                                />
-                                                                <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 backdrop-blur-[2px]">
-                                                                    <div
-                                                                        style={{ backgroundColor: themeColor }}
-                                                                        className="backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px]"
-                                                                    >
-                                                                        <span>View</span>
-                                                                    </div>
-                                                                </div>
-                                                            </button>
-                                                        );
-                                                    })()}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
+                                {/* Treasury Payment and Collection Controls */}
+                                <TreasuryPaymentCollectionPanel
+                                    transaction={transaction}
+                                    additional={additional}
+                                    actionLoading={actionLoading}
+                                    orSeriesNumber={orSeriesNumber}
+                                    setOrSeriesNumber={setOrSeriesNumber}
+                                    orFile={orFile}
+                                    setOrFile={setOrFile}
+                                    orPreview={orPreview}
+                                    setOrPreview={setOrPreview}
+                                    themeColor={themeColor}
+                                    handleConfirmPayment={handleConfirmPayment}
+                                    handleViewFile={handleViewFile}
+                                />
 
                                 {/* CTC Serial Number input — Required when status is FOR_PROCESSING */}
                                 {transaction.status === "FOR_PROCESSING" && (
@@ -921,27 +864,24 @@ export default function GenericServiceView(props: TreasuryViewProps) {
 
                                 {transaction.status !== "FOR_PICKING" && transaction.status !== "FOR_CLAIM" ? (
                                     <>
-                                        <Button
-                                            onClick={handleRelease}
-                                            disabled={
-                                                actionLoading ||
-                                                (transaction.status === "PAID" && (!orSeriesNumber || (!orFile && !transaction.orUrl))) ||
-                                                (transaction.status === "FOR_PROCESSING" && (
-                                                    (!ctcNumber && !transaction.cedula?.ctcNumber) ||
-                                                    (!eCopyFile && !transaction.eCopyUrl)
-                                                ))
-                                            }
-                                            className="w-full h-16 rounded-2xl bg-primary text-white font-black italic uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20"
-                                        >
-                                            {actionLoading
-                                                ? "Submitting..."
-                                                : transaction.status === "PAID"
-                                                    ? "Confirm & Proceed to Processing"
+                                        {transaction.status !== "PAID" && (
+                                            <Button
+                                                onClick={handleRelease}
+                                                disabled={
+                                                    actionLoading ||
+                                                    (transaction.status === "FOR_PROCESSING" && (
+                                                        (!ctcNumber && !transaction.cedula?.ctcNumber) ||
+                                                        (!eCopyFile && !transaction.eCopyUrl)
+                                                    ))
+                                                }
+                                                className="w-full h-16 rounded-2xl bg-primary text-white font-black italic uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20"
+                                            >
+                                                {actionLoading
+                                                    ? "Submitting..."
                                                     : (transaction.fulfillmentType === "DELIVERY" ? "Approve & Dispatch to Courier" : "Approve & Ready for Claiming")
-                                            }
-                                        </Button>
-
-
+                                                }
+                                            </Button>
+                                        )}
                                     </>
                                 ) : (
                                     !(transaction.status === "FOR_PICKING" && transaction.fulfillmentType === "DELIVERY") && (
@@ -953,6 +893,90 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                             {actionLoading ? "Releasing..." : transaction.fulfillmentType === "DELIVERY" ? "Dispatch to Courier" : "Release Document to Resident"}
                                         </Button>
                                     )
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* RELEASED / DELIVERED DETAILS VIEW */}
+                    {["RELEASED", "DELIVERED"].includes(transaction.status) && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-6">
+                                <div className="text-center space-y-3">
+                                    <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mx-auto">
+                                        <Check className="w-8 h-8" />
+                                    </div>
+                                    <h4 className="text-sm font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200 font-bold">
+                                        {transaction.status === "DELIVERED" ? "Document Delivered" : "Document Released"}
+                                    </h4>
+                                    <p className="text-xs text-slate-400 italic max-w-sm mx-auto">
+                                        {transaction.status === "DELIVERED"
+                                            ? "This request has been successfully delivered to the resident."
+                                            : "This request has been completed and the official document has been released."}
+                                    </p>
+                                </div>
+
+                                {/* CTC Serial Number */}
+                                {transaction.cedula?.ctcNumber && (
+                                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-white/5 space-y-1 text-left">
+                                        <span className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 block leading-none">CTC Serial Number</span>
+                                        <p className="text-xs font-black uppercase italic tracking-wider text-slate-800 dark:text-slate-200 font-mono">
+                                            {transaction.cedula.ctcNumber}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* E-Copy document */}
+                                {transaction.eCopyUrl && (
+                                    <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-white/5 space-y-4 text-left">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Official E-Copy Document</span>
+                                        {(() => {
+                                            const isPdf = transaction.eCopyUrl.toLowerCase().includes(".pdf");
+                                            if (isPdf) {
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleViewFile?.(transaction.eCopyUrl, "Official E-Copy PDF")}
+                                                        className="w-full flex items-center justify-between p-5 bg-slate-900/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-primary/50 hover:bg-primary/5 transition-all text-left group"
+                                                    >
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 text-xl shrink-0 group-hover:scale-110 transition-transform">
+                                                                📕
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                <p className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 leading-none">Official E-Copy PDF</p>
+                                                                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic leading-none">Click to View Document</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="h-9 px-4 rounded-xl border border-primary/20 text-primary font-black italic uppercase tracking-widest text-[9px] group-hover:bg-primary/10 flex items-center gap-1.5 transition-all shrink-0">
+                                                            Open PDF ➔
+                                                        </div>
+                                                    </button>
+                                                );
+                                            }
+                                            return (
+                                                <div
+                                                    onClick={() => handleViewFile?.(transaction.eCopyUrl, "Official E-Copy Document")}
+                                                    className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all cursor-pointer select-none"
+                                                >
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img
+                                                        src={transaction.eCopyUrl}
+                                                        alt="Official E-Copy"
+                                                        className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
+                                                    />
+                                                    <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 backdrop-blur-[2px]">
+                                                        <div
+                                                            style={{ backgroundColor: themeColor }}
+                                                            className="backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px]"
+                                                        >
+                                                            <span>View</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
                                 )}
                             </div>
                         </div>

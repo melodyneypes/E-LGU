@@ -597,12 +597,14 @@ export default function BusinessPermitView({
                                         </Button>
                                         {transaction.status !== "FOR_REQUESTING" && (
                                             <div className="flex gap-2 w-full">
-                                                <Button
-                                                    onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
-                                                    className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95"
-                                                >
-                                                    Request Revision
-                                                </Button>
+                                                {transaction.revisionCount < 3 && (
+                                                    <Button
+                                                        onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
+                                                        className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95"
+                                                    >
+                                                        Request Revision
+                                                    </Button>
+                                                )}
                                                 <Button
                                                     onClick={() => { setIsRejecting(true); setRemarks(""); }}
                                                     className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-red-600/20 transition-all active:scale-95"
@@ -635,6 +637,14 @@ export default function BusinessPermitView({
                                             <p className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-500 italic">Awaiting Citizen Revision</p>
                                             <p className="text-[11px] font-bold text-amber-900/60 dark:text-amber-400/60 leading-relaxed uppercase tracking-tight">Read-Only Mode: Transaction sent back to citizen for correction.</p>
                                         </div>
+                                        {transaction.rejectionRemarks && (
+                                            <div className="mt-2 p-4 bg-amber-500/10 rounded-2xl text-left border border-amber-500/20">
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-amber-600 block mb-1">Requested Corrections</span>
+                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-200 italic">
+                                                    &ldquo;{transaction.rejectionRemarks}&rdquo;
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 

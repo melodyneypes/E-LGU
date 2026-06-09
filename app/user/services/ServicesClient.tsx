@@ -99,9 +99,9 @@ export default function ServicesClient({ initialServices, themeColor }: Services
         let borderColor = "border-blue-500/10 dark:border-blue-500/5";
         let buttonShadow = "shadow-blue-500/10";
 
-        if (categoryName === "TREASURER") {
-            title = "TREASURER SERVICES";
-            department = "Municipal Treasurer Office";
+        if (categoryName === "TREASURER" || categoryName === "CEDULA" || categoryName === "TREASURY") {
+            title = "Community Tax Certificate Services";
+            department = "Treasury Office";
             description = "Secure your official Community Tax Certificate (CTC) online for personal clearance or corporate registration with dynamic municipal rate assessment.";
             link = "/user/services/cedula";
             icon = Coins;
@@ -110,13 +110,31 @@ export default function ServicesClient({ initialServices, themeColor }: Services
             buttonShadow = "shadow-blue-500/10";
         } else if (categoryName === "BPLO") {
             title = "BPLO SERVICES";
-            department = "Business Permits & Licensing Office";
+            department = "BPLO Office";
             description = "Apply for a new municipal business permit or renew your existing enterprise operation license online with digital checklist validation.";
             link = "/user/services/business-permit";
             icon = Building2;
             accentBg = "bg-emerald-500/10 dark:bg-emerald-500/5";
             borderColor = "border-emerald-500/10 dark:border-emerald-500/5";
             buttonShadow = "shadow-emerald-500/10";
+        } else if (categoryName === "CIVIL REGISTRY" || categoryName === "CIVIL-REGISTRY") {
+            title = "CIVIL REGISTRY SERVICES";
+            department = "Registrar Office";
+            description = "Apply for birth, marriage, and death registrations or certified true copies online with secure digital verification.";
+            link = "/user/services/civil-registry";
+            icon = FileText;
+            accentBg = "bg-rose-500/10 dark:bg-rose-500/5";
+            borderColor = "border-rose-500/10 dark:border-rose-500/5";
+            buttonShadow = "shadow-rose-500/10";
+        } else if (categoryName === "BUILDING" || categoryName === "BUILDING_PERMIT" || categoryName === "BUILDING-PERMIT") {
+            title = "BUILDING PERMIT SERVICES";
+            department = "Engineering Office";
+            description = "Apply for building permits and standard structural clearance clearances online.";
+            link = "/user/services/building-permit";
+            icon = Building2;
+            accentBg = "bg-amber-500/10 dark:bg-amber-500/5";
+            borderColor = "border-amber-500/10 dark:border-amber-500/5";
+            buttonShadow = "shadow-amber-500/10";
         } else {
             // General or other office categories dynamically added to the DB in the future
             title = `${categoryName} SERVICES`;

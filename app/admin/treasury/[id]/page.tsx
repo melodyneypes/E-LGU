@@ -554,8 +554,9 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                                 }
                                 setFeeLineItems(mappedFees);
                             } else {
-                                // If LCR FOR_REQUESTING, ensure at least one blank editable row
-                                setFeeLineItems(isLcrRequesting ? [{ label: "", amount: "", readonly: false }] : []);
+                                // For LCR or CEDULA FOR_REQUESTING, ensure at least one blank editable row ready for input
+                                const isCedulaForRequesting = tx.type?.code?.includes("CEDULA") && tx.status === "FOR_REQUESTING";
+                                setFeeLineItems((isLcrRequesting || isCedulaForRequesting) ? [{ label: "", amount: "" }] : []);
                             }
                         }
                     }
@@ -976,6 +977,24 @@ export default function TreasuryDetailPage({ params }: PageProps) {
             }
         }
 
+        // CEDULA: When FOR_REQUESTING, include feeLineItems in total so additional fees reflect live
+        if (isCedula && transaction.status === "FOR_REQUESTING") {
+            const baseCalc = calculateCedula({
+                type: additional.applicantType || "INDIVIDUAL",
+                income,
+                propertyValue,
+                fulfillmentType: transaction.fulfillmentType,
+                deliveryFee,
+                baseFee: transaction.type?.baseFee
+            });
+            const itemsSum = feeLineItems.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+            return {
+                ...baseCalc,
+                totalAmount: baseCalc.totalAmount + itemsSum,
+                lineItems: feeLineItems.filter(item => (parseFloat(item.amount) || 0) > 0)
+            };
+        }
+
         return calculateCedula({
             type: additional.applicantType || "INDIVIDUAL",
             income,
@@ -987,7 +1006,8 @@ export default function TreasuryDetailPage({ params }: PageProps) {
     })();
 
     // Prefer persisted `transaction.totalAmount` when available (greater than 0); otherwise use calculated result
-    const displayTotal = Number((transaction.totalAmount && transaction.totalAmount > 0 && !((isBusinessPermit || isLCR) && transaction.status === "FOR_REQUESTING")) ? transaction.totalAmount : (calcResult.totalAmount ?? 0));
+    // Also exclude CEDULA FOR_REQUESTING so additional fees reflect live in the total
+    const displayTotal = Number((transaction.totalAmount && transaction.totalAmount > 0 && !((isBusinessPermit || isLCR || isCedula) && transaction.status === "FOR_REQUESTING")) ? transaction.totalAmount : (calcResult.totalAmount ?? 0));
 
     const declaredValue = isBusinessPermit
         ? (additional.businessType === "NEW" ? Number(additional.capitalInvestment || 0) : Number(additional.grossSales || 0))
@@ -1002,7 +1022,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
             const stepsList = [
                 { id: "FOR_INSPECTION", label: "INSPECTION" },
                 { id: "FOR_REQUESTING", label: "FOR EVALUATION" },
-                { id: "EVALUATED", label: "ASSESSMENT" },
+                { id: "EVALUATED", label: "PENDING PAYMENT" },
                 { id: "PAID", label: "PAID" },
                 { id: "FOR_PROCESSING", label: "FOR PROCESSING" },
                 { id: "FOR_REINSPECTION", label: "FOR PROCESSING" },
@@ -1031,7 +1051,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         }
         const stepsList = [
             { id: "FOR_REQUESTING", label: "FOR EVALUATION" },
-            { id: "EVALUATED", label: "ASSESSMENT" },
+            { id: "EVALUATED", label: "PENDING PAYMENT" },
             { id: "PAID", label: "PAID" },
         ];
         if (isLcrBirthCertifiedCopy) {
@@ -1377,13 +1397,20 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 : typeCode === "LCR_DEATH"
                     ? await evaluateDeathCertificateTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee)
                     : typeCode === "LCR_MARRIAGE_REG"
-                        ? await evaluateMarriageRegistrationTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee)
+                        ? await evaluateMarriageRegistrationTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee, true)
                         : typeCode === "LCR_MARRIAGE_LICENSE"
                             ? await evaluateMarriageLicenseTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee)
                             : await evaluateCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee);
             if (res.success) {
                 toast.success("Evaluated Successfully");
-                router.push(backUrl);
+                // For CEDULA, always redirect to the CEDULA list — backUrl may resolve incorrectly
+                // if the transaction type name contains "Certificate" (e.g. "Community Tax Certificate")
+                // which gets caught by the isLcrTx heuristic
+                if (isCedula) {
+                    router.push("/admin/treasury?category=CEDULA");
+                } else {
+                    router.push(backUrl);
+                }
             }
             else toast.error(res.error || "Failed");
         } finally { setActionLoading(false); }
@@ -1465,10 +1492,17 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                             ? releaseDeathCertificate
                             : typeCode === "LCR_DEATH_REG"
                                 ? releaseDeathRegistry
-                                : typeCode === "LCR_MARRIAGE_LICENSE"
-                                    ? releaseMarriageLicense
-                                    : releaseCedula;
-                const rel = await releaseFn(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "");
+                                : typeCode === "LCR_MARRIAGE_REG"
+                                    ? releaseMarriageRegistry
+                                    : typeCode === "LCR_MARRIAGE_LICENSE"
+                                        ? releaseMarriageLicense
+                                        : releaseCedula;
+                const rel = await releaseFn(
+                    transaction.id, 
+                    ctcNumber || transaction?.cedula?.ctcNumber || "",
+                    undefined,
+                    (res.data?.additionalData as any)?.orDocumentUrl
+                );
                 if (isLCR) {
                     if (rel.success) {
                         toast.success("Payment Received & Sent to Civil Registry for Re-Inspection");

@@ -338,7 +338,7 @@ export async function evaluateDeathRegistrationTransaction(
 
         let newStatus = "EVALUATED";
         if (transaction.status === "FOR_INSPECTION") {
-            if ((regType === "STANDARD" || !regType) && !hasAdditionalFees) {
+            if ((regType === "STANDARD" || !regType) && !hasAdditionalFees && total === 0) {
                 newStatus = "EVALUATED";
             } else {
                 newStatus = "FOR_REQUESTING";

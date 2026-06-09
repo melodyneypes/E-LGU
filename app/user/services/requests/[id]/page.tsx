@@ -883,7 +883,12 @@ export default function RequestHubPage() {
         return { basicTax, additionalTax, penaltyAmount, deliveryFee: dFee, finalTotal, cedulaType };
     }, [request, localFulfillment, address.barangay, availableBarangays, isCivilRegistry]);
 
-    const isFreeDeathRegPickUp = (request?.typeId === "cmpgkxxke0019vpjkquvcxggu" || typeCode === "LCR_DEATH_REG") &&
+    const isFreeDeathRegPickUp = (
+            request?.typeId === "cmpgkxxke0019vpjkquvcxggu" || 
+            typeCode === "LCR_DEATH_REG" || 
+            typeCode === "LCR_MARRIAGE_REG" || 
+            typeCode === "LCR_BIRTH_REG"
+        ) &&
         ((additionalData.registrationType || "").toUpperCase() === "STANDARD" || !additionalData.registrationType) &&
         localFulfillment === "PICK_UP" &&
         (computation?.finalTotal ?? 0) === 0;

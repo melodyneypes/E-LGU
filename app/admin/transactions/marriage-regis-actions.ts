@@ -138,7 +138,8 @@ export async function evaluateMarriageRegistrationTransaction(
     registryBookVerification?: string,
     scannedDocUrl?: string,
     orSeriesNumber?: string,
-    miscFeeOverride?: number
+    miscFeeOverride?: number,
+    isTreasury?: boolean
 ) {
     try {
         const sanitizedId = sanitizeString(id);
@@ -214,11 +215,15 @@ export async function evaluateMarriageRegistrationTransaction(
         
         let newStatus = "EVALUATED";
         if (transaction.status === "FOR_INSPECTION") {
-            if ((regType === "STANDARD" || !regType) && !hasAdditionalFees) {
+            if (isTreasury || user?.role === "TREASURY_STAFF") {
+                newStatus = "EVALUATED";
+            } else if ((regType === "STANDARD" || !regType) && !hasAdditionalFees && total === 0) {
                 newStatus = "EVALUATED";
             } else {
                 newStatus = "FOR_REQUESTING";
             }
+        } else if (transaction.status === "FOR_REQUESTING") {
+            newStatus = "EVALUATED";
         }
 
         const updatedTransaction = await prisma.transaction.update({

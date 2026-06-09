@@ -181,6 +181,7 @@ export default function MarriageRegistrationPage() {
 
     const [themeColor, setThemeColor] = useState("theme_color");
     const [lateFee, setLateFee] = useState<number>(300);
+    const [baseFee, setBaseFee] = useState<number>(0);
 
     useEffect(() => {
         getSystemSettingAction("theme_color").then((res) => {
@@ -334,6 +335,7 @@ export default function MarriageRegistrationPage() {
                     const currentDbType = lcrTypes.find((t: any) => t.code === "LCR_MARRIAGE_REG");
                     if (currentDbType) {
                         setForm(prev => ({ ...prev, typeId: currentDbType.id }));
+                        setBaseFee(Number(currentDbType.baseFee || 0));
                         if (currentDbType.lateFee !== undefined && currentDbType.lateFee !== null) {
                             setLateFee(Number(currentDbType.lateFee));
                         }
@@ -444,7 +446,7 @@ export default function MarriageRegistrationPage() {
                 contactNumber: form.contactNumber,
                 relationship: form.relationship,
                 subjectName: `${form.app1FullName} & ${form.app2FullName}`,
-                totalAmount: form.registrationType === "LATE" ? lateFee : 0
+                totalAmount: form.registrationType === "LATE" ? lateFee : baseFee
             };
 
             // Debug: log additionalData to browser console to verify dateOfMarriage
@@ -1249,15 +1251,21 @@ export default function MarriageRegistrationPage() {
                                                         <p className="text-xs font-bold text-slate-500 italic">
                                                             {form.registrationType === "LATE" 
                                                                 ? "Required processing fee for late filings." 
-                                                                : "Standard timely registration is free of charge."}
+                                                                : baseFee > 0
+                                                                    ? "Standard registration fee."
+                                                                    : "Standard timely registration is free of charge."}
                                                         </p>
                                                     </div>
                                                     <div className="text-right">
                                                         <span className={cn(
                                                             "text-2xl font-black uppercase italic tracking-tight",
-                                                            form.registrationType === "LATE" ? "text-rose-500" : "text-emerald-500"
+                                                            form.registrationType === "LATE" ? "text-rose-500" : (baseFee > 0 ? "text-[#1e293b] dark:text-white" : "text-emerald-500")
                                                         )}>
-                                                            {form.registrationType === "LATE" ? `₱${lateFee.toFixed(2)}` : "FREE"}
+                                                            {form.registrationType === "LATE" 
+                                                                ? `₱${lateFee.toFixed(2)}` 
+                                                                : baseFee > 0 
+                                                                    ? `₱${baseFee.toFixed(2)}` 
+                                                                    : "FREE"}
                                                         </span>
                                                     </div>
                                                 </div>

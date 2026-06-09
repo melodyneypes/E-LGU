@@ -964,7 +964,7 @@ export default function BirthCertificateView(props: TreasuryViewProps) {
 
                                         {additional.scannedDocUrl && (
                                             <div className="space-y-2">
-                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Scanned Registry Record</span>
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">E-copy of the Requirements</span>
                                                 {(() => {
                                                     const docUrl = additional.scannedDocUrl;
                                                     const isPdf = docUrl.toLowerCase().endsWith(".pdf") || docUrl.includes("application/pdf") || docUrl.includes(".pdf?");
@@ -1061,7 +1061,7 @@ export default function BirthCertificateView(props: TreasuryViewProps) {
 
                                         {additional.scannedDocUrl && (
                                             <div className="space-y-2">
-                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Scanned Registry Record</span>
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">E-copy of the Requirements</span>
                                                 {(() => {
                                                     const docUrl = additional.scannedDocUrl;
                                                     const isPdf = docUrl.toLowerCase().endsWith(".pdf") || docUrl.includes("application/pdf") || docUrl.includes(".pdf?");

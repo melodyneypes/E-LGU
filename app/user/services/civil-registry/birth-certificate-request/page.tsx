@@ -21,7 +21,8 @@ import {
     Search,
     CheckCircle2,
     Users,
-    Eye
+    Eye,
+    Home
 } from "lucide-react";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 
@@ -38,7 +39,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { PageBreadcrumb } from "@/components/shared/PageBreadcrumb";
 import { Card } from "@/components/ui/card";
 import {
     Select,
@@ -47,6 +47,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import {
     getCurrentUserResident,
@@ -163,13 +172,14 @@ export default function CivilRegistryPage() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [showErrors, setShowErrors] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
     const [availableTypes, setAvailableTypes] = useState<any[]>([]);
     const [themeColor, setThemeColor] = useState("#2563eb");
 
     const isStepValid = (stepId: Step) => {
         switch (stepId) {
             case "IDENTITY":
-                return !!form.relationship;
+                return !!form.relationship && !!form.contactNumber;
             case "DETAILS":
                 const isMarriage = form.registryType === "MARRIAGE" || form.registryType === "MARRIAGE_LICENSE";
                 if (!form.certFirstName || !form.certLastName || !form.dateOfEvent || !form.placeOfEvent) return false;
@@ -184,20 +194,51 @@ export default function CivilRegistryPage() {
         }
     };
 
-    const canNavigate = (targetStep: Step) => {
-        if (targetStep === "STATUS") return true;
-        const stepsOrder: Step[] = ["STATUS", "IDENTITY", "DETAILS", "PARENTS", "CONFIRM"];
-        const targetIdx = stepsOrder.indexOf(targetStep);
-        const currentIdx = stepsOrder.indexOf(currentStep);
+    const validateStep = (step: Step) => {
+        const errs: Record<string, string> = {};
 
-        // Always allow going backwards
-        if (targetIdx <= currentIdx) return true;
-
-        // For forward navigation, ensure all preceding steps are valid
-        for (let i = 1; i < targetIdx; i++) {
-            if (!isStepValid(stepsOrder[i])) return false;
+        if (step === "IDENTITY") {
+            if (!form.relationship) errs.relationship = "Please select relationship.";
+            if (!form.contactNumber) errs.contactNumber = "Please enter contact number.";
         }
-        return true;
+
+        if (step === "DETAILS") {
+            const isMarriage = form.registryType === "MARRIAGE" || form.registryType === "MARRIAGE_LICENSE";
+            if (!form.certFirstName) errs.certFirstName = "Please enter first name.";
+            if (!form.certLastName) errs.certLastName = "Please enter last name.";
+            if (!form.dateOfEvent) errs.dateOfEvent = "Please select date of occurrence.";
+            if (!form.placeOfEvent) errs.placeOfEvent = "Please enter place of occurrence.";
+            if (isMarriage && !form.spouseName) errs.spouseName = "Please enter spouse's maiden name.";
+        }
+
+        setErrors(errs);
+        const valid = Object.keys(errs).length === 0;
+        setShowErrors(!valid);
+        if (!valid) {
+            toast.error("Please complete highlighted required fields.", { className: "font-black uppercase tracking-widest text-[10px] italic" });
+            
+            setTimeout(() => {
+                const firstErrorKey = Object.keys(errs)[0];
+                if (firstErrorKey) {
+                    let element: any = document.getElementsByName(firstErrorKey)[0] || 
+                                  document.getElementById(firstErrorKey);
+                    
+                    if (!element) {
+                        if (firstErrorKey === "relationship") {
+                            element = (document.querySelector('[role="combobox"]') || document.querySelector('button[aria-autocomplete="none"]')) as any;
+                        }
+                    }
+
+                    if (element) {
+                        element.scrollIntoView({ behavior: "smooth", block: "center" });
+                        if (typeof (element as any).focus === "function") {
+                            (element as any).focus();
+                        }
+                    }
+                }
+            }, 100);
+        }
+        return valid;
     };
 
     useEffect(() => {
@@ -531,33 +572,67 @@ export default function CivilRegistryPage() {
     if (loading) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
-                <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-4" />
-                <p className="text-sm font-black uppercase tracking-widest text-slate-400 italic">Syncing Registry Matrix...</p>
+                <Loader2 className="w-10 h-10 animate-spin mb-4" style={{ color: themeColor }} />
+                <p className="font-black uppercase tracking-widest text-[10px] text-slate-400 italic">Initializing Request Form...</p>
             </div>
         );
     }
 
     return (
-        <div
-            className="container max-w-4xl mx-auto px-4 pt-0 pb-0 space-y-8"
-            style={{ "--primary-theme": themeColor } as React.CSSProperties}
-        >
+        <>
             <style dangerouslySetInnerHTML={{
                 __html: `
                 :root, * {
-                    --color-blue-500: ${themeColor} !important;
-                    --color-blue-600: ${themeColor} !important;
-                    --color-blue-700: ${themeColor} !important;
                     --primary-theme: ${themeColor} !important;
-                    --color-primary: ${themeColor} !important;
                 }
-            `}} />
+                .text-blue-500, [class*="text-blue-500"]:not(input):not(select):not(textarea) {
+                    color: ${themeColor} !important;
+                }
+                .text-blue-600, [class*="text-blue-600"]:not(input):not(select):not(textarea) {
+                    color: ${themeColor} !important;
+                }
+                .bg-blue-500, [class*="bg-blue-500"] {
+                    background-color: ${themeColor} !important;
+                }
+                .bg-blue-600, [class*="bg-blue-600"] {
+                    background-color: ${themeColor} !important;
+                }
+                .border-blue-500, [class*="border-blue-500"] {
+                    border-color: ${themeColor} !important;
+                }
+                .border-blue-600, [class*="border-blue-600"] {
+                    border-color: ${themeColor} !important;
+                }
+                .bg-blue-500\\/10, [class*="bg-blue-500/10"] {
+                    background-color: ${themeColor}1a !important;
+                }
+                .bg-blue-500\\/5, [class*="bg-blue-500/5"] {
+                    background-color: ${themeColor}0d !important;
+                }
+                .shadow-blue-500\\/20, [class*="shadow-blue-500/20"] {
+                    --tw-shadow-color: ${themeColor}33 !important;
+                }
+                .hover\\:bg-blue-600:hover, [class*="hover:bg-blue-600"]:hover {
+                    background-color: ${themeColor} !important;
+                    filter: brightness(0.9);
+                }
+                .hover\\:border-blue-500\\/50:hover, [class*="hover:border-blue-500/50"]:hover {
+                    border-color: ${themeColor}80 !important;
+                }
+                input:not([type="button"]):not([type="submit"]), select, textarea {
+                    color: #0f172a !important;
+                }
+                .dark input:not([type="button"]):not([type="submit"]), .dark select, .dark textarea {
+                    color: #f8fafc !important;
+                }
+                `
+            }} />
             <PrivacyTermsModal
                 isOpen={policyOpen}
                 onClose={() => setPolicyOpen(false)}
                 onAccept={handleAcceptPolicy}
                 onDecline={() => { setPolicyAccepted(false); }}
-                themeColor={themeColor}
+                themeColor="var(--primary-theme)"
             />
             <DocumentViewerModal
                 isOpen={viewerOpen}
@@ -565,83 +640,150 @@ export default function CivilRegistryPage() {
                 file={viewerFile}
                 fileUrl={viewerUrl}
                 title={viewerTitle}
-                themeColor={themeColor}
+                themeColor="var(--primary-theme)"
             />
-            {/* Header Section */}
-            <div className="space-y-4">
-                <PageBreadcrumb />
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-8 pb-0 space-y-12">
+            <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
+                <Breadcrumb>
+                    <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 md:px-6 py-2 md:py-2.5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 w-fit shadow-sm">
+                        <BreadcrumbItem>
+                            <BreadcrumbLink asChild>
+                                <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                    <Home className="w-3.5 h-3.5 mb-0.5" />
+                                    Home
+                                </Link>
+                            </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+                        <BreadcrumbItem>
+                            <BreadcrumbLink asChild>
+                                <Link href="/user/services" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                    Services
+                                </Link>
+                            </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+                        <BreadcrumbItem>
+                            <BreadcrumbLink asChild>
+                                <Link href="/user/services/civil-registry" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                    Civil Registry
+                                </Link>
+                            </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+                        <BreadcrumbItem>
+                            <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: themeColor }}>
+                                {form.registryType === "BIRTH" ? "Request Birth Certificate" :
+                                 form.registryType === "MARRIAGE" ? "Request Marriage Certificate" :
+                                 form.registryType === "DEATH" ? "Request Death Certificate" :
+                                 "Request Marriage License"}
+                            </BreadcrumbPage>
+                        </BreadcrumbItem>
+                    </BreadcrumbList>
+                </Breadcrumb>
+            </div>
 
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 bg-white dark:bg-[#0f1117] p-8 rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 shadow-xl shadow-slate-200/40 dark:shadow-none">
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-500/10 rounded-xl">
-                                <FileText className="w-6 h-6 text-blue-500" />
-                            </div>
-                            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500">Local Civil Registry</span>
-                        </div>
-                        <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">
-                            Request <span className="text-blue-500">Birth Certificate</span>
-                        </h1>
-                        <p className="text-slate-500 font-medium text-sm italic">Certified true copy requests for civil registry documents.</p>
-                    </div>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 px-1 md:px-0">
+                <div className="space-y-1 md:space-y-2">
+                    <h1 className="text-2xl md:text-4xl font-bold text-slate-900 dark:text-white uppercase italic tracking-tighter leading-tight select-none">
+                        Request <span className="text-primary underline decoration-[4px] md:decoration-[6px] decoration-primary/20 underline-offset-[4px] md:underline-offset-[8px]" style={{ textDecorationColor: `${themeColor}33` }}>
+                            {form.registryType === "BIRTH" ? "Birth Certificate" :
+                             form.registryType === "MARRIAGE" ? "Marriage Certificate" :
+                             form.registryType === "DEATH" ? "Death Certificate" :
+                             "Marriage License"}
+                        </span>
+                    </h1>
+                    <p className="text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-[0.4em] ml-1 md:ml-2 italic">LGU Digital Governance Portal</p>
                 </div>
             </div>
 
-            {/* Progress Stepper */}
-            <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2">
-                {STEPS.map((step, idx) => {
-                    const isActive = currentStep === step.id;
-                    const stepIdx = STEPS.findIndex(s => s.id === currentStep);
-                    const isCompleted = stepIdx > idx;
-                    const Icon = step.icon;
+            <div className="space-y-6">
 
-                    return (
-                        <div
-                            key={idx}
-                            onClick={() => {
-                                if (step.id === "STATUS") {
-                                    router.push("/user/services/civil-registry");
-                                    return;
-                                }
-                                if (canNavigate(step.id)) {
-                                    setCurrentStep(step.id);
-                                } else {
-                                    toast.info("Please fill out the current step to proceed.");
-                                }
-                            }}
-                            className={cn(
-                                "flex flex-col items-center gap-2 md:gap-3 relative z-10 font-black cursor-pointer group",
-                                (!canNavigate(step.id) && currentStep !== step.id && step.id !== "STATUS") && "cursor-not-allowed opacity-50"
-                            )}
-                        >
-                            <div 
-                                className={cn(
-                                    "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
-                                    isActive ? "bg-primary text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
-                                        isCompleted ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" :
-                                            "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
-                                )}
-                                style={isActive ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
-                            >
-                                {isCompleted ? (
-                                    <Check className="w-4 h-4 md:w-7 md:h-7" />
-                                ) : (
-                                    <Icon className="w-4 h-4 md:w-7 md:h-7" />
-                                )}
-                            </div>
-                            <span 
-                                className={cn(
-                                    "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
-                                    isActive ? "text-primary opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
-                                )}
-                                style={isActive ? { color: themeColor } : {}}
-                            >
-                                {step.label}
-                            </span>
-                        </div>
-                    );
-                })}
-            </div>
+                    {/* Progress Stepper */}
+                    <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2">
+                        {STEPS.map((step, idx) => {
+                            const isActive = currentStep === step.id;
+                            const stepIdx = STEPS.findIndex(s => s.id === currentStep);
+                            const isCompleted = stepIdx > idx;
+                            const Icon = step.icon;
+
+                            return (
+                                <div
+                                    key={idx}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => {
+                                        if (step.id === "STATUS") {
+                                            router.push("/user/services/civil-registry");
+                                            return;
+                                        }
+                                        const targetIdx = STEPS.findIndex(s => s.id === step.id);
+                                        const currentIdx = STEPS.findIndex(s => s.id === currentStep);
+                                        
+                                        if (targetIdx <= currentIdx) {
+                                            setCurrentStep(step.id);
+                                        } else {
+                                            // Check steps between currentStep and target step sequentially
+                                            for (let i = currentIdx; i < targetIdx; i++) {
+                                                if (!validateStep(STEPS[i].id)) return;
+                                            }
+                                            setCurrentStep(step.id);
+                                        }
+                                    }}
+                                    onKeyDown={(e) => { 
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            if (step.id === "STATUS") {
+                                                router.push("/user/services/civil-registry");
+                                                return;
+                                            }
+                                            const targetIdx = STEPS.findIndex(s => s.id === step.id);
+                                            const currentIdx = STEPS.findIndex(s => s.id === currentStep);
+                                            if (targetIdx <= currentIdx) {
+                                                setCurrentStep(step.id);
+                                            } else {
+                                                for (let i = currentIdx; i < targetIdx; i++) {
+                                                    if (!validateStep(STEPS[i].id)) return;
+                                                }
+                                                setCurrentStep(step.id);
+                                            }
+                                        }
+                                    }}
+                                    className={cn(
+                                        "flex flex-col items-center gap-2 md:gap-3 relative z-10 font-black group",
+                                        (() => {
+                                            const targetIdx = STEPS.findIndex(s => s.id === step.id);
+                                            const currentIdx = STEPS.findIndex(s => s.id === currentStep);
+                                            if (targetIdx <= currentIdx || step.id === "STATUS") return "cursor-pointer";
+                                            // Check if all preceding steps from current to target are valid
+                                            for (let i = currentIdx; i < targetIdx; i++) {
+                                                if (!isStepValid(STEPS[i].id)) return "opacity-50 cursor-not-allowed";
+                                            }
+                                            return "cursor-pointer";
+                                        })()
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
+                                        isActive ? "text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
+                                            isCompleted ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" :
+                                                "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
+                                    )}
+                                    style={isActive ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
+                                    >
+                                        <Icon className="w-4 h-4 md:w-7 md:h-7" />
+                                    </div>
+                                    <span className={cn(
+                                        "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
+                                        isActive ? "opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
+                                    )}
+                                    style={isActive ? { color: themeColor } : {}}
+                                    >
+                                        {step.label}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
 
             {mounted && typeof document !== "undefined" && createPortal(
                 <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#06080a] border-t border-slate-200 dark:border-white/10 z-50 pt-2.5 pb-2.5 px-4 flex flex-col items-center">
@@ -687,7 +829,7 @@ export default function CivilRegistryPage() {
                                         <Input
                                             value={resident?.firstName?.toUpperCase() || ""}
                                             readOnly
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 text-xs md:text-sm uppercase font-bold"
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-950 dark:border-white text-slate-400 text-xs md:text-sm uppercase font-bold"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
@@ -695,7 +837,7 @@ export default function CivilRegistryPage() {
                                         <Input
                                             value={resident?.middleName?.toUpperCase() || ""}
                                             readOnly
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 text-xs md:text-sm uppercase font-bold"
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-950 dark:border-white text-slate-400 text-xs md:text-sm uppercase font-bold"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
@@ -703,7 +845,7 @@ export default function CivilRegistryPage() {
                                         <Input
                                             value={resident?.lastName?.toUpperCase() || ""}
                                             readOnly
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 text-xs md:text-sm uppercase font-bold"
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-950 dark:border-white text-slate-400 text-xs md:text-sm uppercase font-bold"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
@@ -711,7 +853,7 @@ export default function CivilRegistryPage() {
                                         <Input
                                             value={resident?.suffix?.toUpperCase() || ""}
                                             readOnly
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 text-xs md:text-sm uppercase font-bold"
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-950 dark:border-white text-slate-400 text-xs md:text-sm uppercase font-bold"
                                         />
                                     </div>
                                 </div>
@@ -719,14 +861,14 @@ export default function CivilRegistryPage() {
                                 <Separator className="opacity-50" />
 
                                 {/* Row 2: Personal */}
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                                     <div className="space-y-1.5">
                                         <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Birth Date</Label>
                                         <Input
                                             type="date"
                                             value={resident?.dateOfBirth ? new Date(resident.dateOfBirth).toISOString().split('T')[0] : ""}
                                             readOnly
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 text-xs md:text-sm"
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-950 dark:border-white text-slate-400 text-xs md:text-sm font-bold"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
@@ -742,7 +884,7 @@ export default function CivilRegistryPage() {
                                                 return age;
                                             })()}
                                             readOnly
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm"
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-950 dark:border-white text-slate-400 font-bold text-xs md:text-sm"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
@@ -750,46 +892,39 @@ export default function CivilRegistryPage() {
                                         <Input
                                             value={resident?.civilStatus || "N/A"}
                                             readOnly
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm"
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-950 dark:border-white text-slate-400 font-bold text-xs md:text-sm"
                                         />
                                     </div>
-                                    <div className="col-span-2 md:col-span-1 space-y-1.5">
-                                        <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Barangay</Label>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Citizenship</Label>
                                         <Input
-                                            value={resident?.barangay || "N/A"}
+                                            value={resident?.citizenship || "FILIPINO"}
                                             readOnly
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm"
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-950 dark:border-white text-slate-400 font-bold text-xs md:text-sm"
                                         />
                                     </div>
                                 </div>
 
-                                {/* Row 3: Personal Details & Contact */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 items-end">
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Gender</Label>
-                                        <Input
-                                            value={resident?.gender || "N/A"}
-                                            readOnly
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm"
-                                        />
-                                    </div>
+                                {/* Row 3: Contact & Occupation */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 items-start">
                                     <div className="space-y-1.5">
                                         <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Occupation</Label>
                                         <Input
                                             value={resident?.occupation || "N/A"}
                                             readOnly
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm"
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-950 dark:border-white text-slate-400 font-bold text-xs md:text-sm"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-blue-500/70 ml-1">Contact Number <span className="text-red-500">*</span></Label>
+                                        <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Contact Number <span className="text-red-500">*</span></Label>
                                         <div className="relative group">
                                             <Input
+                                                name="contactNumber"
                                                 value={form.contactNumber}
                                                 onChange={(e) => setForm(p => ({ ...p, contactNumber: e.target.value }))}
                                                 className={cn(
-                                                    "h-10 rounded-xl border-slate-200 focus:ring-blue-500 shadow-sm text-xs md:text-sm transition-all duration-300",
-                                                    form.contactNumber.length >= 11 && "border-blue-500 bg-blue-50/30 ring-1 ring-blue-500/20"
+                                                    "h-10 rounded-xl border-slate-950 dark:border-white focus:ring-blue-500 shadow-sm text-xs md:text-sm transition-all duration-300 font-bold italic",
+                                                    (errors.contactNumber || (showErrors && !form.contactNumber)) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500"
                                                 )}
                                                 placeholder="09xx xxx xxxx"
                                             />
@@ -799,25 +934,30 @@ export default function CivilRegistryPage() {
                                                 </div>
                                             )}
                                         </div>
+                                        <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider ml-1 animate-pulse mt-1">
+                                            * Note: Please use your active contact number. This will be used to contact you regarding your transaction.
+                                        </p>
+                                        {(errors.contactNumber || (showErrors && !form.contactNumber)) && (
+                                            <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse mt-1">{errors.contactNumber || "Required field"}</p>
+                                        )}
                                     </div>
                                 </div>
 
                                 {/* Row 4: Relationship */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-blue-500/70 ml-1">Relationship to Document Owner <span className="text-red-500">*</span></Label>
-                                        <p className="text-xs md:text-sm text-slate-900 dark:text-blue-50 font-black italic ml-1 mb-2">I am requesting the certificate of my:</p>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                                    <div className="col-span-2 md:col-span-1 space-y-1.5">
+                                        <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Relationship <span className="text-red-500">*</span></Label>
                                         <Select
                                             value={form.relationship}
                                             onValueChange={(value) => setForm({ ...form, relationship: value })}
                                         >
                                             <SelectTrigger className={cn(
-                                                "h-10 rounded-xl border-slate-200 focus:ring-blue-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all",
-                                                (showErrors && !form.relationship) && "border-red-500/50 bg-red-50/10"
+                                                "h-10 w-full rounded-xl border-slate-950 dark:border-white focus:ring-blue-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
+                                                (showErrors && !form.relationship) && "!border-red-500 bg-red-50/10 focus:ring-red-500"
                                             )}>
                                                 <SelectValue placeholder="Select relationship" />
                                             </SelectTrigger>
-                                            <SelectContent className="rounded-xl border-slate-200 dark:border-white/10">
+                                            <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
                                                 <SelectItem value="SELF">SELF</SelectItem>
                                                 <SelectItem value="SPOUSE">SPOUSE</SelectItem>
                                                 <SelectItem value="SON">SON</SelectItem>
@@ -833,25 +973,27 @@ export default function CivilRegistryPage() {
                                 </div>
                             </div>
 
-                            <div className="bg-blue-500/5 border border-blue-500/10 p-3 md:p-4 rounded-2xl md:rounded-3xl flex items-center gap-2 md:gap-3">
-                                <Sparkles className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                                <p className="text-[8px] md:text-[10px] text-blue-500 font-black italic leading-tight uppercase tracking-widest">
-                                    Verified Resident Profile. This information will be used for your official registry request.
+                            <div 
+                                className="p-3 md:p-4 rounded-2xl md:rounded-3xl flex items-center gap-2 md:gap-3 border"
+                                style={{ 
+                                    backgroundColor: `${themeColor}0d`, 
+                                    borderColor: `${themeColor}26` 
+                                }}
+                            >
+                                <Sparkles className="w-3.5 h-3.5 shrink-0" style={{ color: themeColor }} />
+                                <p className="text-[8px] md:text-[10px] font-black italic leading-tight uppercase tracking-widest" style={{ color: themeColor }}>
+                                    Note: Changes will update your Resident Profile upon submission.
                                 </p>
                             </div>
 
                              <div className="flex justify-end gap-3 pt-8">
                                 <Button
                                     onClick={() => {
-                                        if (!form.relationship) {
-                                            setShowErrors(true);
-                                            toast.error("Please select your relationship to the document owner.");
-                                            return;
-                                        }
-                                        setShowErrors(false);
+                                        if (!validateStep("IDENTITY")) return;
                                         setCurrentStep("DETAILS");
                                     }}
                                     className="rounded-full px-12 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-blue-500/20"
+                                    style={{ backgroundColor: themeColor }}
                                 >
                                     Next Phase
                                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -875,164 +1017,147 @@ export default function CivilRegistryPage() {
                                     </Button>
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Certificate Details</h2>
+                                    <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">
+                                        Certificate <span className="italic" style={{ color: themeColor }}>Details</span>
+                                    </h2>
                                     <p className="text-xs text-slate-500 font-medium italic">Certified copy for {selectedType?.label}</p>
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
-                                <div className="space-y-4 p-8 rounded-[2.5rem] bg-slate-50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5">
-                                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-blue-500 italic mb-4">Primary Subject Information</h3>
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">First Name <span className="text-red-500">*</span></Label>
+                                        <Input
+                                            name="certFirstName"
+                                            className={cn(
+                                                "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-10 transition-all uppercase font-medium",
+                                                (showErrors && !form.certFirstName) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500",
+                                                form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                            )}
+                                            placeholder="First name"
+                                            value={form.certFirstName}
+                                            onChange={(e) => form.relationship !== "SELF" && setForm({ ...form, certFirstName: e.target.value.toUpperCase() })}
+                                            readOnly={form.relationship === "SELF"}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Middle Name</Label>
+                                        <Input
+                                            className={cn(
+                                                "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-10 transition-all uppercase font-medium",
+                                                form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                            )}
+                                            placeholder="Middle name"
+                                            value={form.certMiddleName}
+                                            onChange={(e) => form.relationship !== "SELF" && setForm({ ...form, certMiddleName: e.target.value.toUpperCase() })}
+                                            readOnly={form.relationship === "SELF"}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Last Name <span className="text-red-500">*</span></Label>
+                                        <Input
+                                            name="certLastName"
+                                            className={cn(
+                                                "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-10 transition-all uppercase font-medium",
+                                                (showErrors && !form.certLastName) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500",
+                                                form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                            )}
+                                            placeholder="Last name"
+                                            value={form.certLastName}
+                                            onChange={(e) => form.relationship !== "SELF" && setForm({ ...form, certLastName: e.target.value.toUpperCase() })}
+                                            readOnly={form.relationship === "SELF"}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Suffix</Label>
+                                        <Input
+                                            className={cn(
+                                                "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-10 transition-all uppercase font-medium",
+                                                form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                            )}
+                                            placeholder="e.g. Jr."
+                                            value={form.certSuffix}
+                                            onChange={(e) => form.relationship !== "SELF" && setForm({ ...form, certSuffix: e.target.value.toUpperCase() })}
+                                            readOnly={form.relationship === "SELF"}
+                                        />
+                                    </div>
+                                </div>
 
-                                    <div className="space-y-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">First Name <span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    className={cn(
-                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-10 transition-all uppercase font-medium",
-                                                        (showErrors && !form.certFirstName) && "border-red-500/50 bg-red-50/10",
-                                                        form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
-                                                    )}
-                                                    placeholder="First name"
-                                                    value={form.certFirstName}
-                                                    onChange={(e) => form.relationship !== "SELF" && setForm({ ...form, certFirstName: e.target.value.toUpperCase() })}
-                                                    readOnly={form.relationship === "SELF"}
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Middle Name</Label>
-                                                <Input
-                                                    className={cn(
-                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-10 transition-all uppercase font-medium",
-                                                        form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
-                                                    )}
-                                                    placeholder="Middle name"
-                                                    value={form.certMiddleName}
-                                                    onChange={(e) => form.relationship !== "SELF" && setForm({ ...form, certMiddleName: e.target.value.toUpperCase() })}
-                                                    readOnly={form.relationship === "SELF"}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                            <div className="md:col-span-3 space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Last Name <span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    className={cn(
-                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-10 transition-all uppercase font-medium",
-                                                        (showErrors && !form.certLastName) && "border-red-500/50 bg-red-50/10",
-                                                        form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
-                                                    )}
-                                                    placeholder="Last name"
-                                                    value={form.certLastName}
-                                                    onChange={(e) => form.relationship !== "SELF" && setForm({ ...form, certLastName: e.target.value.toUpperCase() })}
-                                                    readOnly={form.relationship === "SELF"}
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Suffix</Label>
-                                                <Input
-                                                    className={cn(
-                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-10 transition-all uppercase font-medium",
-                                                        form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
-                                                    )}
-                                                    placeholder="e.g. Jr."
-                                                    value={form.certSuffix}
-                                                    onChange={(e) => form.relationship !== "SELF" && setForm({ ...form, certSuffix: e.target.value.toUpperCase() })}
-                                                    readOnly={form.relationship === "SELF"}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {(form.registryType === "MARRIAGE" || form.registryType === "MARRIAGE_LICENSE") && (
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Wife&apos;s Full Name (Maiden) <span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    className={cn(
-                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 transition-all uppercase font-medium",
-                                                        (showErrors && !form.spouseName) && "border-red-500/50 bg-red-50/10"
-                                                    )}
-                                                    placeholder="Enter complete maiden name"
-                                                    value={form.spouseName}
-                                                    onChange={(e) => setForm({ ...form, spouseName: e.target.value.toUpperCase() })}
-                                                />
-                                                {(showErrors && !form.spouseName) && (
-                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required field</p>
-                                                )}
-                                            </div>
+                                {(form.registryType === "MARRIAGE" || form.registryType === "MARRIAGE_LICENSE") && (
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Wife&apos;s Full Name (Maiden) <span className="text-red-500">*</span></Label>
+                                        <Input
+                                            name="spouseName"
+                                            className={cn(
+                                                "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium",
+                                                (showErrors && !form.spouseName) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500"
+                                            )}
+                                            placeholder="Enter complete maiden name"
+                                            value={form.spouseName}
+                                            onChange={(e) => setForm({ ...form, spouseName: e.target.value.toUpperCase() })}
+                                        />
+                                        {(showErrors && !form.spouseName) && (
+                                            <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required field</p>
                                         )}
+                                    </div>
+                                )}
 
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">
-                                                {form.registryType === "BIRTH" ? "Date of Birth" :
-                                                    form.registryType === "DEATH" ? "Date of Death" :
-                                                        form.registryType === "MARRIAGE" ? "Date of Marriage" :
-                                                            "Target Marriage Date"} <span className="text-red-500">*</span>
-                                            </Label>
-                                            <Input
-                                                type="date"
-                                                className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 transition-all",
-                                                    (showErrors && !form.dateOfEvent) && "border-red-500/50 bg-red-50/10",
-                                                    (form.relationship === "SELF" && !!resident?.dateOfBirth) && "bg-slate-100 dark:bg-slate-800 text-slate-500"
-                                                )}
-                                                value={form.dateOfEvent}
-                                                onChange={(e) => setForm({ ...form, dateOfEvent: e.target.value })}
-                                                readOnly={form.relationship === "SELF" && !!resident?.dateOfBirth}
-                                            />
-                                            {(showErrors && !form.dateOfEvent) && (
-                                                <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required field</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">
+                                            {form.registryType === "BIRTH" ? "Date of Birth" :
+                                                form.registryType === "DEATH" ? "Date of Death" :
+                                                    form.registryType === "MARRIAGE" ? "Date of Marriage" :
+                                                        "Target Marriage Date"} <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Input
+                                            name="dateOfEvent"
+                                            type="date"
+                                            className={cn(
+                                                "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all",
+                                                (showErrors && !form.dateOfEvent) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500",
+                                                (form.relationship === "SELF" && !!resident?.dateOfBirth) && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                             )}
-                                        </div>
+                                            value={form.dateOfEvent}
+                                            onChange={(e) => setForm({ ...form, dateOfEvent: e.target.value })}
+                                            readOnly={form.relationship === "SELF" && !!resident?.dateOfBirth}
+                                        />
+                                        {(showErrors && !form.dateOfEvent) && (
+                                            <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required field</p>
+                                        )}
+                                    </div>
 
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Place of Birth <span className="text-red-500">*</span></Label>
-                                            <Input
-                                                className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 transition-all",
-                                                    (showErrors && !form.placeOfEvent) && "border-red-500/50 bg-red-50/10",
-                                                    (form.relationship === "SELF" && !!resident?.municipality) && "bg-slate-100 dark:bg-slate-800 text-slate-500"
-                                                )}
-                                                placeholder="Hospital / Municipality / Church"
-                                                value={form.placeOfEvent}
-                                                onChange={(e) => setForm({ ...form, placeOfEvent: e.target.value.toUpperCase() })}
-                                                readOnly={form.relationship === "SELF" && !!resident?.municipality}
-                                            />
-                                            {(showErrors && !form.placeOfEvent) && (
-                                                <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required field</p>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Place of Birth <span className="text-red-500">*</span></Label>
+                                        <Input
+                                            name="placeOfEvent"
+                                            className={cn(
+                                                "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all",
+                                                (showErrors && !form.placeOfEvent) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500",
+                                                (form.relationship === "SELF" && !!resident?.municipality) && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                             )}
-                                        </div>
+                                            placeholder="Hospital / Municipality / Church"
+                                            value={form.placeOfEvent}
+                                            onChange={(e) => setForm({ ...form, placeOfEvent: e.target.value.toUpperCase() })}
+                                            readOnly={form.relationship === "SELF" && !!resident?.municipality}
+                                        />
+                                        {(showErrors && !form.placeOfEvent) && (
+                                            <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required field</p>
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
                             <div className="flex justify-end gap-3 pt-6">
                                 <Button
-                                    variant="ghost"
-                                    onClick={() => setCurrentStep("IDENTITY")}
-                                    className="rounded-full px-8 border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[10px] h-12"
-                                >
-                                    <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
-                                    Back
-                                </Button>
-                                <Button
                                     onClick={() => {
-                                        const isMarriage = form.registryType === "MARRIAGE" || form.registryType === "MARRIAGE_LICENSE";
-                                        if (!form.certFirstName || !form.certLastName || !form.dateOfEvent || !form.placeOfEvent || (isMarriage && !form.spouseName)) {
-                                            setShowErrors(true);
-                                            if (!form.certFirstName) toast.error("First Name is required.");
-                                            else if (!form.certLastName) toast.error("Last Name is required.");
-                                            else if (isMarriage && !form.spouseName) toast.error("Spouse Name is required.");
-                                            else if (!form.dateOfEvent) toast.error("Date of Occurrence is required.");
-                                            else if (!form.placeOfEvent) toast.error("Place of Birth is required.");
-                                            return;
-                                        }
-                                        setShowErrors(false);
+                                        if (!validateStep("DETAILS")) return;
                                         // Auto-sync fullName for the API
                                         const full = `${form.certFirstName} ${form.certMiddleName} ${form.certLastName} ${form.certSuffix}`.replace(/\s+/g, ' ').trim();
                                         setForm(prev => ({ ...prev, fullName: full }));
 
+                                        const isMarriage = form.registryType === "MARRIAGE" || form.registryType === "MARRIAGE_LICENSE";
                                         // Skip parents info for marriage requests as it's less standard for CTCs or handled elsewhere
                                         if (isMarriage) {
                                             setCurrentStep("CONFIRM");
@@ -1041,6 +1166,7 @@ export default function CivilRegistryPage() {
                                         }
                                     }}
                                     className="rounded-full px-8 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-blue-500/20"
+                                    style={{ backgroundColor: themeColor }}
                                 >
                                     {form.registryType === "MARRIAGE" || form.registryType === "MARRIAGE_LICENSE" ? "Proceed to Review" : "Proceed to Parental Info"}
                                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -1064,7 +1190,7 @@ export default function CivilRegistryPage() {
 
                             <div className="grid grid-cols-1 gap-6">
                                 {/* FATHER'S ROW */}
-                                <div className="space-y-4 p-6 rounded-[2rem] bg-slate-50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 shadow-2xl shadow-blue-500/5">
+                                <div className="space-y-4">
                                     <div className="flex items-center gap-2 mb-2">
                                         <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
                                             <Users className="w-4 h-4 text-blue-500" />
@@ -1077,7 +1203,7 @@ export default function CivilRegistryPage() {
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">First Name</Label>
                                             <Input
                                                 className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
+                                                    "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
                                                     form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                                 )}
                                                 placeholder="EX. JUAN"
@@ -1091,7 +1217,7 @@ export default function CivilRegistryPage() {
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Middle Name</Label>
                                             <Input
                                                 className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
+                                                    "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
                                                     form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                                 )}
                                                 placeholder="EX. DELA CRUZ"
@@ -1105,7 +1231,7 @@ export default function CivilRegistryPage() {
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Last Name</Label>
                                             <Input
                                                 className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
+                                                    "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
                                                     form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                                 )}
                                                 placeholder="EX. SANTOS"
@@ -1118,7 +1244,7 @@ export default function CivilRegistryPage() {
                                 </div>
 
                                 {/* MOTHER'S ROW */}
-                                <div className="space-y-4 p-6 rounded-[2rem] bg-slate-50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 shadow-2xl shadow-blue-500/5">
+                                <div className="space-y-4">
                                     <div className="flex items-center gap-2 mb-2">
                                         <div className="w-8 h-8 rounded-full bg-rose-500/10 flex items-center justify-center">
                                             <Users className="w-4 h-4 text-rose-500" />
@@ -1131,7 +1257,7 @@ export default function CivilRegistryPage() {
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">First Name</Label>
                                             <Input
                                                 className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
+                                                    "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
                                                     form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                                 )}
                                                 placeholder="EX. MARIA"
@@ -1145,7 +1271,7 @@ export default function CivilRegistryPage() {
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Middle Name</Label>
                                             <Input
                                                 className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
+                                                    "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
                                                     form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                                 )}
                                                 placeholder="EX. REYES"
@@ -1159,7 +1285,7 @@ export default function CivilRegistryPage() {
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Last Name</Label>
                                             <Input
                                                 className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
+                                                    "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
                                                     form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                                 )}
                                                 placeholder="EX. MERCADO"
@@ -1190,10 +1316,11 @@ export default function CivilRegistryPage() {
                                 </Button>
                                 <Button
                                     onClick={() => {
-                                        setShowErrors(false);
+                                        if (!validateStep("PARENTS")) return;
                                         setCurrentStep("CONFIRM");
                                     }}
                                     className="rounded-full px-12 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-blue-500/20"
+                                    style={{ backgroundColor: themeColor }}
                                 >
                                     Proceed to Review
                                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -1308,7 +1435,7 @@ export default function CivilRegistryPage() {
                                                     idTypeOverride: value
                                                 }))}
                                             >
-                                                <SelectTrigger className="h-10 rounded-xl border-slate-200 focus:ring-blue-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold">
+                                                <SelectTrigger className="h-10 w-full rounded-xl border-slate-950 dark:border-white focus:ring-blue-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold">
                                                     <SelectValue>
                                                         {form.idTypeOverride || resident?.idType || "Select type of government ID"}
                                                     </SelectValue>
@@ -1494,6 +1621,7 @@ export default function CivilRegistryPage() {
                                                 ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                                                 : "bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/20"
                                         )}
+                                        style={(!form.idTypeOverride && !resident?.idType) || (!form.files["validIdFront"] && !resident?.idFrontUrl) || (!form.files["validIdBack"] && !resident?.idBackUrl) ? {} : { backgroundColor: themeColor }}
                                     >
                                         {submitting ? (
                                             <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -1515,19 +1643,8 @@ export default function CivilRegistryPage() {
                     )}
                 </AnimatePresence>
             </Card>
-
-            {/* Info Section */}
-            <div className="grid grid-cols-1 gap-6">
-                <Card className="p-6 rounded-[2rem] border-slate-200/50 dark:border-white/5 bg-blue-500/5 border-l-4 border-l-blue-500">
-                    <div className="flex gap-4">
-                        <Info className="w-5 h-5 text-blue-500 shrink-0" />
-                        <div className="space-y-1">
-                            <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-500 italic">Requirements</h4>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 font-medium italic">Certified true copies require a valid government ID and an authorization letter if the applicant is not the document owner.</p>
-                        </div>
-                    </div>
-                </Card>
-            </div>
         </div>
+    </div>
+</>
     );
 }
