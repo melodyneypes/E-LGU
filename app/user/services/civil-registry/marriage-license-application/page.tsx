@@ -23,6 +23,7 @@ import { submitMarriageLicenseTransaction } from "@/app/admin/transactions/marri
 import { searchResidents, getResidentDataById } from "@/app/admin/actions";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
 import { supabase } from "@/lib/supabase";
+import { compressImage } from "@/lib/image-compression";
 
 const checkIsPdf = (file: any, url: string | null) => {
 	if (file && file instanceof File) {
@@ -50,43 +51,7 @@ const REQUIRED_DOCS = [
 
 const STORAGE_KEY = "lcr_marriage_license_draft";
 
-const PREVIEW_MAX_BYTES = 500 * 1024; // 500KB per preview target after compression
 
-function estimateDataUrlSize(dataUrl: string) {
-	const parts = dataUrl.split(',');
-	if (parts.length < 2) return 0;
-	const base64 = parts[1];
-	const padding = (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
-	return Math.ceil(base64.length * 3 / 4) - padding;
-}
-
-function compressImageDataUrl(dataUrl: string, maxWidth = 1200, quality = 0.75): Promise<string> {
-	return new Promise((resolve) => {
-		const img = new Image();
-		img.onload = () => {
-			const canvas = document.createElement('canvas');
-			let { width, height } = img;
-			if (width > maxWidth) {
-				height = Math.round(height * (maxWidth / width));
-				width = maxWidth;
-			}
-			canvas.width = width;
-			canvas.height = height;
-			const ctx = canvas.getContext('2d');
-			if (!ctx) return resolve(dataUrl);
-			ctx.drawImage(img, 0, 0, width, height);
-			try {
-				const compressed = canvas.toDataURL('image/jpeg', quality);
-				resolve(compressed);
-				// eslint-disable-next-line @typescript-eslint/no-unused-vars
-			} catch (_e) {
-				resolve(dataUrl);
-			}
-		};
-		img.onerror = () => resolve(dataUrl);
-		img.src = dataUrl;
-	});
-}
 
 // Payment constants
 const MISC_FEE = 862; // misc fee for marriage license application
@@ -227,7 +192,8 @@ export default function MarriageLicenseApplicationPage() {
 		app2Citizenship: "FILIPINO",
 		requiredDocs: {} as Record<string, boolean>,
 		files: {} as Record<string, File | null>,
-		previews: {} as Record<string, string | null>
+		previews: {} as Record<string, string | null>,
+		informantAddress: ""
 	});
 
 	// Privacy / Terms modal state (shared key across LCR pages)
@@ -344,12 +310,25 @@ export default function MarriageLicenseApplicationPage() {
 	 			}
 
 	 			if (activeResident) {
+	 				const r = activeResident;
+	 				const parts = [
+	 					r.houseNumber && `#${r.houseNumber}`,
+	 					r.street && `${r.street} St.`,
+	 					r.purok && `Purok ${r.purok}`,
+	 					r.sitio && `Sitio ${r.sitio}`,
+	 					r.barangay && `Brgy. ${r.barangay}`,
+	 					r.municipality || "Mapandan",
+	 					r.province || "Pangasinan"
+	 				].filter(Boolean);
+	 				const constructedAddr = parts.join(", ").toUpperCase();
+
 	 				setForm((prev: any) => ({
 	 					...prev,
 	 					app1FullName: `${activeResident.firstName} ${activeResident.middleName ? activeResident.middleName[0] + '. ' : ''}${activeResident.lastName}`.toUpperCase(),
 	 					app1BirthDate: activeResident.dateOfBirth ? new Date(activeResident.dateOfBirth).toISOString().split('T')[0] : "",
 	 					app1BirthPlace: (activeResident.placeOfBirth || activeResident.municipality || "").toUpperCase(),
-	 					app1Citizenship: (activeResident.citizenship || "FILIPINO").toUpperCase()
+	 					app1Citizenship: (activeResident.citizenship || "FILIPINO").toUpperCase(),
+	 					informantAddress: constructedAddr
 	 				}));
 	 			}
 	 		} catch (err) {
@@ -404,7 +383,7 @@ export default function MarriageLicenseApplicationPage() {
 
     
 
-	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
+	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
 		const file = e.target.files?.[0] || null;
 		if (file) {
 			if (file && file.size > 5 * 1024 * 1024) {
@@ -423,45 +402,43 @@ export default function MarriageLicenseApplicationPage() {
 				if (e && e.target) e.target.value = "";
 				return;
 			}
-			// Save raw file to IndexedDB
-			saveDraftFile(STORAGE_KEY, key, file).catch(err => {
+
+			let fileToProcess = file;
+			if (file.type.startsWith("image/")) {
+				try {
+					toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
+					fileToProcess = await compressImage(file);
+					toast.success("Image optimized successfully!", { id: "image-compress-toast" });
+				} catch (err) {
+					console.error("Compression error:", err);
+					toast.dismiss("image-compress-toast");
+				}
+			}
+
+			// Save raw/compressed file to IndexedDB
+			saveDraftFile(STORAGE_KEY, key, fileToProcess).catch(err => {
 				console.error("Failed to save draft file to IndexedDB:", err);
 			});
 
 			// Read image files as data URL so previews persist across reloads
-			if (file.type.startsWith("image/")) {
+			if (fileToProcess.type.startsWith("image/")) {
 				const reader = new FileReader();
 				reader.onload = () => {
 					const dataUrl = reader.result as string | null;
 					if (!dataUrl) return;
 					// set File reference
-					setForm((prev: any) => ({ ...prev, files: { ...prev.files, [key]: file } }));
-					const size = estimateDataUrlSize(dataUrl);
-					if (size > PREVIEW_MAX_BYTES) {
-						// try compressing
-						compressImageDataUrl(dataUrl).then((compressed) => {
-							const newSize = estimateDataUrlSize(compressed);
-							if (newSize <= PREVIEW_MAX_BYTES) {
-								setForm((prev: any) => ({ ...prev, previews: { ...prev.previews, [key]: compressed } }));
-							} else {
-								setForm((prev: any) => ({ ...prev, previews: { ...prev.previews, [key]: null } }));
-								toast.warning("Image preview too large to persist; preview not saved.");
-							}
-							setMissingFiles((m) => ({ ...m, [key]: false }));
-						}).catch(() => {
-							setForm((prev: any) => ({ ...prev, previews: { ...prev.previews, [key]: null } }));
-							setMissingFiles((m) => ({ ...m, [key]: false }));
-						});
-					} else {
-						setForm((prev: any) => ({ ...prev, previews: { ...prev.previews, [key]: dataUrl } }));
-						setMissingFiles((m) => ({ ...m, [key]: false }));
-					}
+					setForm((prev: any) => ({ 
+						...prev, 
+						files: { ...prev.files, [key]: fileToProcess },
+						previews: { ...prev.previews, [key]: dataUrl }
+					}));
+					setMissingFiles((m) => ({ ...m, [key]: false }));
 				};
-				reader.readAsDataURL(file);
+				reader.readAsDataURL(fileToProcess);
 			} else {
 				setForm((prev: any) => ({
 					...prev,
-					files: { ...prev.files, [key]: file },
+					files: { ...prev.files, [key]: fileToProcess },
 					previews: { ...prev.previews, [key]: null }
 				}));
 				setMissingFiles((m) => ({ ...m, [key]: false }));
@@ -524,6 +501,7 @@ export default function MarriageLicenseApplicationPage() {
 	};
 
 	const handleSubmit = async () => {
+		if (submitting) return;
 
 		// Require privacy terms acceptance before allowing submit
 		if (!policyAccepted) {
@@ -618,6 +596,7 @@ export default function MarriageLicenseApplicationPage() {
 				},
 				requiredDocs: selectedDocs,
 				subjectName: `${form.app1FullName} & ${form.app2FullName}`,
+				informantAddress: form.informantAddress,
 				payments: [
 					{ label: "Misc Fee", amount: dbMiscFee }
 				],
@@ -827,6 +806,10 @@ export default function MarriageLicenseApplicationPage() {
 									<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Citizenship</Label>
 									<Input disabled value={form.app1Citizenship} className="bg-slate-100 dark:bg-white/5 font-bold uppercase cursor-not-allowed opacity-75 border-none" />
 								</div>
+								<div className="space-y-1.5 col-span-1 md:col-span-2">
+									<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Informant Address</Label>
+									<Input disabled value={form.informantAddress || ""} className="bg-slate-100 dark:bg-white/5 font-bold uppercase cursor-not-allowed opacity-75 border-none" />
+								</div>
 							</div>
 						</Card>
 
@@ -981,6 +964,7 @@ export default function MarriageLicenseApplicationPage() {
 									<div className="text-sm font-black">{form.app1FullName}</div>
 									<div className="text-xs text-slate-600">{form.app1BirthDate} {form.app1BirthPlace ? `• ${form.app1BirthPlace}` : ''}</div>
 									<div className="text-xs text-slate-400">{form.app1Citizenship}</div>
+									<div className="text-xs text-slate-400 mt-1">Address: {form.informantAddress || "N/A"}</div>
 								</div>
 								<div className="p-4 rounded-2xl border bg-white dark:bg-[#071018]">
 									<div className="text-sm font-black">{form.app2FullName || 'N/A'}</div>

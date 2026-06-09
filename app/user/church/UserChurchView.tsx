@@ -213,8 +213,8 @@ export function UserChurchView({
                         </div>
 
                         <div className="flex items-center gap-3 w-full md:w-auto">
-                            {info.flyerUrl && (
-                                <a href={info.flyerUrl} target="_blank" rel="noopener noreferrer" download className="flex-1 md:flex-none flex items-center justify-center gap-2.5 h-12 md:h-14 px-6 md:px-8 bg-primary text-white rounded-xl md:rounded-2xl font-black uppercase italic tracking-widest text-[9px] md:text-[10px] transition-all active:scale-95 shadow-xl shadow-primary/20">
+                            {!!info.flyerUrl && (
+                                <a href={info.flyerUrl || null as any} target="_blank" rel="noopener noreferrer" download className="flex-1 md:flex-none flex items-center justify-center gap-2.5 h-12 md:h-14 px-6 md:px-8 bg-primary text-white rounded-xl md:rounded-2xl font-black uppercase italic tracking-widest text-[9px] md:text-[10px] transition-all active:scale-95 shadow-xl shadow-primary/20">
                                     <Download className="w-4 h-4" />
                                     <span>Download Flyer</span>
                                 </a>
@@ -423,8 +423,8 @@ export function UserChurchView({
                                     <p className="text-[10px] font-black uppercase tracking-widest text-white italic">Location</p>
                                     <p className="text-[11px] font-bold text-white/70 italic truncate max-w-[150px]">{info.address}</p>
                                 </div>
-                                {info.locationUrl && (
-                                    <a href={info.locationUrl} target="_blank" className="flex items-center gap-2.5 px-6 py-3 bg-primary text-white rounded-xl font-black uppercase italic tracking-widest text-[9px] transition-all hover:scale-105 shadow-xl shadow-primary/40">
+                                {!!info.locationUrl && (
+                                    <a href={info.locationUrl || null as any} target="_blank" className="flex items-center gap-2.5 px-6 py-3 bg-primary text-white rounded-xl font-black uppercase italic tracking-widest text-[9px] transition-all hover:scale-105 shadow-xl shadow-primary/40">
                                         <Navigation className="w-3.5 h-3.5" />
                                         <span>Route</span>
                                     </a>

@@ -20,6 +20,7 @@ model User {
   isEmailVerified   Boolean   @default(false)
   isPasswordChanged Boolean   @default(false)
   rejectionCount    Int       @default(0)
+  rejectionResetAt  DateTime?
   managedBarangay   String?
   department        String?
   accessiblePages   String[]  @default([])
@@ -31,6 +32,7 @@ model User {
   sessions          Session[]
   transactions      Transaction[] @relation("ResidentTransactions")
   driverTransactions Transaction[] @relation("DriverTransactions")
+  isSynced          Boolean   @default(false)
 }
 
 model Account {
@@ -327,6 +329,7 @@ model Resident {
   updatedAt             DateTime          @updatedAt
   facialRecognition     Json?
   isDead                Boolean           @default(false)
+  isSynced              Boolean           @default(false)
   registrationStatus    ResidentStatus    @default(PENDING)
   registrationType      String?           @default("SELF")
   rfid                  String?           @unique

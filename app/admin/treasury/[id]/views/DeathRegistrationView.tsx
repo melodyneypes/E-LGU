@@ -449,6 +449,34 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                                 {safeFormatDate(additional.dateOfBirth)}
                                             </div>
                                         </div>
+
+                                        {additional.civilStatus === "MARRIED" && additional.survivingSpouseName && (
+                                            <div className="space-y-1.5">
+                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Surviving Spouse Name</span>
+                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                    {additional.survivingSpouseName}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* CORPSE DISPOSAL & BURIAL DETAILS */}
+                            <div className="pt-8 border-t border-slate-800/50 space-y-6">
+                                <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic">Corpse Disposal & Burial Details</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Disposal Method</span>
+                                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            {additional.corpseDisposal || "—"}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Cemetery / Disposal Location</span>
+                                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            {additional.burialLocation || "—"}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

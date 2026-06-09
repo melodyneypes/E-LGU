@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import * as React from "react";
 import { Navbar } from "@/components/layout/Navbar";
+import { useSession } from "next-auth/react";
 
 interface UserLayoutClientProps {
     children: React.ReactNode;
@@ -19,6 +20,14 @@ export default function UserLayoutClient({
     brandWord2 = "Mapandan",
     themeColor = "#2563eb"
 }: UserLayoutClientProps) {
+    const { status } = useSession();
+
+    React.useEffect(() => {
+        if (status === "unauthenticated") {
+            window.location.href = "/auth/login?error=Your account has been deactivated due to multiple rejected requests. Please visit the Municipal Treasury Office for restoration.";
+        }
+    }, [status]);
+
     return (
         <div
             className="min-h-screen bg-slate-50 dark:bg-[#06080a] text-slate-900 dark:text-slate-200 font-sans transition-colors duration-500 flex flex-col selection:bg-primary/30"

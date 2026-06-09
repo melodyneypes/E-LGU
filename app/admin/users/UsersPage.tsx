@@ -23,6 +23,7 @@ import {
   Mail,
   Search,
   Trash2,
+  Unlock,
   User as UserIcon,
   UserPlus,
   XCircle,
@@ -30,6 +31,7 @@ import {
 import { useState } from "react";
 import { AddUserModal } from "./AddUserModal";
 import { EditUserModal } from "./EditUserModal";
+import { ActivateUserModal } from "./ActivateUserModal";
 
 import { Input } from "@/components/ui/input";
 import {
@@ -52,6 +54,7 @@ type UserWithProfile = {
   emailVerified: Date | null;
   isEmailVerified: boolean;
   role: UserRole;
+  rejectionCount?: number;
   department?: string | null;
   createdAt: Date;
   residentProfile: {
@@ -74,9 +77,18 @@ export function UsersPage({
     useState<UserWithProfile | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+  const [selectedUserToActivate, setSelectedUserToActivate] =
+    useState<UserWithProfile | null>(null);
+  const [isActivateModalOpen, setIsActivateModalOpen] = useState(false);
+
   const handleEditClick = (user: UserWithProfile) => {
     setSelectedUserToEdit(user);
     setIsEditModalOpen(true);
+  };
+
+  const handleActivateClick = (user: UserWithProfile) => {
+    setSelectedUserToActivate(user);
+    setIsActivateModalOpen(true);
   };
 
   const handleDeleteClick = async (userId: string) => {
@@ -517,6 +529,16 @@ export function UsersPage({
                   </TableCell>
                   <TableCell className="text-right pr-6">
                     <div className="flex items-center justify-end gap-2">
+                      {user.rejectionCount !== undefined && user.rejectionCount >= 3 && !user.isEmailVerified && (
+                        <Button
+                          variant="outline"
+                          onClick={() => handleActivateClick(user)}
+                          className="h-8 w-8 p-0 rounded-lg border-green-200 hover:bg-green-50 dark:hover:bg-green-500/10 hover:text-green-500 transition-all shadow-sm bg-transparent text-green-600 dark:border-green-500/30"
+                          title="Activate and Unlock User Account"
+                        >
+                          <Unlock className="w-4 h-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         onClick={() => handleEditClick(user)}
@@ -657,6 +679,14 @@ export function UsersPage({
         }}
         user={selectedUserToEdit}
         themeColor={themeColor}
+      />
+      <ActivateUserModal
+        isOpen={isActivateModalOpen}
+        onClose={() => {
+          setIsActivateModalOpen(false);
+          setSelectedUserToActivate(null);
+        }}
+        user={selectedUserToActivate}
       />
     </div>
   );

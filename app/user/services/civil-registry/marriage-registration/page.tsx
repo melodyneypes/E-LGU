@@ -63,44 +63,9 @@ import { searchResidents, getResidentDataById } from "@/app/admin/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
+import { compressImage } from "@/lib/image-compression";
 
-const PREVIEW_MAX_BYTES = 500 * 1024; // 500KB per preview target after compression
 
-function estimateDataUrlSize(dataUrl: string) {
-    const parts = dataUrl.split(',');
-    if (parts.length < 2) return 0;
-    const base64 = parts[1];
-    const padding = (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
-    return Math.ceil(base64.length * 3 / 4) - padding;
-}
-
-function compressImageDataUrl(dataUrl: string, maxWidth = 1200, quality = 0.75): Promise<string> {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            let { width, height } = img;
-            if (width > maxWidth) {
-                height = Math.round(height * (maxWidth / width));
-                width = maxWidth;
-            }
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return resolve(dataUrl);
-            ctx.drawImage(img, 0, 0, width, height);
-            try {
-                const compressed = canvas.toDataURL('image/jpeg', quality);
-                resolve(compressed);
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            } catch (_e) {
-                resolve(dataUrl);
-            }
-        };
-        img.onerror = () => resolve(dataUrl);
-        img.src = dataUrl;
-    });
-}
 
 // --- Resident Search Component ---
 const ResidentSearch = ({ onSelect, placeholder = "Search resident..." }: { onSelect: (r: any) => void; placeholder?: string }) => {
@@ -235,6 +200,7 @@ export default function MarriageRegistrationPage() {
         email: "",
         contactNumber: "",
         relationship: "",
+        informantAddress: "",
         files: {} as Record<string, File | null>,
         previews: {} as Record<string, string | null>,
     });
@@ -319,6 +285,17 @@ export default function MarriageRegistrationPage() {
 
                 if (activeResident) {
                     const r = activeResident;
+                    const parts = [
+                        r.houseNumber && `#${r.houseNumber}`,
+                        r.street && `${r.street} St.`,
+                        r.purok && `Purok ${r.purok}`,
+                        r.sitio && `Sitio ${r.sitio}`,
+                        r.barangay && `Brgy. ${r.barangay}`,
+                        r.municipality || "Mapandan",
+                        r.province || "Pangasinan"
+                    ].filter(Boolean);
+                    const constructedAddr = parts.join(", ").toUpperCase();
+
                     setForm(prev => ({
                         ...prev,
                         email: r.email || prev.email || "",
@@ -326,7 +303,8 @@ export default function MarriageRegistrationPage() {
                         app1FullName: `${r.firstName} ${r.middleName ? r.middleName[0] + '. ' : ''}${r.lastName}`.toUpperCase(),
                         app1BirthDate: r.dateOfBirth ? new Date(r.dateOfBirth).toISOString().split('T')[0] : "",
                         app1BirthPlace: (r.placeOfBirth || r.municipality || "").toUpperCase(),
-                        app1Citizenship: (r.citizenship || "FILIPINO").toUpperCase()
+                        app1Citizenship: (r.citizenship || "FILIPINO").toUpperCase(),
+                        informantAddress: constructedAddr
                     }));
                 }
 
@@ -351,7 +329,7 @@ export default function MarriageRegistrationPage() {
         init();
     }, []);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
         const file = e.target.files?.[0] || null;
         if (file) {
             if (file && file.size > 5 * 1024 * 1024) {
@@ -370,42 +348,42 @@ export default function MarriageRegistrationPage() {
                 if (e && e.target) e.target.value = "";
                 return;
             }
-            // Save raw file to IndexedDB
-            saveDraftFile(STORAGE_KEY, key, file).catch(err => {
+
+            let fileToProcess = file;
+            if (file.type.startsWith("image/")) {
+                try {
+                    toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
+                    fileToProcess = await compressImage(file);
+                    toast.success("Image optimized successfully!", { id: "image-compress-toast" });
+                } catch (err) {
+                    console.error("Compression error:", err);
+                    toast.dismiss("image-compress-toast");
+                }
+            }
+
+            // Save raw/compressed file to IndexedDB
+            saveDraftFile(STORAGE_KEY, key, fileToProcess).catch(err => {
                 console.error("Failed to save draft file to IndexedDB:", err);
             });
-            if (file.type.startsWith("image/")) {
+
+            if (fileToProcess.type.startsWith("image/")) {
                 const reader = new FileReader();
                 reader.onload = () => {
                     const dataUrl = reader.result as string | null;
                     if (!dataUrl) return;
 
                     // Set File reference
-                    setForm(prev => ({ ...prev, files: { ...prev.files, [key]: file } }));
-
-                    const size = estimateDataUrlSize(dataUrl);
-                    if (size > PREVIEW_MAX_BYTES) {
-                        // Compress preview
-                        compressImageDataUrl(dataUrl).then((compressed) => {
-                            const newSize = estimateDataUrlSize(compressed);
-                            if (newSize <= PREVIEW_MAX_BYTES) {
-                                setForm(prev => ({ ...prev, previews: { ...prev.previews, [key]: compressed } }));
-                            } else {
-                                setForm(prev => ({ ...prev, previews: { ...prev.previews, [key]: null } }));
-                                toast.warning("Image preview too large to persist; draft preview not saved.");
-                            }
-                        }).catch(() => {
-                            setForm(prev => ({ ...prev, previews: { ...prev.previews, [key]: null } }));
-                        });
-                    } else {
-                        setForm(prev => ({ ...prev, previews: { ...prev.previews, [key]: dataUrl } }));
-                    }
+                    setForm(prev => ({ 
+                        ...prev, 
+                        files: { ...prev.files, [key]: fileToProcess },
+                        previews: { ...prev.previews, [key]: dataUrl }
+                    }));
                 };
-                reader.readAsDataURL(file);
+                reader.readAsDataURL(fileToProcess);
             } else {
                 setForm(prev => ({
                     ...prev,
-                    files: { ...prev.files, [key]: file },
+                    files: { ...prev.files, [key]: fileToProcess },
                     previews: { ...prev.previews, [key]: null }
                 }));
             }
@@ -413,6 +391,7 @@ export default function MarriageRegistrationPage() {
     };
 
     const handleSubmit = async () => {
+        if (submitting) return;
         // Require privacy terms acceptance before allowing submit
         if (!policyAccepted) {
             toast.error("Please review and accept the Privacy Policy & Terms before submitting. Click Review to open the agreement.");
@@ -445,6 +424,7 @@ export default function MarriageRegistrationPage() {
                 email: form.email,
                 contactNumber: form.contactNumber,
                 relationship: form.relationship,
+                informantAddress: form.informantAddress,
                 subjectName: `${form.app1FullName} & ${form.app2FullName}`,
                 totalAmount: form.registrationType === "LATE" ? lateFee : baseFee
             };
@@ -804,6 +784,14 @@ export default function MarriageRegistrationPage() {
                                                     disabled
                                                     className="bg-slate-100 dark:bg-white/5 border-none font-bold uppercase cursor-not-allowed opacity-75"
                                                     value={form.app1Citizenship}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5 col-span-1 md:col-span-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Informant Address</Label>
+                                                <Input
+                                                    disabled
+                                                    className="bg-slate-100 dark:bg-white/5 border-none font-bold uppercase cursor-not-allowed opacity-75"
+                                                    value={form.informantAddress || ""}
                                                 />
                                             </div>
                                         </div>
@@ -1217,6 +1205,10 @@ export default function MarriageRegistrationPage() {
                                                     <div className="flex justify-between items-center text-xs">
                                                         <span className="font-bold text-slate-400 italic">Party 1:</span>
                                                         <span className="font-black uppercase italic">{form.app1FullName}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center text-xs">
+                                                        <span className="font-bold text-slate-400 italic">Party 1 Address:</span>
+                                                        <span className="font-black uppercase italic">{form.informantAddress || "N/A"}</span>
                                                     </div>
                                                     <div className="flex justify-between items-center text-xs">
                                                         <span className="font-bold text-slate-400 italic">Party 2:</span>

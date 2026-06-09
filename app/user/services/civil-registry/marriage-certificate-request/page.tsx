@@ -60,6 +60,7 @@ import {
     getSystemSettingAction
 } from "@/app/admin/transactions/actions";
 import { toast } from "sonner";
+import { compressImage } from "@/lib/image-compression";
 import { useRouter } from "next/navigation";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 
@@ -113,6 +114,7 @@ interface FormState {
     email: string;
     contactNumber: string;
     relationship: string;
+    informantAddress?: string;
 }
 
 const LOCAL_FALLBACK_PROVINCES = [
@@ -172,7 +174,8 @@ export default function MarriageCertificateRequestPage() {
         idTypeOverride: "",
         email: "",
         contactNumber: "",
-        relationship: ""
+        relationship: "",
+        informantAddress: ""
     });
 
     const isRestoredRef = useRef(false);
@@ -388,10 +391,23 @@ export default function MarriageCertificateRequestPage() {
                 if (resResult.success && resResult.data) {
                     setResident(resResult.data);
                     if (resResult.data) {
+                        const r = resResult.data;
+                        const parts = [
+                            r.houseNumber && `#${r.houseNumber}`,
+                            r.street && `${r.street} St.`,
+                            r.purok && `Purok ${r.purok}`,
+                            r.sitio && `Sitio ${r.sitio}`,
+                            r.barangay && `Brgy. ${r.barangay}`,
+                            r.municipality || "Mapandan",
+                            r.province || "Pangasinan"
+                        ].filter(Boolean);
+                        const constructedAddr = parts.join(", ").toUpperCase();
+
                         setForm(prev => ({
                             ...prev,
-                            email: resResult.data?.email || "",
-                            contactNumber: resResult.data?.contactNumber || "",
+                            email: r.user?.email || r.email || "",
+                            contactNumber: r.contactNumber || "",
+                            informantAddress: constructedAddr
                         }));
                     }
                 }
@@ -458,7 +474,7 @@ export default function MarriageCertificateRequestPage() {
     const handleAcceptPolicy = () => { setPolicyOpen(false); setPolicyAccepted(true); };
     const dbType = availableTypes.find(t => t.code === "LCR_MARRIAGE");
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
             if (file.size > 5 * 1024 * 1024) {
@@ -477,14 +493,28 @@ export default function MarriageCertificateRequestPage() {
                 e.target.value = "";
                 return;
             }
+            
+            let fileToProcess = file;
+            if (file.type.startsWith("image/")) {
+                try {
+                    toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
+                    fileToProcess = await compressImage(file);
+                    toast.success("Image optimized successfully!", { id: "image-compress-toast" });
+                } catch (err) {
+                    console.error("Compression error:", err);
+                    toast.dismiss("image-compress-toast");
+                }
+            }
+
             setForm(prev => ({
                 ...prev,
-                files: { ...prev.files, [key]: file }
+                files: { ...prev.files, [key]: fileToProcess }
             }));
         }
     };
 
     const handleSubmit = async () => {
+        if (submitting) return;
         if (!resident) {
             toast.error("User profile required");
             return;
@@ -535,6 +565,7 @@ export default function MarriageCertificateRequestPage() {
                 fulfillmentType: null,
                 email: form.email,
                 contactNumber: form.contactNumber,
+                informantAddress: form.informantAddress,
                 idType: form.idTypeOverride || resident?.idType,
                 idFrontUrl: resident?.idFrontUrl,
                 idBackUrl: resident?.idBackUrl,
@@ -842,6 +873,15 @@ export default function MarriageCertificateRequestPage() {
                                             </SelectContent>
                                         </Select>
                                     </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Informant Address</Label>
+                                    <Input
+                                        value={form.informantAddress || ""}
+                                        readOnly
+                                        className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 text-xs md:text-sm uppercase font-bold"
+                                    />
                                 </div>
                             </div>
 
@@ -1195,6 +1235,10 @@ export default function MarriageCertificateRequestPage() {
                                     <div className="space-y-1">
                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Relationship</span>
                                         <p className="font-black text-slate-900 dark:text-white italic uppercase">{form.relationship}</p>
+                                    </div>
+                                    <div className="space-y-1 col-span-2">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Informant Address</span>
+                                        <p className="font-black text-slate-900 dark:text-white italic uppercase">{form.informantAddress || "N/A"}</p>
                                     </div>
                                     <div className="space-y-1">
                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Date of Marriage</span>

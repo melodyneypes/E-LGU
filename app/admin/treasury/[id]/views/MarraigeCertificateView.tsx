@@ -322,20 +322,20 @@ export default function MarraigeCertificateView(props: TreasuryViewProps) {
                                     <div className="space-y-1.5 flex-1">
                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Registry Book Verification Status</span>
                                         <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                            {additional.registryBookVerification === "FORM_1A" ? "Form 1A (Record Found)" :
-                                                additional.registryBookVerification === "FORM_1B" ? "Form 1B (Record Not Available)" :
-                                                    additional.registryBookVerification === "FORM_1C" ? "Form 1C (Record Destroyed)" :
+                                            {additional.registryBookVerification === "FORM_3A" ? "Form 3A (Record Found)" :
+                                                additional.registryBookVerification === "FORM_3B" ? "Form 3B (Record Not Available)" :
+                                                    additional.registryBookVerification === "FORM_3C" ? "Form 3C (Record Destroyed)" :
                                                         additional.registryBookVerification}
                                         </div>
                                     </div>
                                     <Badge className={cn(
                                         "px-4.5 py-2 rounded-full font-black uppercase text-[10px] tracking-wider italic text-white shadow-md border-none shrink-0 self-end mb-0.5",
-                                        additional.registryBookVerification === "FORM_1A" ? "bg-emerald-500 hover:bg-emerald-500 shadow-emerald-500/10" :
-                                            additional.registryBookVerification === "FORM_1B" ? "bg-amber-500 hover:bg-amber-500 shadow-amber-500/10" :
+                                        additional.registryBookVerification === "FORM_3A" ? "bg-emerald-500 hover:bg-emerald-500 shadow-emerald-500/10" :
+                                            additional.registryBookVerification === "FORM_3B" ? "bg-amber-500 hover:bg-amber-500 shadow-amber-500/10" :
                                                 "bg-rose-500 hover:bg-rose-500 shadow-rose-500/10"
                                     )}>
-                                        {additional.registryBookVerification === "FORM_1A" ? "Record Found" :
-                                            additional.registryBookVerification === "FORM_1B" ? "Not Available" :
+                                        {additional.registryBookVerification === "FORM_3A" ? "Record Found" :
+                                            additional.registryBookVerification === "FORM_3B" ? "Not Available" :
                                                 "Destroyed"}
                                     </Badge>
                                 </div>
@@ -779,9 +779,9 @@ export default function MarraigeCertificateView(props: TreasuryViewProps) {
                                         </div>
                                         <div className="grid grid-cols-1 gap-2.5">
                                             {[
-                                                { id: "FORM_1A", title: "Form 1A", desc: "Record Found & Verified" },
-                                                { id: "FORM_1B", title: "Form 1B", desc: "Record Not Available" },
-                                                { id: "FORM_1C", title: "Form 1C", desc: "Record Destroyed" }
+                                                { id: "FORM_3A", title: "Form 3A", desc: "Record Found & Verified" },
+                                                { id: "FORM_3B", title: "Form 3B", desc: "Record Not Available" },
+                                                { id: "FORM_3C", title: "Form 3C", desc: "Record Destroyed" }
                                             ]
                                                 .filter(opt => !registryBookVerification || registryBookVerification === opt.id)
                                                 .map((opt) => {

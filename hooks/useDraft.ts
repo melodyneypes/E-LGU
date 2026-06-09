@@ -11,6 +11,12 @@ function isDraftEmpty(obj: any): boolean {
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
             // Ignore default route step name or common defaults if they are the only things present
             if (key === "currentStep" && (obj[key] === "GUIDE" || obj[key] === "START")) continue;
+            if ([
+                "typeId", "applicantType", "incomeSource", 
+                "businessType", "orgType", "agreeToTerms", "step", 
+                "pathway", "residentData"
+            ].includes(key)) continue;
+            
             const val = obj[key];
             if (val === null || val === undefined) continue;
             if (typeof val === "string" && val.trim() !== "") return false;

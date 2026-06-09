@@ -327,13 +327,13 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                                     </div>
                                     <Badge className={cn(
                                         "px-4.5 py-2 rounded-full font-black uppercase text-[10px] tracking-wider italic text-white shadow-md border-none shrink-0 self-end mb-0.5",
-                                        additional.registryBookVerification === "FORM_2A" || additional.registryBookVerification === "FORM_1A" || additional.registryBookVerification === "FORM_1B" ? "bg-emerald-500 hover:bg-emerald-500 shadow-emerald-500/10" :
-                                            "bg-rose-500 hover:bg-rose-500 shadow-rose-500/10"
+                                        additional.registryBookVerification === "FORM_2A" ? "bg-emerald-500 hover:bg-emerald-500 shadow-emerald-500/10" :
+                                            additional.registryBookVerification === "FORM_2B" ? "bg-amber-500 hover:bg-amber-500 shadow-amber-500/10" :
+                                                "bg-rose-500 hover:bg-rose-500 shadow-rose-500/10"
                                     )}>
-                                        {additional.registryBookVerification === "FORM_2A" ? "Available / Not Available" :
-                                            additional.registryBookVerification === "FORM_1A" ? "Record Found" :
-                                                additional.registryBookVerification === "FORM_1B" ? "Not Available" :
-                                                    "Destroyed"}
+                                        {additional.registryBookVerification === "FORM_2A" ? "Record Found" :
+                                            additional.registryBookVerification === "FORM_2B" ? "Not Available" :
+                                                "Destroyed"}
                                     </Badge>
                                 </div>
                             )}
@@ -956,9 +956,9 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                                             </div>
                                             <div className="grid grid-cols-1 gap-2.5">
                                                 {[
-                                                    { id: "FORM_1A", title: "Form 1A", desc: "Record Found & Verified" },
-                                                    { id: "FORM_1B", title: "Form 1B", desc: "Record Not Available" },
-                                                    { id: "FORM_1C", title: "Form 1C", desc: "Record Destroyed" }
+                                                    { id: "FORM_2A", title: "Form 2A", desc: "Record Found & Verified" },
+                                                    { id: "FORM_2B", title: "Form 2B", desc: "Record Not Available" },
+                                                    { id: "FORM_2C", title: "Form 2C", desc: "Record Destroyed" }
                                                 ]
                                                     .filter(opt => !registryBookVerification || registryBookVerification === opt.id)
                                                     .map((opt) => {
@@ -988,15 +988,15 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                                                     })}
                                             </div>
                                         </div>
-
+ 
                                         {/* E-Copy/Verification PDF/Image Upload Block (Required once status is selected) */}
                                         {registryBookVerification && (
                                             <div className="space-y-3 pt-4 border-t border-slate-800/50">
                                                 <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
                                                     Attach Scanned {
-                                                        registryBookVerification === "FORM_1A" ? "Form 1A" :
-                                                            registryBookVerification === "FORM_1B" ? "Form 1B" :
-                                                                registryBookVerification === "FORM_1C" ? "Form 1C" : "Verification Document"
+                                                        registryBookVerification === "FORM_2A" ? "Form 2A" :
+                                                            registryBookVerification === "FORM_2B" ? "Form 2B" :
+                                                                registryBookVerification === "FORM_2C" ? "Form 2C" : "Verification Document"
                                                     } (PDF/Image) <span className="text-rose-500 font-extrabold">*Required</span>
                                                 </label>
                                                 <input
@@ -1075,9 +1075,9 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                                                             <Upload className="w-5 h-5 text-slate-400 group-hover:text-primary transition-colors" />
                                                             <span className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 text-center px-4">
                                                                 Upload Scanned {
-                                                                    registryBookVerification === "FORM_1A" ? "Form 1A" :
-                                                                        registryBookVerification === "FORM_1B" ? "Form 1B" :
-                                                                            registryBookVerification === "FORM_1C" ? "Form 1C" : "Verification Document"
+                                                                    registryBookVerification === "FORM_2A" ? "Form 2A" :
+                                                                        registryBookVerification === "FORM_2B" ? "Form 2B" :
+                                                                            registryBookVerification === "FORM_2C" ? "Form 2C" : "Verification Document"
                                                                 }
                                                             </span>
                                                         </div>

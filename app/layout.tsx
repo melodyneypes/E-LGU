@@ -32,16 +32,18 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: `${brand1}${brand2}`,
     description: `Official digital governance portal for ${brand1}${brand2}. Access public services, news, and community updates.`,
-    icons: {
-      icon: [
-        {
-          url: logo,
-          href: logo,
-        },
-      ],
-      shortcut: [logo],
-      apple: [logo],
-    }
+    ...(logo ? {
+      icons: {
+        icon: [
+          {
+            url: logo,
+            href: logo,
+          },
+        ],
+        shortcut: [logo],
+        apple: [logo],
+      }
+    } : {}),
   };
 }
 

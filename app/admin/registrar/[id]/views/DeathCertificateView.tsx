@@ -710,7 +710,7 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                         )}
 
                         {/* REGISTRAR UPLOAD E-COPY AND OR RELEASE ACTION */}
-                        {transaction.status === "FOR_PROCESSING" && (
+                        {(transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REINSPECTION") && (
                             <div className="space-y-6">
                                 <div className="bg-[#111827] border border-slate-800 rounded-[2rem] p-8 shadow-2xl space-y-6">
                                     <div className="space-y-1">
@@ -740,8 +740,9 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                                             </div>
                                             <div className="grid grid-cols-1 gap-2.5">
                                                 {[
-                                                    { id: "FORM_2A", title: "Form 2A", desc: "Certificate Available / Not Available" },
-                                                    { id: "FORM_2C", title: "Form 2C", desc: "Certificate Destroyed" }
+                                                    { id: "FORM_2A", title: "Form 2A", desc: "Record Found & Verified" },
+                                                    { id: "FORM_2B", title: "Form 2B", desc: "Record Not Available" },
+                                                    { id: "FORM_2C", title: "Form 2C", desc: "Record Destroyed" }
                                                 ]
                                                     .filter(opt => !registryBookVerification || registryBookVerification === opt.id)
                                                     .map((opt) => {
@@ -778,7 +779,8 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                                                 <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
                                                     Attach Scanned {
                                                         registryBookVerification === "FORM_2A" ? "Form 2A" :
-                                                            registryBookVerification === "FORM_2C" ? "Form 2C" : "Verification Document"
+                                                            registryBookVerification === "FORM_2B" ? "Form 2B" :
+                                                                registryBookVerification === "FORM_2C" ? "Form 2C" : "Verification Document"
                                                     } (PDF/Image) <span className="text-rose-500 font-extrabold">*Required</span>
                                                 </label>
                                                 <input
@@ -858,7 +860,8 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                                                             <span className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 text-center px-4">
                                                                 Upload Scanned {
                                                                     registryBookVerification === "FORM_2A" ? "Form 2A" :
-                                                                        registryBookVerification === "FORM_2C" ? "Form 2C" : "Verification Document"
+                                                                        registryBookVerification === "FORM_2B" ? "Form 2B" :
+                                                                            registryBookVerification === "FORM_2C" ? "Form 2C" : "Verification Document"
                                                                 }
                                                             </span>
                                                         </div>
@@ -967,8 +970,9 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                                         <div className="flex justify-between items-center pb-3 border-b border-slate-200/50 dark:border-white/5">
                                             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Issued Form</span>
                                             <span className="text-xs font-black uppercase text-primary font-black" style={{ color: themeColor }}>
-                                                {additional.registryBookVerification === "FORM_2A" ? "Form 2A (Available / Not Available)" :
-                                                    additional.registryBookVerification === "FORM_2C" ? "Form 2C (Destroyed)" : "N/A"}
+                                                {additional.registryBookVerification === "FORM_2A" ? "Form 2A (Record Found & Verified)" :
+                                                    additional.registryBookVerification === "FORM_2B" ? "Form 2B (Record Not Available)" :
+                                                        additional.registryBookVerification === "FORM_2C" ? "Form 2C (Record Destroyed)" : "N/A"}
                                             </span>
                                         </div>
 

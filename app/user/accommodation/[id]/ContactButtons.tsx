@@ -59,7 +59,7 @@ export function ContactButtons({ contactNumber, websiteUrl, isMobile }: ContactB
                     </Button>
                 )}
                 {websiteUrl && (
-                    <Link href={websiteUrl} target="_blank" className="flex-1">
+                    <Link href={websiteUrl || null as any} target="_blank" className="flex-1">
                         <Button variant="outline" className="w-full h-11 rounded-xl border-slate-200 dark:border-white/10 font-black uppercase tracking-widest text-[8px] flex items-center gap-2 shadow-sm bg-white dark:bg-white/5">
                             <Globe className="w-3 h-3 text-primary" />
                             Website
@@ -82,7 +82,7 @@ export function ContactButtons({ contactNumber, websiteUrl, isMobile }: ContactB
                 </Button>
             )}
             {websiteUrl && (
-                <Link href={websiteUrl} target="_blank">
+                <Link href={websiteUrl || null as any} target="_blank">
                     <Button variant="outline" className="h-14 px-10 rounded-3xl border-slate-200 dark:border-white/10 font-black uppercase tracking-widest text-[10px] flex items-center gap-3 bg-white dark:bg-white/5 hover:border-primary/50 transition-all">
                         <Globe className="w-4 h-4 text-primary" />
                         Official Site

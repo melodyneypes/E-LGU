@@ -97,7 +97,7 @@ export default function MarriageCertificateRequestView(props: TreasuryViewProps)
     const additional = transaction.additionalData || {};
     const isTreasuryContext = backUrl?.includes("/admin/treasury") || rawUserRole === "TREASURY_STAFF";
 
-    const subjectName = additional.fullName || additional.subjectName || additional.husbandName || additional.wifeName || "N/A";
+    const subjectName = transaction.marriageCertificateRequest?.subjectName || additional.fullName || additional.subjectName || additional.husbandName || additional.wifeName || "N/A";
 
     return (
         <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0f172a] transition-colors duration-300">
@@ -322,20 +322,20 @@ export default function MarriageCertificateRequestView(props: TreasuryViewProps)
                                     <div className="space-y-1.5 flex-1">
                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Registry Book Verification Status</span>
                                         <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                            {additional.registryBookVerification === "FORM_1A" ? "Form 1A (Record Found)" :
-                                                additional.registryBookVerification === "FORM_1B" ? "Form 1B (Record Not Available)" :
-                                                    additional.registryBookVerification === "FORM_1C" ? "Form 1C (Record Destroyed)" :
+                                            {additional.registryBookVerification === "FORM_3A" ? "Form 3A (Record Found)" :
+                                                additional.registryBookVerification === "FORM_3B" ? "Form 3B (Record Not Available)" :
+                                                    additional.registryBookVerification === "FORM_3C" ? "Form 3C (Record Destroyed)" :
                                                         additional.registryBookVerification}
                                         </div>
                                     </div>
                                     <Badge className={cn(
                                         "px-4.5 py-2 rounded-full font-black uppercase text-[10px] tracking-wider italic text-white shadow-md border-none shrink-0 self-end mb-0.5",
-                                        additional.registryBookVerification === "FORM_1A" ? "bg-emerald-500 hover:bg-emerald-500 shadow-emerald-500/10" :
-                                            additional.registryBookVerification === "FORM_1B" ? "bg-amber-500 hover:bg-amber-500 shadow-amber-500/10" :
+                                        additional.registryBookVerification === "FORM_3A" ? "bg-emerald-500 hover:bg-emerald-500 shadow-emerald-500/10" :
+                                            additional.registryBookVerification === "FORM_3B" ? "bg-amber-500 hover:bg-amber-500 shadow-amber-500/10" :
                                                 "bg-rose-500 hover:bg-rose-500 shadow-rose-500/10"
                                     )}>
-                                        {additional.registryBookVerification === "FORM_1A" ? "Record Found" :
-                                            additional.registryBookVerification === "FORM_1B" ? "Not Available" :
+                                        {additional.registryBookVerification === "FORM_3A" ? "Record Found" :
+                                            additional.registryBookVerification === "FORM_3B" ? "Not Available" :
                                                 "Destroyed"}
                                     </Badge>
                                 </div>
@@ -371,13 +371,13 @@ export default function MarriageCertificateRequestView(props: TreasuryViewProps)
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Date of Marriage</span>
                                                 <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                    {safeFormatDate(additional.dateOfEvent || additional.dateOfMarriage)}
+                                                    {safeFormatDate(transaction.marriageCertificateRequest?.dateOfEvent || additional.dateOfEvent || additional.dateOfMarriage)}
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Registry No.</span>
                                                 <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                    {additional.registryNumber || "PENDING"}
+                                                    {transaction.marriageCertificateRequest?.registryNumber || additional.registryNumber || "PENDING"}
                                                 </div>
                                             </div>
                                         </div>
@@ -385,7 +385,7 @@ export default function MarriageCertificateRequestView(props: TreasuryViewProps)
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Marriage</span>
                                             <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                {additional.placeOfEvent || additional.placeOfMarriage || "—"}
+                                                {transaction.marriageCertificateRequest?.placeOfEvent || additional.placeOfEvent || additional.placeOfMarriage || "—"}
                                             </div>
                                         </div>
                                     </div>
@@ -399,14 +399,14 @@ export default function MarriageCertificateRequestView(props: TreasuryViewProps)
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">{"Husband's Full Name"}</span>
                                             <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                {additional.husbandName || additional.fatherName || "—"}
+                                                {transaction.marriageCertificateRequest?.subjectName || additional.husbandName || additional.fatherName || "—"}
                                             </div>
                                         </div>
 
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">{"Wife's Full Name"}</span>
                                             <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                {additional.wifeName || additional.motherName || "—"}
+                                                {transaction.marriageCertificateRequest?.spouseName || additional.wifeName || additional.motherName || "—"}
                                             </div>
                                         </div>
                                     </div>
@@ -650,23 +650,23 @@ export default function MarriageCertificateRequestView(props: TreasuryViewProps)
                                             accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                                             onChange={(e) => {
                                                 const file = e.target.files?.[0] || null;
-                                                        if (file && file.size > 5 * 1024 * 1024) {
-                                                            toast.error("File size exceeds 5MB limit.");
-                                                            if (e.target.parentElement) {
-                                                                const parent = e.target.parentElement;
-                                                                let errEl = parent.querySelector('.file-error-msg');
-                                                                if (!errEl) {
-                                                                    errEl = document.createElement('div');
-                                                                    errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
-                                                                    parent.appendChild(errEl);
-                                                                }
-                                                                errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
-                                                                setTimeout(() => errEl && errEl.remove(), 4000);
-                                                            }
-                                                            e.target.value = "";
-                                                            setOrFile?.(null);
-                                                            return;
+                                                if (file && file.size > 5 * 1024 * 1024) {
+                                                    toast.error("File size exceeds 5MB limit.");
+                                                    if (e.target.parentElement) {
+                                                        const parent = e.target.parentElement;
+                                                        let errEl = parent.querySelector('.file-error-msg');
+                                                        if (!errEl) {
+                                                            errEl = document.createElement('div');
+                                                            errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
+                                                            parent.appendChild(errEl);
                                                         }
+                                                        errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
+                                                        setTimeout(() => errEl && errEl.remove(), 4000);
+                                                    }
+                                                    e.target.value = "";
+                                                    setOrFile?.(null);
+                                                    return;
+                                                }
                                                 setOrFile?.(file);
                                                 if (file) {
                                                     const url = URL.createObjectURL(file);
@@ -767,7 +767,7 @@ export default function MarriageCertificateRequestView(props: TreasuryViewProps)
                         )}
 
                         {/* REGISTRAR UPLOAD E-COPY AND OR RELEASE ACTION */}
-                        {transaction.status === "FOR_PROCESSING" && (
+                        {(transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REINSPECTION") && (
                             <div className="bg-[#111827] border border-slate-800 rounded-[2rem] p-8 shadow-2xl space-y-6">
                                 <div className="space-y-1">
                                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#10b981] italic">Upload & Release Document</h4>
@@ -796,9 +796,9 @@ export default function MarriageCertificateRequestView(props: TreasuryViewProps)
                                         </div>
                                         <div className="grid grid-cols-1 gap-2.5">
                                             {[
-                                                { id: "FORM_1A", title: "Form 1A", desc: "Record Found & Verified" },
-                                                { id: "FORM_1B", title: "Form 1B", desc: "Record Not Available" },
-                                                { id: "FORM_1C", title: "Form 1C", desc: "Record Destroyed" }
+                                                { id: "FORM_3A", title: "Form 3A", desc: "Record Found & Verified" },
+                                                { id: "FORM_3B", title: "Form 3B", desc: "Record Not Available" },
+                                                { id: "FORM_3C", title: "Form 3C", desc: "Record Destroyed" }
                                             ]
                                                 .filter(opt => !registryBookVerification || registryBookVerification === opt.id)
                                                 .map((opt) => {
@@ -833,30 +833,34 @@ export default function MarriageCertificateRequestView(props: TreasuryViewProps)
                                     {registryBookVerification && (
                                         <div className="space-y-3 pt-4 border-t border-slate-800/50">
                                             <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
-                                                Attach Verification Scanned Document (PDF/Image) <span className="text-rose-500 font-extrabold">*Required</span>
+                                                Attach Scanned {
+                                                    registryBookVerification === "FORM_3A" ? "Form 3A" :
+                                                        registryBookVerification === "FORM_3B" ? "Form 3B" :
+                                                            registryBookVerification === "FORM_3C" ? "Form 3C" : "Verification Document"
+                                                } (PDF/Image) <span className="text-rose-500 font-extrabold">*Required</span>
                                             </label>
                                             <input
                                                 type="file"
                                                 accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                                                 onChange={(e) => {
                                                     const file = e.target.files?.[0] || null;
-                                                        if (file && file.size > 5 * 1024 * 1024) {
-                                                            toast.error("File size exceeds 5MB limit.");
-                                                            if (e.target.parentElement) {
-                                                                const parent = e.target.parentElement;
-                                                                let errEl = parent.querySelector('.file-error-msg');
-                                                                if (!errEl) {
-                                                                    errEl = document.createElement('div');
-                                                                    errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
-                                                                    parent.appendChild(errEl);
-                                                                }
-                                                                errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
-                                                                setTimeout(() => errEl && errEl.remove(), 4000);
+                                                    if (file && file.size > 5 * 1024 * 1024) {
+                                                        toast.error("File size exceeds 5MB limit.");
+                                                        if (e.target.parentElement) {
+                                                            const parent = e.target.parentElement;
+                                                            let errEl = parent.querySelector('.file-error-msg');
+                                                            if (!errEl) {
+                                                                errEl = document.createElement('div');
+                                                                errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
+                                                                parent.appendChild(errEl);
                                                             }
-                                                            e.target.value = "";
-                                                            setBirthRegDocFile?.(null);
-                                                            return;
+                                                            errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
+                                                            setTimeout(() => errEl && errEl.remove(), 4000);
                                                         }
+                                                        e.target.value = "";
+                                                        setBirthRegDocFile?.(null);
+                                                        return;
+                                                    }
                                                     setBirthRegDocFile?.(file);
                                                     if (file) {
                                                         const url = URL.createObjectURL(file);
@@ -927,30 +931,15 @@ export default function MarriageCertificateRequestView(props: TreasuryViewProps)
                                                     <div className="flex flex-col items-center justify-center gap-2">
                                                         <Upload className="w-5 h-5 text-slate-400 group-hover:text-primary transition-colors" />
                                                         <span className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 text-center px-4">
-                                                            Upload Scanned Verification Document
+                                                            Upload Scanned {
+                                                                registryBookVerification === "FORM_3A" ? "Form 3A" :
+                                                                    registryBookVerification === "FORM_3B" ? "Form 3B" :
+                                                                        registryBookVerification === "FORM_3C" ? "Form 3C" : "Verification Document"
+                                                            }
                                                         </span>
                                                     </div>
                                                 )}
                                             </label>
-                                        </div>
-                                    )}
-
-                                    {/* Official E-Copy Registry Record (PDF/Image) */}
-                                    {registryBookVerification && birthRegDocFile && (
-                                        <div className="space-y-3 pt-4 border-t border-slate-800/50">
-                                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest block leading-none">Official E-Copy Registry Record (PDF/Image)</span>
-                                            <div className="relative border border-dashed border-slate-800 rounded-xl p-4 text-center cursor-pointer hover:bg-white/[0.02]">
-                                                <input
-                                                    type="file"
-                                                    onChange={(e) => setECopyFile(e.target.files?.[0] || null)}
-                                                    className="absolute inset-0 opacity-0 cursor-pointer"
-                                                    accept="image/*,.pdf"
-                                                />
-                                                <Upload className="w-5 h-5 mx-auto text-slate-500 mb-2" />
-                                                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
-                                                    {eCopyFile ? eCopyFile.name : "Select Official Release E-Copy File"}
-                                                </span>
-                                            </div>
                                         </div>
                                     )}
 
@@ -966,12 +955,105 @@ export default function MarriageCertificateRequestView(props: TreasuryViewProps)
 
                                     <Button
                                         onClick={handleRelease}
-                                        disabled={actionLoading || !registryBookVerification || !birthRegDocFile || !eCopyFile}
+                                        disabled={actionLoading || !registryBookVerification || !birthRegDocFile}
                                         className={`w-full rounded-xl h-12 text-xs font-black uppercase tracking-widest italic text-white ${themeColor}`}
                                     >
                                         {actionLoading ? "Releasing Request..." : "UPLOAD AND RELEASE CERTIFICATE"}
                                     </Button>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* REGISTRAR RELEASE FOR CLAIM ACTION */}
+                        {transaction.status === "FOR_CLAIM" && (
+                            <div className="space-y-6">
+                                <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-6">
+                                    <div className="text-center space-y-3">
+                                        <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 mx-auto">
+                                            <Check className="w-8 h-8" />
+                                        </div>
+                                        <h4 className="text-sm font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200 font-bold">Document Ready for Claiming</h4>
+                                        <p className="text-xs text-slate-400 italic max-w-sm mx-auto">
+                                            The document has been verified and processed. Please click below to officially release the document and notify the resident.
+                                        </p>
+                                    </div>
+
+                                    {/* Issued Document Details */}
+                                    <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-white/5 space-y-4 text-left">
+                                        <div className="flex justify-between items-center pb-3 border-b border-slate-200/50 dark:border-white/5">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Issued Form</span>
+                                            <span className="text-xs font-black uppercase text-primary font-black" style={{ color: themeColor }}>
+                                                {additional.registryBookVerification === "FORM_3A" ? "Form 3A (Record Found)" :
+                                                    additional.registryBookVerification === "FORM_3B" ? "Form 3B (Not Available)" :
+                                                        additional.registryBookVerification === "FORM_3C" ? "Form 3C (Destroyed)" : "N/A"}
+                                            </span>
+                                        </div>
+
+                                        {additional.scannedDocUrl && (
+                                            <div className="space-y-2">
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Scanned Registry Record</span>
+                                                {(() => {
+                                                    const docUrl = additional.scannedDocUrl;
+                                                    const isPdf = docUrl.toLowerCase().endsWith(".pdf") || docUrl.includes("application/pdf") || docUrl.includes(".pdf?");
+                                                    if (isPdf) {
+                                                        return (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleViewFile?.(docUrl, "Issued Registry Record PDF")}
+                                                                className="w-full flex items-center justify-between p-4 bg-[#151b28]/60 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-primary/50 hover:bg-primary/5 transition-all text-left group"
+                                                            >
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 text-lg shrink-0 group-hover:scale-110 transition-transform">
+                                                                        📕
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 leading-none">Registry Record PDF</p>
+                                                                        <p className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic mt-0.5 leading-none">Click to view</p>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="h-8 px-3 rounded-lg border border-primary/20 text-primary font-black italic uppercase tracking-widest text-[8px] group-hover:bg-primary/10 flex items-center gap-1 transition-all shrink-0" style={{ color: themeColor, borderColor: `${themeColor}33` }}>
+                                                                    Open PDF ➔
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <div
+                                                            onClick={() => handleViewFile?.(docUrl, "Issued Registry Record")}
+                                                            className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all cursor-pointer select-none"
+                                                        >
+                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                            <img
+                                                                src={docUrl}
+                                                                alt="Registry Record Preview"
+                                                                className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-300 backdrop-blur-[2px]">
+                                                                <button
+                                                                    type="button"
+                                                                    style={{ backgroundColor: themeColor }}
+                                                                    className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg hover:scale-105 transition-all"
+                                                                >
+                                                                    <span>VIEW</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <Button
+                                    onClick={handleRelease}
+                                    disabled={actionLoading}
+                                    className={`w-full h-14 rounded-2xl text-xs font-black uppercase tracking-wider italic text-white ${themeColor} shadow-lg active:scale-95 transition-all`}
+                                >
+                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                    Release the Document
+                                </Button>
                             </div>
                         )}
 

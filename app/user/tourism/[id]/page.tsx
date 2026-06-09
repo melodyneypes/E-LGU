@@ -218,7 +218,7 @@ function DetailContent({ item }: { item: any }) {
                         </div>
                     )}
 
-                    {item.contactNumber && (
+                    {!!item.contactNumber && (
                         <div className="space-y-3 md:space-y-4 pt-2">
                             <h3 className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Inquiries & Contact</h3>
                             <Link href={`tel:${item.contactNumber}`} className="block w-fit">

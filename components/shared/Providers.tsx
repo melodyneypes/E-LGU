@@ -7,7 +7,7 @@ import { GlobalLoading } from "./GlobalLoading";
 
 export function Providers({ children }: { children: React.ReactNode }) {
     return (
-        <SessionProvider>
+        <SessionProvider refetchInterval={15}>
             <BarangayProvider>
                 <GlobalLoading />
                 {children}

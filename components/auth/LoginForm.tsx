@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { signIn } from "next-auth/react";
+import { signIn, useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -49,6 +49,28 @@ export function LoginForm({ themeColor = "#2563eb" }: LoginFormProps) {
     const [showChangeModal, setShowChangeModal] = React.useState(false);
     const [userEmail, setUserEmail] = React.useState("");
     const router = useRouter();
+    const { data: session, status } = useSession();
+
+    // Auto-logout deactivated accounts and redirect active ones
+    React.useEffect(() => {
+        if (typeof window === "undefined") return;
+
+        const params = new URLSearchParams(window.location.search);
+        const hasError = params.has("error");
+
+        if (status === "authenticated" && session) {
+            if (hasError) {
+                signOut({ redirect: false });
+            } else {
+                const role = (session.user as any).role;
+                if (role === "USER") {
+                    router.push("/");
+                } else {
+                    router.push("/admin/dashboard");
+                }
+            }
+        }
+    }, [session, status, router]);
 
     const [lockout, setLockout] = React.useState<LockoutState>(DEFAULT_STATE);
     const [timeLeft, setTimeLeft] = React.useState<number>(0); // remaining seconds

@@ -284,9 +284,9 @@ export function ParishCorner({ info, schedules, collections }: ParishCornerProps
                         </Link>
                     </Button>
 
-                    {info.flyerUrl && (
+                    {!!info.flyerUrl && (
                         <a
-                            href={info.flyerUrl}
+                            href={info.flyerUrl || null as any}
                             download
                             className="w-full md:w-[400px] flex items-center justify-center gap-2 md:gap-3 px-8 py-3.5 md:py-5 text-white rounded-[2rem] font-black uppercase italic tracking-widest text-[9px] md:text-[10px] transition-all shadow-xl group"
                             style={{ backgroundColor: info.themeColor || '#2563eb', boxShadow: `0 10px 15px -3px ${info.themeColor}4d` }}

@@ -715,7 +715,7 @@ export default function BploDetailPage({ params }: PageProps) {
                                     </div>
                                     {/* Total Amount */}
                                     <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/10 flex flex-col justify-between min-h-[100px]">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500/80">TOTAL ASSESSED</span>
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500/80">Total Amount</span>
                                         <p className="text-xl font-black italic tracking-tighter text-emerald-500 mt-2">
                                             ₱{totalAmountAssessed.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                         </p>
@@ -838,7 +838,7 @@ export default function BploDetailPage({ params }: PageProps) {
                                             </div>
 
                                             <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-white/10 text-base font-black text-primary italic">
-                                                <span>Total Amount to Assess</span>
+                                                <span>Total Amount</span>
                                                 <span>₱{editableTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                             </div>
                                         </div>
@@ -974,6 +974,61 @@ export default function BploDetailPage({ params }: PageProps) {
                                             ₱{Number(additional?.grossSales || additional?.capitalInvestment || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                         </div>
                                     </div>
+
+                                    <div className="col-span-12 md:col-span-4 space-y-2">
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Branch Type</label>
+                                        <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 uppercase truncate">
+                                            {additional?.businessBranch || "MAIN"}
+                                        </div>
+                                    </div>
+                                    <div className="col-span-12 md:col-span-4 space-y-2">
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">TIN Number</label>
+                                        <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
+                                            {additional?.tinNumber || "--"}
+                                        </div>
+                                    </div>
+                                    <div className="col-span-12 md:col-span-4 space-y-2">
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">PhilHealth Number</label>
+                                        <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
+                                            {additional?.philhealthNumber || "--"}
+                                        </div>
+                                    </div>
+
+                                    <div className="col-span-12 md:col-span-4 space-y-2">
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Pag-Ibig MID Number</label>
+                                        <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
+                                            {additional?.pagibigNumber || "--"}
+                                        </div>
+                                    </div>
+                                    <div className="col-span-12 md:col-span-4 space-y-2">
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">SSS Number</label>
+                                        <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
+                                            {additional?.sssNumber || "--"}
+                                        </div>
+                                    </div>
+                                    <div className="col-span-12 md:col-span-4 space-y-2">
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Registration Type</label>
+                                        <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 uppercase">
+                                            {additional?.registrationType || "DTI"}
+                                        </div>
+                                    </div>
+
+                                    {additional?.businessType === "NEW" && (
+                                        <>
+                                            <div className="col-span-12 md:col-span-6 space-y-2">
+                                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">{additional?.registrationType || "DTI"} Registration Number</label>
+                                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-primary truncate">
+                                                    {additional?.dtiSecNumber || "--"}
+                                                </div>
+                                            </div>
+                                            <div className="col-span-12 md:col-span-6 space-y-2">
+                                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">{additional?.registrationType || "DTI"} Registration Date</label>
+                                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
+                                                    {additional?.dtiSecDate || "--"}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         )}

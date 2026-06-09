@@ -144,9 +144,9 @@ export default async function DiningDetailPage({ params }: { params: Promise<{ i
                             ></iframe>
 
                             {/* Floating Directions Button - Fixed and visible */}
-                            {item.googleMapsUrl && (
+                            {item.googleMapsUrl && item.googleMapsUrl !== "" && (
                                 <div className="absolute top-3 right-3 md:top-4 md:right-4 z-20">
-                                    <Link href={item.googleMapsUrl} target="_blank">
+                                    <Link href={item.googleMapsUrl || null as any} target="_blank">
                                         <Button className="bg-primary text-white rounded-lg md:rounded-xl font-black uppercase tracking-widest text-[8px] md:text-[9px] flex items-center gap-1.5 md:gap-2 px-4 md:px-6 h-8 md:h-10 shadow-lg md:shadow-2xl">
                                             <Navigation className="w-3 h-3 md:w-3.5 md:h-3.5" />
                                             Get Directions

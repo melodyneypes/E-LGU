@@ -102,6 +102,36 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
 
     const subjectName = transaction.deathRegistration?.subjectName || additional.fullName || additional.subjectName || "N/A";
 
+    // Hide FOR_REQUESTING from Registrar — only Treasury should see this status
+    if (transaction.status === "FOR_REQUESTING" && !isTreasuryContext) {
+        return (
+            <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0f172a] transition-colors duration-300">
+                <div className={`h-1.5 w-full ${themeColor} transition-all duration-500`} />
+                <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+                    <Link
+                        href={backUrl}
+                        className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors group mb-8"
+                    >
+                        <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                        Back to Requests
+                    </Link>
+
+                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 md:p-10 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 text-center space-y-4">
+                        <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
+                            <Clock className="w-6 h-6" />
+                        </div>
+                        <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 dark:text-slate-200">
+                            Awaiting Payment
+                        </h3>
+                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 italic leading-relaxed">
+                            This death registration request is currently awaiting payment from the citizen. It is handled by the Treasury Department and is not displayed for the Registrar at this time.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0f172a] transition-colors duration-300">
             {/* Header branding band */}
@@ -215,7 +245,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
 
                                             {/* RENDER STATIC ADDITIONAL FEES */}
                                             {feeLineItems && feeLineItems.length > 0 && feeLineItems.map((item: any, idx: number) => {
-                                                if (!item.readonly && ["FOR_INSPECTION", "FOR_REQUESTING"].includes(transaction.status)) {
+                                                if (!item.readonly && transaction.status === "FOR_INSPECTION") {
                                                     return null;
                                                 }
                                                 const feeAmt = parseFloat(item.amount) || 0;
@@ -231,7 +261,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                             })}
 
                                             {/* ADDITIONAL FEES EDITOR */}
-                                            {["FOR_INSPECTION", "FOR_REQUESTING"].includes(transaction.status) && (
+                                            {transaction.status === "FOR_INSPECTION" && (
                                                 <div className="pt-2 space-y-2 border-t border-slate-100 dark:border-white/5 pt-4">
                                                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
                                                         Additional Fees
@@ -448,6 +478,34 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                             <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
                                                 {safeFormatDate(additional.dateOfBirth)}
                                             </div>
+                                        </div>
+
+                                        {additional.civilStatus === "MARRIED" && additional.survivingSpouseName && (
+                                            <div className="space-y-1.5">
+                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Surviving Spouse Name</span>
+                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                    {additional.survivingSpouseName}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* CORPSE DISPOSAL & BURIAL DETAILS */}
+                            <div className="pt-8 border-t border-slate-800/50 space-y-6">
+                                <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic">Corpse Disposal & Burial Details</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Disposal Method</span>
+                                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            {additional.corpseDisposal || "—"}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Cemetery / Disposal Location</span>
+                                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            {additional.burialLocation || "—"}
                                         </div>
                                     </div>
                                 </div>
@@ -704,6 +762,18 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                 <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Payment & Verification</h4>
                                 <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
                                     This request is currently waiting for the citizen to settle the payment and for the Treasury Department to verify the transaction. No action is required from the Registrar at this time.
+                                </p>
+                            </div>
+                        )}
+
+                        {transaction.status === "EVALUATED" && (
+                            <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center animate-in fade-in duration-300">
+                                <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600 mx-auto">
+                                    <Clock className="w-6 h-6 animate-pulse" />
+                                </div>
+                                <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 font-bold">Assessment Sent</h4>
+                                <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
+                                    Assessment has been submitted. Waiting for the citizen to complete GCash payment or walk-in transaction. No action is required from the Registrar at this time.
                                 </p>
                             </div>
                         )}
@@ -1122,16 +1192,16 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                         </p>
                                     </div>
 
-                                    {additional.eCopyUrl && (
+                                    {(transaction.eCopyUrl || additional.eCopyUrl) && (
                                         <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-white/5 space-y-4 text-left">
                                             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">E-copy of the Requirements</span>
                                             <div
-                                                onClick={() => handleViewFile?.(additional.eCopyUrl, "Issued Registry Record")}
+                                                onClick={() => handleViewFile?.(transaction.eCopyUrl || additional.eCopyUrl, "Issued Registry Record")}
                                                 className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all cursor-pointer select-none"
                                             >
                                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                                 <img
-                                                    src={additional.eCopyUrl}
+                                                    src={transaction.eCopyUrl || additional.eCopyUrl}
                                                     alt="Registry Record Preview"
                                                     className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
                                                 />
@@ -1178,16 +1248,16 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                         </p>
                                     </div>
 
-                                    {additional.eCopyUrl && (
+                                    {(transaction.eCopyUrl || additional.eCopyUrl) && (
                                         <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-white/5 space-y-4 text-left">
                                             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">E-copy of the Requirements</span>
                                             <div
-                                                onClick={() => handleViewFile?.(additional.eCopyUrl, "Issued Registry Record")}
+                                                onClick={() => handleViewFile?.(transaction.eCopyUrl || additional.eCopyUrl, "Issued Registry Record")}
                                                 className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all cursor-pointer select-none"
                                             >
                                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                                 <img
-                                                    src={additional.eCopyUrl}
+                                                    src={transaction.eCopyUrl || additional.eCopyUrl}
                                                     alt="Registry Record Preview"
                                                     className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
                                                 />

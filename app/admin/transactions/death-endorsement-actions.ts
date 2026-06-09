@@ -71,9 +71,17 @@ export async function getLatestForm2AForCurrentUser() {
 
         for (const tx of transactions) {
             const addData = (tx.additionalData as any) || {};
-            // For death, typically it's Form 2A
-            if (addData.registryBookVerification === "FORM_2A" || addData.registryBookVerification === "FORM_1A") {
-                const docUrl = addData.scannedDocUrl || addData.verificationDocUrl || tx.eCopyUrl;
+            // For death, check registry verification or if form2a was uploaded/provided
+            const hasForm2A = addData.registryBookVerification === "FORM_2A" || 
+                              addData.registryBookVerification === "FORM_1A" || 
+                              !!addData.form2a || 
+                              !!addData.form2A;
+            if (hasForm2A) {
+                const docUrl = addData.scannedDocUrl || 
+                               addData.verificationDocUrl || 
+                               addData.form2a || 
+                               addData.form2A || 
+                               tx.eCopyUrl;
                 if (docUrl) {
                     const snap = (tx.residentSnapshot as any) || {};
                     return {

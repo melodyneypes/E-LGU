@@ -108,6 +108,10 @@ export async function releaseDeathRegistry(id: string, registryNumber: string, e
             }
         });
 
+        if (targetStatus === "RELEASED" || targetStatus === "FOR_PICKING" || targetStatus === "FOR_CLAIM") {
+            await updateDeceasedResidentStatus(id);
+        }
+
         if (transaction.user?.email) {
             const resident = transaction.residentSnapshot as any;
             await sendEmail({
@@ -232,6 +236,10 @@ export async function releaseDeathCertificate(id: string, registryNumber: string
                 ...(orUrl ? { orUrl } : {})
             }
         });
+
+        if (targetStatus === "RELEASED" || targetStatus === "FOR_PICKING" || targetStatus === "FOR_CLAIM") {
+            await updateDeceasedResidentStatus(id);
+        }
 
         if (transaction.user?.email) {
             const resident = transaction.residentSnapshot as any;
@@ -393,5 +401,154 @@ export async function evaluateDeathRegistrationTransaction(
     } catch (error: any) {
         console.error("Evaluate death registration error:", error);
         return { success: false, error: error?.message || "Failed to evaluate transaction" };
+    }
+}
+
+export async function updateDeceasedResidentStatus(transactionId: string) {
+    try {
+        const transaction = await prisma.transaction.findUnique({
+            where: { id: transactionId },
+            include: { type: true }
+        });
+        if (!transaction) return;
+
+        const typeCode = (transaction.type?.code || "").toUpperCase();
+        if (typeCode !== "LCR_DEATH_REG" && typeCode !== "LCR_DEATH") return;
+
+        const additionalData = (transaction.additionalData as any) || {};
+        const subjectName = additionalData.fullName || additionalData.subjectName || null;
+        if (!subjectName) return;
+
+        let matchedResidentId: string | null = null;
+
+        // Helper to format date to YYYY-MM-DD in UTC
+        const getYYYYMMDD = (dateInput: any) => {
+            if (!dateInput) return "";
+            const d = new Date(dateInput);
+            if (isNaN(d.getTime())) return "";
+            const year = d.getUTCFullYear();
+            const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(d.getUTCDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        // Helper to perform smart name parts matching
+        const namePartsMatch = (res: any, deceasedName: string) => {
+            const cleanDeceased = deceasedName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+            const deceasedParts = cleanDeceased.split(/\s+/);
+            
+            const cleanResFirst = (res.firstName || "").toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+            const resFirstParts = cleanResFirst.split(/\s+/);
+            
+            const cleanResLast = (res.lastName || "").toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+            const resLastParts = cleanResLast.split(/\s+/);
+
+            const resMiddle = (res.middleName || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+
+            const firstMatch = resFirstParts.every((part: string) => deceasedParts.includes(part));
+            const lastMatch = resLastParts.every((part: string) => deceasedParts.includes(part));
+
+            if (firstMatch && lastMatch) {
+                const remainingParts = deceasedParts.filter((part: string) => !resFirstParts.includes(part) && !resLastParts.includes(part));
+                if (remainingParts.length > 0 && resMiddle) {
+                    const midMatch = remainingParts.some((part: string) => {
+                        if (part.length === 1) {
+                            return resMiddle.startsWith(part);
+                        }
+                        return resMiddle.includes(part) || part.includes(resMiddle);
+                    });
+                    return midMatch;
+                }
+                return true;
+            }
+            return false;
+        };
+
+        // 1. Try matching by deceasedResidentId if provided in additionalData
+        if (additionalData.deceasedResidentId) {
+            const residentExists = await prisma.resident.findUnique({
+                where: { id: additionalData.deceasedResidentId }
+            });
+            if (residentExists) {
+                matchedResidentId = residentExists.id;
+            }
+        }
+
+        // 2. Try matching by DOB within range (+/- 2 days) first
+        if (!matchedResidentId && additionalData.dateOfBirth) {
+            const dob = new Date(additionalData.dateOfBirth);
+            const startRange = new Date(dob);
+            startRange.setDate(startRange.getDate() - 2);
+            const endRange = new Date(dob);
+            endRange.setDate(endRange.getDate() + 2);
+
+            const candidates = await prisma.resident.findMany({
+                where: {
+                    dateOfBirth: {
+                        gte: startRange,
+                        lte: endRange
+                    }
+                }
+            });
+
+            const deceasedDobString = getYYYYMMDD(additionalData.dateOfBirth);
+            const match = candidates.find(r => {
+                const dobMatches = deceasedDobString && getYYYYMMDD(r.dateOfBirth) === deceasedDobString;
+                const nameMatches = namePartsMatch(r, subjectName);
+                return dobMatches && nameMatches;
+            });
+
+            if (match) {
+                matchedResidentId = match.id;
+            }
+        }
+
+        // 3. Fallback: query by name components contains
+        if (!matchedResidentId) {
+            const parts = subjectName.trim().split(/\s+/);
+            if (parts.length >= 2) {
+                const firstNamePart = parts[0];
+                const lastNamePart = parts[parts.length - 1];
+                const candidates = await prisma.resident.findMany({
+                    where: {
+                        firstName: { contains: firstNamePart, mode: 'insensitive' },
+                        lastName: { contains: lastNamePart, mode: 'insensitive' }
+                    }
+                });
+
+                // First try DOB + Name matching in candidates
+                if (additionalData.dateOfBirth) {
+                    const deceasedDobString = getYYYYMMDD(additionalData.dateOfBirth);
+                    const match = candidates.find(r => {
+                        const dobMatches = deceasedDobString && getYYYYMMDD(r.dateOfBirth) === deceasedDobString;
+                        const nameMatches = namePartsMatch(r, subjectName);
+                        return dobMatches && nameMatches;
+                    });
+                    if (match) {
+                        matchedResidentId = match.id;
+                    }
+                }
+
+                // If still not matched, try pure name matching in candidates
+                if (!matchedResidentId) {
+                    const match = candidates.find(r => namePartsMatch(r, subjectName));
+                    if (match) {
+                        matchedResidentId = match.id;
+                    }
+                }
+            }
+        }
+
+        if (matchedResidentId) {
+            console.log(`[DeathRegistration] Matching resident found: ${matchedResidentId}. Updating isDead to true.`);
+            await prisma.resident.update({
+                where: { id: matchedResidentId },
+                data: { isDead: true }
+            });
+        } else {
+            console.log(`[DeathRegistration] No matching resident found for deceased name: ${subjectName}`);
+        }
+    } catch (err) {
+        console.error("Error updating deceased resident status:", err);
     }
 }

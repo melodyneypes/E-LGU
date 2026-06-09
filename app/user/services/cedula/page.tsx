@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    CheckCircle2, 
-    Calculator, 
+    CheckCircle2,
+    Calculator,
     User,
     ChevronRight,
     Loader2,
@@ -37,6 +37,7 @@ import {
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
+import { compressImage } from "@/lib/image-compression";
 /**
  * multi-step form for Cedula Application.
  */
@@ -174,16 +175,16 @@ export default function CedulaApplicationPage() {
                 // Fetch User Transactions to verify pending requests for CEDULA_IND and CEDULA_JUR
                 const txsRes = await getUserTransactions();
                 if (txsRes.success && txsRes.data) {
-                    const activeCedula = txsRes.data.some((tx: any) => 
-                        tx.type?.code === "CEDULA_IND" && 
-                        !tx.isCancelled && 
+                    const activeCedula = txsRes.data.some((tx: any) =>
+                        tx.type?.code === "CEDULA_IND" &&
+                        !tx.isCancelled &&
                         !["DELIVERED", "RELEASED", "REJECTED", "DRAFT"].includes(tx.status)
                     );
                     setHasActiveIndividualCedula(activeCedula);
 
-                    const activeJuridical = txsRes.data.some((tx: any) => 
-                        tx.type?.code === "CEDULA_JUR" && 
-                        !tx.isCancelled && 
+                    const activeJuridical = txsRes.data.some((tx: any) =>
+                        tx.type?.code === "CEDULA_JUR" &&
+                        !tx.isCancelled &&
                         !["DELIVERED", "RELEASED", "REJECTED", "DRAFT"].includes(tx.status)
                     );
                     setHasActiveJuridicalCedula(activeJuridical);
@@ -258,7 +259,7 @@ export default function CedulaApplicationPage() {
                 } else if (residentRes.success && resident) {
                     setInitialResident(resident);
                     if (resident.idFrontUrl) setExistingIdUrl(resident.idFrontUrl);
-                    
+
                     // Capture the clean, unmodified baseline
                     setBaseDraft(JSON.stringify({
                         typeId: defaultTypeId,
@@ -395,7 +396,7 @@ export default function CedulaApplicationPage() {
             case "RESIDENT":
                 const r = formData.residentData;
                 return !!r?.contactNumber;
-             case "DECLARATION":
+            case "DECLARATION":
                 if (formData.isStudent) {
                     return !!formData.purpose?.trim();
                 }
@@ -481,8 +482,21 @@ export default function CedulaApplicationPage() {
                 e.target.value = ""; // Reset the input element
                 return;
             }
-            setFormData(prev => ({ ...prev, [field]: file }));
-            await persistDraftFile(field, file);
+            
+            let fileToProcess = file;
+            if (file.type.startsWith("image/")) {
+                try {
+                    toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
+                    fileToProcess = await compressImage(file);
+                    toast.success("Image optimized successfully!", { id: "image-compress-toast" });
+                } catch (err) {
+                    console.error("Compression error:", err);
+                    toast.dismiss("image-compress-toast");
+                }
+            }
+
+            setFormData(prev => ({ ...prev, [field]: fileToProcess }));
+            await persistDraftFile(field, fileToProcess);
         }
     };
 
@@ -493,7 +507,7 @@ export default function CedulaApplicationPage() {
 
         if (!hasId || !hasProof || !hasPrivacy) {
             setShowValidationErrors(true);
-            
+
             // Premium, helpful TagLish micro-notifications and smooth scroll to first missing element
             if (formData.isStudent) {
                 if (!hasProof) {
@@ -540,7 +554,7 @@ export default function CedulaApplicationPage() {
                 if (formData.idFile) submitData.append("idFile", formData.idFile);
                 if (formData.proofFile) submitData.append("proofFile", formData.proofFile);
 
-                res = revisionId 
+                res = revisionId
                     ? await resubmitStudentCedulaTransaction(revisionId, submitData)
                     : await submitStudentCedulaTransaction(submitData);
             } else {
@@ -554,7 +568,7 @@ export default function CedulaApplicationPage() {
                 if (formData.idFile) submitData.append("idFile", formData.idFile);
                 if (formData.proofFile) submitData.append("proofFile", formData.proofFile);
 
-                res = revisionId 
+                res = revisionId
                     ? await resubmitTransaction(revisionId, submitData)
                     : await submitTransaction(submitData);
             }
@@ -588,44 +602,44 @@ export default function CedulaApplicationPage() {
     return (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-8 pb-0 space-y-12">
             {/* Header / Breadcrumb */}
-        <div className="space-y-4 md:space-y-10">
-            {/* Header / Breadcrumb */}
-            <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
-                <Breadcrumb>
-                    <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 md:px-6 py-2 md:py-2.5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 w-fit shadow-sm">
-                        <BreadcrumbItem>
-                            <BreadcrumbLink asChild>
-                                <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
-                                    <Home className="w-3.5 h-3.5 mb-0.5" />
-                                    Home
-                                </Link>
-                            </BreadcrumbLink>
-                        </BreadcrumbItem>
-                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
-                        <BreadcrumbItem>
-                            <BreadcrumbLink asChild>
-                                <Link href="/user/services" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
-                                    Services
-                                </Link>
-                            </BreadcrumbLink>
-                        </BreadcrumbItem>
-                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
-                        <BreadcrumbItem>
-                            <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: "var(--primary-theme)" }}>Cedula Portal</BreadcrumbPage>
-                        </BreadcrumbItem>
-                    </BreadcrumbList>
-                </Breadcrumb>
-            </div>
+            <div className="space-y-4 md:space-y-10">
+                {/* Header / Breadcrumb */}
+                <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
+                    <Breadcrumb>
+                        <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 md:px-6 py-2 md:py-2.5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 w-fit shadow-sm">
+                            <BreadcrumbItem>
+                                <BreadcrumbLink asChild>
+                                    <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                        <Home className="w-3.5 h-3.5 mb-0.5" />
+                                        Home
+                                    </Link>
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+                            <BreadcrumbItem>
+                                <BreadcrumbLink asChild>
+                                    <Link href="/user/services" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                        Services
+                                    </Link>
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+                            <BreadcrumbItem>
+                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: "var(--primary-theme)" }}>Cedula Portal</BreadcrumbPage>
+                            </BreadcrumbItem>
+                        </BreadcrumbList>
+                    </Breadcrumb>
+                </div>
 
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 px-1 md:px-0">
-                <div className="space-y-1 md:space-y-2">
-                    <h1 className="text-2xl md:text-4xl font-bold text-slate-900 dark:text-white uppercase italic tracking-tighter leading-tight select-none">
-                        Online <span className="text-primary underline decoration-[4px] md:decoration-[6px] decoration-primary/20 underline-offset-[4px] md:underline-offset-[8px]">Cedula</span>
-                    </h1>
-                    <p className="text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-[0.4em] ml-1 md:ml-2 italic">LGU Digital Governance Portal</p>
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 px-1 md:px-0">
+                    <div className="space-y-1 md:space-y-2">
+                        <h1 className="text-2xl md:text-4xl font-bold text-slate-900 dark:text-white uppercase italic tracking-tighter leading-tight select-none">
+                            Online <span className="text-primary underline decoration-[4px] md:decoration-[6px] decoration-primary/20 underline-offset-[4px] md:underline-offset-[8px]">Cedula</span>
+                        </h1>
+                        <p className="text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-[0.4em] ml-1 md:ml-2 italic">LGU Digital Governance Portal</p>
+                    </div>
                 </div>
             </div>
-        </div>
 
             {/* Progress Stepper */}
             <div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2">
@@ -696,272 +710,272 @@ export default function CedulaApplicationPage() {
                             exit={{ opacity: 0, x: -20 }}
                             transition={{ duration: 0.4 }}
                         >
-                                {currentStep === "STATUS" && (
-                                    <div className="space-y-8 md:space-y-12">
-                                        <div className="space-y-3 md:space-y-4 text-center">
-                                            <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter leading-tight select-none">
-                                                Choose Application <span className="text-primary italic">Pathway</span>
-                                            </h2>
-                                            <p className="text-slate-500 dark:text-slate-400 font-medium italic text-xs md:text-sm uppercase tracking-widest max-w-2xl mx-auto select-none">
-                                                Select your current community tax status to proceed.
-                                            </p>
+                            {currentStep === "STATUS" && (
+                                <div className="space-y-8 md:space-y-12">
+                                    <div className="space-y-3 md:space-y-4 text-center">
+                                        <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter leading-tight select-none">
+                                            Choose Application <span className="text-primary italic">Pathway</span>
+                                        </h2>
+                                        <p className="text-slate-500 dark:text-slate-400 font-medium italic text-xs md:text-sm uppercase tracking-widest max-w-2xl mx-auto select-none">
+                                            Select your current community tax status to proceed.
+                                        </p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-5xl mx-auto">
+                                        {[
+                                            {
+                                                id: "INDIVIDUAL",
+                                                icon: User,
+                                                code: "CEDULA_IND",
+                                                isStudent: false
+                                            },
+                                            {
+                                                id: "STUDENT",
+                                                icon: GraduationCap,
+                                                code: "CEDULA_IND",
+                                                isStudent: true
+                                            },
+                                            {
+                                                id: "JURIDICAL",
+                                                icon: Sparkles,
+                                                code: "CEDULA_JUR",
+                                                isStudent: false
+                                            }
+                                        ].map(opt => {
+                                            const matched = cedulaTypes.find((t: any) => t.code === opt.code);
+                                            let label = matched?.name || (opt.id === "INDIVIDUAL" ? "Individual Citizen" : "Juridical Entity");
+                                            let desc = matched?.description || (opt.id === "INDIVIDUAL" ? "For private citizens, professionals, and employees." : "For corporations, partnerships, and business firms.");
+
+                                            if (opt.isStudent) {
+                                                label = "Student Cedula";
+                                                desc = "For active students. Flat-rate standard community tax. Excludes income declarations.";
+                                            }
+
+                                            const isSelected = formData.applicantType === (opt.id === "STUDENT" ? "INDIVIDUAL" : opt.id) && !!formData.isStudent === opt.isStudent;
+                                            const Icon = opt.icon;
+                                            return (
+                                                <button
+                                                    key={opt.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const t = cedulaTypes.find((x: any) => x.code === opt.code) || cedulaTypes[0];
+                                                        if (t) {
+                                                            setFormData(p => ({
+                                                                ...p,
+                                                                applicantType: (opt.id === "STUDENT" ? "INDIVIDUAL" : opt.id) as any,
+                                                                isStudent: opt.isStudent,
+                                                                typeId: t.id,
+                                                                incomeSource: opt.id === "JURIDICAL" ? "BUSINESS" : "PROFESSION"
+                                                            }));
+                                                        }
+                                                    }}
+                                                    className={cn(
+                                                        "p-8 rounded-[2rem] border-2 text-left relative group select-none overflow-hidden transition-all duration-300 min-h-[260px] flex flex-col justify-between cursor-pointer",
+                                                        isSelected
+                                                            ? "border-primary bg-primary text-white shadow-xl scale-[1.02]"
+                                                            : "border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/5 backdrop-blur-sm hover:border-primary/30"
+                                                    )}
+                                                >
+                                                    {/* Top Row: Icon and Checkmark */}
+                                                    <div className="flex items-center justify-between w-full">
+                                                        <div className={cn(
+                                                            "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300",
+                                                            isSelected ? "bg-white/20 text-white" : "bg-primary/10 text-primary"
+                                                        )}>
+                                                            <Icon className="w-5 h-5 stroke-[2.5]" />
+                                                        </div>
+                                                        {isSelected && (
+                                                            <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-md animate-in zoom-in-50 duration-300">
+                                                                <Check className="w-3.5 h-3.5 text-primary stroke-[3]" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Bottom Row: Text content */}
+                                                    <div className="space-y-2 mt-8">
+                                                        <h4 className={cn(
+                                                            "text-lg md:text-xl font-black uppercase italic tracking-wider leading-tight",
+                                                            isSelected ? "text-white" : "text-slate-800 dark:text-slate-200"
+                                                        )}>
+                                                            {label.toUpperCase()}
+                                                        </h4>
+                                                        <p className={cn(
+                                                            "text-[9px] md:text-[10px] font-bold uppercase tracking-wider leading-relaxed",
+                                                            isSelected ? "text-white/80" : "text-slate-400 dark:text-slate-500"
+                                                        )}>
+                                                            {desc.toUpperCase()}
+                                                        </p>
+                                                    </div>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {currentStep === "RESIDENT" && (
+                                <div className="space-y-6 md:space-y-8">
+                                    <div className="space-y-1">
+                                        <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight">Identity <span className="text-primary italic">Confirmation</span></h2>
+                                        <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">Verify your personal records. Only the contact number should be provided/updated.</p>
+                                    </div>
+
+                                    {revisionTx && (
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
+                                            <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                            <div className="text-left space-y-1">
+                                                <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                                    &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-4 md:space-y-6">
+                                        {/* Row 1: Names */}
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">First Name</Label>
+                                                <Input
+                                                    value={formData.residentData?.firstName || ""}
+                                                    readOnly={true}
+                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Middle Name</Label>
+                                                <Input
+                                                    value={formData.residentData?.middleName || ""}
+                                                    readOnly={true}
+                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Last Name</Label>
+                                                <Input
+                                                    value={formData.residentData?.lastName || ""}
+                                                    readOnly={true}
+                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Suffix</Label>
+                                                <Input
+                                                    value={formData.residentData?.suffix || ""}
+                                                    readOnly={true}
+                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                />
+                                            </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-5xl mx-auto">
-                                            {[
-                                                { 
-                                                    id: "INDIVIDUAL", 
-                                                    icon: User,
-                                                    code: "CEDULA_IND",
-                                                    isStudent: false
-                                                },
-                                                { 
-                                                    id: "STUDENT", 
-                                                    icon: GraduationCap,
-                                                    code: "CEDULA_IND",
-                                                    isStudent: true
-                                                },
-                                                { 
-                                                    id: "JURIDICAL", 
-                                                    icon: Sparkles,
-                                                    code: "CEDULA_JUR",
-                                                    isStudent: false
-                                                }
-                                            ].map(opt => {
-                                                const matched = cedulaTypes.find((t: any) => t.code === opt.code);
-                                                let label = matched?.name || (opt.id === "INDIVIDUAL" ? "Individual Citizen" : "Juridical Entity");
-                                                let desc = matched?.description || (opt.id === "INDIVIDUAL" ? "For private citizens, professionals, and employees." : "For corporations, partnerships, and business firms.");
-                                                
-                                                if (opt.isStudent) {
-                                                    label = "Student Cedula";
-                                                    desc = "For active students. Flat-rate standard community tax. Excludes income declarations.";
-                                                }
-                                                
-                                                const isSelected = formData.applicantType === (opt.id === "STUDENT" ? "INDIVIDUAL" : opt.id) && !!formData.isStudent === opt.isStudent;
-                                                const Icon = opt.icon;
-                                                return (
-                                                    <button
-                                                        key={opt.id}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            const t = cedulaTypes.find((x: any) => x.code === opt.code) || cedulaTypes[0];
-                                                            if (t) {
-                                                                setFormData(p => ({ 
-                                                                    ...p, 
-                                                                    applicantType: (opt.id === "STUDENT" ? "INDIVIDUAL" : opt.id) as any, 
-                                                                    isStudent: opt.isStudent,
-                                                                    typeId: t.id,
-                                                                    incomeSource: opt.id === "JURIDICAL" ? "BUSINESS" : "PROFESSION"
-                                                                }));
-                                                            }
-                                                        }}
-                                                        className={cn(
-                                                            "p-8 rounded-[2rem] border-2 text-left relative group select-none overflow-hidden transition-all duration-300 min-h-[260px] flex flex-col justify-between cursor-pointer",
-                                                            isSelected 
-                                                                ? "border-primary bg-primary text-white shadow-xl scale-[1.02]" 
-                                                                : "border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/5 backdrop-blur-sm hover:border-primary/30"
-                                                        )}
-                                                    >
-                                                        {/* Top Row: Icon and Checkmark */}
-                                                        <div className="flex items-center justify-between w-full">
-                                                            <div className={cn(
-                                                                "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300",
-                                                                isSelected ? "bg-white/20 text-white" : "bg-primary/10 text-primary"
-                                                            )}>
-                                                                <Icon className="w-5 h-5 stroke-[2.5]" />
-                                                            </div>
-                                                            {isSelected && (
-                                                                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-md animate-in zoom-in-50 duration-300">
-                                                                    <Check className="w-3.5 h-3.5 text-primary stroke-[3]" />
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                        <Separator className="opacity-50" />
 
-                                                        {/* Bottom Row: Text content */}
-                                                        <div className="space-y-2 mt-8">
-                                                            <h4 className={cn(
-                                                                "text-lg md:text-xl font-black uppercase italic tracking-wider leading-tight",
-                                                                isSelected ? "text-white" : "text-slate-800 dark:text-slate-200"
-                                                            )}>
-                                                                {label.toUpperCase()}
-                                                            </h4>
-                                                            <p className={cn(
-                                                                "text-[9px] md:text-[10px] font-bold uppercase tracking-wider leading-relaxed",
-                                                                isSelected ? "text-white/80" : "text-slate-400 dark:text-slate-500"
-                                                            )}>
-                                                                {desc.toUpperCase()}
-                                                            </p>
-                                                        </div>
-                                                    </button>
-                                                )
-                                            })}
+                                        {/* Row 2: Personal */}
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Birth Date</Label>
+                                                <Input
+                                                    type="date"
+                                                    value={formData.residentData?.dateOfBirth ? new Date(formData.residentData.dateOfBirth).toISOString().split('T')[0] : ""}
+                                                    readOnly={true}
+                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Age</Label>
+                                                <Input
+                                                    value={(() => {
+                                                        if (!formData.residentData?.dateOfBirth) return "";
+                                                        const today = new Date();
+                                                        const birthDate = new Date(formData.residentData.dateOfBirth);
+                                                        let age = today.getFullYear() - birthDate.getFullYear();
+                                                        const m = today.getMonth() - birthDate.getMonth();
+                                                        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+                                                        return age;
+                                                    })()}
+                                                    readOnly
+                                                    className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Civil Status</Label>
+                                                <Input
+                                                    value={formData.residentData?.civilStatus || "N/A"}
+                                                    readOnly
+                                                    className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Citizenship</Label>
+                                                <Input
+                                                    value={formData.residentData?.citizenship || "Filipino"}
+                                                    readOnly={true}
+                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Row 3: Contact & Occupation */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Occupation</Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        value={formData.residentData?.occupation || ""}
+                                                        readOnly={true}
+                                                        className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Contact Number</Label>
+                                                <Input
+                                                    ref={contactInputRef}
+                                                    value={formData.residentData?.contactNumber || ""}
+                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, contactNumber: e.target.value } }))}
+                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm"
+                                                    placeholder="09xx xxx xxxx"
+                                                />
+                                                <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider ml-1 animate-pulse">
+                                                    * Note: Please use your active contact number. This will be used to contact you regarding your transaction.
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
-                                )}
 
-                                {currentStep === "RESIDENT" && (
-                                 <div className="space-y-6 md:space-y-8">
-                                     <div className="space-y-1">
-                                         <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight">Identity <span className="text-primary italic">Confirmation</span></h2>
-                                         <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">Verify your personal records. Only the contact number should be provided/updated.</p>
-                                     </div>
-
-                                     {revisionTx && (
-                                         <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
-                                             <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
-                                             <div className="text-left space-y-1">
-                                                 <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
-                                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
-                                                     &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
-                                                 </p>
-                                             </div>
-                                         </div>
-                                     )}
-
-                                     <div className="space-y-4 md:space-y-6">
-                                         {/* Row 1: Names */}
-                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                                             <div className="space-y-1.5">
-                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">First Name</Label>
-                                                 <Input
-                                                     value={formData.residentData?.firstName || ""}
-                                                     readOnly={true}
-                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
-                                                 />
-                                             </div>
-                                             <div className="space-y-1.5">
-                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Middle Name</Label>
-                                                 <Input
-                                                     value={formData.residentData?.middleName || ""}
-                                                     readOnly={true}
-                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
-                                                 />
-                                             </div>
-                                             <div className="space-y-1.5">
-                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Last Name</Label>
-                                                 <Input
-                                                     value={formData.residentData?.lastName || ""}
-                                                     readOnly={true}
-                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
-                                                 />
-                                             </div>
-                                             <div className="space-y-1.5">
-                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Suffix</Label>
-                                                 <Input
-                                                     value={formData.residentData?.suffix || ""}
-                                                     readOnly={true}
-                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
-                                                 />
-                                             </div>
-                                         </div>
-
-                                         <Separator className="opacity-50" />
-
-                                         {/* Row 2: Personal */}
-                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                                             <div className="space-y-1.5">
-                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Birth Date</Label>
-                                                 <Input
-                                                     type="date"
-                                                     value={formData.residentData?.dateOfBirth ? new Date(formData.residentData.dateOfBirth).toISOString().split('T')[0] : ""}
-                                                     readOnly={true}
-                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
-                                                 />
-                                             </div>
-                                             <div className="space-y-1.5">
-                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Age</Label>
-                                                 <Input
-                                                     value={(() => {
-                                                         if (!formData.residentData?.dateOfBirth) return "";
-                                                         const today = new Date();
-                                                         const birthDate = new Date(formData.residentData.dateOfBirth);
-                                                         let age = today.getFullYear() - birthDate.getFullYear();
-                                                         const m = today.getMonth() - birthDate.getMonth();
-                                                         if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
-                                                         return age;
-                                                     })()}
-                                                     readOnly
-                                                     className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm"
-                                                 />
-                                             </div>
-                                             <div className="space-y-1.5">
-                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Civil Status</Label>
-                                                 <Input
-                                                     value={formData.residentData?.civilStatus || "N/A"}
-                                                     readOnly
-                                                     className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm"
-                                                 />
-                                             </div>
-                                             <div className="space-y-1.5">
-                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Citizenship</Label>
-                                                 <Input
-                                                     value={formData.residentData?.citizenship || "Filipino"}
-                                                     readOnly={true}
-                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
-                                                 />
-                                             </div>
-                                         </div>
-
-                                         {/* Row 3: Contact & Occupation */}
-                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                                             <div className="space-y-1.5">
-                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Occupation</Label>
-                                                 <div className="relative">
-                                                     <Input
-                                                         value={formData.residentData?.occupation || ""}
-                                                         readOnly={true}
-                                                         className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
-                                                     />
-                                                 </div>
-                                             </div>
-                                             <div className="space-y-1.5">
-                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Contact Number</Label>
-                                                 <Input
-                                                     ref={contactInputRef}
-                                                     value={formData.residentData?.contactNumber || ""}
-                                                     onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, contactNumber: e.target.value } }))}
-                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm"
-                                                     placeholder="09xx xxx xxxx"
-                                                 />
-                                                 <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider ml-1 animate-pulse">
-                                                     * Note: Please use your active contact number. This will be used to contact you regarding your transaction.
-                                                 </p>
-                                             </div>
-                                         </div>
-                                     </div>
-
-                                     <div className="bg-primary/5 border border-primary/10 p-3 md:p-4 rounded-2xl md:rounded-3xl flex items-center gap-2 md:gap-3">
-                                         <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
-                                         <p className="text-[8px] md:text-[10px] text-primary font-black italic leading-tight uppercase tracking-widest">
-                                             Note: Changes will update your Resident Profile upon submission.
-                                         </p>
-                                     </div>
-                                 </div>
+                                    <div className="bg-primary/5 border border-primary/10 p-3 md:p-4 rounded-2xl md:rounded-3xl flex items-center gap-2 md:gap-3">
+                                        <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                                        <p className="text-[8px] md:text-[10px] text-primary font-black italic leading-tight uppercase tracking-widest">
+                                            Note: Changes will update your Resident Profile upon submission.
+                                        </p>
+                                    </div>
+                                </div>
                             )}                             {/* Step 3: FINANCIAL DECLARATION */}
-                              {currentStep === "DECLARATION" && (
+                            {currentStep === "DECLARATION" && (
                                 <div className="space-y-8 md:space-y-12">
                                     <div className="space-y-2 md:space-y-4 text-center md:text-left">
-                                                        <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter leading-tight">
-                                                            {formData.isStudent ? "Request" : "Tax"} <span className="text-primary italic">Declaration</span>
-                                                        </h2>
+                                        <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter leading-tight">
+                                            {formData.isStudent ? "Request" : "Tax"} <span className="text-primary italic">Declaration</span>
+                                        </h2>
                                         <p className="text-slate-500 font-medium italic text-xs md:text-lg leading-relaxed">
-                                            {formData.isStudent 
+                                            {formData.isStudent
                                                 ? "Provide the purpose / reason of your Cedula request."
                                                 : "Declare your annual financial status for the tax computation."}
                                         </p>
                                     </div>
 
-                                     {revisionTx && (
-                                         <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
-                                             <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
-                                             <div className="text-left space-y-1">
-                                                 <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
-                                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
-                                                     &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
-                                                 </p>
-                                             </div>
-                                         </div>
-                                     )}
+                                    {revisionTx && (
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
+                                            <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                            <div className="text-left space-y-1">
+                                                <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                                    &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className={cn("grid grid-cols-1 gap-6 md:gap-10", !formData.isStudent && "md:grid-cols-2")}>
                                         <div className="space-y-6 md:space-y-8">
@@ -993,17 +1007,17 @@ export default function CedulaApplicationPage() {
 
                                                     <div className="space-y-2 md:space-y-3">
                                                         <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 italic ml-1">
-                                                            {formData.applicantType === "JURIDICAL" && formData.incomeSource === "PROPERTY" 
-                                                                ? "Worth of Real Property Owned" 
+                                                            {formData.applicantType === "JURIDICAL" && formData.incomeSource === "PROPERTY"
+                                                                ? "Worth of Real Property Owned"
                                                                 : "Annual Gross Income"}
                                                         </Label>
                                                         <div className="relative">
                                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg md:text-xl font-black text-slate-300 italic">₱</span>
-                                                             <Input
+                                                            <Input
                                                                 ref={incomeInputRef}
                                                                 type="text"
-                                                                value={formData.applicantType === "JURIDICAL" && formData.incomeSource === "PROPERTY" 
-                                                                    ? formData.propertyValue 
+                                                                value={formData.applicantType === "JURIDICAL" && formData.incomeSource === "PROPERTY"
+                                                                    ? formData.propertyValue
                                                                     : formData.income}
                                                                 onChange={(e) => {
                                                                     const val = e.target.value.replace(/[^0-9.]/g, '');
@@ -1018,7 +1032,7 @@ export default function CedulaApplicationPage() {
                                                                     const parts = val.split('.');
                                                                     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
                                                                     const formatted = parts.length > 1 ? `${parts[0]}.${parts[1].slice(0, 2)}` : parts[0];
-                                                                    
+
                                                                     if (formData.applicantType === "JURIDICAL" && formData.incomeSource === "PROPERTY") {
                                                                         setFormData(p => ({ ...p, propertyValue: formatted }));
                                                                     } else {
@@ -1033,111 +1047,111 @@ export default function CedulaApplicationPage() {
 
                                                     {formData.applicantType === "JURIDICAL" && (
                                                         <div className="space-y-4">
-                                                             <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 italic ml-1">
-                                                                 Income Source Category
-                                                             </Label>
-                                                             <div className="flex flex-col gap-2">
-                                                                 {[
-                                                                     { 
-                                                                         id: "BUSINESS", 
-                                                                         label: "Business", 
-                                                                         desc: "Annual Gross Receipts / Income"
-                                                                     },
-                                                                     { 
-                                                                         id: "PROPERTY", 
-                                                                         label: "Real Property", 
-                                                                         desc: "Worth of Real Property Owned"
-                                                                     }
-                                                                 ].map(opt => {
-                                                                     const isSelected = formData.incomeSource === opt.id;
-                                                                     return (
-                                                                         <button
-                                                                             key={opt.id}
-                                                                             type="button"
-                                                                             onClick={() => setFormData(p => ({ 
-                                                                                 ...p, 
-                                                                                 incomeSource: opt.id,
-                                                                                 income: opt.id === "BUSINESS" ? p.income : "",
-                                                                                 propertyValue: opt.id === "PROPERTY" ? p.propertyValue : ""
-                                                                             }))}
-                                                                             className={cn(
-                                                                                 "px-5 py-4 rounded-xl border-2 transition-all duration-300 text-left relative overflow-hidden flex items-center justify-between gap-4 group select-none shadow-sm cursor-pointer",
-                                                                                 isSelected 
-                                                                                     ? "border-primary bg-primary/[0.05] dark:bg-primary/[0.1] shadow-[0_4px_20px_rgba(var(--primary),0.05)] scale-[1.01]" 
-                                                                                     : "border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/5 backdrop-blur-sm hover:border-primary/30 hover:bg-white/60 dark:hover:bg-white/10"
-                                                                             )}
-                                                                         >
-                                                                             <h4 className={cn(
-                                                                                 "text-sm md:text-base font-black uppercase italic tracking-wider whitespace-nowrap",
-                                                                                 isSelected ? "text-primary" : "text-slate-800 dark:text-slate-200"
-                                                                             )}>
-                                                                                 {opt.label}
-                                                                             </h4>
-                                                                             <p className={cn(
-                                                                                 "text-[10px] md:text-xs font-bold uppercase tracking-tighter text-right",
-                                                                                 isSelected ? "text-primary/70 dark:text-primary/60" : "text-slate-500 dark:text-slate-400"
-                                                                             )}>
-                                                                                 {opt.desc}
-                                                                             </p>
-                                                                         </button>
-                                                                     );
-                                                                 })}
-                                                             </div>
+                                                            <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 italic ml-1">
+                                                                Income Source Category
+                                                            </Label>
+                                                            <div className="flex flex-col gap-2">
+                                                                {[
+                                                                    {
+                                                                        id: "BUSINESS",
+                                                                        label: "Business",
+                                                                        desc: "Annual Gross Receipts / Income"
+                                                                    },
+                                                                    {
+                                                                        id: "PROPERTY",
+                                                                        label: "Real Property",
+                                                                        desc: "Worth of Real Property Owned"
+                                                                    }
+                                                                ].map(opt => {
+                                                                    const isSelected = formData.incomeSource === opt.id;
+                                                                    return (
+                                                                        <button
+                                                                            key={opt.id}
+                                                                            type="button"
+                                                                            onClick={() => setFormData(p => ({
+                                                                                ...p,
+                                                                                incomeSource: opt.id,
+                                                                                income: opt.id === "BUSINESS" ? p.income : "",
+                                                                                propertyValue: opt.id === "PROPERTY" ? p.propertyValue : ""
+                                                                            }))}
+                                                                            className={cn(
+                                                                                "px-5 py-4 rounded-xl border-2 transition-all duration-300 text-left relative overflow-hidden flex items-center justify-between gap-4 group select-none shadow-sm cursor-pointer",
+                                                                                isSelected
+                                                                                    ? "border-primary bg-primary/[0.05] dark:bg-primary/[0.1] shadow-[0_4px_20px_rgba(var(--primary),0.05)] scale-[1.01]"
+                                                                                    : "border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/5 backdrop-blur-sm hover:border-primary/30 hover:bg-white/60 dark:hover:bg-white/10"
+                                                                            )}
+                                                                        >
+                                                                            <h4 className={cn(
+                                                                                "text-sm md:text-base font-black uppercase italic tracking-wider whitespace-nowrap",
+                                                                                isSelected ? "text-primary" : "text-slate-800 dark:text-slate-200"
+                                                                            )}>
+                                                                                {opt.label}
+                                                                            </h4>
+                                                                            <p className={cn(
+                                                                                "text-[10px] md:text-xs font-bold uppercase tracking-tighter text-right",
+                                                                                isSelected ? "text-primary/70 dark:text-primary/60" : "text-slate-500 dark:text-slate-400"
+                                                                            )}>
+                                                                                {opt.desc}
+                                                                            </p>
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
                                                         </div>
                                                     )}
 
                                                     {formData.applicantType === "INDIVIDUAL" && (
                                                         <div className="space-y-4">
-                                                             <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 italic ml-1">
-                                                                 Income Source Category
-                                                             </Label>
-                                                             <div className="flex flex-col gap-2">
-                                                                 {[
-                                                                     { 
-                                                                         id: "PROFESSION", 
-                                                                         label: "Profession", 
-                                                                         desc: "Employees, Freelancers, & Salary"
-                                                                     },
-                                                                     { 
-                                                                         id: "BUSINESS", 
-                                                                         label: "Business", 
-                                                                         desc: "Trade, Stores, & Services"
-                                                                     },
-                                                                     { 
-                                                                         id: "PROPERTY", 
-                                                                         label: "Property", 
-                                                                         desc: "Real Estate Rentals & Leases"
-                                                                     }
-                                                                 ].map(opt => {
-                                                                     const isSelected = formData.incomeSource === opt.id;
-                                                                     return (
-                                                                         <button
-                                                                             key={opt.id}
-                                                                             type="button"
-                                                                             onClick={() => setFormData(p => ({ ...p, incomeSource: opt.id }))}
-                                                                             className={cn(
-                                                                                 "px-5 py-4 rounded-xl border-2 transition-all duration-300 text-left relative overflow-hidden flex items-center justify-between gap-4 group select-none shadow-sm cursor-pointer",
-                                                                                 isSelected 
-                                                                                     ? "border-primary bg-primary/[0.05] dark:bg-primary/[0.1] shadow-[0_4px_20px_rgba(var(--primary),0.05)] scale-[1.01]" 
-                                                                                     : "border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/5 backdrop-blur-sm hover:border-primary/30 hover:bg-white/60 dark:hover:bg-white/10"
-                                                                             )}
-                                                                         >
-                                                                             <h4 className={cn(
-                                                                                 "text-sm md:text-base font-black uppercase italic tracking-wider whitespace-nowrap",
-                                                                                 isSelected ? "text-primary" : "text-slate-800 dark:text-slate-200"
-                                                                             )}>
-                                                                                 {opt.label}
-                                                                             </h4>
-                                                                             <p className={cn(
-                                                                                 "text-[10px] md:text-xs font-bold uppercase tracking-tighter text-right",
-                                                                                 isSelected ? "text-primary/70 dark:text-primary/60" : "text-slate-500 dark:text-slate-400"
-                                                                             )}>
-                                                                                 {opt.desc}
-                                                                             </p>
-                                                                         </button>
-                                                                     );
-                                                                 })}
-                                                             </div>
+                                                            <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 italic ml-1">
+                                                                Income Source Category
+                                                            </Label>
+                                                            <div className="flex flex-col gap-2">
+                                                                {[
+                                                                    {
+                                                                        id: "PROFESSION",
+                                                                        label: "Profession",
+                                                                        desc: "Employees, Freelancers, & Salary"
+                                                                    },
+                                                                    {
+                                                                        id: "BUSINESS",
+                                                                        label: "Business",
+                                                                        desc: "Trade, Stores, & Services"
+                                                                    },
+                                                                    {
+                                                                        id: "PROPERTY",
+                                                                        label: "Property",
+                                                                        desc: "Real Estate Rentals & Leases"
+                                                                    }
+                                                                ].map(opt => {
+                                                                    const isSelected = formData.incomeSource === opt.id;
+                                                                    return (
+                                                                        <button
+                                                                            key={opt.id}
+                                                                            type="button"
+                                                                            onClick={() => setFormData(p => ({ ...p, incomeSource: opt.id }))}
+                                                                            className={cn(
+                                                                                "px-5 py-4 rounded-xl border-2 transition-all duration-300 text-left relative overflow-hidden flex items-center justify-between gap-4 group select-none shadow-sm cursor-pointer",
+                                                                                isSelected
+                                                                                    ? "border-primary bg-primary/[0.05] dark:bg-primary/[0.1] shadow-[0_4px_20px_rgba(var(--primary),0.05)] scale-[1.01]"
+                                                                                    : "border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/5 backdrop-blur-sm hover:border-primary/30 hover:bg-white/60 dark:hover:bg-white/10"
+                                                                            )}
+                                                                        >
+                                                                            <h4 className={cn(
+                                                                                "text-sm md:text-base font-black uppercase italic tracking-wider whitespace-nowrap",
+                                                                                isSelected ? "text-primary" : "text-slate-800 dark:text-slate-200"
+                                                                            )}>
+                                                                                {opt.label}
+                                                                            </h4>
+                                                                            <p className={cn(
+                                                                                "text-[10px] md:text-xs font-bold uppercase tracking-tighter text-right",
+                                                                                isSelected ? "text-primary/70 dark:text-primary/60" : "text-slate-500 dark:text-slate-400"
+                                                                            )}>
+                                                                                {opt.desc}
+                                                                            </p>
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </>
@@ -1199,24 +1213,24 @@ export default function CedulaApplicationPage() {
                                 </div>
                             )}
 
-                             {currentStep === "CONFIRM" && (
+                            {currentStep === "CONFIRM" && (
                                 <div className="space-y-8 md:space-y-10">
                                     <div className="space-y-2 md:space-y-4 text-center md:text-left">
                                         <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter leading-tight">Review <span className="text-primary italic">& Finalize</span></h2>
                                         <p className="text-slate-500 font-medium italic text-xs md:text-lg leading-relaxed">Review your declaration before submitting for evaluation.</p>
                                     </div>
 
-                                     {revisionTx && (
-                                         <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
-                                             <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
-                                             <div className="text-left space-y-1">
-                                                 <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
-                                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
-                                                     &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
-                                                 </p>
-                                             </div>
-                                         </div>
-                                     )}
+                                    {revisionTx && (
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
+                                            <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                            <div className="text-left space-y-1">
+                                                <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                                    &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
                                         <div className="space-y-4 md:space-y-6" ref={idSectionRef}>
@@ -1239,67 +1253,67 @@ export default function CedulaApplicationPage() {
                                                 </div>
 
                                                 {formData.idFile ? (
-                                                     formData.idFile.type.startsWith("image/") ? (
-                                                         <div 
-                                                             onClick={() => handleViewFile(formData.idFile, null)}
-                                                             className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
-                                                         >
-                                                             <Image
-                                                                 src={URL.createObjectURL(formData.idFile)}
-                                                                 alt="ID Preview"
-                                                                 fill
-                                                                 unoptimized
-                                                                 className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
-                                                             />
-                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
-                                                                 <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                             </div>
-                                                         </div>
-                                                     ) : (
-                                                         <div 
-                                                             onClick={() => handleViewFile(formData.idFile, null)}
-                                                             className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
-                                                         >
-                                                             <span className="text-xs font-bold text-primary truncate max-w-[200px]">{formData.idFile.name}</span>
-                                                             <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
-                                                         </div>
-                                                     )
-                                                 ) : existingIdUrl ? (
-                                                     <div 
-                                                         onClick={() => handleViewFile(null, existingIdUrl)}
-                                                         className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
-                                                     >
-                                                         <Image
-                                                             src={existingIdUrl}
-                                                             alt="Existing ID Preview"
-                                                             fill
-                                                             unoptimized
-                                                             className="object-cover opacity-60 group-hover/preview:scale-105 transition-transform duration-500"
-                                                         />
-                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
-                                                             <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                         </div>
-                                                     </div>
-                                                 ) : null}
+                                                    formData.idFile.type.startsWith("image/") ? (
+                                                        <div
+                                                            onClick={() => handleViewFile(formData.idFile, null)}
+                                                            className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                        >
+                                                            <Image
+                                                                src={URL.createObjectURL(formData.idFile)}
+                                                                alt="ID Preview"
+                                                                fill
+                                                                unoptimized
+                                                                className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div
+                                                            onClick={() => handleViewFile(formData.idFile, null)}
+                                                            className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                        >
+                                                            <span className="text-xs font-bold text-primary truncate max-w-[200px]">{formData.idFile.name}</span>
+                                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                        </div>
+                                                    )
+                                                ) : existingIdUrl ? (
+                                                    <div
+                                                        onClick={() => handleViewFile(null, existingIdUrl)}
+                                                        className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
+                                                    >
+                                                        <Image
+                                                            src={existingIdUrl}
+                                                            alt="Existing ID Preview"
+                                                            fill
+                                                            unoptimized
+                                                            className="object-cover opacity-60 group-hover/preview:scale-105 transition-transform duration-500"
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                        </div>
+                                                    </div>
+                                                ) : null}
 
-                                                 <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
-                                                     <input type="file" onChange={(e) => handleFileChange(e, "idFile")} className="hidden" id="id-upload" />
-                                                     {(formData.idFile || existingIdUrl) && (
-                                                         <Button 
-                                                             type="button"
-                                                             variant="outline"
-                                                             onClick={() => handleViewFile(formData.idFile, existingIdUrl)}
-                                                             className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
-                                                         >
-                                                             View Document
-                                                         </Button>
-                                                     )}
-                                                     <Button asChild variant={(formData.idFile || existingIdUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
-                                                         <label htmlFor="id-upload" className="cursor-pointer">
-                                                             {formData.idFile ? "Change" : existingIdUrl ? "Replace ID" : "Upload"}
-                                                         </label>
-                                                     </Button>
-                                                 </div>
+                                                <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                    <input type="file" onChange={(e) => handleFileChange(e, "idFile")} className="hidden" id="id-upload" />
+                                                    {(formData.idFile || existingIdUrl) && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => handleViewFile(formData.idFile, existingIdUrl)}
+                                                            className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                        >
+                                                            View Document
+                                                        </Button>
+                                                    )}
+                                                    <Button asChild variant={(formData.idFile || existingIdUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                        <label htmlFor="id-upload" className="cursor-pointer">
+                                                            {formData.idFile ? "Change" : existingIdUrl ? "Replace ID" : "Upload"}
+                                                        </label>
+                                                    </Button>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -1325,67 +1339,67 @@ export default function CedulaApplicationPage() {
                                                 </div>
 
                                                 {formData.proofFile ? (
-                                                     formData.proofFile.type.startsWith("image/") ? (
-                                                         <div 
-                                                             onClick={() => handleViewFile(formData.proofFile, null)}
-                                                             className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
-                                                         >
-                                                             <Image
-                                                                 src={URL.createObjectURL(formData.proofFile)}
-                                                                 alt="Proof Preview"
-                                                                 fill
-                                                                 unoptimized
-                                                                 className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
-                                                             />
-                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
-                                                                 <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                             </div>
-                                                         </div>
-                                                     ) : (
-                                                         <div 
-                                                             onClick={() => handleViewFile(formData.proofFile, null)}
-                                                             className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
-                                                         >
-                                                             <span className="text-xs font-bold text-primary truncate max-w-[200px]">{formData.proofFile.name}</span>
-                                                             <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
-                                                         </div>
-                                                     )
-                                                 ) : existingProofUrl ? (
-                                                     <div 
-                                                         onClick={() => handleViewFile(null, existingProofUrl)}
-                                                         className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
-                                                     >
-                                                         <Image
-                                                             src={existingProofUrl}
-                                                             alt="Existing Proof Preview"
-                                                             fill
-                                                             unoptimized
-                                                             className="object-cover opacity-60 group-hover/preview:scale-105 transition-transform duration-500"
-                                                         />
-                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
-                                                             <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
-                                                         </div>
-                                                     </div>
-                                                 ) : null}
+                                                    formData.proofFile.type.startsWith("image/") ? (
+                                                        <div
+                                                            onClick={() => handleViewFile(formData.proofFile, null)}
+                                                            className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/20 shadow-lg mt-1 cursor-pointer group/preview"
+                                                        >
+                                                            <Image
+                                                                src={URL.createObjectURL(formData.proofFile)}
+                                                                alt="Proof Preview"
+                                                                fill
+                                                                unoptimized
+                                                                className="object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div
+                                                            onClick={() => handleViewFile(formData.proofFile, null)}
+                                                            className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between mt-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                                        >
+                                                            <span className="text-xs font-bold text-primary truncate max-w-[200px]">{formData.proofFile.name}</span>
+                                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary italic">🔍 Click to View</span>
+                                                        </div>
+                                                    )
+                                                ) : existingProofUrl ? (
+                                                    <div
+                                                        onClick={() => handleViewFile(null, existingProofUrl)}
+                                                        className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border-2 border-primary/10 shadow-lg mt-1 cursor-pointer group/preview"
+                                                    >
+                                                        <Image
+                                                            src={existingProofUrl}
+                                                            alt="Existing Proof Preview"
+                                                            fill
+                                                            unoptimized
+                                                            className="object-cover opacity-60 group-hover/preview:scale-105 transition-transform duration-500"
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2 select-none z-20">
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-white italic">🔍 Click to View Full Size</span>
+                                                        </div>
+                                                    </div>
+                                                ) : null}
 
-                                                 <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
-                                                     <input type="file" onChange={(e) => handleFileChange(e, "proofFile")} className="hidden" id="proof-upload" />
-                                                     {(formData.proofFile || existingProofUrl) && (
-                                                         <Button 
-                                                             type="button"
-                                                             variant="outline"
-                                                             onClick={() => handleViewFile(formData.proofFile, existingProofUrl)}
-                                                             className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
-                                                         >
-                                                             View Document
-                                                         </Button>
-                                                     )}
-                                                     <Button asChild variant={(formData.proofFile || existingProofUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
-                                                         <label htmlFor="proof-upload" className="cursor-pointer">
-                                                             {formData.proofFile ? "Change" : existingProofUrl ? (formData.isStudent ? "Replace Student ID" : "Replace Proof") : "Upload"}
-                                                         </label>
-                                                     </Button>
-                                                 </div>
+                                                <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
+                                                    <input type="file" onChange={(e) => handleFileChange(e, "proofFile")} className="hidden" id="proof-upload" />
+                                                    {(formData.proofFile || existingProofUrl) && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => handleViewFile(formData.proofFile, existingProofUrl)}
+                                                            className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border-primary/20 text-primary hover:bg-primary/5 flex-1"
+                                                        >
+                                                            View Document
+                                                        </Button>
+                                                    )}
+                                                    <Button asChild variant={(formData.proofFile || existingProofUrl) ? "outline" : "default"} className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full flex-1">
+                                                        <label htmlFor="proof-upload" className="cursor-pointer">
+                                                            {formData.proofFile ? "Change" : existingProofUrl ? (formData.isStudent ? "Replace Student ID" : "Replace Proof") : "Upload"}
+                                                        </label>
+                                                    </Button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1402,8 +1416,8 @@ export default function CedulaApplicationPage() {
                                                 }}
                                                 className={cn(
                                                     "p-4 md:p-6 rounded-2xl md:rounded-3xl border-2 transition-all cursor-pointer flex items-start gap-3 md:gap-4 select-none",
-                                                    privacyAccepted 
-                                                        ? "bg-primary/5 border-primary shadow-sm" 
+                                                    privacyAccepted
+                                                        ? "bg-primary/5 border-primary shadow-sm"
                                                         : showValidationErrors
                                                             ? "bg-red-50/10 border-red-500 dark:border-red-500/80 ring-2 ring-red-500/20 animate-pulse"
                                                             : "bg-slate-50 dark:bg-white/5 border-transparent hover:border-primary/20"
@@ -1411,8 +1425,8 @@ export default function CedulaApplicationPage() {
                                             >
                                                 <div className={cn(
                                                     "w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
-                                                    privacyAccepted 
-                                                        ? "bg-primary border-primary text-white" 
+                                                    privacyAccepted
+                                                        ? "bg-primary border-primary text-white"
                                                         : showValidationErrors
                                                             ? "border-red-500"
                                                             : "border-slate-300 dark:border-white/10"
@@ -1460,7 +1474,7 @@ export default function CedulaApplicationPage() {
             <div className="fixed bottom-0 left-0 right-0 bg-white/70 dark:bg-[#06080a]/70 backdrop-blur-2xl border-t border-slate-200 dark:border-white/10 z-50 pt-2.5 pb-0 px-2.5 flex flex-col items-center">
                 <div className="w-full max-w-5xl flex items-center justify-center gap-4">
                     <div className="h-1.5 flex-1 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                        <motion.div 
+                        <motion.div
                             className="h-full bg-primary"
                             initial={{ width: 0 }}
                             animate={{ width: `${((STEPS.findIndex(s => s.id === currentStep) + 1) / STEPS.length) * 100}%` }}

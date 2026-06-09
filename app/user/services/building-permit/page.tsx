@@ -69,6 +69,7 @@ import { getCurrentUserResident, cancelTransaction, uploadECopyAction, saveBfpCl
 import { submitBuildingPermit, saveTransactionSignature, getExistingBuildingPermits, resubmitBuildingPermit, submitBuildingPermitPaymentProof, submitClearancesForReviewAction } from "./actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { compressImage } from "@/lib/image-compression";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -655,8 +656,16 @@ export default function BuildingPermitPage() {
     if (!file || !selectedApplication) return;
     const toastId = toast.loading("Uploading BFP Clearance Proof...");
     try {
+      let fileToProcess = file;
+      if (file.type.startsWith("image/")) {
+        try {
+          fileToProcess = await compressImage(file);
+        } catch (err) {
+          console.error("Compression error:", err);
+        }
+      }
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", fileToProcess);
       const uploadRes = await uploadECopyAction(formData);
       if (uploadRes.success && uploadRes.data) {
         const fileUrl = uploadRes.data as string;
@@ -684,8 +693,16 @@ export default function BuildingPermitPage() {
     if (!file || !selectedApplication) return;
     const toastId = toast.loading("Uploading Zoning Clearance Proof...");
     try {
+      let fileToProcess = file;
+      if (file.type.startsWith("image/")) {
+        try {
+          fileToProcess = await compressImage(file);
+        } catch (err) {
+          console.error("Compression error:", err);
+        }
+      }
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", fileToProcess);
       const uploadRes = await uploadECopyAction(formData);
       if (uploadRes.success && uploadRes.data) {
         const fileUrl = uploadRes.data as string;
@@ -709,11 +726,22 @@ export default function BuildingPermitPage() {
     }
   };
 
-  const handlePaymentFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePaymentFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setPaymentFile(file);
-      setPaymentPreviewUrl(URL.createObjectURL(file));
+      let fileToProcess = file;
+      if (file.type.startsWith("image/")) {
+        try {
+          toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
+          fileToProcess = await compressImage(file);
+          toast.success("Image optimized successfully!", { id: "image-compress-toast" });
+        } catch (err) {
+          console.error("Compression error:", err);
+          toast.dismiss("image-compress-toast");
+        }
+      }
+      setPaymentFile(fileToProcess);
+      setPaymentPreviewUrl(URL.createObjectURL(fileToProcess));
     }
   };
 
@@ -1840,17 +1868,30 @@ export default function BuildingPermitPage() {
                               type="file"
                               accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
                               className="hidden"
-                              onChange={(e) => {
+                              onChange={async (e) => {
                                 const file = e.target.files?.[0];
-                                if (file && file.size > 5 * 1024 * 1024) {
-                                  toast.error("File size exceeds 5MB limit.");
-                                  e.target.value = "";
-                                  setFormData({ ...formData, newIdFile: null });
-                                  persistDraftFile("newIdFile", null);
-                                  return;
+                                if (file) {
+                                  if (file.size > 5 * 1024 * 1024) {
+                                    toast.error("File size exceeds 5MB limit.");
+                                    e.target.value = "";
+                                    setFormData({ ...formData, newIdFile: null });
+                                    persistDraftFile("newIdFile", null);
+                                    return;
+                                  }
+                                  let fileToProcess = file;
+                                  if (file.type.startsWith("image/")) {
+                                    try {
+                                      toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
+                                      fileToProcess = await compressImage(file);
+                                      toast.success("Image optimized successfully!", { id: "image-compress-toast" });
+                                    } catch (err) {
+                                      console.error("Compression error:", err);
+                                      toast.dismiss("image-compress-toast");
+                                    }
+                                  }
+                                  setFormData({ ...formData, newIdFile: fileToProcess });
+                                  persistDraftFile("newIdFile", fileToProcess);
                                 }
-                                setFormData({ ...formData, newIdFile: file || null });
-                                persistDraftFile("newIdFile", file || null);
                               }}
                             />
                           </div>
@@ -2247,17 +2288,30 @@ export default function BuildingPermitPage() {
                               type="file"
                               accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
                               className="hidden"
-                              onChange={(e) => {
+                              onChange={async (e) => {
                                 const file = e.target.files?.[0];
-                                if (file && file.size > 5 * 1024 * 1024) {
-                                  toast.error("File size exceeds 5MB limit.");
-                                  e.target.value = "";
-                                  setFormData({ ...formData, tctFile: null });
-                                  persistDraftFile("tctFile", null);
-                                  return;
+                                if (file) {
+                                  if (file.size > 5 * 1024 * 1024) {
+                                    toast.error("File size exceeds 5MB limit.");
+                                    e.target.value = "";
+                                    setFormData({ ...formData, tctFile: null });
+                                    persistDraftFile("tctFile", null);
+                                    return;
+                                  }
+                                  let fileToProcess = file;
+                                  if (file.type.startsWith("image/")) {
+                                    try {
+                                      toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
+                                      fileToProcess = await compressImage(file);
+                                      toast.success("Image optimized successfully!", { id: "image-compress-toast" });
+                                    } catch (err) {
+                                      console.error("Compression error:", err);
+                                      toast.dismiss("image-compress-toast");
+                                    }
+                                  }
+                                  setFormData({ ...formData, tctFile: fileToProcess });
+                                  persistDraftFile("tctFile", fileToProcess);
                                 }
-                                setFormData({ ...formData, tctFile: file || null });
-                                persistDraftFile("tctFile", file || null);
                               }}
                             />
                           </div>
@@ -2746,7 +2800,7 @@ export default function BuildingPermitPage() {
                           type="file"
                           accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
                               if (file.size > 5 * 1024 * 1024) {
@@ -2754,12 +2808,23 @@ export default function BuildingPermitPage() {
                                 e.target.value = "";
                                 return;
                               }
+                              let fileToProcess = file;
+                              if (file.type.startsWith("image/")) {
+                                try {
+                                  toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
+                                  fileToProcess = await compressImage(file);
+                                  toast.success("Image optimized successfully!", { id: "image-compress-toast" });
+                                } catch (err) {
+                                  console.error("Compression error:", err);
+                                  toast.dismiss("image-compress-toast");
+                                }
+                              }
                               if (activeDocTab === "REQUIREMENTS") {
-                                setUploadedRequirements(prev => ({ ...prev, [idx]: file }));
-                                persistDraftFile(`req_${idx}`, file);
+                                setUploadedRequirements(prev => ({ ...prev, [idx]: fileToProcess }));
+                                persistDraftFile(`req_${idx}`, fileToProcess);
                               } else {
-                                setUploadedPermits(prev => ({ ...prev, [idx]: file }));
-                                persistDraftFile(`permit_${idx}`, file);
+                                setUploadedPermits(prev => ({ ...prev, [idx]: fileToProcess }));
+                                persistDraftFile(`permit_${idx}`, fileToProcess);
                               }
                               e.target.value = "";
                             }

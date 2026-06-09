@@ -287,8 +287,8 @@ export function OfficialDetailView({ official }: { official: Official; themeColo
                                     <div className="space-y-6">
                                         {Array.isArray(official.links) && official.links.length > 0 && (
                                             <div className="flex flex-col gap-6">
-                                                {(official.links as { label: string; url: string }[]).map((link, idx) => (
-                                                    <Link key={idx} href={link.url} target="_blank" className="flex items-center gap-4 group/link w-fit">
+                                                {(official.links as { label: string; url: string }[]).filter(link => link.url).map((link, idx) => (
+                                                    <Link key={idx} href={link.url || null as any} target="_blank" className="flex items-center gap-4 group/link w-fit">
                                                         <div className="w-10 h-10 md:w-14 md:h-14 bg-white/10 hover:bg-white/20 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 transition-all">
                                                             {link.label.toLowerCase().includes('facebook') ? <Facebook className="w-4 h-4 md:w-6 md:h-6 text-white" /> : <Globe className="w-4 h-4 md:w-6 md:h-6 text-white" />}
                                                         </div>

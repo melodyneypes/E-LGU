@@ -157,8 +157,8 @@ export default async function AccommodationDetailPage({ params }: { params: Prom
                     <div className="space-y-6 pt-6">
                         <div className="flex items-center justify-between">
                             <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Location Guide</h3>
-                            {item.googleMapsUrl && (
-                                <Link href={item.googleMapsUrl} target="_blank">
+                            {item.googleMapsUrl && item.googleMapsUrl !== "" && (
+                                <Link href={item.googleMapsUrl || null as any} target="_blank">
                                     <Button variant="ghost" className="h-8 px-4 text-[9px] font-black text-primary uppercase tracking-widest flex items-center gap-2 italic hover:bg-primary/5">
                                         <Navigation className="w-3.5 h-3.5" />
                                         Open in Maps

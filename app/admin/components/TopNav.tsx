@@ -94,25 +94,21 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
     let crumbsToRender;
 
     if (isTreasuryDetail) {
-        const category = searchParams.get("category") || "ALL";
+        const category = searchParams.get("category") || "CEDULA";
         const categoryLabel = category === "ALL" ? "All Categories" : category;
         const transactionId = segments[2];
         const shortId = transactionId.slice(-8).toUpperCase();
 
         crumbsToRender = [
-            { seg: "dashboard", label: formatSegment("dashboard"), href: "/admin/dashboard", isLast: false },
-            { seg: "treasury", label: formatSegment("treasury"), href: "/admin/treasury?category=ALL", isLast: false },
             { seg: "category", label: categoryLabel, href: `/admin/treasury?category=${category}`, isLast: false },
             { seg: "detail", label: `Request #${shortId}`, href: "", isLast: true }
         ];
     } else {
         const isTreasuryList = segments.length === 2 && segments[0] === "admin" && segments[1] === "treasury";
-        const category = searchParams.get("category");
+        const category = searchParams.get("category") || "CEDULA";
 
-        if (isTreasuryList && category && category !== "ALL") {
+        if (isTreasuryList && category) {
             crumbsToRender = [
-                { seg: "dashboard", label: formatSegment("dashboard"), href: "/admin/dashboard", isLast: false },
-                { seg: "treasury", label: formatSegment("treasury"), href: "/admin/treasury?category=ALL", isLast: false },
                 { seg: "category", label: category, href: `/admin/treasury?category=${category}`, isLast: true }
             ];
         } else {

@@ -222,10 +222,10 @@ export function JobDetailView({ job }: { job: Job }) {
                                         <h3 className="text-[10px] font-black uppercase tracking-widest text-white italic">Application Links</h3>
                                     </div>
                                     <div className="flex flex-col gap-3">
-                                        {links.length > 0 ? links.map((link: any, idx: number) => (
+                                        {links.filter((link: any) => link?.url).length > 0 ? links.filter((link: any) => link?.url).map((link: any, idx: number) => (
                                             <Link 
                                                 key={idx}
-                                                href={link.url}
+                                                href={link.url || null as any}
                                                 target="_blank"
                                                 className="w-full h-14 bg-white/10 hover:bg-primary transition-all rounded-2xl flex items-center justify-between px-6 border border-white/10 text-white font-black uppercase tracking-widest text-[10px] italic"
                                             >

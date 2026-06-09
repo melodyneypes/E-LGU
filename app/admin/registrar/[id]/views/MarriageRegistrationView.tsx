@@ -993,16 +993,16 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                                         </p>
                                     </div>
 
-                                    {additional.eCopyUrl && (
+                                    {(transaction.eCopyUrl || additional.eCopyUrl) && (
                                         <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-white/5 space-y-4 text-left">
                                             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">E-copy of the Requirements</span>
                                             <div
-                                                onClick={() => handleViewFile?.(additional.eCopyUrl, "Issued Registry Record")}
+                                                onClick={() => handleViewFile?.(transaction.eCopyUrl || additional.eCopyUrl, "Issued Registry Record")}
                                                 className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all cursor-pointer select-none"
                                             >
                                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                                 <img
-                                                    src={additional.eCopyUrl}
+                                                    src={transaction.eCopyUrl || additional.eCopyUrl}
                                                     alt="Registry Record Preview"
                                                     className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
                                                 />
@@ -1049,7 +1049,7 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                                         </p>
                                     </div>
 
-                                    {(transaction.eCopyUrl || additional.eCopyUrl) && (
+                                    {(transaction.eCopyUrl || (transaction.eCopyUrl || additional.eCopyUrl)) && (
                                         <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-white/5 space-y-4 text-left">
                                             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">E-copy of the Requirements</span>
                                             {(() => {
@@ -1059,7 +1059,7 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                                                     return (
                                                         <button
                                                             type="button"
-                                                            onClick={() => handleViewFile?.(url, "Digital Registry Record PDF")}
+                                                            onClick={() => handleViewFile?.(transaction.eCopyUrl || url, "Digital Registry Record PDF")}
                                                             className="w-full flex items-center justify-between p-4 bg-[#151b28]/60 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-primary/50 hover:bg-primary/5 transition-all text-left group"
                                                         >
                                                             <div className="flex items-center gap-3">
@@ -1085,7 +1085,7 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                                                     >
                                                         {/* eslint-disable-next-line @next/next/no-img-element */}
                                                         <img
-                                                            src={url}
+                                                            src={transaction.eCopyUrl || url}
                                                             alt="Registry Record Preview"
                                                             className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
                                                         />

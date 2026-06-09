@@ -34,10 +34,10 @@ export async function deleteUploadedFile(imageUrl: string | null | undefined) {
 
 export async function processImageUpload(formData: FormData, fieldName: string = "imageFile"): Promise<string | null> {
     const file = (formData.get(fieldName) || formData.get(fieldName + "File")) as File | null;
-    
+
     const rawExisting = formData.get(fieldName) || formData.get("imageUrl");
     let existingUrl: string | null = null;
-    
+
     if (typeof rawExisting === 'string') {
         existingUrl = rawExisting;
     } else if (typeof formData.get("imageUrl") === 'string') {
@@ -54,7 +54,7 @@ export async function processImageUpload(formData: FormData, fieldName: string =
             if (fieldName.toLowerCase().includes("mayor") || fieldName.toLowerCase().includes("captain")) folder = "officials";
 
             let filename = `${Date.now()}_${file.name.replaceAll(" ", "_")}`;
-            
+
             // Clean naming conventions as requested by user
             if (fieldName === "mayor-image") {
                 const ext = file.name.split('.').pop() || 'jpg';
@@ -68,10 +68,10 @@ export async function processImageUpload(formData: FormData, fieldName: string =
             }
 
             const storagePath = `${folder}/${filename}`;
-            
+
             const buffer = Buffer.from(await file.arrayBuffer());
             const publicUrl = await uploadFile(buffer, storagePath, undefined, file.type);
-            
+
             if (!publicUrl) throw new Error("Upload failed");
 
             // Delete old file if it exists (handles both local and supabase)
@@ -91,10 +91,10 @@ export async function processImageUpload(formData: FormData, fieldName: string =
 }
 export async function processFileUpload(formData: FormData, fieldName: string): Promise<string | null> {
     const file = formData.get(fieldName) as File | null;
-    const existingUrl = formData.get(fieldName + "Url")?.toString() || 
-                        formData.get("flyerUrl")?.toString() || 
-                        formData.get("imageUrl")?.toString() || 
-                        null;
+    const existingUrl = formData.get(fieldName + "Url")?.toString() ||
+        formData.get("flyerUrl")?.toString() ||
+        formData.get("imageUrl")?.toString() ||
+        null;
 
     if (file && file.size > 0 && file.name !== "undefined") {
         try {
@@ -102,9 +102,9 @@ export async function processFileUpload(formData: FormData, fieldName: string): 
             const filename = `${Date.now()}_${file.name.replaceAll(" ", "_")}`;
             const folder = fieldName.includes("flyer") ? "church" : "uploads";
             const storagePath = `${folder}/${filename}`;
-            
+
             const publicUrl = await uploadFile(buffer, storagePath, undefined, file.type);
-            
+
             if (publicUrl) {
                 // Auto-delete old file
                 if (existingUrl) {
@@ -142,7 +142,7 @@ export async function updateLogoSetting(formData: FormData) {
         const oldSetting = await prisma.systemSetting.findUnique({ where: { key: "site_logo" } });
         const imageUrl = await processImageUpload(formData, "logo");
         const finalUrl = imageUrl || (formData.get("imageUrl") as string) || "";
-        
+
         if (imageUrl && oldSetting?.value && oldSetting.value !== imageUrl) {
             await deleteUploadedFile(oldSetting.value);
         }
@@ -152,7 +152,7 @@ export async function updateLogoSetting(formData: FormData) {
             update: { value: finalUrl },
             create: { key: "site_logo", value: finalUrl }
         });
-        
+
         revalidatePath("/");
         revalidatePath("/admin/settings");
         return { success: true, imageUrl: finalUrl };
@@ -165,7 +165,7 @@ export async function updateLogoSetting(formData: FormData) {
 export async function createHeroSlide(formData: FormData) {
     try {
         const imageUrl = await processImageUpload(formData, "heroSlide");
-        
+
         const session = await getServerSession(authOptions);
         const role = (session?.user as any)?.role;
         const managedBarangay = (session?.user as any)?.managedBarangay;
@@ -248,7 +248,7 @@ export async function updateTreasurySettings(formData: FormData) {
     try {
         const oldQr = await prisma.systemSetting.findUnique({ where: { key: "gcash_qr_url" } });
         const qrUrl = await processImageUpload(formData, "gcashQr");
-        
+
         if (qrUrl && oldQr?.value && oldQr.value !== qrUrl) {
             await deleteUploadedFile(oldQr.value);
         }
@@ -320,10 +320,10 @@ export async function updateTreasurySettings(formData: FormData) {
         revalidatePath("/admin/settings");
         revalidatePath("/admin/treasury/payment-settings");
         revalidatePath("/user/services/requests/[id]");
-        
-        return { 
-            success: true, 
-            qrUrl: qrUrl || (formData.get("imageUrl") as string) 
+
+        return {
+            success: true,
+            qrUrl: qrUrl || (formData.get("imageUrl") as string)
         };
     } catch (error) {
         console.error("Error updating treasury settings:", error);
@@ -333,17 +333,17 @@ export async function updateTreasurySettings(formData: FormData) {
 
 export async function updateTransactionBaseFees(fees: { id: string, baseFee: number, studentFee?: number | null }[]) {
     try {
-        const updates = fees.map(fee => 
+        const updates = fees.map(fee =>
             prisma.transactionType.update({
                 where: { id: fee.id },
-                data: { 
+                data: {
                     baseFee: fee.baseFee,
                     ...(fee.studentFee !== undefined ? { studentFee: fee.studentFee } : {})
                 }
             })
         );
         await prisma.$transaction(updates);
-        
+
         revalidatePath("/user/services");
         revalidatePath("/admin/treasury/payment-settings");
         return { success: true };

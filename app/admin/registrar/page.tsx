@@ -187,13 +187,15 @@ export default function RegistrarPage() {
             } else if (categoryParam === "Birth Certificate") {
                 matchesCategory = tx.type?.code === "LCR_BIRTH";
             } else if (categoryParam === "Death Registration") {
-                matchesCategory = tx.type?.code === "LCR_DEATH_REG";
+                matchesCategory = tx.type?.code === "LCR_DEATH_REG" && tx.status !== "FOR_REQUESTING";
             } else if (categoryParam === "Death Certificate") {
                 matchesCategory = tx.type?.code === "LCR_DEATH";
             } else if (categoryParam === "Marriage License") {
                 matchesCategory = tx.type?.code === "LCR_MARRIAGE_LICENSE";
             } else if (categoryParam === "Marriage Registration") {
                 matchesCategory = tx.type?.code === "LCR_MARRIAGE_REG";
+            } else if (categoryParam === "Marriage Certificate") {
+                matchesCategory = tx.type?.code === "LCR_MARRIAGE";
             }
 
             return matchesSearch && matchesService && matchesCategory;

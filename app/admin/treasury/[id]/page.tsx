@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, use, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -285,7 +286,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
     const activeCategory = categoryQuery || fallbackCategory;
     const backUrl = activeCategory && activeCategory !== "ALL"
         ? `/admin/treasury?category=${encodeURIComponent(activeCategory)}`
-        : "/admin/treasury";
+        : "/admin/treasury?category=CEDULA";
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [remarks, setRemarks] = useState("");
@@ -600,6 +601,32 @@ export default function TreasuryDetailPage({ params }: PageProps) {
     }, [id]);
 
     useEffect(() => {
+        if (!supabase || !id) return;
+
+        console.log(`Subscribing to Supabase Realtime for transaction ${id}...`);
+        const channel = supabase
+            .channel(`realtime-treasury-transaction-${id}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "Transaction",
+                    filter: `id=eq.${id}`,
+                },
+                () => {
+                    fetchTransaction();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            console.log(`Unsubscribing from Supabase Realtime for transaction ${id}...`);
+            supabase.removeChannel(channel);
+        };
+    }, [id, fetchTransaction]);
+
+    useEffect(() => {
         if (!session) return;
         const role = (session?.user as any)?.role;
         const dept = (session?.user as any)?.department;
@@ -860,7 +887,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 <p className="text-slate-500 dark:text-slate-400 font-medium italic max-w-md">
                     This request is currently under Registrar verification, document release, or waiting for User payment. The Treasury department cannot access this request until it is paid and ready for payment verification.
                 </p>
-                <Link href="/admin/treasury">
+                <Link href={backUrl}>
                     <Button variant="outline" className="h-12 px-6 rounded-xl border-2 font-black italic uppercase text-xs tracking-wider transition-all active:scale-95">
                         Back to Treasury Dashboard
                     </Button>
@@ -1212,6 +1239,10 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 } else {
                     docs.push({ url: additional.municipalForm103, label: "Municipal Form No. 103" });
                 }
+                const idFront = additional.validIdFront || additional.idFrontUrl || resident.idFrontUrl || transaction.user?.residentProfile?.idFrontUrl;
+                const idBack = additional.validIdBack || additional.idBackUrl || resident.idBackUrl || transaction.user?.residentProfile?.idBackUrl;
+                if (idFront) docs.push({ url: idFront, label: "Informant's Valid ID (Front)" });
+                if (idBack) docs.push({ url: idBack, label: "Informant's Valid ID (Back)" });
             }
 
             // --- Marriage Certificate Request (Certified Copy) ---

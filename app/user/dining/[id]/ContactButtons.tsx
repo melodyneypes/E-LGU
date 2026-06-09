@@ -59,7 +59,7 @@ export function ContactButtons({ contactNumber, facebookUrl, isMobile }: Contact
                     </Button>
                 )}
                 {facebookUrl && (
-                    <Link href={facebookUrl} target="_blank" className="flex-1">
+                    <Link href={facebookUrl || null as any} target="_blank" className="flex-1">
                         <Button variant="outline" className="w-full h-11 rounded-xl border-slate-200 dark:border-white/10 font-black uppercase tracking-widest text-[8px] flex items-center gap-2 shadow-sm bg-white dark:bg-white/5">
                             <Facebook className="w-3 h-3 text-primary" />
                             Facebook
@@ -82,7 +82,7 @@ export function ContactButtons({ contactNumber, facebookUrl, isMobile }: Contact
                 </Button>
             )}
             {facebookUrl && (
-                <Link href={facebookUrl} target="_blank">
+                <Link href={facebookUrl || null as any} target="_blank">
                     <Button variant="outline" className="h-14 px-10 rounded-3xl border-slate-200 dark:border-white/10 font-black uppercase tracking-widest text-[10px] flex items-center gap-3 bg-white dark:bg-white/5 hover:border-primary/50 transition-all">
                         <Facebook className="w-4 h-4 text-primary" />
                         Official Page

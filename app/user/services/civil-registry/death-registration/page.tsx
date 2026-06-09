@@ -47,12 +47,14 @@ import {
     ensureCivilRegistryTransactionTypes,
     submitCivilRegistryTransaction,
     getTransactionTypes,
-    getSystemSettingAction
+    getSystemSettingAction,
+    getTransactionById
 } from "@/app/admin/transactions/actions";
 import { searchResidents, getResidentDataById } from "@/app/admin/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
+import { compressImage } from "@/lib/image-compression";
 
 const PreviewImage = ({ file, fallbackUrl, alt, className }: { file: File | null; fallbackUrl?: string; alt: string; className?: string }) => {
     const [src, setSrc] = React.useState(fallbackUrl || "");
@@ -84,16 +86,20 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
 ];
 
 // --- Resident Search Component ---
-const ResidentSearch = ({ onSelect, placeholder = "Search resident..." }: { onSelect: (r: any) => void; placeholder?: string }) => {
+const ResidentSearch = ({ onSelect, excludeId, placeholder = "Search resident..." }: { onSelect: (r: any) => void; excludeId?: string; placeholder?: string }) => {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<any[]>([]);
 
     useEffect(() => {
-        if (query.length > 2) {
+        if (query.length > 1) {
             const delayDebounceFn = setTimeout(async () => {
                 const res = await searchResidents(query);
                 if (res.success && res.data) {
-                    setResults(res.data as any[]);
+                    let list = res.data as any[];
+                    if (excludeId) {
+                        list = list.filter(item => item.id !== excludeId);
+                    }
+                    setResults(list);
                 } else {
                     setResults([]);
                 }
@@ -102,7 +108,7 @@ const ResidentSearch = ({ onSelect, placeholder = "Search resident..." }: { onSe
         } else {
             setResults([]);
         }
-    }, [query]);
+    }, [query, excludeId]);
 
     return (
         <div className="relative w-full">
@@ -174,9 +180,19 @@ export default function DeathRegistrationPage() {
     const [viewerUrl, setViewerUrl] = useState<string | null>(null);
     const [viewerTitle, setViewerTitle] = useState("");
 
-    const handleOpenViewer = (file: File | null, title: string) => {
+    const [revisionId, setRevisionId] = useState<string | null>(null);
+    const [revisionTx, setRevisionTx] = useState<any>(null);
+    const [existingUrls, setExistingUrls] = useState<Record<string, string | null>>({
+        municipalForm103: null,
+        psaNegative: null,
+        affidavitOfDelay: null,
+        validIdFront: null,
+        validIdBack: null
+    });
+
+    const handleOpenViewer = (file: File | null, title: string, url: string | null = null) => {
         setViewerFile(file);
-        setViewerUrl(null);
+        setViewerUrl(url);
         setViewerTitle(title);
         setViewerOpen(true);
     };
@@ -193,6 +209,7 @@ export default function DeathRegistrationPage() {
         fathersName: "",
         mothersName: "",
         relationship: "",
+        relationshipSpecify: "",
         registrationType: "STANDARD" as "STANDARD" | "LATE",
         email: "",
         contactNumber: "",
@@ -205,12 +222,19 @@ export default function DeathRegistrationPage() {
         informantCivilStatus: "",
         informantCitizenship: "",
         informantOccupation: "",
+        informantAddress: "",
+        survivingSpouseName: "",
+        corpseDisposal: "",
+        burialLocation: "",
+        deceasedResidentId: "",
     });
 
     const [files, setFiles] = useState<Record<string, File | null>>({
         municipalForm103: null,
         psaNegative: null,
-        affidavitOfDelay: null
+        affidavitOfDelay: null,
+        validIdFront: null,
+        validIdBack: null
     });
 
     // Privacy / Terms modal state (shared key across LCR pages)
@@ -224,6 +248,10 @@ export default function DeathRegistrationPage() {
 
     // Restore progress from session storage & IndexedDB
     useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const revId = urlParams.get("revisionId");
+        if (revId) return; // Skip draft loading if in revision mode!
+
         const savedStep = sessionStorage.getItem("death-reg-step");
         const savedForm = sessionStorage.getItem("death-reg-form");
 
@@ -262,11 +290,38 @@ export default function DeathRegistrationPage() {
     }, []);
 
     useEffect(() => {
-        if (!loading) {
+        if (!loading && !revisionId) {
             sessionStorage.setItem("death-reg-step", currentStep);
             sessionStorage.setItem("death-reg-form", JSON.stringify(formData));
         }
-    }, [currentStep, formData, loading]);
+    }, [currentStep, formData, loading, revisionId]);
+
+    useEffect(() => {
+        if (!formData.dateOfDeath) {
+            if (formData.registrationType !== "STANDARD") {
+                setFormData(prev => ({ ...prev, registrationType: "STANDARD" }));
+            }
+            return;
+        }
+        try {
+            const [year, month, day] = formData.dateOfDeath.split('-').map(Number);
+            const deathDate = new Date(year, month - 1, day);
+            const today = new Date();
+            const d1 = Date.UTC(deathDate.getFullYear(), deathDate.getMonth(), deathDate.getDate());
+            const d2 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+            const diffDays = Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
+            
+            const expectedType = diffDays >= 30 ? "LATE" : "STANDARD";
+            if (formData.registrationType !== expectedType) {
+                setFormData(prev => ({
+                    ...prev,
+                    registrationType: expectedType
+                }));
+            }
+        } catch (e) {
+            console.error("Error calculating registration type:", e);
+        }
+    }, [formData.dateOfDeath, formData.registrationType]);
 
     useEffect(() => {
         async function init() {
@@ -278,23 +333,96 @@ export default function DeathRegistrationPage() {
                     getTransactionTypes()
                 ]);
 
+                // Check for revisionId query parameter
+                const urlParams = new URLSearchParams(window.location.search);
+                const revId = urlParams.get("revisionId");
+
+                let txData: any = null;
+                if (revId) {
+                    const txRes = await getTransactionById(revId);
+                    if (txRes.success && txRes.data) {
+                        txData = txRes.data;
+                        setRevisionId(revId);
+                        setRevisionTx(txData);
+                    } else {
+                        toast.error("Failed to fetch revision details");
+                    }
+                }
+
                 if (resResult.success && resResult.data) {
                     const r = resResult.data;
                     setResident(r);
-                    setFormData(prev => ({
-                        ...prev,
-                        email: prev.email || r.user?.email || "",
-                        contactNumber: prev.contactNumber || r.contactNumber || "",
-                        informantFirstName: r.firstName || "",
-                        informantMiddleName: r.middleName || "",
-                        informantLastName: r.lastName || "",
-                        informantSuffix: r.suffix || "",
-                        informantBirthDate: r.dateOfBirth ? new Date(r.dateOfBirth).toISOString().split('T')[0] : "",
-                        informantAge: r.age?.toString() || "",
-                        informantCivilStatus: r.civilStatus || "",
-                        informantCitizenship: r.citizenship || "FILIPINO",
-                        informantOccupation: r.occupation || ""
-                    }));
+                    
+                    const parts = [
+                        r.houseNumber && `#${r.houseNumber}`,
+                        r.street && `${r.street} St.`,
+                        r.purok && `Purok ${r.purok}`,
+                        r.sitio && `Sitio ${r.sitio}`,
+                        r.barangay && `Brgy. ${r.barangay}`,
+                        r.municipality || "Mapandan",
+                        r.province || "Pangasinan"
+                    ].filter(Boolean);
+                    const constructedAddr = parts.join(", ").toUpperCase();
+
+                    if (txData) {
+                        const addData = txData.additionalData as any || {};
+                        const resSnapshot = txData.residentSnapshot as any || r || {};
+
+                        setFormData({
+                            fullName: addData.fullName || "",
+                            dateOfBirth: addData.dateOfBirth || "",
+                            dateOfDeath: addData.dateOfDeath || "",
+                            placeOfDeath: addData.placeOfDeath || "",
+                            causeOfDeath: addData.causeOfDeath || "",
+                            gender: addData.gender || "",
+                            civilStatus: addData.civilStatus || "",
+                            fathersName: addData.fathersName || "",
+                            mothersName: addData.mothersName || "",
+                            relationship: addData.relationship || "",
+                            relationshipSpecify: addData.relationshipSpecify || "",
+                            registrationType: addData.registrationType || "STANDARD",
+                            email: addData.email || resSnapshot.email || "",
+                            contactNumber: addData.contactNumber || resSnapshot.contactNumber || "",
+                            informantFirstName: addData.informantFirstName || resSnapshot.firstName || "",
+                            informantMiddleName: addData.informantMiddleName || resSnapshot.middleName || "",
+                            informantLastName: addData.informantLastName || resSnapshot.lastName || "",
+                            informantSuffix: addData.informantSuffix || resSnapshot.suffix || "",
+                            informantBirthDate: addData.informantBirthDate || "",
+                            informantAge: addData.informantAge || "",
+                            informantCivilStatus: addData.informantCivilStatus || "",
+                            informantCitizenship: addData.informantCitizenship || "FILIPINO",
+                            informantOccupation: addData.informantOccupation || "",
+                            informantAddress: addData.informantAddress || constructedAddr,
+                            survivingSpouseName: addData.survivingSpouseName || "",
+                            corpseDisposal: addData.corpseDisposal || "",
+                            burialLocation: addData.burialLocation || "",
+                            deceasedResidentId: addData.deceasedResidentId || "",
+                        });
+
+                        setExistingUrls({
+                            municipalForm103: addData.municipalForm103 || null,
+                            psaNegative: addData.psaNegative || null,
+                            affidavitOfDelay: addData.affidavitOfDelay || null,
+                            validIdFront: addData.validIdFront || null,
+                            validIdBack: addData.validIdBack || null
+                        });
+                    } else {
+                        setFormData(prev => ({
+                            ...prev,
+                            email: prev.email || r.user?.email || "",
+                            contactNumber: prev.contactNumber || r.contactNumber || "",
+                            informantFirstName: r.firstName || "",
+                            informantMiddleName: r.middleName || "",
+                            informantLastName: r.lastName || "",
+                            informantSuffix: r.suffix || "",
+                            informantBirthDate: r.dateOfBirth ? new Date(r.dateOfBirth).toISOString().split('T')[0] : "",
+                            informantAge: r.age?.toString() || "",
+                            informantCivilStatus: r.civilStatus || "",
+                            informantCitizenship: r.citizenship || "FILIPINO",
+                            informantOccupation: r.occupation || "",
+                            informantAddress: constructedAddr
+                        }));
+                    }
                 }
 
                 if (typesResult.success && typesResult.data) {
@@ -313,67 +441,140 @@ export default function DeathRegistrationPage() {
         init();
     }, []);
 
+    const isSelfRegistration = () => {
+        if (!resident) return false;
+
+        // Check 1: deceasedResidentId matches informant's resident ID
+        if (formData.deceasedResidentId === resident.id) {
+            return true;
+        }
+
+        // Check 2: Manually entered name & DOB matches informant's name & DOB
+        const informantFirstName = (resident.firstName || "").trim().toUpperCase();
+        const informantLastName = (resident.lastName || "").trim().toUpperCase();
+        const informantDOB = resident.dateOfBirth ? new Date(resident.dateOfBirth).toISOString().split('T')[0] : "";
+
+        const deceasedName = (formData.fullName || "").trim().toUpperCase();
+        const deceasedDOB = formData.dateOfBirth || "";
+
+        if (deceasedDOB === informantDOB) {
+            const hasFirstName = deceasedName.includes(informantFirstName);
+            const hasLastName = deceasedName.includes(informantLastName);
+            if (hasFirstName && hasLastName) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value.toUpperCase() }));
+        
+        if (name === "dateOfDeath" && value) {
+            try {
+                const [year, month, day] = value.split('-').map(Number);
+                const selectedDate = new Date(year, month - 1, day);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                if (selectedDate > today) {
+                    toast.error("Date of death cannot be in the future.");
+                    return;
+                }
+            } catch {
+                // Ignore parsing errors
+            }
+        }
+        
+        setFormData(prev => {
+            const next = { ...prev, [name]: value.toUpperCase() };
+            if (name === "fullName" || name === "dateOfBirth") {
+                next.deceasedResidentId = "";
+            }
+            return next;
+        });
     };
 
     const handleSelectChange = (name: string, value: string) => {
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => {
+            const next = { ...prev, [name]: value };
+            if (name === "relationship" && value !== "RELATIVE") {
+                next.relationshipSpecify = "";
+            }
+            return next;
+        });
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-        if (file && file.size > 5 * 1024 * 1024) {
-            toast.error("File size exceeds 5MB limit.");
-            if (e && e.target && e.target.parentElement) {
-                const parent = e.target.parentElement;
-                let errEl = parent.querySelector('.file-error-msg');
-                if (!errEl) {
-                    errEl = document.createElement('div');
-                    errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
-                    parent.appendChild(errEl);
+            if (file && file.size > 5 * 1024 * 1024) {
+                toast.error("File size exceeds 5MB limit.");
+                if (e && e.target && e.target.parentElement) {
+                    const parent = e.target.parentElement;
+                    let errEl = parent.querySelector('.file-error-msg');
+                    if (!errEl) {
+                        errEl = document.createElement('div');
+                        errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
+                        parent.appendChild(errEl);
+                    }
+                    errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
+                    setTimeout(() => errEl && errEl.remove(), 4000);
                 }
-                errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
-                setTimeout(() => errEl && errEl.remove(), 4000);
+                // Clear the file input
+                if (e && e.target) e.target.value = "";
+                return;
             }
-            // Clear the file input
-            if (e && e.target) e.target.value = "";
-            return;
-        }
-            setFiles(prev => ({ ...prev, [key]: file }));
 
-            // Save raw file to IndexedDB
-            saveDraftFile(STORAGE_KEY, key, file).catch(err => {
+            let fileToProcess = file;
+            if (file.type.startsWith("image/")) {
+                try {
+                    toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
+                    fileToProcess = await compressImage(file);
+                    toast.success("Image optimized successfully!", { id: "image-compress-toast" });
+                } catch (err) {
+                    console.error("Compression error:", err);
+                    toast.dismiss("image-compress-toast");
+                }
+            }
+
+            setFiles(prev => ({ ...prev, [key]: fileToProcess }));
+
+            // Save raw/compressed file to IndexedDB
+            saveDraftFile(STORAGE_KEY, key, fileToProcess).catch(err => {
                 console.error("Failed to save draft file to IndexedDB:", err);
             });
         }
     };
 
-    const renderDocCard = (label: string, fileKey: string, uploadId: string) => {
+    const renderDocCard = (label: string, fileKey: string, uploadId: string, isId = false) => {
         const file = files[fileKey];
+        const existingUrl = isId 
+            ? (fileKey === "validIdFront" ? resident?.idFrontUrl : resident?.idBackUrl)
+            : existingUrls[fileKey];
 
-        const formatFileSize = (bytes?: number) => {
-            if (!bytes) return "";
-            const mb = bytes / (1024 * 1024);
-            return `${mb.toFixed(2)} MB`;
-        };
+        const isAdded = !!file || !!existingUrl;
 
-        const isImage = file?.type.startsWith("image/");
+        const isImage = file 
+            ? file.type.startsWith("image/") 
+            : (existingUrl ? (!existingUrl.toLowerCase().endsWith(".pdf") && !existingUrl.includes("application/pdf") && !existingUrl.includes(".pdf?")) : false);
 
         return (
-            <div className="p-4 rounded-2xl border border-slate-200/60 dark:border-white/5 bg-slate-50/30 dark:bg-white/5 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col gap-3 relative overflow-hidden group">
+            <div className="p-4 rounded-2xl border border-slate-200/60 dark:border-white/5 bg-slate-50/30 dark:bg-white/5 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col gap-4 relative overflow-hidden group">
+                {/* Header */}
                 <div className="flex items-start justify-between gap-2">
                     <div className="space-y-0.5">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 italic block">Required Document</span>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 italic block">
+                            {isId ? "Informant Identity" : "Required Document"}
+                        </span>
                         <h4 className="text-[10px] font-black uppercase tracking-tight text-slate-700 dark:text-slate-200 leading-tight">
                             {label} <span className="text-red-500">*</span>
                         </h4>
                     </div>
-                    {file ? (
+                    {isAdded ? (
                         <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full shrink-0">
-                            <Check className="w-2.5 h-2.5" /> Added
+                            <Check className="w-2.5 h-2.5" /> {isId && !file ? "From Profile" : "Added"}
                         </span>
                     ) : (
                         <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full animate-pulse shrink-0">
@@ -382,77 +583,48 @@ export default function DeathRegistrationPage() {
                     )}
                 </div>
 
-                {file ? (
-                    <div className="flex items-center gap-3 bg-white dark:bg-slate-800/80 p-2.5 rounded-xl border border-slate-100 dark:border-white/5">
+                {/* Preview / Placeholder Area */}
+                {isAdded ? (
+                    <div
+                        onClick={() => {
+                            if (file) {
+                                handleOpenViewer(file, label);
+                            } else if (existingUrl) {
+                                handleOpenViewer(null, label, existingUrl);
+                            }
+                        }}
+                        className="relative w-full aspect-[16/9] rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 group/preview cursor-pointer bg-slate-100 dark:bg-slate-900"
+                    >
                         {isImage ? (
-                            <div
-                                onClick={() => handleOpenViewer(file, label)}
-                                className="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shrink-0 relative bg-slate-100 dark:bg-slate-900 group/thumb cursor-pointer"
-                            >
+                            file ? (
                                 <PreviewImage
                                     file={file}
-                                    alt="Preview"
-                                    className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform duration-300"
+                                    alt={label}
+                                    className="w-full h-full object-cover group-hover/preview:scale-105 transition-transform duration-500"
                                 />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center">
-                                    <Eye className="w-3.5 h-3.5 text-white" />
-                                </div>
-                            </div>
+                            ) : (
+                                <img
+                                    src={existingUrl || ""}
+                                    alt={label}
+                                    className="w-full h-full object-cover group-hover/preview:scale-105 transition-transform duration-500"
+                                />
+                            )
                         ) : (
-                            <div
-                                onClick={() => handleOpenViewer(file, label)}
-                                className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 flex items-center justify-center shrink-0 cursor-pointer hover:ring-2 hover:ring-emerald-500/50 transition-all relative group/thumb"
-                            >
-                                <FileText className="w-5 h-5 text-red-500 animate-pulse" />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
-                                    <Eye className="w-3.5 h-3.5 text-white" />
-                                </div>
+                            <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center">
+                                <FileText className="w-10 h-10 text-red-500 mb-2 animate-bounce" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 truncate max-w-[80%]">
+                                    {file ? file.name : "Document.pdf"}
+                                </span>
                             </div>
                         )}
-
-                        <div
-                            onClick={() => handleOpenViewer(file, label)}
-                            className="flex-1 min-w-0 cursor-pointer hover:opacity-80"
-                        >
-                            <p className="text-[9px] font-bold text-slate-700 dark:text-slate-200 truncate pr-2 uppercase italic">
-                                {file.name}
-                            </p>
-                            <p className="text-[8px] text-slate-400 dark:text-slate-500 italic mt-0.5">
-                                {formatFileSize(file.size)} <span className="text-emerald-500 font-bold ml-1 select-none">(Click to Preview)</span>
-                            </p>
-                            <div className="flex items-center gap-1.5 mt-1">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOpenViewer(file, label);
-                                    }}
-                                    className="h-5 px-2 rounded-md text-[7px] font-black uppercase tracking-widest border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center gap-1 text-slate-600 dark:text-slate-300"
-                                >
-                                    <Eye className="w-2 h-2" /> Inspect
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={async (e) => {
-                                        e.stopPropagation();
-                                        setFiles(prev => ({ ...prev, [fileKey]: null }));
-                                        await saveDraftFile(STORAGE_KEY, fileKey, null);
-                                    }}
-                                    className="h-5 px-2 rounded-md text-[7px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center gap-1"
-                                >
-                                    <Trash2 className="w-2 h-2" /> Remove
-                                </Button>
-                            </div>
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center">
+                            <Eye className="w-5 h-5 text-white animate-pulse" />
                         </div>
                     </div>
                 ) : (
                     <Label
                         htmlFor={uploadId}
-                        className="flex flex-col items-center justify-center py-4 px-3 rounded-xl border border-dashed border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-all duration-300 cursor-pointer group/upload text-center animate-fade-in"
+                        className="flex flex-col items-center justify-center aspect-[16/9] rounded-xl border border-dashed border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-all duration-300 cursor-pointer group/upload text-center animate-fade-in"
                     >
                         <div className="w-8 h-8 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center group-hover/upload:scale-110 transition-transform duration-300 mb-1.5">
                             <Upload className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -472,11 +644,65 @@ export default function DeathRegistrationPage() {
                         />
                     </Label>
                 )}
+
+                {/* Actions Row */}
+                {isAdded && (
+                    <div className="flex items-center gap-2 mt-auto">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (file) {
+                                    handleOpenViewer(file, label);
+                                } else if (existingUrl) {
+                                    handleOpenViewer(null, label, existingUrl);
+                                }
+                            }}
+                            className="h-8 flex-1 rounded-xl text-[8px] font-black uppercase tracking-widest border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center gap-1.5 text-slate-600 dark:text-slate-300 shadow-sm"
+                        >
+                            <Eye className="w-3.5 h-3.5" /> Inspect
+                        </Button>
+
+                        {/* Replace / Remove */}
+                        <Label
+                            htmlFor={uploadId}
+                            className="h-8 flex-1 rounded-xl text-[8px] font-black uppercase tracking-widest border border-dashed border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center gap-1.5 text-amber-500 cursor-pointer shadow-sm"
+                        >
+                            <Upload className="w-3 h-3" /> Replace
+                        </Label>
+                        <Input
+                            id={uploadId}
+                            type="file"
+                            className="hidden"
+                            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                            onChange={(e) => handleFileChange(e, fileKey)}
+                        />
+
+                        {file && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={async (e) => {
+                                    e.stopPropagation();
+                                    setFiles(prev => ({ ...prev, [fileKey]: null }));
+                                    await saveDraftFile(STORAGE_KEY, fileKey, null);
+                                }}
+                                className="h-8 px-3 rounded-xl text-[8px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center justify-center gap-1"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" /> Remove
+                            </Button>
+                        )}
+                    </div>
+                )}
             </div>
         );
     };
 
     const handleSubmit = async () => {
+        if (submitting) return;
         // Require privacy terms acceptance before allowing submit
         if (!policyAccepted) {
             setShowErrors(true);
@@ -488,20 +714,51 @@ export default function DeathRegistrationPage() {
             return;
         }
 
-        if (formData.registrationType === "STANDARD" && !files.municipalForm103) {
+        // Validate deceased details
+        if (!formData.fullName || !formData.dateOfBirth || !formData.dateOfDeath || !formData.placeOfDeath || !formData.causeOfDeath || !formData.gender || !formData.civilStatus || !formData.fathersName || !formData.mothersName || !formData.corpseDisposal || !formData.burialLocation) {
+            setShowErrors(true);
+            toast.error("Please fill in all deceased details.");
+            return;
+        }
+
+        if (isSelfRegistration()) {
+            toast.error("You cannot register yourself as deceased.");
+            return;
+        }
+
+        // Validate informant details
+        const isSpecifyEmpty = formData.relationship === "RELATIVE" && !formData.relationshipSpecify.trim();
+        if (!formData.relationship || !formData.contactNumber || isSpecifyEmpty) {
+            setShowErrors(true);
+            toast.error("Please fill in all informant details.");
+            return;
+        }
+
+        // Validate required documents
+        if (formData.registrationType === "STANDARD" && !files.municipalForm103 && !existingUrls.municipalForm103) {
             toast.error("Please upload Municipal Form No. 103");
             return;
         }
 
         if (formData.registrationType === "LATE") {
-            if (!files.psaNegative) {
+            if (!files.psaNegative && !existingUrls.psaNegative) {
                 toast.error("Please upload PSA Negative Certification");
                 return;
             }
-            if (!files.affidavitOfDelay) {
+            if (!files.affidavitOfDelay && !existingUrls.affidavitOfDelay) {
                 toast.error("Please upload Affidavit of Delayed Registration");
                 return;
             }
+        }
+
+        // Validate valid ID
+        if (!files.validIdFront && !resident?.idFrontUrl && !existingUrls.validIdFront) {
+            toast.error("Please upload Informant's Valid ID (Front)");
+            return;
+        }
+        if (!files.validIdBack && !resident?.idBackUrl && !existingUrls.validIdBack) {
+            toast.error("Please upload Informant's Valid ID (Back)");
+            return;
         }
 
         setSubmitting(true);
@@ -509,6 +766,9 @@ export default function DeathRegistrationPage() {
             const data = new FormData();
             data.append("typeId", typeId);
             data.append("registryType", "DEATH_REG");
+            if (revisionId) {
+                data.append("revisionId", revisionId);
+            }
 
             const residentSnapshot = {
                 firstName: resident?.firstName || "",
@@ -541,7 +801,7 @@ export default function DeathRegistrationPage() {
             const res = await submitCivilRegistryTransaction(data);
 
             if (res.success && res.data) {
-                toast.success("Death Registration submitted successfully!");
+                toast.success(revisionId ? "Revision resubmitted successfully!" : "Death Registration submitted successfully!");
                 sessionStorage.removeItem("death-reg-step");
                 sessionStorage.removeItem("death-reg-form");
                 await clearDraftFiles(STORAGE_KEY);
@@ -674,6 +934,18 @@ export default function DeathRegistrationPage() {
                         </div>
                     </div>
 
+                    {revisionTx?.rejectionRemarks && (
+                        <div className="p-5 rounded-[2rem] bg-amber-500/10 border border-amber-500/20 flex items-start gap-4 text-amber-500 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 animate-pulse" />
+                            <div className="text-left space-y-1">
+                                <p className="text-[10px] font-black uppercase tracking-wider italic">Revision Instructions from Registry Office</p>
+                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                    &ldquo;{revisionTx.rejectionRemarks}&rdquo;
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Progress Stepper */}
                     <div className="relative px-2 py-4">
                         <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 dark:bg-white/5 -translate-y-1/2 rounded-full overflow-hidden">
@@ -777,6 +1049,25 @@ export default function DeathRegistrationPage() {
                                             )}
                                         </div>
 
+                                        {formData.relationship === "RELATIVE" && (
+                                            <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Specify Relationship <span className="text-red-500">*</span></Label>
+                                                <Input
+                                                    className={cn(
+                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-bold italic uppercase",
+                                                        (showErrors && !formData.relationshipSpecify) && "border-red-500/50 bg-red-50/10"
+                                                    )}
+                                                    placeholder="e.g. COUSIN, UNCLE, AUNT"
+                                                    name="relationshipSpecify"
+                                                    value={formData.relationshipSpecify}
+                                                    onChange={handleInputChange}
+                                                />
+                                                {(showErrors && !formData.relationshipSpecify) && (
+                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
+                                                )}
+                                            </div>
+                                        )}
+
                                         {/* Personal Details Grid */}
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                             <div className="md:col-span-1 space-y-2">
@@ -816,6 +1107,15 @@ export default function DeathRegistrationPage() {
                                             </div>
                                         </div>
 
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Informant Address</Label>
+                                            <Input
+                                                readOnly
+                                                className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 transition-all font-bold italic text-slate-600 uppercase"
+                                                value={formData.informantAddress}
+                                            />
+                                        </div>
+
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Occupation</Label>
@@ -846,7 +1146,8 @@ export default function DeathRegistrationPage() {
                                     <div className="flex justify-end pt-6">
                                         <Button
                                             onClick={() => {
-                                                if (!formData.relationship || !formData.contactNumber) {
+                                                const isSpecifyEmpty = formData.relationship === "RELATIVE" && !formData.relationshipSpecify.trim();
+                                                if (!formData.relationship || !formData.contactNumber || isSpecifyEmpty) {
                                                     setShowErrors(true);
                                                     toast.error("Please fill in all informant details.");
                                                     return;
@@ -891,11 +1192,20 @@ export default function DeathRegistrationPage() {
                                         </p>
                                         <ResidentSearch
                                             placeholder="Type resident name to search..."
+                                            excludeId={resident?.id}
                                             onSelect={async (r) => {
                                                 try {
                                                     const res = await getResidentDataById(r.id);
                                                     if (res.success && res.data) {
                                                         const fullResident = res.data;
+                                                        if (resident && fullResident.id === resident.id) {
+                                                            toast.error("You cannot register yourself as deceased.");
+                                                            return;
+                                                        }
+                                                        if (fullResident.isDead) {
+                                                            toast.error("This person is already registered as deceased.");
+                                                            return;
+                                                        }
                                                         const middleInit = fullResident.middleName ? ` ${fullResident.middleName.charAt(0)}.` : "";
                                                         const suffixStr = fullResident.suffix ? ` ${fullResident.suffix}` : "";
                                                         
@@ -914,7 +1224,8 @@ export default function DeathRegistrationPage() {
                                                             gender: (fullResident.gender || "").toUpperCase(),
                                                             civilStatus: (fullResident.civilStatus || "").toUpperCase(),
                                                             fathersName: fatherFullName,
-                                                            mothersName: motherFullName
+                                                            mothersName: motherFullName,
+                                                            deceasedResidentId: fullResident.id
                                                         }));
                                                         toast.success(`Selected ${fullResident.firstName} ${fullResident.lastName} as the deceased.`);
                                                     } else {
@@ -966,6 +1277,7 @@ export default function DeathRegistrationPage() {
                                             <Input
                                                 type="date"
                                                 name="dateOfDeath"
+                                                max={new Date().toLocaleDateString('en-CA')}
                                                 value={formData.dateOfDeath}
                                                 onChange={handleInputChange}
                                                 className={cn(
@@ -1053,6 +1365,18 @@ export default function DeathRegistrationPage() {
                                                 <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                             )}
                                         </div>
+                                        {formData.civilStatus === "MARRIED" && (
+                                            <div className="md:col-span-2 space-y-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Surviving Spouse&apos;s Full Name <span className="text-slate-400 font-medium">(Optional)</span></Label>
+                                                <Input
+                                                    name="survivingSpouseName"
+                                                    placeholder="ENTER SURVIVING SPOUSE'S FULL NAME"
+                                                    value={formData.survivingSpouseName}
+                                                    onChange={handleInputChange}
+                                                    className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="space-y-2 pt-4">
@@ -1093,6 +1417,50 @@ export default function DeathRegistrationPage() {
                                         </div>
                                     </div>
 
+                                    <div className="space-y-2 pt-4">
+                                        <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Corpse Disposal</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Method of Corpse Disposal <span className="text-red-500">*</span></Label>
+                                                <Select
+                                                    value={formData.corpseDisposal}
+                                                    onValueChange={(v) => handleSelectChange("corpseDisposal", v)}
+                                                >
+                                                    <SelectTrigger className={cn(
+                                                        "h-12 rounded-xl border-slate-200 focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
+                                                        (showErrors && !formData.corpseDisposal) && "border-red-500/50 bg-red-50/10"
+                                                    )}>
+                                                        <SelectValue placeholder="SELECT METHOD" />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
+                                                        <SelectItem value="BURIAL">BURIAL</SelectItem>
+                                                        <SelectItem value="CREMATION">CREMATION</SelectItem>
+                                                        <SelectItem value="RESOMATION">RESOMATION</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {(showErrors && !formData.corpseDisposal) && (
+                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
+                                                )}
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">{formData.corpseDisposal === "CREMATION" ? "Cremation Location" : formData.corpseDisposal === "RESOMATION" ? "Resomation Location" : "Cemetery Location"} <span className="text-red-500">*</span></Label>
+                                                <Input
+                                                    name="burialLocation"
+                                                    placeholder={formData.corpseDisposal === "CREMATION" ? "ENTER CREMATION LOCATION" : formData.corpseDisposal === "RESOMATION" ? "ENTER RESOMATION LOCATION" : "ENTER CEMETERY NAME OR LOCATION"}
+                                                    value={formData.burialLocation}
+                                                    onChange={handleInputChange}
+                                                    className={cn(
+                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
+                                                        (showErrors && !formData.burialLocation) && "border-red-500/50 bg-red-50/10"
+                                                    )}
+                                                />
+                                                {(showErrors && !formData.burialLocation) && (
+                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div className="flex justify-end gap-3 pt-6">
                                         <Button
                                             variant="ghost"
@@ -1104,9 +1472,13 @@ export default function DeathRegistrationPage() {
                                         </Button>
                                         <Button
                                             onClick={() => {
-                                                if (!formData.fullName || !formData.dateOfBirth || !formData.dateOfDeath || !formData.placeOfDeath || !formData.causeOfDeath || !formData.gender || !formData.civilStatus || !formData.fathersName || !formData.mothersName) {
+                                                if (!formData.fullName || !formData.dateOfBirth || !formData.dateOfDeath || !formData.placeOfDeath || !formData.causeOfDeath || !formData.gender || !formData.civilStatus || !formData.fathersName || !formData.mothersName || !formData.corpseDisposal || !formData.burialLocation) {
                                                     setShowErrors(true);
                                                     toast.error("Please fill in all deceased details.");
+                                                    return;
+                                                }
+                                                if (isSelfRegistration()) {
+                                                    toast.error("You cannot register yourself as deceased.");
                                                     return;
                                                 }
                                                 setShowErrors(false);
@@ -1155,39 +1527,72 @@ export default function DeathRegistrationPage() {
                                                 <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.causeOfDeath}</p>
                                             </div>
                                             <div className="space-y-1">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Informant</span>
-                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{resident?.firstName} {resident?.lastName} ({formData.relationship})</p>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Corpse Disposal</span>
+                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.corpseDisposal}</p>
                                             </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">{formData.corpseDisposal === "CREMATION" ? "Cremation Location" : formData.corpseDisposal === "RESOMATION" ? "Resomation Location" : "Cemetery Location"}</span>
+                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.burialLocation}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Informant</span>
+                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{resident?.firstName} {resident?.lastName} ({formData.relationship === "RELATIVE" ? `${formData.relationship} - ${formData.relationshipSpecify}` : formData.relationship})</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Informant Address</span>
+                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.informantAddress}</p>
+                                            </div>
+                                            {formData.civilStatus === "MARRIED" && formData.survivingSpouseName && (
+                                                <div className="space-y-1">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Surviving Spouse</span>
+                                                    <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.survivingSpouseName}</p>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Registration Type Toggle */}
                                         <div className="pt-4 border-t border-slate-200 dark:border-white/5 space-y-4">
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Registration Type:</span>
-                                                <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-full border border-slate-200 dark:border-white/10">
-                                                    <button
-                                                        onClick={() => setFormData(prev => ({ ...prev, registrationType: "STANDARD" }))}
-                                                        className={cn(
-                                                            "px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300",
-                                                            formData.registrationType === "STANDARD"
-                                                                ? "bg-white dark:bg-slate-800 text-emerald-600 shadow-sm"
-                                                                : "text-slate-400 hover:text-slate-600"
-                                                        )}
-                                                    >
-                                                        Standard
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setFormData(prev => ({ ...prev, registrationType: "LATE" }))}
-                                                        className={cn(
-                                                            "px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300",
-                                                            formData.registrationType === "LATE"
-                                                                ? "bg-white dark:bg-slate-800 text-emerald-600 shadow-sm"
-                                                                : "text-slate-400 hover:text-slate-600"
-                                                        )}
-                                                    >
-                                                        Late
-                                                    </button>
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                <div className="flex items-center gap-4">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Registration Type:</span>
+                                                    <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-full border border-slate-200 dark:border-white/10 opacity-80">
+                                                        <div
+                                                            className={cn(
+                                                                "px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 select-none",
+                                                                formData.registrationType === "STANDARD"
+                                                                    ? "bg-white dark:bg-slate-800 text-emerald-600 shadow-sm"
+                                                                    : "text-slate-400"
+                                                            )}
+                                                        >
+                                                            Standard
+                                                        </div>
+                                                        <div
+                                                            className={cn(
+                                                                "px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 select-none",
+                                                                formData.registrationType === "LATE"
+                                                                    ? "bg-white dark:bg-slate-800 text-emerald-600 shadow-sm"
+                                                                    : "text-slate-400"
+                                                            )}
+                                                        >
+                                                            Late
+                                                        </div>
+                                                    </div>
                                                 </div>
+                                                {formData.dateOfDeath && (() => {
+                                                    const [y, m, d] = formData.dateOfDeath.split('-').map(Number);
+                                                    const deathDate = new Date(y, m - 1, d);
+                                                    const today = new Date();
+                                                    const d1 = Date.UTC(deathDate.getFullYear(), deathDate.getMonth(), deathDate.getDate());
+                                                    const d2 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+                                                    const diffDays = Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
+                                                    return (
+                                                        <span className="text-[9px] font-black uppercase tracking-widest italic text-slate-400 bg-slate-100 dark:bg-white/5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/5">
+                                                            {diffDays >= 30 
+                                                                ? `Auto-selected Late (${diffDays} days since death)` 
+                                                                : `Auto-selected Standard (${diffDays} days since death)`}
+                                                        </span>
+                                                    );
+                                                })()}
                                             </div>
 
                                             {/* Miscellaneous Fee */}
@@ -1232,6 +1637,24 @@ export default function DeathRegistrationPage() {
                                                     </div>
                                                 </div>
                                             </div>
+                                        </div>
+                                    </Card>
+
+                                    {/* Valid ID Section */}
+                                    <Card className="bg-slate-50 dark:bg-white/5 border-none p-6 rounded-[2rem] space-y-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-1.5 bg-emerald-500/10 rounded-lg">
+                                                <User className="w-3.5 h-3.5 text-emerald-500" />
+                                            </div>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Informant&apos;s Valid ID</span>
+                                        </div>
+                                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider italic">
+                                            Your registered ID from your profile is shown below. You may replace it with a different valid ID for this transaction only.
+                                        </p>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {renderDocCard("Valid ID (Front)", "validIdFront", "valid-id-front", true)}
+                                            {renderDocCard("Valid ID (Back)", "validIdBack", "valid-id-back", true)}
                                         </div>
                                     </Card>
 
@@ -1303,33 +1726,37 @@ export default function DeathRegistrationPage() {
                                                 <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
                                                 Modify Details
                                             </Button>
-                                            <Button
-                                                onClick={handleSubmit}
-                                                disabled={
-                                                    submitting ||
-                                                    (formData.registrationType === "STANDARD" ? !files.municipalForm103 : (!files.psaNegative || !files.affidavitOfDelay))
-                                                }
-                                                className={cn(
-                                                    "md:col-span-3 h-14 rounded-full font-black uppercase tracking-widest italic text-[11px] transition-all duration-300",
-                                                    (formData.registrationType === "STANDARD" ? !files.municipalForm103 : (!files.psaNegative || !files.affidavitOfDelay))
-                                                        ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                                                        : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-500/20"
-                                                )}
-                                            >
-                                                {submitting ? (
-                                                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                                                ) : ((formData.registrationType === "STANDARD" ? !files.municipalForm103 : (!files.psaNegative || !files.affidavitOfDelay))) ? (
-                                                    <>
-                                                        Upload Required Documents
-                                                        <AlertCircle className="w-5 h-5 ml-2" />
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        Submit Death Registration Application
-                                                        <CheckCircle2 className="w-5 h-5 ml-2" />
-                                                    </>
-                                                )}
-                                            </Button>
+                                            {(() => {
+                                                const isMissingRequiredDocs = formData.registrationType === "STANDARD"
+                                                    ? !(files.municipalForm103 || existingUrls.municipalForm103)
+                                                    : !(files.psaNegative || existingUrls.psaNegative) || !(files.affidavitOfDelay || existingUrls.affidavitOfDelay);
+                                                return (
+                                                    <Button
+                                                        onClick={handleSubmit}
+                                                        disabled={submitting || isMissingRequiredDocs}
+                                                        className={cn(
+                                                            "md:col-span-3 h-14 rounded-full font-black uppercase tracking-widest italic text-[11px] transition-all duration-300",
+                                                            isMissingRequiredDocs
+                                                                ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                                                                : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-500/20"
+                                                        )}
+                                                    >
+                                                        {submitting ? (
+                                                            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                                        ) : isMissingRequiredDocs ? (
+                                                            <>
+                                                                Upload Required Documents
+                                                                <AlertCircle className="w-5 h-5 ml-2" />
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                Submit Death Registration Application
+                                                                <CheckCircle2 className="w-5 h-5 ml-2" />
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 </motion.div>

@@ -10,6 +10,7 @@ import { calculateBusinessPermit } from "@/lib/business-permit";
 import { sendEmail } from "@/lib/mail";
 import { uploadFile } from "@/lib/storage";
 import { sanitizeString, sanitizeObject, sanitizeUrl } from "@/lib/validation";
+import { updateDeceasedResidentStatus } from "./death-regis-actions";
 
 const isUserAdminAide = (u: any) => u?.role === "ADMIN_AIDE" || (u?.role === "ADMIN" && u?.department?.toUpperCase() === "BPLO");
 
@@ -454,6 +455,7 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
         const registryType = sanitizeString(formData.get("registryType") as string);
         const residentSnapshotRaw = formData.get("residentSnapshot");
         const additionalDataRaw = formData.get("additionalData");
+        const revisionId = formData.get("revisionId") ? sanitizeString(formData.get("revisionId") as string) : null;
 
         if (!typeId || !registryType || !residentSnapshotRaw || !additionalDataRaw) {
             return { success: false, error: "Missing required transaction data" };
@@ -462,7 +464,15 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
         const residentSnapshot = sanitizeObject(JSON.parse(residentSnapshotRaw as string));
         const additionalData = sanitizeObject(JSON.parse(additionalDataRaw as string));
 
-        console.log(`Processing ${registryType} transaction for user ${session.user.id}`);
+        console.log(`Processing ${registryType} transaction for user ${session.user.id} (revisionId: ${revisionId})`);
+
+        let existingTx: any = null;
+        if (revisionId) {
+            existingTx = await prisma.transaction.findUnique({
+                where: { id: revisionId }
+            });
+        }
+        const existingAddData = existingTx?.additionalData as any || {};
 
         const files: Record<string, string | null> = {};
 
@@ -495,8 +505,8 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
         let initialFiscalSnapshot: any = null;
 
         const isLCRType = [
-            "BIRTH", "DEATH", "MARRIAGE", 
-            "BIRTH_REG", "DEATH_REG", "MARRIAGE_REG", 
+            "BIRTH", "DEATH", "MARRIAGE",
+            "BIRTH_REG", "DEATH_REG", "MARRIAGE_REG",
             "MARRIAGE_LICENSE", "PSA_ENDORSEMENT"
         ].includes(registryType);
 
@@ -522,6 +532,7 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
         }
 
         const updatedAdditionalData = {
+            ...existingAddData,
             ...additionalData,
             ...files,
             registryType,
@@ -531,20 +542,35 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
         console.log("[submitCivilRegistryTransaction] updatedAdditionalData:", updatedAdditionalData);
 
         const transaction = await prisma.$transaction(async (tx: any) => {
-            const t = await tx.transaction.create({
-                data: {
-                    userId: session.user.id,
-                    typeId,
-                    status: "FOR_INSPECTION",
-                    fulfillmentType: additionalData.fulfillmentType || null,
-                    paymentType: null,
-                    residentSnapshot,
-                    additionalData: updatedAdditionalData,
-                    totalAmount: initialTotalAmount !== undefined ? initialTotalAmount : (additionalData.miscFee ?? additionalData.totalAmount ?? 0),
-                    businessName: null,
-                    ...(initialFiscalSnapshot ? { fiscalSnapshot: initialFiscalSnapshot } : {})
-                }
-            });
+            const t = revisionId
+                ? await tx.transaction.update({
+                    where: { id: revisionId },
+                    data: {
+                        status: "FOR_INSPECTION",
+                        fulfillmentType: additionalData.fulfillmentType || null,
+                        paymentType: null,
+                        residentSnapshot,
+                        additionalData: updatedAdditionalData,
+                        totalAmount: initialTotalAmount !== undefined ? initialTotalAmount : (additionalData.miscFee ?? additionalData.totalAmount ?? 0),
+                        rejectionRemarks: null, // Reset rejection remarks on resubmit!
+                        updatedAt: new Date(),
+                        ...(initialFiscalSnapshot ? { fiscalSnapshot: initialFiscalSnapshot } : {})
+                    }
+                })
+                : await tx.transaction.create({
+                    data: {
+                        userId: session.user.id,
+                        typeId,
+                        status: "FOR_INSPECTION",
+                        fulfillmentType: additionalData.fulfillmentType || null,
+                        paymentType: null,
+                        residentSnapshot,
+                        additionalData: updatedAdditionalData,
+                        totalAmount: initialTotalAmount !== undefined ? initialTotalAmount : (additionalData.miscFee ?? additionalData.totalAmount ?? 0),
+                        businessName: null,
+                        ...(initialFiscalSnapshot ? { fiscalSnapshot: initialFiscalSnapshot } : {})
+                    }
+                });
 
             await tx.resident.update({
                 where: { userId: session.user.id },
@@ -905,8 +931,10 @@ export async function getTransactionById(id: string) {
                 birthCertificateRequest: true,
                 birthCertificateRegistry: true,
                 deathRegistration: true,
+                deathCertificateRequest: true,
                 marriageRegistration: true,
                 marriageLicenseApplication: true,
+                marriageCertificateRequest: true,
                 user: {
                     select: {
                         id: true,
@@ -1837,7 +1865,8 @@ export async function rejectTransaction(id: string, remarks: string) {
             const rejectedTransactions = await prisma.transaction.findMany({
                 where: {
                     userId: tx.userId,
-                    status: "REJECTED"
+                    status: "REJECTED",
+                    createdAt: (tx.user as any).rejectionResetAt ? { gt: (tx.user as any).rejectionResetAt } : undefined
                 },
                 include: {
                     type: true
@@ -1947,7 +1976,8 @@ export async function sendForRevision(id: string, remarks: string) {
                 const rejectedTransactions = await prisma.transaction.findMany({
                     where: {
                         userId: tx.userId,
-                        status: "REJECTED"
+                        status: "REJECTED",
+                        createdAt: (tx.user as any).rejectionResetAt ? { gt: (tx.user as any).rejectionResetAt } : undefined
                     },
                     include: {
                         type: true
@@ -2250,6 +2280,8 @@ export async function deliverTransaction(transactionId: string, podUrl: string) 
                 deliveredAt: new Date()
             } as any
         });
+
+        await updateDeceasedResidentStatus(transactionId);
 
         revalidatePath("/admin/treasury");
         revalidatePath(`/admin/treasury/${transactionId}`);

@@ -708,7 +708,7 @@ export default function BirthCertificateView(props: TreasuryViewProps) {
                         )}
 
                         {/* REGISTRAR UPLOAD E-COPY AND OR RELEASE ACTION */}
-                        {transaction.status === "FOR_PROCESSING" && (
+                        {(transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REINSPECTION") && (
                             <div className="space-y-6">
                                 <div className="bg-[#111827] border border-slate-800 rounded-[2rem] p-8 shadow-2xl space-y-6">
                                     <div className="space-y-1">

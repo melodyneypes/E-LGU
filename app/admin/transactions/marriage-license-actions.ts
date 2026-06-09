@@ -19,7 +19,7 @@ async function processFileUpload(file: File, folder: string = "transactions"): P
 
     try {
         const buffer = Buffer.from(await file.arrayBuffer());
-        const filename = `${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
+        const filename = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, "_").replace(/_+/g, "_")}`;
         const storagePath = `services/${folder}/${filename}`;
 
         const publicUrl = await uploadFile(buffer, storagePath, undefined, file.type);

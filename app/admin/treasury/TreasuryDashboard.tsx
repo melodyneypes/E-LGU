@@ -78,6 +78,13 @@ export default function TreasuryDashboard() {
     const hasSelectedCategory = Boolean(categoryParam && categoryParam !== "ALL");
     const { data: session } = useSession();
 
+    // Auto-redirect to category=CEDULA if no category is specified to avoid blank dashboard
+    useEffect(() => {
+        if (!categoryParam) {
+            router.replace("/admin/treasury?category=CEDULA");
+        }
+    }, [categoryParam, router]);
+
     const userRole = (session?.user as any)?.role;
     const userDepartment = (session?.user as any)?.department;
     const isAdminAide = userRole === "ADMIN_AIDE" || (userRole === "ADMIN" && userDepartment?.toUpperCase() === "BPLO");
@@ -502,7 +509,7 @@ export default function TreasuryDashboard() {
                                             paginatedTransactions.map((tx, index) => (
                                                 <TableRow
                                                     key={tx.id}
-                                                    onClick={() => router.push(`/admin/treasury/${tx.id}?category=${categoryParam || "ALL"}`)}
+                                                    onClick={() => router.push(`/admin/treasury/${tx.id}?category=${categoryParam || "CEDULA"}`)}
                                                     className="border-b border-slate-100 dark:border-[#2a3040]/50 hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e]/50 transition-colors cursor-pointer select-none"
                                                 >
                                                     <TableCell className="py-4">

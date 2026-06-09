@@ -1,4 +1,4 @@
- 
+
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use server";
 
@@ -49,7 +49,7 @@ async function deleteUploadedFile(imageUrl: string | null | undefined) {
 async function processImageUpload(formData: FormData, fieldName: string = "imageFile"): Promise<string | null> {
     const fileItem = formData.get(fieldName);
     const fileItemAlt = formData.get(`${fieldName}File`);
-    
+
     let file: File | null = null;
     let existingUrl: string | null = null;
 
@@ -72,7 +72,7 @@ async function processImageUpload(formData: FormData, fieldName: string = "image
             let folder = formData.get("storageFolder")?.toString().toLowerCase() || "uploads";
             const category = formData.get("category")?.toString().toLowerCase() || "";
             const position = formData.get("position")?.toString().toLowerCase() || "";
-            
+
             if (folder === "uploads") {
                 if (fieldName.toLowerCase().includes("logo")) folder = "logos";
                 else if (fieldName.toLowerCase().includes("hero") || fieldName.toLowerCase().includes("slide")) folder = "banners";
@@ -89,10 +89,10 @@ async function processImageUpload(formData: FormData, fieldName: string = "image
 
             const filename = `${Date.now()}_${(file.name || "upload").replaceAll(" ", "_")}`;
             const storagePath = `${folder}/${filename}`;
-            
+
             const buffer = Buffer.from(await file.arrayBuffer());
             const publicUrl = await uploadFile(buffer, storagePath);
-            
+
             if (!publicUrl) throw new Error("Upload failed");
 
             // Auto-delete old file if it exists and we have a new upload
@@ -122,7 +122,7 @@ async function processMultipleImages(formData: FormData, fieldName: string = "im
                 const buffer = Buffer.from(await fileItem.arrayBuffer());
                 const filename = `${Date.now()}_${(fileItem.name || "upload").replaceAll(" ", "_")}`;
                 const storagePath = `reports/${filename}`;
-                
+
                 const publicUrl = await uploadFile(buffer, storagePath);
                 if (publicUrl) uploadedPaths.push(publicUrl);
             } catch (error) {
@@ -146,13 +146,13 @@ export async function getResidentCategories() {
         let categories = await (prisma as any).residentCategory.findMany({
             orderBy: { name: "asc" }
         });
-        
+
         if (categories.length === 0) {
             const defaults = ["Citizen", "Business Owner", "Guests"];
             for (const name of defaults) {
                 await (prisma as any).residentCategory.create({
                     data: { name }
-                }).catch(() => {});
+                }).catch(() => { });
             }
             categories = await (prisma as any).residentCategory.findMany({ orderBy: { name: "asc" } });
         }
@@ -335,13 +335,13 @@ export async function getHeadDetails(id: string) {
 
         if (!head) return { success: false, error: "Head not found" };
 
-        return { 
-            success: true, 
+        return {
+            success: true,
             data: {
                 barangay: head.barangay,
                 contactNumber: head.contactNumber,
                 familyCount: 1 + (head.familyMembers?.length || 0)
-            } 
+            }
         };
     } catch (error) {
         console.error("Get head details error:", error);
@@ -1246,21 +1246,21 @@ export async function addHousehold(formData: FormData) {
         const headId = formData.get("headId") as string;
         const lat = formData.get("latitude") ? parseFloat(formData.get("latitude") as string) : null;
         const lng = formData.get("longitude") ? parseFloat(formData.get("longitude") as string) : null;
-        
+
         if (headId) {
             const existing = await (prisma as any).household.findUnique({
                 where: { headId }
             });
             if (existing) {
-                return { 
-                    success: false, 
-                    error: "This person is already a head of another household." 
+                return {
+                    success: false,
+                    error: "This person is already a head of another household."
                 };
             }
         }
-        
+
         const barangay = formData.get("barangay") as string || await getSessionBarangay();
-        
+
         const household = await (prisma as any).household.create({
             data: {
                 headId: headId || null,
@@ -1298,18 +1298,18 @@ export async function addHousehold(formData: FormData) {
 export async function updateHousehold(id: string, formData: FormData) {
     try {
         const headId = formData.get("headId") as string;
-        
+
         if (headId) {
             const existing = await (prisma as any).household.findFirst({
-                where: { 
+                where: {
                     headId,
                     id: { not: id }
                 }
             });
             if (existing) {
-                return { 
-                    success: false, 
-                    error: "This person is already a head of another household." 
+                return {
+                    success: false,
+                    error: "This person is already a head of another household."
                 };
             }
         }
@@ -1381,7 +1381,7 @@ export async function addResident(formData: FormData) {
 
         const familyMembersData = formData.get("familyMembers") as string;
         const familyMembers = familyMembersData ? JSON.parse(familyMembersData) : [];
-        
+
         const isHead = formData.get("isHead") === "true" || formData.get("isHead") === "on";
         const headIdFromForm = formData.get("headId") as string || null;
         let householdId = (formData.get("householdId") as string) || null;
@@ -1434,7 +1434,7 @@ export async function addResident(formData: FormData) {
             // Use provided password or default to email
             const rawPassword = password || email;
             const hashedPassword = await bcrypt.hash(rawPassword, 10);
-            
+
             console.log(`[AccountSync] Creating user account for ${email}...`);
             const user = await prisma.user.create({
                 data: {
@@ -1530,8 +1530,8 @@ export async function addResident(formData: FormData) {
                 registrationType: "HEAD",
                 isDead: false,
                 rfid: null,
-                facialRecognition: formData.get("facialRecognition") 
-                    ? JSON.parse(formData.get("facialRecognition") as string) 
+                facialRecognition: formData.get("facialRecognition")
+                    ? JSON.parse(formData.get("facialRecognition") as string)
                     : null,
                 userId: createdUserId,
                 email: email,
@@ -1562,7 +1562,7 @@ export async function addResident(formData: FormData) {
                     if (target) {
                         await (prisma as any).resident.update({
                             where: { id: member.id },
-                            data: { 
+                            data: {
                                 householdId: householdId,
                                 familyHeadId: resident.id,
                                 relationshipToHead: member.relationship || "Member"
@@ -1699,8 +1699,8 @@ export async function updateResident(id: string, formData: FormData) {
             receivedBy: activeUserName,
             officialPosition: activeUserRole,
             dateReceived: new Date(),
-            facialRecognition: formData.get("facialRecognition") 
-                ? JSON.parse(formData.get("facialRecognition") as string) 
+            facialRecognition: formData.get("facialRecognition")
+                ? JSON.parse(formData.get("facialRecognition") as string)
                 : undefined,
             registrationStatus: "APPROVED",
             categoryId: categoryIds.length > 0 ? categoryIds[0] : null
@@ -1708,7 +1708,7 @@ export async function updateResident(id: string, formData: FormData) {
 
         if (email) {
             const name = `${formData.get("firstName")} ${formData.get("lastName")}`;
-            
+
             if (currentResident?.userId) {
                 // Check if email taken by ANOTHER person
                 const existingUser = await prisma.user.findFirst({
@@ -1742,7 +1742,7 @@ export async function updateResident(id: string, formData: FormData) {
 
                 const rawPassword = password || email;
                 const hashedPassword = await bcrypt.hash(rawPassword, 10);
-                
+
                 console.log(`[AccountSync] Creating new account for ${email}...`);
                 const user = await prisma.user.create({
                     data: {
@@ -1774,10 +1774,10 @@ export async function updateResident(id: string, formData: FormData) {
 
         if (livenessUrl) dataToUpdate.livenessUrl = livenessUrl;
         else dataToUpdate.livenessUrl = (formData.get("livenessUrl") as string) || null;
-        
+
         if (idFrontUrl) dataToUpdate.idFrontUrl = idFrontUrl;
         else dataToUpdate.idFrontUrl = (formData.get("idFrontUrl") as string) || null;
-        
+
         if (idBackUrl) dataToUpdate.idBackUrl = idBackUrl;
         else dataToUpdate.idBackUrl = (formData.get("idBackUrl") as string) || null;
 
@@ -1863,7 +1863,7 @@ export async function updateResident(id: string, formData: FormData) {
                     if (target) {
                         await (prisma as any).resident.update({
                             where: { id: member.id },
-                            data: { 
+                            data: {
                                 householdId: householdId,
                                 relationshipToHead: member.relationship || "Member"
                             } as any
@@ -1874,16 +1874,16 @@ export async function updateResident(id: string, formData: FormData) {
                 // If specialized head update, handle unlinking
                 if (isHead) {
                     const currentMembers = await (prisma.resident as any).findMany({
-                        where: { 
+                        where: {
                             householdId: householdId,
-                            id: { not: id } 
+                            id: { not: id }
                         },
                         select: { id: true }
                     });
-                    
+
                     const newMemberIds = linkedMembers.map((m: any) => m.id);
                     const membersToUnlink = currentMembers.filter((m: any) => !newMemberIds.includes(m.id));
-                    
+
                     for (const member of membersToUnlink) {
                         await (prisma as any).resident.update({
                             where: { id: member.id },
@@ -1934,14 +1934,14 @@ export async function updateResident(id: string, formData: FormData) {
 
 export async function deleteResident(id: string) {
     try {
-        const resident = await (prisma as any).resident.findUnique({ 
+        const resident = await (prisma as any).resident.findUnique({
             where: { id },
-            select: { 
-                userId: true, 
-                householdId: true, 
-                imageUrl: true, 
+            select: {
+                userId: true,
+                householdId: true,
+                imageUrl: true,
                 livenessUrl: true,
-                idFrontUrl: true, 
+                idFrontUrl: true,
                 idBackUrl: true
             }
         });
@@ -2023,8 +2023,8 @@ export async function updateResidentRFID(id: string, rfid: string) {
 export async function getDisasterZones() {
     try {
         const zones = await (prisma as any).disasterZone.findMany({ orderBy: { createdAt: "desc" } });
-        return { 
-            success: true, 
+        return {
+            success: true,
             zones: zones.map((z: any) => ({
                 ...z,
                 shapes: typeof z.shapes === 'string' ? JSON.parse(z.shapes) : (z.shapes || [])
@@ -2233,7 +2233,7 @@ export async function toggleAnnouncementPin(id: string, isPinned: boolean) {
 export async function addCommunityReport(formData: FormData) {
     try {
         const session = await getServerSession(authOptions);
-        
+
         // DEBUG: Check who is actually submitting
         console.log("[Reporting] Submission Debug:", {
             sessionId: (session?.user as any)?.id,
@@ -2247,7 +2247,7 @@ export async function addCommunityReport(formData: FormData) {
         }
 
         const images = await processMultipleImages(formData, "images");
-        
+
         const latRaw = formData.get("latitude");
         const lngRaw = formData.get("longitude");
 
@@ -2330,7 +2330,7 @@ export async function updateReportStatus(id: string, status: string, adminCommen
 
         await (prisma as any).report.update({
             where: { id },
-            data: { 
+            data: {
                 status: status as any,
                 adminComment: adminComment || undefined
             } as any
@@ -2348,7 +2348,7 @@ export async function getReportById(id: string) {
     try {
         console.log(`[Reporting] Fetching report details for ID: ${id}`);
         const session = await getServerSession(authOptions);
-        
+
         if (!session?.user?.id) {
             console.error("[Reporting] Unauthorized access attempt - No session ID found");
             return { success: false, error: "Unauthorized" };
@@ -2363,7 +2363,7 @@ export async function getReportById(id: string) {
             console.error(`[Reporting] Report not found: ${id}`);
             return { success: false, error: "Report not found" };
         }
-        
+
         // Ensure user can only see their own report unless admin
         const userId = (session.user as any).id;
         if ((session.user as any).role !== "ADMIN" && report.userId !== userId) {
@@ -2382,9 +2382,9 @@ export async function updateUserRole(userId: string, role: string, managedBarang
     try {
         await prisma.user.update({
             where: { id: userId },
-            data: { 
+            data: {
                 role: role as any,
-                managedBarangay 
+                managedBarangay
             }
         });
         revalidatePath("/admin/users");
@@ -2431,7 +2431,7 @@ export async function addBarangay(formData: FormData) {
 export async function updateBarangay(id: string, formData: FormData) {
     try {
         const oldItem = await prisma.barangayInfo.findUnique({ where: { id } });
-        
+
         const logoUrl = await processImageUpload(formData, "logo");
         const coverImageUrl = await processImageUpload(formData, "coverImage");
         const captainImageUrl = await processImageUpload(formData, "captainImage");
@@ -2664,13 +2664,13 @@ export async function deleteUser(userId: string) {
         });
 
         // Delete transaction dependent child records to satisfy integrity constraints
-        await (prisma as any).cedula.deleteMany({ where: { transaction: { userId } } }).catch(() => {});
-        await (prisma as any).businessPermit.deleteMany({ where: { transaction: { userId } } }).catch(() => {});
-        await (prisma as any).buildingPermit.deleteMany({ where: { transaction: { userId } } }).catch(() => {});
-        await (prisma as any).birthCertificateRequest.deleteMany({ where: { transaction: { userId } } }).catch(() => {});
-        await (prisma as any).deathCertificateRequest.deleteMany({ where: { transaction: { userId } } }).catch(() => {});
-        await (prisma as any).marriageCertificateRequest.deleteMany({ where: { transaction: { userId } } }).catch(() => {});
-        await (prisma as any).payment.deleteMany({ where: { transaction: { userId } } }).catch(() => {});
+        await (prisma as any).cedula.deleteMany({ where: { transaction: { userId } } }).catch(() => { });
+        await (prisma as any).businessPermit.deleteMany({ where: { transaction: { userId } } }).catch(() => { });
+        await (prisma as any).buildingPermit.deleteMany({ where: { transaction: { userId } } }).catch(() => { });
+        await (prisma as any).birthCertificateRequest.deleteMany({ where: { transaction: { userId } } }).catch(() => { });
+        await (prisma as any).deathCertificateRequest.deleteMany({ where: { transaction: { userId } } }).catch(() => { });
+        await (prisma as any).marriageCertificateRequest.deleteMany({ where: { transaction: { userId } } }).catch(() => { });
+        await (prisma as any).payment.deleteMany({ where: { transaction: { userId } } }).catch(() => { });
 
         // Delete transactions where the user is the resident
         await (prisma as any).transaction.deleteMany({ where: { userId } }).catch((err: any) => {
@@ -2715,4 +2715,33 @@ export async function createReportAdmin(userId: string, category: string, descri
         return { success: false, error: error.message || "Failed to file report" };
     }
 }
+
+/**
+ * Unlock and activate a deactivated user account, resetting their rejection count and setting their email as verified.
+ */
+export async function activateUser(userId: string) {
+    try {
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        if (!user || (user.role !== "ADMIN" && user.role !== "TREASURY_STAFF")) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const updated = await prisma.user.update({
+            where: { id: userId },
+            data: {
+                rejectionCount: 0,
+                isEmailVerified: true,
+                rejectionResetAt: new Date(),
+            } as any
+        });
+
+        revalidatePath("/admin/users");
+        return { success: true, user: updated };
+    } catch (error: any) {
+        console.error("Failed to activate user:", error);
+        return { success: false, error: error.message || "Failed to activate user account" };
+    }
+}
+
 

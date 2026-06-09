@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, use, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -43,6 +44,7 @@ import { releaseDeathRegistry, evaluateDeathRegistrationTransaction } from "@/ap
 import { releaseDeathCertificate, evaluateDeathCertificateTransaction } from "@/app/admin/transactions/death-cert-actions";
 import { releaseMarriageLicense, evaluateMarriageLicenseTransaction, processMarriageLicenseRequest } from "@/app/admin/transactions/marriage-license-actions";
 import { releaseMarriageRegistry, evaluateMarriageRegistrationTransaction } from "@/app/admin/transactions/marriage-regis-actions";
+import { releaseMarriageCertificate, evaluateMarriageCertificateTransaction } from "@/app/admin/transactions/marriage-cert-actions";
 import { calculateCedula } from "@/lib/cedula";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { Button } from "@/components/ui/button";
@@ -509,6 +511,32 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     }, [id]);
 
     useEffect(() => {
+        if (!supabase || !id) return;
+
+        console.log(`Subscribing to Supabase Realtime for transaction ${id}...`);
+        const channel = supabase
+            .channel(`realtime-registrar-transaction-${id}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "Transaction",
+                    filter: `id=eq.${id}`,
+                },
+                () => {
+                    fetchTransaction();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            console.log(`Unsubscribing from Supabase Realtime for transaction ${id}...`);
+            supabase.removeChannel(channel);
+        };
+    }, [id, fetchTransaction]);
+
+    useEffect(() => {
         if (!session) return;
         const role = (session?.user as any)?.role;
         const dept = (session?.user as any)?.department;
@@ -593,7 +621,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             toast.error("CTC Number Required");
             return;
         }
-        if (isLCR && typeCode !== "LCR_BIRTH" && typeCode !== "LCR_DEATH" && !eCopyFile && !transaction.eCopyUrl) {
+        if (isLCR && typeCode !== "LCR_BIRTH" && typeCode !== "LCR_DEATH" && typeCode !== "LCR_MARRIAGE" && !eCopyFile && !transaction.eCopyUrl) {
             toast.error("Official Digital E-Copy registry record is required before releasing.");
             return;
         }
@@ -609,7 +637,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             }
 
             let verificationDocUrl = "";
-            if (isLCR && (typeCode === "LCR_BIRTH" || typeCode === "LCR_DEATH") && transaction?.status === "FOR_PROCESSING") {
+            if (isLCR && (typeCode === "LCR_BIRTH" || typeCode === "LCR_DEATH" || typeCode === "LCR_MARRIAGE") && transaction?.status === "FOR_PROCESSING") {
                 if (!registryBookVerification) {
                     toast.error("Registry Book Verification Form Choice is required.");
                     setActionLoading(false);
@@ -660,11 +688,13 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                         ? await releaseDeathCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl, registryBookVerification, verificationDocUrl)
                         : typeCode === "LCR_DEATH_REG"
                             ? await releaseDeathRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                            : typeCode === "LCR_MARRIAGE_REG"
-                                ? await releaseMarriageRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                : typeCode === "LCR_MARRIAGE_LICENSE"
-                                    ? await releaseMarriageLicense(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                    : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
+                            : typeCode === "LCR_MARRIAGE"
+                                ? await releaseMarriageCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl, registryBookVerification, verificationDocUrl)
+                                : typeCode === "LCR_MARRIAGE_REG"
+                                    ? await releaseMarriageRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                    : typeCode === "LCR_MARRIAGE_LICENSE"
+                                        ? await releaseMarriageLicense(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                        : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
             if (res.success) {
                 const status = res.data?.status;
                 const message = status === "FOR_PICKING"
@@ -793,11 +823,13 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 ? await evaluateDeathRegistrationTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee))
                 : typeCode === "LCR_DEATH"
                     ? await evaluateDeathCertificateTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee))
-                    : typeCode === "LCR_MARRIAGE_LICENSE"
-                        ? await evaluateMarriageLicenseTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee))
-                        : typeCode === "LCR_MARRIAGE_REG"
-                            ? await evaluateMarriageRegistrationTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee))
-                            : await evaluateCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee));
+                    : typeCode === "LCR_MARRIAGE"
+                        ? await evaluateMarriageCertificateTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee))
+                        : typeCode === "LCR_MARRIAGE_LICENSE"
+                            ? await evaluateMarriageLicenseTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee))
+                            : typeCode === "LCR_MARRIAGE_REG"
+                                ? await evaluateMarriageRegistrationTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee))
+                                : await evaluateCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, Number(miscFee));
             if (res.success) {
                 toast.success("Evaluated Successfully");
                 router.push(backUrl);
@@ -818,9 +850,11 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                             ? releaseDeathCertificate
                             : typeCode === "LCR_DEATH_REG"
                                 ? releaseDeathRegistry
-                                : typeCode === "LCR_MARRIAGE_LICENSE"
-                                    ? releaseMarriageLicense
-                                    : releaseCedula;
+                                : typeCode === "LCR_MARRIAGE"
+                                    ? releaseMarriageCertificate
+                                    : typeCode === "LCR_MARRIAGE_LICENSE"
+                                        ? releaseMarriageLicense
+                                        : releaseCedula;
                 const rel = await releaseFn(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "");
                 if (rel.success) {
                     toast.success("Proceeding to Processing");
@@ -851,9 +885,11 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                             ? releaseDeathCertificate
                             : typeCode === "LCR_DEATH_REG"
                                 ? releaseDeathRegistry
-                                : typeCode === "LCR_MARRIAGE_LICENSE"
-                                    ? releaseMarriageLicense
-                                    : releaseCedula;
+                                : typeCode === "LCR_MARRIAGE"
+                                    ? releaseMarriageCertificate
+                                    : typeCode === "LCR_MARRIAGE_LICENSE"
+                                        ? releaseMarriageLicense
+                                        : releaseCedula;
                 const rel = await releaseFn(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "");
                 if (rel.success) {
                     toast.success("Proceeding to Processing");
@@ -1353,10 +1389,12 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             { id: "REJECTED", label: "REJECTED" }
         ];
     } else if (status === "FOR_REVISION") {
-        steps = [
-            { id: isLCR ? "FOR_INSPECTION" : "FOR_REQUESTING", label: "EVALUATION" },
-            { id: "FOR_REVISION", label: "REVISION REQ." }
-        ];
+        const evalIdx = steps.findIndex(s => s.id === (isLCR ? "FOR_INSPECTION" : "FOR_REQUESTING"));
+        if (evalIdx >= 0) {
+            steps.splice(evalIdx + 1, 0, { id: "FOR_REVISION", label: "REVISION REQ." });
+        } else {
+            steps.splice(1, 0, { id: "FOR_REVISION", label: "REVISION REQ." });
+        }
     } else if (status === "FOR_REINSPECTION" && !isBusinessPermit) {
         const procIdx = steps.findIndex(s => s.id === "FOR_PROCESSING");
         if (procIdx >= 0) {
@@ -1473,6 +1511,10 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 } else {
                     docs.push({ url: additional.municipalForm103, label: "Municipal Form No. 103" });
                 }
+                const idFront = additional.validIdFront || additional.idFrontUrl || resident.idFrontUrl || transaction.user?.residentProfile?.idFrontUrl;
+                const idBack = additional.validIdBack || additional.idBackUrl || resident.idBackUrl || transaction.user?.residentProfile?.idBackUrl;
+                if (idFront) docs.push({ url: idFront, label: "Informant's Valid ID (Front)" });
+                if (idBack) docs.push({ url: idBack, label: "Informant's Valid ID (Back)" });
             }
 
             if (typeCode === "LCR_MARRIAGE") {
@@ -1703,6 +1745,23 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         handleProcessRequest
     };
 
+    if (typeCode === "LCR_MARRIAGE") {
+        return (
+            <>
+                <MarriageCertificateRequestView {...viewProps} />
+                <DocumentViewerModal
+                    isOpen={viewerOpen}
+                    onClose={() => setViewerOpen(false)}
+                    file={null}
+                    fileUrl={viewerUrl}
+                    title={viewerTitle}
+                    themeColor={themeColor}
+                    documents={viewerDocs}
+                    initialIndex={viewerInitialIdx}
+                />
+            </>
+        );
+    }
     if (isBusinessPermit) {
         return (
             <>
@@ -1754,23 +1813,6 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         return (
             <>
                 <DeathPsaEndorsementView {...viewProps} />
-                <DocumentViewerModal
-                    isOpen={viewerOpen}
-                    onClose={() => setViewerOpen(false)}
-                    file={null}
-                    fileUrl={viewerUrl}
-                    title={viewerTitle}
-                    themeColor={themeColor}
-                    documents={viewerDocs}
-                    initialIndex={viewerInitialIdx}
-                />
-            </>
-        );
-    }
-    if (typeCode === "LCR_MARRIAGE") {
-        return (
-            <>
-                <MarriageCertificateRequestView {...viewProps} />
                 <DocumentViewerModal
                     isOpen={viewerOpen}
                     onClose={() => setViewerOpen(false)}

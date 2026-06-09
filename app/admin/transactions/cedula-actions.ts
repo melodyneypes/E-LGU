@@ -8,6 +8,7 @@ import { sendEmail } from "@/lib/mail";
 import { uploadFile } from "@/lib/storage";
 import { calculateCedula } from "@/lib/cedula";
 import { sanitizeString, sanitizeUrl } from "@/lib/validation";
+import { updateDeceasedResidentStatus } from "./death-regis-actions";
 
 const isUserAdminAide = (u: any) => u?.role === "ADMIN_AIDE" || (u?.role === "ADMIN" && u?.department?.toUpperCase() === "BPLO");
 
@@ -495,6 +496,10 @@ export async function releaseCedula(id: string, ctcNumber: string, eCopyUrl?: st
                 ...(orUrl ? { orUrl } : {})
             }
         });
+
+        if (targetStatus === "RELEASED" || targetStatus === "FOR_PICKING" || targetStatus === "FOR_CLAIM") {
+            await updateDeceasedResidentStatus(id);
+        }
 
         if (transaction.user?.email) {
             const resident = transaction.residentSnapshot as any;

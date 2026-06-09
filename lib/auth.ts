@@ -106,12 +106,16 @@ export const authOptions: NextAuthOptions = {
                 if (!dbUser || !dbUser.isEmailVerified || (dbUser as any).rejectionCount >= 3) {
                     // Force the session to expire immediately (triggering auto-logout)
                     token.exp = 1; // Set to very small number to trigger expiration
+                    token.deactivated = true;
                 }
             }
 
             return token;
         },
         async session({ session, token }) {
+            if (token.deactivated || token.exp === 1) {
+                return {} as any;
+            }
             if (session.user) {
 
                 (session.user as any).role = token.role;
