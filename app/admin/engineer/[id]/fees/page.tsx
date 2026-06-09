@@ -95,8 +95,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                 const assessed = tx.additionalData?.feeAssessment;
                 if (assessed) {
                     setBuildingFee(String(assessed.buildingPermitFee || ""));
-                    setElectricalFee(String(assessed.electricalPermitFee || ""));
-                    setSanitaryFee(String(assessed.sanitaryPermitFee || ""));
                     if (assessed.engineerMunicipalCharges && assessed.engineerMunicipalCharges.length > 0) {
                         setEngineerMunicipalCharges(assessed.engineerMunicipalCharges.map((c: any) => ({ name: c.name, amount: String(c.amount) })));
                     } else if (assessed.municipalCharges) {
@@ -121,7 +119,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     }, [fetchTransaction]);
 
     const handleEndorse = async () => {
-        if (!buildingFee || !electricalFee || !sanitaryFee) {
+        if (!buildingFee) {
             toast.error("Please fill in all required fee fields.");
             return;
         }
@@ -132,8 +130,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         try {
             const res = await endorseBuildingPermitFees(id, {
                 buildingPermitFee: Number(buildingFee),
-                electricalPermitFee: Number(electricalFee),
-                sanitaryPermitFee: Number(sanitaryFee),
                 engineerMunicipalCharges: validCharges.map(c => ({ name: c.name, amount: Number(c.amount) }))
             });
 
@@ -593,7 +589,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                 />
                             </div>
 
-                            <div className="space-y-3">
+                            {false && <div className="space-y-3">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Electrical Permit Fee (₱) *</Label>
                                 <Input
                                     type="number"
@@ -607,9 +603,9 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                     disabled={isViewOnly}
                                     className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100"
                                 />
-                            </div>
+                            </div>}
 
-                            <div className="space-y-3">
+                            {false && <div className="space-y-3">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Sanitary Permit Fee (₱) *</Label>
                                 <Input
                                     type="number"
@@ -623,7 +619,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                     disabled={isViewOnly}
                                     className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100"
                                 />
-                            </div>
+                            </div>}
 
                             <div className="col-span-1 md:col-span-2 space-y-4">
                                 <div className="flex items-center justify-between">
@@ -713,8 +709,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                 <span className="text-xl font-black italic text-primary">
                                     ₱{Number(
                                         (Number(buildingFee) || 0) +
-                                        (Number(electricalFee) || 0) +
-                                        (Number(sanitaryFee) || 0) +
                                         engineerMunicipalCharges.reduce((sum, c) => sum + (Number(c.amount) || 0), 0) +
                                         (transaction.additionalData?.feeAssessment?.additionalFees || []).reduce((sum: number, f: any) => sum + Number(f.amount || 0), 0)
                                     ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -888,7 +882,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                         {!isEndorsed && userRole === "ENGINEER" && (
                             <Button
                                 onClick={handleEndorse}
-                                disabled={actionLoading || !buildingFee || !electricalFee || !sanitaryFee}
+                                disabled={actionLoading || !buildingFee}
                                 className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95"
                             >
                                 <Check className="w-4 h-4 mr-2" /> Endorse to Treasury

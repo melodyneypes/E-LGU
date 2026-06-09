@@ -518,8 +518,6 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                     if (assessed && assessed.endorsed) {
                         setFeeLineItems([
                             { label: "Building Permit Fee", amount: String(assessed.buildingPermitFee || 0) },
-                            { label: "Electrical Permit Fee", amount: String(assessed.electricalPermitFee || 0) },
-                            { label: "Sanitary Permit Fee", amount: String(assessed.sanitaryPermitFee || 0) },
                             { label: "Other Applicable Municipal Charges", amount: String(assessed.municipalCharges || 0) }
                         ]);
                     }

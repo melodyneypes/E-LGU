@@ -57,6 +57,26 @@ export async function confirmTransactionPayment(id: string, referenceNo?: string
             include: { user: true, type: true }
         });
 
+        if (nextStatus === "PAID") {
+            await prisma.payment.upsert({
+                where: { transactionId: sanitizedId },
+                update: {
+                    amount: Number(updatedTransaction.totalAmount || 0),
+                    method: updatedTransaction.paymentType || "CASH",
+                    status: "PAID",
+                    reference: sanitizedReferenceNo || updatedTransaction.paymentReference || `manual_${sanitizedId}`
+                },
+                create: {
+                    transactionId: sanitizedId,
+                    amount: Number(updatedTransaction.totalAmount || 0),
+                    method: updatedTransaction.paymentType || "CASH",
+                    status: "PAID",
+                    reference: sanitizedReferenceNo || updatedTransaction.paymentReference || `manual_${sanitizedId}`,
+                    meta: { source: "treasury_confirmation" }
+                }
+            });
+        }
+
         if (nextStatus === "PAID" && updatedTransaction.user?.email) {
             const resident = updatedTransaction.residentSnapshot as any;
             await sendEmail({
@@ -70,6 +90,7 @@ export async function confirmTransactionPayment(id: string, referenceNo?: string
         }
 
         revalidatePath("/admin/treasury");
+        revalidatePath("/admin/treasury/payments");
         return { success: true, data: updatedTransaction };
     } catch (error) {
         console.error("Confirm payment error:", error);
@@ -137,6 +158,40 @@ export async function confirmTransactionPaymentWithReceipt(formData: FormData) {
             include: { user: true, type: true }
         });
 
+        const paymentReference =
+            currentAdditionalData.gcashReferenceNo ||
+            currentAdditionalData.referenceNo ||
+            transaction.paymentReference ||
+            (orSeriesNumber ? sanitizeString(orSeriesNumber) : null) ||
+            `manual_${sanitizedId}`;
+
+        await prisma.payment.upsert({
+            where: { transactionId: sanitizedId },
+            update: {
+                amount: Number(updatedTransaction.totalAmount || 0),
+                method: updatedTransaction.paymentType || "CASH",
+                status: "PAID",
+                reference: String(paymentReference),
+                meta: {
+                    source: "treasury_confirmation",
+                    ...(treasuryReceiptUrl && { treasuryReceiptUrl }),
+                    ...(orDocumentUrl && { orDocumentUrl })
+                }
+            },
+            create: {
+                transactionId: sanitizedId,
+                amount: Number(updatedTransaction.totalAmount || 0),
+                method: updatedTransaction.paymentType || "CASH",
+                status: "PAID",
+                reference: String(paymentReference),
+                meta: {
+                    source: "treasury_confirmation",
+                    ...(treasuryReceiptUrl && { treasuryReceiptUrl }),
+                    ...(orDocumentUrl && { orDocumentUrl })
+                }
+            }
+        });
+
         if (updatedTransaction.user?.email) {
             const resident = updatedTransaction.residentSnapshot as any;
             await sendEmail({
@@ -150,6 +205,7 @@ export async function confirmTransactionPaymentWithReceipt(formData: FormData) {
         }
 
         revalidatePath("/admin/treasury");
+        revalidatePath("/admin/treasury/payments");
         return { success: true, data: updatedTransaction };
     } catch (error) {
         console.error("Confirm payment with receipt error:", error);

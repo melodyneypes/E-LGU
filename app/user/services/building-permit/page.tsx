@@ -531,7 +531,7 @@ export default function BuildingPermitPage() {
     .filter(index => uploadedRequirementKeys.has(`req_${index}`)).length;
 
   const requiredPermitIndexes = Array.from({ length: 7 }, (_, index) => index)
-    .filter(index => ![0, 4].includes(index));
+    .filter(index => index !== 4);
   const requiredPermitsCount = requiredPermitIndexes.length;
   const uploadedPermitKeys = new Set([
     ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("permit_")),
@@ -1082,7 +1082,7 @@ export default function BuildingPermitPage() {
       // 3. Upload Requirements
       const finalReqUrls: Record<string, string> = {};
       for (let i = 0; i < 10; i++) {
-        if (i === 7 && !isAffidavitOfConsentRequired) continue;
+        if (i === 5 || (i === 7 && !isAffidavitOfConsentRequired)) continue;
         const file = uploadedRequirements[i];
         if (file) {
           const url = await uploadFileClientSide(file, "requirements", `req_${i}`);
@@ -2557,7 +2557,7 @@ export default function BuildingPermitPage() {
               {(activeDocTab === "REQUIREMENTS"
                 ? documentRequirementsList
                   .map((docName, idx) => ({ docName, idx }))
-                  .filter(({ idx }) => isAffidavitOfConsentRequired || idx !== 7)
+                  .filter(({ idx }) => idx !== 5 && (isAffidavitOfConsentRequired || idx !== 7))
                 : permitTypesList.map((docName, idx) => ({ docName, idx }))
               ).map(({ docName, idx }) => {
                 const key = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;

@@ -114,8 +114,6 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
 
     const totalEndorsedAmount =
         (additional.feeAssessment?.buildingPermitFee || 0) +
-        (additional.feeAssessment?.electricalPermitFee || 0) +
-        (additional.feeAssessment?.sanitaryPermitFee || 0) +
         (additional.feeAssessment?.municipalCharges || 0) +
         (additional.feeAssessment?.engineerMunicipalCharges || []).reduce(
             (sum: number, c: any) => sum + Number(c.amount || 0),
@@ -266,18 +264,18 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                         ₱{Number(additional?.feeAssessment?.buildingPermitFee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                     </div>
                                 </div>
-                                <div className="space-y-2">
+                                {false && <div className="space-y-2">
                                     <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Electrical Permit Fee</label>
                                     <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
                                         ₱{Number(additional?.feeAssessment?.electricalPermitFee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                     </div>
-                                </div>
-                                <div className="space-y-2">
+                                </div>}
+                                {false && <div className="space-y-2">
                                     <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Sanitary Permit Fee</label>
                                     <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
                                         ₱{Number(additional?.feeAssessment?.sanitaryPermitFee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                     </div>
-                                </div>
+                                </div>}
                                 {additional?.feeAssessment?.engineerMunicipalCharges && additional.feeAssessment.engineerMunicipalCharges.length > 0 ? (
                                     additional.feeAssessment.engineerMunicipalCharges.map((charge: any, idx: number) => (
                                         <div key={idx} className="space-y-2">
