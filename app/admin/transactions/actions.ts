@@ -2159,12 +2159,14 @@ export async function resubmitTransaction(id: string, formData: FormData) {
             additionalData.proofOfIncomeUrl = await processReupload("proofFile", "proofs") || additionalData.proofOfIncomeUrl;
         }
 
+        const isLCR = tx?.type?.code?.startsWith("LCR_") || tx?.type?.code?.startsWith("CIVIL_REGISTRY");
+
         const transaction = await prisma.transaction.update({
             where: { id },
             data: {
                 additionalData: sanitizeObject(additionalData),
                 residentSnapshot: residentSnapshot ? sanitizeObject(residentSnapshot as any) : null,
-                status: "FOR_REQUESTING",
+                status: isLCR ? "FOR_INSPECTION" : "FOR_REQUESTING",
                 rejectionRemarks: null
             }
         });

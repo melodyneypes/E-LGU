@@ -943,7 +943,6 @@ export default function CedulaApplicationPage() {
                                             </div>
                                         </div>
                                     </div>
-
                                     <div className="bg-primary/5 border border-primary/10 p-3 md:p-4 rounded-2xl md:rounded-3xl flex items-center gap-2 md:gap-3">
                                         <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
                                         <p className="text-[8px] md:text-[10px] text-primary font-black italic leading-tight uppercase tracking-widest">
@@ -951,7 +950,9 @@ export default function CedulaApplicationPage() {
                                         </p>
                                     </div>
                                 </div>
-                            )}                             {/* Step 3: FINANCIAL DECLARATION */}
+                            )}
+
+                            {/* Step 3: FINANCIAL DECLARATION */}
                             {currentStep === "DECLARATION" && (
                                 <div className="space-y-8 md:space-y-12">
                                     <div className="space-y-2 md:space-y-4 text-center md:text-left">

@@ -31,6 +31,7 @@ import LightboxView from "../components/LightboxView";
 import ResidentIdentityProfile from "../components/ResidentIdentityProfile";
 import TransactionInfoCard from "../components/TransactionInfoCard";
 import RejectionRevisionControls from "../components/RejectionRevisionControls";
+import TreasuryPaymentCollectionPanel from "../components/TreasuryPaymentCollectionPanel";
 import { TreasuryViewProps } from "./types";
 
 const documentExtensions = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf"];
@@ -86,6 +87,7 @@ export default function BusinessPermitView({
     orFile,
     setOrFile,
     orPreview,
+    setOrPreview,
     themeColor,
     branding,
     isResolvingDispute,
@@ -517,10 +519,13 @@ export default function BusinessPermitView({
                             </div>
                             {isRequirementsOpen && (
                                 <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                                    {evidenceDocs.map((doc, idx) => (
+                                    {(isBusinessPermitRenewal 
+                                        ? evidenceDocs.filter(doc => !!doc.url) 
+                                        : evidenceDocs
+                                    ).map((doc, idx, arr) => (
                                         <div
                                             key={idx}
-                                            onClick={() => doc.url && handleViewFile?.(doc.url, doc.label, evidenceDocs, idx)}
+                                            onClick={() => doc.url && handleViewFile?.(doc.url, doc.label, arr, idx)}
                                             className="relative aspect-[4/3] rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 overflow-hidden group cursor-pointer hover:border-primary/50 transition-all select-none"
                                         >
                                             {doc.url ? (
@@ -699,81 +704,28 @@ export default function BusinessPermitView({
 
                                 {["PAID", "FOR_CLAIM", "FOR_PICKING", "FOR_PROCESSING", "FOR_REINSPECTION"].includes(transaction.status) && (
                                     <div className="space-y-4 animate-in slide-in-from-bottom-4">
-                                        {/* Citizen Payment Proof — only rendered when payment mode is E_PAYMENT / BANK_TRANSFER */}
-                                        {((transaction.paymentType === "E_PAYMENT" || transaction.paymentType === "BANK_TRANSFER") || transaction.paymentProofUrl || additional.gcashReferenceNo || additional.paymentReference || transaction.paymentReference) && (
-                                            <div className="bg-slate-50 dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-white/5 space-y-4">
-                                                <div className="flex justify-between items-center">
-                                                    <Label className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 italic">Citizen Payment Proof</Label>
-                                                </div>
 
-                                                {/* Proof of Payment Image */}
-                                                {(transaction.paymentProofUrl || additional.paymentReferenceUrl || (transaction.paymentReference && (transaction.paymentReference.startsWith("http") || transaction.paymentReference.startsWith("/")))) ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleViewFile?.(transaction.paymentProofUrl || additional.paymentReferenceUrl || transaction.paymentReference, "GCash Payment Proof")}
-                                                        className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all text-left block"
-                                                    >
-                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                        <img
-                                                            src={transaction.paymentProofUrl || additional.paymentReferenceUrl || transaction.paymentReference}
-                                                            alt="Payment Proof"
-                                                            className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
-                                                        />
-                                                        <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 backdrop-blur-[2px]">
-                                                            <div
-                                                                style={{ backgroundColor: themeColor }}
-                                                                className="backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px]"
-                                                            >
-                                                                <span>View</span>
-                                                            </div>
-                                                        </div>
-                                                    </button>
-                                                ) : null}
-
-                                                {/* Reference Number with Copy Button */}
-                                                {(() => {
-                                                    const refNo = additional.gcashReferenceNo || (transaction as any).gcashReferenceNo || (transaction.paymentReference && !(transaction.paymentReference.startsWith("http") || transaction.paymentReference.startsWith("/")) ? transaction.paymentReference : null) || additional.paymentReference || "N/A";
-                                                    if (refNo === "N/A" || refNo.toLowerCase() === "n/a" || refNo.toLowerCase() === "na") return null;
-                                                    return (
-                                                        <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-slate-200/50 dark:border-white/5 space-y-2 group/ref relative overflow-hidden transition-all hover:border-primary/20 shadow-sm">
-                                                            <div className="flex items-center justify-between gap-4">
-                                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">GCash Reference No.</span>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        navigator.clipboard.writeText(refNo);
-                                                                        toast.success("Reference Number Copied!");
-                                                                    }}
-                                                                    className="text-[8px] font-black uppercase tracking-widest text-primary hover:opacity-80 transition-all flex items-center gap-1.5 bg-primary/5 px-2.5 py-1.5 rounded-lg border border-primary/10 hover:scale-105 active:scale-95 shrink-0"
-                                                                >
-                                                                    <Copy className="w-3 h-3" />
-                                                                    Copy
-                                                                </button>
-                                                            </div>
-                                                            <div className="text-sm font-black italic tracking-widest font-mono text-slate-800 dark:text-slate-200 select-all">
-                                                                {refNo}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
-                                        )}
 
                                         {/* Upload Official Receipt (OR) */}
-                                        {(transaction.status === "FOR_PROCESSING" || transaction.status === "PAID") && (
+                                        {transaction.status === "PAID" && (
+                                            <TreasuryPaymentCollectionPanel
+                                                transaction={transaction}
+                                                additional={additional}
+                                                actionLoading={actionLoading}
+                                                orSeriesNumber={orSeriesNumber}
+                                                setOrSeriesNumber={setOrSeriesNumber}
+                                                orFile={orFile}
+                                                setOrFile={setOrFile}
+                                                orPreview={orPreview}
+                                                setOrPreview={setOrPreview}
+                                                themeColor={themeColor}
+                                                handleConfirmPayment={handleConfirmPayment}
+                                                handleViewFile={handleViewFile}
+                                            />
+                                        )}
+
+                                        {transaction.status === "FOR_PROCESSING" && (
                                             <div className="bg-slate-50 dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-white/5 space-y-3">
-                                                {transaction.status === "PAID" && (
-                                                    <div className="space-y-1.5 mb-2">
-                                                        <Label className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 italic">O.R. Series Number <span className="text-slate-400 ml-0.5">(Optional)</span></Label>
-                                                        <Input
-                                                            type="text"
-                                                            value={orSeriesNumber || ""}
-                                                            onChange={(e) => setOrSeriesNumber?.(e.target.value)}
-                                                            placeholder="ENTER O.R. SERIES NUMBER..."
-                                                            className="h-11 rounded-xl border-slate-150 dark:border-white/5 bg-white dark:bg-[#151b28]/60 text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-primary transition-all"
-                                                        />
-                                                    </div>
-                                                )}
                                                 <Label className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 italic">Upload Official Receipt (OR) <span className="text-rose-500">*</span></Label>
                                                 <Input
                                                     type="file"
@@ -874,14 +826,14 @@ export default function BusinessPermitView({
                                                         </div>
                                                     )}
 
-                                                    {transaction.status !== "FOR_REINSPECTION" && !isTreasuryStaff && (
+                                                    {transaction.status !== "FOR_REINSPECTION" && !isTreasuryStaff && transaction.status !== "PAID" && (
                                                         <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border-2 border-primary/20 space-y-3">
                                                             <Label className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 italic">License Business Permit No.</Label>
                                                             <Input
                                                                 value={ctcNumber}
                                                                 onChange={(e) => setCtcNumber(e.target.value)}
                                                                 placeholder="ENTER BUSINESS PERMIT NO..."
-                                                                className="h-12 rounded-xl border-slate-100 dark:border-white/5 italic font-black text-sm tracking-[0.2em] focus:ring-primary/10 dark:bg-slate-900 dark:text-white uppercase"
+                                                                className="h-12 rounded-xl border-slate-100 dark:border-white/5 italic font-black text-sm tracking-[0.2em] focus:ring-primary/10 dark:bg-slate-950 dark:text-white uppercase"
                                                             />
                                                         </div>
                                                     )}
@@ -902,20 +854,22 @@ export default function BusinessPermitView({
 
                                             {transaction.status !== "FOR_PICKING" && (
                                                 <>
-                                                    <Button
-                                                        onClick={["FOR_PROCESSING", "PAID"].includes(transaction.status) ? handleConfirmPayment : handleRelease}
-                                                        disabled={
-                                                            actionLoading ||
-                                                            (isBusinessPermitRenewal && transaction.status === "FOR_REINSPECTION" && !stickerNumber) ||
-                                                            (!isBusinessPermitRenewal && transaction.status === "FOR_REINSPECTION" && (!ctcNumber && !transaction.businessPermit?.permitNumber)) ||
-                                                            (!isBusinessPermitRenewal && transaction.status === "FOR_REINSPECTION" && !stickerNumber) ||
-                                                            (transaction.status === "FOR_REINSPECTION" && !eCopyFile && !transaction.eCopyUrl) ||
-                                                            ((transaction.status === "FOR_PROCESSING" || transaction.status === "PAID") && !orFile && !transaction.orUrl)
-                                                        }
-                                                        className="w-full h-16 rounded-2xl bg-primary text-white font-black italic uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20"
-                                                    >
-                                                        {actionLoading ? "Submitting..." : ["FOR_PROCESSING", "PAID"].includes(transaction.status) ? "Payment Received" : (transaction.status === "FOR_REINSPECTION" ? (transaction.fulfillmentType === "DELIVERY" ? "Ready for Picking" : "Mark Ready for Claiming") : "Confirm & Release Document")}
-                                                    </Button>
+                                                    {transaction.status !== "PAID" && (
+                                                        <Button
+                                                            onClick={["FOR_PROCESSING", "PAID"].includes(transaction.status) ? handleConfirmPayment : handleRelease}
+                                                            disabled={
+                                                                actionLoading ||
+                                                                (isBusinessPermitRenewal && transaction.status === "FOR_REINSPECTION" && !stickerNumber) ||
+                                                                (!isBusinessPermitRenewal && transaction.status === "FOR_REINSPECTION" && (!ctcNumber && !transaction.businessPermit?.permitNumber)) ||
+                                                                (!isBusinessPermitRenewal && transaction.status === "FOR_REINSPECTION" && !stickerNumber) ||
+                                                                (transaction.status === "FOR_REINSPECTION" && !eCopyFile && !transaction.eCopyUrl) ||
+                                                                ((transaction.status === "FOR_PROCESSING" || transaction.status === "PAID") && !orFile && !transaction.orUrl)
+                                                            }
+                                                            className="w-full h-16 rounded-2xl bg-primary text-white font-black italic uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20"
+                                                        >
+                                                            {actionLoading ? "Submitting..." : ["FOR_PROCESSING", "PAID"].includes(transaction.status) ? "Payment Received" : (transaction.status === "FOR_REINSPECTION" ? (transaction.fulfillmentType === "DELIVERY" ? "Ready for Picking" : "Mark Ready for Claiming") : "Confirm & Release Document")}
+                                                        </Button>
+                                                    )}
 
 
                                                     {!(["PAID", "FOR_PROCESSING", "FOR_REINSPECTION"].includes(transaction.status)) && (

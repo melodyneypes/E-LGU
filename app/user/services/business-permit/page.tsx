@@ -563,9 +563,9 @@ export default function BusinessPermitWizardPage() {
         const addData = targetPermit.additionalData || {};
 
         setFormData(prev => {
-            const updated = {
+            const updated: FormState = {
                 ...prev,
-                businessType: "RENEWAL" as const,
+                businessType: "RENEWAL",
                 businessName: addData.businessName || "",
                 tradeName: addData.tradeName || "",
                 orgType: addData.orgType || "SOLE_PROPRIETORSHIP",
@@ -577,6 +577,13 @@ export default function BusinessPermitWizardPage() {
                 building: addData.building || "",
                 employeeCount: addData.employeeCount ? addData.employeeCount.toString() : "0",
                 businessArea: addData.businessArea ? addData.businessArea.toString() : "",
+                tinNumber: addData.tinNumber || "",
+                philhealthNumber: addData.philhealthNumber || "",
+                pagibigNumber: addData.pagibigNumber || "",
+                sssNumber: addData.sssNumber || "",
+                businessBranch: addData.businessBranch === "BRANCH" ? "BRANCH" : "MAIN",
+                registrationType: addData.registrationType === "SEC" ? "SEC" : addData.registrationType === "COA" ? "COA" : "DTI",
+                dtiSecDate: addData.dtiSecDate || "",
             };
             persistDraftLocal(updated);
             return updated;
@@ -591,9 +598,9 @@ export default function BusinessPermitWizardPage() {
 
     const handleDeclinePreviousPermit = () => {
         setFormData(prev => {
-            const updated = {
+            const updated: FormState = {
                 ...prev,
-                businessType: "RENEWAL" as const,
+                businessType: "RENEWAL",
                 businessName: "",
                 tradeName: "",
                 orgType: "SOLE_PROPRIETORSHIP",
@@ -607,6 +614,13 @@ export default function BusinessPermitWizardPage() {
                 grossSales: "",
                 employeeCount: "0",
                 businessArea: "",
+                tinNumber: "",
+                philhealthNumber: "",
+                pagibigNumber: "",
+                sssNumber: "",
+                businessBranch: "MAIN",
+                registrationType: "DTI",
+                dtiSecDate: "",
             };
             persistDraftLocal(updated);
             return updated;

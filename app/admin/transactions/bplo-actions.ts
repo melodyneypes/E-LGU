@@ -271,6 +271,8 @@ export async function releaseBusinessPermit(id: string, permitNumber: string, eC
                 ? existingPermitNo.trim()
                 : permitNumber.trim();
 
+            additionalData.permitNumber = generatedPermitNo;
+
             await (prisma.businessPermit.create as any)({
                 data: {
                     transactionId: id,
@@ -294,6 +296,10 @@ export async function releaseBusinessPermit(id: string, permitNumber: string, eC
                 }
             });
         } else if (permitNumber || eCopyUrl || stickerNumber) {
+            if (permitNumber && !isRenewal) {
+                additionalData.permitNumber = permitNumber.trim();
+            }
+
             await (prisma.businessPermit.update as any)({
                 where: { id: transaction.businessPermit.id },
                 data: {

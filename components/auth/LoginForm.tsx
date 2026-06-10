@@ -265,7 +265,9 @@ export function LoginForm({ themeColor = "#2563eb" }: LoginFormProps) {
                     errorMessage.includes("deactivated") ||
                     errorMessage.includes("rejected") ||
                     errorMessage.includes("cooldown") ||
-                    errorMessage.includes("attempts")
+                    errorMessage.includes("attempts") ||
+                    errorMessage.includes("deceased") ||
+                    errorMessage.includes("dead")
                 ) {
                     toast.error(errorMessage);
                     return;

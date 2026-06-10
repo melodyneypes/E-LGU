@@ -369,7 +369,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             const res = await approveAndSendBuildingPermitBilling(id);
             if (res.success) {
                 toast.success("Billing approved and sent to citizen successfully!");
-                fetchTransaction();
+                router.push(backUrl);
             } else {
                 toast.error(res.error || "Failed to approve billing");
             }
@@ -746,7 +746,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             if (res.success) {
                 toast.success(`Dispute ${disputeAction === 'APPROVE' ? 'Approved' : 'Rejected'}`);
                 setDisputeModalOpen(false);
-                fetchTransaction();
+                router.push(backUrl);
             } else {
                 toast.error(res.error || "Resolution failed");
             }
@@ -858,9 +858,10 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 const rel = await releaseFn(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "");
                 if (rel.success) {
                     toast.success("Proceeding to Processing");
-                    fetchTransaction();
+                    router.push(backUrl);
                 } else {
                     toast.error(rel.error || "Failed to proceed to processing");
+                    fetchTransaction();
                 }
                 return;
             }
@@ -893,10 +894,11 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 const rel = await releaseFn(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "");
                 if (rel.success) {
                     toast.success("Proceeding to Processing");
+                    router.push(backUrl);
                 } else {
                     toast.error(rel.error || "Failed to proceed to processing");
+                    fetchTransaction();
                 }
-                fetchTransaction();
             } else toast.error(res.error || "Failed");
         } finally { setActionLoading(false); }
     };
@@ -943,7 +945,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 toast.success("Payment proof declined successfully.");
                 setRemarks("");
                 setIsRequestingRevision(false);
-                fetchTransaction();
+                router.push(backUrl);
             } else {
                 toast.error(res.error || "Failed to decline payment proof");
             }

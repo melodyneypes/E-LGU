@@ -19,6 +19,7 @@ import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
 import { motion } from "framer-motion";
+import { getTransactionById } from "@/app/admin/transactions/actions";
 
 interface TopNavProps {
     session: {
@@ -64,6 +65,7 @@ const SEGMENT_LABELS: Record<string, string> = {
     services: "Barangay Services",
     content: "Content",
     payments: "Payments Ledger",
+    registrar: "Civil Registry",
 };
 
 function formatSegment(seg: string): string {
@@ -77,6 +79,7 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
     const { isOpen, toggle: toggleSidebar } = useSidebar();
     const [dropdownOpen, setDropdownOpen] = React.useState(false);
     const dropdownRef = React.useRef<HTMLDivElement>(null);
+    const [txData, setTxData] = React.useState<any>(null);
 
     // Build breadcrumbs from pathname segments
     const segments = (pathname || "").split("/").filter(Boolean);
@@ -85,11 +88,31 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
     const isId = (s: string) => {
         return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s) || 
                /^\d+$/.test(s) ||
-               (s.length >= 20 && /^[a-zA-Z0-9]+$/.test(s));
+               (s.length >= 20 && /^[a-zA-Z0-9_-]+$/.test(s));
     };
 
-    // Check if route matches /admin/treasury/[id]
+    // Dynamically fetch transaction details if we are on a detail page
+    React.useEffect(() => {
+        const hasId = segments.length === 3 && (segments[1] === "treasury" || segments[1] === "registrar") && isId(segments[2]);
+        if (hasId) {
+            const transactionId = segments[2];
+            getTransactionById(transactionId).then((res) => {
+                if (res.success && res.data) {
+                    setTxData(res.data);
+                } else {
+                    setTxData(null);
+                }
+            }).catch(() => {
+                setTxData(null);
+            });
+        } else {
+            setTxData(null);
+        }
+    }, [pathname, segments]);
+
+    // Check route type
     const isTreasuryDetail = segments.length === 3 && segments[0] === "admin" && segments[1] === "treasury" && isId(segments[2]);
+    const isRegistrarDetail = segments.length === 3 && segments[0] === "admin" && segments[1] === "registrar" && isId(segments[2]);
 
     let crumbsToRender;
 
@@ -99,15 +122,36 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
         const transactionId = segments[2];
         const shortId = transactionId.slice(-8).toUpperCase();
 
+        const isLCRCategory = category === "Civil Registry" || (txData?.type?.category === "Civil Registry");
+
+        if (isLCRCategory) {
+            crumbsToRender = [
+                { seg: "category", label: "Civil Registry", href: `/admin/treasury?category=Civil Registry`, isLast: false },
+                { seg: "detail", label: txData?.type?.name || "...", href: "", isLast: true }
+            ];
+        } else {
+            crumbsToRender = [
+                { seg: "category", label: categoryLabel, href: `/admin/treasury?category=${category}`, isLast: false },
+                { seg: "detail", label: `Request #${shortId}`, href: "", isLast: true }
+            ];
+        }
+    } else if (isRegistrarDetail) {
         crumbsToRender = [
-            { seg: "category", label: categoryLabel, href: `/admin/treasury?category=${category}`, isLast: false },
-            { seg: "detail", label: `Request #${shortId}`, href: "", isLast: true }
+            { seg: "registrar", label: "Civil Registry", href: `/admin/registrar`, isLast: false },
+            { seg: "detail", label: txData?.type?.name || "...", href: "", isLast: true }
         ];
     } else {
         const isTreasuryList = segments.length === 2 && segments[0] === "admin" && segments[1] === "treasury";
+        const isRegistrarList = segments.length === 2 && segments[0] === "admin" && segments[1] === "registrar";
         const category = searchParams.get("category") || "CEDULA";
+        const regCategory = searchParams.get("category");
 
-        if (isTreasuryList && category) {
+        if (isRegistrarList && regCategory && regCategory !== "ALL") {
+            crumbsToRender = [
+                { seg: "registrar", label: "Civil Registry", href: `/admin/registrar`, isLast: false },
+                { seg: "category", label: regCategory, href: `/admin/registrar?category=${regCategory}`, isLast: true }
+            ];
+        } else if (isTreasuryList && category) {
             crumbsToRender = [
                 { seg: "category", label: category, href: `/admin/treasury?category=${category}`, isLast: true }
             ];

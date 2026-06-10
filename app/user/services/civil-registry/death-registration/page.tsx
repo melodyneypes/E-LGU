@@ -48,7 +48,8 @@ import {
     submitCivilRegistryTransaction,
     getTransactionTypes,
     getSystemSettingAction,
-    getTransactionById
+    getTransactionById,
+    getBarangaysList
 } from "@/app/admin/transactions/actions";
 import { searchResidents, getResidentDataById } from "@/app/admin/actions";
 import { toast } from "sonner";
@@ -174,6 +175,7 @@ export default function DeathRegistrationPage() {
     const [typeId, setTypeId] = useState<string>("");
     const [lateFee, setLateFee] = useState<number>(0);
     const [showErrors, setShowErrors] = useState(false);
+    const [barangaysList, setBarangaysList] = useState<string[]>([]);
 
     const [viewerOpen, setViewerOpen] = useState(false);
     const [viewerFile, setViewerFile] = useState<File | null>(null);
@@ -328,10 +330,15 @@ export default function DeathRegistrationPage() {
             try {
                 await ensureCivilRegistryTransactionTypes();
 
-                const [resResult, typesResult] = await Promise.all([
+                const [resResult, typesResult, brgyResult] = await Promise.all([
                     getCurrentUserResident(),
-                    getTransactionTypes()
+                    getTransactionTypes(),
+                    getBarangaysList()
                 ]);
+
+                if (brgyResult.success && brgyResult.data) {
+                    setBarangaysList(brgyResult.data);
+                }
 
                 // Check for revisionId query parameter
                 const urlParams = new URLSearchParams(window.location.search);
@@ -723,6 +730,11 @@ export default function DeathRegistrationPage() {
 
         if (isSelfRegistration()) {
             toast.error("You cannot register yourself as deceased.");
+            return;
+        }
+
+        if (formData.placeOfDeath === "OUTSIDE_MAPANDAN") {
+            toast.error("Registration blocked: Place of death is outside Mapandan.");
             return;
         }
 
@@ -1134,7 +1146,7 @@ export default function DeathRegistrationPage() {
                                                     )}
                                                     placeholder="e.g. 0917XXXXXXX"
                                                     value={formData.contactNumber}
-                                                    onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value }))}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
                                                 />
                                                 {(showErrors && !formData.contactNumber) && (
                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
@@ -1291,16 +1303,38 @@ export default function DeathRegistrationPage() {
                                         </div>
                                         <div className="space-y-2">
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Place of Death <span className="text-red-500">*</span></Label>
-                                            <Input
-                                                name="placeOfDeath"
-                                                placeholder="ENTER PLACE"
+                                            
+                                            {formData.placeOfDeath === "OUTSIDE_MAPANDAN" && (
+                                                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[11px] font-bold italic flex items-start gap-2.5 animate-in fade-in slide-in-from-top-2 duration-350 mb-2">
+                                                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 animate-pulse" />
+                                                    <div className="space-y-1 text-left">
+                                                        <p className="font-black uppercase tracking-widest text-[9px] leading-none text-amber-500">Paalala</p>
+                                                        <p className="leading-relaxed">
+                                                            Ang Death Certificate ay dapat irehistro sa bayan kung saan pumanaw ang tao. Dahil sa labas ng Mapandan naganap ito, mangyaring makipag-ugnayan sa Local Civil Registrar ng tamang bayan. Salamat po. (Awtomatikong iba-block ng system ang submission).
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <Select
                                                 value={formData.placeOfDeath}
-                                                onChange={handleInputChange}
-                                                className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
+                                                onValueChange={(v) => handleSelectChange("placeOfDeath", v)}
+                                            >
+                                                <SelectTrigger className={cn(
+                                                    "h-12 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 focus:ring-emerald-500 font-medium text-xs md:text-sm uppercase font-bold",
                                                     (showErrors && !formData.placeOfDeath) && "border-red-500/50 bg-red-50/10"
-                                                )}
-                                            />
+                                                )}>
+                                                    <SelectValue placeholder="SELECT PLACE OF DEATH" />
+                                                </SelectTrigger>
+                                                <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
+                                                    {barangaysList.map((brgy) => (
+                                                        <SelectItem key={brgy} value={brgy}>
+                                                            {brgy}
+                                                        </SelectItem>
+                                                    ))}
+                                                    <SelectItem value="OUTSIDE_MAPANDAN">OUTSIDE MAPANDAN</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                             {(showErrors && !formData.placeOfDeath) && (
                                                 <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                             )}
@@ -1475,6 +1509,10 @@ export default function DeathRegistrationPage() {
                                                 if (!formData.fullName || !formData.dateOfBirth || !formData.dateOfDeath || !formData.placeOfDeath || !formData.causeOfDeath || !formData.gender || !formData.civilStatus || !formData.fathersName || !formData.mothersName || !formData.corpseDisposal || !formData.burialLocation) {
                                                     setShowErrors(true);
                                                     toast.error("Please fill in all deceased details.");
+                                                    return;
+                                                }
+                                                if (formData.placeOfDeath === "OUTSIDE_MAPANDAN") {
+                                                    toast.error("Registration blocked: Place of death is outside Mapandan.");
                                                     return;
                                                 }
                                                 if (isSelfRegistration()) {

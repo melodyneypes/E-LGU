@@ -35,10 +35,15 @@ export const authOptions: NextAuthOptions = {
 
                 const user = await prisma.user.findUnique({
                     where: { email: credentials.email },
+                    include: { residentProfile: true }
                 });
 
                 if (!user || !user.password) {
                     throw new Error("No user found with this email");
+                }
+
+                if (user.residentProfile?.isDead) {
+                    throw new Error("This user is deceased, you can't open this account.");
                 }
 
                 const isPasswordCorrect = await bcrypt.compare(
@@ -95,15 +100,21 @@ export const authOptions: NextAuthOptions = {
                 token.department = (user as any).department;
             }
 
-            // Sync Database dynamically with Session to Auto-Logout rejected/pending users!
+            // Sync Database dynamically with Session to Auto-Logout rejected/pending/deceased users!
             if (token.id && token.role === "USER") {
                 const dbUser = await prisma.user.findUnique({
                     where: { id: token.id as string },
-                    select: { isEmailVerified: true, rejectionCount: true }
+                    select: {
+                        isEmailVerified: true,
+                        rejectionCount: true,
+                        residentProfile: {
+                            select: { isDead: true }
+                        }
+                    }
                 });
 
-                // If user is deactivated OR has hit the rejection limit, expire the session
-                if (!dbUser || !dbUser.isEmailVerified || (dbUser as any).rejectionCount >= 3) {
+                // If user is deactivated OR has hit the rejection limit OR is deceased, expire the session
+                if (!dbUser || !dbUser.isEmailVerified || (dbUser as any).rejectionCount >= 3 || dbUser.residentProfile?.isDead) {
                     // Force the session to expire immediately (triggering auto-logout)
                     token.exp = 1; // Set to very small number to trigger expiration
                     token.deactivated = true;

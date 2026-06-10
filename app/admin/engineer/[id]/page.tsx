@@ -485,7 +485,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
                 toast.success("Marked for re-inspection");
                 setIsReinspecting(false);
                 setReinspectReason("");
-                fetchTransaction();
+                router.push(backUrl);
             }
             else toast.error(res.error || "Failed");
         } finally { setActionLoading(false); }
@@ -561,7 +561,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
             if (res.success) {
                 toast.success(`Dispute ${disputeAction === 'APPROVE' ? 'Approved' : 'Rejected'}`);
                 setDisputeModalOpen(false);
-                fetchTransaction();
+                router.push(backUrl);
             } else {
                 toast.error(res.error || "Resolution failed");
             }
@@ -1020,7 +1020,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
         setActionLoading(true);
         try {
             const res = await confirmTransactionPayment(transaction.id);
-            if (res.success) { toast.success("Payment Confirmed"); fetchTransaction(); }
+            if (res.success) { toast.success("Payment Confirmed"); router.push(backUrl); }
             else toast.error(res.error || "Failed");
         } finally { setActionLoading(false); }
     };

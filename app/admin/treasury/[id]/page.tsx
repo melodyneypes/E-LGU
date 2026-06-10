@@ -797,7 +797,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
             if (res.success) {
                 toast.success(`Dispute ${disputeAction === 'APPROVE' ? 'Approved' : 'Rejected'}`);
                 setDisputeModalOpen(false);
-                fetchTransaction();
+                router.push(backUrl);
             } else {
                 toast.error(res.error || "Resolution failed");
             }
@@ -1572,7 +1572,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 toast.success("Payment proof declined successfully.");
                 setRemarks("");
                 setIsRequestingRevision(false);
-                fetchTransaction();
+                router.push(backUrl);
             } else {
                 toast.error(res.error || "Failed to decline payment proof");
             }

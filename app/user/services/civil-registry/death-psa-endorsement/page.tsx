@@ -838,7 +838,7 @@ export default function DeathPsaEndorsementPage() {
                                                     )}
                                                     placeholder="e.g. 0917XXXXXXX"
                                                     value={formData.contactNumber}
-                                                    onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value }))}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
                                                 />
                                                 {(showErrors && !formData.contactNumber) && (
                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>

@@ -42,3 +42,9 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+# custom seed/restore scripts
+seed-custom-users.ts
+seed-engineer.ts
+reset-user.ts
+

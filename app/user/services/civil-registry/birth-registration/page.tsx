@@ -1375,7 +1375,7 @@ export default function BirthRegistrationPage() {
                                                     )}
                                                     placeholder="e.g. 0917XXXXXXX"
                                                     value={form.contactNumber}
-                                                    onChange={(e) => setForm({ ...form, contactNumber: e.target.value })}
+                                                    onChange={(e) => setForm(p => ({ ...p, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
                                                 />
                                                 <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider ml-1 animate-pulse">
                                                     * Note: Please use your active contact number. This will be used to contact you regarding your transaction.

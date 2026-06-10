@@ -45,6 +45,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -89,7 +90,6 @@ const isPaymongoPaymentId = (value: unknown) => {
 };
 
 // Display dates/times in Philippine Standard Time (Asia/Manila) regardless of server or client timezone
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function formatPHDate(date: string | Date): string {
     return new Intl.DateTimeFormat("en-PH", {
         timeZone: "Asia/Manila",
@@ -98,7 +98,6 @@ function formatPHDate(date: string | Date): string {
         year: "numeric",
     }).format(new Date(date));
 }
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function formatPHDateTime(date: string | Date): string {
     return new Intl.DateTimeFormat("en-PH", {
         timeZone: "Asia/Manila",
@@ -707,20 +706,20 @@ export default function RequestHubPage() {
     const isBusinessPermit = typeCode.startsWith("BUSINESS_PERMIT");
     const isBuildingPermit = typeCode.startsWith("BUILDING_PERMIT");
     const isCedula = typeCode.startsWith("CEDULA");
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const estimatedCedulaAmount = useMemo(() => {
         if (!isCedula || !request) return 0;
-        if (request.isStudent) {
-            const baseStudentFee = Number(request.type?.studentFee || 0);
-            const deliveryFee = request.fulfillmentType === "DELIVERY" ? (request.type?.deliveryFee || 0) : 0;
+        const reqAny = request as any;
+        if (reqAny.isStudent) {
+            const baseStudentFee = Number(reqAny.type?.studentFee || 0);
+            const deliveryFee = reqAny.fulfillmentType === "DELIVERY" ? (reqAny.type?.deliveryFee || 0) : 0;
             return baseStudentFee + deliveryFee;
         } else {
             const incomeValue = Number(additionalData.income || 0);
             const propertyValue = Number(additionalData.propertyValue || 0);
             const type = typeCode === "CEDULA_JUR" ? "JURIDICAL" : "INDIVIDUAL";
-            const fulfillmentType = request.fulfillmentType;
-            const deliveryFee = request.type?.deliveryFee || 0;
-            const baseFee = request.type?.baseFee;
+            const fulfillmentType = reqAny.fulfillmentType;
+            const deliveryFee = reqAny.type?.deliveryFee || 0;
+            const baseFee = reqAny.type?.baseFee;
 
             const calc = calculateCedula({
                 type,
@@ -765,16 +764,17 @@ export default function RequestHubPage() {
 
     const computation = useMemo(() => {
         if (!request) return null;
-        const fiscal = request.fiscalSnapshot as any;
-        const addData = request.additionalData || {};
+        const reqAny = request as any;
+        const fiscal = reqAny.fiscalSnapshot as any;
+        const addData = reqAny.additionalData || {};
         const selectedBrgy = availableBarangays.find(b => b.name === address.barangay);
-        const dFee = localFulfillment === "DELIVERY" ? (selectedBrgy?.deliveryFee ?? request.type?.deliveryFee ?? 0) : 0;
+        const dFee = localFulfillment === "DELIVERY" ? (selectedBrgy?.deliveryFee ?? reqAny.type?.deliveryFee ?? 0) : 0;
 
         // Handle Civil Registry (Usually simple total or evaluated amount)
         if (isCivilRegistry) {
-            const fiscal = request.fiscalSnapshot as any;
+            const fiscal = reqAny.fiscalSnapshot as any;
             const savedDeliveryFee = Number(fiscal?.deliveryFee || 0);
-            const cleanBase = Math.max(0, (Number(request.totalAmount) || Number(fiscal?.totalAmount) || 0) - savedDeliveryFee);
+            const cleanBase = Math.max(0, (Number(reqAny.totalAmount) || Number(fiscal?.totalAmount) || 0) - savedDeliveryFee);
             const finalTotal = cleanBase + dFee;
             return {
                 basicTax: 0,
@@ -804,6 +804,44 @@ export default function RequestHubPage() {
             };
         }
 
+        // --- CUSTOM CEDULA CALCULATIONS ---
+        if (isCedula) {
+            if (reqAny.isStudent) {
+                const baseStudentFee = Number(reqAny.type?.studentFee || 0);
+                return {
+                    basicTax: baseStudentFee,
+                    additionalTax: 0,
+                    penaltyAmount: 0,
+                    deliveryFee: dFee,
+                    finalTotal: baseStudentFee + dFee,
+                    cedulaType: "INDIVIDUAL"
+                };
+            }
+
+            const income = Number(addData.income) || 0;
+            const propertyValue = Number(addData.propertyValue) || 0;
+            const baseFee = reqAny.type?.baseFee;
+
+            const calc = calculateCedula({
+                type: cedulaType,
+                income,
+                propertyValue,
+                fulfillmentType: localFulfillment,
+                deliveryFee: dFee,
+                baseFee
+            });
+
+            return {
+                basicTax: calc.basicTax,
+                additionalTax: calc.additionalTax,
+                penaltyAmount: calc.penalty,
+                deliveryFee: dFee,
+                finalTotal: calc.totalAmount,
+                cedulaType
+            };
+        }
+
+        // Fallback for Business Permits or other requests when no fiscal snapshot exists
         const income = Number(addData.income) || 0;
         const propertyValue = Number(addData.propertyValue) || 0;
         const totalBasis = income + propertyValue;
@@ -811,15 +849,15 @@ export default function RequestHubPage() {
         const additionalTax = cedulaType === "JURIDICAL" ? Math.floor(totalBasis / 5000) * 2.00 : Math.floor(totalBasis / 1000) * 1.00;
         const subtotal = basicTax + additionalTax;
 
-        const savedDeliveryFee = Number(request.fiscalSnapshot?.deliveryFee || 0);
-        const cleanTotalAmount = Math.max(0, (Number(request.totalAmount) || 0) - savedDeliveryFee);
+        const savedDeliveryFee = Number(reqAny.fiscalSnapshot?.deliveryFee || 0);
+        const cleanTotalAmount = Math.max(0, (Number(reqAny.totalAmount) || 0) - savedDeliveryFee);
 
         const totalWithPenalty = cleanTotalAmount || subtotal;
         const penaltyAmount = Math.max(0, totalWithPenalty - subtotal);
         const finalTotal = totalWithPenalty + dFee;
 
         return { basicTax, additionalTax, penaltyAmount, deliveryFee: dFee, finalTotal, cedulaType };
-    }, [request, localFulfillment, address.barangay, availableBarangays, isCivilRegistry]);
+    }, [request, localFulfillment, address.barangay, availableBarangays, isCivilRegistry, isCedula]);
 
     const isFreeDeathRegPickUp = (
         request?.typeId === "cmpgkxxke0019vpjkquvcxggu" ||
@@ -1350,243 +1388,329 @@ export default function RequestHubPage() {
                                     </div>
                                 )}
 
-                                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 md:gap-10 items-start">
-                                    <Card className="p-6 md:p-10 border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900/40 shadow-xl rounded-2xl md:rounded-3xl lg:col-span-4 relative overflow-hidden h-fit">
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-10 items-start">
+                                    {/* Application Matrix Card */}
+                                    <Card className="p-6 md:p-10 border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900/40 shadow-xl rounded-2xl md:rounded-3xl lg:col-span-2 relative overflow-hidden h-fit">
                                         <div className="absolute top-0 right-0 p-8 opacity-5"><FileText className="w-32 h-32" /></div>
                                         <div className="relative z-10 space-y-12">
-                                            {/* Decision matrix / Evaluated details for revision requests */}
-                                            {request.status === "FOR_REVISION" && (
-                                                <div className="space-y-6 pb-8 border-b border-slate-100 dark:border-white/5">
-                                                    <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-4 text-amber-500">
-                                                        <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 animate-pulse" />
-                                                        <div className="text-left space-y-1">
-                                                            <p className="text-[10px] font-black uppercase tracking-wider italic">Revision Required (Revisions Left: {remainingRevisions})</p>
-                                                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
-                                                                &ldquo;{request.rejectionRemarks || "Information is incomplete or inconsistent. Please review files."}&rdquo;
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    {remainingRevisions > 0 ? (
-                                                        isCedula || isLcrDeathReg ? (
-                                                            <div className="space-y-4">
-                                                                <Button
-                                                                    asChild
-                                                                    className="w-full h-12 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-primary/20 transition-all duration-200 active:scale-95 border-none"
-                                                                    style={{ backgroundColor: themeColor }}
-                                                                >
-                                                                    <Link href={isCedula ? `/user/services/cedula?revisionId=${request.id}` : `/user/services/civil-registry/death-registration?revisionId=${request.id}`}>
-                                                                        Revise Application
-                                                                    </Link>
-                                                                </Button>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="space-y-4">
-                                                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Upload Revisions</p>
-                                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                                    {documentList.map((doc, idx) => {
-                                                                        // Get file input key based on document label matching
-                                                                        const labelKeyMap: { [key: string]: string } = {
-                                                                            "Owner's Valid ID": "ownerId",
-                                                                            "Cedula (CTC) Copy": "ctc",
-                                                                            "DTI / SEC Registry": "dtiSec",
-                                                                            "Barangay Clearance": "brgyClearance",
-                                                                            "Location Photo": "locationPhoto",
-                                                                            "Sanitary Permit": "sanitary",
-                                                                            "Fire Safety Certificate": "fireSafety",
-                                                                            "BIR Certificate (COR)": "birCor",
-                                                                            "Previous Business Permit": "previousPermit",
-                                                                            "Identity Matrix": "validId",
-                                                                            "Financial Evidence": "proofOfIncome",
-                                                                            "Municipal Form No. 103": "municipalForm103",
-                                                                            "PSA Negative Certification": "psaNegative",
-                                                                            "Affidavit of Delayed Registration": "affidavitOfDelay",
-                                                                            "Municipal Form 102": "municipalForm102",
-                                                                            "Marriage Certificate of Parents": "marriageCertificate",
-                                                                            "Community Tax Certificate": "communityTaxCertificate",
-                                                                            "Negative Certification from PSA": "negativePSA",
-                                                                            "Certificate of Live Birth (COLB)": "colb",
-                                                                            "Accomplished Certificate of Marriage": "marriageCert",
-                                                                            "Negative Certificate from PSA (Marriage)": "psaNeg",
-                                                                            "Certified Copy of Marriage License": "marriageLicense",
-                                                                            "Valid ID (Front)": "validIdFront",
-                                                                            "Valid ID (Back)": "validIdBack"
-                                                                        };
-                                                                        const fileKey = labelKeyMap[doc.label] || `doc_${idx}`;
-                                                                        return (
-                                                                            <div key={idx} className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-2xl space-y-3">
-                                                                                <span className="text-[9px] font-black uppercase text-slate-500 block truncate">{doc.label}</span>
-                                                                                <Label htmlFor={`rev-${fileKey}`} className="flex items-center justify-center gap-2 h-10 border border-dashed border-slate-200 dark:border-white/10 rounded-xl text-[8px] font-black uppercase tracking-widest cursor-pointer hover:border-primary/50 transition-colors">
-                                                                                    <Upload className="w-3.5 h-3.5" />
-                                                                                    {revisionFiles[fileKey] ? "Change File" : "Choose File"}
-                                                                                </Label>
-                                                                                <input
-                                                                                    id={`rev-${fileKey}`}
-                                                                                    type="file"
-                                                                                    className="hidden"
-                                                                                    onChange={(e) => {
-                                                                                        const file = e.target.files?.[0];
-                                                                                        if (file) handleRevisionFile(fileKey, file);
-                                                                                    }}
-                                                                                />
-                                                                                {revisionFiles[fileKey] && (
-                                                                                    <span className="text-[8px] font-bold text-slate-400 block truncate">{revisionFiles[fileKey]?.name}</span>
-                                                                                )}
-                                                                            </div>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                                <Button
-                                                                    onClick={handleResubmit}
-                                                                    disabled={isResubmitting || Object.values(revisionFiles).every(f => f === null)}
-                                                                    className="w-full h-12 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-primary/20 transition-all duration-200 active:scale-95"
-                                                                    style={{ backgroundColor: themeColor }}
-                                                                >
-                                                                    {isResubmitting ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
-                                                                    RESUBMIT TRANSACTION
-                                                                </Button>
-                                                            </div>
-                                                        )
-                                                    ) : (
-                                                        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
-                                                            <p className="text-xs font-bold text-red-500 italic">No revisions remaining. Please contact the administrator for further assistance.</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            {isLcrBirth && (
-                                                <BirthCertificateRequestDetails additionalData={additionalData} />
-                                            )}
-                                            {isLcrDeathCert && (
-                                                <DeathCertificateRequestDetails additionalData={additionalData} />
-                                            )}
-                                            {isLcrDeathReg && (
-                                                <DeathRegistrationRequestDetails additionalData={additionalData} />
-                                            )}
-                                            {isLcrMarriage && (
-                                                <MarriageCertificateRequestDetails additionalData={additionalData} />
-                                            )}
-
-                                            {request.type?.code.startsWith("BUSINESS_PERMIT") && (
-                                                <div className="space-y-6 pb-8 border-b border-slate-100 dark:border-white/5">
-                                                    <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Business Information</h4>
-                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-                                                        <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Official Business Name</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.businessName}</p></div>
-                                                        <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Trade Name</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.tradeName || "N/A"}</p></div>
-                                                        {!isRenewal ? (
-                                                            <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">DTI / SEC ID</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.dtiSecNumber || "N/A"}</p></div>
-                                                        ) : (
-                                                            <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Existing Permit No.</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.permitNumber || "N/A"}</p></div>
-                                                        )}
-                                                        <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Line of Business</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.lineOfBusiness}</p></div>
-                                                        <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Business Barangay</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.barangay}</p></div>
-                                                        <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Employee Count</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.employeeCount ?? 0}</p></div>
-                                                        <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Store Area (sqm)</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.businessArea ? `${additionalData.businessArea} sqm` : "N/A"}</p></div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {isBuildingPermit && (
-                                                <div className="space-y-6 pb-8 border-b border-slate-100 dark:border-white/5">
-                                                    <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Building Information</h4>
-                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-                                                        <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Occupancy Use</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.occupancyUse}</p></div>
-                                                        <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Estimated Cost</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">₱{Number(additionalData.estimatedCost || 0).toLocaleString()}</p></div>
-                                                        <div className="space-y-1 col-span-2"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Description of Work</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.descriptionOfWork}</p></div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-16">
-                                                <div className="space-y-10">
-                                                    <div className="space-y-6">
-                                                        <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Personal Identity</h4>
-                                                        <div className="grid grid-cols-2 gap-6 md:gap-8">
-                                                            <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Name</p><p className="text-xs md:text-lg font-bold italic truncate">{residentData.firstName} {residentData.lastName}</p></div>
-                                                            <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Birth Date</p><p className="text-xs md:text-lg font-bold italic">{residentData.dateOfBirth && !isNaN(new Date(residentData.dateOfBirth).getTime()) ? format(new Date(residentData.dateOfBirth), "MMM d, yyyy") : "N/A"}</p></div>
-                                                            <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Civil Status</p><p className="text-xs md:text-lg font-bold italic uppercase">{residentData.civilStatus || "Single"}</p></div>
-                                                            <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Citizenship</p><p className="text-xs md:text-lg font-bold italic uppercase">{residentData.citizenship || "Filipino"}</p></div>
-                                                        </div>
-                                                    </div>
-                                                    {!isCivilRegistry && (
-                                                        <div className="space-y-6 pt-6 border-t border-slate-100 dark:border-white/5">
-                                                            <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">
-                                                                {request.isStudent ? "Student Status" : "Financial Declarations"}
-                                                            </h4>
-                                                            <div className="grid grid-cols-2 gap-6 md:gap-8">
-                                                                {request.type?.code.startsWith("BUSINESS_PERMIT") ? (
-                                                                    <>
-                                                                        <div className="space-y-1">
-                                                                            <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">
-                                                                                {additionalData.businessType === "NEW" ? "Capital Investment" : "Annual Gross Sales"}
-                                                                            </p>
-                                                                            <p className="text-lg md:text-2xl font-black text-slate-900 dark:text-white italic">
-                                                                                ₱{(additionalData.capitalInvestment || additionalData.grossSales || 0).toLocaleString()}
-                                                                            </p>
-                                                                        </div>
-                                                                        {request.businessPermit?.expiryDate && (
-                                                                            <div className="space-y-1">
-                                                                                <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Validity Mandate</p>
-                                                                                <p className="text-lg md:text-2xl font-black text-primary italic uppercase leading-none">
-                                                                                    Expires {format(new Date(request.businessPermit.expiryDate), "MMM d, yyyy")}
-                                                                                </p>
-                                                                            </div>
-                                                                        )}
-                                                                    </>
-                                                                ) : request.isStudent ? (
-                                                                    <>
-                                                                        <div className="space-y-1">
-                                                                            {/* <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Application Pathway</p> */}
-                                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20 shrink-0 w-fit mt-1 italic shadow-sm">
-                                                                                🎓 Student Request
-                                                                            </span>
-                                                                        </div>
-                                                                        {request.cedula?.expiryDate && (
-                                                                            <div className="space-y-1">
-                                                                                <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Validity Mandate</p>
-                                                                                <p className="text-lg md:text-2xl font-black text-primary italic uppercase leading-none">
-                                                                                    Expires {format(new Date(request.cedula.expiryDate), "MMM d")}
-                                                                                </p>
-                                                                            </div>
-                                                                        )}
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <div className="space-y-1">
-                                                                            <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Annual Gross Income</p>
-                                                                            <p className="text-lg md:text-2xl font-black text-slate-900 dark:text-white italic">
-                                                                                ₱{(additionalData.income || 0).toLocaleString()}
-                                                                            </p>
-                                                                        </div>
-                                                                        {request.cedula?.expiryDate && (
-                                                                            <div className="space-y-1">
-                                                                                <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Validity Mandate</p>
-                                                                                <p className="text-lg md:text-2xl font-black text-primary italic uppercase leading-none">
-                                                                                    Expires {format(new Date(request.cedula.expiryDate), "MMM d")}
-                                                                                </p>
-                                                                            </div>
-                                                                        )}
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="space-y-6">
-                                                    <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Registered Address</h4>
-                                                    <div className="bg-slate-50 dark:bg-white/5 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] border border-slate-100 dark:border-white/5 relative overflow-hidden">
-                                                        <MapPin className="absolute top-4 right-4 w-12 h-12 text-primary/10" />
-                                                        <div className="relative z-10 space-y-6">
-                                                            <div className="grid grid-cols-2 gap-4">
-                                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">House / Street</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.houseNumber} {residentData.street}</p></div>
-                                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Sitio / Purok</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.sitio} {residentData.purok}</p></div>
-                                                            </div>
-                                                            <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Barangay Matrix</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.barangay}, Mapandan</p></div>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                            <div className="flex items-center justify-between">
+                                                <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3 italic leading-none"><FileText className="w-4 h-4 text-primary" /> Application Matrix</h3>
+                                                <div className="flex items-center gap-2 text-[8px] font-semibold uppercase tracking-widest text-primary italic bg-primary/5 px-3 py-1 rounded-lg border border-primary/10"><Clock className="w-3 h-3" /> Updated: {formatPHDateTime(request.updatedAt)}</div>
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 md:gap-x-16 gap-y-10 md:gap-y-12">
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Service Requested</p><p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">{request.type?.name}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Date Submitted</p><p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">{formatPHDate(request.createdAt)}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Logistics Phase</p><p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">{request.fulfillmentType?.replace(/_/g, " ") || "PENDING EVALUATION"}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Payment</p><p className="text-base md:text-xl font-semibold text-primary italic leading-tight uppercase">{((request.type?.code === "LCR_BIRTH" || request.type?.code?.startsWith("LCR_")) && ["FOR_REQUESTING", "UNDER_REVIEW"].includes(request.status)) ? "TBD" : (request.paymentType?.replace(/_/g, " ") || "PENDING ASSESSMENT")}</p></div>
                                             </div>
                                         </div>
                                     </Card>
+
+                                    {/* Government Verification / Revision Card */}
+                                    {request.status === "FOR_REVISION" ? (
+                                        <Card className="p-6 md:p-8 border-primary/20 bg-primary/[0.02] shadow-2xl rounded-2xl md:rounded-[2rem] relative overflow-hidden flex flex-col justify-between lg:col-span-1" style={{ borderColor: `${themeColor}20`, backgroundColor: `${themeColor}05` }}>
+                                            <div className="absolute top-0 right-0 p-4 opacity-5">
+                                                <AlertCircle className="w-20 h-20" />
+                                            </div>
+                                            <div className="relative z-10 space-y-6">
+                                                <div className="space-y-4">
+                                                    <div className="flex flex-col gap-2">
+                                                        <h3 className="text-sm md:text-base font-black uppercase tracking-widest italic flex items-center gap-2" style={{ color: themeColor }}>
+                                                            <AlertCircle className="w-5 h-5 animate-pulse" /> Admin Assessment
+                                                        </h3>
+                                                        <Badge variant="outline" className="w-fit border-primary/20 text-[9px] font-black uppercase tracking-widest italic py-1 px-3.5 rounded-full" style={{ borderColor: `${themeColor}20`, color: themeColor, backgroundColor: `${themeColor}10` }}>
+                                                            {remainingRevisions} {remainingRevisions === 1 ? "Revision Left" : "Revisions Left"}
+                                                        </Badge>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 leading-relaxed font-semibold italic">
+                                                        Remarks: <span className="font-bold" style={{ color: "#ef4444" }}>{request.rejectionRemarks}</span>
+                                                    </p>
+                                                    <p className="text-[8px] md:text-[9px] text-red-600 dark:text-red-400 font-black uppercase tracking-widest flex items-center gap-1 bg-red-500/10 dark:bg-red-500/5 border border-red-500/20 dark:border-red-500/10 rounded-lg px-2 py-1 w-fit">
+                                                        ⚠️ Declines in {remainingRevisions} attempts
+                                                    </p>
+                                                </div>
+
+                                                {isBusinessPermit || isCedula || isLcrDeathReg ? (
+                                                    <div className="space-y-3 pt-4 border-t" style={{ borderTopColor: `${themeColor}15` }}>
+                                                        <div className="space-y-1">
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest" style={{ backgroundColor: `${themeColor}15`, color: themeColor }}>
+                                                                ✨Note:
+                                                            </span>
+                                                            <p className="text-[9px] md:text-[10px] text-slate-400 font-bold leading-normal uppercase">
+                                                                Touch only fields needing correction.
+                                                            </p>
+                                                        </div>
+                                                        <Button
+                                                            asChild
+                                                            className="w-full h-11 rounded-xl hover:opacity-90 text-white font-black italic uppercase text-[9px] tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
+                                                            style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}30` }}
+                                                        >
+                                                            <Link href={isBusinessPermit ? `/user/services/business-permit?revisionId=${request.id}` : isCedula ? `/user/services/cedula?revisionId=${request.id}` : `/user/services/civil-registry/death-registration?revisionId=${request.id}`}>
+                                                                <ExternalLink className="w-3.5 h-3.5" />
+                                                                Fix Application
+                                                            </Link>
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-4 pt-4 border-t" style={{ borderTopColor: `${themeColor}15` }}>
+                                                        <div className="space-y-3">
+                                                            {documentList.map((doc, idx) => {
+                                                                const labelKeyMap: { [key: string]: string } = {
+                                                                    "Owner's Valid ID": "ownerId",
+                                                                    "Cedula (CTC) Copy": "ctc",
+                                                                    "DTI / SEC Registry": "dtiSec",
+                                                                    "Barangay Clearance": "brgyClearance",
+                                                                    "Location Photo": "locationPhoto",
+                                                                    "Sanitary Permit": "sanitary",
+                                                                    "Fire Safety Certificate": "fireSafety",
+                                                                    "BIR Certificate (COR)": "birCor",
+                                                                    "Previous Business Permit": "previousPermit",
+                                                                    "Identity Matrix": "validId",
+                                                                    "Financial Evidence": "proofOfIncome",
+                                                                    "Municipal Form No. 103": "municipalForm103",
+                                                                    "PSA Negative Certification": "psaNegative",
+                                                                    "Affidavit of Delayed Registration": "affidavitOfDelay",
+                                                                    "Municipal Form 102": "municipalForm102",
+                                                                    "Marriage Certificate of Parents": "marriageCertificate",
+                                                                    "Community Tax Certificate": "communityTaxCertificate",
+                                                                    "Negative Certification from PSA": "negativePSA",
+                                                                    "Certificate of Live Birth (COLB)": "colb",
+                                                                    "Accomplished Certificate of Marriage": "marriageCert",
+                                                                    "Negative Certificate from PSA (Marriage)": "psaNeg",
+                                                                    "Certified Copy of Marriage License": "marriageLicense",
+                                                                    "Valid ID (Front)": "validIdFront",
+                                                                    "Valid ID (Back)": "validIdBack"
+                                                                };
+                                                                const fileKey = labelKeyMap[doc.label] || `doc_${idx}`;
+                                                                return (
+                                                                    <div key={idx} className="space-y-1.5">
+                                                                        <span className="text-[8px] font-black uppercase text-slate-500 block truncate">{doc.label}</span>
+                                                                        <Label htmlFor={`rev-${fileKey}`} className="flex items-center justify-center gap-2 h-9 border border-dashed border-slate-200 dark:border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest cursor-pointer hover:border-primary/50 transition-colors">
+                                                                            <Upload className="w-3 h-3" />
+                                                                            {revisionFiles[fileKey] ? "Change File" : "Choose File"}
+                                                                        </Label>
+                                                                        <input
+                                                                            id={`rev-${fileKey}`}
+                                                                            type="file"
+                                                                            className="hidden"
+                                                                            onChange={(e) => {
+                                                                                const file = e.target.files?.[0];
+                                                                                if (file) handleRevisionFile(fileKey, file);
+                                                                            }}
+                                                                        />
+                                                                        {revisionFiles[fileKey] && (
+                                                                            <span className="text-[8px] font-bold text-slate-400 block truncate">{revisionFiles[fileKey]?.name}</span>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <Button
+                                                            onClick={handleResubmit}
+                                                            disabled={isResubmitting || Object.values(revisionFiles).every(f => f === null)}
+                                                            className="w-full h-12 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-primary/20 transition-all duration-200 active:scale-95"
+                                                            style={{ backgroundColor: themeColor }}
+                                                        >
+                                                            {isResubmitting ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
+                                                            RESUBMIT TRANSACTION
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </Card>
+                                    ) : (
+                                        <Card className="p-6 md:p-10 border-none bg-slate-950 text-white shadow-2xl rounded-2xl md:rounded-[3rem] relative overflow-hidden flex flex-col justify-between group lg:col-span-1">
+                                            <div className="absolute top-0 right-0 p-6 md:p-8 opacity-10 group-hover:rotate-12 transition-transform duration-700"><Info className="w-20 h-20 md:w-24 md:h-24" /></div>
+                                            <div className="space-y-6 md:space-y-10 relative z-10">
+                                                <h3 className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] text-primary italic leading-none">Government Verification</h3>
+                                                {request.status === "REJECTED" ? (
+                                                    <div className="space-y-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+                                                            <p className="text-sm md:text-base font-black uppercase tracking-widest italic text-red-500 leading-none">
+                                                                Request Rejected
+                                                            </p>
+                                                        </div>
+                                                        {request.rejectionRemarks && (
+                                                            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 space-y-1.5">
+                                                                <span className="text-[8px] font-black uppercase tracking-widest text-red-400 italic">
+                                                                    Rejection Remarks
+                                                                </span>
+                                                                <p className="text-xs md:text-sm font-bold italic text-red-400 leading-relaxed">
+                                                                    &ldquo;{request.rejectionRemarks}&rdquo;
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-xs md:text-sm font-bold italic opacity-90 leading-relaxed tracking-tight">
+                                                        &quot;{(request.status === "RELEASED" || request.status === "DELIVERED")
+                                                            ? "Registry Process Complete. Thank you for utilizing Mapandan's digital governance portal. Records successfully finalized and archived."
+                                                            : (request.status === "PAID"
+                                                                ? `Standard professional assessment concludes within ${request.type?.slaDays || 3} business days. Our team is currently validating your documentary evidence.`
+                                                                : (request.status === "FOR_REVISION"
+                                                                    ? (request.rejectionRemarks || `Standard professional assessment concludes within ${request.type?.slaDays || 3} business days. Our team is currently validating your documentary evidence.`)
+                                                                    : `Standard professional assessment concludes within ${request.type?.slaDays || 3} business days. Our team is currently validating your documentary evidence.`))}&quot;
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="space-y-3 md:space-y-4 pt-10 relative z-10">
+                                                <Separator className="bg-white/10" />
+                                                <div className="flex items-end justify-between">
+                                                    {((request.type?.code === "LCR_BIRTH" || request.type?.code?.startsWith("LCR_")) && ["FOR_REQUESTING", "UNDER_REVIEW"].includes(request.status)) ? (
+                                                        <div><p className="text-[8px] font-black uppercase tracking-widest text-primary/50 italic leading-none">Total Payable</p><p className="text-xl md:text-2xl font-black text-primary/60 italic leading-tight">TBD</p></div>
+                                                    ) : (isCedula && request.status === "FOR_REQUESTING") ? (
+                                                        <div><p className="text-[8px] font-black uppercase tracking-widest text-primary/50 italic leading-none">Total Payable (Estimated)</p><p className="text-xl md:text-2xl font-black text-primary italic leading-tight">₱{estimatedCedulaAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
+                                                    ) : (
+                                                        <div><p className="text-[8px] font-black uppercase tracking-widest text-primary/50 italic leading-none">Total Payable</p><p className="text-xl md:text-2xl font-black text-primary italic leading-tight">₱{(request.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
+                                                    )}
+                                                    <ShieldCheck className="w-6 h-6 text-primary/40" />
+                                                </div>
+                                            </div>
+                                        </Card>
+                                    )}
                                 </div>
+                            </TabsContent>
+
+                            <TabsContent value="records" className="mt-0">
+                                <Card className="p-6 md:p-10 border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900/40 shadow-xl rounded-2xl md:rounded-3xl space-y-12">
+                                    {isLcrBirth && (
+                                        <BirthCertificateRequestDetails additionalData={additionalData} />
+                                    )}
+                                    {isLcrDeathCert && (
+                                        <DeathCertificateRequestDetails additionalData={additionalData} />
+                                    )}
+                                    {isLcrDeathReg && (
+                                        <DeathRegistrationRequestDetails additionalData={additionalData} />
+                                    )}
+                                    {isLcrMarriage && (
+                                        <MarriageCertificateRequestDetails additionalData={additionalData} />
+                                    )}
+
+                                    {request.type?.code.startsWith("BUSINESS_PERMIT") && (
+                                        <div className="space-y-6 pb-8 border-b border-slate-100 dark:border-white/5">
+                                            <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Business Information</h4>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Official Business Name</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.businessName}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Trade Name</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.tradeName || "N/A"}</p></div>
+                                                {!isRenewal ? (
+                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">DTI / SEC ID</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.dtiSecNumber || "N/A"}</p></div>
+                                                ) : (
+                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Existing Permit No.</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.permitNumber || "N/A"}</p></div>
+                                                )}
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Line of Business</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.lineOfBusiness}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Business Barangay</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.barangay}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Employee Count</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.employeeCount ?? 0}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Store Area (sqm)</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.businessArea ? `${additionalData.businessArea} sqm` : "N/A"}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Business Branch</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.businessBranch || "MAIN"}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Registration Type</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.registrationType || "N/A"}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Registration Date</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.dtiSecDate || "N/A"}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">TIN Number</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.tinNumber || "N/A"}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">SSS Number</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.sssNumber || "N/A"}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">PhilHealth Number</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.philhealthNumber || "N/A"}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Pag-IBIG Number</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.pagibigNumber || "N/A"}</p></div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {isBuildingPermit && (
+                                        <div className="space-y-6 pb-8 border-b border-slate-100 dark:border-white/5">
+                                            <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Building Information</h4>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Occupancy Use</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.occupancyUse}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Estimated Cost</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">₱{Number(additionalData.estimatedCost || 0).toLocaleString()}</p></div>
+                                                <div className="space-y-1 col-span-2"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Description of Work</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.descriptionOfWork}</p></div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-16">
+                                        <div className="space-y-10">
+                                            <div className="space-y-6">
+                                                <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Personal Identity</h4>
+                                                <div className="grid grid-cols-2 gap-6 md:gap-8">
+                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Name</p><p className="text-xs md:text-lg font-bold italic truncate">{residentData.firstName} {residentData.lastName}</p></div>
+                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Birth Date</p><p className="text-xs md:text-lg font-bold italic">{residentData.dateOfBirth && !isNaN(new Date(residentData.dateOfBirth).getTime()) ? format(new Date(residentData.dateOfBirth), "MMM d, yyyy") : "N/A"}</p></div>
+                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Civil Status</p><p className="text-xs md:text-lg font-bold italic uppercase">{residentData.civilStatus || "Single"}</p></div>
+                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Citizenship</p><p className="text-xs md:text-lg font-bold italic uppercase">{residentData.citizenship || "Filipino"}</p></div>
+                                                </div>
+                                            </div>
+                                            {!isCivilRegistry && (
+                                                <div className="space-y-6 pt-6 border-t border-slate-100 dark:border-white/5">
+                                                    <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">
+                                                        {request.isStudent ? "Student Status" : "Financial Declarations"}
+                                                    </h4>
+                                                    <div className="grid grid-cols-2 gap-6 md:gap-8">
+                                                        {request.type?.code.startsWith("BUSINESS_PERMIT") ? (
+                                                            <>
+                                                                <div className="space-y-1">
+                                                                    <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">
+                                                                        {additionalData.businessType === "NEW" ? "Capital Investment" : "Annual Gross Sales"}
+                                                                    </p>
+                                                                    <p className="text-lg md:text-2xl font-black text-slate-900 dark:text-white italic">
+                                                                        ₱{(additionalData.capitalInvestment || additionalData.grossSales || 0).toLocaleString()}
+                                                                    </p>
+                                                                </div>
+                                                                {request.businessPermit?.expiryDate && (
+                                                                    <div className="space-y-1">
+                                                                        <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Validity Mandate</p>
+                                                                        <p className="text-lg md:text-2xl font-black text-primary italic uppercase leading-none">
+                                                                            Expires {format(new Date(request.businessPermit.expiryDate), "MMM d, yyyy")}
+                                                                        </p>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        ) : request.isStudent ? (
+                                                            <>
+                                                                <div className="space-y-1">
+                                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20 shrink-0 w-fit mt-1 italic shadow-sm">
+                                                                        🎓 Student Request
+                                                                    </span>
+                                                                </div>
+                                                                {request.cedula?.expiryDate && (
+                                                                    <div className="space-y-1">
+                                                                        <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Validity Mandate</p>
+                                                                        <p className="text-lg md:text-2xl font-black text-primary italic uppercase leading-none">
+                                                                            Expires {format(new Date(request.cedula.expiryDate), "MMM d")}
+                                                                        </p>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <div className="space-y-1">
+                                                                    <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Annual Gross Income</p>
+                                                                    <p className="text-lg md:text-2xl font-black text-slate-900 dark:text-white italic">
+                                                                        ₱{(additionalData.income || 0).toLocaleString()}
+                                                                    </p>
+                                                                </div>
+                                                                {request.cedula?.expiryDate && (
+                                                                    <div className="space-y-1">
+                                                                        <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Validity Mandate</p>
+                                                                        <p className="text-lg md:text-2xl font-black text-primary italic uppercase leading-none">
+                                                                            Expires {format(new Date(request.cedula.expiryDate), "MMM d")}
+                                                                        </p>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="space-y-6">
+                                            <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Registered Address</h4>
+                                            <div className="bg-slate-50 dark:bg-white/5 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] border border-slate-100 dark:border-white/5 relative overflow-hidden">
+                                                <MapPin className="absolute top-4 right-4 w-12 h-12 text-primary/10" />
+                                                <div className="relative z-10 space-y-6">
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">House / Street</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.houseNumber} {residentData.street}</p></div>
+                                                        <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Sitio / Purok</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.sitio} {residentData.purok}</p></div>
+                                                    </div>
+                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Barangay Matrix</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.barangay}, Mapandan</p></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Card>
                             </TabsContent>
 
                             <TabsContent value="logistics" className="mt-0 space-y-6 md:space-y-10">

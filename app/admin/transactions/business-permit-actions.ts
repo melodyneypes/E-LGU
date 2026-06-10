@@ -109,10 +109,14 @@ export async function confirmBusinessPermitPayment(formData: FormData) {
         if (!transaction) return { success: false, error: "Transaction not found" };
 
         let orDocumentUrl = undefined;
+        console.log("[confirmBusinessPermitPayment] id:", sanitizedId);
+        console.log("[confirmBusinessPermitPayment] orFile received:", orFile ? { name: orFile.name, size: orFile.size, type: orFile.type } : "NONE");
+        
         if (orFile && (orFile as any).size > 0) {
             const timestamp = Date.now();
             const path = `treasury/or/${sanitizedId}/${timestamp}-${(orFile as any).name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
             orDocumentUrl = await uploadFile(orFile, path);
+            console.log("[confirmBusinessPermitPayment] uploadResult:", orDocumentUrl);
         }
 
         const currentAdditionalData = (transaction.additionalData as any) || {};
@@ -120,11 +124,14 @@ export async function confirmBusinessPermitPayment(formData: FormData) {
             ...currentAdditionalData,
             ...(sanitizedRemarks && { treasuryRemarks: sanitizedRemarks }),
             ...(orSeriesNumber && { orSeriesNumber: sanitizeString(orSeriesNumber) }),
+            ...(orDocumentUrl && { orDocumentUrl }), // Save in additionalData as well!
             releasedAt: getPHTimeISOString()
         };
 
         const targetStatus = "FOR_REINSPECTION";
         const finalOrUrl = orDocumentUrl || transaction.orUrl;
+
+        console.log("[confirmBusinessPermitPayment] Updating transaction in database. finalOrUrl:", finalOrUrl);
 
         const updatedTransaction = await prisma.transaction.update({
             where: { id: sanitizedId },

@@ -41,6 +41,8 @@ export default function TreasuryPaymentCollectionPanel({
         additional?.payment_id ||
         transaction.paymentId;
 
+    const isBusinessPermit = transaction?.type?.code?.startsWith("BUSINESS_PERMIT") ?? false;
+
     return (
         <div className="space-y-4">
             {/* GCash Reference Panel */}
@@ -73,43 +75,53 @@ export default function TreasuryPaymentCollectionPanel({
                     <div className="space-y-6 bg-white dark:bg-[#151b28] rounded-[2rem] p-8 border border-slate-50 dark:border-white/5 shadow-2xl">
                         <div className="space-y-1 pb-4 border-b border-slate-100 dark:border-white/5">
                             <h4 className="text-[10px] font-black uppercase tracking-[0.2em] italic" style={{ color: themeColor }}>Treasury Collection</h4>
-                            <p className="text-[10px] font-bold text-slate-400 italic">Record receipt serial, attach scanned document, and mark as paid.</p>
+                            <p className="text-[10px] font-bold text-slate-400 italic">
+                                {transaction.status === "PAID" ? "Official Receipt details recorded for this payment." : "Record receipt serial, attach scanned document, and mark as paid."}
+                            </p>
                         </div>
 
                         <div className="space-y-4 pt-2">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 italic block">
-                                    O.R. Series Number <span className="text-rose-500 font-extrabold">*Required</span>
+                                    O.R. Series Number {(transaction.status !== "PAID" || isBusinessPermit) && <span className="text-rose-500 font-extrabold">*Required</span>}
                                 </label>
-                                <input
-                                    type="text"
-                                    value={orSeriesNumber || ""}
-                                    onChange={(e) => setOrSeriesNumber?.(e.target.value)}
-                                    placeholder="Enter O.R. Series Number..."
-                                    className="w-full h-11 px-4 rounded-xl border border-slate-150 dark:border-white/5 bg-white dark:bg-[#151b28]/60 text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-primary transition-all"
-                                />
+                                {transaction.status === "PAID" && !isBusinessPermit ? (
+                                    <div className="h-11 flex items-center px-4 rounded-xl border border-slate-150 dark:border-white/5 bg-slate-50 dark:bg-white/5 text-xs font-bold text-slate-800 dark:text-slate-100">
+                                        {orSeriesNumber || transaction.orSeriesNumber || additional?.orSeriesNumber || "N/A"}
+                                    </div>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        value={orSeriesNumber || ""}
+                                        onChange={(e) => setOrSeriesNumber?.(e.target.value)}
+                                        placeholder="Enter O.R. Series Number..."
+                                        className="w-full h-11 px-4 rounded-xl border border-slate-150 dark:border-white/5 bg-white dark:bg-[#151b28]/60 text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-primary transition-all"
+                                    />
+                                )}
                             </div>
 
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 italic block">
-                                    Attach Scanned Official Receipt (O.R.) <span className="text-rose-500 font-extrabold">*Required</span>
+                                    Official Receipt (O.R.) Document {(transaction.status !== "PAID" || isBusinessPermit) && <span className="text-rose-500 font-extrabold">*Required</span>}
                                 </label>
-                                <input
-                                    type="file"
-                                    accept=".pdf,image/*"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0] || null;
-                                        setOrFile?.(file);
-                                        if (file) {
-                                            const url = URL.createObjectURL(file);
-                                            setOrPreview?.(url);
-                                        } else {
-                                            setOrPreview?.(null);
-                                        }
-                                    }}
-                                    className="hidden"
-                                    id="or-document-upload-paid"
-                                />
+                                {(transaction.status !== "PAID" || isBusinessPermit) && (
+                                    <input
+                                        type="file"
+                                        accept=".pdf,image/*"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0] || null;
+                                            setOrFile?.(file);
+                                            if (file) {
+                                                const url = URL.createObjectURL(file);
+                                                setOrPreview?.(url);
+                                            } else {
+                                                setOrPreview?.(null);
+                                            }
+                                        }}
+                                        className="hidden"
+                                        id="or-document-upload-paid"
+                                    />
+                                )}
                                 {orFile || transaction.orUrl ? (
                                     <div className="space-y-3">
                                         {(() => {
@@ -164,39 +176,49 @@ export default function TreasuryPaymentCollectionPanel({
                                                 </div>
                                             );
                                         })()}
-                                        <div className="flex justify-end">
-                                            <label
-                                                htmlFor="or-document-upload-paid"
-                                                className="h-8 px-3 rounded-lg border border-transparent bg-slate-200 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white text-[9px] font-black uppercase tracking-widest italic flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-sm select-none"
-                                            >
-                                                Replace O.R. File
-                                            </label>
-                                        </div>
+                                        {(transaction.status !== "PAID" || isBusinessPermit) && (
+                                            <div className="flex justify-end">
+                                                <label
+                                                    htmlFor="or-document-upload-paid"
+                                                    className="h-8 px-3 rounded-lg border border-transparent bg-slate-200 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white text-[9px] font-black uppercase tracking-widest italic flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-sm select-none"
+                                                >
+                                                    Replace O.R. File
+                                                </label>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
-                                    <label
-                                        htmlFor="or-document-upload-paid"
-                                        className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed transition-all h-28 bg-white dark:bg-[#151b28]/60 overflow-hidden relative group cursor-pointer border-slate-200 dark:border-white/10 hover:border-primary/30"
-                                    >
-                                        <Upload className="w-4.5 h-4.5 text-slate-400 group-hover:text-primary transition-colors mb-1" />
-                                        <span className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 text-center px-2">
-                                            Upload Scanned O.R. Document
-                                        </span>
-                                    </label>
+                                    (transaction.status !== "PAID" || isBusinessPermit) ? (
+                                        <label
+                                            htmlFor="or-document-upload-paid"
+                                            className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed transition-all h-28 bg-white dark:bg-[#151b28]/60 overflow-hidden relative group cursor-pointer border-slate-200 dark:border-white/10 hover:border-primary/30"
+                                        >
+                                            <Upload className="w-4.5 h-4.5 text-slate-400 group-hover:text-primary transition-colors mb-1" />
+                                            <span className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 text-center px-2">
+                                                Upload Scanned O.R. Document
+                                            </span>
+                                        </label>
+                                    ) : (
+                                        <div className="h-28 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 dark:text-slate-500 text-[9px] font-black uppercase tracking-widest italic">
+                                            No O.R. Document Uploaded
+                                        </div>
+                                    )
                                 )}
                             </div>
                         </div>
                     </div>
 
-                    <Button
-                        onClick={handleConfirmPayment}
-                        disabled={actionLoading || !orSeriesNumber || !orFile}
-                        style={{ backgroundColor: themeColor }}
-                        className="w-full h-14 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all opacity-100 hover:opacity-90 disabled:opacity-50"
-                    >
-                        {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                        Upload O.R. & Mark as Paid
-                    </Button>
+                    {(transaction.status !== "PAID" || isBusinessPermit) && (
+                        <Button
+                            onClick={handleConfirmPayment}
+                            disabled={actionLoading || !orSeriesNumber || !orFile}
+                            style={{ backgroundColor: themeColor }}
+                            className="w-full h-14 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all opacity-100 hover:opacity-90 disabled:opacity-50"
+                        >
+                            {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                            {transaction.status === "PAID" ? "Submit O.R. & Handoff to BPLO" : "Upload O.R. & Mark as Paid"}
+                        </Button>
+                    )}
                 </div>
             )}
         </div>

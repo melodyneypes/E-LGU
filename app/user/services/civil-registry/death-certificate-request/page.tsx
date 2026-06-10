@@ -898,7 +898,7 @@ export default function DeathCertificateRequestPage() {
                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Contact Number <span className="text-red-500">*</span></Label>
                                     <Input
                                         value={form.contactNumber}
-                                        onChange={(e) => setForm(p => ({ ...p, contactNumber: e.target.value }))}
+                                        onChange={(e) => setForm(p => ({ ...p, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
                                         className={cn("h-10 rounded-xl text-xs md:text-sm font-bold", (showErrors && !form.contactNumber) && "border-red-500")}
                                         placeholder="e.g. 09123456789"
                                     />

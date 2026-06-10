@@ -848,13 +848,13 @@ export default function BirthPsaEndorsementPage() {
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Contact Number <span className="text-red-500">*</span></Label>
                                                 <Input
+                                                    name="contactNumber"
+                                                    value={formData.contactNumber}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
                                                     className={cn(
                                                         "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-bold italic",
                                                         (showErrors && !formData.contactNumber) && "border-red-500/50 bg-red-50/10"
                                                     )}
-                                                    placeholder="e.g. 0917XXXXXXX"
-                                                    value={formData.contactNumber}
-                                                    onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value }))}
                                                 />
                                                 {(showErrors && !formData.contactNumber) && (
                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
