@@ -104,6 +104,36 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
 
     const partnerNamesLabel = `${app1.fullName || "N/A"} & ${app2.fullName || "N/A"}`;
 
+    // Hide FOR_REQUESTING from Registrar — only Treasury should see this status
+    if (transaction.status === "FOR_REQUESTING" && !isTreasuryContext) {
+        return (
+            <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0f172a] transition-colors duration-300">
+                <div className={`h-1.5 w-full ${themeColor} transition-all duration-500`} />
+                <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+                    <Link
+                        href={backUrl}
+                        className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors group mb-8"
+                    >
+                        <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                        Back to Requests
+                    </Link>
+
+                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 md:p-10 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 text-center space-y-4">
+                        <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
+                            <Clock className="w-6 h-6" />
+                        </div>
+                        <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 dark:text-slate-200">
+                            Awaiting Treasury Confirmation
+                        </h3>
+                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 italic leading-relaxed">
+                            This marriage license request is currently awaiting confirmation from the Treasury Department and is not displayed for the Registrar at this time.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0f172a] transition-colors duration-300">
             {/* Header branding band */}
@@ -356,7 +386,7 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
                                 {/* APPLICANT 1 DETAILS */}
                                 <div className="space-y-6">
                                     <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic font-bold">
-                                        Applicant 1 (Groom / Bride)
+                                        {app1.gender === "MALE" ? "Groom (Male)" : app1.gender === "FEMALE" ? "Bride / Wife (Female)" : "Applicant 1"}
                                     </h4>
                                     <div className="space-y-6">
                                         <div className="space-y-1.5">
@@ -386,13 +416,20 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
                                                 {app1.citizenship || "—"}
                                             </div>
                                         </div>
+
+                                        <div className="space-y-1.5">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Sex</span>
+                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                {app1.gender || "—"}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
                                 {/* APPLICANT 2 DETAILS */}
                                 <div className="space-y-6">
                                     <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic font-bold">
-                                        Applicant 2 (Bride / Groom)
+                                        {app2.gender === "MALE" ? "Groom (Male)" : app2.gender === "FEMALE" ? "Bride / Wife (Female)" : "Applicant 2"}
                                     </h4>
                                     <div className="space-y-6">
                                         <div className="space-y-1.5">
@@ -420,6 +457,13 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Citizenship</span>
                                             <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
                                                 {app2.citizenship || "—"}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Sex</span>
+                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                {app2.gender || "—"}
                                             </div>
                                         </div>
                                     </div>

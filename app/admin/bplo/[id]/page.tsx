@@ -18,8 +18,7 @@ import {
     Trash2,
     ChevronDown,
     ChevronUp,
-    Copy,
-    Clock
+    Copy
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -530,7 +529,7 @@ export default function BploDetailPage({ params }: PageProps) {
             if (res.success) {
                 toast.success(`Dispute ${disputeAction === 'APPROVE' ? 'Approved' : 'Rejected'}`);
                 setDisputeModalOpen(false);
-                router.push("/admin/bplo");
+                fetchTransaction();
             } else {
                 toast.error(res.error || "Resolution failed");
             }
@@ -567,17 +566,7 @@ export default function BploDetailPage({ params }: PageProps) {
 
     if (!transaction) return <div className="p-20 text-center dark:text-white">Transaction details unavailable.</div>;
 
-    const additional = (() => {
-        if (!transaction?.additionalData) return {};
-        if (typeof transaction.additionalData === "string") {
-            try {
-                return JSON.parse(transaction.additionalData);
-            } catch {
-                return {};
-            }
-        }
-        return transaction.additionalData;
-    })();
+    const additional = transaction.additionalData || {};
     const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
     const isRenewal = additional.businessType === "RENEWAL" || additional.businessType === "RENEW";
 
@@ -675,11 +664,11 @@ export default function BploDetailPage({ params }: PageProps) {
                 <div className="col-span-12 lg:col-span-8 space-y-8">
                     {/* TRANSACTION INFORMATION CARD */}
                     <TransactionInfoCard
-                        transactionName={transaction.type?.name || "Business Permit"}
-                        themeColor={themeColor}
-                        categoryLabel={transaction.type?.requiresBusinessName
+                        transactionName={transaction.type?.requiresBusinessName
                             ? (transaction.businessName || additional?.businessName || "UNNAMED ENTITY")
                             : `${resident?.firstName || ''} ${resident?.lastName || ''}`}
+                        themeColor={themeColor}
+                        categoryLabel={transaction.type?.name || "Business Permit"}
                     />
 
                     {/* METRICS + BREAKDOWN CARD */}
@@ -1180,79 +1169,84 @@ export default function BploDetailPage({ params }: PageProps) {
                             })}
                         </div>
                     </div>
+                    {/* END WORKFLOW TRACKING CARD */}
 
                     {/* CITIZEN PAYMENT PROOF CARD */}
                     {(() => {
+                        const hasImage = transaction.paymentReference && (transaction.paymentReference.startsWith("http") || transaction.paymentReference.startsWith("/"));
                         const gcashRef = (transaction.additionalData as any)?.gcashReferenceNo;
                         const paymentRef = transaction.paymentReference && !isValidUrl(transaction.paymentReference) ? transaction.paymentReference : null;
                         const additionalPaymentId = (transaction.additionalData as any)?.paymentId || (transaction.additionalData as any)?.id || (transaction.additionalData as any)?.payment_id;
                         const refNo = gcashRef || paymentRef || additionalPaymentId;
 
-                        if (!refNo) return null;
+                        if (!hasImage && !refNo) return null;
 
                         return (
-                            <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5 space-y-2 mt-2 group/ref relative overflow-hidden transition-all hover:border-primary/20 shadow-sm animate-in fade-in">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Hash className="w-3.5 h-3.5 text-primary" />
-                                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Payment Reference No.</span>
+                            <div className="bg-white dark:bg-[#151b28] rounded-[2.5rem] p-8 border border-slate-50 dark:border-white/5 shadow-2xl shadow-slate-900/5 space-y-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-xl" style={{ backgroundColor: `${themeColor}15` }}>
+                                        <Camera className="w-4 h-4" style={{ color: themeColor }} />
                                     </div>
+                                    <div>
+                                        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 block italic leading-none">Citizen Payment</span>
+                                        <span className="text-sm font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">Proof of Payment</span>
+                                    </div>
+                                </div>
+
+                                {hasImage ? (
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            navigator.clipboard.writeText(refNo);
-                                            toast.success("Reference number copied!");
+                                            handleViewFile(transaction.paymentReference, "Proof of Payment");
                                         }}
-                                        className="text-slate-400 hover:text-primary transition-colors p-1 rounded hover:bg-slate-100 dark:hover:bg-white/5"
+                                        className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all text-left block cursor-zoom-in animate-in fade-in"
                                     >
-                                        <Copy className="w-3.5 h-3.5" />
+                                        <Image
+                                            src={isValidUrl(transaction.paymentReference) ? transaction.paymentReference : "/placeholder.png"}
+                                            alt="Payment Proof"
+                                            fill
+                                            className="object-contain group-hover:scale-[1.02] transition-transform duration-300"
+                                        />
+                                        <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 backdrop-blur-[2px]">
+                                            <div
+                                                style={{ backgroundColor: themeColor }}
+                                                className="backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px]"
+                                            >
+                                                <span>View</span>
+                                            </div>
+                                        </div>
                                     </button>
-                                </div>
-                                <p className="text-sm font-black italic tracking-widest font-mono text-slate-800 dark:text-slate-200 select-all">
-                                    {refNo}
-                                </p>
+                                ) : null}
+
+                                {refNo ? (
+                                    <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5 space-y-2 mt-2 group/ref relative overflow-hidden transition-all hover:border-primary/20 shadow-sm animate-in fade-in">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Hash className="w-3.5 h-3.5 text-primary" />
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Payment Reference No.</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(refNo);
+                                                    toast.success("Reference number copied!");
+                                                }}
+                                                className="text-slate-400 hover:text-primary transition-colors p-1 rounded hover:bg-slate-100 dark:hover:bg-white/5"
+                                            >
+                                                <Copy className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                        <p className="text-sm font-black italic tracking-widest font-mono text-slate-800 dark:text-slate-200 select-all">
+                                            {refNo}
+                                        </p>
+                                    </div>
+                                ) : null}
                             </div>
                         );
                     })()}
 
                     {/* EXECUTIVE ACTIONS */}
                     <div className="space-y-4 pt-4">
-                        {transaction.status === "FOR_REQUESTING" && (
-                            <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
-                                <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
-                                    <Clock className="w-6 h-6 animate-pulse" />
-                                </div>
-                                <h4 className="text-xs font-black uppercase tracking-[0.25em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Treasury Processing</h4>
-                                <p className="text-[10px] text-slate-400 italic max-w-sm mx-auto leading-relaxed">
-                                    The assessment details have been forwarded to the Treasury Department. We are currently waiting for Treasury verification to confirm billing and make the request ready for citizen payment.
-                                </p>
-                            </div>
-                        )}
-
-                        {transaction.status === "EVALUATED" && (
-                            <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
-                                <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
-                                    <Clock className="w-6 h-6 animate-pulse" />
-                                </div>
-                                <h4 className="text-xs font-black uppercase tracking-[0.25em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Citizen Payment</h4>
-                                <p className="text-[10px] text-slate-400 italic max-w-sm mx-auto leading-relaxed">
-                                    The assessment fee has been computed and approved. We are currently waiting for the citizen to complete the payment online or upload their proof of payment.
-                                </p>
-                            </div>
-                        )}
-
-                        {transaction.status === "PAID" && (
-                            <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
-                                <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mx-auto">
-                                    <Clock className="w-6 h-6 animate-pulse" />
-                                </div>
-                                <h4 className="text-xs font-black uppercase tracking-[0.25em] text-slate-700 dark:text-slate-200 font-bold">Payment Verified</h4>
-                                <p className="text-[10px] text-slate-400 italic max-w-sm mx-auto leading-relaxed">
-                                    The citizen&apos;s payment has been verified successfully. The request has been routed to the licensing officer for processing and permit preparation.
-                                </p>
-                            </div>
-                        )}
-
                         {/* Inspection phase actions */}
                         {(transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION") && (
                             <div className="space-y-4">
@@ -1263,7 +1257,7 @@ export default function BploDetailPage({ params }: PageProps) {
                                     if (!orNo && !orDocUrl) return null;
 
                                     return (
-                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-4">
+                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 md:p-10 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-4 animate-in fade-in duration-300">
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 rounded-xl bg-green-500/10 text-green-500">
                                                     <FileText className="w-4 h-4" />
@@ -1276,16 +1270,16 @@ export default function BploDetailPage({ params }: PageProps) {
 
                                             {orNo && (
                                                 <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5 space-y-1">
-                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-450 dark:text-slate-500 block leading-none">O.R. Series Number</span>
-                                                    <span className="text-xs font-black uppercase italic tracking-wider text-slate-800 dark:text-slate-200 font-mono block">
+                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block leading-none">O.R. Series Number</span>
+                                                    <p className="text-xs font-black uppercase italic tracking-wider text-slate-800 dark:text-slate-200">
                                                         {orNo}
-                                                    </span>
+                                                    </p>
                                                 </div>
                                             )}
 
                                             {orDocUrl && (
                                                 <div className="space-y-2">
-                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block leading-none">Scanned O.R. Copy</span>
+                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1 block leading-none">Scanned O.R. Copy</span>
                                                     {(() => {
                                                         const isPdf = orDocUrl.toLowerCase().endsWith(".pdf") || orDocUrl.includes("application/pdf") || orDocUrl.includes(".pdf?");
                                                         if (isPdf) {
@@ -1314,7 +1308,7 @@ export default function BploDetailPage({ params }: PageProps) {
                                                         return (
                                                             <div
                                                                 onClick={() => handleViewFile?.(orDocUrl, "Official Treasury Receipt")}
-                                                                className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all cursor-pointer select-none"
+                                                                className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all text-left block cursor-pointer select-none"
                                                             >
                                                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                                                 <img
@@ -1322,14 +1316,13 @@ export default function BploDetailPage({ params }: PageProps) {
                                                                     alt="OR Preview"
                                                                     className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
                                                                 />
-                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-300 backdrop-blur-[2px]">
-                                                                    <button
-                                                                        type="button"
-                                                                        style={{ backgroundColor: themeColor || 'var(--primary)' }}
-                                                                        className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg hover:scale-105 transition-all"
+                                                                <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 backdrop-blur-[2px]">
+                                                                    <div
+                                                                        style={{ backgroundColor: themeColor }}
+                                                                        className="backdrop-blur-md px-4 py-2 rounded-xl border border-white/25 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg animate-in zoom-in-75 duration-200"
                                                                     >
-                                                                        <span>VIEW</span>
-                                                                    </button>
+                                                                        <span>View</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         );
@@ -1367,7 +1360,7 @@ export default function BploDetailPage({ params }: PageProps) {
                             </div>
                         )}
 
-                        {["FOR_CLAIM", "FOR_PICKING", "FOR_PROCESSING", "RELEASED", "DELIVERED"].includes(transaction.status) && (
+                        {["PAID", "FOR_CLAIM", "FOR_PICKING", "FOR_PROCESSING"].includes(transaction.status) && (
                             <div className="space-y-4">
                                 <div className="bg-white dark:bg-[#151b28] rounded-[2.5rem] p-8 border border-slate-50 dark:border-white/5 shadow-2xl shadow-slate-900/5 space-y-6">
                                     {/* Card header */}
@@ -1381,15 +1374,8 @@ export default function BploDetailPage({ params }: PageProps) {
                                         </div>
                                     </div>
 
-                                    {isRenewal && !["RELEASED", "DELIVERED"].includes(transaction.status) ? (
-                                        <div 
-                                            style={{ 
-                                                backgroundColor: `${themeColor}10`, 
-                                                borderColor: `${themeColor}30`,
-                                                color: themeColor 
-                                            }}
-                                            className="p-4 rounded-2xl border text-xs"
-                                        >
+                                    {isRenewal ? (
+                                        <div className="bg-emerald-50 dark:bg-emerald-500/5 p-4 rounded-2xl border border-emerald-200 text-xs text-emerald-800 dark:text-emerald-300">
                                             <span className="font-bold">Renewal Auto-Carried:</span> Existing Permit Number <span className="font-mono font-black">#{additional.permitNumber || additional.existingPermitNumber || "—"}</span> carries over.
                                         </div>
                                     ) : (

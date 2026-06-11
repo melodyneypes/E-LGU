@@ -301,6 +301,7 @@ export async function submitMarriageLicenseTransaction(formData: FormData) {
         const typeId = sanitizeString(formData.get("typeId") as string);
         const residentSnapshotRaw = formData.get("residentSnapshot");
         const additionalDataRaw = formData.get("additionalData");
+        const revisionId = formData.get("revisionId") ? sanitizeString(formData.get("revisionId") as string) : null;
 
         if (!typeId || !residentSnapshotRaw || !additionalDataRaw) {
             return { success: false, error: "Missing required transaction data" };
@@ -309,7 +310,30 @@ export async function submitMarriageLicenseTransaction(formData: FormData) {
         const residentSnapshot = sanitizeObject(JSON.parse(residentSnapshotRaw as string));
         const additionalData = sanitizeObject(JSON.parse(additionalDataRaw as string));
 
-        console.log(`Processing Marriage License transaction for user ${session.user.id}`);
+        if (
+            additionalData.applicant1?.gender &&
+            additionalData.applicant2?.gender &&
+            additionalData.applicant1.gender.toUpperCase() === additionalData.applicant2.gender.toUpperCase()
+        ) {
+            return { success: false, error: "Same-sex marriage is not permitted. Both applicants must be of opposite sex." };
+        }
+
+        if (
+            (residentSnapshot.civilStatus && residentSnapshot.civilStatus.toUpperCase() === "MARRIED") ||
+            (additionalData.app2Resident?.civilStatus && additionalData.app2Resident.civilStatus.toUpperCase() === "MARRIED")
+        ) {
+            return { success: false, error: "Your civil status is registered as Married. You cannot apply for another marriage application." };
+        }
+
+        console.log(`Processing Marriage License transaction for user ${session.user.id} (revisionId: ${revisionId})`);
+
+        let existingTx: any = null;
+        if (revisionId) {
+            existingTx = await prisma.transaction.findUnique({
+                where: { id: revisionId }
+            });
+        }
+        const existingAddData = existingTx?.additionalData as any || {};
 
         const files: Record<string, string | null> = {};
 
@@ -354,6 +378,7 @@ export async function submitMarriageLicenseTransaction(formData: FormData) {
         };
 
         const updatedAdditionalData = {
+            ...existingAddData,
             ...additionalData,
             ...files,
             registryType: "MARRIAGE_LICENSE",
@@ -362,20 +387,35 @@ export async function submitMarriageLicenseTransaction(formData: FormData) {
         };
 
         const transaction = await prisma.$transaction(async (tx: any) => {
-            const t = await tx.transaction.create({
-                data: {
-                    userId: session.user.id,
-                    typeId,
-                    status: "FOR_INSPECTION",
-                    fulfillmentType: additionalData.fulfillmentType || null,
-                    paymentType: null,
-                    residentSnapshot,
-                    additionalData: updatedAdditionalData,
-                    totalAmount: initialTotalAmount,
-                    businessName: null,
-                    fiscalSnapshot: initialFiscalSnapshot
-                }
-            });
+            const t = revisionId
+                ? await tx.transaction.update({
+                    where: { id: revisionId },
+                    data: {
+                        status: "FOR_INSPECTION",
+                        fulfillmentType: additionalData.fulfillmentType || null,
+                        paymentType: null,
+                        residentSnapshot,
+                        additionalData: updatedAdditionalData,
+                        totalAmount: initialTotalAmount,
+                        rejectionRemarks: null, // Reset rejection remarks on resubmit!
+                        updatedAt: new Date(),
+                        ...(initialFiscalSnapshot ? { fiscalSnapshot: initialFiscalSnapshot } : {})
+                    }
+                })
+                : await tx.transaction.create({
+                    data: {
+                        userId: session.user.id,
+                        typeId,
+                        status: "FOR_INSPECTION",
+                        fulfillmentType: additionalData.fulfillmentType || null,
+                        paymentType: null,
+                        residentSnapshot,
+                        additionalData: updatedAdditionalData,
+                        totalAmount: initialTotalAmount,
+                        businessName: null,
+                        fiscalSnapshot: initialFiscalSnapshot
+                    }
+                });
 
             await tx.resident.update({
                 where: { userId: session.user.id },

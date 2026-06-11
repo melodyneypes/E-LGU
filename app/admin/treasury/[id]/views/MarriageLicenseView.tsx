@@ -338,7 +338,7 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
                                 {/* APPLICANT 1 DETAILS */}
                                 <div className="space-y-6">
                                     <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic font-bold">
-                                        Applicant 1
+                                        {app1.gender === "MALE" ? "Groom (Male)" : app1.gender === "FEMALE" ? "Bride / Wife (Female)" : "Applicant 1"}
                                     </h4>
                                     <div className="space-y-6">
                                         <div className="space-y-1.5">
@@ -368,13 +368,20 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
                                                 {app1.citizenship || "—"}
                                             </div>
                                         </div>
+
+                                        <div className="space-y-1.5">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Sex</span>
+                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                {app1.gender || "—"}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
                                 {/* APPLICANT 2 DETAILS */}
                                 <div className="space-y-6">
                                     <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic font-bold">
-                                        Applicant 2
+                                        {app2.gender === "MALE" ? "Groom (Male)" : app2.gender === "FEMALE" ? "Bride / Wife (Female)" : "Applicant 2"}
                                     </h4>
                                     <div className="space-y-6">
                                         <div className="space-y-1.5">
@@ -402,6 +409,13 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Citizenship</span>
                                             <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
                                                 {app2.citizenship || "—"}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Sex</span>
+                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                {app2.gender || "—"}
                                             </div>
                                         </div>
                                     </div>

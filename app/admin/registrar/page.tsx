@@ -191,7 +191,7 @@ export default function RegistrarPage() {
             } else if (categoryParam === "Death Certificate") {
                 matchesCategory = tx.type?.code === "LCR_DEATH";
             } else if (categoryParam === "Marriage License") {
-                matchesCategory = tx.type?.code === "LCR_MARRIAGE_LICENSE";
+                matchesCategory = tx.type?.code === "LCR_MARRIAGE_LICENSE" && tx.status !== "FOR_REQUESTING";
             } else if (categoryParam === "Marriage Registration") {
                 matchesCategory = tx.type?.code === "LCR_MARRIAGE_REG";
             } else if (categoryParam === "Marriage Certificate") {
