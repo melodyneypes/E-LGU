@@ -1827,9 +1827,37 @@ export default function RequestHubPage() {
                                                             <div className="absolute bottom-2 left-2 right-2">
                                                                 <Badge className="text-[7px] bg-white/95 dark:bg-slate-950/95 text-slate-900 dark:text-white border-none font-black italic tracking-widest uppercase w-full block text-center py-0.5 truncate">{doc.label}</Badge>
                                                             </div>
-                                                        )}
-                                                    </div>
+                                                        </button>
+                                                    );
+                                                }
+                                                return (
+                                                    <button
+                                                        key={i}
+                                                        onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}
+                                                        className="relative aspect-[16/9] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden group/doc hover:shadow-xl transition-all w-full text-left"
+                                                    >
+                                                        <Image src={doc.url} alt={doc.label} fill className="object-cover transition-transform group-hover/doc:scale-110 duration-700" unoptimized />
+                                                        <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover/doc:opacity-100 transition-all duration-300 flex items-center justify-center gap-2">
+                                                            <div
+                                                                style={{ backgroundColor: themeColor }}
+                                                                className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] scale-75 group-hover/doc:scale-100 transition-transform duration-300"
+                                                            >
+                                                                <span>View</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="absolute bottom-2 left-2 right-2">
+                                                            <Badge className="text-[7px] bg-white/95 dark:bg-slate-950/95 text-slate-900 dark:text-white border-none font-black italic tracking-widest uppercase w-full block text-center py-0.5 truncate">{doc.label}</Badge>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            }) : (
+                                                <div className="col-span-1 sm:col-span-2 py-10 flex flex-col items-center justify-center text-slate-300 dark:text-white/20">
+                                                    <FileText className="w-8 h-8 mb-2 opacity-30" />
+                                                    <p className="text-[9px] font-black uppercase tracking-widest italic">No documents uploaded</p>
                                                 </div>
+                                            )}
+                                        </div>
+                                    </div>
 
                                                 {/* Supporting Documents Section */}
                                                 <div className="space-y-4">

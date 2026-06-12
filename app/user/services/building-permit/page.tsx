@@ -462,9 +462,12 @@ export default function BuildingPermitPage() {
     ].filter(Boolean);
     
     const combined = parts.join(", ");
-    if (combined !== formData.locationOfConstruction) {
-      setFormData(prev => ({ ...prev, locationOfConstruction: combined }));
-    }
+    setFormData(prev => {
+      if (combined !== prev.locationOfConstruction) {
+        return { ...prev, locationOfConstruction: combined };
+      }
+      return prev;
+    });
   }, [formData.locationHouseNumber, formData.locationStreet, formData.locationBarangay]);
 
   const hasTctFile = !!(

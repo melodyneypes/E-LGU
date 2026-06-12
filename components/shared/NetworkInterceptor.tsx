@@ -29,7 +29,7 @@ export function NetworkInterceptor() {
                                 const text = await clone.text();
                                 toast.error(`Error ${response.status}: ${text.slice(0, 100) || response.statusText}`);
                             }
-                        } catch (e) {
+                        } catch {
                             toast.error(`Request Failed: Server responded with status ${response.status}`);
                         }
                     }
