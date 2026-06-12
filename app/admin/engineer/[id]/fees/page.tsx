@@ -72,8 +72,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
     // Fee form state
     const [buildingFee, setBuildingFee] = useState<string>("");
-    const [electricalFee, setElectricalFee] = useState<string>("");
-    const [sanitaryFee, setSanitaryFee] = useState<string>("");
     const [engineerMunicipalCharges, setEngineerMunicipalCharges] = useState<{ name: string, amount: string }[]>([{ name: "", amount: "" }]);
     const [, setECopyFile] = useState<File | null>(null);
     const [eCopyUrl, setECopyUrl] = useState<string>("");
@@ -575,6 +573,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                         <Dialog>
                                             <DialogTrigger asChild>
                                                 <div className="group relative aspect-video rounded-xl overflow-hidden flex items-center justify-center cursor-zoom-in bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5">
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                                     <img src={additional.signature} alt="E-Signature" className="max-h-20 object-contain p-2 group-hover:scale-105 transition-transform" />
                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                         <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">

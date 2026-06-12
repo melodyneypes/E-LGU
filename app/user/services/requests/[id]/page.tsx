@@ -1810,18 +1810,20 @@ export default function RequestHubPage() {
                                 )}
 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10">
-                                    <div className="space-y-6">
-                                        <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Requirements</h4>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            {documentList.length > 0 ? documentList.map((doc, i) => {
-                                                const isPdf = checkIsPdf(doc.url);
-                                                if (isPdf) {
-                                                    return (
-                                                        <button
-                                                            key={i}
-                                                            onClick={() => handleViewFile(doc.url, doc.label)}
-                                                            className="relative aspect-[16/9] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden group/doc hover:shadow-xl transition-all w-full flex flex-col items-center justify-center bg-slate-50 dark:bg-white/5 hover:border-red-500/50"
-                                                        >
+                                    {isBuildingPermit ? (
+                                        <>
+                                            <div className="space-y-6">
+                                                <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Requirements</h4>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    {documentList.length > 0 ? documentList.map((doc, i) => {
+                                                        const isPdf = checkIsPdf(doc.url);
+                                                        if (isPdf) {
+                                                            return (
+                                                                <button
+                                                                    key={i}
+                                                                    onClick={() => handleViewFile(doc.url, doc.label)}
+                                                                    className="relative aspect-[16/9] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden group/doc hover:shadow-xl transition-all w-full flex flex-col items-center justify-center bg-slate-50 dark:bg-white/5 hover:border-red-500/50"
+                                                                >
                                                             <FileText className="w-8 h-8 text-red-500 group-hover/doc:scale-110 transition-transform duration-300 animate-pulse" />
                                                             <span className="text-[7px] font-black uppercase text-red-500/70 tracking-wider mt-1">View PDF Document</span>
                                                             <div className="absolute bottom-2 left-2 right-2">
