@@ -42,7 +42,8 @@ import {
     getCurrentUserResident,
     getTransactionTypes,
     ensureCivilRegistryTransactionTypes,
-    getSystemSettingAction
+    getSystemSettingAction,
+    getTransactionById
 } from "@/app/admin/transactions/actions";
 import { submitMarriageRegistrationTransaction } from "@/app/admin/transactions/marriage-regis-actions";
 import { searchResidents, getResidentDataById } from "@/app/admin/actions";
@@ -156,6 +157,8 @@ export default function MarriageRegistrationPage() {
     const [currentStep, setCurrentStep] = useState<Step>("IDENTITY");
     const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [revisionId, setRevisionId] = useState<string | null>(null);
+    const [revisionTx, setRevisionTx] = useState<any>(null);
 
     const [themeColor, setThemeColor] = useState("theme_color");
     const [lateFee, setLateFee] = useState<number>(300);
@@ -239,7 +242,7 @@ export default function MarriageRegistrationPage() {
 
     // Save progress to localStorage
     useEffect(() => {
-        if (!loading) {
+        if (!loading && !revisionId) {
             // Persist drafts to localStorage. We strip files and previews
             // to avoid hitting the quota limit, since binary files are stored in IndexedDB.
             const savableForm = (() => {
@@ -255,12 +258,28 @@ export default function MarriageRegistrationPage() {
             localStorage.setItem(STORAGE_KEY, serialized);
             setHasDraft(true);
         }
-    }, [form, currentStep, loading]);
+    }, [form, currentStep, loading, revisionId]);
 
     useEffect(() => {
         async function init() {
             try {
                 await ensureCivilRegistryTransactionTypes();
+
+                // Check for revisionId query parameter
+                const urlParams = new URLSearchParams(window.location.search);
+                const revId = urlParams.get("revisionId");
+
+                let txData: any = null;
+                if (revId) {
+                    const txRes = await getTransactionById(revId);
+                    if (txRes.success && txRes.data) {
+                        txData = txRes.data;
+                        setRevisionId(revId);
+                        setRevisionTx(txData);
+                    } else {
+                        toast.error("Failed to fetch revision details");
+                    }
+                }
 
                 // Try loading from localStorage first
                 const saved = localStorage.getItem(STORAGE_KEY);
@@ -278,57 +297,94 @@ export default function MarriageRegistrationPage() {
                     setResident(activeResident);
                 }
 
-                if (savedData) {
-                    setForm(prev => ({ ...prev, ...savedData.form }));
-                    setCurrentStep(savedData.currentStep);
-                }
+                if (txData) {
+                    const addData = txData.additionalData as any || {};
+                    const resSnapshot = txData.residentSnapshot as any || activeResident || {};
 
-                // Restore draft files from IndexedDB
-                try {
-                    const draftFiles = await getDraftFiles(STORAGE_KEY);
-                    if (draftFiles && Object.keys(draftFiles).length > 0) {
-                        setForm(prev => {
-                            const newFiles = { ...prev.files, ...draftFiles };
-                            const newPreviews = { ...prev.previews };
-                            Object.entries(draftFiles).forEach(([key, file]) => {
-                                if (file && file.type.startsWith("image/")) {
-                                    newPreviews[key] = URL.createObjectURL(file);
-                                }
-                            });
-                            return {
-                                ...prev,
-                                files: newFiles,
-                                previews: newPreviews
-                            };
-                        });
-                    }
-                } catch (e) {
-                    console.error("Failed to restore draft files from IndexedDB:", e);
-                }
-
-                if (activeResident) {
-                    const r = activeResident;
-                    const parts = [
-                        r.houseNumber && `#${r.houseNumber}`,
-                        r.street && `${r.street} St.`,
-                        r.purok && `Purok ${r.purok}`,
-                        r.sitio && `Sitio ${r.sitio}`,
-                        r.barangay && `Brgy. ${r.barangay}`,
-                        r.municipality || "Mapandan",
-                        r.province || "Pangasinan"
-                    ].filter(Boolean);
-                    const constructedAddr = parts.join(", ").toUpperCase();
+                    // Extract previews from additionalData (URLs of documents)
+                    const previews: Record<string, string | null> = {};
+                    const fileKeys = ["marriageCert", "psaNeg", "affidavitDelay", "marriageLicense", "validIdFront", "validIdBack"];
+                    fileKeys.forEach(k => {
+                        if (addData[k] && typeof addData[k] === "string" && addData[k].startsWith("http")) {
+                            previews[k] = addData[k];
+                        }
+                    });
 
                     setForm(prev => ({
                         ...prev,
-                        email: r.email || prev.email || "",
-                        contactNumber: r.contactNumber || prev.contactNumber || "",
-                        app1FullName: `${r.firstName} ${r.middleName ? r.middleName[0] + '. ' : ''}${r.lastName}`.toUpperCase(),
-                        app1BirthDate: r.dateOfBirth ? new Date(r.dateOfBirth).toISOString().split('T')[0] : "",
-                        app1BirthPlace: (r.placeOfBirth || r.municipality || "").toUpperCase(),
-                        app1Citizenship: (r.citizenship || "FILIPINO").toUpperCase(),
-                        informantAddress: constructedAddr
+                        typeId: txData.typeId || prev.typeId,
+                        registrationType: addData.registrationType || "",
+                        app1FullName: addData.applicant1?.fullName || "",
+                        app1BirthDate: addData.applicant1?.birthDate || "",
+                        app1BirthPlace: addData.applicant1?.birthPlace || "",
+                        app1Citizenship: addData.applicant1?.citizenship || "",
+                        app2IsResident: addData.applicant2?.isResident || false,
+                        app2FullName: addData.applicant2?.fullName || "",
+                        app2BirthDate: addData.applicant2?.birthDate || "",
+                        app2BirthPlace: addData.applicant2?.birthPlace || "",
+                        app2Citizenship: addData.applicant2?.citizenship || "",
+                        app2Address: addData.applicant2?.address || "",
+                        dateOfMarriage: addData.dateOfMarriage || "",
+                        placeOfMarriage: addData.placeOfMarriage || "MAPANDAN, PANGASINAN",
+                        email: addData.email || resSnapshot.email || "",
+                        contactNumber: addData.contactNumber || resSnapshot.contactNumber || "",
+                        relationship: addData.relationship || "",
+                        informantAddress: addData.informantAddress || "",
+                        previews
                     }));
+                } else {
+                    if (savedData) {
+                        setForm(prev => ({ ...prev, ...savedData.form }));
+                        setCurrentStep(savedData.currentStep);
+                    }
+
+                    // Restore draft files from IndexedDB
+                    try {
+                        const draftFiles = await getDraftFiles(STORAGE_KEY);
+                        if (draftFiles && Object.keys(draftFiles).length > 0) {
+                            setForm(prev => {
+                                const newFiles = { ...prev.files, ...draftFiles };
+                                const newPreviews = { ...prev.previews };
+                                Object.entries(draftFiles).forEach(([key, file]) => {
+                                    if (file && file.type.startsWith("image/")) {
+                                        newPreviews[key] = URL.createObjectURL(file);
+                                    }
+                                });
+                                return {
+                                    ...prev,
+                                    files: newFiles,
+                                    previews: newPreviews
+                                };
+                            });
+                        }
+                    } catch (e) {
+                        console.error("Failed to restore draft files from IndexedDB:", e);
+                    }
+
+                    if (activeResident) {
+                        const r = activeResident;
+                        const parts = [
+                            r.houseNumber && `#${r.houseNumber}`,
+                            r.street && `${r.street} St.`,
+                            r.purok && `Purok ${r.purok}`,
+                            r.sitio && `Sitio ${r.sitio}`,
+                            r.barangay && `Brgy. ${r.barangay}`,
+                            r.municipality || "Mapandan",
+                            r.province || "Pangasinan"
+                        ].filter(Boolean);
+                        const constructedAddr = parts.join(", ").toUpperCase();
+
+                        setForm(prev => ({
+                            ...prev,
+                            email: r.email || prev.email || "",
+                            contactNumber: r.contactNumber || prev.contactNumber || "",
+                            app1FullName: `${r.firstName} ${r.middleName ? r.middleName[0] + '. ' : ''}${r.lastName}`.toUpperCase(),
+                            app1BirthDate: r.dateOfBirth ? new Date(r.dateOfBirth).toISOString().split('T')[0] : "",
+                            app1BirthPlace: (r.placeOfBirth || r.municipality || "").toUpperCase(),
+                            app1Citizenship: (r.citizenship || "FILIPINO").toUpperCase(),
+                            informantAddress: constructedAddr
+                        }));
+                    }
                 }
 
                 if (typesResult.success && typesResult.data) {
@@ -426,6 +482,9 @@ export default function MarriageRegistrationPage() {
             formData.append("typeId", form.typeId);
             formData.append("registryType", "MARRIAGE_REG");
             formData.append("residentSnapshot", JSON.stringify(resident));
+            if (revisionId) {
+                formData.append("revisionId", revisionId);
+            }
 
             const additionalData = {
                 registrationType: form.registrationType,
@@ -866,6 +925,17 @@ export default function MarriageRegistrationPage() {
                             exit={{ opacity: 0, x: -20 }}
                             className="space-y-6"
                         >
+                            {revisionTx && (
+                                <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-800 dark:text-red-400 animate-in fade-in duration-300">
+                                    <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                    <div className="text-left space-y-1">
+                                        <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                        <p className="text-xs font-bold text-slate-900 dark:text-slate-300 leading-relaxed italic">
+                                            &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                             {currentStep === "IDENTITY" && (
                                 <div className="space-y-8">
                                     {/* Applicant 1 */}

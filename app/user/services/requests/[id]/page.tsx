@@ -760,6 +760,23 @@ export default function RequestHubPage() {
     const isBirthPsaEndorsement = typeCode === "LCR_PSA_ENDORSEMENT";
     const isDeathPsaEndorsement = typeCode === "LCR_DEATH_PSA_ENDORSEMENT";
     const isPsaEndorsement = isBirthPsaEndorsement || isDeathPsaEndorsement;
+    const getRevisionUrl = () => {
+        if (isBusinessPermit) return `/user/services/business-permit?revisionId=${request.id}`;
+        if (isCedula) return `/user/services/cedula?revisionId=${request.id}`;
+        if (isCivilRegistry) {
+            const code = request?.type?.code || "";
+            if (code === "LCR_BIRTH_REG") return `/user/services/civil-registry/birth-registration?revisionId=${request.id}`;
+            if (code === "LCR_BIRTH") return `/user/services/civil-registry/birth-certificate-request?revisionId=${request.id}`;
+            if (code === "LCR_DEATH_REG") return `/user/services/civil-registry/death-registration?revisionId=${request.id}`;
+            if (code === "LCR_DEATH") return `/user/services/civil-registry/death-certificate-request?revisionId=${request.id}`;
+            if (code === "LCR_MARRIAGE_REG") return `/user/services/civil-registry/marriage-registration?revisionId=${request.id}`;
+            if (code === "LCR_MARRIAGE") return `/user/services/civil-registry/marriage-certificate-request?revisionId=${request.id}`;
+            if (code === "LCR_MARRIAGE_LICENSE") return `/user/services/civil-registry/marriage-license-application?revisionId=${request.id}`;
+            if (code === "LCR_PSA_ENDORSEMENT") return `/user/services/civil-registry/birth-psa-endorsement?revisionId=${request.id}`;
+            if (code === "LCR_DEATH_PSA_ENDORSEMENT") return `/user/services/civil-registry/death-psa-endorsement?revisionId=${request.id}`;
+        }
+        return `/user/services/requests/${request.id}`;
+    };
     const isRenewal = request?.type?.code === "BUSINESS_PERMIT_RENEW" || additionalData.businessType === "RENEWAL" || additionalData.businessType === "RENEW" || additionalData.businessType?.toLowerCase()?.includes("renew");
     const remainingRevisions = request ? Math.max(0, 3 - (request.revisionCount || 0)) : 3;
     const isPermitNewReleasedOrDelivered = isBusinessPermit &&
@@ -1496,7 +1513,7 @@ export default function RequestHubPage() {
                                                     </p>
                                                 </div>
 
-                                                {isBusinessPermit || isCedula || isLcrDeathReg || isLcrMarriageLicense ? (
+                                                {isBusinessPermit || isCedula || isCivilRegistry ? (
                                                     <div className="space-y-3 pt-4 border-t" style={{ borderTopColor: `${themeColor}15` }}>
                                                         <div className="space-y-1">
                                                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest" style={{ backgroundColor: `${themeColor}15`, color: themeColor }}>
@@ -1511,7 +1528,7 @@ export default function RequestHubPage() {
                                                             className="w-full h-11 rounded-xl hover:opacity-90 text-white font-black italic uppercase text-[9px] tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
                                                             style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}30` }}
                                                         >
-                                                            <Link href={isBusinessPermit ? `/user/services/business-permit?revisionId=${request.id}` : isCedula ? `/user/services/cedula?revisionId=${request.id}` : isLcrMarriageLicense ? `/user/services/civil-registry/marriage-license-application?revisionId=${request.id}` : `/user/services/civil-registry/death-registration?revisionId=${request.id}`}>
+                                                            <Link href={getRevisionUrl()}>
                                                                 <ExternalLink className="w-3.5 h-3.5" />
                                                                 Fix Application
                                                             </Link>

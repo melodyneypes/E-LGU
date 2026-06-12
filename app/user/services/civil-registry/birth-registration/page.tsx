@@ -17,7 +17,8 @@ import {
     Search,
     CheckCircle2,
     Users,
-    ChevronDown
+    ChevronDown,
+    AlertCircle
 } from "lucide-react";
 
 
@@ -54,7 +55,8 @@ import {
     getTransactionTypes,
     ensureCivilRegistryTransactionTypes,
     submitCivilRegistryTransaction,
-    getSystemSettingAction
+    getSystemSettingAction,
+    getTransactionById
 } from "@/app/admin/transactions/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -197,6 +199,8 @@ export default function BirthRegistrationPage() {
     const [, setShowErrors] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [resident, setResident] = useState<any>(null);
+    const [revisionId, setRevisionId] = useState<string | null>(null);
+    const [revisionTx, setRevisionTx] = useState<any>(null);
 
     const [form, setForm] = useState<FormState>({
         typeId: "",
@@ -334,6 +338,9 @@ export default function BirthRegistrationPage() {
 
     // Restore progress from session storage & IndexedDB
     useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get("revisionId")) return;
+
         const savedStep = sessionStorage.getItem("birth-reg-step");
         const savedForm = sessionStorage.getItem("birth-reg-form");
 
@@ -399,7 +406,7 @@ export default function BirthRegistrationPage() {
     }, []);
 
     useEffect(() => {
-        if (!loading) {
+        if (!loading && !revisionId) {
             try {
                 sessionStorage.setItem("birth-reg-step", currentStep);
 
@@ -414,7 +421,7 @@ export default function BirthRegistrationPage() {
                 console.warn("Failed to persist form to sessionStorage:", err);
             }
         }
-    }, [currentStep, form, loading]);
+    }, [currentStep, form, loading, revisionId]);
 
     useEffect(() => {
         if (loading) return;
@@ -459,6 +466,22 @@ export default function BirthRegistrationPage() {
         async function init() {
             try {
                 await ensureCivilRegistryTransactionTypes();
+                
+                const urlParams = new URLSearchParams(window.location.search);
+                const revId = urlParams.get("revisionId");
+
+                let txData: any = null;
+                if (revId) {
+                    const txRes = await getTransactionById(revId);
+                    if (txRes.success && txRes.data) {
+                        txData = txRes.data;
+                        setRevisionId(revId);
+                        setRevisionTx(txData);
+                    } else {
+                        toast.error("Failed to fetch revision details");
+                    }
+                }
+
                 const [resResult, typesResult] = await Promise.all([
                     getCurrentUserResident(),
                     getTransactionTypes()
@@ -467,20 +490,115 @@ export default function BirthRegistrationPage() {
                 if (resResult.success && resResult.data) {
                     const r = resResult.data;
                     setResident(r);
-                    setForm(prev => ({
-                        ...prev,
-                        email: prev.email || r.email || "",
-                        contactNumber: prev.contactNumber || r.contactNumber || "",
-                        informantFirstName: r.firstName || "",
-                        informantMiddleName: r.middleName || "",
-                        informantLastName: r.lastName || "",
-                        informantSuffix: r.suffix || "",
-                        informantBirthDate: r.dateOfBirth ? new Date(r.dateOfBirth).toISOString().split('T')[0] : "",
-                        informantAge: r.age?.toString() || "",
-                        informantCivilStatus: r.civilStatus || "",
-                        informantCitizenship: r.citizenship || "Filipino",
-                        informantOccupation: r.occupation || ""
-                    }));
+                    
+                    if (txData) {
+                        const addData = txData.additionalData as any || {};
+                        const resSnapshot = txData.residentSnapshot as any || r || {};
+                        
+                        const previews: Record<string, string | null> = {};
+                        const fileKeys = [
+                            "marriageCertificate",
+                            "municipalForm102",
+                            "communityTaxCertificate",
+                            "negativePSA",
+                            "colb",
+                            "affidavitDelayed",
+                            "supportingEvidence1",
+                            "supportingEvidence2"
+                        ];
+                        fileKeys.forEach(k => {
+                            if (addData[k] && typeof addData[k] === "string" && addData[k].startsWith("http")) {
+                                previews[k] = addData[k];
+                            }
+                        });
+
+                        let fFN = addData.fatherFirstName || "";
+                        let fMN = addData.fatherMiddleName || "";
+                        let fLN = addData.fatherLastName || "";
+                        if (!fFN && !fLN && addData.fatherName) {
+                            const parts = addData.fatherName.split(/\s+/);
+                            fLN = parts.pop() || "";
+                            fFN = parts.shift() || "";
+                            fMN = parts.join(" ") || "";
+                        }
+
+                        let mFN = addData.motherFirstName || "";
+                        let mMN = addData.motherMiddleName || "";
+                        let mLN = addData.motherLastName || "";
+                        if (!mFN && !mLN && addData.motherName) {
+                            const parts = addData.motherName.split(/\s+/);
+                            mLN = parts.pop() || "";
+                            mFN = parts.shift() || "";
+                            mMN = parts.join(" ") || "";
+                        }
+
+                        let infFN = addData.informantFirstName || "";
+                        let infMN = addData.informantMiddleName || "";
+                        let infLN = addData.informantLastName || "";
+                        let infSuf = addData.informantSuffix || "";
+                        if (!infFN && !infLN && addData.informantName) {
+                            const parts = addData.informantName.split(/\s+/);
+                            infLN = parts.pop() || "";
+                            infFN = parts.shift() || "";
+                            if (["JR", "SR", "I", "II", "III", "IV"].includes(infLN.toUpperCase())) {
+                                infSuf = infLN;
+                                infLN = parts.pop() || "";
+                            }
+                            infMN = parts.join(" ") || "";
+                        }
+
+                        setForm(prev => ({
+                            ...prev,
+                            typeId: txData.typeId || prev.typeId,
+                            children: addData.children || prev.children,
+                            dateOfEvent: addData.dateOfEvent || prev.dateOfEvent,
+                            placeOfEvent: addData.placeOfEvent || prev.placeOfEvent,
+                            fatherFirstName: fFN,
+                            fatherMiddleName: fMN,
+                            fatherLastName: fLN,
+                            motherFirstName: mFN,
+                            motherMiddleName: mMN,
+                            motherLastName: mLN,
+                            birthType: addData.birthType || prev.birthType,
+                            birthTypeSpecify: addData.birthTypeSpecify || prev.birthTypeSpecify,
+                            registrationType: addData.registrationType || prev.registrationType,
+                            lateDuration: addData.lateDuration || prev.lateDuration,
+                            supportingEvidence1Type: addData.supportingEvidence1Type || prev.supportingEvidence1Type,
+                            supportingEvidence2Type: addData.supportingEvidence2Type || prev.supportingEvidence2Type,
+                            supportingEvidenceTypes: addData.supportingEvidenceTypes || prev.supportingEvidenceTypes || [],
+                            supportingEvidence1Source: addData.supportingEvidence1Source || prev.supportingEvidence1Source,
+                            supportingEvidence2Source: addData.supportingEvidence2Source || prev.supportingEvidence2Source,
+                            email: addData.email || resSnapshot.email || prev.email,
+                            contactNumber: addData.contactNumber || resSnapshot.contactNumber || prev.contactNumber,
+                            relationship: addData.relationship || prev.relationship,
+                            relationshipSpecify: addData.relationshipSpecify || prev.relationshipSpecify,
+                            informantFirstName: infFN,
+                            informantMiddleName: infMN,
+                            informantLastName: infLN,
+                            informantSuffix: infSuf,
+                            informantBirthDate: addData.informatnBirthDate || addData.informantBirthDate || prev.informantBirthDate,
+                            informantAge: addData.informantAge || prev.informantAge,
+                            informantCivilStatus: addData.informantCivilStatus || prev.informantCivilStatus,
+                            informantCitizenship: addData.informantCitizenship || prev.informantCitizenship,
+                            informantOccupation: addData.informantOccupation || prev.informantOccupation,
+                            previews
+                        }));
+                    } else {
+                        setForm(prev => ({
+                            ...prev,
+                            email: prev.email || r.email || "",
+                            contactNumber: prev.contactNumber || r.contactNumber || "",
+                            informantFirstName: r.firstName || "",
+                            informantMiddleName: r.middleName || "",
+                            informantLastName: r.lastName || "",
+                            informantSuffix: r.suffix || "",
+                            informantBirthDate: r.dateOfBirth ? new Date(r.dateOfBirth).toISOString().split('T')[0] : "",
+                            informantAge: r.age?.toString() || "",
+                            informantCivilStatus: r.civilStatus || "",
+                            informantCitizenship: r.citizenship || "Filipino",
+                            informantOccupation: r.occupation || ""
+                        }));
+                    }
                 }
                 if (typesResult.success && typesResult.data) {
                     const lcrTypes = typesResult.data.filter((t: any) => t.category === "Civil Registry");
@@ -922,6 +1040,9 @@ export default function BirthRegistrationPage() {
             formData.append("typeId", form.typeId);
             formData.append("registryType", "BIRTH_REG"); // Submit as birth_reg category type to map correctly inside actions.ts
             formData.append("residentSnapshot", JSON.stringify(residentSnapshot));
+            if (revisionId) {
+                formData.append("revisionId", revisionId);
+            }
 
             // Base additional data that is always included
             const baseAdditionalData = {
@@ -931,13 +1052,23 @@ export default function BirthRegistrationPage() {
                 placeOfEvent: form.placeOfEvent,
                 birthType: form.birthType,
                 registrationType: form.registrationType,
+                fatherFirstName: form.fatherFirstName,
+                fatherMiddleName: form.fatherMiddleName,
+                fatherLastName: form.fatherLastName,
                 fatherName: `${form.fatherFirstName} ${form.fatherMiddleName} ${form.fatherLastName}`.trim(),
+                motherFirstName: form.motherFirstName,
+                motherMiddleName: form.motherMiddleName,
+                motherLastName: form.motherLastName,
                 motherName: `${form.motherFirstName} ${form.motherMiddleName} ${form.motherLastName}`.trim(),
                 relationship: form.relationship === "OTHER" ? form.relationshipSpecify : form.relationship,
                 relationshipSpecify: form.relationshipSpecify || null,
                 email: form.email,
                 contactNumber: form.contactNumber,
                 // Informant Details
+                informantFirstName: form.informantFirstName,
+                informantMiddleName: form.informantMiddleName,
+                informantLastName: form.informantLastName,
+                informantSuffix: form.informantSuffix,
                 informantName: `${form.informantFirstName} ${form.informantMiddleName} ${form.informantLastName} ${form.informantSuffix}`.replace(/\s+/g, ' ').trim(),
                 informatnBirthDate: form.informantBirthDate,
                 informantAge: form.informantAge,
@@ -1003,7 +1134,7 @@ export default function BirthRegistrationPage() {
             console.log("Submitting with typeId:", form.typeId);
             const res = await submitCivilRegistryTransaction(formData);
             if (res.success && res.data) {
-                toast.success("Birth Registration submitted successfully!");
+                toast.success(revisionId ? "Revision resubmitted successfully!" : "Birth Registration submitted successfully!");
                 sessionStorage.removeItem("birth-reg-step");
                 sessionStorage.removeItem("birth-reg-form");
                 await clearDraftFiles(STORAGE_KEY);
@@ -1298,6 +1429,18 @@ export default function BirthRegistrationPage() {
                                         <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight">IDENTITY <span className="text-primary italic" style={{ color: themeColor }}>CONFIRMATION</span></h2>
                                         <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">Verify your personal records. Only the contact number should be provided/updated.</p>
                                     </div>
+
+                                    {revisionTx && (
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-800 dark:text-red-400 animate-in fade-in duration-300">
+                                            <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                            <div className="text-left space-y-1">
+                                                <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                                <p className="text-xs font-bold text-slate-900 dark:text-slate-300 leading-relaxed italic">
+                                                    &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="space-y-6">
                                         {/* Relationship to Child — above names, same 1/4 width */}

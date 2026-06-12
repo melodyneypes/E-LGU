@@ -15,7 +15,8 @@ import {
     CheckCircle2,
     Heart,
     MapPin,
-    Home
+    Home,
+    AlertCircle
 } from "lucide-react";
 import Link from "next/link";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
@@ -47,7 +48,8 @@ import {
     getTransactionTypes,
     ensureCivilRegistryTransactionTypes,
     submitCivilRegistryTransaction,
-    getSystemSettingAction
+    getSystemSettingAction,
+    getTransactionById
 } from "@/app/admin/transactions/actions";
 import { searchResidents } from "@/app/admin/actions";
 import { toast } from "sonner";
@@ -282,6 +284,8 @@ export default function DeathCertificateRequestPage() {
     const [showErrors, setShowErrors] = useState(false);
     const [dbType, setDbType] = useState<any>(null);
     const [resident, setResident] = useState<any>(null);
+    const [revisionId, setRevisionId] = useState<string | null>(null);
+    const [revisionTx, setRevisionTx] = useState<any>(null);
 
     const [form, setForm] = useState<FormState>({
         typeId: "",
@@ -410,6 +414,22 @@ export default function DeathCertificateRequestPage() {
             try {
                 // Ensure civil registry transaction types are seeded in db
                 await ensureCivilRegistryTransactionTypes();
+                
+                const urlParams = new URLSearchParams(window.location.search);
+                const revId = urlParams.get("revisionId");
+
+                let txData: any = null;
+                if (revId) {
+                    const txRes = await getTransactionById(revId);
+                    if (txRes.success && txRes.data) {
+                        txData = txRes.data;
+                        setRevisionId(revId);
+                        setRevisionTx(txData);
+                    } else {
+                        toast.error("Failed to fetch revision details");
+                    }
+                }
+
                 const [resResult, typesResult] = await Promise.all([
                     getCurrentUserResident(),
                     getTransactionTypes()
@@ -430,8 +450,8 @@ export default function DeathCertificateRequestPage() {
                     }
                 }
 
-                // Check for draft in IndexedDB
-                const draft = await getDraft();
+                // Check for draft in IndexedDB (only if NOT in revision mode)
+                const draft = revId ? null : await getDraft();
                 if (draft) {
                     setForm({
                         typeId: lcrTypeId || draft.typeId || "",
@@ -468,6 +488,47 @@ export default function DeathCertificateRequestPage() {
                     if (draft.currentStep) {
                         setCurrentStep(draft.currentStep);
                     }
+                } else if (txData) {
+                    const addData = txData.additionalData as any || {};
+                    const resSnapshot = txData.residentSnapshot as any || residentData || {};
+
+                    const previews: Record<string, string | null> = {};
+                    const fileKeys = ["validIdFront", "validIdBack"];
+                    fileKeys.forEach(k => {
+                        if (addData[k] && typeof addData[k] === "string" && addData[k].startsWith("http")) {
+                            previews[k] = addData[k];
+                        }
+                    });
+
+                    setForm(prev => ({
+                        ...prev,
+                        typeId: txData.typeId || prev.typeId,
+                        idTypeOverride: addData.idType || prev.idTypeOverride,
+                        firstName: resSnapshot.firstName || prev.firstName,
+                        middleName: resSnapshot.middleName || prev.middleName,
+                        lastName: resSnapshot.lastName || prev.lastName,
+                        suffix: resSnapshot.suffix || prev.suffix,
+                        civilStatus: (addData.civilStatus || resSnapshot.civilStatus || prev.civilStatus || "").toUpperCase(),
+                        gender: (addData.gender || resSnapshot.gender || prev.gender || "").toUpperCase(),
+                        relationship: addData.relationship || prev.relationship,
+                        contactNumber: addData.contactNumber || resSnapshot.contactNumber || prev.contactNumber,
+                        email: addData.email || resSnapshot.email || prev.email,
+                        informantAddress: addData.informantAddress || prev.informantAddress,
+                        deceasedFirstName: addData.deceasedFirstName || "",
+                        deceasedMiddleName: addData.deceasedMiddleName || "",
+                        deceasedLastName: addData.deceasedLastName || "",
+                        deceasedSuffix: addData.deceasedSuffix || "",
+                        dateOfDeath: addData.dateOfEvent || "",
+                        placeOfDeath: addData.placeOfEvent || "",
+                        causeOfDeath: addData.causeOfDeath || "",
+                        fatherFirstName: addData.fatherFirstName || "",
+                        fatherMiddleName: addData.fatherMiddleName || "",
+                        fatherLastName: addData.fatherLastName || "",
+                        motherFirstName: addData.motherFirstName || "",
+                        motherMiddleName: addData.motherMiddleName || "",
+                        motherLastName: addData.motherLastName || "",
+                        previews
+                    }));
                 } else if (residentData) {
                     const parts = [
                         residentData.houseNumber && `#${residentData.houseNumber}`,
@@ -510,7 +571,7 @@ export default function DeathCertificateRequestPage() {
 
     // Save draft when form data or step changes
     useEffect(() => {
-        if (!draftLoaded || loading) return;
+        if (!draftLoaded || loading || revisionId) return;
 
         const timer = setTimeout(async () => {
             const draftData = {
@@ -546,7 +607,7 @@ export default function DeathCertificateRequestPage() {
         }, 500);
 
         return () => clearTimeout(timer);
-    }, [form, currentStep, draftLoaded, loading]);
+    }, [form, currentStep, draftLoaded, loading, revisionId]);
 
     const handleAcceptPolicy = () => {
         setPolicyOpen(false);
@@ -584,6 +645,9 @@ export default function DeathCertificateRequestPage() {
             const formData = new FormData();
             formData.append("typeId", form.typeId);
             formData.append("registryType", "DEATH");
+            if (revisionId) {
+                formData.append("revisionId", revisionId);
+            }
 
             // Build resident snapshot to update in database
             formData.append("residentSnapshot", JSON.stringify({
@@ -666,7 +730,7 @@ export default function DeathCertificateRequestPage() {
             const res = await submitCivilRegistryTransaction(formData);
             if (res.success && res.data) {
                 await clearDraft();
-                toast.success("Death Certificate Request submitted successfully!");
+                toast.success(revisionId ? "Revision resubmitted successfully!" : "Death Certificate Request submitted successfully!");
                 router.push(`/user/services/requests/${res.data.id}`);
             } else {
                 toast.error(res.error || "Submission failed");
@@ -912,6 +976,18 @@ export default function DeathCertificateRequestPage() {
                                     Verify or enter your details as the requesting party.
                                 </p>
                             </div>
+
+                            {revisionTx && (
+                                <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-800 dark:text-red-400 animate-in fade-in duration-300">
+                                    <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                    <div className="text-left space-y-1">
+                                        <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                        <p className="text-xs font-bold text-slate-900 dark:text-slate-300 leading-relaxed italic">
+                                            &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="space-y-6">
                                 {/* Name Fields */}

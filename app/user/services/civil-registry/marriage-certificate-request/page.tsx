@@ -48,7 +48,8 @@ import {
     getTransactionTypes,
     ensureCivilRegistryTransactionTypes,
     submitCivilRegistryTransaction,
-    getSystemSettingAction
+    getSystemSettingAction,
+    getTransactionById
 } from "@/app/admin/transactions/actions";
 import { toast } from "sonner";
 import { compressImage } from "@/lib/image-compression";
@@ -154,6 +155,8 @@ export default function MarriageCertificateRequestPage() {
         setMounted(true);
     }, []);
     const [resident, setResident] = useState<any>(null);
+    const [revisionId, setRevisionId] = useState<string | null>(null);
+    const [revisionTx, setRevisionTx] = useState<any>(null);
 
     const [form, setForm] = useState<FormState>({
         typeId: "",
@@ -271,6 +274,9 @@ export default function MarriageCertificateRequestPage() {
 
     // Persist progress to session storage
     useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get("revisionId")) return;
+
         const savedStep = sessionStorage.getItem("marriage-request-step");
         const savedForm = sessionStorage.getItem("marriage-request-form");
 
@@ -345,14 +351,14 @@ export default function MarriageCertificateRequestPage() {
     }, []);
 
     useEffect(() => {
-        if (!loading) {
+        if (!loading && !revisionId) {
             sessionStorage.setItem("marriage-request-step", currentStep);
             sessionStorage.setItem("marriage-request-form", JSON.stringify({
                 ...form,
                 files: {}
             }));
         }
-    }, [currentStep, form, loading]);
+    }, [currentStep, form, loading, revisionId]);
 
     useEffect(() => {
         prevRelationshipRef.current = form.relationship;
@@ -451,6 +457,22 @@ export default function MarriageCertificateRequestPage() {
         async function init() {
             try {
                 await ensureCivilRegistryTransactionTypes();
+                
+                const urlParams = new URLSearchParams(window.location.search);
+                const revId = urlParams.get("revisionId");
+
+                let txData: any = null;
+                if (revId) {
+                    const txRes = await getTransactionById(revId);
+                    if (txRes.success && txRes.data) {
+                        txData = txRes.data;
+                        setRevisionId(revId);
+                        setRevisionTx(txData);
+                    } else {
+                        toast.error("Failed to fetch revision details");
+                    }
+                }
+
                 const [resResult, typesResult, themeResult] = await Promise.all([
                     getCurrentUserResident(),
                     getTransactionTypes(),
@@ -462,9 +484,68 @@ export default function MarriageCertificateRequestPage() {
                 }
 
                 if (resResult.success && resResult.data) {
-                    setResident(resResult.data);
-                    if (resResult.data) {
-                        const r = resResult.data;
+                    const r = resResult.data;
+                    setResident(r);
+                    
+                    if (txData) {
+                        const addData = txData.additionalData as any || {};
+                        const resSnapshot = txData.residentSnapshot as any || r || {};
+
+                        const previews: Record<string, string | null> = {};
+                        const fileKeys = ["validIdFront", "validIdBack"];
+                        fileKeys.forEach(k => {
+                            if (addData[k] && typeof addData[k] === "string" && addData[k].startsWith("http")) {
+                                previews[k] = addData[k];
+                            }
+                        });
+
+                        let certFN = addData.certFirstName || "";
+                        let certMN = addData.certMiddleName || "";
+                        let certLN = addData.certLastName || "";
+                        let certSuf = addData.certSuffix || "";
+                        let certHusbandFullName = addData.certHusbandFullName || "";
+                        if (!certHusbandFullName && addData.subjectName) {
+                            certHusbandFullName = addData.subjectName.split("&")[0]?.trim() || "";
+                        }
+                        if (!certFN && !certLN && certHusbandFullName) {
+                            const parts = certHusbandFullName.split(/\s+/);
+                            certLN = parts.pop() || "";
+                            certFN = parts.shift() || "";
+                            if (["JR", "SR", "I", "II", "III", "IV"].includes(certLN.toUpperCase())) {
+                                certSuf = certLN;
+                                certLN = parts.pop() || "";
+                            }
+                            certMN = parts.join(" ") || "";
+                        }
+
+                        setForm(prev => ({
+                            ...prev,
+                            typeId: txData.typeId || prev.typeId,
+                            fullName: certHusbandFullName || prev.fullName,
+                            dateOfEvent: addData.dateOfEvent || prev.dateOfEvent,
+                            placeOfEvent: addData.placeOfEvent || prev.placeOfEvent,
+                            spouseName: addData.spouseName || prev.spouseName,
+                            certFirstName: certFN,
+                            certMiddleName: certMN,
+                            certLastName: certLN,
+                            certSuffix: certSuf,
+                            idTypeOverride: addData.idType || prev.idTypeOverride,
+                            email: addData.email || resSnapshot.email || prev.email,
+                            contactNumber: addData.contactNumber || resSnapshot.contactNumber || prev.contactNumber,
+                            relationship: addData.relationship || prev.relationship,
+                            informantAddress: addData.informantAddress || prev.informantAddress,
+                            previews
+                        }));
+
+                        if (addData.placeOfEvent) {
+                            const parts = addData.placeOfEvent.split(",").map((p: string) => p.trim());
+                            if (parts.length >= 3) {
+                                setPlaceCountry(parts[parts.length - 1]);
+                                setPlaceProvince(parts[parts.length - 2]);
+                                setPlaceCity(parts[parts.length - 3]);
+                            }
+                        }
+                    } else {
                         const parts = [
                             r.houseNumber && `#${r.houseNumber}`,
                             r.street && `${r.street} St.`,
@@ -578,6 +659,9 @@ export default function MarriageCertificateRequestPage() {
             const formData = new FormData();
             formData.append("typeId", form.typeId);
             formData.append("registryType", form.registryType);
+            if (revisionId) {
+                formData.append("revisionId", revisionId);
+            }
             formData.append("residentSnapshot", JSON.stringify({
                 firstName: resident.firstName,
                 lastName: resident.lastName,
@@ -626,6 +710,11 @@ export default function MarriageCertificateRequestPage() {
             toast.dismiss("req-upload-toast");
 
             const additionalData = {
+                certFirstName: form.certFirstName,
+                certMiddleName: form.certMiddleName,
+                certLastName: form.certLastName,
+                certSuffix: form.certSuffix,
+                certHusbandFullName: form.fullName,
                 subjectName: `${form.fullName} & ${form.spouseName}`,
                 dateOfEvent: form.dateOfEvent,
                 placeOfEvent: form.placeOfEvent,
@@ -647,7 +736,7 @@ export default function MarriageCertificateRequestPage() {
 
             const res = await submitCivilRegistryTransaction(formData);
             if (res.success && res.data) {
-                toast.success("Marriage Request submitted successfully!");
+                toast.success(revisionId ? "Revision resubmitted successfully!" : "Marriage Request submitted successfully!");
                 sessionStorage.removeItem("marriage-request-step");
                 sessionStorage.removeItem("marriage-request-form");
                 router.push(`/user/services/requests/${res.data.id}`);
@@ -920,6 +1009,18 @@ export default function MarriageCertificateRequestPage() {
                                 <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight">Identity <span className="text-rose-500 italic">Confirmation</span></h2>
                                 <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">Verify your details before making the marriage record request.</p>
                             </div>
+
+                            {revisionTx && (
+                                <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-800 dark:text-red-400 animate-in fade-in duration-300">
+                                    <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                    <div className="text-left space-y-1">
+                                        <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                        <p className="text-xs font-bold text-slate-900 dark:text-slate-300 leading-relaxed italic">
+                                            &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="space-y-4 md:space-y-6">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">

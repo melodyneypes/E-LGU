@@ -43,6 +43,7 @@ import {
     submitCivilRegistryTransaction,
     getTransactionTypes,
     getSystemSettingAction,
+    getTransactionById,
 } from "@/app/admin/transactions/actions";
 import {
     ensureDeathEndorsementTransactionType,
@@ -113,6 +114,8 @@ export default function DeathPsaEndorsementPage() {
     const [submitting, setSubmitting] = useState(false);
     const [resident, setResident] = useState<any>(null);
     const [typeId, setTypeId] = useState<string>("");
+    const [revisionId, setRevisionId] = useState<string | null>(null);
+    const [revisionTx, setRevisionTx] = useState<any>(null);
     const [showErrors, setShowErrors] = useState(false);
 
     const [viewerOpen, setViewerOpen] = useState(false);
@@ -165,6 +168,9 @@ export default function DeathPsaEndorsementPage() {
 
     // Restore progress from session storage & IndexedDB
     useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get("revisionId")) return;
+
         const savedStep = sessionStorage.getItem("death-psa-endorsement-step");
         const savedForm = sessionStorage.getItem("death-psa-endorsement-form");
 
@@ -200,16 +206,31 @@ export default function DeathPsaEndorsementPage() {
     }, []);
 
     useEffect(() => {
-        if (!loading) {
+        if (!loading && !revisionId) {
             sessionStorage.setItem("death-psa-endorsement-step", currentStep);
             sessionStorage.setItem("death-psa-endorsement-form", JSON.stringify(formData));
         }
-    }, [currentStep, formData, loading]);
+    }, [currentStep, formData, loading, revisionId]);
 
     useEffect(() => {
         async function init() {
             try {
                 await ensureDeathEndorsementTransactionType();
+
+                const urlParams = new URLSearchParams(window.location.search);
+                const revId = urlParams.get("revisionId");
+
+                let txData: any = null;
+                if (revId) {
+                    const txRes = await getTransactionById(revId);
+                    if (txRes.success && txRes.data) {
+                        txData = txRes.data;
+                        setRevisionId(revId);
+                        setRevisionTx(txData);
+                    } else {
+                        toast.error("Failed to fetch revision details");
+                    }
+                }
 
                 const [resResult, typesResult] = await Promise.all([
                     getCurrentUserResident(),
@@ -231,21 +252,58 @@ export default function DeathPsaEndorsementPage() {
                     ].filter(Boolean);
                     const constructedAddr = parts.join(", ").toUpperCase();
 
-                    setFormData(prev => ({
-                        ...prev,
-                        email: prev.email || r.user?.email || "",
-                        contactNumber: prev.contactNumber || r.contactNumber || "",
-                        informantFirstName: r.firstName || "",
-                        informantMiddleName: r.middleName || "",
-                        informantLastName: r.lastName || "",
-                        informantSuffix: r.suffix || "",
-                        informantBirthDate: r.dateOfBirth ? new Date(r.dateOfBirth).toISOString().split('T')[0] : "",
-                        informantAge: r.age?.toString() || "",
-                        informantCivilStatus: r.civilStatus || "",
-                        informantCitizenship: r.citizenship || "FILIPINO",
-                        informantOccupation: r.occupation || "",
-                        informantAddress: constructedAddr
-                    }));
+                    if (txData) {
+                        const addData = txData.additionalData as any || {};
+                        const resSnapshot = txData.residentSnapshot as any || r || {};
+
+                        const previews: Record<string, string | null> = {};
+                        const fileKeys = ["psaNegativeCert", "form2a"];
+                        fileKeys.forEach(k => {
+                            if (addData[k] && typeof addData[k] === "string" && addData[k].startsWith("http")) {
+                                previews[k] = addData[k];
+                            }
+                        });
+
+                        setFormData(prev => ({
+                            ...prev,
+                            relationship: addData.relationship || prev.relationship,
+                            email: addData.email || resSnapshot.email || prev.email,
+                            contactNumber: addData.contactNumber || resSnapshot.contactNumber || prev.contactNumber,
+                            informantFirstName: addData.informantFirstName || resSnapshot.firstName || prev.informantFirstName,
+                            informantMiddleName: addData.informantMiddleName || resSnapshot.middleName || prev.informantMiddleName,
+                            informantLastName: addData.informantLastName || resSnapshot.lastName || prev.informantLastName,
+                            informantSuffix: addData.informantSuffix || resSnapshot.suffix || prev.informantSuffix,
+                            informantBirthDate: addData.informantBirthDate || prev.informantBirthDate,
+                            informantAge: addData.informantAge || prev.informantAge,
+                            informantCivilStatus: addData.informantCivilStatus || prev.informantCivilStatus,
+                            informantCitizenship: addData.informantCitizenship || prev.informantCitizenship,
+                            informantOccupation: addData.informantOccupation || prev.informantOccupation,
+                            informantAddress: addData.informantAddress || prev.informantAddress,
+                            subjectFullName: addData.subjectFullName || "",
+                            subjectDateOfDeath: addData.subjectDateOfDeath || "",
+                            mothersMaidenName: addData.mothersMaidenName || "",
+                            fathersName: addData.fathersName || "",
+                            placeOfDeath: addData.placeOfDeath || "",
+                            causeOfDeath: addData.causeOfDeath || "",
+                        }));
+                        setPreviews(previews);
+                    } else {
+                        setFormData(prev => ({
+                            ...prev,
+                            email: prev.email || r.user?.email || "",
+                            contactNumber: prev.contactNumber || r.contactNumber || "",
+                            informantFirstName: r.firstName || "",
+                            informantMiddleName: r.middleName || "",
+                            informantLastName: r.lastName || "",
+                            informantSuffix: r.suffix || "",
+                            informantBirthDate: r.dateOfBirth ? new Date(r.dateOfBirth).toISOString().split('T')[0] : "",
+                            informantAge: r.age?.toString() || "",
+                            informantCivilStatus: r.civilStatus || "",
+                            informantCitizenship: r.citizenship || "FILIPINO",
+                            informantOccupation: r.occupation || "",
+                            informantAddress: constructedAddr
+                        }));
+                    }
                 }
 
                 if (typesResult.success && typesResult.data) {
@@ -255,34 +313,36 @@ export default function DeathPsaEndorsementPage() {
                     }
                 }
 
-                // Check for latest Form 2A and auto-attach if no draft exists
-                const latestRes = await getLatestForm2AForCurrentUser();
-                if (latestRes.success && latestRes.data) {
-                    const draftFiles = await getDraftFiles(STORAGE_KEY);
-                    if (!draftFiles?.form2a) {
-                        const { docUrl, subjectName, dateOfDeath, mothersMaidenName, fathersName, placeOfDeath, causeOfDeath } = latestRes.data;
-                        setFormData(prev => ({
-                            ...prev,
-                            subjectFullName: prev.subjectFullName || (subjectName ? subjectName.toUpperCase() : ""),
-                            subjectDateOfDeath: prev.subjectDateOfDeath || (dateOfDeath ? new Date(dateOfDeath).toISOString().split('T')[0] : ""),
-                            mothersMaidenName: prev.mothersMaidenName || (mothersMaidenName ? mothersMaidenName.toUpperCase() : ""),
-                            fathersName: prev.fathersName || (fathersName ? fathersName.toUpperCase() : ""),
-                            placeOfDeath: prev.placeOfDeath || (placeOfDeath ? placeOfDeath.toUpperCase() : ""),
-                            causeOfDeath: prev.causeOfDeath || (causeOfDeath ? causeOfDeath.toUpperCase() : "")
-                        }));
+                if (!txData) {
+                    // Check for latest Form 2A and auto-attach if no draft exists
+                    const latestRes = await getLatestForm2AForCurrentUser();
+                    if (latestRes.success && latestRes.data) {
+                        const draftFiles = await getDraftFiles(STORAGE_KEY);
+                        if (!draftFiles?.form2a) {
+                            const { docUrl, subjectName, dateOfDeath, mothersMaidenName, fathersName, placeOfDeath, causeOfDeath } = latestRes.data;
+                            setFormData(prev => ({
+                                ...prev,
+                                subjectFullName: prev.subjectFullName || (subjectName ? subjectName.toUpperCase() : ""),
+                                subjectDateOfDeath: prev.subjectDateOfDeath || (dateOfDeath ? new Date(dateOfDeath).toISOString().split('T')[0] : ""),
+                                mothersMaidenName: prev.mothersMaidenName || (mothersMaidenName ? mothersMaidenName.toUpperCase() : ""),
+                                fathersName: prev.fathersName || (fathersName ? fathersName.toUpperCase() : ""),
+                                placeOfDeath: prev.placeOfDeath || (placeOfDeath ? placeOfDeath.toUpperCase() : ""),
+                                causeOfDeath: prev.causeOfDeath || (causeOfDeath ? causeOfDeath.toUpperCase() : "")
+                            }));
 
-                        if (docUrl) {
-                            try {
-                                const response = await fetch(docUrl);
-                                const blob = await response.blob();
-                                const filename = docUrl.split('/').pop() || "form_2a.pdf";
-                                const file = new File([blob], filename, { type: blob.type });
+                            if (docUrl) {
+                                try {
+                                    const response = await fetch(docUrl);
+                                    const blob = await response.blob();
+                                    const filename = docUrl.split('/').pop() || "form_2a.pdf";
+                                    const file = new File([blob], filename, { type: blob.type });
 
-                                setFiles(prev => ({ ...prev, form2a: file }));
-                                await saveDraftFile(STORAGE_KEY, "form2a", file);
-                                toast.success("Latest Form 2A found and automatically attached from your transactions!");
-                            } catch (err) {
-                                console.error("Failed to download Form 2A file:", err);
+                                    setFiles(prev => ({ ...prev, form2a: file }));
+                                    await saveDraftFile(STORAGE_KEY, "form2a", file);
+                                    toast.success("Latest Form 2A found and automatically attached from your transactions!");
+                                } catch (err) {
+                                    console.error("Failed to download Form 2A file:", err);
+                                }
                             }
                         }
                     }
@@ -431,6 +491,9 @@ export default function DeathPsaEndorsementPage() {
             const data = new FormData();
             data.append("typeId", typeId);
             data.append("registryType", "DEATH_PSA_ENDORSEMENT");
+            if (revisionId) {
+                data.append("revisionId", revisionId);
+            }
 
             const residentSnapshot = {
                 firstName: resident?.firstName || "",
@@ -489,7 +552,7 @@ export default function DeathPsaEndorsementPage() {
             const res = await submitCivilRegistryTransaction(data);
 
             if (res.success && res.data) {
-                toast.success("Death PSA Endorsement submitted successfully!");
+                toast.success(revisionId ? "Revision resubmitted successfully!" : "Death PSA Endorsement submitted successfully!");
                 sessionStorage.removeItem("death-psa-endorsement-step");
                 sessionStorage.removeItem("death-psa-endorsement-form");
                 await clearDraftFiles(STORAGE_KEY);
@@ -736,6 +799,18 @@ export default function DeathPsaEndorsementPage() {
                                         <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Informant Information</h2>
                                         <p className="text-xs text-slate-500 font-medium italic">Your details as the requesting informant</p>
                                     </div>
+
+                                    {revisionTx && (
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-800 dark:text-red-400 animate-in fade-in duration-300">
+                                            <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                            <div className="text-left space-y-1">
+                                                <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                                <p className="text-xs font-bold text-slate-900 dark:text-slate-300 leading-relaxed italic">
+                                                    &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="space-y-6">
                                         <div className="space-y-2">

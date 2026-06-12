@@ -54,7 +54,8 @@ import {
     getTransactionTypes,
     ensureCivilRegistryTransactionTypes,
     submitCivilRegistryTransaction,
-    getSystemSettingAction
+    getSystemSettingAction,
+    getTransactionById
 } from "@/app/admin/transactions/actions";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -252,6 +253,8 @@ export default function CivilRegistryPage() {
         setMounted(true);
     }, []);
     const [resident, setResident] = useState<any>(null);
+    const [revisionId, setRevisionId] = useState<string | null>(null);
+    const [revisionTx, setRevisionTx] = useState<any>(null);
 
     const [form, setForm] = useState<FormState>({
         typeId: "",
@@ -304,6 +307,9 @@ export default function CivilRegistryPage() {
     };
     // Persist progress to session storage
     useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get("revisionId")) return;
+
         const savedStep = sessionStorage.getItem("civil-registry-step");
         const savedForm = sessionStorage.getItem("civil-registry-form");
 
@@ -324,14 +330,14 @@ export default function CivilRegistryPage() {
     }, []);
 
     useEffect(() => {
-        if (!loading) {
+        if (!loading && !revisionId) {
             sessionStorage.setItem("civil-registry-step", currentStep);
             sessionStorage.setItem("civil-registry-form", JSON.stringify({
                 ...form,
                 files: {} // Don't store File objects
             }));
         }
-    }, [currentStep, form, loading]);
+    }, [currentStep, form, loading, revisionId]);
 
     useEffect(() => {
         if (loading || !resident) return;
@@ -391,6 +397,22 @@ export default function CivilRegistryPage() {
         async function init() {
             try {
                 await ensureCivilRegistryTransactionTypes();
+                
+                const urlParams = new URLSearchParams(window.location.search);
+                const revId = urlParams.get("revisionId");
+
+                let txData: any = null;
+                if (revId) {
+                    const txRes = await getTransactionById(revId);
+                    if (txRes.success && txRes.data) {
+                        txData = txRes.data;
+                        setRevisionId(revId);
+                        setRevisionTx(txData);
+                    } else {
+                        toast.error("Failed to fetch revision details");
+                    }
+                }
+
                 const [resResult, typesResult, themeResult] = await Promise.all([
                     getCurrentUserResident(),
                     getTransactionTypes(),
@@ -416,8 +438,82 @@ export default function CivilRegistryPage() {
                     ].filter(Boolean);
                     const constructedAddr = parts.join(", ").toUpperCase();
 
-                    // Pre-fill some data if available
-                    if (resResult.data) {
+                    if (txData) {
+                        const addData = txData.additionalData as any || {};
+                        const resSnapshot = txData.residentSnapshot as any || r || {};
+
+                        const previews: Record<string, string | null> = {};
+                        const fileKeys = ["validIdFront", "validIdBack"];
+                        fileKeys.forEach(k => {
+                            if (addData[k] && typeof addData[k] === "string" && addData[k].startsWith("http")) {
+                                previews[k] = addData[k];
+                            }
+                        });
+
+                        let certFN = addData.certFirstName || "";
+                        let certMN = addData.certMiddleName || "";
+                        let certLN = addData.certLastName || "";
+                        let certSuf = addData.certSuffix || "";
+                        if (!certFN && !certLN && addData.subjectName) {
+                            const parts = addData.subjectName.split(/\s+/);
+                            certLN = parts.pop() || "";
+                            certFN = parts.shift() || "";
+                            if (["JR", "SR", "I", "II", "III", "IV"].includes(certLN.toUpperCase())) {
+                                certSuf = certLN;
+                                certLN = parts.pop() || "";
+                            }
+                            certMN = parts.join(" ") || "";
+                        }
+
+                        let fFN = addData.fatherFirstName || "";
+                        let fMN = addData.fatherMiddleName || "";
+                        let fLN = addData.fatherLastName || "";
+                        if (!fFN && !fLN && addData.fatherName && addData.fatherName !== "N/A") {
+                            const parts = addData.fatherName.split(/\s+/);
+                            fLN = parts.pop() || "";
+                            fFN = parts.shift() || "";
+                            fMN = parts.join(" ") || "";
+                        }
+
+                        let mFN = addData.motherFirstName || "";
+                        let mMN = addData.motherMiddleName || "";
+                        let mLN = addData.motherLastName || "";
+                        if (!mFN && !mLN && addData.motherName && addData.motherName !== "N/A") {
+                            const parts = addData.motherName.split(/\s+/);
+                            mLN = parts.pop() || "";
+                            mFN = parts.shift() || "";
+                            mMN = parts.join(" ") || "";
+                        }
+
+                        setForm(prev => ({
+                            ...prev,
+                            typeId: txData.typeId || prev.typeId,
+                            registryType: txData.registryType || prev.registryType,
+                            fullName: addData.subjectName || prev.fullName,
+                            dateOfEvent: addData.dateOfEvent || prev.dateOfEvent,
+                            placeOfEvent: addData.placeOfEvent || prev.placeOfEvent,
+                            fatherFirstName: fFN,
+                            fatherMiddleName: fMN,
+                            fatherLastName: fLN,
+                            fatherName: addData.fatherName || prev.fatherName,
+                            motherFirstName: mFN,
+                            motherMiddleName: mMN,
+                            motherLastName: mLN,
+                            motherName: addData.motherName || prev.motherName,
+                            spouseName: addData.spouseName || prev.spouseName,
+                            certFirstName: certFN,
+                            certMiddleName: certMN,
+                            certLastName: certLN,
+                            certSuffix: certSuf,
+                            idTypeOverride: addData.idType || prev.idTypeOverride,
+                            email: addData.email || resSnapshot.email || prev.email,
+                            contactNumber: addData.contactNumber || resSnapshot.contactNumber || prev.contactNumber,
+                            relationship: addData.relationship || prev.relationship,
+                            informantAddress: addData.informantAddress || prev.informantAddress,
+                            sex: addData.gender || prev.sex,
+                            previews
+                        }));
+                    } else if (resResult.data) {
                         setForm(prev => ({
                             ...prev,
                             fullName: `${resResult.data?.firstName || ""} ${resResult.data?.lastName || ""}`.trim(),
@@ -517,6 +613,9 @@ export default function CivilRegistryPage() {
             const formData = new FormData();
             formData.append("typeId", form.typeId);
             formData.append("registryType", form.registryType);
+            if (revisionId) {
+                formData.append("revisionId", revisionId);
+            }
             formData.append("residentSnapshot", JSON.stringify({
                 firstName: resident.firstName,
                 lastName: resident.lastName,
@@ -565,10 +664,20 @@ export default function CivilRegistryPage() {
             toast.dismiss("req-upload-toast");
 
             const additionalData = {
+                certFirstName: form.certFirstName,
+                certMiddleName: form.certMiddleName,
+                certLastName: form.certLastName,
+                certSuffix: form.certSuffix,
                 subjectName: form.fullName,
                 dateOfEvent: form.dateOfEvent,
                 placeOfEvent: form.placeOfEvent || "MUNICIPALITY OF MAPANDAN",
+                fatherFirstName: form.fatherFirstName,
+                fatherMiddleName: form.fatherMiddleName,
+                fatherLastName: form.fatherLastName,
                 fatherName: `${form.fatherFirstName || ""} ${form.fatherMiddleName || ""} ${form.fatherLastName || ""}`.replace(/\s+/g, ' ').trim() || form.fatherName || "N/A",
+                motherFirstName: form.motherFirstName,
+                motherMiddleName: form.motherMiddleName,
+                motherLastName: form.motherLastName,
                 motherName: `${form.motherFirstName || ""} ${form.motherMiddleName || ""} ${form.motherLastName || ""}`.replace(/\s+/g, ' ').trim() || form.motherName || "N/A",
                 spouseName: form.spouseName,
                 relationship: form.relationship,
@@ -586,7 +695,7 @@ export default function CivilRegistryPage() {
 
             const res = await submitCivilRegistryTransaction(formData);
             if (res.success && res.data) {
-                toast.success("Request submitted successfully!");
+                toast.success(revisionId ? "Revision resubmitted successfully!" : "Request submitted successfully!");
                 sessionStorage.removeItem("civil-registry-step");
                 sessionStorage.removeItem("civil-registry-form");
                 router.push(`/user/services/requests/${res.data.id}`);
@@ -868,6 +977,18 @@ export default function CivilRegistryPage() {
                                         <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight">Identity <span className="text-blue-500 italic">Confirmation</span></h2>
                                         <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">Verify and refine your personal records for this request.</p>
                                     </div>
+
+                                    {revisionTx && (
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-800 dark:text-red-400 animate-in fade-in duration-300">
+                                            <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                            <div className="text-left space-y-1">
+                                                <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                                <p className="text-xs font-bold text-slate-900 dark:text-slate-300 leading-relaxed italic">
+                                                    &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="space-y-4 md:space-y-6">
                                         {/* Row 1: Names */}

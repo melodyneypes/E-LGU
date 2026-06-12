@@ -308,6 +308,7 @@ export async function submitMarriageRegistrationTransaction(formData: FormData) 
         const registryType = sanitizeString(formData.get("registryType") as string);
         const residentSnapshotRaw = formData.get("residentSnapshot");
         const additionalDataRaw = formData.get("additionalData");
+        const revisionId = formData.get("revisionId") ? sanitizeString(formData.get("revisionId") as string) : null;
 
         if (!typeId || !registryType || !residentSnapshotRaw || !additionalDataRaw) {
             return { success: false, error: "Missing required transaction data" };
@@ -316,7 +317,15 @@ export async function submitMarriageRegistrationTransaction(formData: FormData) 
         const residentSnapshot = sanitizeObject(JSON.parse(residentSnapshotRaw as string));
         const additionalData = sanitizeObject(JSON.parse(additionalDataRaw as string));
 
-        console.log(`Processing ${registryType} transaction for user ${session.user.id}`);
+        console.log(`Processing ${registryType} transaction for user ${session.user.id} (revisionId: ${revisionId})`);
+
+        let existingTx: any = null;
+        if (revisionId) {
+            existingTx = await prisma.transaction.findUnique({
+                where: { id: revisionId }
+            });
+        }
+        const existingAddData = existingTx?.additionalData as any || {};
 
         const files: Record<string, string | null> = {};
 
@@ -364,6 +373,7 @@ export async function submitMarriageRegistrationTransaction(formData: FormData) 
         };
 
         const updatedAdditionalData = {
+            ...existingAddData,
             ...additionalData,
             ...files,
             registryType,
@@ -371,20 +381,35 @@ export async function submitMarriageRegistrationTransaction(formData: FormData) 
         };
 
         const transaction = await prisma.$transaction(async (tx: any) => {
-            const t = await tx.transaction.create({
-                data: {
-                    userId: session.user.id,
-                    typeId,
-                    status: "FOR_INSPECTION",
-                    fulfillmentType: additionalData.fulfillmentType || null,
-                    paymentType: null,
-                    residentSnapshot,
-                    additionalData: updatedAdditionalData,
-                    totalAmount: initialTotalAmount !== undefined ? initialTotalAmount : (additionalData.miscFee ?? additionalData.totalAmount ?? 0),
-                    businessName: null,
-                    fiscalSnapshot: initialFiscalSnapshot
-                }
-            });
+            const t = revisionId
+                ? await tx.transaction.update({
+                    where: { id: revisionId },
+                    data: {
+                        status: "FOR_INSPECTION",
+                        fulfillmentType: additionalData.fulfillmentType || null,
+                        paymentType: null,
+                        residentSnapshot,
+                        additionalData: updatedAdditionalData,
+                        totalAmount: initialTotalAmount !== undefined ? initialTotalAmount : (additionalData.miscFee ?? additionalData.totalAmount ?? 0),
+                        rejectionRemarks: null, // Reset rejection remarks on resubmit!
+                        updatedAt: new Date(),
+                        ...(initialFiscalSnapshot ? { fiscalSnapshot: initialFiscalSnapshot } : {})
+                    }
+                })
+                : await tx.transaction.create({
+                    data: {
+                        userId: session.user.id,
+                        typeId,
+                        status: "FOR_INSPECTION",
+                        fulfillmentType: additionalData.fulfillmentType || null,
+                        paymentType: null,
+                        residentSnapshot,
+                        additionalData: updatedAdditionalData,
+                        totalAmount: initialTotalAmount !== undefined ? initialTotalAmount : (additionalData.miscFee ?? additionalData.totalAmount ?? 0),
+                        businessName: null,
+                        fiscalSnapshot: initialFiscalSnapshot
+                    }
+                });
 
             await tx.resident.update({
                 where: { userId: session.user.id },

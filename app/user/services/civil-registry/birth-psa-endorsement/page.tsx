@@ -44,7 +44,8 @@ import {
     submitCivilRegistryTransaction,
     getTransactionTypes,
     getSystemSettingAction,
-    getLatestForm1AForCurrentUser
+    getLatestForm1AForCurrentUser,
+    getTransactionById
 } from "@/app/admin/transactions/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -112,6 +113,8 @@ export default function BirthPsaEndorsementPage() {
     const [submitting, setSubmitting] = useState(false);
     const [resident, setResident] = useState<any>(null);
     const [typeId, setTypeId] = useState<string>("");
+    const [revisionId, setRevisionId] = useState<string | null>(null);
+    const [revisionTx, setRevisionTx] = useState<any>(null);
     const [showErrors, setShowErrors] = useState(false);
 
     const [viewerOpen, setViewerOpen] = useState(false);
@@ -164,6 +167,9 @@ export default function BirthPsaEndorsementPage() {
 
     // Restore progress from session storage & IndexedDB
     useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get("revisionId")) return;
+
         const savedStep = sessionStorage.getItem("psa-endorsement-step");
         const savedForm = sessionStorage.getItem("psa-endorsement-form");
 
@@ -202,16 +208,31 @@ export default function BirthPsaEndorsementPage() {
     }, []);
 
     useEffect(() => {
-        if (!loading) {
+        if (!loading && !revisionId) {
             sessionStorage.setItem("psa-endorsement-step", currentStep);
             sessionStorage.setItem("psa-endorsement-form", JSON.stringify(formData));
         }
-    }, [currentStep, formData, loading]);
+    }, [currentStep, formData, loading, revisionId]);
 
     useEffect(() => {
         async function init() {
             try {
                 await ensureCivilRegistryTransactionTypes();
+                
+                const urlParams = new URLSearchParams(window.location.search);
+                const revId = urlParams.get("revisionId");
+
+                let txData: any = null;
+                if (revId) {
+                    const txRes = await getTransactionById(revId);
+                    if (txRes.success && txRes.data) {
+                        txData = txRes.data;
+                        setRevisionId(revId);
+                        setRevisionTx(txData);
+                    } else {
+                        toast.error("Failed to fetch revision details");
+                    }
+                }
 
                 const [resResult, typesResult] = await Promise.all([
                     getCurrentUserResident(),
@@ -233,21 +254,55 @@ export default function BirthPsaEndorsementPage() {
                     ].filter(Boolean);
                     const constructedAddr = parts.join(", ").toUpperCase();
 
-                    setFormData(prev => ({
-                        ...prev,
-                        email: prev.email || r.user?.email || "",
-                        contactNumber: prev.contactNumber || r.contactNumber || "",
-                        informantFirstName: r.firstName || "",
-                        informantMiddleName: r.middleName || "",
-                        informantLastName: r.lastName || "",
-                        informantSuffix: r.suffix || "",
-                        informantBirthDate: r.dateOfBirth ? new Date(r.dateOfBirth).toISOString().split('T')[0] : "",
-                        informantAge: r.age?.toString() || "",
-                        informantCivilStatus: r.civilStatus || "",
-                        informantCitizenship: r.citizenship || "FILIPINO",
-                        informantOccupation: r.occupation || "",
-                        informantAddress: constructedAddr
-                    }));
+                    if (txData) {
+                        const addData = txData.additionalData as any || {};
+                        const resSnapshot = txData.residentSnapshot as any || r || {};
+
+                        const previews: Record<string, string | null> = {};
+                        const fileKeys = ["psaNegativeCert", "form1a"];
+                        fileKeys.forEach(k => {
+                            if (addData[k] && typeof addData[k] === "string" && addData[k].startsWith("http")) {
+                                previews[k] = addData[k];
+                            }
+                        });
+
+                        setFormData(prev => ({
+                            ...prev,
+                            relationship: addData.relationship || prev.relationship,
+                            email: addData.email || resSnapshot.email || prev.email,
+                            contactNumber: addData.contactNumber || resSnapshot.contactNumber || prev.contactNumber,
+                            informantFirstName: addData.informantFirstName || resSnapshot.firstName || prev.informantFirstName,
+                            informantMiddleName: addData.informantMiddleName || resSnapshot.middleName || prev.informantMiddleName,
+                            informantLastName: addData.informantLastName || resSnapshot.lastName || prev.informantLastName,
+                            informantSuffix: addData.informantSuffix || resSnapshot.suffix || prev.informantSuffix,
+                            informantBirthDate: addData.informantBirthDate || prev.informantBirthDate,
+                            informantAge: addData.informantAge || prev.informantAge,
+                            informantCivilStatus: addData.informantCivilStatus || prev.informantCivilStatus,
+                            informantCitizenship: addData.informantCitizenship || prev.informantCitizenship,
+                            informantOccupation: addData.informantOccupation || prev.informantOccupation,
+                            informantAddress: addData.informantAddress || prev.informantAddress,
+                            subjectFullName: addData.subjectFullName || "",
+                            subjectDateOfBirth: addData.subjectDateOfBirth || "",
+                            mothersMaidenName: addData.mothersMaidenName || "",
+                        }));
+                        setPreviews(previews);
+                    } else {
+                        setFormData(prev => ({
+                            ...prev,
+                            email: prev.email || r.user?.email || "",
+                            contactNumber: prev.contactNumber || r.contactNumber || "",
+                            informantFirstName: r.firstName || "",
+                            informantMiddleName: r.middleName || "",
+                            informantLastName: r.lastName || "",
+                            informantSuffix: r.suffix || "",
+                            informantBirthDate: r.dateOfBirth ? new Date(r.dateOfBirth).toISOString().split('T')[0] : "",
+                            informantAge: r.age?.toString() || "",
+                            informantCivilStatus: r.civilStatus || "",
+                            informantCitizenship: r.citizenship || "FILIPINO",
+                            informantOccupation: r.occupation || "",
+                            informantAddress: constructedAddr
+                        }));
+                    }
                 }
 
                 if (typesResult.success && typesResult.data) {
@@ -425,6 +480,9 @@ export default function BirthPsaEndorsementPage() {
             const data = new FormData();
             data.append("typeId", typeId);
             data.append("registryType", "BIRTH_PSA_ENDORSEMENT");
+            if (revisionId) {
+                data.append("revisionId", revisionId);
+            }
 
             const residentSnapshot = {
                 firstName: resident?.firstName || "",
@@ -484,7 +542,7 @@ export default function BirthPsaEndorsementPage() {
             const res = await submitCivilRegistryTransaction(data);
 
             if (res.success && res.data) {
-                toast.success("Birth PSA Endorsement submitted successfully!");
+                toast.success(revisionId ? "Revision resubmitted successfully!" : "Birth PSA Endorsement submitted successfully!");
                 sessionStorage.removeItem("psa-endorsement-step");
                 sessionStorage.removeItem("psa-endorsement-form");
                 await clearDraftFiles(STORAGE_KEY);
@@ -738,6 +796,18 @@ export default function BirthPsaEndorsementPage() {
                                         <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Informant Information</h2>
                                         <p className="text-xs text-slate-500 font-medium italic">Your details as the requesting informant</p>
                                     </div>
+
+                                    {revisionTx && (
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-800 dark:text-red-400 animate-in fade-in duration-300">
+                                            <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+                                            <div className="text-left space-y-1">
+                                                <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+                                                <p className="text-xs font-bold text-slate-900 dark:text-slate-300 leading-relaxed italic">
+                                                    &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="space-y-6">
                                         <div className="space-y-2">
