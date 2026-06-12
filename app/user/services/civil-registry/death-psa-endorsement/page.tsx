@@ -481,8 +481,12 @@ export default function DeathPsaEndorsementPage() {
             toast.error("Service type not initialized. Please try again later.");
             return;
         }
-        if (!files.psaNegativeCert) {
+        if (!files.psaNegativeCert && !previews.psaNegativeCert) {
             toast.error("Please upload PSA Negative Certification");
+            return;
+        }
+        if (!files.form2a && !previews.form2a) {
+            toast.error("Please upload Form 2A (Local Registry Copy)");
             return;
         }
 
@@ -819,7 +823,7 @@ export default function DeathPsaEndorsementPage() {
                                                 value={formData.relationship}
                                                 onValueChange={(v) => handleSelectChange("relationship", v)}
                                             >
-                                                <SelectTrigger className="h-12 rounded-xl border-slate-200 focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold">
+                                                <SelectTrigger className={cn("h-12 rounded-xl focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold", (showErrors && !formData.relationship) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10")}>
                                                     <SelectValue placeholder="SELECT RELATIONSHIP" />
                                                 </SelectTrigger>
                                                 <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
@@ -893,8 +897,8 @@ export default function DeathPsaEndorsementPage() {
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Contact Number <span className="text-red-500">*</span></Label>
                                                 <Input
                                                     className={cn(
-                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-bold italic",
-                                                        (showErrors && !formData.contactNumber) && "border-red-500/50 bg-red-50/10"
+                                                        "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all font-bold italic",
+                                                        (showErrors && !formData.contactNumber) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10"
                                                     )}
                                                     placeholder="e.g. 0917XXXXXXX"
                                                     value={formData.contactNumber}
@@ -952,8 +956,8 @@ export default function DeathPsaEndorsementPage() {
                                                 value={formData.subjectFullName}
                                                 onChange={handleInputChange}
                                                 className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                    (showErrors && !formData.subjectFullName) && "border-red-500/50 bg-red-50/10"
+                                                    "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
+                                                    (showErrors && !formData.subjectFullName) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10"
                                                 )}
                                             />
                                             {(showErrors && !formData.subjectFullName) && (
@@ -969,8 +973,8 @@ export default function DeathPsaEndorsementPage() {
                                                 value={formData.subjectDateOfDeath}
                                                 onChange={handleInputChange}
                                                 className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-medium",
-                                                    (showErrors && !formData.subjectDateOfDeath) && "border-red-500/50 bg-red-50/10"
+                                                    "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all font-medium",
+                                                    (showErrors && !formData.subjectDateOfDeath) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10"
                                                 )}
                                             />
                                             {(showErrors && !formData.subjectDateOfDeath) && (
@@ -986,8 +990,8 @@ export default function DeathPsaEndorsementPage() {
                                                 value={formData.mothersMaidenName}
                                                 onChange={handleInputChange}
                                                 className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                    (showErrors && !formData.mothersMaidenName) && "border-red-500/50 bg-red-50/10"
+                                                    "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
+                                                    (showErrors && !formData.mothersMaidenName) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10"
                                                 )}
                                             />
                                             {(showErrors && !formData.mothersMaidenName) && (
@@ -1041,7 +1045,7 @@ export default function DeathPsaEndorsementPage() {
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             {renderDocCard("PSA Negative Certification", "psaNegativeCert", true)}
-                                            {renderDocCard("Form 2A (Local Registry Copy)", "form2a", false)}
+                                            {renderDocCard("Form 2A (Local Registry Copy)", "form2a", true)}
                                         </div>
                                     </div>
 
@@ -1061,9 +1065,14 @@ export default function DeathPsaEndorsementPage() {
                                                     toast.error("Please fill in all required deceased details.");
                                                     return;
                                                 }
-                                                if (!files.psaNegativeCert) {
+                                                if (!files.psaNegativeCert && !previews.psaNegativeCert) {
                                                     setShowErrors(true);
                                                     toast.error("Please upload PSA Negative Certification.");
+                                                    return;
+                                                }
+                                                if (!files.form2a && !previews.form2a) {
+                                                    setShowErrors(true);
+                                                    toast.error("Please upload Form 2A (Local Registry Copy).");
                                                     return;
                                                 }
                                                 setShowErrors(false);
@@ -1128,22 +1137,22 @@ export default function DeathPsaEndorsementPage() {
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                 <div className={cn(
                                                     "flex items-center gap-3 p-3 rounded-xl border",
-                                                    files.psaNegativeCert ? "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/20" : "bg-red-50/30 border-red-200/50"
+                                                    (files.psaNegativeCert || previews.psaNegativeCert) ? "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/20" : "bg-red-50/30 border-red-200/50"
                                                 )}>
-                                                    {files.psaNegativeCert ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
+                                                    {(files.psaNegativeCert || previews.psaNegativeCert) ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
                                                     <div>
                                                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">PSA Negative Certification</p>
-                                                        <p className="text-[8px] text-slate-400 italic">{files.psaNegativeCert ? files.psaNegativeCert.name : "Not uploaded"}</p>
+                                                        <p className="text-[8px] text-slate-400 italic">{files.psaNegativeCert ? files.psaNegativeCert.name : previews.psaNegativeCert ? "Attached from previous draft" : "Not uploaded"}</p>
                                                     </div>
                                                 </div>
                                                 <div className={cn(
                                                     "flex items-center gap-3 p-3 rounded-xl border",
-                                                    files.form2a ? "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/20" : "bg-slate-50/30 border-slate-200/50 dark:border-white/5"
+                                                    (files.form2a || previews.form2a) ? "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/20" : "bg-red-50/30 border-red-200/50"
                                                 )}>
-                                                    {files.form2a ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <FileText className="w-4 h-4 text-slate-400 shrink-0" />}
+                                                    {(files.form2a || previews.form2a) ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
                                                     <div>
                                                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Form 2A</p>
-                                                        <p className="text-[8px] text-slate-400 italic">{files.form2a ? files.form2a.name : "Not uploaded (optional)"}</p>
+                                                        <p className="text-[8px] text-slate-400 italic">{files.form2a ? files.form2a.name : previews.form2a ? "Attached from previous draft" : "Not uploaded"}</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1175,7 +1184,7 @@ export default function DeathPsaEndorsementPage() {
                                                 policyAccepted
                                                     ? "bg-emerald-50/20 border-emerald-500/30"
                                                     : showErrors
-                                                        ? "border-red-500/50 bg-red-50/10 ring-2 ring-red-500/20 animate-pulse"
+                                                        ? "border-2 border-red-500"
                                                         : "border-slate-200/40 bg-white/30 dark:bg-white/5 hover:border-emerald-500/20"
                                             )}
                                         >
@@ -1194,7 +1203,7 @@ export default function DeathPsaEndorsementPage() {
                                                     policyAccepted
                                                         ? "bg-emerald-500 border-emerald-500 text-white"
                                                         : showErrors
-                                                            ? "border-red-500"
+                                                            ? "border-2 border-red-500"
                                                             : "border-slate-300"
                                                 )}
                                             >
@@ -1230,17 +1239,17 @@ export default function DeathPsaEndorsementPage() {
                                             </Button>
                                             <Button
                                                 onClick={handleSubmit}
-                                                disabled={submitting || !files.psaNegativeCert}
+                                                disabled={submitting || (!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form2a && !previews.form2a)}
                                                 className={cn(
                                                     "md:col-span-3 h-14 rounded-full font-black uppercase tracking-widest italic text-[11px] transition-all duration-300",
-                                                    !files.psaNegativeCert
+                                                    ((!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form2a && !previews.form2a))
                                                         ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                                                         : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-500/20"
                                                 )}
                                             >
                                                 {submitting ? (
                                                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                                                ) : !files.psaNegativeCert ? (
+                                                ) : ((!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form2a && !previews.form2a)) ? (
                                                     <>
                                                         Upload Required Documents
                                                         <AlertCircle className="w-5 h-5 ml-2" />

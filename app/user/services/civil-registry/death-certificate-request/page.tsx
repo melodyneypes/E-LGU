@@ -1058,7 +1058,7 @@ export default function DeathCertificateRequestPage() {
                                             value={form.relationship}
                                             onValueChange={(val) => setForm(p => ({ ...p, relationship: val }))}
                                         >
-                                            <SelectTrigger className={cn("h-10 rounded-xl text-xs md:text-sm font-bold uppercase", (showErrors && !form.relationship) && "border-red-500")}>
+                                            <SelectTrigger className={cn("h-10 rounded-xl text-xs md:text-sm font-bold uppercase", (showErrors && !form.relationship) && "border-2 border-red-500")}>
                                                 <SelectValue placeholder="Select relationship" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -1092,7 +1092,7 @@ export default function DeathCertificateRequestPage() {
                                     <Input
                                         value={form.contactNumber}
                                         onChange={(e) => setForm(p => ({ ...p, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
-                                        className={cn("h-10 rounded-xl text-xs md:text-sm font-bold", (showErrors && !form.contactNumber) && "border-red-500")}
+                                        className={cn("h-10 rounded-xl text-xs md:text-sm font-bold", (showErrors && !form.contactNumber) && "border-2 border-red-500")}
                                         placeholder="e.g. 09123456789"
                                     />
                                 </div>
@@ -1186,7 +1186,7 @@ export default function DeathCertificateRequestPage() {
                                         <Input
                                             value={form.deceasedFirstName}
                                             onChange={(e) => setForm(p => ({ ...p, deceasedFirstName: e.target.value }))}
-                                            className={cn("h-10 rounded-xl uppercase font-bold text-xs md:text-sm", (showErrors && !form.deceasedFirstName) && "border-red-500")}
+                                            className={cn("h-10 rounded-xl uppercase font-bold text-xs md:text-sm", (showErrors && !form.deceasedFirstName) && "border-2 border-red-500")}
                                             placeholder="Deceased first name"
                                         />
                                     </div>
@@ -1204,7 +1204,7 @@ export default function DeathCertificateRequestPage() {
                                         <Input
                                             value={form.deceasedLastName}
                                             onChange={(e) => setForm(p => ({ ...p, deceasedLastName: e.target.value }))}
-                                            className={cn("h-10 rounded-xl uppercase font-bold text-xs md:text-sm", (showErrors && !form.deceasedLastName) && "border-red-500")}
+                                            className={cn("h-10 rounded-xl uppercase font-bold text-xs md:text-sm", (showErrors && !form.deceasedLastName) && "border-2 border-red-500")}
                                             placeholder="Deceased last name"
                                         />
                                     </div>
@@ -1282,7 +1282,7 @@ export default function DeathCertificateRequestPage() {
                                             <Input
                                                 value={form.fatherFirstName}
                                                 onChange={(e) => setForm(p => ({ ...p, fatherFirstName: e.target.value }))}
-                                                className={cn("h-10 rounded-xl uppercase font-bold text-xs md:text-sm", (showErrors && !form.fatherFirstName) && "border-red-500")}
+                                                className={cn("h-10 rounded-xl uppercase font-bold text-xs md:text-sm", (showErrors && !form.fatherFirstName) && "border-2 border-red-500")}
                                                 placeholder="Father's first name"
                                             />
                                         </div>
@@ -1300,7 +1300,7 @@ export default function DeathCertificateRequestPage() {
                                             <Input
                                                 value={form.fatherLastName}
                                                 onChange={(e) => setForm(p => ({ ...p, fatherLastName: e.target.value }))}
-                                                className={cn("h-10 rounded-xl uppercase font-bold text-xs md:text-sm", (showErrors && !form.fatherLastName) && "border-red-500")}
+                                                className={cn("h-10 rounded-xl uppercase font-bold text-xs md:text-sm", (showErrors && !form.fatherLastName) && "border-2 border-red-500")}
                                                 placeholder="Father's last name"
                                             />
                                         </div>
@@ -1321,7 +1321,7 @@ export default function DeathCertificateRequestPage() {
                                             <Input
                                                 value={form.motherFirstName}
                                                 onChange={(e) => setForm(p => ({ ...p, motherFirstName: e.target.value }))}
-                                                className={cn("h-10 rounded-xl uppercase font-bold text-xs md:text-sm", (showErrors && !form.motherFirstName) && "border-red-500")}
+                                                className={cn("h-10 rounded-xl uppercase font-bold text-xs md:text-sm", (showErrors && !form.motherFirstName) && "border-2 border-red-500")}
                                                 placeholder="Mother's first name"
                                             />
                                         </div>
@@ -1339,7 +1339,7 @@ export default function DeathCertificateRequestPage() {
                                             <Input
                                                 value={form.motherLastName}
                                                 onChange={(e) => setForm(p => ({ ...p, motherLastName: e.target.value }))}
-                                                className={cn("h-10 rounded-xl uppercase font-bold text-xs md:text-sm", (showErrors && !form.motherLastName) && "border-red-500")}
+                                                className={cn("h-10 rounded-xl uppercase font-bold text-xs md:text-sm", (showErrors && !form.motherLastName) && "border-2 border-red-500")}
                                                 placeholder="Mother's maiden last name"
                                             />
                                         </div>
@@ -1402,7 +1402,7 @@ export default function DeathCertificateRequestPage() {
                                             type="date"
                                             value={form.dateOfDeath}
                                             onChange={(e) => setForm(p => ({ ...p, dateOfDeath: e.target.value }))}
-                                            className={cn("h-10 rounded-xl font-bold text-xs md:text-sm", (showErrors && !form.dateOfDeath) && "border-red-500")}
+                                            className={cn("h-10 rounded-xl font-bold text-xs md:text-sm", (showErrors && !form.dateOfDeath) && "border-2 border-red-500")}
                                         />
                                     </div>
 
@@ -1411,7 +1411,7 @@ export default function DeathCertificateRequestPage() {
                                         <Input
                                             value={form.placeOfDeath}
                                             onChange={(e) => setForm(p => ({ ...p, placeOfDeath: e.target.value }))}
-                                            className={cn("h-10 rounded-xl font-bold text-xs md:text-sm uppercase", (showErrors && !form.placeOfDeath) && "border-red-500")}
+                                            className={cn("h-10 rounded-xl font-bold text-xs md:text-sm uppercase", (showErrors && !form.placeOfDeath) && "border-2 border-red-500")}
                                             placeholder="e.g. Mapandan, Pangasinan"
                                         />
                                     </div>
@@ -1566,7 +1566,7 @@ export default function DeathCertificateRequestPage() {
                                 {/* Data Privacy checkbox */}
                                 <div className={cn(
                                     "p-4 rounded-3xl border flex flex-col gap-3 shadow-sm bg-slate-500/5 transition-all duration-300",
-                                    (showErrors && !policyAccepted) ? "border-red-500 bg-red-500/5 shadow-md shadow-red-500/5" : "border-slate-200/50 dark:border-white/5"
+                                    (showErrors && !policyAccepted) ? "border-2 border-red-500" : "border-slate-200/50 dark:border-white/5"
                                 )}>
                                     <div className="flex items-start gap-4 w-full">
                                         <button
@@ -1575,7 +1575,7 @@ export default function DeathCertificateRequestPage() {
                                             className={cn(
                                                 "w-5 h-5 rounded-full border flex items-center justify-center mt-0.5 shrink-0 transition-colors",
                                                 policyAccepted ? "bg-slate-800 border-slate-800 dark:bg-white dark:border-white text-white dark:text-slate-900" :
-                                                (showErrors && !policyAccepted) ? "border-red-500 hover:border-red-600 bg-red-500/10" : "border-slate-300"
+                                                (showErrors && !policyAccepted) ? "border-2 border-red-500" : "border-slate-300"
                                             )}
                                         >
                                             {policyAccepted ? <Check className="w-3.5 h-3.5" /> : null}

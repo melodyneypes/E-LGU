@@ -416,6 +416,63 @@ export async function ensureCivilRegistryTransactionTypes() {
                 requiresBusinessName: false,
                 supportsECopy: true,
                 lateFee: 300.00
+            },
+            {
+                code: "LCR_PSA_ENDORSEMENT",
+                name: "Birth PSA Endorsement",
+                description: "Request PSA Endorsement for Birth Certificate.",
+                level: 1,
+                category: "Civil Registry",
+                baseFee: 200.00,
+                deliveryFee: 0.00,
+                isFixed: true,
+                requiredDocs: ["PSA Negative Certification"],
+                formSchema: {
+                    type: "CIVIL_REGISTRY",
+                    registryType: "BIRTH_PSA_ENDORSEMENT",
+                    fields: ["originalTransactionId", "psaNegCertUrl"]
+                },
+                requiresBusinessName: false,
+                supportsECopy: true,
+                processorRole: "TREASURY_STAFF"
+            },
+            {
+                code: "LCR_DEATH_PSA_ENDORSEMENT",
+                name: "Death PSA Endorsement",
+                description: "Request PSA Endorsement for Death Certificate.",
+                level: 1,
+                category: "Civil Registry",
+                baseFee: 200.00,
+                deliveryFee: 0.00,
+                isFixed: true,
+                requiredDocs: ["PSA Negative Certification"],
+                formSchema: {
+                    type: "CIVIL_REGISTRY",
+                    registryType: "DEATH_PSA_ENDORSEMENT",
+                    fields: ["originalTransactionId", "psaNegCertUrl"]
+                },
+                requiresBusinessName: false,
+                supportsECopy: true,
+                processorRole: "TREASURY_STAFF"
+            },
+            {
+                code: "LCR_MARRIAGE_PSA_ENDORSEMENT",
+                name: "Marriage PSA Endorsement",
+                description: "Request PSA Endorsement for Marriage Certificate.",
+                level: 1,
+                category: "Civil Registry",
+                baseFee: 200.00,
+                deliveryFee: 0.00,
+                isFixed: true,
+                requiredDocs: ["PSA Negative Certification"],
+                formSchema: {
+                    type: "CIVIL_REGISTRY",
+                    registryType: "MARRIAGE_PSA_ENDORSEMENT",
+                    fields: ["originalTransactionId", "psaNegCertUrl"]
+                },
+                requiresBusinessName: false,
+                supportsECopy: true,
+                processorRole: "TREASURY_STAFF"
             }
         ];
 
@@ -429,7 +486,7 @@ export async function ensureCivilRegistryTransactionTypes() {
                     formSchema: t.formSchema,
                     supportsECopy: t.supportsECopy
                 },
-                create: t
+                create: t as any
             });
         }
 
@@ -507,7 +564,8 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
         const isLCRType = [
             "BIRTH", "DEATH", "MARRIAGE",
             "BIRTH_REG", "DEATH_REG", "MARRIAGE_REG",
-            "MARRIAGE_LICENSE", "PSA_ENDORSEMENT"
+            "MARRIAGE_LICENSE", "PSA_ENDORSEMENT",
+            "BIRTH_PSA_ENDORSEMENT", "DEATH_PSA_ENDORSEMENT", "MARRIAGE_PSA_ENDORSEMENT"
         ].includes(registryType);
 
         if (isLCRType) {
@@ -3982,8 +4040,8 @@ export async function requestPsaEndorsement(formData: FormData) {
         if (!transaction) return { success: false, error: "Transaction not found" };
 
         const typeCode = (transaction.type?.code || "").toUpperCase();
-        if (typeCode !== "LCR_BIRTH" && typeCode !== "LCR_DEATH") {
-            return { success: false, error: "PSA Endorsement is only available for Birth or Death Certificate requests" };
+        if (typeCode !== "LCR_BIRTH" && typeCode !== "LCR_DEATH" && typeCode !== "LCR_MARRIAGE") {
+            return { success: false, error: "PSA Endorsement is only available for Birth, Death, or Marriage Certificate requests" };
         }
 
         if (!["RELEASED", "DELIVERED"].includes(transaction.status as string)) {
@@ -3997,7 +4055,8 @@ export async function requestPsaEndorsement(formData: FormData) {
         }
 
         const isDeath = typeCode === "LCR_DEATH";
-        const targetCode = isDeath ? "LCR_DEATH_PSA_ENDORSEMENT" : "LCR_PSA_ENDORSEMENT";
+        const isMarriage = typeCode === "LCR_MARRIAGE";
+        const targetCode = isDeath ? "LCR_DEATH_PSA_ENDORSEMENT" : (isMarriage ? "LCR_MARRIAGE_PSA_ENDORSEMENT" : "LCR_PSA_ENDORSEMENT");
 
         // 1. Ensure the transaction type exists in the database
         let psaType = await prisma.transactionType.findUnique({
@@ -4019,6 +4078,28 @@ export async function requestPsaEndorsement(formData: FormData) {
                         formSchema: {
                             type: "CIVIL_REGISTRY",
                             registryType: "DEATH_PSA_ENDORSEMENT",
+                            fields: ["originalTransactionId", "psaNegCertUrl"]
+                        },
+                        requiresBusinessName: false,
+                        supportsECopy: true,
+                        processorRole: "TREASURY_STAFF"
+                    }
+                });
+            } else if (isMarriage) {
+                psaType = await prisma.transactionType.create({
+                    data: {
+                        code: "LCR_MARRIAGE_PSA_ENDORSEMENT",
+                        name: "Marriage PSA Endorsement",
+                        description: "Request PSA Endorsement for Marriage Certificate.",
+                        level: 1,
+                        category: "Civil Registry",
+                        baseFee: 200.00,
+                        deliveryFee: 0.00,
+                        isFixed: true,
+                        requiredDocs: ["PSA Negative Certification"],
+                        formSchema: {
+                            type: "CIVIL_REGISTRY",
+                            registryType: "MARRIAGE_PSA_ENDORSEMENT",
                             fields: ["originalTransactionId", "psaNegCertUrl"]
                         },
                         requiresBusinessName: false,
@@ -4204,6 +4285,65 @@ export async function getLatestForm1AForCurrentUser() {
     } catch (error) {
         console.error("getLatestForm1AForCurrentUser error:", error);
         return { success: false, error: "Failed to fetch latest Form 1A" };
+    }
+}
+
+/**
+ * Get the latest completed marriage transaction for the current user that has an issued Form 3A document.
+ */
+export async function getLatestForm3AForCurrentUser() {
+    try {
+        const session = await getSession();
+        if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+        const transactions = await prisma.transaction.findMany({
+            where: {
+                userId: session.user.id,
+                type: {
+                    code: {
+                        in: ["LCR_MARRIAGE", "LCR_MARRIAGE_REG"]
+                    }
+                }
+            },
+            include: {
+                type: true
+            },
+            orderBy: {
+                createdAt: "desc"
+            }
+        });
+
+        for (const tx of transactions) {
+            const addData = (tx.additionalData as any) || {};
+            const hasForm3A = addData.registryBookVerification === "FORM_3A" || 
+                              !!addData.form3a || 
+                              !!addData.form3A;
+            if (hasForm3A) {
+                const docUrl = addData.scannedDocUrl || 
+                               addData.verificationDocUrl || 
+                               addData.form3a || 
+                               addData.form3A || 
+                               tx.eCopyUrl;
+                if (docUrl) {
+                    return {
+                        success: true,
+                        data: {
+                            transactionId: tx.id,
+                            docUrl: docUrl,
+                            husbandName: addData.husbandName || addData.applicant1?.fullName || null,
+                            wifeName: addData.wifeName || addData.applicant2?.fullName || null,
+                            dateOfMarriage: addData.dateOfMarriage || addData.dateOfEvent || null,
+                            placeOfMarriage: addData.placeOfMarriage || addData.placeOfEvent || null
+                        }
+                    };
+                }
+            }
+        }
+
+        return { success: false, error: "No issued Form 3A found for the user" };
+    } catch (error) {
+        console.error("getLatestForm3AForCurrentUser error:", error);
+        return { success: false, error: "Failed to fetch latest Form 3A" };
     }
 }
 

@@ -1100,13 +1100,13 @@ export default function MarriageRegistrationPage() {
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div className="space-y-1.5">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Registration Type <span className="text-rose-500">*</span></Label>
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Registration Type <span className="text-red-500">*</span></Label>
                                                 <Select 
                                                     value={form.registrationType} 
                                                     disabled={true}
                                                     onValueChange={(val: any) => setForm({...form, registrationType: val})}
                                                 >
-                                                    <SelectTrigger className="bg-slate-50 dark:bg-white/5 border-none font-bold h-12 rounded-xl">
+                                                    <SelectTrigger className={cn("bg-slate-50 dark:bg-white/5 font-bold h-12 rounded-xl transition-all", (!form.registrationType && showDetailsErrors) ? "border-2 border-red-500" : "border-none")}>
                                                         <SelectValue placeholder="SELECT REGISTRATION TYPE" />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -1115,40 +1115,31 @@ export default function MarriageRegistrationPage() {
                                                     </SelectContent>
                                                 </Select>
                                                 {!form.registrationType && showDetailsErrors && (
-                                                    <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-center gap-2 mt-1.5 text-rose-500 animate-in fade-in slide-in-from-top-1 duration-200">
-                                                        <AlertCircle className="w-4 h-4 shrink-0" />
-                                                        <span className="text-[10px] font-black uppercase tracking-wider italic">Registration Type is required</span>
-                                                    </div>
+                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                                 )}
                                             </div>
                                             <div className="space-y-1.5">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date of Marriage <span className="text-rose-500">*</span></Label>
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date of Marriage <span className="text-red-500">*</span></Label>
                                                 <Input
                                                     type="date"
                                                     max={new Date().toISOString().split("T")[0]}
-                                                    className="bg-slate-50 dark:bg-white/5 border-none font-bold h-12 rounded-xl"
+                                                    className={cn("bg-slate-50 dark:bg-white/5 font-bold h-12 rounded-xl transition-all", (!form.dateOfMarriage && showDetailsErrors) ? "border-2 border-red-500" : "border-none")}
                                                     value={form.dateOfMarriage}
                                                     onChange={e => handleDateOfMarriageChange(e.target.value)}
                                                 />
                                                 {!form.dateOfMarriage && showDetailsErrors && (
-                                                    <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-center gap-2 mt-1.5 text-rose-500 animate-in fade-in slide-in-from-top-1 duration-200">
-                                                        <AlertCircle className="w-4 h-4 shrink-0" />
-                                                        <span className="text-[10px] font-black uppercase tracking-wider italic">Date of Marriage is required</span>
-                                                    </div>
+                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                                 )}
                                             </div>
                                             <div className="md:col-span-1 space-y-1.5">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Place of Marriage <span className="text-rose-500">*</span></Label>
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Place of Marriage <span className="text-red-500">*</span></Label>
                                                 <Input
-                                                    className="bg-slate-50 dark:bg-white/5 border-none font-bold uppercase h-12 rounded-xl"
+                                                    className={cn("bg-slate-50 dark:bg-white/5 font-bold uppercase h-12 rounded-xl transition-all", (!form.placeOfMarriage && showDetailsErrors) ? "border-2 border-red-500" : "border-none")}
                                                     value={form.placeOfMarriage}
                                                     onChange={e => setForm({ ...form, placeOfMarriage: e.target.value.toUpperCase() })}
                                                 />
                                                 {!form.placeOfMarriage && showDetailsErrors && (
-                                                    <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-center gap-2 mt-1.5 text-rose-500 animate-in fade-in slide-in-from-top-1 duration-200">
-                                                        <AlertCircle className="w-4 h-4 shrink-0" />
-                                                        <span className="text-[10px] font-black uppercase tracking-wider italic">Place of Marriage is required</span>
-                                                    </div>
+                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                                 )}
                                             </div>
                                         </div>
@@ -1335,7 +1326,7 @@ export default function MarriageRegistrationPage() {
                                             <div className={cn(
                                                 "p-4 rounded-2xl border bg-white/30 dark:bg-white/5 flex items-start gap-4 transition-all duration-300",
                                                 (showConfirmErrors && !policyAccepted)
-                                                    ? "border-red-500 bg-red-500/5 shadow-md shadow-red-500/5"
+                                                    ? "border-2 border-red-500"
                                                     : "border-slate-200/40"
                                             )}>
                                                 <button 
@@ -1346,7 +1337,7 @@ export default function MarriageRegistrationPage() {
                                                         policyAccepted 
                                                             ? "bg-rose-500 border-rose-500 text-white" 
                                                             : showConfirmErrors
-                                                                ? "border-red-500"
+                                                                ? "border-2 border-red-500"
                                                                 : "border-slate-300"
                                                     )}
                                                 >

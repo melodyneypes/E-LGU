@@ -1078,7 +1078,7 @@ export default function MarriageCertificateRequestPage() {
                                         >
                                             <SelectTrigger className={cn(
                                                 "h-10 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all",
-                                                (showErrors && !form.relationship) && "border-red-500/50 bg-red-50/10"
+                                                (showErrors && !form.relationship) && "border-2 border-red-500"
                                             )}>
                                                 <SelectValue placeholder="Select relationship" />
                                             </SelectTrigger>
@@ -1164,7 +1164,7 @@ export default function MarriageCertificateRequestPage() {
                                                 <div className="md:col-span-2 space-y-2">
                                                     <Label className="text-[9px] font-black uppercase text-slate-500 italic">First Name</Label>
                                                     <Input
-                                                        className={cn("rounded-xl h-10 transition-all uppercase font-medium", (showErrors && !form.certFirstName) && "border-red-500/50 bg-red-50/10")}
+                                                        className={cn("rounded-xl h-10 transition-all uppercase font-medium", (showErrors && !form.certFirstName) && "border-2 border-red-500")}
                                                         placeholder="First Name"
                                                         value={form.certFirstName}
                                                         onChange={(e) => setForm({ ...form, certFirstName: e.target.value.toUpperCase() })}
@@ -1182,7 +1182,7 @@ export default function MarriageCertificateRequestPage() {
                                                 <div className="space-y-2">
                                                     <Label className="text-[9px] font-black uppercase text-slate-500 italic">Last Name</Label>
                                                     <Input
-                                                        className={cn("rounded-xl h-10 transition-all uppercase font-medium", (showErrors && !form.certLastName) && "border-red-500/50 bg-red-50/10")}
+                                                        className={cn("rounded-xl h-10 transition-all uppercase font-medium", (showErrors && !form.certLastName) && "border-2 border-red-500")}
                                                         placeholder="Last Name"
                                                         value={form.certLastName}
                                                         onChange={(e) => setForm({ ...form, certLastName: e.target.value.toUpperCase() })}
@@ -1197,7 +1197,7 @@ export default function MarriageCertificateRequestPage() {
                                             <Input
                                                 className={cn(
                                                     "rounded-xl h-10 transition-all uppercase font-medium",
-                                                    (showErrors && !form.spouseName) && "border-red-500/50 bg-red-50/10"
+                                                    (showErrors && !form.spouseName) && "border-2 border-red-500"
                                                 )}
                                                 placeholder="Complete Maiden Name (First, Middle, Last)"
                                                 value={form.spouseName}
@@ -1212,7 +1212,7 @@ export default function MarriageCertificateRequestPage() {
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Date of Marriage <span className="text-red-500">*</span></Label>
                                             <Input
                                                 type="date"
-                                                className={cn("rounded-xl h-10 transition-all", (showErrors && !form.dateOfEvent) && "border-red-500/50 bg-red-50/10")}
+                                                className={cn("rounded-xl h-10 transition-all", (showErrors && !form.dateOfEvent) && "border-2 border-red-500")}
                                                 value={form.dateOfEvent}
                                                 onChange={(e) => setForm({ ...form, dateOfEvent: e.target.value })}
                                             />
@@ -1325,7 +1325,7 @@ export default function MarriageCertificateRequestPage() {
                                                 <div className="space-y-2">
                                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify Country <span className="text-red-500">*</span></Label>
                                                     <Input
-                                                        className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCountry.trim()) && "border-red-500/50 bg-red-50/10")}
+                                                        className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCountry.trim()) && "border-2 border-red-500")}
                                                         placeholder="e.g. UNITED STATES"
                                                         value={customCountry}
                                                         onChange={(e) => setCustomCountry(e.target.value.toUpperCase())}
@@ -1334,7 +1334,7 @@ export default function MarriageCertificateRequestPage() {
                                                 <div className="space-y-2">
                                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify State / Province <span className="text-red-500">*</span></Label>
                                                     <Input
-                                                        className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customProvince.trim()) && "border-red-500/50 bg-red-50/10")}
+                                                        className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customProvince.trim()) && "border-2 border-red-500")}
                                                         placeholder="e.g. CALIFORNIA"
                                                         value={customProvince}
                                                         onChange={(e) => setCustomProvince(e.target.value.toUpperCase())}
@@ -1343,7 +1343,7 @@ export default function MarriageCertificateRequestPage() {
                                                 <div className="space-y-2">
                                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify City / Town <span className="text-red-500">*</span></Label>
                                                     <Input
-                                                        className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCity.trim()) && "border-red-500/50 bg-red-50/10")}
+                                                        className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCity.trim()) && "border-2 border-red-500")}
                                                         placeholder="e.g. LOS ANGELES"
                                                         value={customCity}
                                                         onChange={(e) => setCustomCity(e.target.value.toUpperCase())}
@@ -1357,7 +1357,7 @@ export default function MarriageCertificateRequestPage() {
                                                 <div className="space-y-2">
                                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify Province <span className="text-red-500">*</span></Label>
                                                     <Input
-                                                        className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customProvince.trim()) && "border-red-500/50 bg-red-50/10")}
+                                                        className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customProvince.trim()) && "border-2 border-red-500")}
                                                         placeholder="e.g. CEBU"
                                                         value={customProvince}
                                                         onChange={(e) => setCustomProvince(e.target.value.toUpperCase())}
@@ -1366,7 +1366,7 @@ export default function MarriageCertificateRequestPage() {
                                                 <div className="space-y-2">
                                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify City / Municipality <span className="text-red-500">*</span></Label>
                                                     <Input
-                                                        className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCity.trim()) && "border-red-500/50 bg-red-50/10")}
+                                                        className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCity.trim()) && "border-2 border-red-500")}
                                                         placeholder="e.g. CEBU CITY"
                                                         value={customCity}
                                                         onChange={(e) => setCustomCity(e.target.value.toUpperCase())}
@@ -1379,7 +1379,7 @@ export default function MarriageCertificateRequestPage() {
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify City / Municipality <span className="text-red-500">*</span></Label>
                                                 <Input
-                                                    className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCity.trim()) && "border-red-500/50 bg-red-50/10")}
+                                                    className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCity.trim()) && "border-2 border-red-500")}
                                                     placeholder="e.g. SAN JACINTO"
                                                     value={customCity}
                                                     onChange={(e) => setCustomCity(e.target.value.toUpperCase())}
@@ -1518,8 +1518,24 @@ export default function MarriageCertificateRequestPage() {
                             </Card>
 
                             <div className="space-y-4">
-                                <div className="p-4 rounded-2xl border border-slate-200/40 bg-white/30 dark:bg-white/5 flex items-start gap-4">
-                                    <button type="button" onClick={() => setPolicyOpen(true)} className={cn("w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5", policyAccepted ? "bg-rose-500 border-rose-500 text-white" : "border-slate-300")}>
+                                <div className={cn(
+                                    "p-4 rounded-2xl border flex items-start gap-4 transition-all duration-300",
+                                    (showErrors && !policyAccepted)
+                                        ? "border-2 border-red-500"
+                                        : "border-slate-200/40 bg-white/30 dark:bg-white/5"
+                                )}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPolicyOpen(true)}
+                                        className={cn(
+                                            "w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all",
+                                            policyAccepted
+                                                ? "bg-rose-500 border-rose-500 text-white"
+                                                : showErrors
+                                                    ? "border-2 border-red-500"
+                                                    : "border-slate-300"
+                                        )}
+                                    >
                                         {policyAccepted ? <Check className="w-3 h-3" /> : null}
                                     </button>
                                     <div className="flex-1 text-xs cursor-pointer select-none" onClick={() => setPolicyOpen(true)}>

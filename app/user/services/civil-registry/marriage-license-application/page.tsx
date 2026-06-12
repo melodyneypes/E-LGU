@@ -223,8 +223,9 @@ export default function MarriageLicenseApplicationPage() {
 	// Privacy / Terms modal state (shared key across LCR pages)
 	const [policyOpen, setPolicyOpen] = useState(false);
 	const [policyAccepted, setPolicyAccepted] = useState(false);
+	const [showSubmitErrors, setShowSubmitErrors] = useState(false);
 
-	const handleAcceptPolicy = () => { setPolicyOpen(false); setPolicyAccepted(true); };
+	const handleAcceptPolicy = () => { setPolicyOpen(false); setPolicyAccepted(true); setShowSubmitErrors(false); };
 
 	// Track missing file alerts for selected required documents
 	const [missingFiles, setMissingFiles] = useState<Record<string, boolean>>({});
@@ -645,6 +646,7 @@ export default function MarriageLicenseApplicationPage() {
 
 		// Require privacy terms acceptance before allowing submit
 		if (!policyAccepted) {
+			setShowSubmitErrors(true);
 			toast.error("Please review and accept the Privacy Policy & Terms before submitting. Click Review to open the agreement.");
 			return;
 		}
@@ -1139,8 +1141,11 @@ export default function MarriageLicenseApplicationPage() {
 
 								<div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
 									<div className="flex items-center gap-3">
-										<label className="text-xs font-bold italic text-slate-500">Is Applicant 2 a foreigner?</label>
-										<div role="tablist" aria-label="Applicant 2 foreigner selector" className="flex items-center gap-2 ml-2">
+										<label className="text-xs font-bold italic text-slate-500">Is Applicant 2 a foreigner? <span className="text-red-500">*</span></label>
+										<div role="tablist" aria-label="Applicant 2 foreigner selector" className={cn(
+											"flex items-center gap-2 ml-2 p-1 rounded-full transition-all",
+											missingInputs.app2IsForeigner ? "border-2 border-red-500" : ""
+										)}>
 											<button
 												type="button"
 												aria-pressed={form.app2IsForeigner === true}
@@ -1165,7 +1170,7 @@ export default function MarriageLicenseApplicationPage() {
 											</button>
 										</div>
 										{missingInputs.app2IsForeigner && (
-											<div className="text-xs text-red-600 font-bold ml-3">Required</div>
+											<div className="text-xs text-red-500 font-bold ml-3 italic uppercase tracking-wider">Required</div>
 										)}
 									</div>
 
@@ -1202,66 +1207,66 @@ export default function MarriageLicenseApplicationPage() {
 
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 									<div className="space-y-1.5">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Full Name</Label>
+										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Full Name <span className="text-red-500">*</span></Label>
 										<Input
 											placeholder="ENTER FULL NAME"
 											disabled={!!form.app2Resident}
 											className={cn(
-												"bg-slate-50 dark:bg-white/5 font-bold uppercase border-none",
-												missingInputs.app2FullName ? "border-red-500" : "",
+												"bg-slate-50 dark:bg-white/5 font-bold uppercase transition-all",
+												missingInputs.app2FullName ? "border-2 border-red-500" : "border-none",
 												!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
 											)}
 											value={form.app2FullName}
 											onChange={e => { setForm((p: any) => ({ ...p, app2FullName: e.target.value.toUpperCase() })); setMissingInputs((m) => ({ ...m, app2FullName: false })); }}
 										/>
-										{missingInputs.app2FullName && <div className="text-xs text-red-600 font-bold">Required</div>}
+										{missingInputs.app2FullName && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
 									</div>
 									<div className="space-y-1.5">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date of Birth</Label>
+										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date of Birth <span className="text-red-500">*</span></Label>
 										<Input
 											type="date"
 											disabled={!!form.app2Resident}
 											className={cn(
-												"bg-slate-50 dark:bg-white/5 font-bold border-none",
-												missingInputs.app2BirthDate ? "border-red-500" : "",
+												"bg-slate-50 dark:bg-white/5 font-bold transition-all",
+												missingInputs.app2BirthDate ? "border-2 border-red-500" : "border-none",
 												!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
 											)}
 											value={form.app2BirthDate}
 											onChange={e => { setForm((p: any) => ({ ...p, app2BirthDate: e.target.value })); setMissingInputs((m) => ({ ...m, app2BirthDate: false })); }}
 										/>
-										{missingInputs.app2BirthDate && <div className="text-xs text-red-600 font-bold">Required</div>}
+										{missingInputs.app2BirthDate && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
 									</div>
 									<div className="space-y-1.5">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Place of Birth</Label>
+										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Place of Birth <span className="text-red-500">*</span></Label>
 										<Input
 											placeholder="ENTER PLACE"
 											disabled={!!form.app2Resident}
 											className={cn(
-												"bg-slate-50 dark:bg-white/5 font-bold uppercase border-none",
-												missingInputs.app2BirthPlace ? "border-red-500" : "",
+												"bg-slate-50 dark:bg-white/5 font-bold uppercase transition-all",
+												missingInputs.app2BirthPlace ? "border-2 border-red-500" : "border-none",
 												!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
 											)}
 											value={form.app2BirthPlace}
 											onChange={e => { setForm((p: any) => ({ ...p, app2BirthPlace: e.target.value.toUpperCase() })); setMissingInputs((m) => ({ ...m, app2BirthPlace: false })); }}
 										/>
-										{missingInputs.app2BirthPlace && <div className="text-xs text-red-600 font-bold">Required</div>}
+										{missingInputs.app2BirthPlace && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
 									</div>
 									<div className="space-y-1.5">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Citizenship</Label>
+										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Citizenship <span className="text-red-500">*</span></Label>
 										<Input
 											disabled={!!form.app2Resident}
 											className={cn(
-												"bg-slate-50 dark:bg-white/5 font-bold uppercase border-none",
-												missingInputs.app2Citizenship ? "border-red-500" : "",
+												"bg-slate-50 dark:bg-white/5 font-bold uppercase transition-all",
+												missingInputs.app2Citizenship ? "border-2 border-red-500" : "border-none",
 												!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
 											)}
 											value={form.app2Citizenship}
 											onChange={e => { setForm((p: any) => ({ ...p, app2Citizenship: e.target.value.toUpperCase() })); setMissingInputs((m) => ({ ...m, app2Citizenship: false })); }}
 										/>
-										{missingInputs.app2Citizenship && <div className="text-xs text-red-600 font-bold">Required</div>}
+										{missingInputs.app2Citizenship && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
 									</div>
 									<div className="space-y-1.5">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sex</Label>
+										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sex <span className="text-red-500">*</span></Label>
 										<Select
 											disabled={!!form.app2Resident}
 											value={form.app2Gender}
@@ -1283,8 +1288,8 @@ export default function MarriageLicenseApplicationPage() {
 										>
 											<SelectTrigger 
 												className={cn(
-													"w-full h-10 px-3 rounded-md font-bold uppercase text-xs border-none transition-all text-left",
-													missingInputs.app2Gender ? "ring-1 ring-red-500" : "",
+													"w-full h-10 px-3 rounded-md font-bold uppercase text-xs transition-all text-left",
+													missingInputs.app2Gender ? "border-2 border-red-500" : "border-none",
 													form.app2Resident 
 														? "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed" 
 														: "bg-slate-50 dark:bg-white/5"
@@ -1297,7 +1302,7 @@ export default function MarriageLicenseApplicationPage() {
 												<SelectItem value="FEMALE">Bride / Wife (Female)</SelectItem>
 											</SelectContent>
 										</Select>
-										{missingInputs.app2Gender && <div className="text-xs text-red-600 font-bold">Required</div>}
+										{missingInputs.app2Gender && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
 										{form.app1Gender && form.app2Gender && form.app1Gender === form.app2Gender && (
 											<div className="text-[10px] text-red-600 font-black uppercase tracking-widest mt-1">
 												⚠️ Same-sex marriage is not permitted
@@ -1305,13 +1310,13 @@ export default function MarriageLicenseApplicationPage() {
 										)}
 									</div>
 									<div className="space-y-1.5 col-span-1 md:col-span-2">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Address</Label>
+										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Address <span className="text-red-500">*</span></Label>
 										<Input
 											placeholder="ENTER ADDRESS"
 											disabled={!!form.app2Resident}
 											className={cn(
-												"bg-slate-50 dark:bg-white/5 font-bold uppercase border-none",
-												missingInputs.app2Address ? "border border-red-500" : "",
+												"bg-slate-50 dark:bg-white/5 font-bold uppercase transition-all",
+												missingInputs.app2Address ? "border-2 border-red-500" : "border-none",
 												!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
 											)}
 											value={form.app2Address || ""}
@@ -1320,7 +1325,7 @@ export default function MarriageLicenseApplicationPage() {
 												setMissingInputs((m) => ({ ...m, app2Address: false }));
 											}}
 										/>
-										{missingInputs.app2Address && <div className="text-xs text-red-600 font-bold">Required</div>}
+										{missingInputs.app2Address && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
 									</div>
 								</div>
 							</Card>
@@ -1508,8 +1513,24 @@ export default function MarriageLicenseApplicationPage() {
 
 							{/* Data Privacy Agreement panel */}
 							<div className="mt-4">
-								<div className="p-4 rounded-2xl border border-slate-200/40 bg-slate-50 dark:bg-white/5 flex items-start gap-4">
-									<button type="button" onClick={() => setPolicyOpen(true)} className={cn("w-5 h-5 rounded-full border flex items-center justify-center", policyAccepted ? "bg-amber-500 border-amber-500 text-white" : "border-slate-300")}>
+								<div className={cn(
+									"p-4 rounded-2xl border flex items-start gap-4 transition-all duration-300",
+									(showSubmitErrors && !policyAccepted)
+										? "border-2 border-red-500"
+										: "border-slate-200/40 bg-slate-50 dark:bg-white/5"
+								)}>
+									<button
+										type="button"
+										onClick={() => setPolicyOpen(true)}
+										className={cn(
+											"w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all",
+											policyAccepted
+												? "bg-amber-500 border-amber-500 text-white"
+												: showSubmitErrors
+													? "border-2 border-red-500"
+													: "border-slate-300"
+										)}
+									>
 										{policyAccepted ? <Check className="w-3 h-3" /> : null}
 									</button>
 									<div className="flex-1 text-xs cursor-pointer select-none" onClick={() => setPolicyOpen(true)}>

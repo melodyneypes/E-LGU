@@ -197,7 +197,7 @@ export default function RegistrarPage() {
             } else if (categoryParam === "Marriage Certificate") {
                 matchesCategory = tx.type?.code === "LCR_MARRIAGE";
             } else if (categoryParam === "PSA Endorsement") {
-                matchesCategory = tx.type?.code === "LCR_PSA_ENDORSEMENT" || tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT";
+                matchesCategory = tx.type?.code === "LCR_PSA_ENDORSEMENT" || tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" || tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT";
             }
 
             return matchesSearch && matchesService && matchesCategory;

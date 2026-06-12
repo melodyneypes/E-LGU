@@ -1033,7 +1033,7 @@ export default function DeathRegistrationPage() {
                                                 <Input
                                                     className={cn(
                                                         "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-bold italic uppercase",
-                                                        (showErrors && !formData.relationshipSpecify) && "border-red-500/50 bg-red-50/10"
+                                                        (showErrors && !formData.relationshipSpecify) && "border-2 border-red-500"
                                                     )}
                                                     placeholder="e.g. COUSIN, UNCLE, AUNT"
                                                     name="relationshipSpecify"
@@ -1108,7 +1108,7 @@ export default function DeathRegistrationPage() {
                                                 <Input
                                                     className={cn(
                                                         "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-bold italic",
-                                                        (showErrors && !formData.contactNumber) && "border-red-500/50 bg-red-50/10"
+                                                        (showErrors && !formData.contactNumber) && "border-2 border-red-500"
                                                     )}
                                                     placeholder="e.g. 0917XXXXXXX"
                                                     value={formData.contactNumber}
@@ -1227,7 +1227,7 @@ export default function DeathRegistrationPage() {
                                                 onChange={handleInputChange}
                                                 className={cn(
                                                     "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                    (showErrors && !formData.fullName) && "border-red-500/50 bg-red-50/10"
+                                                    (showErrors && !formData.fullName) && "border-2 border-red-500"
                                                 )}
                                             />
                                             {(showErrors && !formData.fullName) && (
@@ -1243,7 +1243,7 @@ export default function DeathRegistrationPage() {
                                                 onChange={handleInputChange}
                                                 className={cn(
                                                     "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-medium",
-                                                    (showErrors && !formData.dateOfBirth) && "border-red-500/50 bg-red-50/10"
+                                                    (showErrors && !formData.dateOfBirth) && "border-2 border-red-500"
                                                 )}
                                             />
                                             {(showErrors && !formData.dateOfBirth) && (
@@ -1260,7 +1260,7 @@ export default function DeathRegistrationPage() {
                                                 onChange={handleInputChange}
                                                 className={cn(
                                                     "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-medium",
-                                                    (showErrors && !formData.dateOfDeath) && "border-red-500/50 bg-red-50/10"
+                                                    (showErrors && !formData.dateOfDeath) && "border-2 border-red-500"
                                                 )}
                                             />
                                             {(showErrors && !formData.dateOfDeath) && (
@@ -1288,7 +1288,7 @@ export default function DeathRegistrationPage() {
                                             >
                                                 <SelectTrigger className={cn(
                                                     "h-12 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 focus:ring-emerald-500 font-medium text-xs md:text-sm uppercase font-bold",
-                                                    (showErrors && !formData.placeOfDeath) && "border-red-500/50 bg-red-50/10"
+                                                    (showErrors && !formData.placeOfDeath) && "border-2 border-red-500"
                                                 )}>
                                                     <SelectValue placeholder="SELECT PLACE OF DEATH" />
                                                 </SelectTrigger>
@@ -1314,7 +1314,7 @@ export default function DeathRegistrationPage() {
                                                 onChange={handleInputChange}
                                                 className={cn(
                                                     "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                    (showErrors && !formData.causeOfDeath) && "border-red-500/50 bg-red-50/10"
+                                                    (showErrors && !formData.causeOfDeath) && "border-2 border-red-500"
                                                 )}
                                             />
                                             {(showErrors && !formData.causeOfDeath) && (
@@ -1329,7 +1329,7 @@ export default function DeathRegistrationPage() {
                                             >
                                                 <SelectTrigger className={cn(
                                                     "h-12 rounded-xl border-slate-200 focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
-                                                    (showErrors && !formData.gender) && "border-red-500/50 bg-red-50/10"
+                                                    (showErrors && !formData.gender) && "border-2 border-red-500"
                                                 )}>
                                                     <SelectValue placeholder="SELECT GENDER" />
                                                 </SelectTrigger>
@@ -1350,7 +1350,7 @@ export default function DeathRegistrationPage() {
                                             >
                                                 <SelectTrigger className={cn(
                                                     "h-12 rounded-xl border-slate-200 focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
-                                                    (showErrors && !formData.civilStatus) && "border-red-500/50 bg-red-50/10"
+                                                    (showErrors && !formData.civilStatus) && "border-2 border-red-500"
                                                 )}>
                                                     <SelectValue placeholder="SELECT STATUS" />
                                                 </SelectTrigger>
@@ -1391,7 +1391,7 @@ export default function DeathRegistrationPage() {
                                                     onChange={handleInputChange}
                                                     className={cn(
                                                         "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                        (showErrors && !formData.fathersName) && "border-red-500/50 bg-red-50/10"
+                                                        (showErrors && !formData.fathersName) && "border-2 border-red-500"
                                                     )}
                                                 />
                                                 {(showErrors && !formData.fathersName) && (
@@ -1407,7 +1407,7 @@ export default function DeathRegistrationPage() {
                                                     onChange={handleInputChange}
                                                     className={cn(
                                                         "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                        (showErrors && !formData.mothersName) && "border-red-500/50 bg-red-50/10"
+                                                        (showErrors && !formData.mothersName) && "border-2 border-red-500"
                                                     )}
                                                 />
                                                 {(showErrors && !formData.mothersName) && (
@@ -1428,7 +1428,7 @@ export default function DeathRegistrationPage() {
                                                 >
                                                     <SelectTrigger className={cn(
                                                         "h-12 rounded-xl border-slate-200 focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
-                                                        (showErrors && !formData.corpseDisposal) && "border-red-500/50 bg-red-50/10"
+                                                        (showErrors && !formData.corpseDisposal) && "border-2 border-red-500"
                                                     )}>
                                                         <SelectValue placeholder="SELECT METHOD" />
                                                     </SelectTrigger>
@@ -1451,7 +1451,7 @@ export default function DeathRegistrationPage() {
                                                     onChange={handleInputChange}
                                                     className={cn(
                                                         "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                        (showErrors && !formData.burialLocation) && "border-red-500/50 bg-red-50/10"
+                                                        (showErrors && !formData.burialLocation) && "border-2 border-red-500"
                                                     )}
                                                 />
                                                 {(showErrors && !formData.burialLocation) && (
@@ -1677,7 +1677,7 @@ export default function DeathRegistrationPage() {
                                                 policyAccepted
                                                     ? "bg-emerald-50/20 border-emerald-500/30"
                                                     : showErrors
-                                                        ? "border-red-500/50 bg-red-50/10 ring-2 ring-red-500/20 animate-pulse"
+                                                        ? "border-2 border-red-500 animate-pulse"
                                                         : "border-slate-200/40 bg-white/30 dark:bg-white/5 hover:border-emerald-500/20"
                                             )}
                                         >
@@ -1696,7 +1696,7 @@ export default function DeathRegistrationPage() {
                                                     policyAccepted
                                                         ? "bg-emerald-500 border-emerald-500 text-white"
                                                         : showErrors
-                                                            ? "border-red-500"
+                                                            ? "border-2 border-red-500"
                                                             : "border-slate-300"
                                                 )}
                                             >

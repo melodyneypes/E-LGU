@@ -759,7 +759,8 @@ export default function RequestHubPage() {
     const isLcrMarriageLicense = typeCode === "LCR_MARRIAGE_LICENSE";
     const isBirthPsaEndorsement = typeCode === "LCR_PSA_ENDORSEMENT";
     const isDeathPsaEndorsement = typeCode === "LCR_DEATH_PSA_ENDORSEMENT";
-    const isPsaEndorsement = isBirthPsaEndorsement || isDeathPsaEndorsement;
+    const isMarriagePsaEndorsement = typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT";
+    const isPsaEndorsement = isBirthPsaEndorsement || isDeathPsaEndorsement || isMarriagePsaEndorsement;
     const getRevisionUrl = () => {
         if (isBusinessPermit) return `/user/services/business-permit?revisionId=${request.id}`;
         if (isCedula) return `/user/services/cedula?revisionId=${request.id}`;
@@ -774,6 +775,7 @@ export default function RequestHubPage() {
             if (code === "LCR_MARRIAGE_LICENSE") return `/user/services/civil-registry/marriage-license-application?revisionId=${request.id}`;
             if (code === "LCR_PSA_ENDORSEMENT") return `/user/services/civil-registry/birth-psa-endorsement?revisionId=${request.id}`;
             if (code === "LCR_DEATH_PSA_ENDORSEMENT") return `/user/services/civil-registry/death-psa-endorsement?revisionId=${request.id}`;
+            if (code === "LCR_MARRIAGE_PSA_ENDORSEMENT") return `/user/services/civil-registry/marriage-psa-endorsement?revisionId=${request.id}`;
         }
         return `/user/services/requests/${request.id}`;
     };
@@ -2176,14 +2178,14 @@ export default function RequestHubPage() {
 
                                                     <div className="p-5 bg-[#f8fafd] dark:bg-[#121620]/60 rounded-2xl border border-slate-100 dark:border-white/5 shadow-sm space-y-4">
                                                         <p className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 leading-relaxed italic">
-                                                            The Municipal Civil Registrar has officially endorsed and transmitted your {isDeathPsaEndorsement ? "Form 2A" : "Form 1A"} to the Philippine Statistics Authority (PSA).
+                                                            The Municipal Civil Registrar has officially endorsed and transmitted your {isDeathPsaEndorsement ? "Form 2A" : isMarriagePsaEndorsement ? "Form 3A" : "Form 1A"} to the Philippine Statistics Authority (PSA).
                                                         </p>
                                                         <div className="space-y-2 border-t border-slate-200/20 dark:border-white/5 pt-4">
                                                             <span className="text-[9px] font-black uppercase tracking-widest italic leading-none" style={{ color: themeColor }}>📝 Next Steps for the Applicant:</span>
                                                             <ul className="list-disc pl-5 text-xs text-slate-600 dark:text-slate-400 space-y-2 font-medium italic">
                                                                 <li>Download or view your Endorsement Copy below to serve as your personal receiving proof.</li>
                                                                 <li>Please wait 3 to 4 weeks to allow the PSA to successfully encode your forwarded records into their national database.</li>
-                                                                <li>After the waiting period, you may directly request your PSA-Authenticated {isDeathPsaEndorsement ? "Death" : "Birth"} Certificate (SECPA) at any PSA Serbilis Center or online.</li>
+                                                                <li>After the waiting period, you may directly request your PSA-Authenticated {isDeathPsaEndorsement ? "Death" : isMarriagePsaEndorsement ? "Marriage" : "Birth"} Certificate (SECPA) at any PSA Serbilis Center or online.</li>
                                                             </ul>
                                                         </div>
                                                     </div>

@@ -83,6 +83,15 @@ const REGISTRY_TYPES = [
         available: true
     },
     {
+        id: "MARRIAGE_PSA_ENDORSEMENT",
+        label: "Marriage PSA Endorsement",
+        icon: FileText,
+        description: "Request endorsement of a verified local marriage certificate record to the PSA.",
+        color: "rose",
+        href: "/user/services/civil-registry/marriage-psa-endorsement",
+        available: true
+    },
+    {
         id: "MARRIAGE",
         label: "Marriage Registration",
         icon: Heart,
@@ -124,7 +133,7 @@ const REGISTRY_SECTIONS = [
     {
         title: "Marriage Registry & Licenses",
         subtitle: "License Applications, Registrations & Certified Copies",
-        items: ["MARRIAGE_LICENSE", "MARRIAGE", "MARRIAGE_REQ"]
+        items: ["MARRIAGE_LICENSE", "MARRIAGE", "MARRIAGE_REQ", "MARRIAGE_PSA_ENDORSEMENT"]
     }
 ];
 

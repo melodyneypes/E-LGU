@@ -1096,7 +1096,7 @@ export default function CivilRegistryPage() {
                                                         }}
                                                         className={cn(
                                                             "h-10 rounded-xl border-slate-950 dark:border-white focus:ring-blue-500 shadow-sm text-xs md:text-sm transition-all duration-300 font-bold italic",
-                                                            (errors.contactNumber || (showErrors && !form.contactNumber)) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500"
+                                                            (errors.contactNumber || (showErrors && !form.contactNumber)) && "border-2 border-red-500"
                                                         )}
                                                         placeholder="09xx xxx xxxx"
                                                     />
@@ -1125,7 +1125,7 @@ export default function CivilRegistryPage() {
                                                 >
                                                     <SelectTrigger className={cn(
                                                         "h-10 w-full rounded-xl border-slate-950 dark:border-white focus:ring-blue-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
-                                                        (showErrors && !form.relationship) && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                        (showErrors && !form.relationship) && "!border-2 !border-red-500"
                                                     )}>
                                                         <SelectValue placeholder="Select relationship" />
                                                     </SelectTrigger>
@@ -1204,7 +1204,7 @@ export default function CivilRegistryPage() {
                                                     name="certFirstName"
                                                     className={cn(
                                                         "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-10 transition-all uppercase font-medium",
-                                                        (showErrors && !form.certFirstName) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500",
+                                                        (showErrors && !form.certFirstName) && "border-2 border-red-500",
                                                         form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                                     )}
                                                     placeholder="First name"
@@ -1232,7 +1232,7 @@ export default function CivilRegistryPage() {
                                                     name="certLastName"
                                                     className={cn(
                                                         "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-10 transition-all uppercase font-medium",
-                                                        (showErrors && !form.certLastName) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500",
+                                                        (showErrors && !form.certLastName) && "border-2 border-red-500",
                                                         form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                                     )}
                                                     placeholder="Last name"
@@ -1263,7 +1263,7 @@ export default function CivilRegistryPage() {
                                                     name="spouseName"
                                                     className={cn(
                                                         "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium",
-                                                        (showErrors && !form.spouseName) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500"
+                                                        (showErrors && !form.spouseName) && "border-2 border-red-500"
                                                     )}
                                                     placeholder="Enter complete maiden name"
                                                     value={form.spouseName}
@@ -1288,7 +1288,7 @@ export default function CivilRegistryPage() {
                                                     type="date"
                                                     className={cn(
                                                         "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all",
-                                                        (showErrors && !form.dateOfEvent) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500",
+                                                        (showErrors && !form.dateOfEvent) && "border-2 border-red-500",
                                                         (form.relationship === "SELF" && !!resident?.dateOfBirth) && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                                     )}
                                                     value={form.dateOfEvent}
@@ -1309,7 +1309,7 @@ export default function CivilRegistryPage() {
                                                 >
                                                     <SelectTrigger className={cn(
                                                         "h-10 w-full rounded-xl border-slate-950 dark:border-white focus:ring-blue-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
-                                                        (showErrors && !form.sex) && "!border-red-500 bg-red-50/10 focus:ring-red-500",
+                                                        (showErrors && !form.sex) && "!border-2 !border-red-500",
                                                         form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                                     )}>
                                                         <SelectValue placeholder="Select Sex" />
@@ -1447,7 +1447,7 @@ export default function CivilRegistryPage() {
                                                         name="motherFirstName"
                                                         className={cn(
                                                             "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
-                                                            (showErrors && !form.motherFirstName) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500",
+                                                            (showErrors && !form.motherFirstName) && "border-2 border-red-500",
                                                             form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                                         )}
                                                         placeholder="EX. MARIA"
@@ -1480,7 +1480,7 @@ export default function CivilRegistryPage() {
                                                         name="motherLastName"
                                                         className={cn(
                                                             "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
-                                                            (showErrors && !form.motherLastName) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500",
+                                                            (showErrors && !form.motherLastName) && "border-2 border-red-500",
                                                             form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                                         )}
                                                         placeholder="EX. MERCADO"
@@ -1682,8 +1682,24 @@ export default function CivilRegistryPage() {
                                     </div>
 
                                     <div className="space-y-4">
-                                        <div className="p-4 rounded-2xl border border-slate-200/40 bg-white/30 dark:bg-white/5 flex items-start gap-4">
-                                            <button type="button" onClick={() => setPolicyOpen(true)} className={cn("w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5", policyAccepted ? "bg-blue-500 border-blue-500 text-white" : "border-slate-300")}>
+                                        <div className={cn(
+                                            "p-4 rounded-2xl border flex items-start gap-4 transition-all duration-300",
+                                            (showErrors && !policyAccepted)
+                                                ? "border-2 border-red-500"
+                                                : "border-slate-200/40 bg-white/30 dark:bg-white/5"
+                                        )}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPolicyOpen(true)}
+                                                className={cn(
+                                                    "w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all",
+                                                    policyAccepted
+                                                        ? "bg-blue-500 border-blue-500 text-white"
+                                                        : showErrors
+                                                            ? "border-2 border-red-500"
+                                                            : "border-slate-300"
+                                                )}
+                                            >
                                                 {policyAccepted ? <Check className="w-3 h-3" /> : null}
                                             </button>
                                             <div className="flex-1 text-xs cursor-pointer select-none" onClick={() => setPolicyOpen(true)}>

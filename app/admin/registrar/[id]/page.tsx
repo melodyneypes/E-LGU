@@ -66,6 +66,7 @@ import GenericServiceView from "@/app/admin/treasury/[id]/views/GenericServiceVi
 import MarriageCertificateRequestView from "./views/MarriageCertificateRequestView";
 import BirthPsaEndorsementView from "./views/BirthPsaEndorsement";
 import DeathPsaEndorsementView from "./views/DeathPsaEndorsement";
+import MarriagePsaEndorsementView from "./views/MarriagePsaEndorsement";
 import DocumentViewerModal from "@/app/admin/treasury/[id]/components/DocumentViewerModal";
 
 interface PageProps {
@@ -248,7 +249,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         ? "/admin/registrar?category=Birth%20Registration"
         : typeCodeForBack === "LCR_BIRTH"
             ? "/admin/registrar?category=Birth%20Certificate"
-            : (typeCodeForBack === "LCR_PSA_ENDORSEMENT" || typeCodeForBack === "LCR_DEATH_PSA_ENDORSEMENT")
+            : (typeCodeForBack === "LCR_PSA_ENDORSEMENT" || typeCodeForBack === "LCR_DEATH_PSA_ENDORSEMENT" || typeCodeForBack === "LCR_MARRIAGE_PSA_ENDORSEMENT")
                 ? "/admin/registrar?category=PSA%20Endorsement"
                 : typeCodeForBack === "LCR_DEATH_REG"
                     ? "/admin/registrar?category=Death%20Registration"
@@ -1189,7 +1190,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     if (!transaction) return <div className="p-20 text-center dark:text-white">Protocol Error: Transaction Inaccessible</div>;
 
     const isRegistrar = rawUserRole === "REGISTRAR" || userDepartment?.toUpperCase() === "REGISTRAR";
-    if ((isLcrBirthCertifiedCopy || typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT") && isRegistrar && ["PAID", "PENDING_PAYMENT_VERIFICATION"].includes(transaction?.status)) {
+    if ((isLcrBirthCertifiedCopy || typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT") && isRegistrar && ["PAID", "PENDING_PAYMENT_VERIFICATION"].includes(transaction?.status)) {
         return (
             <div className="min-h-[50vh] flex flex-col items-center justify-center text-center p-8 space-y-6">
                 <div className="p-6 rounded-[2.5rem] bg-white dark:bg-[#151b28] border border-amber-500/20 shadow-2xl relative">
@@ -1369,7 +1370,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             }
             return stepsList;
         }
-        if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT") {
+        if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT") {
             return [
                 { id: "VERIFY_BILL", label: "Registrar: Verify & Bill" },
                 { id: "USER_PAYMENT", label: "User: Payment" },
@@ -1404,7 +1405,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     let steps = [...baseSteps];
     const status = transaction.status as string;
 
-    if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT") {
+    if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT") {
         // Maintain the standard 4 steps
     } else if (status === "REJECTED") {
         steps = [
@@ -1440,7 +1441,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     });
 
     const getEffectiveStatus = (s: string) => {
-        if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT") {
+        if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT") {
             if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED"].includes(s)) {
                 return "VERIFY_BILL";
             }
@@ -1836,6 +1837,23 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         return (
             <>
                 <DeathPsaEndorsementView {...viewProps} />
+                <DocumentViewerModal
+                    isOpen={viewerOpen}
+                    onClose={() => setViewerOpen(false)}
+                    file={null}
+                    fileUrl={viewerUrl}
+                    title={viewerTitle}
+                    themeColor={themeColor}
+                    documents={viewerDocs}
+                    initialIndex={viewerInitialIdx}
+                />
+            </>
+        );
+    }
+    if (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT") {
+        return (
+            <>
+                <MarriagePsaEndorsementView {...viewProps} />
                 <DocumentViewerModal
                     isOpen={viewerOpen}
                     onClose={() => setViewerOpen(false)}

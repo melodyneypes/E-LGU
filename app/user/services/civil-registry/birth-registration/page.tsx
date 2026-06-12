@@ -1467,7 +1467,7 @@ export default function BirthRegistrationPage() {
                                                         onChange={(e) => setForm({ ...form, relationshipSpecify: e.target.value.toUpperCase() })}
                                                         className={cn(
                                                             "rounded-xl border-slate-950 dark:border-white h-12 font-bold italic bg-white dark:bg-slate-900",
-                                                            errors.relationshipSpecify && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                            errors.relationshipSpecify && "!border-2 !border-red-500"
                                                         )}
                                                     />
                                                 ) : (
@@ -1484,7 +1484,7 @@ export default function BirthRegistrationPage() {
                                                             style={{ height: '3rem' }}
                                                             className={cn(
                                                             "!h-12 w-full rounded-xl border-slate-950 dark:border-white focus:ring-blue-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
-                                                            errors.relationship && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                            errors.relationship && "!border-2 !border-red-500"
                                                         )}>
                                                             <SelectValue placeholder="Select relationship" />
                                                         </SelectTrigger>
@@ -1560,7 +1560,7 @@ export default function BirthRegistrationPage() {
                                                     id="contactNumber"
                                                     className={cn(
                                                         "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all font-bold italic",
-                                                        (errors.contactNumber) && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                        (errors.contactNumber) && "!border-2 !border-red-500"
                                                     )}
                                                     placeholder="e.g. 0917XXXXXXX"
                                                     value={form.contactNumber}
@@ -1662,7 +1662,7 @@ export default function BirthRegistrationPage() {
                                                                  id={`children.${index}.firstName`}
                                                                  className={cn(
                                                                      "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                                     (errors[`children.${index}.firstName`]) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500"
+                                                                     (errors[`children.${index}.firstName`]) && "border-2 border-red-500"
                                                                  )}
                                                                  placeholder="First name"
                                                                  value={child.firstName}
@@ -1687,7 +1687,7 @@ export default function BirthRegistrationPage() {
                                                                  id={`children.${index}.lastName`}
                                                                  className={cn(
                                                                      "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                                     (errors[`children.${index}.lastName`]) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500"
+                                                                     (errors[`children.${index}.lastName`]) && "border-2 border-red-500"
                                                                  )}
                                                                  placeholder="Last name"
                                                                  value={child.lastName}
@@ -1719,7 +1719,7 @@ export default function BirthRegistrationPage() {
                                                                      style={{ height: '3rem' }}
                                                                      className={cn(
                                                                      "!h-12 w-full rounded-xl border border-slate-950 dark:border-white bg-white dark:bg-slate-900 shadow-sm text-xs text-left px-3 transition-all font-medium uppercase text-slate-800 dark:text-slate-100",
-                                                                     (errors[`children.${index}.sex`]) && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                                     (errors[`children.${index}.sex`]) && "!border-2 !border-red-500"
                                                                  )}>
                                                                      <SelectValue placeholder="Select sex" />
                                                                  </SelectTrigger>
@@ -1739,7 +1739,7 @@ export default function BirthRegistrationPage() {
                                                                      type="time"
                                                                      className={cn(
                                                                          "rounded-xl border border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all font-medium",
-                                                                         (errors[`children.${index}.birthTime`]) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500"
+                                                                         (errors[`children.${index}.birthTime`]) && "border-2 border-red-500"
                                                                      )}
                                                                      value={child.birthTime || ""}
                                                                      onChange={(e) => handleChildNameChange(index, 'birthTime', e.target.value)}
@@ -1762,7 +1762,7 @@ export default function BirthRegistrationPage() {
                                                      type="date"
                                                      className={cn(
                                                          "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all font-medium",
-                                                         (errors.dateOfEvent) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500"
+                                                         (errors.dateOfEvent) && "border-2 border-red-500"
                                                      )}
                                                      value={form.dateOfEvent}
                                                      max={new Date().toISOString().split('T')[0]}
@@ -1778,7 +1778,7 @@ export default function BirthRegistrationPage() {
                                                      readOnly
                                                      className={cn(
                                                          "rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 transition-all uppercase font-bold italic cursor-not-allowed",
-                                                         (errors.placeOfEvent) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500"
+                                                         (errors.placeOfEvent) && "border-2 border-red-500"
                                                      )}
                                                      placeholder="Hospital/Municipality, Province"
                                                      value={form.placeOfEvent || "MUNICIPALITY OF MAPANDAN"}
@@ -1886,7 +1886,7 @@ export default function BirthRegistrationPage() {
                                                          id="fatherFirstName"
                                                          className={cn(
                                                              "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
-                                                             errors.fatherFirstName && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                             errors.fatherFirstName && "!border-2 !border-red-500"
                                                          )}
                                                          placeholder="First name"
                                                          value={form.fatherFirstName}
@@ -1911,7 +1911,7 @@ export default function BirthRegistrationPage() {
                                                          id="fatherLastName"
                                                          className={cn(
                                                              "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
-                                                             errors.fatherLastName && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                             errors.fatherLastName && "!border-2 !border-red-500"
                                                          )}
                                                          placeholder="Last name"
                                                          value={form.fatherLastName}
@@ -1940,7 +1940,7 @@ export default function BirthRegistrationPage() {
                                                          id="motherFirstName"
                                                          className={cn(
                                                              "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
-                                                             errors.motherFirstName && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                             errors.motherFirstName && "!border-2 !border-red-500"
                                                          )}
                                                          placeholder="First name"
                                                          value={form.motherFirstName}
@@ -1965,7 +1965,7 @@ export default function BirthRegistrationPage() {
                                                          id="motherLastName"
                                                          className={cn(
                                                              "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
-                                                             errors.motherLastName && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                             errors.motherLastName && "!border-2 !border-red-500"
                                                          )}
                                                          placeholder="Last name"
                                                          value={form.motherLastName}
@@ -2145,7 +2145,7 @@ export default function BirthRegistrationPage() {
                                                                         <DropdownMenu open={evidenceMenuOpen} onOpenChange={setEvidenceMenuOpen}>
                                                                             <DropdownMenuTrigger className={cn(
                                                                                 "h-10 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-xs font-bold w-full text-left px-3 flex items-center justify-between transition-all",
-                                                                                errors.documents && (!form.supportingEvidenceTypes || form.supportingEvidenceTypes.length < 2) && "!border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500"
+                                                                                errors.documents && (!form.supportingEvidenceTypes || form.supportingEvidenceTypes.length < 2) && "!border-2 !border-red-500"
                                                                             )}>
                                                                                 <div className="flex items-center gap-2">
                                                                                     {form.supportingEvidenceTypes && form.supportingEvidenceTypes.length > 0 ? (
@@ -2208,7 +2208,12 @@ export default function BirthRegistrationPage() {
                                     </div>
 
                                     <div className="space-y-4">
-                                        <div className="p-6 rounded-3xl border border-slate-200/20 bg-[#11131e]/90 dark:bg-[#11131e]/90 flex items-center gap-5">
+                                        <div className={cn(
+                                            "p-6 rounded-3xl border flex items-center gap-5 transition-all duration-300",
+                                            errors.policyAccepted
+                                                ? "border-2 border-red-500"
+                                                : "border-slate-200/20 bg-[#11131e]/90 dark:bg-[#11131e]/90"
+                                        )}>
                                             <button 
                                                 type="button" 
                                                 onClick={() => setPolicyOpen(true)} 
@@ -2216,7 +2221,9 @@ export default function BirthRegistrationPage() {
                                                     "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-300", 
                                                     policyAccepted 
                                                         ? "bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-500/20" 
-                                                        : "border-slate-500 hover:border-emerald-500"
+                                                        : errors.policyAccepted
+                                                            ? "border-2 border-red-500"
+                                                            : "border-slate-500 hover:border-emerald-500"
                                                 )}
                                             >
                                                 {policyAccepted ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : null}
