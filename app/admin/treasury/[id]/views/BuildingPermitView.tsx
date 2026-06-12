@@ -165,6 +165,7 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-in fade-in duration-300">
                     <Link
                         href={backUrl}
+                        prefetch={false}
                         className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-primary transition-all group"
                     >
                         <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
@@ -246,7 +247,7 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                 </div>
 
                                 {/* Add Fee Button */}
-                                {!showAdditionalFeeForm && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && transaction.status === "EVALUATED" && (
+                                {!showAdditionalFeeForm && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && transaction.status === "EVALUATED" && additional.feeAssessment?.endorsed === true && (
                                     <Button
                                         onClick={() => setShowAdditionalFeeForm(true)}
                                         size="sm"
@@ -306,7 +307,7 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                             <div key={idx} className="space-y-2 relative group">
                                                 <div className="flex justify-between items-center ml-1">
                                                     <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">{fee.label}</label>
-                                                    {transaction.status === "EVALUATED" && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && (
+                                                    {transaction.status === "EVALUATED" && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && additional.feeAssessment?.endorsed === true && (
                                                         <button
                                                             onClick={() => handleRemoveAdditionalFee(idx)}
                                                             disabled={actionLoading}
@@ -326,7 +327,7 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                             )}
 
                             {/* ADD ADDITIONAL FEE INLINE FORM */}
-                            {showAdditionalFeeForm && (
+                            {showAdditionalFeeForm && additional.feeAssessment?.endorsed === true && (
                                 <div className="p-6 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 space-y-4 animate-in slide-in-from-top-4 duration-300">
                                     <p className="text-[10px] font-black uppercase tracking-widest text-primary italic">Create New Additional Charge</p>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -523,20 +524,36 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                 </div>
 
                                 {transaction.status === "EVALUATED" && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && (
-                                    <div className="space-y-4">
-                                        <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
-                                            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                                                Review the building permit details and the endorsed fees set by the engineer. You can add additional treasury charges if needed before endorsing this billing statement to the resident.
-                                            </p>
+                                    additional.feeAssessment?.endorsed === true ? (
+                                        <div className="space-y-4">
+                                            <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                                                <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
+                                                    Review the building permit details and the endorsed fees set by the engineer. You can add additional treasury charges if needed before endorsing this billing statement to the resident.
+                                                </p>
+                                            </div>
+                                            <Button
+                                                onClick={handleApproveBilling}
+                                                disabled={actionLoading}
+                                                className="w-full h-12 rounded-2xl bg-primary hover:bg-primary/95 text-white font-black italic uppercase tracking-wider shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
+                                            >
+                                                {actionLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : "Approve & Send Billing Statement"}
+                                            </Button>
                                         </div>
-                                        <Button
-                                            onClick={handleApproveBilling}
-                                            disabled={actionLoading}
-                                            className="w-full h-12 rounded-2xl bg-primary hover:bg-primary/95 text-white font-black italic uppercase tracking-wider shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
-                                        >
-                                            {actionLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : "Approve & Send Billing Statement"}
-                                        </Button>
-                                    </div>
+                                    ) : (
+                                        <div className="space-y-4 animate-in fade-in duration-300">
+                                            <div className="bg-amber-500/10 p-6 rounded-2xl border border-amber-500/20 text-center space-y-3">
+                                                <div className="w-10 h-10 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto text-amber-500">
+                                                    <AlertCircle className="w-5 h-5" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-500 tracking-wider">Engineering Evaluation Pending</p>
+                                                    <p className="text-[11px] font-bold text-slate-550 dark:text-slate-400 leading-relaxed uppercase tracking-tight">
+                                                        This building permit record has not yet been endorsed by the Engineering department. Treasury actions are currently restricted to view-only.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
                                 )}
 
                                 {transaction.status === "UNPAID" && (

@@ -153,7 +153,7 @@ export default function LoadingClientBody({ logoUrl, brand1, brand2, themeColor 
             </div>
 
             {/* Premium Textures */}
-            <div className="absolute inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.06] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat" />
+            <div className="absolute inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.06] bg-[url('/noise.svg')] bg-repeat" />
         </div>
     );
 }

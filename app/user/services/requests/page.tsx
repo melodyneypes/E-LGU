@@ -69,33 +69,47 @@ export default function UserServiceRequestsPage() {
         if (!supabase) return;
 
         console.log("Subscribing to Supabase Realtime 'Transaction' table for requests page...");
-        const channel = supabase
-            .channel("realtime-user-filings")
-            .on(
-                "postgres_changes",
-                {
-                    event: "*",
-                    schema: "public",
-                    table: "Transaction",
-                },
-                async (payload: any) => {
-                    console.log("Realtime change caught on requests page:", payload);
-                    // Dynamically reload list
-                    try {
-                        const res = await getUserTransactions();
-                        if (res.success) {
-                            setRequests(res.data || []);
+        let channel: any;
+        try {
+            channel = supabase
+                .channel("realtime-user-filings")
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "Transaction",
+                    },
+                    async (payload: any) => {
+                        console.log("Realtime change caught on requests page:", payload);
+                        // Dynamically reload list
+                        try {
+                            const res = await getUserTransactions();
+                            if (res.success) {
+                                setRequests(res.data || []);
+                            }
+                        } catch (err) {
+                            console.error("Failed to reload requests in realtime:", err);
                         }
-                    } catch (err) {
-                        console.error("Failed to reload requests in realtime:", err);
                     }
-                }
-            )
-            .subscribe();
+                )
+                .subscribe((status: string, err?: any) => {
+                    if (err) {
+                        console.error("Supabase Realtime subscription error:", err);
+                    }
+                    if (status === "CHANNEL_ERROR") {
+                        console.error("Supabase Realtime channel error status caught");
+                    }
+                });
+        } catch (error) {
+            console.error("Failed to initialize Supabase Realtime subscription:", error);
+        }
 
         return () => {
             console.log("Unsubscribing from Supabase Realtime...");
-            supabase.removeChannel(channel);
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
         };
     }, []);
 

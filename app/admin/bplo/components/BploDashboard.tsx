@@ -120,50 +120,64 @@ export default function BploDashboard() {
     useEffect(() => {
         if (!supabase) return;
 
-        const channel = supabase
-            .channel("bplo-realtime")
-            .on(
-                "postgres_changes",
-                {
-                    event: "*",
-                    schema: "public",
-                    table: "Transaction",
-                },
-                (payload: any) => {
-                    const newRow = payload.new;
-                    if (!newRow) return;
+        let channel: any;
+        try {
+            channel = supabase
+                .channel("bplo-realtime")
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "Transaction",
+                    },
+                    (payload: any) => {
+                        const newRow = payload.new;
+                        if (!newRow) return;
 
-                    // Detect transitions into FOR_INSPECTION or FOR_REINSPECTION
-                    if (newRow.status === "FOR_INSPECTION" || newRow.status === "FOR_REINSPECTION") {
-                        // Check if it's a BPLO transaction (usually has businessName or starts with a business permit type)
-                        const isBplo = !!newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName);
-                        
-                        if (isBplo) {
-                            const refId = String(newRow.id).slice(-8).toUpperCase();
-                            const bizName = newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName) || "New Commercial Application";
-                            const statusText = newRow.status === "FOR_INSPECTION" ? "Inspection" : "Re-inspection";
+                        // Detect transitions into FOR_INSPECTION or FOR_REINSPECTION
+                        if (newRow.status === "FOR_INSPECTION" || newRow.status === "FOR_REINSPECTION") {
+                            // Check if it's a BPLO transaction (usually has businessName or starts with a business permit type)
+                            const isBplo = !!newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName);
+                            
+                            if (isBplo) {
+                                const refId = String(newRow.id).slice(-8).toUpperCase();
+                                const bizName = newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName) || "New Commercial Application";
+                                const statusText = newRow.status === "FOR_INSPECTION" ? "Inspection" : "Re-inspection";
 
-                            toast.info(`Application ${refId} (${bizName}) is now pending ${statusText.toLowerCase()}.`, {
-                                duration: 10000,
-                                description: "The dashboard list has been updated in real-time.",
-                                action: {
-                                    label: "Evaluate",
-                                    onClick: () => {
-                                        router.push(`/admin/bplo/${newRow.id}`);
+                                toast.info(`Application ${refId} (${bizName}) is now pending ${statusText.toLowerCase()}.`, {
+                                    duration: 10000,
+                                    description: "The dashboard list has been updated in real-time.",
+                                    action: {
+                                        label: "Evaluate",
+                                        onClick: () => {
+                                            router.push(`/admin/bplo/${newRow.id}`);
+                                        }
                                     }
-                                }
-                            });
+                                });
 
-                            // Re-fetch transactions to reflect the realtime update instantly!
-                            fetchTransactions();
+                                // Re-fetch transactions to reflect the realtime update instantly!
+                                fetchTransactions();
+                            }
                         }
                     }
-                }
-            )
-            .subscribe();
+                )
+                .subscribe((status: string, err?: any) => {
+                    if (err) {
+                        console.error("Supabase Realtime subscription error:", err);
+                    }
+                    if (status === "CHANNEL_ERROR") {
+                        console.error("Supabase Realtime channel error status caught");
+                    }
+                });
+        } catch (error) {
+            console.error("Failed to initialize Supabase Realtime subscription:", error);
+        }
 
         return () => {
-            supabase.removeChannel(channel);
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
         };
     }, [fetchTransactions, router]);
 

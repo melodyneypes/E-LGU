@@ -298,7 +298,8 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     const renderRequirementsGrid = () => (
         <div className="grid grid-cols-2 gap-4">
             {[
-                { url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID" },
+                { url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)" },
+                { url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)" },
                 { url: additional?.documents?.tctFile, label: "TCT / Land Title" },
                 ...[
                     "Barangay Clearance/Certification",
@@ -372,7 +373,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
             style={{ "--theme_color": themeColor, "--primary-theme": themeColor } as React.CSSProperties}
         >
             <header className="h-16 px-8 flex items-center justify-between border-b border-transparent dark:border-white/5">
-                <Link href={backUrl}>
+                <Link href={backUrl} prefetch={false}>
                     <Button variant="ghost" className="gap-2 text-slate-400 dark:text-slate-500 font-bold hover:text-primary">
                         <ArrowLeft className="w-4 h-4" /> BACK TO DASHBOARD
                     </Button>
@@ -397,11 +398,13 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                     <div className="col-span-12 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
                         <div>
                             <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">📜 Archival Phase View Mode</p>
-                            <p className="text-[11px] font-medium opacity-90">You are reviewing the historical Evaluation phase record in read-only mode.</p>
+                            <p className="text-[11px] font-medium opacity-90">{transaction?.status === "REJECTED" ? "This building permit application has been officially rejected." : "You are reviewing the historical Evaluation phase record in read-only mode."}</p>
                         </div>
-                        <Button onClick={() => router.push(`/admin/engineer/${id}`)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">
-                            Return to Active Phase
-                        </Button>
+                        {transaction?.status !== "REJECTED" && (
+                            <Button onClick={() => router.push(`/admin/engineer/${id}`)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">
+                                Return to Active Phase
+                            </Button>
+                        )}
                     </div>
                 )}
 
@@ -478,19 +481,20 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                             {/* Government ID Section */}
                             {(() => {
                                 const newIdFile = additional?.documents?.newIdFile;
+                                const newIdFileBack = additional?.documents?.newIdFileBack;
                                 if (newIdFile) {
                                     return (
                                         <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
                                             <div className="flex items-center gap-2">
                                                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Uploaded Government ID</label>
                                             </div>
-                                            <div className="grid grid-cols-1 gap-6 max-w-sm">
+                                            <div className="grid grid-cols-2 gap-6 max-w-2xl">
                                                 <Dialog>
                                                     <DialogTrigger asChild>
                                                         <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
-                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID</p>
+                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Front)</p>
                                                             <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(newIdFile) ? newIdFile : "/placeholder.png"} alt="Government ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                                <Image src={isValidUrl(newIdFile) ? newIdFile : "/placeholder.png"} alt="Government ID Front" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
                                                             </div>
                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                                 <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
@@ -499,8 +503,27 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                                             </div>
                                                         </div>
                                                     </DialogTrigger>
-                                                    <LightboxView src={newIdFile} alt="Government ID" label="Government ID" />
+                                                    <LightboxView src={newIdFile} alt="Government ID Front" label="Government ID Front" />
                                                 </Dialog>
+
+                                                {newIdFileBack && (
+                                                    <Dialog>
+                                                        <DialogTrigger asChild>
+                                                            <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
+                                                                <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Back)</p>
+                                                                <div className="relative flex-1 w-full h-full min-h-[120px]">
+                                                                    <Image src={isValidUrl(newIdFileBack) ? newIdFileBack : "/placeholder.png"} alt="Government ID Back" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                                </div>
+                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                    <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                                        <ZoomIn className="w-4 h-4 text-white" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </DialogTrigger>
+                                                        <LightboxView src={newIdFileBack} alt="Government ID Back" label="Government ID Back" />
+                                                    </Dialog>
+                                                )}
                                             </div>
                                         </div>
                                     );
@@ -560,6 +583,28 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                     </div>
                                 );
                             })()}
+
+                            {/* Applicant E-Signature Section */}
+                            {additional?.signature && (
+                                <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
+                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Applicant Digital E-Signature</label>
+                                    <div className="max-w-[240px] bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 p-4">
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <div className="group relative aspect-video rounded-xl overflow-hidden flex items-center justify-center cursor-zoom-in bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5">
+                                                    <img src={additional.signature} alt="E-Signature" className="max-h-20 object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                            <ZoomIn className="w-4 h-4 text-white" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </DialogTrigger>
+                                            <LightboxView src={additional.signature} alt="E-Signature" label="Applicant E-Signature" />
+                                        </Dialog>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -579,6 +624,14 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                             <div className="space-y-2">
                                 <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Occupancy Use</label>
                                 <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.occupancyUse || "--"}</div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Total Floor(s)</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.totalFloors || "--"}</div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Is applicant lot owner?</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.isLotOwner || "--"}</div>
                             </div>
                             <div className="space-y-2 md:col-span-2">
                                 <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Location of Construction</label>
@@ -679,15 +732,15 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                                     </select>
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Date:</Label>
+                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Date <span className="text-red-500">*</span>:</Label>
                                                     <Input type="date" value={inspectionDate} onChange={(e) => setInspectionDate(e.target.value)} className="h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none px-4 font-medium" />
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Time:</Label>
+                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Time <span className="text-red-500">*</span>:</Label>
                                                     <Input type="time" value={inspectionTime} onChange={(e) => setInspectionTime(e.target.value)} className="h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none px-4 font-medium" />
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Inspector Name:</Label>
+                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Inspector Name <span className="text-red-500">*</span>:</Label>
                                                     <Input placeholder="Engr. Santos" value={inspectorName} onChange={(e) => setInspectorName(e.target.value)} className="h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none px-4 font-medium" />
                                                 </div>
                                                 <div className="space-y-2">

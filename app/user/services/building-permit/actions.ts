@@ -23,28 +23,17 @@ export async function submitBuildingPermit(formData: FormData) {
       return { success: false, error: "Building Permit transaction type not found in database." };
     }
 
-    // Check if there is already an active transaction for this user
-    const activeTransaction = await prisma.transaction.findFirst({
-      where: {
-        userId: userId,
-        typeId: type.id,
-        isCancelled: false,
-        status: {
-          notIn: ["RELEASED", "REJECTED", "DELIVERED"]
-        }
-      }
-    });
-
-    if (activeTransaction) {
-      return { success: false, error: "You already have an active building permit application in progress." };
-    }
-
     // Extract basic form data
     const descriptionOfWork = formData.get("descriptionOfWork") as string;
     const occupancyUse = formData.get("occupancyUse") as string;
     const estimatedCost = formData.get("estimatedCost") as string;
     const locationOfConstruction = formData.get("locationOfConstruction") as string;
     const isLotOwner = formData.get("isLotOwner") as string;
+    const houseNumber = formData.get("houseNumber") as string;
+    const street = formData.get("street") as string;
+    const barangay = formData.get("barangay") as string;
+    const totalFloorsVal = formData.get("totalFloors") as string;
+    const totalFloors = totalFloorsVal ? parseInt(totalFloorsVal, 10) : null;
 
     // Prepare JSON for additional Data
     const additionalData: any = {
@@ -53,6 +42,10 @@ export async function submitBuildingPermit(formData: FormData) {
       estimatedCost,
       locationOfConstruction,
       isLotOwner,
+      houseNumber,
+      street,
+      barangay,
+      totalFloors,
       documents: {}
     };
 
@@ -73,6 +66,7 @@ export async function submitBuildingPermit(formData: FormData) {
 
     // Upload ID and TCT if they exist
     await processFile("newIdFile", "ids");
+    await processFile("newIdFileBack", "ids");
     await processFile("tctFile", "tct");
 
     // Loop through requirements and permits
@@ -88,7 +82,6 @@ export async function submitBuildingPermit(formData: FormData) {
     });
 
     // Create the transaction (FOR_REQUESTING)
-    // We do NOT create the BuildingPermit record yet. That happens upon RELEASED.
     const transaction = await prisma.transaction.create({
       data: {
         userId: userId,
@@ -199,12 +192,21 @@ export async function resubmitBuildingPermit(transactionId: string, formData: Fo
     const estimatedCost = formData.get("estimatedCost") as string;
     const locationOfConstruction = formData.get("locationOfConstruction") as string;
     const isLotOwner = formData.get("isLotOwner") as string;
+    const houseNumber = formData.get("houseNumber") as string;
+    const street = formData.get("street") as string;
+    const barangay = formData.get("barangay") as string;
+    const totalFloorsVal = formData.get("totalFloors") as string;
+    const totalFloors = totalFloorsVal ? parseInt(totalFloorsVal, 10) : null;
 
     if (descriptionOfWork) additionalData.descriptionOfWork = descriptionOfWork;
     if (occupancyUse) additionalData.occupancyUse = occupancyUse;
     if (estimatedCost) additionalData.estimatedCost = estimatedCost;
     if (locationOfConstruction) additionalData.locationOfConstruction = locationOfConstruction;
     if (isLotOwner) additionalData.isLotOwner = isLotOwner;
+    if (houseNumber) additionalData.houseNumber = houseNumber;
+    if (street) additionalData.street = street;
+    if (barangay) additionalData.barangay = barangay;
+    if (totalFloors !== undefined) additionalData.totalFloors = totalFloors;
 
     // Helper to upload and store URL
     const processFile = async (key: string, folder: string) => {
@@ -223,6 +225,7 @@ export async function resubmitBuildingPermit(transactionId: string, formData: Fo
 
     // Upload ID and TCT if they exist
     await processFile("newIdFile", "ids");
+    await processFile("newIdFileBack", "ids");
     await processFile("tctFile", "tct");
 
     // Loop through requirements and permits
@@ -292,7 +295,7 @@ export async function submitBuildingPermitPaymentProof(transactionId: string, fo
       where: { id: transactionId },
       data: {
         paymentReference: paymentProofUrl,
-        rejectionRemarks: null, // Clear out the revision requirement!
+        rejectionRemarks: null,
         additionalData: {
           ...currentAdditionalData,
           gcashReferenceNo: gcashRefNo || currentAdditionalData.gcashReferenceNo || null
@@ -343,5 +346,78 @@ export async function submitClearancesForReviewAction(transactionId: string) {
   } catch (error) {
     console.error("Submit Clearances Error:", error);
     return { success: false, error: "Failed to submit clearances" };
+  }
+}
+
+export async function checkActivePropertyPermit(location: string, currentTransactionId?: string) {
+  try {
+    if (!location || location.trim().length < 5) {
+      return { success: true, isProcessing: false };
+    }
+
+    const type = await prisma.transactionType.findFirst({
+      where: { code: "BUILDING_PERMIT" }
+    });
+
+    if (!type) {
+      return { success: false, error: "Transaction type not found" };
+    }
+
+    // Get all active building permit transactions
+    const activeTransactions = await prisma.transaction.findMany({
+      where: {
+        typeId: type.id,
+        isCancelled: false,
+        status: {
+          notIn: ["RELEASED", "REJECTED", "DELIVERED"]
+        },
+        id: currentTransactionId ? { not: currentTransactionId } : undefined
+      },
+      select: {
+        id: true,
+        additionalData: true,
+        residentSnapshot: true
+      }
+    });
+
+    // Clean location for fuzzy comparison
+    const cleanLocation = location.trim().toLowerCase().replace(/\s+/g, ' ');
+
+    const duplicate = activeTransactions.find(tx => {
+      const addData = tx.additionalData as any;
+      if (addData && addData.locationOfConstruction) {
+        const txLoc = String(addData.locationOfConstruction).trim().toLowerCase().replace(/\s+/g, ' ');
+        return txLoc === cleanLocation;
+      }
+      return false;
+    });
+
+    if (duplicate) {
+      const residentSnapshot = duplicate.residentSnapshot as any;
+      const applicantName = residentSnapshot ? `${residentSnapshot.firstName} ${residentSnapshot.lastName}` : "Another resident";
+      return { 
+        success: true, 
+        isProcessing: true, 
+        applicantName,
+        transactionId: duplicate.id 
+      };
+    }
+
+    return { success: true, isProcessing: false };
+  } catch (error) {
+    console.error("Error checking active property permit:", error);
+    return { success: false, error: "Failed to verify property status" };
+  }
+}
+
+export async function getBarangaysAction() {
+  try {
+    const barangays = await prisma.barangayInfo.findMany({
+      orderBy: { name: "asc" }
+    });
+    return { success: true, data: barangays.map(b => b.name) };
+  } catch (error) {
+    console.error("Error fetching barangays:", error);
+    return { success: false, data: [] };
   }
 }

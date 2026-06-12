@@ -214,7 +214,7 @@ export function UsersPage({
       {/* Premium Action Toolbar (Relocated Provision User button here!) */}
       <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-white dark:bg-[#151b2b] p-4 rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-sm">
         <div className="flex flex-col md:flex-row flex-wrap items-center gap-4 w-full lg:w-auto flex-1">
-          <div className="relative w-full sm:w-[220px] lg:w-[260px]">
+          <div className="relative w-full sm:w-[280px] lg:w-[350px]">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <Input
               placeholder="Search name or email..."
@@ -227,7 +227,7 @@ export function UsersPage({
             />
           </div>
 
-          <div className="w-full sm:w-[220px] lg:w-[260px]">
+          <div className="w-full sm:w-[280px] lg:w-[350px]">
             <Select
               value={selectedRole}
               onValueChange={(val) => {
@@ -235,8 +235,8 @@ export function UsersPage({
                 setCurrentPage(1);
               }}
             >
-              <SelectTrigger className="!w-full !h-12 bg-slate-50 dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl flex items-center text-[10px] font-black uppercase italic tracking-wider px-3">
-                <Filter className="w-3.5 h-3.5 mr-2 text-slate-400" />
+              <SelectTrigger className="!w-full !h-12 bg-slate-50 dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl flex items-center text-[10px] font-black uppercase italic tracking-wider px-3.5">
+                <Filter className="w-4 h-4 mr-2 text-slate-400" />
                 <SelectValue placeholder="All Roles" />
               </SelectTrigger>
 
@@ -299,7 +299,7 @@ export function UsersPage({
             </Select>
           </div>
 
-          <div className="w-full sm:w-[220px] lg:w-[260px]">
+          <div className="w-full sm:w-[280px] lg:w-[350px]">
             <Select
               value={selectedVerification}
               onValueChange={(val) => {
@@ -307,8 +307,8 @@ export function UsersPage({
                 setCurrentPage(1);
               }}
             >
-              <SelectTrigger className="!w-full !h-12 bg-slate-50 dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl flex items-center text-[10px] font-black uppercase italic tracking-wider px-3">
-                <BadgeCheck className="w-3.5 h-3.5 mr-2 text-slate-400" />
+              <SelectTrigger className="!w-full !h-12 bg-slate-50 dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl flex items-center text-[10px] font-black uppercase italic tracking-wider px-3.5">
+                <BadgeCheck className="w-4 h-4 mr-2 text-slate-400" />
                 <SelectValue placeholder="All Verification" />
               </SelectTrigger>
 

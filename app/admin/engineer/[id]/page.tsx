@@ -411,7 +411,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
         if (transaction) {
             const isBuildingPermit = transaction.type?.code?.startsWith("BUILDING_PERMIT") ?? false;
             if (isBuildingPermit) {
-                if (transaction.status === "FOR_REQUESTING" || transaction.status === "FOR_REVISION") {
+                if (transaction.status === "FOR_REQUESTING" || transaction.status === "FOR_REVISION" || transaction.status === "REJECTED") {
                     router.replace(`/admin/engineer/${id}/evaluation`);
                 } else if (transaction.status === "FOR_INSPECTION") {
                     router.replace(`/admin/engineer/${id}/inspection`);
@@ -634,7 +634,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
                 <p className="text-slate-500 dark:text-slate-400 font-medium italic max-w-md">
                     This service request has been officially cancelled by the citizen. No further processing or evaluation is required for this record.
                 </p>
-                <Link href={backUrl}>
+                <Link href={backUrl} prefetch={false}>
                     <Button variant="outline" className="h-14 px-8 rounded-2xl border-2 font-black italic uppercase text-xs tracking-widest hover:bg-slate-50 dark:hover:bg-white/5 transition-all active:scale-95">
                         Back to Dashboard
                     </Button>
@@ -1040,7 +1040,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
         >
             {/* Minimal Header */}
             <header className="h-16 px-8 flex items-center justify-between border-b border-transparent dark:border-white/5">
-                <Link href={backUrl}>
+                <Link href={backUrl} prefetch={false}>
                     <Button variant="ghost" className="gap-2 text-slate-400 dark:text-slate-500 font-bold hover:text-primary">
                         <ArrowLeft className="w-4 h-4" /> BACK TO DASHBOARD
                     </Button>
@@ -2255,34 +2255,34 @@ export default function EngineerDetailPage({ params }: PageProps) {
                                                                 </div>
 
                                                                 <div className="space-y-2">
-                                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Date:</Label>
+                                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Date <span className="text-red-500">*</span>:</Label>
                                                                     <Input
                                                                         type="date"
                                                                         value={inspectionDate}
                                                                         onChange={(e) => setInspectionDate(e.target.value)}
                                                                         className="h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none px-4 font-medium"
                                                                     />
-                                                                </div>
+                                                                 </div>
 
-                                                                <div className="space-y-2">
-                                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Time:</Label>
+                                                                 <div className="space-y-2">
+                                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Time <span className="text-red-500">*</span>:</Label>
                                                                     <Input
                                                                         type="time"
                                                                         value={inspectionTime}
                                                                         onChange={(e) => setInspectionTime(e.target.value)}
                                                                         className="h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none px-4 font-medium"
                                                                     />
-                                                                </div>
+                                                                 </div>
 
-                                                                <div className="space-y-2">
-                                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Inspector Name:</Label>
+                                                                 <div className="space-y-2">
+                                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Inspector Name <span className="text-red-500">*</span>:</Label>
                                                                     <Input
                                                                         placeholder="Engr. Santos"
                                                                         value={inspectorName}
                                                                         onChange={(e) => setInspectorName(e.target.value)}
                                                                         className="h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none px-4 font-medium"
                                                                     />
-                                                                </div>
+                                                                 </div>
 
                                                                 <div className="space-y-2">
                                                                     <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Notes (optional):</Label>

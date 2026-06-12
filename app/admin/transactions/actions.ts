@@ -1875,14 +1875,18 @@ export async function rejectTransaction(id: string, remarks: string) {
 
             const activeRejectedTransactions = rejectedTransactions;
 
-            // Group and find the maximum rejection count in any single category
-            const categoryCounts: Record<string, number> = {};
-            for (const rTx of activeRejectedTransactions) {
-                const category = rTx.type.category || "General";
-                categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+            let maxCategoryRejections;
+            if (tx.type?.code === "BUILDING_PERMIT") {
+                maxCategoryRejections = activeRejectedTransactions.filter(rTx => rTx.type?.code === "BUILDING_PERMIT").length;
+            } else {
+                // Group and find the maximum rejection count in any single category
+                const categoryCounts: Record<string, number> = {};
+                for (const rTx of activeRejectedTransactions) {
+                    const category = rTx.type.category || "General";
+                    categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+                }
+                maxCategoryRejections = Math.max(0, ...Object.values(categoryCounts));
             }
-
-            const maxCategoryRejections = Math.max(0, ...Object.values(categoryCounts));
 
             const updatedUser = await prisma.user.update({
                 where: { id: tx.userId },
@@ -1984,13 +1988,17 @@ export async function sendForRevision(id: string, remarks: string) {
                     }
                 });
 
-                const categoryCounts: Record<string, number> = {};
-                for (const rTx of rejectedTransactions) {
-                    const category = rTx.type.category || "General";
-                    categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+                let maxCategoryRejections;
+                if (tx.type?.code === "BUILDING_PERMIT") {
+                    maxCategoryRejections = rejectedTransactions.filter(rTx => rTx.type?.code === "BUILDING_PERMIT").length;
+                } else {
+                    const categoryCounts: Record<string, number> = {};
+                    for (const rTx of rejectedTransactions) {
+                        const category = rTx.type.category || "General";
+                        categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+                    }
+                    maxCategoryRejections = Math.max(0, ...Object.values(categoryCounts));
                 }
-
-                const maxCategoryRejections = Math.max(0, ...Object.values(categoryCounts));
 
                 const updatedUser = await prisma.user.update({
                     where: { id: tx.userId },

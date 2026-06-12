@@ -40,6 +40,18 @@ import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import LightboxView from "../../../treasury/[id]/components/LightboxView";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 
+const formatNumberWithCommas = (value: string | number) => {
+    if (value === undefined || value === null || value === "") return "";
+    const str = String(value).replace(/,/g, "");
+    const parts = str.split(".");
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return parts.join(".");
+};
+
+const cleanCommaNumber = (value: string) => {
+    return value.replace(/[^0-9.]/g, "");
+};
+
 interface PageProps {
     params: Promise<{ id: string }>;
 }
@@ -63,7 +75,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const [electricalFee, setElectricalFee] = useState<string>("");
     const [sanitaryFee, setSanitaryFee] = useState<string>("");
     const [engineerMunicipalCharges, setEngineerMunicipalCharges] = useState<{ name: string, amount: string }[]>([{ name: "", amount: "" }]);
-
     const [, setECopyFile] = useState<File | null>(null);
     const [eCopyUrl, setECopyUrl] = useState<string>("");
     const [uploading, setUploading] = useState(false);
@@ -371,11 +382,12 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                     <div className="col-span-12 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
                         <div>
                             <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">📜 Archival Phase View Mode</p>
-                            <p className="text-[11px] font-medium opacity-90">You are reviewing the historical Fee Assessment phase record in read-only mode.</p>
+                            <p className="text-[11px] font-medium opacity-90">{transaction?.status === "REJECTED" ? "This building permit application has been officially rejected." : "You are reviewing the historical Fee Assessment phase record in read-only mode."}</p>
                         </div>
-                        <Button onClick={() => router.push(`/admin/engineer/${id}`)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">
-                            Return to Active Phase
-                        </Button>
+                        {transaction?.status !== "REJECTED" && (
+                            <Button onClick={() => router.push(`/admin/engineer/${id}`)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">Return to Active Phase
+                            </Button>
+                        )}
                     </div>
                 )}
 
@@ -452,19 +464,20 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                             {/* Government ID Section */}
                             {(() => {
                                 const newIdFile = additional?.documents?.newIdFile;
+                                const newIdFileBack = additional?.documents?.newIdFileBack;
                                 if (newIdFile) {
                                     return (
                                         <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
                                             <div className="flex items-center gap-2">
                                                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Uploaded Government ID</label>
                                             </div>
-                                            <div className="grid grid-cols-1 gap-6 max-w-sm">
+                                            <div className="grid grid-cols-2 gap-6 max-w-2xl">
                                                 <Dialog>
                                                     <DialogTrigger asChild>
                                                         <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
-                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID</p>
+                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Front)</p>
                                                             <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(newIdFile) ? newIdFile : "/placeholder.png"} alt="Government ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                                <Image src={isValidUrl(newIdFile) ? newIdFile : "/placeholder.png"} alt="Government ID Front" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
                                                             </div>
                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                                 <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
@@ -473,8 +486,27 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                                             </div>
                                                         </div>
                                                     </DialogTrigger>
-                                                    <LightboxView src={newIdFile} alt="Government ID" label="Government ID" />
+                                                    <LightboxView src={newIdFile} alt="Government ID Front" label="Government ID Front" />
                                                 </Dialog>
+
+                                                {newIdFileBack && (
+                                                    <Dialog>
+                                                        <DialogTrigger asChild>
+                                                            <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
+                                                                <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Back)</p>
+                                                                <div className="relative flex-1 w-full h-full min-h-[120px]">
+                                                                    <Image src={isValidUrl(newIdFileBack) ? newIdFileBack : "/placeholder.png"} alt="Government ID Back" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                                </div>
+                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                    <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                                        <ZoomIn className="w-4 h-4 text-white" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </DialogTrigger>
+                                                        <LightboxView src={newIdFileBack} alt="Government ID Back" label="Government ID Back" />
+                                                    </Dialog>
+                                                )}
                                             </div>
                                         </div>
                                     );
@@ -534,6 +566,28 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                     </div>
                                 );
                             })()}
+
+                            {/* Applicant E-Signature Section */}
+                            {additional?.signature && (
+                                <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
+                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Applicant Digital E-Signature</label>
+                                    <div className="max-w-[240px] bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 p-4">
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <div className="group relative aspect-video rounded-xl overflow-hidden flex items-center justify-center cursor-zoom-in bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5">
+                                                    <img src={additional.signature} alt="E-Signature" className="max-h-20 object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                            <ZoomIn className="w-4 h-4 text-white" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </DialogTrigger>
+                                            <LightboxView src={additional.signature} alt="E-Signature" label="Applicant E-Signature" />
+                                        </Dialog>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -554,6 +608,14 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                 <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Occupancy Use</label>
                                 <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.occupancyUse || "--"}</div>
                             </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Total Floor(s)</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.totalFloors || "--"}</div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Is applicant lot owner?</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.isLotOwner || "--"}</div>
+                            </div>
                             <div className="space-y-2 md:col-span-2">
                                 <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Location of Construction</label>
                                 <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.locationOfConstruction || additional?.location || "--"}</div>
@@ -565,7 +627,268 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                         </div>
                     </div>
 
-                    {/* Card 1: Fee Assessment Form */}
+    return (
+        <div
+            className="min-h-screen bg-[#f8fafd] dark:bg-[#0c111d] text-[#0f172a] dark:text-[#f8fafc] pb-20 font-sans transition-colors duration-500"
+            style={{ "--theme_color": themeColor, "--primary-theme": themeColor } as React.CSSProperties}
+        >
+            <DocumentViewerModal
+                isOpen={viewerOpen}
+                onClose={() => { setViewerOpen(false); setViewerUrl(null); }}
+                file={null}
+                fileUrl={viewerUrl}
+                title={viewerTitle}
+                themeColor={themeColor}
+            />
+            <header className="h-16 px-8 flex items-center justify-between border-b border-transparent dark:border-white/5">
+                <div className="flex items-center gap-4">
+                    <Link href={backUrl}>
+                        <Button variant="ghost" className="gap-2 text-slate-400 dark:text-slate-500 font-bold hover:text-primary">
+                            <ArrowLeft className="w-4 h-4" /> BACK TO DASHBOARD
+                        </Button>
+                    </Link>
+                    <div className="w-px h-4 bg-slate-200 dark:bg-white/10" />
+                    <Link href={`/admin/engineer/${id}/evaluation?view=true`}>
+                        <Button variant="outline" className="h-9 gap-2 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/5 font-black text-[10px] uppercase tracking-wider rounded-xl">
+                            <ArrowLeft className="w-3.5 h-3.5" /> View Evaluation Phase
+                        </Button>
+                    </Link>
+                    <Link href={`/admin/engineer/${id}/inspection?view=true`}>
+                        <Button variant="outline" className="h-9 gap-2 border-purple-500/20 text-purple-600 dark:text-purple-400 hover:bg-purple-500/5 font-black text-[10px] uppercase tracking-wider rounded-xl">
+                            <ArrowLeft className="w-3.5 h-3.5" /> View Site Inspection Phase
+                        </Button>
+                    </Link>
+                    <Link href={`/admin/engineer/${id}/reinspection?view=true`}>
+                        <Button variant="outline" className="h-9 gap-2 border-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/5 font-black text-[10px] uppercase tracking-wider rounded-xl">
+                            <ArrowLeft className="w-3.5 h-3.5" /> View Re-Inspection Phase
+                        </Button>
+                    </Link>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 mr-2">
+                        <Badge className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 border border-orange-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
+                            Revision Count: {transaction?.revisionCount || 0} / 3
+                        </Badge>
+                        <Badge className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 border border-blue-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
+                            Re-inspection Count: {transaction?.additionalData?.reinspectionCount || 0} / 4
+                        </Badge>
+                    </div>
+                    <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
+                        Fees Assessment Portal Active
+                    </Badge>
+                </div>
+            </header>
+
+            <main className="max-w-[1400px] mx-auto px-8 grid grid-cols-12 gap-8 mt-4">
+                {isEndorsed && !["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status) && (
+                    <div className="col-span-12 bg-[#006A2E]/10 border border-[#006A2E]/20 text-[#006A2E] dark:text-green-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">✅ Fees Successfully Endorsed to Treasury</p>
+                            <p className="text-[11px] font-medium opacity-90">The building permit fees have been successfully calculated, locked, and endorsed to the Treasury department for collection.</p>
+                        </div>
+                        <Button onClick={() => router.push(backUrl)} size="sm" className="bg-[#006A2E] hover:bg-emerald-800 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">
+                            Return to Dashboard
+                        </Button>
+                    </div>
+                )}
+
+                {isForcedView && !isEndorsed && (
+                    <div className="col-span-12 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">📜 Archival Phase View Mode</p>
+                            <p className="text-[11px] font-medium opacity-90">{transaction?.status === "REJECTED" ? "This building permit application has been officially rejected." : "You are reviewing the historical Fee Assessment phase record in read-only mode."}</p>
+                        </div>
+                        {transaction?.status !== "REJECTED" && (
+                            <Button onClick={() => router.push(`/admin/engineer/${id}`)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">
+                                Return to Active Phase
+                            </Button>
+                        )}
+                    </div>
+                )}
+
+                {/* Left Column */}
+                <div className="col-span-12 lg:col-span-8 space-y-8">
+                    {/* Header Banner */}
+                    <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/5 dark:to-teal-500/5 border border-emerald-500/20 dark:border-emerald-500/10 rounded-[2rem] p-8 flex items-center justify-between shadow-sm relative overflow-hidden">
+                        <div className="space-y-2 relative z-10">
+                            <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-[0.2em] italic">Phase 4: Fee & Charges Assessment</span>
+                            <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">TREASURY ENDORSEMENT</h2>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Specify the official building fees. These values will be endorsed to Treasury for final verification, penalty calculations, and citizen billing.</p>
+                        </div>
+                        <div className="text-5xl font-black italic text-emerald-500/20 select-none hidden md:block">ASSESS</div>
+                    </div>
+
+                    {/* Profile */}
+                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-500">
+                        <div>
+                            <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
+                                Resident <span className="text-primary">Identity Profile</span>
+                            </h2>
+                            <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">Verified Citizen Data Dossier</p>
+                        </div>
+                        <div className="grid grid-cols-12 gap-6">
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">First Name</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.firstName || "--"}</div>
+                            </div>
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Middle Name</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.middleName || "--"}</div>
+                            </div>
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Last Name</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.lastName || "--"}</div>
+                            </div>
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Suffix</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.suffix || "--"}</div>
+                            </div>
+
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Birth Date</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
+                                    {resident?.dateOfBirth ? new Date(resident.dateOfBirth).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "--"}
+                                </div>
+                            </div>
+                            <div className="col-span-12 md:col-span-2 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Age</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
+                                    {resident?.age ?? (resident?.dateOfBirth ? Math.floor((new Date().getTime() - new Date(resident.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : "--")}
+                                </div>
+                            </div>
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Civil Status</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 uppercase">{resident?.civilStatus || "--"}</div>
+                            </div>
+                            <div className="col-span-12 md:col-span-4 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Contact Number</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.contactNumber || "--"}</div>
+                            </div>
+
+                            <div className="col-span-12 md:col-span-6 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Occupation</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.occupation || "--"}</div>
+                            </div>
+                            <div className="col-span-12 md:col-span-6 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Barangay & Complete Address</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
+                                    {resident?.houseNumber || ""} {resident?.street || ""} {resident?.barangay ? `${resident.barangay}, Mapandan, Pangasinan` : "--"}
+                                </div>
+                            </div>
+
+                            {/* Government ID Section */}
+                            {(() => {
+                                const newIdFile = additional?.documents?.newIdFile;
+                                const newIdFileBack = additional?.documents?.newIdFileBack;
+                                if (newIdFile) {
+                                    return (
+                                        <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
+                                            <div className="flex items-center gap-2">
+                                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Uploaded Government ID</label>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-6 max-w-2xl">
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
+                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Front)</p>
+                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
+                                                                <Image src={isValidUrl(newIdFile) ? newIdFile : "/placeholder.png"} alt="Government ID Front" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                            </div>
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                                    <ZoomIn className="w-4 h-4 text-white" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </DialogTrigger>
+                                                    <LightboxView src={newIdFile} alt="Government ID Front" label="Government ID Front" />
+                                                </Dialog>
+
+                                                {newIdFileBack && (
+                                                    <Dialog>
+                                                        <DialogTrigger asChild>
+                                                            <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
+                                                                <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Back)</p>
+                                                                <div className="relative flex-1 w-full h-full min-h-[120px]">
+                                                                    <Image src={isValidUrl(newIdFileBack) ? newIdFileBack : "/placeholder.png"} alt="Government ID Back" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                                </div>
+                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                    <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                                        <ZoomIn className="w-4 h-4 text-white" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </DialogTrigger>
+                                                        <LightboxView src={newIdFileBack} alt="Government ID Back" label="Government ID Back" />
+                                                    </Dialog>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
+
+                            {/* Applicant E-Signature Section */}
+                            {additional?.signature && (
+                                <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
+                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Applicant Digital E-Signature</label>
+                                    <div className="max-w-[240px] bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 p-4">
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <div className="group relative aspect-video rounded-xl overflow-hidden flex items-center justify-center cursor-zoom-in bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5">
+                                                    <img src={additional.signature} alt="E-Signature" className="max-h-20 object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                            <ZoomIn className="w-4 h-4 text-white" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </DialogTrigger>
+                                            <LightboxView src={additional.signature} alt="E-Signature" label="Applicant E-Signature" />
+                                        </Dialog>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Card 1: Application Details */}
+                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
+                        <div>
+                            <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
+                                Application <span className="text-primary">Details</span>
+                            </h2>
+                            <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">Building Permit Questionnaire</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Description of Work</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.descriptionOfWork || "--"}</div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Occupancy Use</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.occupancyUse || "--"}</div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Total Floor(s)</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.totalFloors || "--"}</div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Is applicant lot owner?</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.isLotOwner || "--"}</div>
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Location of Construction</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.locationOfConstruction || additional?.location || "--"}</div>
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Estimated Cost</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-black text-sm text-primary min-h-[48px]">₱{Number(additional?.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Specify Official Endorsement Fees Block */}
                     <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-primary/10 rounded-lg"><Coins className="text-primary w-4 h-4" /></div>
@@ -576,50 +899,19 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                             <div className="space-y-3">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Building Permit Fee (₱) *</Label>
                                 <Input
-                                    type="number"
-                                    min="0"
+                                    type="text"
                                     placeholder="0.00"
-                                    value={buildingFee}
+                                    value={formatNumberWithCommas(buildingFee)}
                                     onChange={(e) => {
-                                        if (Number(e.target.value) < 0) return;
-                                        setBuildingFee(e.target.value);
+                                        const cleanVal = cleanCommaNumber(e.target.value);
+                                        const decimalCount = (cleanVal.match(/\./g) || []).length;
+                                        if (decimalCount > 1) return;
+                                        setBuildingFee(cleanVal);
                                     }}
                                     disabled={isViewOnly}
                                     className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100"
                                 />
                             </div>
-
-                            {false && <div className="space-y-3">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Electrical Permit Fee (₱) *</Label>
-                                <Input
-                                    type="number"
-                                    min="0"
-                                    placeholder="0.00"
-                                    value={electricalFee}
-                                    onChange={(e) => {
-                                        if (Number(e.target.value) < 0) return;
-                                        setElectricalFee(e.target.value);
-                                    }}
-                                    disabled={isViewOnly}
-                                    className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100"
-                                />
-                            </div>}
-
-                            {false && <div className="space-y-3">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Sanitary Permit Fee (₱) *</Label>
-                                <Input
-                                    type="number"
-                                    min="0"
-                                    placeholder="0.00"
-                                    value={sanitaryFee}
-                                    onChange={(e) => {
-                                        if (Number(e.target.value) < 0) return;
-                                        setSanitaryFee(e.target.value);
-                                    }}
-                                    disabled={isViewOnly}
-                                    className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100"
-                                />
-                            </div>}
 
                             <div className="col-span-1 md:col-span-2 space-y-4">
                                 <div className="flex items-center justify-between">
@@ -629,7 +921,11 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                             type="button"
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => setEngineerMunicipalCharges([...engineerMunicipalCharges, { name: "", amount: "" }])}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setEngineerMunicipalCharges([...engineerMunicipalCharges, { name: "", amount: "" }]);
+                                            }}
                                             className="h-8 rounded-lg text-[10px] font-bold uppercase tracking-wider text-primary border-primary/20 hover:bg-primary/10"
                                         >
                                             + Add Additional Fee
@@ -652,14 +948,15 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                             className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 flex-1"
                                         />
                                         <Input
-                                            type="number"
-                                            min="0"
+                                            type="text"
                                             placeholder="0.00"
-                                            value={charge.amount}
+                                            value={formatNumberWithCommas(charge.amount)}
                                             onChange={(e) => {
-                                                if (Number(e.target.value) < 0) return;
+                                                const cleanVal = cleanCommaNumber(e.target.value);
+                                                const decimalCount = (cleanVal.match(/\./g) || []).length;
+                                                if (decimalCount > 1) return;
                                                 const newCharges = [...engineerMunicipalCharges];
-                                                newCharges[index].amount = e.target.value;
+                                                newCharges[index].amount = cleanVal;
                                                 setEngineerMunicipalCharges(newCharges);
                                             }}
                                             disabled={isViewOnly}
@@ -670,7 +967,9 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                                 type="button"
                                                 variant="ghost"
                                                 size="icon"
-                                                onClick={() => {
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
                                                     const newCharges = [...engineerMunicipalCharges];
                                                     newCharges.splice(index, 1);
                                                     setEngineerMunicipalCharges(newCharges);
@@ -794,7 +1093,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                             <Upload className="w-8 h-8 text-primary" />
                                         </div>
                                         <div>
-                                            <span className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block">Drag & Drop or Click to Upload</span>
+                                            <span className="text-xs font-black uppercase tracking-wider text-slate-600 block dark:text-slate-300">Drag & Drop or Click to Upload</span>
                                             <span className="text-[10px] font-bold text-slate-400 block mt-1">PDF or Images up to 10MB</span>
                                         </div>
                                     </div>
@@ -1027,7 +1326,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                         )}
                     </div>
                 </div>
-            </main>
 
             {/* Revise Modal */}
             {reviseModalOpen && (

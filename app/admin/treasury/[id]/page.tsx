@@ -584,6 +584,9 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                                 } else {
                                     setDeliveryFee(tx.type.deliveryFee);
                                 }
+                            }).catch(err => {
+                                console.error("Failed to get delivery fee by barangay:", err);
+                                setDeliveryFee(tx.type.deliveryFee);
                             });
                         } else {
                             setDeliveryFee(tx.type.deliveryFee);
@@ -604,25 +607,41 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         if (!supabase || !id) return;
 
         console.log(`Subscribing to Supabase Realtime for transaction ${id}...`);
-        const channel = supabase
-            .channel(`realtime-treasury-transaction-${id}`)
-            .on(
-                "postgres_changes",
-                {
-                    event: "*",
-                    schema: "public",
-                    table: "Transaction",
-                    filter: `id=eq.${id}`,
-                },
-                () => {
-                    fetchTransaction();
-                }
-            )
-            .subscribe();
+        let channel: any;
+        try {
+            channel = supabase
+                .channel(`realtime-treasury-transaction-${id}`)
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "Transaction",
+                        filter: `id=eq.${id}`,
+                    },
+                    () => {
+                        fetchTransaction().catch(err => {
+                            console.error("Realtime fetchTransaction failed:", err);
+                        });
+                    }
+                )
+                .subscribe((status: string, err?: any) => {
+                    if (err) {
+                        console.error("Supabase Realtime subscription error:", err);
+                    }
+                    if (status === "CHANNEL_ERROR") {
+                        console.error("Supabase Realtime channel error status caught");
+                    }
+                });
+        } catch (error) {
+            console.error("Failed to initialize Supabase Realtime subscription:", error);
+        }
 
         return () => {
             console.log(`Unsubscribing from Supabase Realtime for transaction ${id}...`);
-            supabase.removeChannel(channel);
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
         };
     }, [id, fetchTransaction]);
 
@@ -862,7 +881,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 <p className="text-slate-500 dark:text-slate-400 font-medium italic max-w-md">
                     This service request has been officially cancelled by the citizen. No further processing or evaluation is required for this record.
                 </p>
-                <Link href={backUrl}>
+                <Link href={backUrl} prefetch={false}>
                     <Button variant="outline" className="h-14 px-8 rounded-2xl border-2 font-black italic uppercase text-xs tracking-widest hover:bg-slate-50 dark:hover:bg-white/5 transition-all active:scale-95">
                         Back to Dashboard
                     </Button>
@@ -887,7 +906,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 <p className="text-slate-500 dark:text-slate-400 font-medium italic max-w-md">
                     This request is currently under Registrar verification, document release, or waiting for User payment. The Treasury department cannot access this request until it is paid and ready for payment verification.
                 </p>
-                <Link href={backUrl}>
+                <Link href={backUrl} prefetch={false}>
                     <Button variant="outline" className="h-12 px-6 rounded-xl border-2 font-black italic uppercase text-xs tracking-wider transition-all active:scale-95">
                         Back to Treasury Dashboard
                     </Button>

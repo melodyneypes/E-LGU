@@ -35,7 +35,8 @@ import {
   Receipt,
   Check,
   Hash,
-  UserCheck
+  UserCheck,
+  ChevronDown
 } from "lucide-react";
 
 import {
@@ -66,7 +67,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { getCurrentUserResident, cancelTransaction, uploadECopyAction, saveBfpClearanceProofAction, saveZoningClearanceProofAction } from "@/app/admin/transactions/actions";
-import { submitBuildingPermit, saveTransactionSignature, getExistingBuildingPermits, resubmitBuildingPermit, submitBuildingPermitPaymentProof, submitClearancesForReviewAction } from "./actions";
+import { submitBuildingPermit, saveTransactionSignature, getExistingBuildingPermits, resubmitBuildingPermit, submitBuildingPermitPaymentProof, submitClearancesForReviewAction, checkActivePropertyPermit, getBarangaysAction } from "./actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { compressImage } from "@/lib/image-compression";
@@ -75,8 +76,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useDraft } from "@/hooks/useDraft";
-import { clearDraftFiles } from "@/lib/draftDb";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import { supabase } from "@/lib/supabase";
 
@@ -304,6 +303,44 @@ function parseOccupancyUse(occupancyUse: string) {
   return { category, subs, specify };
 }
 
+function formatWithCommas(val: string | number) {
+  if (val === undefined || val === null || val === "") return "";
+  const numStr = String(val).replace(/,/g, "");
+  if (isNaN(Number(numStr))) return String(val);
+  const parts = numStr.split(".");
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return parts.join(".");
+}
+
+function parseLocationString(loc: string) {
+  const result = { houseNumber: "", street: "", barangay: "" };
+  if (!loc) return result;
+  
+  const parts = loc.split(",").map(p => p.trim());
+  
+  const housePart = parts.find(p => p.toLowerCase().startsWith("no.") || /^\d+$/.test(p));
+  if (housePart) {
+    result.houseNumber = housePart.replace(/no\.\s*/i, "");
+  }
+  
+  const brgyPart = parts.find(p => p.toLowerCase().startsWith("brgy.") || p.toLowerCase().startsWith("barangay"));
+  if (brgyPart) {
+    result.barangay = brgyPart.replace(/brgy\.\s*/i, "").replace(/barangay\s*/i, "");
+  }
+  
+  const streetPart = parts.find(p => 
+    p !== housePart && 
+    p !== brgyPart && 
+    !p.toLowerCase().includes("mapandan") && 
+    !p.toLowerCase().includes("pangasinan")
+  );
+  if (streetPart) {
+    result.street = streetPart;
+  }
+  
+  return result;
+}
+
 
 export default function BuildingPermitPage() {
   const router = useRouter();
@@ -312,6 +349,25 @@ export default function BuildingPermitPage() {
   const [existingApplications, setExistingApplications] = useState<any[]>([]);
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
   const [residentData, setResidentData] = useState<any>(null);
+  const [barangayList, setBarangayList] = useState<string[]>([]);
+  const [brgySearchQuery, setBrgySearchQuery] = useState("");
+  const [isBrgyDropdownOpen, setIsBrgyDropdownOpen] = useState(false);
+  const brgyDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (brgyDropdownRef.current && !brgyDropdownRef.current.contains(event.target as Node)) {
+        setIsBrgyDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredBarangays = barangayList.filter(brgy =>
+    brgy.toLowerCase().includes(brgySearchQuery.toLowerCase())
+  );
+
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRevision, setIsRevision] = useState(false);
@@ -350,18 +406,67 @@ export default function BuildingPermitPage() {
     scopeOthers2Text1: "",
     scopeOthers2Text2: "",
     descriptionOfWorkLegacyText: "",
-    occupancyCategory: "Residential",
+    occupancyCategory: "",
     selectedSubOccupancies: [] as string[],
     subOccupancyOthersSpecify: "",
     estimatedCost: "",
     locationOfConstruction: "",
+    locationHouseNumber: "",
+    locationStreet: "",
+    locationBarangay: "",
     isLotOwner: "",
     newIdFile: null as File | null,
+    newIdFileBack: null as File | null,
     tctFile: null as File | null,
     occupancyUse: "",
     otherOccupancyUse: "",
+    totalFloors: "",
   });
   const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [duplicatePropertyWarning, setDuplicatePropertyWarning] = useState<{ isProcessing: boolean; applicantName?: string } | null>(null);
+
+  useEffect(() => {
+    if (!formData.locationOfConstruction || formData.locationOfConstruction.trim().length < 5) {
+      setDuplicatePropertyWarning(null);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        const res = await checkActivePropertyPermit(
+          formData.locationOfConstruction,
+          selectedApplication?.id
+        );
+        if (res.success && res.isProcessing) {
+          setDuplicatePropertyWarning({
+            isProcessing: true,
+            applicantName: res.applicantName
+          });
+        } else {
+          setDuplicatePropertyWarning(null);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }, 600);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [formData.locationOfConstruction, selectedApplication?.id]);
+
+  useEffect(() => {
+    const parts = [
+      formData.locationHouseNumber ? `No. ${formData.locationHouseNumber}` : "",
+      formData.locationStreet ? formData.locationStreet.trim() : "",
+      formData.locationBarangay ? `Brgy. ${formData.locationBarangay}` : "",
+      "Mapandan, Pangasinan"
+    ].filter(Boolean);
+    
+    const combined = parts.join(", ");
+    if (combined !== formData.locationOfConstruction) {
+      setFormData(prev => ({ ...prev, locationOfConstruction: combined }));
+    }
+  }, [formData.locationHouseNumber, formData.locationStreet, formData.locationBarangay]);
+
   const hasTctFile = !!(
     formData.tctFile ||
     selectedApplication?.additionalData?.documents?.tctFile ||
@@ -373,145 +478,18 @@ export default function BuildingPermitPage() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
 
-  const { hydrateDraft, persistDraft, hydrateDraftFiles, persistDraftFile } = useDraft<any>("building_permit_draft");
+  const prevFormDataRef = React.useRef(formData);
 
   useEffect(() => {
-    hydrateDraft(() => { }, (parsed: any) => {
-      if (parsed) {
-        if (parsed.formData) {
-          const oldCategory = parsed.formData.occupancyCategory || (parsed.formData.occupancyUse?.startsWith("Other") ? "Other Construction" : (parsed.formData.occupancyUse || "Residential"));
-          const oldSpecify = parsed.formData.subOccupancyOthersSpecify || parsed.formData.otherOccupancyUse || "";
-          const parsedDesc = parseDescriptionOfWork(parsed.formData.descriptionOfWork || "");
-          setFormData(prev => ({
-            ...prev,
-            ...parsed.formData,
-            occupancyCategory: oldCategory,
-            subOccupancyOthersSpecify: oldSpecify,
-            selectedSubOccupancies: parsed.formData.selectedSubOccupancies || [],
-            locationOfConstruction: parsed.formData.locationOfConstruction || "",
-            isLotOwner: parsed.formData.isLotOwner || "",
-            scopeNewConstruction: parsed.formData.scopeNewConstruction ?? parsedDesc.newConstruction,
-            scopeAddition: parsed.formData.scopeAddition ?? parsedDesc.addition,
-            scopeAdditionText: parsed.formData.scopeAdditionText ?? parsedDesc.additionText,
-            scopeRepair: parsed.formData.scopeRepair ?? parsedDesc.repair,
-            scopeRepairText: parsed.formData.scopeRepairText ?? parsedDesc.repairText,
-            scopeRenovation: parsed.formData.scopeRenovation ?? parsedDesc.renovation,
-            scopeRenovationText: parsed.formData.scopeRenovationText ?? parsedDesc.renovationText,
-            scopeDemolition: parsed.formData.scopeDemolition ?? parsedDesc.demolition,
-            scopeDemolitionText: parsed.formData.scopeDemolitionText ?? parsedDesc.demolitionText,
-            scopeOthers1: parsed.formData.scopeOthers1 ?? parsedDesc.others1,
-            scopeOthers1Text1: parsed.formData.scopeOthers1Text1 ?? parsedDesc.others1Text1,
-            scopeOthers1Text2: parsed.formData.scopeOthers1Text2 ?? parsedDesc.others1Text2,
-            scopeOthers2: parsed.formData.scopeOthers2 ?? parsedDesc.others2,
-            scopeOthers2Text1: parsed.formData.scopeOthers2Text1 ?? parsedDesc.others2Text1,
-            scopeOthers2Text2: parsed.formData.scopeOthers2Text2 ?? parsedDesc.others2Text2,
-            descriptionOfWorkLegacyText: parsed.formData.descriptionOfWorkLegacyText ?? parsedDesc.legacyText,
-          }));
-        }
-        if (parsed.currentStep) setCurrentStep(parsed.currentStep);
-        if (parsed.idChoice) setIdChoice(parsed.idChoice);
-        if (parsed.signatureData) setSignatureData(parsed.signatureData);
-        if (parsed.activeDocTab) setActiveDocTab(parsed.activeDocTab);
+    if (prevFormDataRef.current !== formData) {
+      prevFormDataRef.current = formData;
+      if (privacyAccepted) {
+        setPrivacyAccepted(false);
       }
-    });
+    }
+  }, [formData, privacyAccepted]);
 
-    hydrateDraftFiles((files) => {
-      const reqs: Record<number, File> = {};
-      const perms: Record<number, File> = {};
-      let nIdFile: File | null = null;
-      let tFile: File | null = null;
 
-      Object.entries(files).forEach(([key, file]) => {
-        if (key.startsWith("req_")) {
-          reqs[parseInt(key.split("_")[1])] = file;
-        } else if (key.startsWith("permit_")) {
-          perms[parseInt(key.split("_")[1])] = file;
-        } else if (key === "newIdFile") {
-          nIdFile = file;
-        } else if (key === "tctFile") {
-          tFile = file;
-        }
-      });
-
-      if (Object.keys(reqs).length > 0) setUploadedRequirements(prev => ({ ...prev, ...reqs }));
-      if (Object.keys(perms).length > 0) setUploadedPermits(prev => ({ ...prev, ...perms }));
-      if (nIdFile || tFile) {
-        setFormData(prev => ({
-          ...prev,
-          ...(nIdFile && { newIdFile: nIdFile }),
-          ...(tFile && { tctFile: tFile })
-        }));
-      }
-    });
-  }, [hydrateDraft, hydrateDraftFiles]);
-
-  useEffect(() => {
-    if (loading || selectedApplication) return;
-    persistDraft({
-      formData: {
-        descriptionOfWork: formData.descriptionOfWork,
-        scopeNewConstruction: formData.scopeNewConstruction,
-        scopeAddition: formData.scopeAddition,
-        scopeAdditionText: formData.scopeAdditionText,
-        scopeRepair: formData.scopeRepair,
-        scopeRepairText: formData.scopeRepairText,
-        scopeRenovation: formData.scopeRenovation,
-        scopeRenovationText: formData.scopeRenovationText,
-        scopeDemolition: formData.scopeDemolition,
-        scopeDemolitionText: formData.scopeDemolitionText,
-        scopeOthers1: formData.scopeOthers1,
-        scopeOthers1Text1: formData.scopeOthers1Text1,
-        scopeOthers1Text2: formData.scopeOthers1Text2,
-        scopeOthers2: formData.scopeOthers2,
-        scopeOthers2Text1: formData.scopeOthers2Text1,
-        scopeOthers2Text2: formData.scopeOthers2Text2,
-        descriptionOfWorkLegacyText: formData.descriptionOfWorkLegacyText,
-        occupancyCategory: formData.occupancyCategory,
-        selectedSubOccupancies: formData.selectedSubOccupancies,
-        subOccupancyOthersSpecify: formData.subOccupancyOthersSpecify,
-        estimatedCost: formData.estimatedCost,
-        locationOfConstruction: formData.locationOfConstruction,
-        isLotOwner: formData.isLotOwner,
-        occupancyUse: formData.occupancyCategory === "Other Construction" ? "Other" : formData.occupancyCategory,
-        otherOccupancyUse: formData.subOccupancyOthersSpecify,
-      },
-      currentStep,
-      idChoice,
-      signatureData,
-      activeDocTab,
-    });
-  }, [
-    formData.descriptionOfWork,
-    formData.scopeNewConstruction,
-    formData.scopeAddition,
-    formData.scopeAdditionText,
-    formData.scopeRepair,
-    formData.scopeRepairText,
-    formData.scopeRenovation,
-    formData.scopeRenovationText,
-    formData.scopeDemolition,
-    formData.scopeDemolitionText,
-    formData.scopeOthers1,
-    formData.scopeOthers1Text1,
-    formData.scopeOthers1Text2,
-    formData.scopeOthers2,
-    formData.scopeOthers2Text1,
-    formData.scopeOthers2Text2,
-    formData.descriptionOfWorkLegacyText,
-    formData.occupancyCategory,
-    formData.selectedSubOccupancies,
-    formData.subOccupancyOthersSpecify,
-    formData.estimatedCost,
-    formData.locationOfConstruction,
-    formData.isLotOwner,
-    currentStep,
-    idChoice,
-    signatureData,
-    activeDocTab,
-    loading,
-    persistDraft,
-    selectedApplication
-  ]);
 
   useEffect(() => {
     const currentStepIdx = STEPS.findIndex(s => s.id === currentStep);
@@ -575,28 +553,20 @@ export default function BuildingPermitPage() {
   useEffect(() => {
     async function init() {
       try {
-        const [res, permitsRes] = await Promise.all([
+        const [res, permitsRes, brgyRes] = await Promise.all([
           getCurrentUserResident(),
-          getExistingBuildingPermits()
+          getExistingBuildingPermits(),
+          getBarangaysAction()
         ]);
         if (res.success && res.data) {
           setResidentData(res.data);
         }
         if (permitsRes.success && permitsRes.data.length > 0) {
           setExistingApplications(permitsRes.data);
-          const hasActive = permitsRes.data.some((app: any) =>
-            !["RELEASED", "REJECTED", "DELIVERED", "CANCELLED"].includes(app.status) && !app.isCancelled
-          );
-          if (hasActive) {
-            localStorage.removeItem("building_permit_draft");
-            await clearDraftFiles("building_permit_draft");
-            setCurrentStep("EXISTING");
-          } else {
-            const hasDraft = localStorage.getItem("building_permit_draft");
-            if (!hasDraft) {
-              setCurrentStep("EXISTING");
-            }
-          }
+          setCurrentStep("EXISTING");
+        }
+        if (brgyRes.success && brgyRes.data) {
+          setBarangayList(brgyRes.data);
         }
       } catch (err) {
         console.error(err);
@@ -612,6 +582,7 @@ export default function BuildingPermitPage() {
       const addData = selectedApplication.additionalData as any || {};
       const parsedOccupancy = parseOccupancyUse(addData.occupancyUse || "");
       const parsedDesc = parseDescriptionOfWork(addData.descriptionOfWork || "");
+      const parsedLoc = parseLocationString(addData.locationOfConstruction || "");
       setFormData({
         descriptionOfWork: addData.descriptionOfWork || "",
         scopeNewConstruction: parsedDesc.newConstruction,
@@ -635,8 +606,13 @@ export default function BuildingPermitPage() {
         subOccupancyOthersSpecify: parsedOccupancy.specify,
         estimatedCost: addData.estimatedCost || "",
         locationOfConstruction: addData.locationOfConstruction || "",
+        locationHouseNumber: parsedLoc.houseNumber,
+        locationStreet: parsedLoc.street,
+        locationBarangay: parsedLoc.barangay,
         isLotOwner: addData.isLotOwner || "",
+        totalFloors: addData.totalFloors !== undefined ? String(addData.totalFloors) : "",
         newIdFile: null,
+        newIdFileBack: null,
         tctFile: null,
         occupancyUse: addData.occupancyUse || "",
         otherOccupancyUse: parsedOccupancy.specify,
@@ -965,7 +941,7 @@ export default function BuildingPermitPage() {
       office: "Adjoining Lot Owners / Notary",
       icon: <Handshake className="w-5 h-5 text-blue-500" />,
       steps: [
-        "Similar to #7, but this is a formal sworn affidavit.",
+        "Similar to the Confirmation of adjoining lot owners, but this is a formal sworn affidavit.",
         "Prepare an \"Affidavit of Adjoining Lot Owners\" stating they have no objection.",
         "Visit each adjoining owner and have them sign the affidavit.",
         "Bring the signed document to a Notary Public for notarization.",
@@ -974,6 +950,36 @@ export default function BuildingPermitPage() {
       infoType: "note",
       infoLabel: "Legal weight",
       infoText: "A notarized affidavit is stronger evidence than a simple confirmation."
+    },
+    {
+      id: 13,
+      title: "Zoning Clearance (Post-Payment)",
+      office: "Zoning Office / MPDC",
+      icon: <MapPin className="w-5 h-5 text-emerald-500" />,
+      steps: [
+        "Go to the Zoning Office / MPDC at the Municipal Hall after your initial building permit payment is verified.",
+        "Present your building permit payment receipt (Official Receipt) to the Zoning Officer.",
+        "Submit the completed Locational Clearance form along with other required attachments.",
+        "Claim the signed Zoning Clearance certificate."
+      ],
+      infoType: "important",
+      infoLabel: "Post-Payment Requirement",
+      infoText: "Required for Engineering final approval. Zoning clearance must be obtained after paying your initial fees."
+    },
+    {
+      id: 14,
+      title: "BFP Fire Safety Clearance (FSEC) (Post-Payment)",
+      office: "Bureau of Fire Protection (BFP)",
+      icon: <Flame className="w-5 h-5 text-red-500" />,
+      steps: [
+        "Submit your building plans and sanitary plans to the Bureau of Fire Protection (BFP) office.",
+        "Pay the Fire Code Fee at the Municipal Treasury Office or directly to the BFP section.",
+        "BFP officers will evaluate the plans for compliance with the Fire Code of the Philippines.",
+        "Claim the Fire Safety Evaluation Clearance (FSEC) / BFP Clearance certificate."
+      ],
+      infoType: "important",
+      infoLabel: "Post-Payment Requirement",
+      infoText: "Required for Engineering final approval. Ensure fire safety guidelines are properly integrated in the plans."
     }
   ];
 
@@ -1083,8 +1089,18 @@ export default function BuildingPermitPage() {
 
       // 1. Upload ID
       let idFileUrl: string | null = null;
-      if (idChoice === "UPLOAD" && formData.newIdFile) {
-        idFileUrl = await uploadFileClientSide(formData.newIdFile, "ids", "newIdFile");
+      let idBackFileUrl: string | null = null;
+      if (idChoice === "UPLOAD") {
+        if (formData.newIdFile) {
+          idFileUrl = await uploadFileClientSide(formData.newIdFile, "ids", "newIdFile");
+        } else if (selectedApplication?.additionalData?.documents?.newIdFile) {
+          idFileUrl = selectedApplication.additionalData.documents.newIdFile;
+        }
+        if (formData.newIdFileBack) {
+          idBackFileUrl = await uploadFileClientSide(formData.newIdFileBack, "ids", "newIdFileBack");
+        } else if (selectedApplication?.additionalData?.documents?.newIdFileBack) {
+          idBackFileUrl = selectedApplication.additionalData.documents.newIdFileBack;
+        }
       } else if (idChoice === "PROFILE") {
         const profileIdUrl = displayResident?.idFrontUrl || displayResident?.idBackUrl;
         if (profileIdUrl) {
@@ -1095,6 +1111,17 @@ export default function BuildingPermitPage() {
             }
           } else if (profileIdUrl.startsWith("http")) {
             idFileUrl = profileIdUrl;
+          }
+        }
+        const profileIdBackUrl = displayResident?.idBackUrl;
+        if (profileIdBackUrl) {
+          if (profileIdBackUrl.startsWith("data:")) {
+            const file = dataURLtoFile(profileIdBackUrl, "profile_id_back");
+            if (file) {
+              idBackFileUrl = await uploadFileClientSide(file, "ids", "newIdFileBack");
+            }
+          } else if (profileIdBackUrl.startsWith("http")) {
+            idBackFileUrl = profileIdBackUrl;
           }
         }
       }
@@ -1154,9 +1181,16 @@ export default function BuildingPermitPage() {
       data.append("estimatedCost", formData.estimatedCost);
       data.append("locationOfConstruction", formData.locationOfConstruction);
       data.append("isLotOwner", formData.isLotOwner);
+      data.append("houseNumber", formData.locationHouseNumber);
+      data.append("street", formData.locationStreet);
+      data.append("barangay", formData.locationBarangay);
+      data.append("totalFloors", formData.totalFloors);
 
       if (idFileUrl) {
         data.append("newIdFile", idFileUrl);
+      }
+      if (idBackFileUrl) {
+        data.append("newIdFileBack", idBackFileUrl);
       }
       if (tctFileUrl) {
         data.append("tctFile", tctFileUrl);
@@ -1177,11 +1211,9 @@ export default function BuildingPermitPage() {
       }
 
       if (result.success) {
-        if (!isRevision) {
+        if (signatureData) {
           await saveTransactionSignature(result.transactionId!, signatureData);
         }
-        localStorage.removeItem("building_permit_draft");
-        await clearDraftFiles("building_permit_draft");
         // Fetch the updated data so the application becomes read-only and back button works
         const permitsRes = await getExistingBuildingPermits();
         if (permitsRes.success) {
@@ -1327,14 +1359,21 @@ export default function BuildingPermitPage() {
                   key={app.id || idx}
                   onClick={() => {
                     setSelectedApplication(app);
+                    const parsedLoc = parseLocationString(app.additionalData?.locationOfConstruction || "");
                     setFormData(prev => ({
                       ...prev,
                       descriptionOfWork: app.additionalData?.descriptionOfWork || "",
                       occupancyUse: app.additionalData?.occupancyUse?.startsWith("Other") ? "Other" : (app.additionalData?.occupancyUse || "Residential (Single Family)"),
                       otherOccupancyUse: app.additionalData?.occupancyUse?.startsWith("Other") ? app.additionalData.occupancyUse.replace("Other - ", "") : "",
                       estimatedCost: app.additionalData?.estimatedCost || "",
+                      locationOfConstruction: app.additionalData?.locationOfConstruction || "",
+                      locationHouseNumber: parsedLoc.houseNumber,
+                      locationStreet: parsedLoc.street,
+                      locationBarangay: parsedLoc.barangay,
                       isLotOwner: app.additionalData?.isLotOwner || "",
+                      totalFloors: app.additionalData?.totalFloors !== undefined ? String(app.additionalData.totalFloors) : "",
                       newIdFile: null,
+                      newIdFileBack: null,
                       tctFile: null
                     }));
                     setIsRevision(false);
@@ -1366,12 +1405,14 @@ export default function BuildingPermitPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    {/* UPDATED: Dynamic styling kapag cancelled yung application */}
+                    {/* UPDATED: Dynamic styling kapag cancelled, rejected, or released yung application */}
                     <span className={cn(
                       "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full",
-                      app.isCancelled || app.status === "CANCELLED"
+                      app.isCancelled || app.status === "CANCELLED" || app.status === "REJECTED"
                         ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                        : app.status === "RELEASED"
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
+                          : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
                     )}>
                       {app.isCancelled || app.status === "CANCELLED" ? "CANCELLED" : (app.status ? app.status.replace(/_/g, ' ') : "PENDING")}
                     </span>
@@ -1383,69 +1424,71 @@ export default function BuildingPermitPage() {
               ))}
             </div>
 
-            {hasActiveApplication ? (
-              <div className="mt-12 border-t border-slate-200 dark:border-white/10 pt-8 flex flex-col items-center">
-                <div className="bg-amber-500/10 dark:bg-amber-500/5 border border-amber-500/20 dark:border-amber-500/10 rounded-2xl p-6 max-w-xl text-center space-y-3 shadow-[0_0_20px_rgba(245,158,11,0.05)]">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 mb-1">
+            {hasActiveApplication && (
+              <div className="mt-8 border-t border-slate-200 dark:border-white/10 pt-8 flex flex-col items-center">
+                <div className="bg-blue-500/10 dark:bg-blue-500/5 border border-blue-500/20 dark:border-blue-500/10 rounded-2xl p-6 max-w-xl text-center space-y-3 shadow-[0_0_20px_rgba(59,130,246,0.05)]">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-500/10 text-blue-500 mb-1">
                     <AlertCircle className="w-6 h-6 animate-pulse" />
                   </div>
                   <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-wider text-sm">
                     Active Application In Progress
                   </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-                    You currently have a pending building permit application. To ensure proper processing, LGU Mapandan regulations require your active application to be completed (Released) or Rejected before starting a new one.
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed font-sans">
+                    You currently have an active building permit application. You may still apply for a new permit for another property or project by clicking the button below.
                   </p>
-                  <div className="text-[10px] text-amber-600 dark:text-amber-500/80 font-bold uppercase tracking-widest bg-amber-500/[0.03] border border-amber-500/10 px-3 py-1 rounded-full w-fit mx-auto italic">
-                    New Application Locked
-                  </div>
                 </div>
               </div>
-            ) : (
-              <div className="mt-12 flex justify-center border-t border-slate-200 dark:border-white/10 pt-8">
-                <button
-                  onClick={() => {
-                    setSelectedApplication(null);
-                    setSignatureData(null);
-                    setFormData({
-                      descriptionOfWork: "",
-                      scopeNewConstruction: false,
-                      scopeAddition: false,
-                      scopeAdditionText: "",
-                      scopeRepair: false,
-                      scopeRepairText: "",
-                      scopeRenovation: false,
-                      scopeRenovationText: "",
-                      scopeDemolition: false,
-                      scopeDemolitionText: "",
-                      scopeOthers1: false,
-                      scopeOthers1Text1: "",
-                      scopeOthers1Text2: "",
-                      scopeOthers2: false,
-                      scopeOthers2Text1: "",
-                      scopeOthers2Text2: "",
-                      descriptionOfWorkLegacyText: "",
-                      occupancyCategory: "Residential",
-                      selectedSubOccupancies: [],
-                      subOccupancyOthersSpecify: "",
-                      estimatedCost: "",
-                      locationOfConstruction: "",
-                      isLotOwner: "",
-                      newIdFile: null,
-                      tctFile: null,
-                      occupancyUse: "Residential (Single Family)",
-                      otherOccupancyUse: "",
-                    });
-                    setUploadedRequirements({});
-                    setUploadedPermits({});
-                    setCurrentStep("GUIDE");
-                  }}
-                  className="bg-emerald-500 text-white hover:bg-emerald-600 px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all shadow-xl shadow-emerald-500/20"
-                >
-                  Start a New Application
-                  <span className="text-xl leading-none">+</span>
-                </button>
-              </div>
             )}
+
+            <div className="mt-8 flex justify-center border-t border-slate-200 dark:border-white/10 pt-8">
+              <button
+                onClick={() => {
+                  setSelectedApplication(null);
+                  setSignatureData(null);
+                  setFormData({
+                    descriptionOfWork: "",
+                    scopeNewConstruction: false,
+                    scopeAddition: false,
+                    scopeAdditionText: "",
+                    scopeRepair: false,
+                    scopeRepairText: "",
+                    scopeRenovation: false,
+                    scopeRenovationText: "",
+                    scopeDemolition: false,
+                    scopeDemolitionText: "",
+                    scopeOthers1: false,
+                    scopeOthers1Text1: "",
+                    scopeOthers1Text2: "",
+                    scopeOthers2: false,
+                    scopeOthers2Text1: "",
+                    scopeOthers2Text2: "",
+                    descriptionOfWorkLegacyText: "",
+                    occupancyCategory: "",
+                    selectedSubOccupancies: [],
+                    subOccupancyOthersSpecify: "",
+                    estimatedCost: "",
+                    locationOfConstruction: "",
+                    locationHouseNumber: "",
+                    locationStreet: "",
+                    locationBarangay: "",
+                    isLotOwner: "",
+                    totalFloors: "",
+                    newIdFile: null,
+                    newIdFileBack: null,
+                    tctFile: null,
+                    occupancyUse: "Residential (Single Family)",
+                    otherOccupancyUse: "",
+                  });
+                  setUploadedRequirements({});
+                  setUploadedPermits({});
+                  setCurrentStep("GUIDE");
+                }}
+                className="bg-emerald-500 text-white hover:bg-emerald-600 px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all shadow-xl shadow-emerald-500/20"
+              >
+                Start a New Application
+                <span className="text-xl leading-none">+</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -1555,6 +1598,35 @@ export default function BuildingPermitPage() {
                 <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-500" /> Notary Public (2)</div>
                 <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-500" /> BFP (1)</div>
               </div>
+
+              {/* Valid ID Guidelines Callout Card */}
+              <div className="mt-6 pt-6 border-t border-slate-200 dark:border-white/10 flex flex-col gap-4 text-left">
+                <div className="space-y-1.5">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-[8px] font-black uppercase tracking-widest font-sans">
+                    <Shield className="w-3 h-3" /> Valid IDs Guidelines
+                  </span>
+                  <h4 className="text-sm font-black tracking-widest text-slate-800 dark:text-white italic">
+                    Accepted Government-Issued IDs
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                    When uploading your ID or bringing it to the municipal offices, make sure it is one of the following valid documents:
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  <div className="flex items-center gap-2">• Philippine National ID (PhilID / ePhilID)</div>
+                  <div className="flex items-center gap-2">• Philippine Passport</div>
+                  <div className="flex items-center gap-2">• Driver's License</div>
+                  <div className="flex items-center gap-2">• UMID Card (SSS / GSIS)</div>
+                  <div className="flex items-center gap-2">• PRC License</div>
+                  <div className="flex items-center gap-2">• Postal ID</div>
+                  <div className="flex items-center gap-2">• Voter's ID / Certificate</div>
+                  <div className="flex items-center gap-2">• TIN Card</div>
+                  <div className="flex items-center gap-2">• PhilHealth ID</div>
+                  <div className="flex items-center gap-2">• Senior Citizen ID</div>
+                  <div className="flex items-center gap-2">• PWD ID</div>
+                  <div className="flex items-center gap-2">• Barangay Certification (with photo)</div>
+                </div>
+              </div>
             </div>
 
             {/* Next Button Action */}
@@ -1659,7 +1731,7 @@ export default function BuildingPermitPage() {
                   </div>
 
                   {/* Government ID Card */}
-                  <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-white/10 rounded-2xl md:rounded-[2rem] p-6 md:p-8 mt-6 relative group hover:border-primary/30 transition-all duration-300">
+                      <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-white/10 rounded-2xl md:rounded-[2rem] p-6 md:p-8 mt-6 relative group hover:border-primary/30 transition-all duration-300">
                     <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary opacity-50 group-hover:opacity-100 transition-opacity rounded-l-2xl"></div>
                     <div className="flex items-center gap-2 mb-4">
                       <Book className="w-5 h-5 text-primary" />
@@ -1670,34 +1742,72 @@ export default function BuildingPermitPage() {
                     {!isEditable ? (
                       <div>
                         {selectedApplication.additionalData?.documents?.newIdFile ? (
-                          <div className="bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 p-6 flex flex-col items-center justify-center text-center relative overflow-hidden shadow-sm">
-                            {(() => {
-                              const url = selectedApplication.additionalData.documents.newIdFile;
-                              const isImage = /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(url);
-                              return (
-                                <div className="space-y-4 w-full flex flex-col items-center">
-                                  {isImage ? (
-                                    <img src={url} alt="Uploaded Government ID" className="max-h-48 object-contain rounded-lg border border-slate-200 dark:border-white/10" />
-                                  ) : (
-                                    <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-                                      <FileText className="w-8 h-8" />
+                          <div className="flex flex-col md:flex-row gap-6">
+                            <div className="flex-1 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 p-6 flex flex-col items-center justify-center text-center relative overflow-hidden shadow-sm min-h-[180px]">
+                              {(() => {
+                                const url = selectedApplication.additionalData.documents.newIdFile;
+                                const isImage = /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(url);
+                                return (
+                                  <div className="space-y-4 w-full flex flex-col items-center">
+                                    {isImage ? (
+                                      <img src={url} alt="Uploaded Government ID Front" className="max-h-48 object-contain rounded-lg border border-slate-200 dark:border-white/10" />
+                                    ) : (
+                                      <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                                        <FileText className="w-8 h-8" />
+                                      </div>
+                                    )}
+                                    <p className="text-xs font-semibold text-slate-500">Government ID - Front Side</p>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setViewerUrl(url);
+                                        setViewerTitle("Government ID - Front");
+                                        setViewerOpen(true);
+                                      }}
+                                      className="inline-flex items-center gap-2 text-xs font-bold text-primary hover:underline"
+                                    >
+                                      View Front ID ↗
+                                    </button>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                            <div className="flex-1 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 p-6 flex flex-col items-center justify-center text-center relative overflow-hidden shadow-sm min-h-[180px]">
+                              {selectedApplication.additionalData?.documents?.newIdFileBack ? (
+                                (() => {
+                                  const url = selectedApplication.additionalData.documents.newIdFileBack;
+                                  const isImage = /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(url);
+                                  return (
+                                    <div className="space-y-4 w-full flex flex-col items-center">
+                                      {isImage ? (
+                                        <img src={url} alt="Uploaded Government ID Back" className="max-h-48 object-contain rounded-lg border border-slate-200 dark:border-white/10" />
+                                      ) : (
+                                        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                                          <FileText className="w-8 h-8" />
+                                        </div>
+                                      )}
+                                      <p className="text-xs font-semibold text-slate-500">Government ID - Back Side (Optional)</p>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setViewerUrl(url);
+                                          setViewerTitle("Government ID - Back");
+                                          setViewerOpen(true);
+                                        }}
+                                        className="inline-flex items-center gap-2 text-xs font-bold text-primary hover:underline"
+                                      >
+                                        View Back ID ↗
+                                      </button>
                                     </div>
-                                  )}
-                                  <p className="text-xs font-semibold text-slate-500">Government ID is uploaded and verified</p>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setViewerUrl(url);
-                                      setViewerTitle("Government ID");
-                                      setViewerOpen(true);
-                                    }}
-                                    className="inline-flex items-center gap-2 text-xs font-bold text-primary hover:underline"
-                                  >
-                                    View Full ID ↗
-                                  </button>
+                                  );
+                                })()
+                              ) : (
+                                <div className="text-center p-6 flex flex-col items-center justify-center h-full">
+                                  <FileWarning className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                                  <p className="text-xs font-semibold text-slate-400 italic">No Back Side ID Uploaded</p>
                                 </div>
-                              );
-                            })()}
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <div className="bg-white dark:bg-black/20 rounded-xl border border-slate-100 dark:border-white/5 p-5 flex flex-col gap-2 shadow-sm">
@@ -1758,142 +1868,250 @@ export default function BuildingPermitPage() {
                           <div className="bg-white dark:bg-black/20 rounded-xl border border-slate-100 dark:border-white/5 p-5 flex flex-col gap-2 shadow-sm">
                             <p className="text-sm font-bold text-slate-800 dark:text-white">ID on file: <span className="font-medium text-slate-600">{displayResident?.idType || "Philippine ID / Profile ID"}</span></p>
                             <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Verified: <span className={cn("font-bold", displayResident?.registrationStatus === "APPROVED" || displayResident?.registrationStatus === "VERIFIED" ? "text-emerald-500" : "text-amber-500")}>{displayResident?.registrationStatus === "APPROVED" || displayResident?.registrationStatus === "VERIFIED" ? "Yes" : "Pending"}</span></p>
-
-                            {(displayResident?.idFrontUrl || displayResident?.idBackUrl) && (
-                              <div className="flex gap-4 mt-4">
-                                {displayResident.idFrontUrl && (
-                                  <div className="flex-1 rounded-lg border border-slate-200 dark:border-white/10 overflow-hidden bg-slate-50 dark:bg-black/40">
-                                    <p className="text-[10px] font-bold text-center py-1.5 text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5">Front ID</p>
-                                    <img src={displayResident.idFrontUrl} alt="Front ID" className="w-full h-24 md:h-32 object-contain p-2" />
-                                  </div>
-                                )}
-                                {displayResident.idBackUrl && (
-                                  <div className="flex-1 rounded-lg border border-slate-200 dark:border-white/10 overflow-hidden bg-slate-50 dark:bg-black/40">
-                                    <p className="text-[10px] font-bold text-center py-1.5 text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5">Back ID</p>
-                                    <img src={displayResident.idBackUrl} alt="Back ID" className="w-full h-24 md:h-32 object-contain p-2" />
-                                  </div>
-                                )}
-                              </div>
-                            )}
                           </div>
                         ) : (
-                          <div className={cn("bg-white dark:bg-black/20 rounded-xl border border-dashed p-8 flex flex-col items-center justify-center text-center relative hover:bg-slate-50 dark:hover:bg-white/5 transition-colors overflow-hidden", (showValidationErrors && idChoice === "UPLOAD" && !formData.newIdFile && !selectedApplication?.additionalData?.documents?.newIdFile) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-300 dark:border-white/20")}>
-                            {(() => {
-                              if (formData.newIdFile && formData.newIdFile.type.startsWith("image/")) {
-                                return (
-                                  <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                    <img src={URL.createObjectURL(formData.newIdFile)} alt="Preview" className="w-full h-full object-contain" />
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.newIdFile); setViewerTitle("Government ID"); setViewerOpen(true); }}
-                                        className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                      >
-                                        Preview Image
-                                      </button>
-                                      <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                        Replace Image
-                                      </label>
-                                    </div>
-                                  </div>
-                                );
-                              } else if (isRevision && !formData.newIdFile && selectedApplication?.additionalData?.documents?.newIdFile && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(selectedApplication.additionalData.documents.newIdFile)) {
-                                return (
-                                  <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                    <img src={selectedApplication.additionalData.documents.newIdFile} alt="Preview" className="w-full h-full object-contain" />
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.newIdFile); setViewerTitle("Government ID"); setViewerOpen(true); }}
-                                        className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                      >
-                                        Preview Image
-                                      </button>
-                                      <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                        Replace Image
-                                      </label>
-                                    </div>
-                                  </div>
-                                );
-                              } else if (formData.newIdFile) {
-                                return (
-                                  <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                    <FileText className="w-10 h-10 text-primary mb-2" />
-                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">{formData.newIdFile.name}</p>
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.newIdFile); setViewerTitle("Government ID"); setViewerOpen(true); }}
-                                        className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                      >
-                                        Preview Document
-                                      </button>
-                                      <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                        Replace Document
-                                      </label>
-                                    </div>
-                                  </div>
-                                );
-                              } else if (isRevision && !formData.newIdFile && selectedApplication?.additionalData?.documents?.newIdFile) {
-                                return (
-                                  <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                    <FileText className="w-10 h-10 text-primary mb-2" />
-                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">Existing Document</p>
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.newIdFile); setViewerTitle("Government ID"); setViewerOpen(true); }}
-                                        className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                      >
-                                        Preview Document
-                                      </button>
-                                      <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                        Replace Document
-                                      </label>
-                                    </div>
-                                  </div>
-                                );
-                              }
-                              return (
-                                <label htmlFor="upload-newIdFile" className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20">
-                                  <Upload className="w-8 h-8 text-slate-400 mb-2 pointer-events-none" />
-                                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400 pointer-events-none px-2">
-                                    Click to upload (JPG/PNG/PDF, max 5MB)
-                                  </p>
-                                </label>
-                              );
-                            })()}
-                            <input
-                              id="upload-newIdFile"
-                              type="file"
-                              accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
-                              className="hidden"
-                              onChange={async (e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  if (file.size > 5 * 1024 * 1024) {
-                                    toast.error("File size exceeds 5MB limit.");
-                                    e.target.value = "";
-                                    setFormData({ ...formData, newIdFile: null });
-                                    persistDraftFile("newIdFile", null);
-                                    return;
+                          <div className="flex flex-col md:flex-row gap-6">
+                            {/* Front Side Upload */}
+                            <div className="flex-1 flex flex-col gap-2">
+                              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Front Side <span className="text-red-500">*</span></label>
+                              <div className={cn("bg-white dark:bg-black/20 rounded-xl border border-dashed p-6 flex flex-col items-center justify-center text-center relative hover:bg-slate-50 dark:hover:bg-white/5 transition-colors overflow-hidden min-h-[160px]", (showValidationErrors && idChoice === "UPLOAD" && !formData.newIdFile && !selectedApplication?.additionalData?.documents?.newIdFile) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-300 dark:border-white/20")}>
+                                {(() => {
+                                  if (formData.newIdFile && formData.newIdFile.type.startsWith("image/")) {
+                                    return (
+                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
+                                        <img src={URL.createObjectURL(formData.newIdFile)} alt="Preview Front" className="w-full h-full object-contain" />
+                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.newIdFile); setViewerTitle("Government ID - Front"); setViewerOpen(true); }}
+                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
+                                          >
+                                            Preview Front
+                                          </button>
+                                          <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
+                                            Replace Front
+                                          </label>
+                                        </div>
+                                      </div>
+                                    );
+                                  } else if (isRevision && !formData.newIdFile && selectedApplication?.additionalData?.documents?.newIdFile && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(selectedApplication.additionalData.documents.newIdFile)) {
+                                    return (
+                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
+                                        <img src={selectedApplication.additionalData.documents.newIdFile} alt="Preview Front" className="w-full h-full object-contain" />
+                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.newIdFile); setViewerTitle("Government ID - Front"); setViewerOpen(true); }}
+                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
+                                          >
+                                            Preview Front
+                                          </button>
+                                          <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
+                                            Replace Front
+                                          </label>
+                                        </div>
+                                      </div>
+                                    );
+                                  } else if (formData.newIdFile) {
+                                    return (
+                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
+                                        <FileText className="w-10 h-10 text-primary mb-2" />
+                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">{formData.newIdFile.name}</p>
+                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.newIdFile); setViewerTitle("Government ID - Front"); setViewerOpen(true); }}
+                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
+                                          >
+                                            Preview Front
+                                          </button>
+                                          <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
+                                            Replace Front
+                                          </label>
+                                        </div>
+                                      </div>
+                                    );
+                                  } else if (isRevision && !formData.newIdFile && selectedApplication?.additionalData?.documents?.newIdFile) {
+                                    return (
+                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
+                                        <FileText className="w-10 h-10 text-primary mb-2" />
+                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">Government ID - Front</p>
+                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.newIdFile); setViewerTitle("Government ID - Front"); setViewerOpen(true); }}
+                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
+                                          >
+                                            Preview Front
+                                          </button>
+                                          <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
+                                            Replace Front
+                                          </label>
+                                        </div>
+                                      </div>
+                                    );
                                   }
-                                  let fileToProcess = file;
-                                  if (file.type.startsWith("image/")) {
-                                    try {
-                                      toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-                                      fileToProcess = await compressImage(file);
-                                      toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-                                    } catch (err) {
-                                      console.error("Compression error:", err);
-                                      toast.dismiss("image-compress-toast");
+                                  return (
+                                    <label htmlFor="upload-newIdFile" className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20">
+                                      <Upload className="w-6 h-6 text-slate-400 mb-1.5 pointer-events-none" />
+                                      <p className="text-xs font-medium text-slate-600 dark:text-slate-400 pointer-events-none px-2">
+                                        Upload Front Side
+                                      </p>
+                                    </label>
+                                  );
+                                })()}
+                                <input
+                                  id="upload-newIdFile"
+                                  type="file"
+                                  accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
+                                  className="hidden"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      if (file.size > 5 * 1024 * 1024) {
+                                        toast.error("File size exceeds 5MB limit.");
+                                        e.target.value = "";
+                                        setFormData({ ...formData, newIdFile: null });
+                                        return;
+                                      }
+                                      let fileToProcess = file;
+                                      if (file.type.startsWith("image/")) {
+                                        try {
+                                          toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
+                                          fileToProcess = await compressImage(file);
+                                          toast.success("Image optimized successfully!", { id: "image-compress-toast" });
+                                        } catch (err) {
+                                          console.error("Compression error:", err);
+                                          toast.dismiss("image-compress-toast");
+                                        }
+                                      }
+                                      setFormData({ ...formData, newIdFile: fileToProcess });
                                     }
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Back Side Upload (Optional) */}
+                            <div className="flex-1 flex flex-col gap-2">
+                              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Back Side <span className="text-slate-400">(Optional)</span></label>
+                              <div className="bg-white dark:bg-black/20 rounded-xl border border-dashed border-slate-300 dark:border-white/20 p-6 flex flex-col items-center justify-center text-center relative hover:bg-slate-50 dark:hover:bg-white/5 transition-colors overflow-hidden min-h-[160px]">
+                                {(() => {
+                                  if (formData.newIdFileBack && formData.newIdFileBack.type.startsWith("image/")) {
+                                    return (
+                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
+                                        <img src={URL.createObjectURL(formData.newIdFileBack)} alt="Preview Back" className="w-full h-full object-contain" />
+                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.newIdFileBack); setViewerTitle("Government ID - Back"); setViewerOpen(true); }}
+                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
+                                          >
+                                            Preview Back
+                                          </button>
+                                          <label htmlFor="upload-newIdFileBack" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
+                                            Replace Back
+                                          </label>
+                                        </div>
+                                      </div>
+                                    );
+                                  } else if (isRevision && !formData.newIdFileBack && selectedApplication?.additionalData?.documents?.newIdFileBack && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(selectedApplication.additionalData.documents.newIdFileBack)) {
+                                    return (
+                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
+                                        <img src={selectedApplication.additionalData.documents.newIdFileBack} alt="Preview Back" className="w-full h-full object-contain" />
+                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.newIdFileBack); setViewerTitle("Government ID - Back"); setViewerOpen(true); }}
+                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
+                                          >
+                                            Preview Back
+                                          </button>
+                                          <label htmlFor="upload-newIdFileBack" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
+                                            Replace Back
+                                          </label>
+                                        </div>
+                                      </div>
+                                    );
+                                  } else if (formData.newIdFileBack) {
+                                    return (
+                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
+                                        <FileText className="w-10 h-10 text-primary mb-2" />
+                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">{formData.newIdFileBack.name}</p>
+                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.newIdFileBack); setViewerTitle("Government ID - Back"); setViewerOpen(true); }}
+                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
+                                          >
+                                            Preview Back
+                                          </button>
+                                          <label htmlFor="upload-newIdFileBack" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
+                                            Replace Back
+                                          </label>
+                                        </div>
+                                      </div>
+                                    );
+                                  } else if (isRevision && !formData.newIdFileBack && selectedApplication?.additionalData?.documents?.newIdFileBack) {
+                                    return (
+                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
+                                        <FileText className="w-10 h-10 text-primary mb-2" />
+                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">Government ID - Back</p>
+                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.newIdFileBack); setViewerTitle("Government ID - Back"); setViewerOpen(true); }}
+                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
+                                          >
+                                            Preview Back
+                                          </button>
+                                          <label htmlFor="upload-newIdFileBack" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
+                                            Replace Back
+                                          </label>
+                                        </div>
+                                      </div>
+                                    );
                                   }
-                                  setFormData({ ...formData, newIdFile: fileToProcess });
-                                  persistDraftFile("newIdFile", fileToProcess);
-                                }
-                              }}
-                            />
+                                  return (
+                                    <label htmlFor="upload-newIdFileBack" className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20">
+                                      <Upload className="w-6 h-6 text-slate-400 mb-1.5 pointer-events-none" />
+                                      <p className="text-xs font-medium text-slate-600 dark:text-slate-400 pointer-events-none px-2">
+                                        Upload Back Side
+                                      </p>
+                                    </label>
+                                  );
+                                })()}
+                                <input
+                                  id="upload-newIdFileBack"
+                                  type="file"
+                                  accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
+                                  className="hidden"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      if (file.size > 5 * 1024 * 1024) {
+                                        toast.error("File size exceeds 5MB limit.");
+                                        e.target.value = "";
+                                        setFormData({ ...formData, newIdFileBack: null });
+                                        return;
+                                      }
+                                      let fileToProcess = file;
+                                      if (file.type.startsWith("image/")) {
+                                        try {
+                                          toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
+                                          fileToProcess = await compressImage(file);
+                                          toast.success("Image optimized successfully!", { id: "image-compress-toast" });
+                                        } catch (err) {
+                                          console.error("Compression error:", err);
+                                          toast.dismiss("image-compress-toast");
+                                        }
+                                      }
+                                      setFormData({ ...formData, newIdFileBack: fileToProcess });
+                                    }
+                                  }}
+                                />
+                              </div>
+                            </div>
                           </div>
                         )}
                       </>
@@ -2295,7 +2513,6 @@ export default function BuildingPermitPage() {
                                     toast.error("File size exceeds 5MB limit.");
                                     e.target.value = "";
                                     setFormData({ ...formData, tctFile: null });
-                                    persistDraftFile("tctFile", null);
                                     return;
                                   }
                                   let fileToProcess = file;
@@ -2310,7 +2527,6 @@ export default function BuildingPermitPage() {
                                     }
                                   }
                                   setFormData({ ...formData, tctFile: fileToProcess });
-                                  persistDraftFile("tctFile", fileToProcess);
                                 }
                               }}
                             />
@@ -2400,38 +2616,156 @@ export default function BuildingPermitPage() {
 
                       <div>
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                          Total Floor(s) <span className="text-red-500 text-lg">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="e.g. 2"
+                          className={cn("w-full !h-14 bg-white dark:bg-black/20 border rounded-xl px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && (!formData.totalFloors || Number(formData.totalFloors) <= 0)) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                          value={formData.totalFloors || ""}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val === "" || /^\d*$/.test(val)) {
+                              setFormData({ ...formData, totalFloors: val });
+                            }
+                          }}
+                          disabled={!isEditable}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                           d. Estimated cost of the proposal <span className="text-red-500 text-lg">*</span>
                         </label>
                         <div className="relative">
                           <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-500">₱</span>
                           <input
-                            type="number"
-                            min="0"
+                            type="text"
+                            inputMode="numeric"
                             className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 pl-10 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && (!formData.estimatedCost || Number(formData.estimatedCost) <= 0)) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
-                            value={formData.estimatedCost}
+                            value={formatWithCommas(formData.estimatedCost)}
                             onChange={e => {
-                              const val = e.target.value;
-                              if (val === "" || Number(val) >= 0) {
-                                setFormData({ ...formData, estimatedCost: val });
+                              const rawVal = e.target.value;
+                              const cleanVal = rawVal.replace(/,/g, "");
+                              if (cleanVal === "" || /^\d*$/.test(cleanVal)) {
+                                setFormData({ ...formData, estimatedCost: cleanVal });
                               }
                             }}
                             disabled={!isEditable}
+                            placeholder="0"
                           />
                         </div>
                       </div>
 
                       <div>
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                          e. Location of Construction (No. Street, Barangay, City / Municipality) <span className="text-red-500 text-lg">*</span>
+                          e. Location of Construction <span className="text-red-500 text-lg">*</span>
                         </label>
-                        <input
-                          type="text"
-                          placeholder="No. Street, Barangay, City / Municipality"
-                          className={cn("w-full bg-white dark:bg-black/20 border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.locationOfConstruction) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
-                          value={formData.locationOfConstruction}
-                          onChange={e => setFormData({ ...formData, locationOfConstruction: e.target.value })}
-                          disabled={!isEditable}
-                        />
+                        <div className="flex flex-col sm:flex-row gap-4 mb-3">
+                          {/* House/Lot Number Input */}
+                          <div className="flex-1 sm:flex-[0.25]">
+                            <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
+                              House/Lot No. <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="e.g. 123"
+                              className={cn("w-full !h-14 bg-white dark:bg-black/20 border rounded-xl px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.locationHouseNumber) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                              value={formData.locationHouseNumber || ""}
+                              onChange={e => setFormData({ ...formData, locationHouseNumber: e.target.value })}
+                              disabled={!isEditable}
+                            />
+                          </div>
+
+                          {/* Street Name Input */}
+                          <div className="flex-1 sm:flex-[0.45]">
+                            <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
+                              Street <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Bonifacio St."
+                              className={cn("w-full !h-14 bg-white dark:bg-black/20 border rounded-xl px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none", (showValidationErrors && !formData.locationStreet) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10")}
+                              value={formData.locationStreet || ""}
+                              onChange={e => setFormData({ ...formData, locationStreet: e.target.value })}
+                              disabled={!isEditable}
+                            />
+                          </div>
+
+                          {/* Barangay Dropdown */}
+                          <div className="flex-1 sm:flex-[0.3] relative" ref={brgyDropdownRef}>
+                            <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
+                              Barangay <span className="text-red-500">*</span>
+                            </label>
+                            
+                            <button
+                              type="button"
+                              onClick={() => isEditable && setIsBrgyDropdownOpen(!isBrgyDropdownOpen)}
+                              className={cn(
+                                "w-full !h-14 bg-white dark:bg-black/20 border rounded-xl px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer flex items-center justify-between transition-all",
+                                (showValidationErrors && !formData.locationBarangay) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]" : "border-slate-200 dark:border-white/10"
+                              )}
+                              disabled={!isEditable}
+                            >
+                              <span className={formData.locationBarangay ? "text-slate-900 dark:text-white" : "text-slate-400"}>
+                                {formData.locationBarangay || "Select Barangay"}
+                              </span>
+                              <ChevronDown className="w-4 h-4 opacity-50 shrink-0" />
+                            </button>
+
+                            {isBrgyDropdownOpen && (
+                              <div className="absolute z-[250] mt-2 w-full bg-white dark:bg-[#11131a] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden p-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                {/* Search Input */}
+                                <input
+                                  type="text"
+                                  placeholder="Search barangay..."
+                                  className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary mb-2 text-slate-900 dark:text-white"
+                                  value={brgySearchQuery}
+                                  onChange={e => setBrgySearchQuery(e.target.value)}
+                                  autoFocus
+                                />
+                                {/* List */}
+                                <div className="max-h-[180px] overflow-y-auto space-y-0.5 custom-scrollbar">
+                                  {filteredBarangays.length > 0 ? (
+                                    filteredBarangays.map(brgy => (
+                                      <button
+                                        key={brgy}
+                                        type="button"
+                                        onClick={() => {
+                                          setFormData({ ...formData, locationBarangay: brgy });
+                                          setIsBrgyDropdownOpen(false);
+                                          setBrgySearchQuery("");
+                                        }}
+                                        className={cn(
+                                          "w-full text-left px-3 py-2 text-xs rounded-lg transition-colors flex items-center justify-between",
+                                          formData.locationBarangay === brgy
+                                            ? "bg-primary/10 text-primary font-bold"
+                                            : "hover:bg-slate-50 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300"
+                                        )}
+                                      >
+                                        <span>{brgy}</span>
+                                        {formData.locationBarangay === brgy && <Check className="w-3.5 h-3.5" />}
+                                      </button>
+                                    ))
+                                  ) : (
+                                    <div className="text-center py-4 text-xs text-slate-400 italic">No barangay found</div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {duplicatePropertyWarning && duplicatePropertyWarning.isProcessing && (
+                          <div className="mt-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-3 text-amber-600 dark:text-amber-500 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 animate-pulse" />
+                            <div className="text-xs">
+                              <span className="font-bold uppercase tracking-wider block mb-1">⚠️ Warning: Property Currently Processing</span>
+                              An active building permit application for this property location is currently being processed (submitted by {duplicatePropertyWarning.applicantName}). You can still proceed if this is a separate permit for the same property.
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div>
@@ -2448,7 +2782,6 @@ export default function BuildingPermitPage() {
                                 delete next[7];
                                 return next;
                               });
-                              persistDraftFile("req_7", null);
                             }
                           }}
                           disabled={!isEditable}
@@ -2495,7 +2828,11 @@ export default function BuildingPermitPage() {
                           hasMissingScopeTexts ||
                           !formData.estimatedCost ||
                           Number(formData.estimatedCost) <= 0 ||
-                          !formData.locationOfConstruction ||
+                          !formData.totalFloors ||
+                          Number(formData.totalFloors) <= 0 ||
+                          !formData.locationHouseNumber ||
+                          !formData.locationStreet ||
+                          !formData.locationBarangay ||
                           !formData.isLotOwner ||
                           !formData.occupancyCategory ||
                           (formData.occupancyCategory !== "Other Construction" && formData.selectedSubOccupancies.length === 0) ||
@@ -2821,10 +3158,8 @@ export default function BuildingPermitPage() {
                               }
                               if (activeDocTab === "REQUIREMENTS") {
                                 setUploadedRequirements(prev => ({ ...prev, [idx]: fileToProcess }));
-                                persistDraftFile(`req_${idx}`, fileToProcess);
                               } else {
                                 setUploadedPermits(prev => ({ ...prev, [idx]: fileToProcess }));
-                                persistDraftFile(`permit_${idx}`, fileToProcess);
                               }
                               e.target.value = "";
                             }
@@ -3240,7 +3575,7 @@ export default function BuildingPermitPage() {
                 </button>
               )}
 
-              {!(selectedApplication?.isCancelled || selectedApplication?.status === "CANCELLED") && (
+              {!(selectedApplication?.isCancelled || selectedApplication?.status === "CANCELLED" || selectedApplication?.status === "FOR_REVISION") && (
                 <button
                   disabled={["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "EVALUATED"].includes(selectedApplication?.status || "")}
                   onClick={() => {
@@ -3767,6 +4102,7 @@ const SignaturePad = ({ onSave }: { onSave: (dataUrl: string) => void }) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isDrawing, setIsDrawing] = React.useState(false);
+  const [isUploadedSignature, setIsUploadedSignature] = React.useState(false);
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
@@ -3778,6 +4114,7 @@ const SignaturePad = ({ onSave }: { onSave: (dataUrl: string) => void }) => {
   }, []);
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (isUploadedSignature) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -3799,7 +4136,7 @@ const SignaturePad = ({ onSave }: { onSave: (dataUrl: string) => void }) => {
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
+    if (isUploadedSignature || !isDrawing) return;
     e.preventDefault(); // Prevent scrolling while signing on touch devices
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -3831,9 +4168,11 @@ const SignaturePad = ({ onSave }: { onSave: (dataUrl: string) => void }) => {
     if (!ctx) return;
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    setIsUploadedSignature(false);
   };
 
   const handleSave = () => {
+    if (isUploadedSignature) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dataUrl = canvas.toDataURL('image/png');
@@ -3861,6 +4200,7 @@ const SignaturePad = ({ onSave }: { onSave: (dataUrl: string) => void }) => {
         ctx.drawImage(img, 0, 0, img.width, img.height,
           centerShift_x, centerShift_y, img.width * ratio, img.height * ratio);
 
+        setIsUploadedSignature(true);
         onSave(canvas.toDataURL('image/png'));
       }
       img.src = event.target?.result as string;
@@ -3875,7 +4215,10 @@ const SignaturePad = ({ onSave }: { onSave: (dataUrl: string) => void }) => {
         ref={canvasRef}
         width={800}
         height={250}
-        className="w-full h-[250px] cursor-crosshair touch-none"
+        className={cn(
+          "w-full h-[250px] cursor-crosshair touch-none transition-all",
+          isUploadedSignature && "pointer-events-none opacity-80"
+        )}
         onMouseDown={startDrawing}
         onMouseMove={draw}
         onMouseUp={stopDrawing}
@@ -3891,10 +4234,17 @@ const SignaturePad = ({ onSave }: { onSave: (dataUrl: string) => void }) => {
         </button>
         <button onClick={() => fileInputRef.current?.click()} className="px-6 py-2 rounded-full border border-blue-300 dark:border-blue-500/30 text-blue-600 dark:text-blue-400 text-sm font-bold flex items-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
           <UploadCloud className="w-4 h-4" />
-          Upload Image
+          Upload E-Signature
         </button>
         <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-        <button onClick={handleSave} className="px-6 py-2 rounded-full bg-emerald-500 text-white text-sm font-bold flex items-center gap-2 shadow-md hover:bg-emerald-600 transition-colors">
+        <button
+          onClick={handleSave}
+          disabled={isUploadedSignature}
+          className={cn(
+            "px-6 py-2 rounded-full bg-emerald-500 text-white text-sm font-bold flex items-center gap-2 shadow-md hover:bg-emerald-600 transition-colors",
+            isUploadedSignature && "opacity-50 cursor-not-allowed"
+          )}
+        >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
           Save Signature
         </button>

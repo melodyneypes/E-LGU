@@ -206,47 +206,61 @@ export default function TreasuryDashboard() {
         if (!supabase) return;
 
         console.log("Subscribing to Supabase Realtime 'Transaction' table...");
-        const channel = supabase
-            .channel("realtime-treasury-filings")
-            .on(
-                "postgres_changes",
-                {
-                    event: "INSERT",
-                    schema: "public",
-                    table: "Transaction",
-                },
-                async (payload: any) => {
-                    const newTx = payload.new;
-                    console.log("Realtime INSERT caught:", newTx);
+        let channel: any;
+        try {
+            channel = supabase
+                .channel("realtime-treasury-filings")
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "INSERT",
+                        schema: "public",
+                        table: "Transaction",
+                    },
+                    async (payload: any) => {
+                        const newTx = payload.new;
+                        console.log("Realtime INSERT caught:", newTx);
 
-                    // Fetch the latest transactions to hydrate client state fully with joins
-                    fetchTransactions();
+                        // Fetch the latest transactions to hydrate client state fully with joins
+                        fetchTransactions();
 
-                    // Parse resident snapshot to show applicant's name
-                    let applicantName = "Someone";
-                    try {
-                        const snap = typeof newTx.residentSnapshot === "string"
-                            ? JSON.parse(newTx.residentSnapshot)
-                            : newTx.residentSnapshot;
-                        if (snap && (snap.firstName || snap.lastName)) {
-                            applicantName = `${snap.firstName || ""} ${snap.lastName || ""}`.trim();
+                        // Parse resident snapshot to show applicant's name
+                        let applicantName = "Someone";
+                        try {
+                            const snap = typeof newTx.residentSnapshot === "string"
+                                ? JSON.parse(newTx.residentSnapshot)
+                                : newTx.residentSnapshot;
+                            if (snap && (snap.firstName || snap.lastName)) {
+                                applicantName = `${snap.firstName || ""} ${snap.lastName || ""}`.trim();
+                            }
+                        } catch (e) {
+                            console.error("Failed to parse residentSnapshot from payload:", e);
                         }
-                    } catch (e) {
-                        console.error("Failed to parse residentSnapshot from payload:", e);
-                    }
 
-                    // Display a premium notification
-                    toast.info(`A new request has been submitted by ${applicantName}!`, {
-                        description: `Reference ID: ${newTx.id.slice(-8).toUpperCase()}`,
-                        duration: 7000,
-                    });
-                }
-            )
-            .subscribe();
+                        // Display a premium notification
+                        toast.info(`A new request has been submitted by ${applicantName}!`, {
+                            description: `Reference ID: ${newTx.id.slice(-8).toUpperCase()}`,
+                            duration: 7000,
+                        });
+                    }
+                )
+                .subscribe((status: string, err?: any) => {
+                    if (err) {
+                        console.error("Supabase Realtime subscription error:", err);
+                    }
+                    if (status === "CHANNEL_ERROR") {
+                        console.error("Supabase Realtime channel error status caught");
+                    }
+                });
+        } catch (error) {
+            console.error("Failed to initialize Supabase Realtime subscription:", error);
+        }
 
         return () => {
             console.log("Unsubscribing from Supabase Realtime 'Transaction' table...");
-            supabase.removeChannel(channel);
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
         };
     }, [fetchTransactions]);
 
