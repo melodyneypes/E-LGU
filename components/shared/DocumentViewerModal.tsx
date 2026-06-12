@@ -159,7 +159,8 @@ export default function DocumentViewerModal({
 
                 if (!active) return;
 
-                const docxPreviewModule = await import("docx-preview");
+                // @ts-expect-error: docx-preview package is loaded dynamically and lacks static type definitions in this environment
+                const docxPreviewModule = await import(/* webpackIgnore: true */ "docx-preview");
                 if (docxContainerRef.current && active) {
                     docxContainerRef.current.innerHTML = "";
                     await docxPreviewModule.renderAsync(docxBlob, docxContainerRef.current, undefined, {
