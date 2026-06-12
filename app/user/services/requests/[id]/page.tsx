@@ -1094,9 +1094,9 @@ export default function RequestHubPage() {
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-10">
                             {/* Treasury Card */}
                             <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-28 h-fit">
-                                <Card className="p-6 md:p-10 border-none bg-slate-950 text-white shadow-2xl rounded-2xl md:rounded-[2.5rem] overflow-hidden relative group">
-                                    <div className="absolute top-0 right-0 p-6 opacity-10 rotate-12 group-hover:rotate-0 transition-transform duration-1000">
-                                        <Calculator className="w-32 h-32 md:w-48 md:h-48" />
+                                <Card className="p-6 md:p-10 border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-950 text-slate-900 dark:text-white shadow-2xl rounded-2xl md:rounded-[2.5rem] overflow-hidden relative group">
+                                    <div className="absolute top-0 right-0 p-6 opacity-[0.03] dark:opacity-10 rotate-12 group-hover:rotate-0 transition-transform duration-1000">
+                                        <Calculator className="w-32 h-32 md:w-48 md:h-48 text-slate-900 dark:text-white" />
                                     </div>
                                     <div className="relative z-10 space-y-6 md:space-y-10">
                                         <div
@@ -1108,18 +1108,18 @@ export default function RequestHubPage() {
                                                     <ShieldCheck className="w-3.5 h-3.5" />
                                                     Treasury Protocol
                                                 </h3>
-                                                <p className="text-[10px] md:text-sm text-slate-400 font-medium italic leading-relaxed truncate">Evaluation complete. Secure your issuance below.</p>
+                                                <p className="text-[10px] md:text-sm text-slate-500 dark:text-slate-400 font-medium italic leading-relaxed truncate">Evaluation complete. Secure your issuance below.</p>
                                             </div>
                                             <div className="flex items-center gap-3 shrink-0">
                                                 {!isTreasuryOpen && (
                                                     <div className="text-right animate-in fade-in zoom-in-95 duration-200">
-                                                        <p className="text-[8px] font-black uppercase text-emerald-400 tracking-wider italic leading-none">Total Amount</p>
-                                                        <p className="text-sm md:text-base font-black italic tracking-tighter text-white mt-1 leading-none">
+                                                        <p className="text-[8px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider italic leading-none">Total Amount</p>
+                                                        <p className="text-sm md:text-base font-black italic tracking-tighter text-slate-900 dark:text-white mt-1 leading-none">
                                                             ₱{computation?.finalTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                         </p>
                                                     </div>
                                                 )}
-                                                <div className="w-8 h-8 rounded-full hover:bg-white/5 border border-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all shrink-0">
+                                                <div className="w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-all shrink-0">
                                                     {isTreasuryOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                                                 </div>
                                             </div>
@@ -1128,8 +1128,8 @@ export default function RequestHubPage() {
                                             <div className="space-y-4 md:space-y-5 animate-in fade-in slide-in-from-top-2 duration-300">
                                                 {/* Miscellaneous Fee for Civil Registry requests */}
                                                 {computation?.miscFee !== undefined && (
-                                                    <div className="flex justify-between items-end pb-3 border-b border-white/5">
-                                                        <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Miscellaneous Fee</span>
+                                                    <div className="flex justify-between items-end pb-3 border-b border-slate-100 dark:border-white/5">
+                                                        <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic">Miscellaneous Fee</span>
                                                         <span className="text-lg md:text-2xl font-black italic">₱{computation.miscFee.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                 )}
@@ -1137,8 +1137,8 @@ export default function RequestHubPage() {
                                                 {/* Structured Line Items (Additional fees or itemized breakdown) */}
                                                 {computation?.lineItems && computation.lineItems.length > 0 && (
                                                     computation.lineItems.map((item: any, idx: number) => (
-                                                        <div key={idx} className="flex justify-between items-end pb-3 border-b border-white/5">
-                                                            <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 italic">{item.label}</span>
+                                                        <div key={idx} className="flex justify-between items-end pb-3 border-b border-slate-100 dark:border-white/5">
+                                                            <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic">{item.label}</span>
                                                             <span className="text-lg md:text-2xl font-black italic">₱{(Number(item.amount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                     ))
@@ -1148,37 +1148,37 @@ export default function RequestHubPage() {
                                                 {(!isBusinessPermit && !isBuildingPermit) && (
                                                     <>
                                                         {computation && computation.basicTax > 0 && (
-                                                            <div className="flex justify-between items-end pb-3 border-b border-white/5">
-                                                                <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Basic Tax</span>
+                                                            <div className="flex justify-between items-end pb-3 border-b border-slate-100 dark:border-white/5">
+                                                                <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic">Basic Tax</span>
                                                                 <span className="text-lg md:text-2xl font-black italic">₱{computation.basicTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                             </div>
                                                         )}
                                                         {computation && computation.additionalTax > 0 && (
-                                                            <div className="flex justify-between items-end pb-3 border-b border-white/5">
-                                                                <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Additional Tax</span>
+                                                            <div className="flex justify-between items-end pb-3 border-b border-slate-100 dark:border-white/5">
+                                                                <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic">Additional Tax</span>
                                                                 <span className="text-lg md:text-2xl font-black italic">₱{computation.additionalTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                             </div>
                                                         )}
                                                     </>
                                                 )}
                                                 {computation && computation.penaltyAmount > 0 && (
-                                                    <div className="flex justify-between items-end pb-3 border-b border-white/5 text-orange-500">
+                                                    <div className="flex justify-between items-end pb-3 border-b border-slate-100 dark:border-white/5 text-orange-500">
                                                         <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest italic">Penalty</span>
                                                         <span className="text-lg md:text-2xl font-black italic">₱{computation.penaltyAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                 )}
                                                 {localFulfillment === "DELIVERY" && (
-                                                    <div className="flex justify-between items-end pb-3 border-b border-white/5 text-emerald-400">
+                                                    <div className="flex justify-between items-end pb-3 border-b border-slate-100 dark:border-white/5 text-emerald-600 dark:text-emerald-400">
                                                         <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest italic">Delivery Service</span>
                                                         <span className="text-lg md:text-2xl font-black italic">₱{computation?.deliveryFee.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                     </div>
                                                 )}
                                                 <div className="pt-4 md:pt-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-2 md:gap-4">
                                                     <div className="space-y-0.5">
-                                                        <p className="text-[9px] md:text-[11px] font-black uppercase text-emerald-400 tracking-[0.3em] italic leading-none">Total Amount</p>
-                                                        <p className="text-[7px] md:text-[9px] font-bold text-white/20 uppercase italic">Payable via Channel</p>
+                                                        <p className="text-[9px] md:text-[11px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-[0.3em] italic leading-none">Total Amount</p>
+                                                        <p className="text-[7px] md:text-[9px] font-bold text-slate-400/50 dark:text-white/20 uppercase italic">Payable via Channel</p>
                                                     </div>
-                                                    <span className="text-lg md:text-2xl font-black italic tracking-tighter text-white truncate min-w-0">₱{computation?.finalTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                    <span className="text-lg md:text-2xl font-black italic tracking-tighter text-slate-900 dark:text-white truncate min-w-0">₱{computation?.finalTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                 </div>
                                             </div>
                                         )}
@@ -1362,10 +1362,10 @@ export default function RequestHubPage() {
                         </div>
                     ) : (
                         <Tabs defaultValue="overview" className="space-y-8 md:space-y-12">
-                            <TabsList className="bg-slate-100/50 dark:bg-white/5 p-1.5 rounded-[1.25rem] md:rounded-[1.5rem] h-auto md:h-16 w-full md:w-fit border border-slate-200 dark:border-white/10 shadow-inner flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                                <TabsTrigger value="overview" className="flex-1 md:flex-none rounded-xl md:rounded-[1rem] px-5 md:px-10 py-3 md:py-0 h-full font-black text-[8px] md:text-[10px] uppercase tracking-widest italic data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md transition-all">Overview</TabsTrigger>
-                                <TabsTrigger value="records" className="flex-1 md:flex-none rounded-xl md:rounded-[1rem] px-5 md:px-10 py-3 md:py-0 h-full font-black text-[8px] md:text-[10px] uppercase tracking-widest italic data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md transition-all">Records</TabsTrigger>
-                                <TabsTrigger value="logistics" className="flex-1 md:flex-none rounded-xl md:rounded-[1rem] px-5 md:px-10 py-3 md:py-0 h-full font-black text-[8px] md:text-[10px] uppercase tracking-widest italic data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md transition-all">Logistics</TabsTrigger>
+                            <TabsList className="bg-slate-100/50 dark:bg-white/5 p-1.5 rounded-[1.25rem] md:rounded-[1.5rem] h-auto md:h-16 w-full md:w-fit border border-slate-200 dark:border-white/10 shadow-inner flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-nowrap whitespace-nowrap">
+                                <TabsTrigger value="overview" className="flex-grow md:flex-none shrink-0 whitespace-nowrap rounded-xl md:rounded-[1rem] px-3 md:px-10 py-3 md:py-0 h-full font-black text-[8px] sm:text-[9px] md:text-[10px] uppercase tracking-widest italic data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md transition-all">Application</TabsTrigger>
+                                <TabsTrigger value="records" className="flex-grow md:flex-none shrink-0 whitespace-nowrap rounded-xl md:rounded-[1rem] px-3 md:px-10 py-3 md:py-0 h-full font-black text-[8px] sm:text-[9px] md:text-[10px] uppercase tracking-widest italic data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md transition-all">Submitted Details</TabsTrigger>
+                                <TabsTrigger value="logistics" className="flex-grow md:flex-none shrink-0 whitespace-nowrap rounded-xl md:rounded-[1rem] px-3 md:px-10 py-3 md:py-0 h-full font-black text-[8px] sm:text-[9px] md:text-[10px] uppercase tracking-widest italic data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md transition-all">Issuance & Receipts</TabsTrigger>
                             </TabsList>
 
                             <TabsContent value="overview" className="mt-0 space-y-3 md:space-y-4">
@@ -1524,8 +1524,8 @@ export default function RequestHubPage() {
                                             </div>
                                         </Card>
                                     ) : (
-                                        <Card className="p-6 md:p-10 border-none bg-slate-950 text-white shadow-2xl rounded-2xl md:rounded-[3rem] relative overflow-hidden flex flex-col justify-between group lg:col-span-1">
-                                            <div className="absolute top-0 right-0 p-6 md:p-8 opacity-10 group-hover:rotate-12 transition-transform duration-700"><Info className="w-20 h-20 md:w-24 md:h-24" /></div>
+                                        <Card className="p-6 md:p-10 border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-950 text-slate-900 dark:text-white shadow-2xl rounded-2xl md:rounded-[3rem] relative overflow-hidden flex flex-col justify-between group lg:col-span-1">
+                                            <div className="absolute top-0 right-0 p-6 md:p-8 opacity-[0.03] dark:opacity-10 group-hover:rotate-12 transition-transform duration-700"><Info className="w-20 h-20 md:w-24 md:h-24 text-slate-900 dark:text-white" /></div>
                                             <div className="space-y-6 md:space-y-10 relative z-10">
                                                 <h3 className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] text-primary italic leading-none">Government Verification</h3>
                                                 {request.status === "REJECTED" ? (
@@ -1538,17 +1538,17 @@ export default function RequestHubPage() {
                                                         </div>
                                                         {request.rejectionRemarks && (
                                                             <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 space-y-1.5">
-                                                                <span className="text-[8px] font-black uppercase tracking-widest text-red-400 italic">
+                                                                <span className="text-[8px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 italic">
                                                                     Rejection Remarks
                                                                 </span>
-                                                                <p className="text-xs md:text-sm font-bold italic text-red-400 leading-relaxed">
+                                                                <p className="text-xs md:text-sm font-bold italic text-red-650 dark:text-red-400 leading-relaxed">
                                                                     &ldquo;{request.rejectionRemarks}&rdquo;
                                                                 </p>
                                                             </div>
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <p className="text-xs md:text-sm font-bold italic opacity-90 leading-relaxed tracking-tight">
+                                                    <p className="text-xs md:text-sm font-bold italic text-slate-700 dark:text-slate-200 leading-relaxed tracking-tight">
                                                         &quot;{(request.status === "RELEASED" || request.status === "DELIVERED")
                                                             ? "Registry Process Complete. Thank you for utilizing Mapandan's digital governance portal. Records successfully finalized and archived."
                                                             : (request.status === "PAID"
@@ -1560,16 +1560,16 @@ export default function RequestHubPage() {
                                                 )}
                                             </div>
                                             <div className="space-y-3 md:space-y-4 pt-10 relative z-10">
-                                                <Separator className="bg-white/10" />
+                                                <Separator className="bg-slate-100 dark:bg-white/10" />
                                                 <div className="flex items-end justify-between">
                                                     {((request.type?.code === "LCR_BIRTH" || request.type?.code?.startsWith("LCR_")) && ["FOR_REQUESTING", "UNDER_REVIEW"].includes(request.status)) ? (
-                                                        <div><p className="text-[8px] font-black uppercase tracking-widest text-primary/50 italic leading-none">Total Payable</p><p className="text-xl md:text-2xl font-black text-primary/60 italic leading-tight">TBD</p></div>
+                                                        <div><p className="text-[8px] font-black uppercase tracking-widest text-slate-500 dark:text-primary/50 italic leading-none">Total Payable</p><p className="text-xl md:text-2xl font-black text-slate-500 dark:text-primary/60 italic leading-tight">TBD</p></div>
                                                     ) : (isCedula && request.status === "FOR_REQUESTING") ? (
-                                                        <div><p className="text-[8px] font-black uppercase tracking-widest text-primary/50 italic leading-none">Total Payable (Estimated)</p><p className="text-xl md:text-2xl font-black text-primary italic leading-tight">₱{estimatedCedulaAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
+                                                        <div><p className="text-[8px] font-black uppercase tracking-widest text-slate-500 dark:text-primary/50 italic leading-none">Total Payable (Estimated)</p><p className="text-xl md:text-2xl font-black text-primary italic leading-tight">₱{estimatedCedulaAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
                                                     ) : (
-                                                        <div><p className="text-[8px] font-black uppercase tracking-widest text-primary/50 italic leading-none">Total Payable</p><p className="text-xl md:text-2xl font-black text-primary italic leading-tight">₱{(request.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
+                                                        <div><p className="text-[8px] font-black uppercase tracking-widest text-slate-500 dark:text-primary/50 italic leading-none">Total Payable</p><p className="text-xl md:text-2xl font-black text-primary italic leading-tight">₱{(request.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
                                                     )}
-                                                    <ShieldCheck className="w-6 h-6 text-primary/40" />
+                                                    <ShieldCheck className="w-6 h-6 text-slate-400 dark:text-primary/40" />
                                                 </div>
                                             </div>
                                         </Card>
@@ -1740,7 +1740,7 @@ export default function RequestHubPage() {
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10">
                                     <div className="space-y-6">
                                         <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Requirements</h4>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-2 gap-2 sm:gap-4">
                                             {documentList.length > 0 ? documentList.map((doc, i) => {
                                                 const isPdf = checkIsPdf(doc.url);
                                                 if (isPdf) {
@@ -1790,13 +1790,13 @@ export default function RequestHubPage() {
                                     <div className="space-y-6">
                                         {/* Payment Proof Card - Visible only when paymentReference is an uploaded file URL and OR is not yet uploaded */}
                                         {paymentProofUrl && !(request.orUrl || additionalData.orDocumentUrl) && (
-                                            <div className="bg-slate-950 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] text-white space-y-6 md:space-y-8 shadow-2xl relative overflow-hidden group">
-                                                <div className="absolute top-0 right-0 p-6 opacity-5 rotate-12 group-hover:rotate-0 transition-transform"><Wallet className="w-24 h-24" /></div>
+                                            <div className="border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-950 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] text-slate-900 dark:text-white space-y-6 md:space-y-8 shadow-2xl relative overflow-hidden group">
+                                                <div className="absolute top-0 right-0 p-6 opacity-[0.02] dark:opacity-[0.05] rotate-12 group-hover:rotate-0 transition-transform"><Wallet className="w-24 h-24 text-slate-900 dark:text-white" /></div>
                                                 <div className="relative z-10 space-y-6">
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center"><Wallet className="w-5 h-5 text-white" /></div>
                                                         <div>
-                                                            <p className="text-[8px] font-black uppercase text-primary tracking-widest italic opacity-70 leading-none">Payment Verification</p>
+                                                            <p className="text-[8px] font-black uppercase text-primary tracking-widest italic opacity-80 leading-none">Payment Verification</p>
                                                             <p className="text-xs font-bold italic tracking-tight uppercase leading-none mt-1">Proof of Payment</p>
                                                         </div>
                                                     </div>
@@ -1821,7 +1821,7 @@ export default function RequestHubPage() {
                                                                     toast.error("Download failed. Try opening in a new tab.");
                                                                 }
                                                             }}
-                                                            className="h-12 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2"
+                                                            className="h-12 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 border-none"
                                                         >
                                                             <Download className="w-4 h-4" />
                                                             Download
@@ -1833,7 +1833,7 @@ export default function RequestHubPage() {
                                                                 }
                                                             }}
                                                             variant="outline"
-                                                            className="h-12 border-white/20 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 hover:bg-white/10 bg-transparent"
+                                                            className="h-12 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 hover:bg-slate-50 dark:hover:bg-white/5 bg-transparent"
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                             Preview
@@ -1880,14 +1880,33 @@ export default function RequestHubPage() {
                                         {/* Official Receipt (OR) Card - Visible in FOR_PROCESSING, FOR_REINSPECTION, FOR_CLAIM, FOR_PICKING, IN_ROUTE, RELEASED, or DELIVERED */}
                                         {["FOR_PROCESSING", "FOR_REINSPECTION", "FOR_CLAIM", "FOR_PICKING", "IN_ROUTE", "RELEASED", "DELIVERED"].includes(request.status) &&
                                             (request.orUrl || additionalData.orDocumentUrl) && (
-                                                <div className="bg-slate-950 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] text-white space-y-6 md:space-y-8 shadow-2xl relative overflow-hidden group">
-                                                    <div className="absolute top-0 right-0 p-6 opacity-5 rotate-12 group-hover:rotate-0 transition-transform"><ShieldCheck className="w-24 h-24" /></div>
+                                                <div className="border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-950 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] text-slate-900 dark:text-white space-y-6 md:space-y-8 shadow-2xl relative overflow-hidden group">
+                                                    <div className="absolute top-0 right-0 p-6 opacity-[0.02] dark:opacity-[0.05] rotate-12 group-hover:rotate-0 transition-transform"><ShieldCheck className="w-24 h-24 text-slate-900 dark:text-white" /></div>
                                                     <div className="relative z-10 space-y-6">
                                                         <div className="flex items-center gap-4">
                                                             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center"><CreditCard className="w-5 h-5 text-white" /></div>
                                                             <div>
-                                                                <p className="text-[8px] font-black uppercase text-primary tracking-widest italic opacity-70 leading-none">Financial Record Secured</p>
-                                                                <p className="text-xs font-bold italic tracking-tight uppercase leading-none mt-1">Official Receipt (OR)</p>
+                                                                <p className="text-[8px] font-black uppercase text-primary tracking-widest italic opacity-85 leading-none">Financial Record Secured</p>
+                                                                <div className="flex items-center gap-2 mt-1">
+                                                                    <p className="text-xs font-bold italic tracking-tight uppercase leading-none">Official Receipt (OR)</p>
+                                                                    {(request.orSeriesNumber || additionalData.orSeriesNumber) && (
+                                                                        <span className="text-xs font-mono font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded flex items-center gap-1.5 select-all">
+                                                                            #{request.orSeriesNumber || additionalData.orSeriesNumber}
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={async (e) => {
+                                                                                    e.stopPropagation();
+                                                                                    await navigator.clipboard.writeText(String(request.orSeriesNumber || additionalData.orSeriesNumber));
+                                                                                    toast.success("OR number copied!");
+                                                                                }}
+                                                                                className="hover:text-primary transition-colors text-slate-400 dark:text-slate-500"
+                                                                                title="Copy OR Number"
+                                                                            >
+                                                                                <Copy className="w-3.5 h-3.5" />
+                                                                            </button>
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                         <div className="grid grid-cols-2 gap-3">
@@ -1912,7 +1931,7 @@ export default function RequestHubPage() {
                                                                         toast.error("Download failed. Try opening in a new tab.");
                                                                     }
                                                                 }}
-                                                                className="h-12 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2"
+                                                                className="h-12 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 border-none"
                                                             >
                                                                 <Download className="w-4 h-4" />
                                                                 Download
@@ -1925,7 +1944,7 @@ export default function RequestHubPage() {
                                                                     }
                                                                 }}
                                                                 variant="outline"
-                                                                className="h-12 border-white/20 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 hover:bg-white/10 bg-transparent"
+                                                                className="h-12 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 hover:bg-slate-50 dark:hover:bg-white/5 bg-transparent"
                                                             >
                                                                 <Eye className="w-4 h-4" />
                                                                 Preview
@@ -2055,20 +2074,20 @@ export default function RequestHubPage() {
                                         )}
 
                                         {!isLcrBirth && !isLcrDeath && !isLcrMarriage && !isPsaEndorsement && (request.status === "RELEASED" || request.status === "DELIVERED") && (request.eCopyUrl || request.cedula?.documentUrl || request.businessPermit?.documentUrl) && (
-                                            <div className="bg-slate-950 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] text-white space-y-6 md:space-y-8 shadow-2xl relative overflow-hidden group">
-                                                <div className="absolute top-0 right-0 p-6 opacity-5 rotate-12 group-hover:rotate-0 transition-transform"><ShieldCheck className="w-24 h-24" /></div>
+                                            <div className="border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-950 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] text-slate-900 dark:text-white space-y-6 md:space-y-8 shadow-2xl relative overflow-hidden group">
+                                                <div className="absolute top-0 right-0 p-6 opacity-[0.02] dark:opacity-[0.05] rotate-12 group-hover:rotate-0 transition-transform"><ShieldCheck className="w-24 h-24 text-slate-900 dark:text-white" /></div>
                                                 <div className="relative z-10 space-y-6">
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center"><CheckCircle2 className="w-5 h-5 text-white" /></div>
                                                         <div>
-                                                            <p className="text-[8px] font-black uppercase text-primary tracking-widest italic opacity-70 leading-none">Issuance Protocol Secured</p>
+                                                            <p className="text-[8px] font-black uppercase text-primary tracking-widest italic opacity-85 leading-none">Issuance Protocol Secured</p>
                                                             <p className="text-xs font-bold italic tracking-tight uppercase leading-none mt-1">Certified Official Document</p>
                                                         </div>
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-3">
                                                         <Button
                                                             onClick={handleECopyDownload}
-                                                            className="h-12 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 shadow-lg hover:opacity-90 active:scale-95 transition-all"
+                                                            className="h-12 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 shadow-lg hover:opacity-90 active:scale-95 transition-all border-none"
                                                             style={{
                                                                 backgroundColor: themeColor,
                                                                 boxShadow: `0 10px 20px -5px ${themeColor}30`
@@ -2085,7 +2104,7 @@ export default function RequestHubPage() {
                                                                 }
                                                             }}
                                                             variant="outline"
-                                                            className="h-12 border-white/20 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 hover:bg-white/10 bg-transparent"
+                                                            className="h-12 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-black italic uppercase tracking-widest text-[9px] rounded-xl gap-2 hover:bg-slate-50 dark:hover:bg-white/5 bg-transparent"
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                             Preview
@@ -2106,30 +2125,30 @@ export default function RequestHubPage() {
                                                             ⚠️ Report Concern / Request Dispute
                                                         </Button>
                                                     </DialogTrigger>
-                                                    <DialogContent className="max-w-[400px] w-full bg-slate-900 text-white border-none rounded-[2rem] shadow-2xl p-6 md:p-8 z-[150]">
+                                                    <DialogContent className="max-w-[400px] w-full bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded-[2rem] shadow-2xl p-6 md:p-8 z-[150]">
                                                         <DialogHeader className="space-y-1">
-                                                            <DialogTitle className="text-xl font-black italic uppercase tracking-tighter text-white">Dispute <span className="text-red-500">Protocol</span></DialogTitle>
-                                                            <DialogDescription className="text-[8px] font-bold text-slate-400 uppercase tracking-widest italic opacity-60">Resolution & Audit System</DialogDescription>
+                                                            <DialogTitle className="text-xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">Dispute <span className="text-red-500">Protocol</span></DialogTitle>
+                                                            <DialogDescription className="text-[8px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest italic opacity-80">Resolution & Audit System</DialogDescription>
                                                         </DialogHeader>
                                                         <div className="space-y-5 py-4">
                                                             <div className="space-y-1.5">
-                                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Resolution Strategy</Label>
+                                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1">Resolution Strategy</Label>
                                                                 <div className="grid grid-cols-2 gap-3">
                                                                     {[
                                                                         { id: "RETURN", label: "Request Return" },
                                                                         { id: "REFUND", label: "Request Refund" }
                                                                     ].map(opt => (
-                                                                        <button key={opt.id} type="button" onClick={() => setDisputeType(opt.id as any)} className={cn("h-11 rounded-xl font-black uppercase tracking-widest text-[9px] italic border-2 transition-all active:scale-95", disputeType === opt.id ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-600/20" : "bg-transparent border-slate-800 text-slate-400 hover:border-slate-700")}>{opt.label}</button>
+                                                                        <button key={opt.id} type="button" onClick={() => setDisputeType(opt.id as any)} className={cn("h-11 rounded-xl font-black uppercase tracking-widest text-[9px] italic border-2 transition-all active:scale-95", disputeType === opt.id ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-600/20" : "bg-transparent border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-white/5")}>{opt.label}</button>
                                                                     ))}
                                                                 </div>
                                                             </div>
                                                             <div className="space-y-1.5">
-                                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Reason / Statement</Label>
-                                                                <Textarea placeholder="PROVIDE COMPLETE STATEMENT FOR DISPUTE AUDIT..." value={disputeReason} onChange={e => setDisputeReason(e.target.value)} className="min-h-[100px] bg-slate-950 border-slate-800 rounded-xl focus:border-red-500 text-xs md:text-sm font-bold placeholder:text-slate-600 uppercase" />
+                                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1">Reason / Statement</Label>
+                                                                <Textarea placeholder="PROVIDE COMPLETE STATEMENT FOR DISPUTE AUDIT..." value={disputeReason} onChange={e => setDisputeReason(e.target.value)} className="min-h-[100px] bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl focus:border-red-500 focus-visible:ring-0 text-slate-800 dark:text-white text-xs md:text-sm font-bold placeholder:text-slate-400 dark:placeholder:text-slate-655 uppercase" />
                                                             </div>
                                                             <div className="space-y-1.5">
-                                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Evidence / Proof File (Optional)</Label>
-                                                                <div className="w-full aspect-[21/9] bg-slate-950 rounded-xl border border-dashed border-slate-800 flex items-center justify-center relative overflow-hidden group">
+                                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 italic ml-1">Evidence / Proof File (Optional)</Label>
+                                                                <div className="w-full aspect-[21/9] bg-slate-50 dark:bg-slate-950 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-center relative overflow-hidden group">
                                                                     {disputePreview ? (
                                                                         <>
                                                                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2142,8 +2161,8 @@ export default function RequestHubPage() {
                                                                             </div>
                                                                         </>
                                                                     ) : (
-                                                                        <div className="relative w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-slate-900 transition-colors">
-                                                                            <Upload className="w-5 h-5 text-slate-650 mb-1" />
+                                                                        <div className="relative w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors">
+                                                                            <Upload className="w-5 h-5 text-slate-400 dark:text-slate-600 mb-1" />
                                                                             <p className="text-[9px] font-black uppercase text-slate-500 italic">Upload Evidence</p>
                                                                             <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleDisputeFileChange} />
                                                                         </div>

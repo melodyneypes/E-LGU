@@ -6,6 +6,8 @@ import { format } from "date-fns";
 
 interface MarriageLicenseRequestDetailsProps {
     additionalData: {
+        informantAddress?: string;
+        app2Resident?: any;
         applicant1?: {
             fullName?: string;
             birthDate?: string;
@@ -19,6 +21,7 @@ interface MarriageLicenseRequestDetailsProps {
             birthPlace?: string;
             citizenship?: string;
             gender?: string;
+            address?: string;
         };
     };
 }
@@ -31,6 +34,22 @@ export function MarriageLicenseRequestDetails({ additionalData }: MarriageLicens
 
     const app1Role = app1Gender === "MALE" ? "Groom (Male)" : app1Gender === "FEMALE" ? "Bride / Wife (Female)" : "Applicant 1";
     const app2Role = app2Gender === "MALE" ? "Groom (Male)" : app2Gender === "FEMALE" ? "Bride / Wife (Female)" : "Applicant 2";
+
+    const getResidentAddress = (r: any) => {
+        if (!r) return "";
+        const parts = [
+            r.houseNumber && `#${r.houseNumber}`,
+            r.street && `${r.street} St.`,
+            r.purok && `Purok ${r.purok}`,
+            r.sitio && `Sitio ${r.sitio}`,
+            r.barangay && `Brgy. ${r.barangay}`,
+            r.municipality,
+            r.province
+        ].filter(Boolean);
+        return parts.join(", ").toUpperCase();
+    };
+
+    const app2Address = app2.address || getResidentAddress(additionalData.app2Resident) || "N/A";
 
     const formatDate = (dateStr?: string) => {
         if (!dateStr) return "N/A";
@@ -78,6 +97,10 @@ export function MarriageLicenseRequestDetails({ additionalData }: MarriageLicens
                                 <p className="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">{app1.gender || "N/A"}</p>
                             </div>
                         </div>
+                        <div>
+                            <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Address</p>
+                            <p className="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">{additionalData.informantAddress || "N/A"}</p>
+                        </div>
                     </div>
                 </div>
 
@@ -111,6 +134,10 @@ export function MarriageLicenseRequestDetails({ additionalData }: MarriageLicens
                                 <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Sex</p>
                                 <p className="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">{app2.gender || "N/A"}</p>
                             </div>
+                        </div>
+                        <div>
+                            <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Address</p>
+                            <p className="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">{app2Address}</p>
                         </div>
                     </div>
                 </div>

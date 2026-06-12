@@ -1,10 +1,11 @@
 "use client";
- 
+
 import React, { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Eye, FileText, Download, ZoomIn, ZoomOut, RotateCw, RotateCcw, RefreshCw, Move, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, Eye, FileText, Download, ZoomIn, ZoomOut, RotateCw, RotateCcw, RefreshCw, Move, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
- 
+import { cn } from "@/lib/utils";
+
 interface DocumentViewerModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -15,7 +16,7 @@ interface DocumentViewerModalProps {
     documents?: { url?: string | null; label: string }[];
     initialIndex?: number;
 }
- 
+
 const documentExtensions = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf"];
 const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "avif", "bmp", "svg"];
 
@@ -25,9 +26,9 @@ function isImageFile(url: string) {
     const ext = getFileExtension(lower);
     if (imageExtensions.includes(ext)) return true;
     if (documentExtensions.includes(ext)) return false;
-    return true; 
+    return true;
 }
- 
+
 function getFileExtension(value: string) {
     try {
         const cleanPath = new URL(value).pathname;
@@ -36,7 +37,7 @@ function getFileExtension(value: string) {
         return value.split("?")[0].split("#")[0].split(".").pop()?.toLowerCase() || "";
     }
 }
- 
+
 export default function DocumentViewerModal({
     isOpen,
     onClose,
@@ -47,7 +48,7 @@ export default function DocumentViewerModal({
     documents,
     initialIndex
 }: DocumentViewerModalProps) {
-    
+
     // Lock document.body background scrolling when modal is open
     useEffect(() => {
         if (isOpen) {
@@ -59,24 +60,28 @@ export default function DocumentViewerModal({
             document.body.style.overflow = "";
         };
     }, [isOpen]);
- 
+
     const [fetchedType, setFetchedType] = React.useState<string | null>(null);
     const [currentIndex, setCurrentIndex] = React.useState(0);
- 
+
+    const docxContainerRef = React.useRef<HTMLDivElement>(null);
+    const [docxRendering, setDocxRendering] = React.useState(false);
+    const [docxError, setDocxError] = React.useState<string | null>(null);
+
     // Image Manipulation States
     const [scale, setScale] = React.useState(1);
     const [rotation, setRotation] = React.useState(0);
     const [position, setPosition] = React.useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = React.useState(false);
     const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
- 
+
     // Reset States on open/close and sync indexes
     useEffect(() => {
         if (isOpen) {
             setScale(1);
             setRotation(0);
             setPosition({ x: 0, y: 0 });
- 
+
             if (documents && documents.length > 0) {
                 if (typeof initialIndex === "number" && initialIndex >= 0 && initialIndex < documents.length) {
                     setCurrentIndex(initialIndex);
@@ -89,34 +94,104 @@ export default function DocumentViewerModal({
             }
         }
     }, [isOpen, initialIndex, documents, fileUrl]);
- 
+
     const currentDoc = React.useMemo(() => {
         if (documents && documents.length > 0 && currentIndex >= 0 && currentIndex < documents.length) {
             return documents[currentIndex];
         }
         return null;
     }, [documents, currentIndex]);
- 
+
     const activeUrl = React.useMemo(() => {
+        if (fileUrl && /^https?:\/\//i.test(fileUrl)) {
+            return fileUrl;
+        }
         if (file) {
             return URL.createObjectURL(file);
         }
         return currentDoc ? currentDoc.url : fileUrl;
     }, [file, currentDoc, fileUrl]);
- 
+
     const activeTitle = currentDoc ? currentDoc.label : title;
- 
+
+    const fileExtension = React.useMemo(() => {
+        if (file?.name) return getFileExtension(file.name);
+        if (activeUrl) return getFileExtension(activeUrl);
+        return "";
+    }, [file, activeUrl]);
+
+    const isLocalDocx = React.useMemo(() => {
+        if (fileExtension !== "docx") return false;
+        if (file) return true;
+        if (activeUrl && (activeUrl.startsWith("blob:") || activeUrl.startsWith("data:"))) return true;
+        return false;
+    }, [fileExtension, file, activeUrl]);
+
     useEffect(() => {
         if (activeUrl && activeUrl.startsWith("blob:")) {
             fetch(activeUrl)
                 .then(res => res.blob())
                 .then(blob => setFetchedType(blob.type))
-                .catch(() => {});
+                .catch(() => { });
         } else {
             setFetchedType(null);
         }
     }, [activeUrl]);
- 
+
+    React.useEffect(() => {
+        if (!isOpen || !isLocalDocx || !docxContainerRef.current) return;
+
+        let active = true;
+        setDocxRendering(true);
+        setDocxError(null);
+
+        async function renderDocx() {
+            try {
+                let docxBlob: Blob;
+                if (file) {
+                    docxBlob = file;
+                } else if (activeUrl) {
+                    const response = await fetch(activeUrl);
+                    docxBlob = await response.blob();
+                } else {
+                    throw new Error("No file or URL provided");
+                }
+
+                if (!active) return;
+
+                const docxPreviewModule = await import("docx-preview");
+                if (docxContainerRef.current && active) {
+                    docxContainerRef.current.innerHTML = "";
+                    await docxPreviewModule.renderAsync(docxBlob, docxContainerRef.current, undefined, {
+                        className: "docx-preview",
+                        inWrapper: false,
+                        ignoreWidth: true,
+                        ignoreHeight: true,
+                        ignoreFonts: false,
+                        breakPages: true,
+                        debug: false,
+                        experimental: true,
+                    });
+                }
+            } catch (err: any) {
+                console.error("Failed to render DOCX:", err);
+                if (active) {
+                    setDocxError(err.message || "Failed to render docx document");
+                }
+            } finally {
+                if (active) {
+                    setDocxRendering(false);
+                }
+            }
+        }
+
+        renderDocx();
+
+        return () => {
+            active = false;
+        };
+    }, [isOpen, file, activeUrl, isLocalDocx]);
+
     const isPdf = React.useMemo(() => {
         if (file) {
             return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
@@ -134,13 +209,7 @@ export default function DocumentViewerModal({
         }
         return false;
     }, [file, activeUrl, fetchedType, activeTitle]);
- 
-    const fileExtension = React.useMemo(() => {
-        if (file?.name) return getFileExtension(file.name);
-        if (activeUrl) return getFileExtension(activeUrl);
-        return "";
-    }, [file, activeUrl]);
- 
+
     const isDocument = React.useMemo(() => {
         if (isPdf) return true;
         if (file) {
@@ -153,15 +222,15 @@ export default function DocumentViewerModal({
         }
         return documentExtensions.includes(fileExtension);
     }, [file, fetchedType, fileExtension, isPdf]);
- 
+
     const isImage = !isDocument;
- 
+
     const officeViewerUrl = React.useMemo(() => {
         if (!activeUrl || isPdf || !["doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(fileExtension)) return null;
         if (!/^https?:\/\//i.test(activeUrl)) return null;
         return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(activeUrl)}`;
     }, [activeUrl, fileExtension, isPdf]);
- 
+
     // Interactive Handlers
     const handleWheel = (e: React.WheelEvent) => {
         if (!isImage) return;
@@ -169,14 +238,14 @@ export default function DocumentViewerModal({
         const newScale = Math.min(Math.max(scale - e.deltaY * 0.0015, 0.4), 8);
         setScale(newScale);
     };
- 
+
     const handlePointerDown = (e: React.PointerEvent) => {
         if (!isImage) return;
         e.currentTarget.setPointerCapture(e.pointerId);
         setIsDragging(true);
         setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
     };
- 
+
     const handlePointerMove = (e: React.PointerEvent) => {
         if (!isDragging || !isImage) return;
         setPosition({
@@ -184,18 +253,18 @@ export default function DocumentViewerModal({
             y: e.clientY - dragStart.y
         });
     };
- 
+
     const handlePointerUp = () => {
         if (!isImage) return;
         setIsDragging(false);
     };
- 
+
     const handleReset = () => {
         setScale(1);
         setRotation(0);
         setPosition({ x: 0, y: 0 });
     };
- 
+
     const handleDownload = async () => {
         if (!activeUrl) return;
         try {
@@ -204,11 +273,11 @@ export default function DocumentViewerModal({
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;
-            
+
             const cleanTitle = activeTitle.trim().replace(/[^a-zA-Z0-9\-_]/g, "_") || "document";
             const ext = fileExtension || (blob.type.includes("pdf") ? "pdf" : blob.type.split("/")[1] || "bin");
             link.download = `${cleanTitle}.${ext}`;
-            
+
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -218,7 +287,7 @@ export default function DocumentViewerModal({
             window.open(activeUrl, "_blank");
         }
     };
- 
+
     return (
         <AnimatePresence>
             {isOpen && activeUrl && (
@@ -231,7 +300,7 @@ export default function DocumentViewerModal({
                         onClick={onClose}
                         className="fixed inset-0 bg-slate-950/80 backdrop-blur-md"
                     />
- 
+
                     {/* Modal Window Container */}
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -241,11 +310,11 @@ export default function DocumentViewerModal({
                         className="relative w-full max-w-4xl bg-white dark:bg-[#0c0f16] border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col z-10 h-[85vh]"
                     >
                         {/* Ambient Glow */}
-                        <div 
+                        <div
                             className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-36 blur-[80px] rounded-full opacity-10 pointer-events-none"
                             style={{ backgroundColor: themeColor }}
                         />
- 
+
                         {/* Modal Header */}
                         <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-white/5 flex items-center justify-between relative z-10 shrink-0">
                             <div className="flex items-center gap-3">
@@ -263,7 +332,7 @@ export default function DocumentViewerModal({
                                     </h3>
                                 </div>
                             </div>
-                            
+
                             <div className="flex items-center gap-2">
                                 {/* Visualizer Controls - Only for Images */}
                                 {isImage && (
@@ -315,7 +384,7 @@ export default function DocumentViewerModal({
                                         </Button>
                                     </div>
                                 )}
- 
+
                                 <Button
                                     onClick={handleDownload}
                                     variant="ghost"
@@ -333,9 +402,9 @@ export default function DocumentViewerModal({
                                 </button>
                             </div>
                         </div>
- 
+
                         {/* Content Body */}
-                        <div 
+                        <div
                             className="flex-grow bg-slate-100/50 dark:bg-black/40 flex items-center justify-center overflow-hidden relative select-none"
                             onWheel={handleWheel}
                         >
@@ -373,6 +442,32 @@ export default function DocumentViewerModal({
                                     className="w-full h-full rounded-2xl border-0 bg-white"
                                     title="PDF Document Viewer"
                                 />
+                            ) : isLocalDocx ? (
+                                <div className="w-full h-full flex flex-col bg-slate-50 dark:bg-slate-900 rounded-2xl overflow-hidden">
+                                    {docxRendering && (
+                                        <div className="flex-grow flex flex-col items-center justify-center p-8 text-slate-500">
+                                            <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-2" />
+                                            <p className="text-[10px] font-black uppercase tracking-widest italic text-slate-400">Rendering document content...</p>
+                                        </div>
+                                    )}
+                                    {docxError && (
+                                        <div className="flex-grow flex flex-col items-center justify-center p-8 text-center">
+                                            <p className="text-sm text-red-500 font-bold mb-2">Failed to render preview</p>
+                                            <p className="text-xs text-slate-400 max-w-sm mb-4">{docxError}</p>
+                                            <Button onClick={handleDownload} style={{ backgroundColor: themeColor }}>
+                                                <Download className="w-4 h-4 mr-2" /> Download File
+                                            </Button>
+                                        </div>
+                                    )}
+                                    <div
+                                        ref={docxContainerRef}
+                                        className={cn(
+                                            "flex-grow overflow-auto p-4 md:p-8 bg-white text-black text-left border-0",
+                                            docxError && "hidden"
+                                        )}
+                                        style={{ color: "black", background: "white" }}
+                                    />
+                                </div>
                             ) : isDocument ? (
                                 officeViewerUrl ? (
                                     <iframe
@@ -407,7 +502,7 @@ export default function DocumentViewerModal({
                                     </div>
                                 )
                             ) : (
-                                <div 
+                                <div
                                     className="w-full h-full flex items-center justify-center relative active:cursor-grabbing overflow-hidden cursor-grab"
                                     onPointerDown={handlePointerDown}
                                     onPointerMove={handlePointerMove}
@@ -420,7 +515,7 @@ export default function DocumentViewerModal({
                                         <Move className="w-3.5 h-3.5 text-primary" />
                                         <span>Drag to Pan • Scroll to Zoom</span>
                                     </div>
- 
+
                                     <motion.div
                                         className="relative flex items-center justify-center pointer-events-none"
                                         style={{
@@ -456,7 +551,7 @@ export default function DocumentViewerModal({
                                         const isActive = idx === currentIndex;
                                         const hasDoc = !!doc.url;
                                         const isImg = hasDoc && isImageFile(doc.url!);
-                                        
+
                                         return (
                                             <button
                                                 key={idx}
@@ -465,23 +560,22 @@ export default function DocumentViewerModal({
                                                     setCurrentIndex(idx);
                                                     handleReset();
                                                 }}
-                                                className={`relative w-24 h-16 rounded-xl overflow-hidden shrink-0 transition-all active:scale-95 border-2 ${
-                                                    isActive
+                                                className={`relative w-24 h-16 rounded-xl overflow-hidden shrink-0 transition-all active:scale-95 border-2 ${isActive
                                                         ? "scale-105 shadow-md"
                                                         : hasDoc
-                                                        ? "border-transparent opacity-60 hover:opacity-100 hover:scale-102"
-                                                        : "opacity-20 cursor-not-allowed border-transparent"
-                                                }`}
+                                                            ? "border-transparent opacity-60 hover:opacity-100 hover:scale-102"
+                                                            : "opacity-20 cursor-not-allowed border-transparent"
+                                                    }`}
                                                 style={isActive ? { borderColor: themeColor, boxShadow: `0 0 12px ${themeColor}40` } : undefined}
                                                 title={doc.label}
                                             >
                                                 {hasDoc ? (
                                                     isImg ? (
                                                         /* eslint-disable-next-line @next/next/no-img-element */
-                                                        <img 
-                                                            src={doc.url!} 
-                                                            alt={doc.label} 
-                                                            className="w-full h-full object-cover" 
+                                                        <img
+                                                            src={doc.url!}
+                                                            alt={doc.label}
+                                                            className="w-full h-full object-cover"
                                                         />
                                                     ) : (
                                                         <div className="w-full h-full bg-slate-200 dark:bg-white/5 flex flex-col items-center justify-center gap-1 p-1">
@@ -496,7 +590,7 @@ export default function DocumentViewerModal({
                                                         <span className="text-[8px] font-black uppercase text-slate-400">Empty</span>
                                                     </div>
                                                 )}
-                                                
+
                                                 {/* Text Overlay for Labels */}
                                                 <div className="absolute inset-x-0 bottom-0 bg-slate-950/70 backdrop-blur-[1px] py-0.5 px-1 text-center text-white text-[7px] font-black uppercase tracking-wider truncate">
                                                     {doc.label}

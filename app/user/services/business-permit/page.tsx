@@ -453,7 +453,14 @@ export default function BusinessPermitWizardPage() {
                                     businessArea: addData.businessArea ? addData.businessArea.toString() : "",
                                     fulfillmentType: addData.fulfillmentType || "E_COPY",
                                     deliveryAddress: addData.deliveryAddress || prev.deliveryAddress,
-                                    deliveryPhone: addData.deliveryPhone || prev.deliveryPhone
+                                    deliveryPhone: addData.deliveryPhone || prev.deliveryPhone,
+                                    tinNumber: addData.tinNumber || "",
+                                    philhealthNumber: addData.philhealthNumber || "",
+                                    pagibigNumber: addData.pagibigNumber || "",
+                                    sssNumber: addData.sssNumber || "",
+                                    dtiSecDate: addData.dtiSecDate || "",
+                                    registrationType: addData.registrationType || "DTI",
+                                    businessBranch: addData.businessBranch || "MAIN"
                                 }));
                             }
                         }
@@ -986,7 +993,7 @@ export default function BusinessPermitWizardPage() {
     const onSubmit = async () => {
         setSubmitting(true);
         try {
-            toast.loading("Submitting application...", { id: "bp-upload-toast" });
+            toast.loading(<span style={{ color: "var(--primary-theme)" }} className="font-black uppercase tracking-widest text-[10px]">Submitting application...</span>, { id: "bp-upload-toast" });
 
             // Process residentSnapshot base64 files if present (e.g. webcam selfie or scanned IDs)
             const updatedResidentData = { ...formData.residentData };
@@ -1327,11 +1334,11 @@ export default function BusinessPermitWizardPage() {
                                     </div>
 
                                     {revisionTx && (
-                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-800 dark:text-red-400 animate-in fade-in duration-300">
                                             <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
                                             <div className="text-left space-y-1">
                                                 <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
-                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                                <p className="text-xs font-bold text-slate-900 dark:text-slate-300 leading-relaxed italic">
                                                     &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
                                                 </p>
                                             </div>
@@ -1444,7 +1451,16 @@ export default function BusinessPermitWizardPage() {
                                                     id="resident-contactNumber"
                                                     ref={contactInputRef}
                                                     value={formData.residentData?.contactNumber || ""}
-                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, contactNumber: e.target.value } }))}
+                                                    onChange={(e) => {
+                                                        const cleanVal = e.target.value.replace(/[^0-9+]/g, "");
+                                                        setFormData(p => ({
+                                                            ...p,
+                                                            residentData: {
+                                                                ...p.residentData,
+                                                                contactNumber: cleanVal
+                                                            }
+                                                        }));
+                                                    }}
                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm"
                                                     placeholder="09xx xxx xxxx"
                                                 />
@@ -1478,11 +1494,11 @@ export default function BusinessPermitWizardPage() {
                                     </div>
 
                                     {revisionTx && (
-                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-800 dark:text-red-400 animate-in fade-in duration-300">
                                             <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
                                             <div className="text-left space-y-1">
                                                 <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
-                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                                <p className="text-xs font-bold text-slate-900 dark:text-slate-300 leading-relaxed italic">
                                                     &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
                                                 </p>
                                             </div>
@@ -1701,7 +1717,10 @@ export default function BusinessPermitWizardPage() {
                                                     id="profile-capitalInvestment"
                                                     type="text"
                                                     value={formData.capitalInvestment}
-                                                    onChange={e => handleInputChange("capitalInvestment", e.target.value)}
+                                                    onChange={e => {
+                                                        const cleanVal = e.target.value.replace(/[^0-9.,]/g, "");
+                                                        handleInputChange("capitalInvestment", cleanVal);
+                                                    }}
                                                     placeholder="e.g. 250,000"
                                                     className="rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 pr-12 font-mono font-bold"
                                                 />
@@ -1713,7 +1732,10 @@ export default function BusinessPermitWizardPage() {
                                                     id="profile-grossSales"
                                                     type="text"
                                                     value={formData.grossSales}
-                                                    onChange={e => handleInputChange("grossSales", e.target.value)}
+                                                    onChange={e => {
+                                                        const cleanVal = e.target.value.replace(/[^0-9.,]/g, "");
+                                                        handleInputChange("grossSales", cleanVal);
+                                                    }}
                                                     placeholder="e.g. 1,200,000"
                                                     className="rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 pr-12 font-mono font-bold"
                                                 />
@@ -1899,11 +1921,11 @@ export default function BusinessPermitWizardPage() {
                                     </div>
 
                                     {revisionTx && (
-                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-800 dark:text-red-400 animate-in fade-in duration-300">
                                             <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
                                             <div className="text-left space-y-1">
                                                 <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
-                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                                <p className="text-xs font-bold text-slate-900 dark:text-slate-300 leading-relaxed italic">
                                                     &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
                                                 </p>
                                             </div>
@@ -2100,11 +2122,11 @@ export default function BusinessPermitWizardPage() {
                                     </div>
 
                                     {revisionTx && (
-                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-500 animate-in fade-in duration-300">
+                                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-800 dark:text-red-400 animate-in fade-in duration-300">
                                             <AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
                                             <div className="text-left space-y-1">
                                                 <p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
-                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                                                <p className="text-xs font-bold text-slate-900 dark:text-slate-300 leading-relaxed italic">
                                                     &ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
                                                 </p>
                                             </div>

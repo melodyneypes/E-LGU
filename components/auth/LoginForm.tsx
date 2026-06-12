@@ -63,8 +63,20 @@ export function LoginForm({ themeColor = "#2563eb" }: LoginFormProps) {
                 signOut({ redirect: false });
             } else {
                 const role = (session.user as any).role;
+                const isPasswordChanged = (session.user as any).isPasswordChanged;
+                const email = session.user?.email || "";
+
+                if (role === "USER" && isPasswordChanged === false) {
+                    setUserEmail(email);
+                    setShowChangeModal(true);
+                    return;
+                }
+
+                const dept = (session.user as any).department;
                 if (role === "USER") {
                     router.push("/");
+                } else if (dept && (dept.toUpperCase() === "REGISTRAR" || dept.toUpperCase() === "CIVIL_REGISTRY")) {
+                    router.push("/admin/registrar");
                 } else {
                     router.push("/admin/dashboard");
                 }
@@ -306,7 +318,12 @@ export function LoginForm({ themeColor = "#2563eb" }: LoginFormProps) {
                         // Auto-set admin portal cookie so page.tsx won't redirect to landing
                         document.cookie = `active_portal=admin; path=/; max-age=86400; SameSite=Lax`;
                         toast.success("Logged in successfully");
-                        router.push("/admin/dashboard");
+                        const dept = session.user?.department;
+                        if (dept && (dept.toUpperCase() === "REGISTRAR" || dept.toUpperCase() === "CIVIL_REGISTRY")) {
+                            router.push("/admin/registrar");
+                        } else {
+                            router.push("/admin/dashboard");
+                        }
                     }
                 };
 

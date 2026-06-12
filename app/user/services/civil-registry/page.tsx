@@ -166,28 +166,26 @@ export default function CivilRegistryPage() {
             <div className="space-y-4 md:space-y-10">
                 <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                     <Breadcrumb>
-                        <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 md:px-6 py-2 md:py-2.5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 w-fit shadow-sm">
+                        <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
                             <BreadcrumbItem>
                                 <BreadcrumbLink asChild>
-                                    <Link href="/" className="flex items-center gap-1.5 transition-colors hover:text-blue-500 theme-text-hover font-bold italic text-[11px] uppercase tracking-wider">
-                                        <Home className="w-3.5 h-3.5" />
+                                    <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                        <Home className="w-3.5 h-3.5 mb-0.5" />
                                         Home
                                     </Link>
                                 </BreadcrumbLink>
                             </BreadcrumbItem>
-                            <BreadcrumbSeparator className="opacity-40" />
+                            <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                             <BreadcrumbItem>
                                 <BreadcrumbLink asChild>
-                                    <Link href="/user/services" className="transition-colors hover:text-blue-500 theme-text-hover font-bold italic text-[11px] uppercase tracking-wider">
+                                    <Link href="/user/services" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
                                         Services
                                     </Link>
                                 </BreadcrumbLink>
                             </BreadcrumbItem>
-                            <BreadcrumbSeparator className="opacity-40" />
+                            <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                             <BreadcrumbItem>
-                                <BreadcrumbPage className="text-blue-500 theme-icon-text font-black italic text-[11px] uppercase tracking-wider">
-                                    Civil Registry
-                                </BreadcrumbPage>
+                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic text-emerald-700 dark:text-emerald-400">Civil Registry</BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>

@@ -24,7 +24,7 @@ export default function UserLayoutClient({
 
     React.useEffect(() => {
         if (status === "unauthenticated") {
-            window.location.href = "/auth/login?error=Your account has been deactivated due to multiple rejected requests. Please visit the Municipal Treasury Office for restoration.";
+            window.location.href = "/auth/login";
         }
     }, [status]);
 

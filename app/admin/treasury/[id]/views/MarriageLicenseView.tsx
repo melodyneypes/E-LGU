@@ -101,6 +101,22 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
     const app1 = additional.applicant1 || {};
     const app2 = additional.applicant2 || {};
 
+    const getResidentAddress = (r: any) => {
+        if (!r) return "";
+        const parts = [
+            r.houseNumber && `#${r.houseNumber}`,
+            r.street && `${r.street} St.`,
+            r.purok && `Purok ${r.purok}`,
+            r.sitio && `Sitio ${r.sitio}`,
+            r.barangay && `Brgy. ${r.barangay}`,
+            r.municipality,
+            r.province
+        ].filter(Boolean);
+        return parts.join(", ").toUpperCase();
+    };
+
+    const app2Address = app2.address || getResidentAddress(additional.app2Resident) || "—";
+
     const partnerNamesLabel = `${app1.fullName || "N/A"} & ${app2.fullName || "N/A"}`;
 
     return (
@@ -143,7 +159,7 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
                         />
 
                         {/* MAIN ASSESSMENT CARD */}
-                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-12 animate-in fade-in duration-300">
+                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-12 animate-in fade-in duration-300">
                             {/* IDENTIFIER / ACCORDION HEADER */}
                             <div
                                 className="flex justify-between items-center cursor-pointer select-none"
@@ -311,7 +327,7 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
                         />
 
                         {/* Primary LCR Specific Details Panel */}
-                        <div className="bg-[#111827] border border-slate-800 rounded-[2.5rem] p-8 md:p-12 shadow-2xl space-y-8 animate-in fade-in duration-300">
+                        <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 md:p-12 shadow-xl dark:shadow-2xl space-y-8 animate-in fade-in duration-300">
                             <div className="flex items-center gap-3">
                                 <div className="p-2.5 bg-primary rounded-xl text-white shadow-lg shadow-primary/20">
                                     <FileText className="w-5 h-5" />
@@ -326,7 +342,7 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
                                     {additional.orSeriesNumber && (
                                         <div className="flex flex-col justify-center gap-2">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">O.R. Series Number</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {additional.orSeriesNumber}
                                             </div>
                                         </div>
@@ -343,36 +359,43 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
                                     <div className="space-y-6">
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Full Name</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {app1.fullName || "—"}
                                             </div>
                                         </div>
 
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Date of Birth</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {safeFormatDate(app1.birthDate)}
                                             </div>
                                         </div>
 
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Birth</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {app1.birthPlace || "—"}
                                             </div>
                                         </div>
 
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Citizenship</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {app1.citizenship || "—"}
                                             </div>
                                         </div>
 
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Sex</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {app1.gender || "—"}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Address</span>
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
+                                                {additional.informantAddress || "—"}
                                             </div>
                                         </div>
                                     </div>
@@ -386,36 +409,43 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
                                     <div className="space-y-6">
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Full Name</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {app2.fullName || "—"}
                                             </div>
                                         </div>
 
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Date of Birth</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {safeFormatDate(app2.birthDate)}
                                             </div>
                                         </div>
 
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Birth</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {app2.birthPlace || "—"}
                                             </div>
                                         </div>
 
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Citizenship</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {app2.citizenship || "—"}
                                             </div>
                                         </div>
 
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Sex</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {app2.gender || "—"}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Address</span>
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
+                                                {app2Address}
                                             </div>
                                         </div>
                                     </div>
@@ -425,7 +455,7 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
 
                         {/* ATTACHMENT CARD FOR EVIDENCE */}
                         {evidenceDocs && evidenceDocs.length > 0 && (
-                            <div className="bg-white dark:bg-[#151b28] rounded-[2.5rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
+                            <div className="bg-white dark:bg-[#151b28] rounded-[2.5rem] p-12 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e293b] dark:text-white leading-none">
                                     Submitted Identifications & Requirements
                                 </h3>
@@ -466,7 +496,7 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
                     {/* Right Column: Workflow Actions Controls */}
                     <div className="lg:col-span-4 space-y-8 lg:sticky lg:top-8 animate-in fade-in duration-300">
                         {/* PHASE TRACKER STEPPER */}
-                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
+                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-8">
                             <h3 className="text-[10px] font-black uppercase tracking-widest text-[#1e293b] dark:text-slate-400">
                                 Service Request Progress
                             </h3>
@@ -569,7 +599,7 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
 
                         {/* TREASURY PAID / VERIFICATION CONTROLLER */}
                         {(transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION") && (
-                            <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-6">
+                            <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-6">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 rounded-xl bg-green-500/10 text-green-500">
                                         <FileText className="w-4 h-4" />

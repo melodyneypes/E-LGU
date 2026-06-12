@@ -147,7 +147,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                             </div>
                         )}
 
-                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-12 animate-in fade-in duration-300">
+                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-12 animate-in fade-in duration-300">
                             <div
                                 className="flex justify-between items-center cursor-pointer select-none"
                                 onClick={() => setIsAssessmentOpen(!isAssessmentOpen)}
@@ -235,7 +235,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                             relationship={additional.relationship}
                         />
 
-                        <div className="bg-[#111827] border border-slate-800 rounded-[2.5rem] p-8 md:p-12 shadow-2xl space-y-8 animate-in fade-in duration-300">
+                        <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 md:p-12 shadow-xl dark:shadow-2xl space-y-8 animate-in fade-in duration-300">
                             <div className="flex items-center gap-3">
                                 <div className="p-2.5 bg-primary rounded-xl text-white shadow-lg shadow-primary/20">
                                     <FileText className="w-5 h-5" />
@@ -253,21 +253,21 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                     <div className="space-y-6">
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Deceased Full Name</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {subjectName}
                                             </div>
                                         </div>
 
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Date of Death</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {safeFormatDate(subjectDateOfDeath)}
                                             </div>
                                         </div>
 
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">{"Mother's Maiden Name"}</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {mothersMaidenName || "—"}
                                             </div>
                                         </div>
@@ -275,7 +275,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                         {fathersName && (
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Father&apos;s Full Name</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {fathersName}
                                                 </div>
                                             </div>
@@ -284,7 +284,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                         {placeOfDeath && (
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Death</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {placeOfDeath}
                                                 </div>
                                             </div>
@@ -299,7 +299,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                     <div className="space-y-6">
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Informant Full Name</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {[additional.informantFirstName, additional.informantMiddleName, additional.informantLastName].filter(Boolean).join(" ") + (additional.informantSuffix ? " " + additional.informantSuffix : "") || "—"}
                                             </div>
                                         </div>
@@ -307,13 +307,13 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Contact Number</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {additional.contactNumber || "—"}
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Civil Status</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {additional.informantCivilStatus || "—"}
                                                 </div>
                                             </div>
@@ -324,7 +324,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                         </div>
 
                         {((psaNegativeCertUrl || form2aUrl) && (
-                            <div className="bg-white dark:bg-[#151b28] rounded-[2.5rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
+                            <div className="bg-white dark:bg-[#151b28] rounded-[2.5rem] p-12 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e293b] dark:text-white leading-none">
                                     Submitted Identifications & Requirements
                                 </h3>
@@ -381,7 +381,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                     </div>
 
                     <div className="lg:col-span-4 space-y-8 lg:sticky lg:top-8 animate-in fade-in duration-300">
-                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 md:p-10 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-6">
+                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 md:p-10 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-6">
                             <div>
                                 <h3 className="text-md font-black italic uppercase tracking-wider text-slate-800 dark:text-slate-200">Status Tracker</h3>
                                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest italic mt-1">Status phase progress</p>
@@ -497,7 +497,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                     if (!refNo) return null;
 
                                     return (
-                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-4">
+                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 rounded-xl bg-primary/10 text-primary">
                                                     <Hash className="w-4 h-4" />
@@ -539,7 +539,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                     if (!orNo && !orDocUrl) return null;
 
                                     return (
-                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-4">
+                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 rounded-xl bg-primary/10 text-primary">
                                                     <FileText className="w-4 h-4" />

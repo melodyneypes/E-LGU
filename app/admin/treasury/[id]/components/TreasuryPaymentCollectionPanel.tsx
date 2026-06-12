@@ -76,16 +76,16 @@ export default function TreasuryPaymentCollectionPanel({
                         <div className="space-y-1 pb-4 border-b border-slate-100 dark:border-white/5">
                             <h4 className="text-[10px] font-black uppercase tracking-[0.2em] italic" style={{ color: themeColor }}>Treasury Collection</h4>
                             <p className="text-[10px] font-bold text-slate-400 italic">
-                                {transaction.status === "PAID" ? "Official Receipt details recorded for this payment." : "Record receipt serial, attach scanned document, and mark as paid."}
+                                {transaction.status === "PAID" && (transaction.orSeriesNumber || additional?.orSeriesNumber) ? "Official Receipt details recorded for this payment." : "Record receipt serial, attach scanned document, and mark as paid."}
                             </p>
                         </div>
 
                         <div className="space-y-4 pt-2">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 italic block">
-                                    O.R. Series Number {(transaction.status !== "PAID" || isBusinessPermit) && <span className="text-rose-500 font-extrabold">*Required</span>}
+                                    O.R. Series Number {((transaction.status !== "PAID" || !(transaction.orSeriesNumber || additional?.orSeriesNumber)) || isBusinessPermit) && <span className="text-rose-500 font-extrabold">*Required</span>}
                                 </label>
-                                {transaction.status === "PAID" && !isBusinessPermit ? (
+                                {transaction.status === "PAID" && (transaction.orSeriesNumber || additional?.orSeriesNumber) && !isBusinessPermit ? (
                                     <div className="h-11 flex items-center px-4 rounded-xl border border-slate-150 dark:border-white/5 bg-slate-50 dark:bg-white/5 text-xs font-bold text-slate-800 dark:text-slate-100">
                                         {orSeriesNumber || transaction.orSeriesNumber || additional?.orSeriesNumber || "N/A"}
                                     </div>
@@ -102,9 +102,9 @@ export default function TreasuryPaymentCollectionPanel({
 
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 italic block">
-                                    Official Receipt (O.R.) Document {(transaction.status !== "PAID" || isBusinessPermit) && <span className="text-rose-500 font-extrabold">*Required</span>}
+                                    Official Receipt (O.R.) Document {((transaction.status !== "PAID" || !transaction.orUrl) || isBusinessPermit) && <span className="text-rose-500 font-extrabold">*Required</span>}
                                 </label>
-                                {(transaction.status !== "PAID" || isBusinessPermit) && (
+                                {((transaction.status !== "PAID" || !transaction.orUrl) || isBusinessPermit) && (
                                     <input
                                         type="file"
                                         accept=".pdf,image/*"
@@ -143,7 +143,7 @@ export default function TreasuryPaymentCollectionPanel({
                                                                 📕
                                                             </div>
                                                             <div className="space-y-1">
-                                                                <p className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 leading-none">Official Receipt PDF</p>
+                                                                 <p className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 leading-none">Official Receipt PDF</p>
                                                                 <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic leading-none">Click to View PDF in Modal</p>
                                                             </div>
                                                         </div>
@@ -176,7 +176,7 @@ export default function TreasuryPaymentCollectionPanel({
                                                 </div>
                                             );
                                         })()}
-                                        {(transaction.status !== "PAID" || isBusinessPermit) && (
+                                        {((transaction.status !== "PAID" || !transaction.orUrl) || isBusinessPermit) && (
                                             <div className="flex justify-end">
                                                 <label
                                                     htmlFor="or-document-upload-paid"
@@ -188,7 +188,7 @@ export default function TreasuryPaymentCollectionPanel({
                                         )}
                                     </div>
                                 ) : (
-                                    (transaction.status !== "PAID" || isBusinessPermit) ? (
+                                    ((transaction.status !== "PAID" || !transaction.orUrl) || isBusinessPermit) ? (
                                         <label
                                             htmlFor="or-document-upload-paid"
                                             className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed transition-all h-28 bg-white dark:bg-[#151b28]/60 overflow-hidden relative group cursor-pointer border-slate-200 dark:border-white/10 hover:border-primary/30"
@@ -208,7 +208,7 @@ export default function TreasuryPaymentCollectionPanel({
                         </div>
                     </div>
 
-                    {(transaction.status !== "PAID" || isBusinessPermit) && (
+                    {((transaction.status !== "PAID" || !transaction.orSeriesNumber || !transaction.orUrl) || isBusinessPermit) && (
                         <Button
                             onClick={handleConfirmPayment}
                             disabled={actionLoading || !orSeriesNumber || !orFile}
@@ -216,7 +216,7 @@ export default function TreasuryPaymentCollectionPanel({
                             className="w-full h-14 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all opacity-100 hover:opacity-90 disabled:opacity-50"
                         >
                             {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                            {transaction.status === "PAID" ? "Submit O.R. & Handoff to BPLO" : "Upload O.R. & Mark as Paid"}
+                            {transaction.status === "PAID" ? "Submit O.R. Details" : "Upload O.R. & Mark as Paid"}
                         </Button>
                     )}
                 </div>

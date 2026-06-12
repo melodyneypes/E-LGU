@@ -149,7 +149,7 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                         />
 
                         {/* MAIN ASSESSMENT CARD */}
-                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-12 animate-in fade-in duration-300">
+                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-12 animate-in fade-in duration-300">
                             {/* IDENTIFIER / ACCORDION HEADER */}
                             <div
                                 className="flex justify-between items-center cursor-pointer select-none"
@@ -317,7 +317,7 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                         />
 
                         {/* Primary LCR Specific Details Panel */}
-                        <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 md:p-12 shadow-2xl space-y-8 animate-in fade-in duration-300">
+                        <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 md:p-12 shadow-xl dark:shadow-2xl space-y-8 animate-in fade-in duration-300">
                             <div className="flex items-center gap-3">
                                 <div className="p-2.5 bg-primary rounded-xl text-white shadow-lg shadow-primary/20">
                                     <FileText className="w-5 h-5" />
@@ -391,7 +391,7 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
 
                         {/* ATTACHMENT CARD FOR EVIDENCE */}
                         {evidenceDocs && evidenceDocs.length > 0 && (
-                            <div className="bg-white dark:bg-[#151b28] rounded-[2.5rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
+                            <div className="bg-white dark:bg-[#151b28] rounded-[2.5rem] p-12 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e293b] dark:text-white leading-none">
                                     Submitted Identifications & Requirements
                                 </h3>
@@ -432,7 +432,7 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                     {/* Right Column: Workflow Actions Controls */}
                     <div className="lg:col-span-4 space-y-8 lg:sticky lg:top-8 animate-in fade-in duration-300">
                         {/* PHASE TRACKER STEPPER */}
-                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
+                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-8">
                             <h3 className="text-[10px] font-black uppercase tracking-widest text-[#1e293b] dark:text-slate-400">
                                 Service Request Progress
                             </h3>
@@ -535,7 +535,7 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                                     if (!refNo) return null;
 
                                     return (
-                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-4">
+                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 rounded-xl bg-primary/10 text-primary">
                                                     <Hash className="w-4 h-4" />
@@ -578,7 +578,7 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                                     if (!orNo && !orDocUrl) return null;
 
                                     return (
-                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-4">
+                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 rounded-xl bg-green-500/10 text-green-500">
                                                     <FileText className="w-4 h-4" />
@@ -712,7 +712,7 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                         {/* REGISTRAR UPLOAD E-COPY AND OR RELEASE ACTION */}
                         {(transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REINSPECTION") && (
                             <div className="space-y-6">
-                                <div className="bg-[#111827] border border-slate-800 rounded-[2rem] p-8 shadow-2xl space-y-6">
+                                <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 rounded-[2rem] p-8 shadow-xl dark:shadow-2xl space-y-6">
                                     <div className="space-y-1">
                                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#10b981] italic">Upload & Release Document</h4>
                                         <p className="text-xs font-bold text-slate-500 italic">Verify registry book, attach records, and release e-copy.</p>
@@ -754,7 +754,7 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                                                                 onClick={() => setRegistryBookVerification?.(opt.id)}
                                                                 className={cn(
                                                                     "flex items-center justify-between p-4 rounded-2xl border text-left transition-all duration-300 active:scale-98 select-none w-full",
-                                                                    isSelected ? `${themeColor} bg-[#1f2937]/10 border-primary shadow-md font-bold text-white` : "border-slate-800 text-slate-400 bg-[#1f2937]/30 hover:bg-[#1f2937]/50"
+                                                                    isSelected ? `${themeColor} bg-slate-100/50 dark:bg-[#1f2937]/10 border-primary shadow-md font-bold text-slate-800 dark:text-white` : "border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-[#1f2937]/30 hover:bg-slate-100 dark:hover:bg-[#1f2937]/50"
                                                                 )}
                                                             >
                                                                 <div className="flex flex-col">
@@ -775,7 +775,7 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
 
                                         {/* E-Copy/Verification PDF/Image Upload Block (Required once status is selected) */}
                                         {registryBookVerification && (
-                                            <div className="space-y-3 pt-4 border-t border-slate-800/50">
+                                            <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800/50">
                                                 <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
                                                     Attach Scanned {
                                                         registryBookVerification === "FORM_2A" ? "Form 2A" :
@@ -802,10 +802,10 @@ export default function DeathCertificateView(props: TreasuryViewProps) {
                                                 <label
                                                     htmlFor="verification-doc-upload"
                                                     className={cn(
-                                                        "flex flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed transition-all h-36 bg-[#1f2937]/20 overflow-hidden relative group cursor-pointer",
+                                                        "flex flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed transition-all h-36 bg-slate-50 dark:bg-[#1f2937]/20 overflow-hidden relative group cursor-pointer",
                                                         birthRegDocFile
                                                             ? "border-primary/30 bg-primary/5 shadow-inner"
-                                                            : "border-slate-800 hover:border-primary/30"
+                                                            : "border-slate-200 dark:border-slate-800 hover:border-primary/30"
                                                     )}
                                                 >
                                                     {birthRegDocFile ? (

@@ -284,6 +284,7 @@ export function ResidentReviewModal({ resident, isOpen, onClose }: ResidentRevie
                         <Field label="TIN" value={resident.tin} />
                         <Field label="SSS" value={resident.sss} />
                         <Field label="GSIS" value={resident.gsis} />
+                        <Field label="Philhealth" value={resident.philhealthNumber} />
                     </Section>
 
                     <Section icon={Heart} title="Sectors">

@@ -8,9 +8,10 @@ import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Home, User, Search, CheckCircle2, Check, Loader2, Upload, FileText, Eye, Heart, ShieldCheck } from "lucide-react";
+import { Home, User, Search, CheckCircle2, Check, Loader2, FileText, Eye, Heart, ShieldCheck, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
+import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -30,7 +31,6 @@ import { submitMarriageLicenseTransaction } from "@/app/admin/transactions/marri
 import { searchResidents, getResidentDataById } from "@/app/admin/actions";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
 import { supabase } from "@/lib/supabase";
-import { compressImage } from "@/lib/image-compression";
 
 const checkIsPdf = (file: any, url: string | null) => {
 	if (file && file instanceof File) {
@@ -184,6 +184,7 @@ export default function MarriageLicenseApplicationPage() {
 	const [typeId, setTypeId] = useState("");
 	const [dbMiscFee, setDbMiscFee] = useState<number>(MISC_FEE);
 	const [revisionId, setRevisionId] = useState<string | null>(null);
+	const [revisionTx, setRevisionTx] = useState<any>(null);
 
 	const [resident, setResident] = useState<any>(null);
 	const [, setHasDraft] = useState(false);
@@ -211,6 +212,7 @@ export default function MarriageLicenseApplicationPage() {
 		app2BirthPlace: "",
 		app2Citizenship: "FILIPINO",
 		app2Gender: "",
+		app2Address: "",
 		requiredDocs: {} as Record<string, boolean>,
 		files: {} as Record<string, File | null>,
 		previews: {} as Record<string, string | null>,
@@ -301,6 +303,7 @@ export default function MarriageLicenseApplicationPage() {
 					if (txRes.success && txRes.data) {
 						txData = txRes.data;
 						setRevisionId(revId);
+						setRevisionTx(txRes.data);
 					} else {
 						toast.error("Failed to fetch revision details");
 					}
@@ -336,6 +339,7 @@ export default function MarriageLicenseApplicationPage() {
 						app2BirthPlace: (addData.applicant2?.birthPlace || "").toUpperCase(),
 						app2Citizenship: (addData.applicant2?.citizenship || "FILIPINO").toUpperCase(),
 						app2Gender: (addData.applicant2?.gender || "").toUpperCase(),
+						app2Address: addData.applicant2?.address || "",
 						app2Resident: addData.app2Resident || null,
 						informantAddress: (addData.informantAddress || "").toUpperCase(),
 						requiredDocs: (addData.requiredDocs || []).reduce((acc: any, cur: string) => {
@@ -355,7 +359,15 @@ export default function MarriageLicenseApplicationPage() {
 					setHasDraft(!!saved);
 
 					if (savedData) {
-						setForm((prev: any) => ({ ...prev, ...savedData.form }));
+						setForm((prev: any) => {
+							const newForm = { ...prev, ...savedData.form };
+							if (newForm.app1Gender && !newForm.app2Gender) {
+								newForm.app2Gender = newForm.app1Gender === "MALE" ? "FEMALE" : newForm.app1Gender === "FEMALE" ? "MALE" : "";
+							} else if (newForm.app2Gender && !newForm.app1Gender) {
+								newForm.app1Gender = newForm.app2Gender === "MALE" ? "FEMALE" : newForm.app2Gender === "FEMALE" ? "MALE" : "";
+							}
+							return newForm;
+						});
 						if (savedData.currentStep) setCurrentStep(savedData.currentStep);
 					}
 
@@ -390,20 +402,25 @@ export default function MarriageLicenseApplicationPage() {
 							r.purok && `Purok ${r.purok}`,
 							r.sitio && `Sitio ${r.sitio}`,
 							r.barangay && `Brgy. ${r.barangay}`,
-							r.municipality || "Mapandan",
-							r.province || "Pangasinan"
+							r.municipality,
+							r.province
 						].filter(Boolean);
 						const constructedAddr = parts.join(", ").toUpperCase();
 
-						setForm((prev: any) => ({
-							...prev,
-							app1FullName: `${activeResident.firstName} ${activeResident.middleName ? activeResident.middleName[0] + '. ' : ''}${activeResident.lastName}`.toUpperCase(),
-							app1BirthDate: activeResident.dateOfBirth ? new Date(activeResident.dateOfBirth).toISOString().split('T')[0] : "",
-							app1BirthPlace: (activeResident.placeOfBirth || activeResident.municipality || "").toUpperCase(),
-							app1Citizenship: (activeResident.citizenship || "FILIPINO").toUpperCase(),
-							app1Gender: (activeResident.gender || "").toUpperCase(),
-							informantAddress: constructedAddr
-						}));
+						setForm((prev: any) => {
+							const app1Gender = (activeResident.gender || "").toUpperCase();
+							const app2Gender = app1Gender === "MALE" ? "FEMALE" : app1Gender === "FEMALE" ? "MALE" : "";
+							return {
+								...prev,
+								app1FullName: `${activeResident.firstName} ${activeResident.middleName ? activeResident.middleName[0] + '. ' : ''}${activeResident.lastName}`.toUpperCase(),
+								app1BirthDate: activeResident.dateOfBirth ? new Date(activeResident.dateOfBirth).toISOString().split('T')[0] : "",
+								app1BirthPlace: (activeResident.placeOfBirth || activeResident.municipality || "").toUpperCase(),
+								app1Citizenship: (activeResident.citizenship || "FILIPINO").toUpperCase(),
+								app1Gender,
+								app2Gender,
+								informantAddress: constructedAddr
+							};
+						});
 					}
 				}
 			} catch (err) {
@@ -434,14 +451,28 @@ export default function MarriageLicenseApplicationPage() {
 				return;
 			}
 			const targetApp1Gender = form.app1Gender || (app2Gender === "MALE" ? "FEMALE" : app2Gender === "FEMALE" ? "MALE" : "");
+			const targetApp2Gender = app2Gender || (targetApp1Gender === "MALE" ? "FEMALE" : targetApp1Gender === "FEMALE" ? "MALE" : "");
+			
+			const parts = [
+				r.houseNumber && `#${r.houseNumber}`,
+				r.street && `${r.street} St.`,
+				r.purok && `Purok ${r.purok}`,
+				r.sitio && `Sitio ${r.sitio}`,
+				r.barangay && `Brgy. ${r.barangay}`,
+				r.municipality,
+				r.province
+			].filter(Boolean);
+			const constructedAddr = parts.join(", ").toUpperCase();
+
 			setForm((prev: any) => ({
 				...prev,
 				app2FullName: `${r.firstName} ${r.middleName ? r.middleName[0] + '. ' : ''}${r.lastName}`.toUpperCase(),
 				app2BirthDate: r.dateOfBirth ? new Date(r.dateOfBirth).toISOString().split('T')[0] : "",
 				app2BirthPlace: (r.placeOfBirth || r.municipality || "").toUpperCase(),
 				app2Citizenship: (r.citizenship || "FILIPINO").toUpperCase(),
-				app2Gender: app2Gender,
+				app2Gender: targetApp2Gender,
 				app1Gender: targetApp1Gender,
+				app2Address: constructedAddr,
 				app2Resident: r
 			}));
 			toast.success(`Fetched details for ${r.firstName} ${r.lastName}`);
@@ -449,15 +480,19 @@ export default function MarriageLicenseApplicationPage() {
 	};
 
 	const handleClearApp2Resident = () => {
-		setForm((prev: any) => ({
-			...prev,
-			app2FullName: "",
-			app2BirthDate: "",
-			app2BirthPlace: "",
-			app2Citizenship: "FILIPINO",
-			app2Gender: "",
-			app2Resident: null
-		}));
+		setForm((prev: any) => {
+			const app1Gender = (prev.app1Gender || "").toUpperCase();
+			const app2Gender = app1Gender === "MALE" ? "FEMALE" : app1Gender === "FEMALE" ? "MALE" : "";
+			return {
+				...prev,
+				app2FullName: "",
+				app2BirthDate: "",
+				app2BirthPlace: "",
+				app2Citizenship: "FILIPINO",
+				app2Gender,
+				app2Resident: null
+			};
+		});
 		toast.info("Cleared selected resident details. You can now input details manually or search again.");
 	};
 
@@ -487,66 +522,49 @@ export default function MarriageLicenseApplicationPage() {
 
 
 
-	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
-		const file = e.target.files?.[0] || null;
-		if (file) {
-			if (file && file.size > 5 * 1024 * 1024) {
-				toast.error("File size exceeds 5MB limit.");
-				if (e && e.target && e.target.parentElement) {
-					const parent = e.target.parentElement;
-					let errEl = parent.querySelector('.file-error-msg');
-					if (!errEl) {
-						errEl = document.createElement('div');
-						errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
-						parent.appendChild(errEl);
-					}
-					errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
-					setTimeout(() => errEl && errEl.remove(), 4000);
-				}
-				if (e && e.target) e.target.value = "";
-				return;
-			}
 
-			let fileToProcess = file;
+	const handlePremiumFileSelect = async (file: File, key: string) => {
+		// Save raw/compressed file to IndexedDB
+		saveDraftFile(STORAGE_KEY, key, file).catch(err => {
+			console.error("Failed to save draft file to IndexedDB:", err);
+		});
+		try {
+			toast.loading("Uploading and preparing document preview...", { id: `file-upload-${key}` });
+			const userId = resident?.id || "anonymous";
+			const sanitizedKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+			const publicUrl = await uploadFileClientSide(file, sanitizedKey, userId);
+
+			setForm((prev: any) => ({
+				...prev,
+				files: { ...prev.files, [key]: file },
+				previews: { ...prev.previews, [key]: publicUrl }
+			}));
+			setMissingFiles((m) => ({ ...m, [key]: false }));
+			toast.success("Document uploaded & preview ready!", { id: `file-upload-${key}` });
+		} catch (uploadErr) {
+			console.error(`[ClientUpload] Failed to upload ${key} on-the-fly:`, uploadErr);
+			toast.error("Upload failed. Local copy stored (preview limited).", { id: `file-upload-${key}` });
+			
+			// Fallback to local preview behavior if instant upload fails
 			if (file.type.startsWith("image/")) {
-				try {
-					toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-					fileToProcess = await compressImage(file);
-					toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-				} catch (err) {
-					console.error("Compression error:", err);
-					toast.dismiss("image-compress-toast");
-				}
-			}
-
-			// Save raw/compressed file to IndexedDB
-			saveDraftFile(STORAGE_KEY, key, fileToProcess).catch(err => {
-				console.error("Failed to save draft file to IndexedDB:", err);
-			});
-
-			// Read image files as data URL so previews persist across reloads
-			if (fileToProcess.type.startsWith("image/")) {
 				const reader = new FileReader();
 				reader.onload = () => {
 					const dataUrl = reader.result as string | null;
-					if (!dataUrl) return;
-					// set File reference
 					setForm((prev: any) => ({
 						...prev,
-						files: { ...prev.files, [key]: fileToProcess },
+						files: { ...prev.files, [key]: file },
 						previews: { ...prev.previews, [key]: dataUrl }
 					}));
-					setMissingFiles((m) => ({ ...m, [key]: false }));
 				};
-				reader.readAsDataURL(fileToProcess);
+				reader.readAsDataURL(file);
 			} else {
 				setForm((prev: any) => ({
 					...prev,
-					files: { ...prev.files, [key]: fileToProcess },
+					files: { ...prev.files, [key]: file },
 					previews: { ...prev.previews, [key]: null }
 				}));
-				setMissingFiles((m) => ({ ...m, [key]: false }));
 			}
+			setMissingFiles((m) => ({ ...m, [key]: false }));
 		}
 	};
 
@@ -562,7 +580,8 @@ export default function MarriageLicenseApplicationPage() {
 				"app2BirthDate",
 				"app2BirthPlace",
 				"app2Citizenship",
-				"app2Gender"
+				"app2Gender",
+				"app2Address"
 			];
 			const missing: string[] = [];
 			required.forEach((k) => {
@@ -698,10 +717,24 @@ export default function MarriageLicenseApplicationPage() {
 			const userId = resident?.id || "anonymous";
 			const fileUrls: Record<string, string> = {};
 
+			// First, copy any existing public URLs from previews
+			Object.entries(form.previews || {}).forEach(([key, url]) => {
+				if (url && typeof url === "string" && url.startsWith("http")) {
+					fileUrls[key] = url;
+				}
+			});
+
 			const fileEntries = Object.entries(finalFiles);
 			for (let i = 0; i < fileEntries.length; i++) {
 				const [key, file] = fileEntries[i];
 				const sanitizedKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+				// Reuse already uploaded files/URLs
+				if (fileUrls[key]) {
+					console.log(`[ClientUpload] Reusing existing public URL for ${key}:`, fileUrls[key]);
+					continue;
+				}
+
 				try {
 					const url = await uploadFileClientSide(file, sanitizedKey, userId);
 					fileUrls[key] = url;
@@ -729,7 +762,8 @@ export default function MarriageLicenseApplicationPage() {
 					birthDate: form.app2BirthDate,
 					birthPlace: form.app2BirthPlace,
 					citizenship: form.app2Citizenship,
-					gender: form.app2Gender
+					gender: form.app2Gender,
+					address: form.app2Address
 				},
 				app2IsResident: form.app2IsResident,
 				app2IsForeigner: form.app2IsForeigner,
@@ -840,8 +874,20 @@ export default function MarriageLicenseApplicationPage() {
 				input:not([type="button"]):not([type="submit"]), select, textarea {
 					color: #0f172a !important;
 				}
+				input:not([type="button"]):not([type="submit"]):disabled, select:disabled, textarea:disabled,
+				input:not([type="button"]):not([type="submit"])[readonly], select[readonly], textarea[readonly] {
+					color: #1e293b !important;
+					-webkit-text-fill-color: #1e293b !important;
+					opacity: 0.9 !important;
+				}
 				.dark input:not([type="button"]):not([type="submit"]), .dark select, .dark textarea {
 					color: #f8fafc !important;
+				}
+				.dark input:not([type="button"]):not([type="submit"]):disabled, .dark select:disabled, .dark textarea:disabled,
+				.dark input:not([type="button"]):not([type="submit"])[readonly], .dark select[readonly], .dark textarea[readonly] {
+					color: #cbd5e1 !important;
+					-webkit-text-fill-color: #cbd5e1 !important;
+					opacity: 0.8 !important;
 				}
 				select option {
 					background-color: #ffffff !important;
@@ -870,56 +916,68 @@ export default function MarriageLicenseApplicationPage() {
 				themeColor="var(--primary-theme)"
 			/>
 			<div className="container max-w-4xl mx-auto px-4 pt-0 pb-0">
-				<Breadcrumb className="mb-4">
-					<BreadcrumbList>
-						<BreadcrumbItem>
-							<BreadcrumbLink asChild>
-								<Link href="/user" className="flex items-center gap-1.5 font-bold italic text-[11px] uppercase tracking-wider">
-									<Home className="w-3.5 h-3.5" />
-									Home
-								</Link>
-							</BreadcrumbLink>
-						</BreadcrumbItem>
-						<BreadcrumbSeparator />
-						<BreadcrumbItem>
-							<BreadcrumbLink href="/user/services">Services</BreadcrumbLink>
-						</BreadcrumbItem>
-						<BreadcrumbSeparator />
-						<BreadcrumbItem>
-							<BreadcrumbPage className="font-black italic text-[11px] uppercase tracking-wider text-amber-500">Marriage License Application</BreadcrumbPage>
-						</BreadcrumbItem>
-					</BreadcrumbList>
-				</Breadcrumb>
-
-				{/* Premium Header/Banner with Ambient Gradient Backdrop */}
-				<div className="relative overflow-hidden bg-slate-900 dark:bg-[#0c1017] p-6 md:p-10 rounded-2xl md:rounded-[2rem] border border-slate-800 dark:border-white/5 text-white shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
+				<div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0 mb-4">
+					<Breadcrumb>
+						<BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+							<BreadcrumbItem>
+								<BreadcrumbLink asChild>
+									<Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+										<Home className="w-3.5 h-3.5 mb-0.5" />
+										Home
+									</Link>
+								</BreadcrumbLink>
+							</BreadcrumbItem>
+							<BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+							<BreadcrumbItem>
+								<BreadcrumbLink asChild>
+									<Link href="/user/services" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+										Services
+									</Link>
+								</BreadcrumbLink>
+							</BreadcrumbItem>
+							<BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+							<BreadcrumbItem>
+								<BreadcrumbLink asChild>
+									<Link href="/user/services/civil-registry" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+										Civil Registry
+									</Link>
+								</BreadcrumbLink>
+							</BreadcrumbItem>
+							<BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+							<BreadcrumbItem>
+								<BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic text-emerald-700 dark:text-emerald-400">Marriage License Application</BreadcrumbPage>
+							</BreadcrumbItem>
+						</BreadcrumbList>
+					</Breadcrumb>
+				</div>				{/* Premium Header/Banner with Ambient Gradient Backdrop */}
+				<div className="relative overflow-hidden bg-white dark:bg-[#0c1017] p-6 md:p-10 rounded-2xl md:rounded-[2rem] border border-slate-100 dark:border-white/5 text-slate-800 dark:text-white shadow-xl dark:shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
 					<div
-						className="absolute top-0 right-0 w-96 h-96 blur-[120px] rounded-full opacity-20 pointer-events-none -mr-40 -mt-40 transition-colors duration-700"
+						className="absolute top-0 right-0 w-96 h-96 blur-[120px] rounded-full opacity-10 dark:opacity-20 pointer-events-none -mr-40 -mt-40 transition-colors duration-700"
 						style={{ backgroundColor: themeColor }}
 					/>
 
 					<div className="space-y-3 md:space-y-4 max-w-2xl relative z-10">
 						<div className="flex items-center gap-3">
-							<div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-md">
-								<Heart className="w-4 h-4 text-rose-400 fill-rose-400/30 animate-pulse" />
+							<div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/10 flex items-center justify-center backdrop-blur-md">
+								<Heart className="w-4 h-4 text-rose-500 dark:text-rose-400 fill-rose-500/20 dark:fill-rose-400/30 animate-pulse" />
 							</div>
-							<span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/70 italic">Local Civil Registry</span>
+							<span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500 dark:text-white/70 italic">Local Civil Registry</span>
 						</div>
 
 						<h1 className="text-2xl md:text-4xl font-black uppercase italic tracking-tighter leading-none">
 							Marriage License <span style={{ color: themeColor }}>Application</span>
 						</h1>
 
-						<p className="text-slate-300 font-medium text-xs leading-relaxed max-w-xl italic">
+						<p className="text-slate-600 dark:text-slate-300 font-medium text-xs leading-relaxed max-w-xl italic">
 							Start your journey together. Submit your application and upload required documents for both applicants to process your legal marriage license.
 						</p>
 					</div>
 
 					<div className="hidden md:block relative z-10 shrink-0">
-						<div className="w-28 h-28 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-md flex flex-col items-center justify-center text-center p-4 shadow-2xl relative overflow-hidden group hover:scale-105 transition-transform duration-500">
+						<div className="w-28 h-28 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 backdrop-blur-md flex flex-col items-center justify-center text-center p-4 shadow-sm dark:shadow-2xl relative overflow-hidden group hover:scale-105 transition-transform duration-500">
 							<div className="absolute inset-0 bg-gradient-to-tr opacity-0 group-hover:opacity-10 transition-opacity" style={{ backgroundImage: `linear-gradient(to top right, ${themeColor}, transparent)` }} />
 							<ShieldCheck className="w-8 h-8 mb-1.5 opacity-80" style={{ color: themeColor }} />
-							<p className="text-[7px] font-black uppercase tracking-widest text-slate-400 leading-tight">Secure Filing</p>
+							<p className="text-[7px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 leading-tight">Secure Filing</p>
 						</div>
 					</div>
 				</div>
@@ -981,7 +1039,19 @@ export default function MarriageLicenseApplicationPage() {
 					{/* Identity Step */}
 					{currentStep === 'IDENTITY' && (
 						<>
-							<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 space-y-6">
+							{revisionTx && (
+								<div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-800 dark:text-red-400 animate-in fade-in duration-300">
+									<AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+									<div className="text-left space-y-1">
+										<p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+										<p className="text-xs font-bold text-slate-900 dark:text-slate-300 leading-relaxed italic">
+											&ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+										</p>
+									</div>
+								</div>
+							)}
+
+							<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-6">
 								<h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
 									{form.app1Gender === "MALE" ? "Groom (Male)" : form.app1Gender === "FEMALE" ? "Bride / Wife (Female)" : "Applicant 1"}
 								</h3>
@@ -1008,11 +1078,11 @@ export default function MarriageLicenseApplicationPage() {
 											disabled={!!resident?.gender}
 											value={form.app1Gender}
 											onValueChange={(val) => {
-												setForm({ 
-													...form, 
+												setForm((prev: any) => ({ 
+													...prev, 
 													app1Gender: val,
 													app2Gender: val === "MALE" ? "FEMALE" : val === "FEMALE" ? "MALE" : ""
-												});
+												}));
 											}}
 										>
 											<SelectTrigger className="w-full h-10 px-3 bg-slate-100 dark:bg-white/5 border-none font-bold uppercase text-xs rounded-md disabled:cursor-not-allowed opacity-75 focus:ring-2 focus:ring-amber-500 text-left">
@@ -1036,7 +1106,7 @@ export default function MarriageLicenseApplicationPage() {
 								</div>
 							</Card>
 
-							<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 space-y-6">
+							<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-6">
 								<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 									<h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
 										{form.app2Gender === "MALE" ? "Groom (Male)" : form.app2Gender === "FEMALE" ? "Bride / Wife (Female)" : "Applicant 2"}
@@ -1046,18 +1116,21 @@ export default function MarriageLicenseApplicationPage() {
 											id="app2Resident"
 											checked={form.app2IsResident}
 											onCheckedChange={(checked) => {
-												setForm((prev: any) => ({
-													...prev,
-													app2IsResident: !!checked,
-													...(checked ? {} : {
-														app2FullName: "",
-														app2BirthDate: "",
-														app2BirthPlace: "",
-														app2Citizenship: "FILIPINO",
-														app2Gender: "",
-														app2Resident: null
-													})
-												}));
+												setForm((prev: any) => {
+													const newGender = prev.app1Gender === "MALE" ? "FEMALE" : prev.app1Gender === "FEMALE" ? "MALE" : "";
+													return {
+														...prev,
+														app2IsResident: !!checked,
+														...(checked ? {} : {
+															app2FullName: "",
+															app2BirthDate: "",
+															app2BirthPlace: "",
+															app2Citizenship: "FILIPINO",
+															app2Gender: newGender,
+															app2Resident: null
+														})
+													};
+												});
 											}}
 										/>
 										<label htmlFor="app2Resident" className="text-xs font-bold italic text-slate-500 cursor-pointer">Applicant 2 is a resident of Mapandan</label>
@@ -1200,11 +1273,11 @@ export default function MarriageLicenseApplicationPage() {
 														return;
 													}
 												}
-												setForm({ 
-													...form, 
+												setForm((prev: any) => ({ 
+													...prev, 
 													app2Gender: val,
-													app1Gender: val === "MALE" ? "FEMALE" : val === "FEMALE" ? "MALE" : form.app1Gender
-												});
+													app1Gender: val === "MALE" ? "FEMALE" : val === "FEMALE" ? "MALE" : prev.app1Gender
+												}));
 												setMissingInputs((m) => ({ ...m, app2Gender: false }));
 											}}
 										>
@@ -1231,6 +1304,24 @@ export default function MarriageLicenseApplicationPage() {
 											</div>
 										)}
 									</div>
+									<div className="space-y-1.5 col-span-1 md:col-span-2">
+										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Address</Label>
+										<Input
+											placeholder="ENTER ADDRESS"
+											disabled={!!form.app2Resident}
+											className={cn(
+												"bg-slate-50 dark:bg-white/5 font-bold uppercase border-none",
+												missingInputs.app2Address ? "border border-red-500" : "",
+												!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
+											)}
+											value={form.app2Address || ""}
+											onChange={e => {
+												setForm((p: any) => ({ ...p, app2Address: e.target.value.toUpperCase() }));
+												setMissingInputs((m) => ({ ...m, app2Address: false }));
+											}}
+										/>
+										{missingInputs.app2Address && <div className="text-xs text-red-600 font-bold">Required</div>}
+									</div>
 								</div>
 							</Card>
 						</>
@@ -1244,13 +1335,13 @@ export default function MarriageLicenseApplicationPage() {
 
 						return (
 							<div className="space-y-6 animate-in fade-in duration-300">
-								<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 space-y-4">
+								<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-4">
 									<h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">Required Documents</h3>
 									<p className="text-xs text-slate-400 font-bold italic">Please upload the documents prepared by each applicant (max 5MB each).</p>
 								</Card>
 
 								{/* Applicant 1 Documents */}
-								<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 space-y-4">
+								<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-4">
 									<div className="flex items-center gap-3 border-b border-slate-100 dark:border-white/5 pb-3">
 
 										<div>
@@ -1261,67 +1352,23 @@ export default function MarriageLicenseApplicationPage() {
 										</div>
 									</div>
 									<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-										{app1Docs.map((d) => {
-											const id = `doc-${encodeURIComponent(d)}`;
-											return (
-												<div key={d} className="space-y-3">
-													<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-														{formatDocLabel(d, form.app1Gender)}
-													</Label>
-													<div
-														onClick={() => document.getElementById(id)?.click()}
-														className={cn(
-															"aspect-video relative rounded-3xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all group overflow-hidden",
-															(form.files?.[d] || form.previews?.[d]) ? "border-amber-500 bg-amber-500/5" : missingFiles[d] ? "border-red-500 bg-red-50 dark:bg-red-900/10" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"
-														)}
-													>
-														{(form.files?.[d] || form.previews?.[d]) ? (
-															<div className="relative w-full h-full group/preview">
-																{checkIsPdf(form.files?.[d], form.previews?.[d]) ? (
-																	<div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 dark:bg-[#151b2b] p-4 text-center">
-																		<FileText className="w-10 h-10 text-red-500 mb-2 animate-bounce" />
-																		<span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 max-w-[80%] truncate">
-																			{form.files?.[d] ? form.files[d].name : `${d}.pdf`}
-																		</span>
-																	</div>
-																) : (
-																	<img src={form.previews?.[d] || undefined} alt="Document preview" className="absolute inset-0 w-full h-full object-cover" />
-																)}
-																<div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover/preview:opacity-100 transition-opacity z-20 gap-2">
-																	<Button
-																		type="button"
-																		size="sm"
-																		onClick={(e) => {
-																			e.stopPropagation();
-																			handleViewFile(form.files?.[d] || null, form.previews?.[d] || null, d);
-																		}}
-																		className="font-black italic uppercase tracking-widest text-[9px] px-4 h-8 rounded-xl bg-white text-slate-900 hover:bg-slate-100 shadow-lg flex items-center gap-1.5 transition-all"
-																	>
-																		<Eye className="w-4 h-4 text-amber-500" />
-																		View Document
-																	</Button>
-																	<span className="text-[7px] font-black uppercase tracking-widest text-white/70 italic">Click outside button to change</span>
-																</div>
-															</div>
-														) : (
-															<>
-																<Upload className="w-8 h-8 text-slate-300 group-hover:text-amber-500 transition-colors" />
-																<span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Click to Upload</span>
-															</>
-														)}
-														<input id={id} type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" className="hidden" onChange={(e) => handleFileChange(e, d)} />
-														{missingFiles[d] && !form.files?.[d] && (
-															<div className="absolute -bottom-6 left-4 text-xs text-red-600 font-bold">Required</div>
-														)}
-													</div>
-												</div>
-											);
-										})}
+										{app1Docs.map((d) => (
+											<PremiumDocumentUpload
+												key={d}
+												label={formatDocLabel(d, form.app1Gender)}
+												required={form.requiredDocs?.[d]}
+												file={form.files?.[d] || null}
+												previewUrl={form.previews?.[d]}
+												onFileSelect={(file) => handlePremiumFileSelect(file, d)}
+												onView={() => handleViewFile(form.files?.[d] || null, form.previews?.[d] || null, d)}
+												error={missingFiles[d] && !form.files?.[d] && !form.previews?.[d]}
+											/>
+										))}
 									</div>
 								</Card>
 
 								{/* Applicant 2 Documents */}
-								<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 space-y-4">
+								<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-4">
 									<div className="flex items-center gap-3 border-b border-slate-100 dark:border-white/5 pb-3">
 
 										<div>
@@ -1332,67 +1379,23 @@ export default function MarriageLicenseApplicationPage() {
 										</div>
 									</div>
 									<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-										{app2Docs.map((d) => {
-											const id = `doc-${encodeURIComponent(d)}`;
-											return (
-												<div key={d} className="space-y-3">
-													<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-														{formatDocLabel(d, form.app1Gender)}
-													</Label>
-													<div
-														onClick={() => document.getElementById(id)?.click()}
-														className={cn(
-															"aspect-video relative rounded-3xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all group overflow-hidden",
-															(form.files?.[d] || form.previews?.[d]) ? "border-amber-500 bg-amber-500/5" : missingFiles[d] ? "border-red-500 bg-red-50 dark:bg-red-900/10" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"
-														)}
-													>
-														{(form.files?.[d] || form.previews?.[d]) ? (
-															<div className="relative w-full h-full group/preview">
-																{checkIsPdf(form.files?.[d], form.previews?.[d]) ? (
-																	<div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 dark:bg-[#151b2b] p-4 text-center">
-																		<FileText className="w-10 h-10 text-red-500 mb-2 animate-bounce" />
-																		<span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 max-w-[80%] truncate">
-																			{form.files?.[d] ? form.files[d].name : `${d}.pdf`}
-																		</span>
-																	</div>
-																) : (
-																	<img src={form.previews?.[d] || undefined} alt="Document preview" className="absolute inset-0 w-full h-full object-cover" />
-																)}
-																<div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover/preview:opacity-100 transition-opacity z-20 gap-2">
-																	<Button
-																		type="button"
-																		size="sm"
-																		onClick={(e) => {
-																			e.stopPropagation();
-																			handleViewFile(form.files?.[d] || null, form.previews?.[d] || null, d);
-																		}}
-																		className="font-black italic uppercase tracking-widest text-[9px] px-4 h-8 rounded-xl bg-white text-slate-900 hover:bg-slate-100 shadow-lg flex items-center gap-1.5 transition-all"
-																	>
-																		<Eye className="w-4 h-4 text-amber-500" />
-																		View Document
-																	</Button>
-																	<span className="text-[7px] font-black uppercase tracking-widest text-white/70 italic">Click outside button to change</span>
-																</div>
-															</div>
-														) : (
-															<>
-																<Upload className="w-8 h-8 text-slate-300 group-hover:text-amber-500 transition-colors" />
-																<span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Click to Upload</span>
-															</>
-														)}
-														<input id={id} type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" className="hidden" onChange={(e) => handleFileChange(e, d)} />
-														{missingFiles[d] && !form.files?.[d] && (
-															<div className="absolute -bottom-6 left-4 text-xs text-red-600 font-bold">Required</div>
-														)}
-													</div>
-												</div>
-											);
-										})}
+										{app2Docs.map((d) => (
+											<PremiumDocumentUpload
+												key={d}
+												label={formatDocLabel(d, form.app1Gender)}
+												required={form.requiredDocs?.[d]}
+												file={form.files?.[d] || null}
+												previewUrl={form.previews?.[d]}
+												onFileSelect={(file) => handlePremiumFileSelect(file, d)}
+												onView={() => handleViewFile(form.files?.[d] || null, form.previews?.[d] || null, d)}
+												error={missingFiles[d] && !form.files?.[d] && !form.previews?.[d]}
+											/>
+										))}
 									</div>
 								</Card>
 
 								{/* General Documents */}
-								<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 space-y-4">
+								<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-4">
 									<div className="flex items-center gap-3 border-b border-slate-100 dark:border-white/5 pb-3">
 
 										<div>
@@ -1401,60 +1404,18 @@ export default function MarriageLicenseApplicationPage() {
 										</div>
 									</div>
 									<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-										{generalDocs.map((d) => {
-											const id = `doc-${encodeURIComponent(d)}`;
-											return (
-												<div key={d} className="space-y-3">
-													<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{d}</Label>
-													<div
-														onClick={() => document.getElementById(id)?.click()}
-														className={cn(
-															"aspect-video relative rounded-3xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all group overflow-hidden",
-															(form.files?.[d] || form.previews?.[d]) ? "border-amber-500 bg-amber-500/5" : missingFiles[d] ? "border-red-500 bg-red-50 dark:bg-red-900/10" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"
-														)}
-													>
-														{(form.files?.[d] || form.previews?.[d]) ? (
-															<div className="relative w-full h-full group/preview">
-																{checkIsPdf(form.files?.[d], form.previews?.[d]) ? (
-																	<div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 dark:bg-[#151b2b] p-4 text-center">
-																		<FileText className="w-10 h-10 text-red-500 mb-2 animate-bounce" />
-																		<span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 max-w-[80%] truncate">
-																			{form.files?.[d] ? form.files[d].name : `${d}.pdf`}
-																		</span>
-																	</div>
-																) : (
-																	<img src={form.previews?.[d] || undefined} alt="Document preview" className="absolute inset-0 w-full h-full object-cover" />
-																)}
-																<div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover/preview:opacity-100 transition-opacity z-20 gap-2">
-																	<Button
-																		type="button"
-																		size="sm"
-																		onClick={(e) => {
-																			e.stopPropagation();
-																			handleViewFile(form.files?.[d] || null, form.previews?.[d] || null, d);
-																		}}
-																		className="font-black italic uppercase tracking-widest text-[9px] px-4 h-8 rounded-xl bg-white text-slate-900 hover:bg-slate-100 shadow-lg flex items-center gap-1.5 transition-all"
-																	>
-																		<Eye className="w-4 h-4 text-amber-500" />
-																		View Document
-																	</Button>
-																	<span className="text-[7px] font-black uppercase tracking-widest text-white/70 italic">Click outside button to change</span>
-																</div>
-															</div>
-														) : (
-															<>
-																<Upload className="w-8 h-8 text-slate-300 group-hover:text-amber-500 transition-colors" />
-																<span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Click to Upload</span>
-															</>
-														)}
-														<input id={id} type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" className="hidden" onChange={(e) => handleFileChange(e, d)} />
-														{missingFiles[d] && !form.files?.[d] && (
-															<div className="absolute -bottom-6 left-4 text-xs text-red-600 font-bold">Required</div>
-														)}
-													</div>
-												</div>
-											);
-										})}
+										{generalDocs.map((d) => (
+											<PremiumDocumentUpload
+												key={d}
+												label={d}
+												required={form.requiredDocs?.[d]}
+												file={form.files?.[d] || null}
+												previewUrl={form.previews?.[d]}
+												onFileSelect={(file) => handlePremiumFileSelect(file, d)}
+												onView={() => handleViewFile(form.files?.[d] || null, form.previews?.[d] || null, d)}
+												error={missingFiles[d] && !form.files?.[d] && !form.previews?.[d]}
+											/>
+										))}
 									</div>
 								</Card>
 							</div>
@@ -1463,7 +1424,7 @@ export default function MarriageLicenseApplicationPage() {
 
 					{/* Confirm Step */}
 					{currentStep === 'CONFIRM' && (
-						<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 space-y-4">
+						<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-4">
 							<h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">Review & Submit</h3>
 							<div className="space-y-3">
 								<div className="text-sm font-bold">Applicants</div>

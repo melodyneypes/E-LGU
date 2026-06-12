@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -15,22 +14,9 @@ import {
     ArrowRight,
     Search,
     CheckCircle2,
-    Upload,
-    AlertCircle,
-    Eye,
-    FileText
+    AlertCircle
 } from "lucide-react";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
-
-const checkIsPdf = (file: any, url: string | null) => {
-    if (file && file instanceof File) {
-        return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    }
-    if (url) {
-        return url.toLowerCase().endsWith(".pdf") || url.includes("application/pdf") || url.includes(".pdf?");
-    }
-    return false;
-};
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,8 +48,10 @@ import { submitMarriageRegistrationTransaction } from "@/app/admin/transactions/
 import { searchResidents, getResidentDataById } from "@/app/admin/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
-import { compressImage } from "@/lib/image-compression";
+import { supabase } from "@/lib/supabase";
+import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 
 
 
@@ -138,6 +126,31 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
 
 const STORAGE_KEY = "lcr_marriage_registration_draft";
 
+// --- UPLOAD FILE CLIENT-SIDE TO SUPABASE STORAGE (bypasses Vercel 4.5MB limit) ---
+async function uploadFileClientSide(file: File, fieldName: string, userId: string): Promise<string> {
+    const fileExt = file.name.split('.').pop() || 'bin';
+    const fileName = `${userId}/${fieldName}_${Date.now()}.${fileExt}`;
+    const filePath = `services/lcr/marriage_registration/${fileName}`;
+
+    const { error } = await supabase.storage
+        .from("system-assets")
+        .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: true
+        });
+
+    if (error) {
+        console.error(`[ClientUpload] Upload error for ${fieldName}:`, error);
+        throw new Error(`Failed to upload ${file.name}: ${error.message}`);
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+        .from("system-assets")
+        .getPublicUrl(filePath);
+
+    return publicUrl;
+}
+
 export default function MarriageRegistrationPage() {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<Step>("IDENTITY");
@@ -175,6 +188,10 @@ export default function MarriageRegistrationPage() {
     const [resident, setResident] = useState<any>(null);
     const [showDetailsErrors, setShowDetailsErrors] = useState(false);
 
+    const isApp1Male = resident?.gender ? resident.gender.toUpperCase() === "MALE" : true;
+    const app1Label = resident?.gender ? (isApp1Male ? "Groom" : "Wife") : "Applicant 1";
+    const app2Label = resident?.gender ? (isApp1Male ? "Wife" : "Groom") : "Applicant 2";
+
     const [form, setForm] = useState({
         typeId: "",
         registryType: "MARRIAGE_REG",
@@ -192,6 +209,7 @@ export default function MarriageRegistrationPage() {
         app2BirthDate: "",
         app2BirthPlace: "",
         app2Citizenship: "FILIPINO",
+        app2Address: "",
 
         // Marriage Details
         dateOfMarriage: "",
@@ -329,65 +347,63 @@ export default function MarriageRegistrationPage() {
         init();
     }, []);
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
-        const file = e.target.files?.[0] || null;
-        if (file) {
-            if (file && file.size > 5 * 1024 * 1024) {
-                toast.error("File size exceeds 5MB limit.");
-                if (e && e.target && e.target.parentElement) {
-                    const parent = e.target.parentElement;
-                    let errEl = parent.querySelector('.file-error-msg');
-                    if (!errEl) {
-                        errEl = document.createElement('div');
-                        errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
-                        parent.appendChild(errEl);
-                    }
-                    errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
-                    setTimeout(() => errEl && errEl.remove(), 4000);
-                }
-                if (e && e.target) e.target.value = "";
-                return;
-            }
+    const handlePremiumFileSelect = async (file: File, key: string) => {
+        saveDraftFile(STORAGE_KEY, key, file).catch(err => {
+            console.error("Failed to save draft file to IndexedDB:", err);
+        });
+        try {
+            toast.loading("Uploading and preparing document preview...", { id: `file-upload-${key}` });
+            const userId = resident?.id || "anonymous";
+            const sanitizedKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+            const publicUrl = await uploadFileClientSide(file, sanitizedKey, userId);
 
-            let fileToProcess = file;
+            setForm((prev: any) => ({
+                ...prev,
+                files: { ...prev.files, [key]: file },
+                previews: { ...prev.previews, [key]: publicUrl }
+            }));
+            toast.success("Document uploaded & preview ready!", { id: `file-upload-${key}` });
+        } catch (uploadErr) {
+            console.error(`[ClientUpload] Failed to upload ${key} on-the-fly:`, uploadErr);
+            toast.error("Upload failed. Local copy stored (preview limited).", { id: `file-upload-${key}` });
+
             if (file.type.startsWith("image/")) {
-                try {
-                    toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-                    fileToProcess = await compressImage(file);
-                    toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-                } catch (err) {
-                    console.error("Compression error:", err);
-                    toast.dismiss("image-compress-toast");
-                }
-            }
-
-            // Save raw/compressed file to IndexedDB
-            saveDraftFile(STORAGE_KEY, key, fileToProcess).catch(err => {
-                console.error("Failed to save draft file to IndexedDB:", err);
-            });
-
-            if (fileToProcess.type.startsWith("image/")) {
                 const reader = new FileReader();
                 reader.onload = () => {
                     const dataUrl = reader.result as string | null;
-                    if (!dataUrl) return;
-
-                    // Set File reference
-                    setForm(prev => ({ 
-                        ...prev, 
-                        files: { ...prev.files, [key]: fileToProcess },
+                    setForm((prev: any) => ({
+                        ...prev,
+                        files: { ...prev.files, [key]: file },
                         previews: { ...prev.previews, [key]: dataUrl }
                     }));
                 };
-                reader.readAsDataURL(fileToProcess);
+                reader.readAsDataURL(file);
             } else {
-                setForm(prev => ({
+                setForm((prev: any) => ({
                     ...prev,
-                    files: { ...prev.files, [key]: fileToProcess },
+                    files: { ...prev.files, [key]: file },
                     previews: { ...prev.previews, [key]: null }
                 }));
             }
         }
+    };
+
+    const handleRemoveFile = (key: string) => {
+        setForm((prev: any) => {
+            const nextFiles = { ...prev.files };
+            const nextPreviews = { ...prev.previews };
+            delete nextFiles[key];
+            delete nextPreviews[key];
+            return {
+                ...prev,
+                files: nextFiles,
+                previews: nextPreviews
+            };
+        });
+        saveDraftFile(STORAGE_KEY, key, null).catch(err => {
+            console.error("Failed to delete draft file in IndexedDB:", err);
+        });
+        toast.success("File removed successfully.");
     };
 
     const handleSubmit = async () => {
@@ -410,14 +426,17 @@ export default function MarriageRegistrationPage() {
                     fullName: form.app1FullName,
                     birthDate: form.app1BirthDate,
                     birthPlace: form.app1BirthPlace,
-                    citizenship: form.app1Citizenship
+                    citizenship: form.app1Citizenship,
+                    gender: isApp1Male ? "MALE" : "FEMALE"
                 },
                 applicant2: {
                     isResident: form.app2IsResident,
                     fullName: form.app2FullName,
                     birthDate: form.app2BirthDate,
                     birthPlace: form.app2BirthPlace,
-                    citizenship: form.app2Citizenship
+                    citizenship: form.app2Citizenship,
+                    address: form.app2Address,
+                    gender: isApp1Male ? "FEMALE" : "MALE"
                 },
                 dateOfMarriage: form.dateOfMarriage,
                 placeOfMarriage: form.placeOfMarriage,
@@ -433,39 +452,47 @@ export default function MarriageRegistrationPage() {
             console.log("[LCR Submit] additionalData:", additionalData);
             formData.append("additionalData", JSON.stringify(additionalData));
 
-            // Helper function to convert base64 to File object
-            const dataURLtoFile = (dataurl: string, filename: string): File | null => {
-                try {
-                    const arr = dataurl.split(',');
-                    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
-                    const bstr = atob(arr[1]);
-                    let n = bstr.length;
-                    const u8arr = new Uint8Array(n);
-                    while (n--) {
-                        u8arr[n] = bstr.charCodeAt(n);
-                    }
-                    return new File([u8arr], filename, { type: mime });
-                } catch (e) {
-                    console.error("Failed to convert dataURL to File:", e);
-                    return null;
+            const fileUrls: Record<string, string> = {};
+
+            // First, copy any existing public URLs from previews
+            Object.entries(form.previews || {}).forEach(([key, url]) => {
+                if (url && typeof url === "string" && url.startsWith("http")) {
+                    fileUrls[key] = url;
                 }
+            });
+
+            const finalFiles = { ...form.files };
+            const fileEntries = Object.entries(finalFiles);
+            for (let i = 0; i < fileEntries.length; i++) {
+                const [key, file] = fileEntries[i];
+                if (!file) continue;
+                const sanitizedKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+                if (fileUrls[key]) {
+                    console.log(`[ClientUpload] Reusing existing public URL for ${key}:`, fileUrls[key]);
+                    continue;
+                }
+
+                try {
+                    toast.loading(`Uploading document ${i + 1}/${fileEntries.length}...`, { id: "marriage-upload-toast" });
+                    const userId = resident?.id || "anonymous";
+                    const url = await uploadFileClientSide(file, sanitizedKey, userId);
+                    fileUrls[key] = url;
+                } catch (uploadErr) {
+                    console.error(`[ClientUpload] Failed to upload ${key}:`, uploadErr);
+                    toast.error(`Failed to upload document: ${key}. Please try again.`, { id: "marriage-upload-toast" });
+                    setSubmitting(false);
+                    return;
+                }
+            }
+            toast.dismiss("marriage-upload-toast");
+
+            const updatedAdditionalData = {
+                ...additionalData,
+                ...fileUrls
             };
 
-            // Reconstruct any missing files from data URL previews (so reloads survive!)
-            const finalFiles = { ...form.files };
-            Object.entries(form.previews).forEach(([key, previewUrl]) => {
-                if (previewUrl && previewUrl.startsWith("data:") && !finalFiles[key]) {
-                    const reconstructedFile = dataURLtoFile(previewUrl, `${key}.png`);
-                    if (reconstructedFile) {
-                        finalFiles[key] = reconstructedFile;
-                    }
-                }
-            });
-
-            // Append files based on registration type
-            Object.entries(finalFiles).forEach(([key, file]) => {
-                if (file) formData.append(key, file);
-            });
+            formData.set("additionalData", JSON.stringify(updatedAdditionalData));
 
             const result = await submitMarriageRegistrationTransaction(formData);
             if (result.success) {
@@ -497,12 +524,12 @@ export default function MarriageRegistrationPage() {
         if (currentStep === "IDENTITY") {
             // Validate Applicant 1
             if (!form.app1FullName || !form.app1BirthDate || !form.app1BirthPlace || !form.app1Citizenship) {
-                toast.error("Please fill in all Applicant 1 details");
+                toast.error(`Please fill in all ${app1Label} details`);
                 return;
             }
             // Validate Applicant 2
-            if (!form.app2FullName || !form.app2BirthDate || !form.app2BirthPlace || !form.app2Citizenship) {
-                toast.error("Please fill in all Applicant 2 details");
+            if (!form.app2FullName || !form.app2BirthDate || !form.app2BirthPlace || !form.app2Citizenship || !form.app2Address) {
+                toast.error(`Please fill in all ${app2Label} details`);
                 return;
             }
             setCurrentStep("DETAILS");
@@ -547,15 +574,60 @@ export default function MarriageRegistrationPage() {
         const result = await getResidentDataById(res.id);
         if (result.success && result.data) {
             const r = result.data;
+            const parts = [
+                r.houseNumber && `#${r.houseNumber}`,
+                r.street && `${r.street} St.`,
+                r.purok && `Purok ${r.purok}`,
+                r.sitio && `Sitio ${r.sitio}`,
+                r.barangay && `Brgy. ${r.barangay}`,
+                r.municipality || "Mapandan",
+                r.province || "Pangasinan"
+            ].filter(Boolean);
+            const constructedAddr = parts.join(", ").toUpperCase();
+
             setForm(prev => ({
                 ...prev,
                 app2FullName: `${r.firstName} ${r.middleName ? r.middleName[0] + '. ' : ''}${r.lastName}`.toUpperCase(),
                 app2BirthDate: r.dateOfBirth ? new Date(r.dateOfBirth).toISOString().split('T')[0] : "",
                 app2BirthPlace: (r.placeOfBirth || r.municipality || "").toUpperCase(),
-                app2Citizenship: (r.citizenship || "FILIPINO").toUpperCase()
+                app2Citizenship: (r.citizenship || "FILIPINO").toUpperCase(),
+                app2Address: constructedAddr
             }));
             toast.success(`Fetched details for ${r.firstName} ${r.lastName}`);
         }
+    };
+
+    const handleDateOfMarriageChange = (val: string) => {
+        if (!val) {
+            setForm(prev => ({
+                ...prev,
+                dateOfMarriage: "",
+                registrationType: ""
+            }));
+            return;
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const [year, month, day] = val.split("-").map(Number);
+        const chosenDate = new Date(year, month - 1, day);
+        chosenDate.setHours(0, 0, 0, 0);
+
+        if (chosenDate > today) {
+            toast.error("Date of marriage cannot be in the future");
+            return;
+        }
+
+        const timeDiff = today.getTime() - chosenDate.getTime();
+        const diffDays = Math.round(timeDiff / (1000 * 3600 * 24));
+
+        const isLate = diffDays > 15;
+        setForm(prev => ({
+            ...prev,
+            dateOfMarriage: val,
+            registrationType: isLate ? "LATE" : "STANDARD"
+        }));
     };
 
     return (
@@ -606,8 +678,20 @@ export default function MarriageRegistrationPage() {
                 input:not([type="button"]):not([type="submit"]), select, textarea {
                     color: #0f172a !important;
                 }
+                input:not([type="button"]):not([type="submit"]):disabled, select:disabled, textarea:disabled,
+                input:not([type="button"]):not([type="submit"])[readonly], select[readonly], textarea[readonly] {
+                    color: #1e293b !important;
+                    -webkit-text-fill-color: #1e293b !important;
+                    opacity: 0.9 !important;
+                }
                 .dark input:not([type="button"]):not([type="submit"]), .dark select, .dark textarea {
                     color: #f8fafc !important;
+                }
+                .dark input:not([type="button"]):not([type="submit"]):disabled, .dark select:disabled, .dark textarea:disabled,
+                .dark input:not([type="button"]):not([type="submit"])[readonly], .dark select[readonly], .dark textarea[readonly] {
+                    color: #cbd5e1 !important;
+                    -webkit-text-fill-color: #cbd5e1 !important;
+                    opacity: 0.8 !important;
                 }
                 `
             }} />
@@ -628,56 +712,86 @@ export default function MarriageRegistrationPage() {
                 themeColor="var(--primary-theme)"
             />
             <div className="container max-w-5xl mx-auto px-4 pt-0 pb-0 space-y-8">
+            <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                 <Breadcrumb>
-                    <BreadcrumbList>
+                    <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
                         <BreadcrumbItem>
-                            <BreadcrumbLink href="/" className="flex items-center gap-1 font-bold italic text-[11px] uppercase tracking-wider">
-                                <Home className="w-3.5 h-3.5" />
-                                Home
+                            <BreadcrumbLink asChild>
+                                <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                    <Home className="w-3.5 h-3.5 mb-0.5" />
+                                    Home
+                                </Link>
                             </BreadcrumbLink>
                         </BreadcrumbItem>
-                        <BreadcrumbSeparator />
+                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                         <BreadcrumbItem>
-                            <BreadcrumbLink href="/user/services" className="font-bold italic text-[11px] uppercase tracking-wider">Services</BreadcrumbLink>
+                            <BreadcrumbLink asChild>
+                                <Link href="/user/services" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                    Services
+                                </Link>
+                            </BreadcrumbLink>
                         </BreadcrumbItem>
-                        <BreadcrumbSeparator />
+                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                         <BreadcrumbItem>
-                            <BreadcrumbLink href="/user/services/civil-registry" className="font-bold italic text-[11px] uppercase tracking-wider">Civil Registry</BreadcrumbLink>
+                            <BreadcrumbLink asChild>
+                                <Link href="/user/services/civil-registry" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                    Civil Registry
+                                </Link>
+                            </BreadcrumbLink>
                         </BreadcrumbItem>
-                        <BreadcrumbSeparator />
+                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                         <BreadcrumbItem>
-                            <BreadcrumbPage className="font-black italic text-[11px] uppercase tracking-wider text-rose-500">Marriage Registration</BreadcrumbPage>
+                            <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic text-emerald-700 dark:text-emerald-400">Marriage Registration</BreadcrumbPage>
                         </BreadcrumbItem>
                     </BreadcrumbList>
                 </Breadcrumb>
+            </div>
 
                 <div className="space-y-6">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 bg-white dark:bg-[#0f1117] p-8 rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 shadow-xl shadow-slate-200/40 dark:shadow-none">
-                        <div className="space-y-2">
+                    {/* Premium Header/Banner with Ambient Gradient Backdrop */}
+                    <div className="relative overflow-hidden bg-white dark:bg-[#0c1017] p-6 md:p-10 rounded-2xl md:rounded-[2rem] border border-slate-100 dark:border-white/5 text-slate-800 dark:text-white shadow-xl dark:shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
+                        <div
+                            className="absolute top-0 right-0 w-96 h-96 blur-[120px] rounded-full opacity-10 dark:opacity-20 pointer-events-none -mr-40 -mt-40 transition-colors duration-700"
+                            style={{ backgroundColor: themeColor }}
+                        />
+
+                        <div className="space-y-3 md:space-y-4 max-w-2xl relative z-10">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-rose-500/10 rounded-xl">
-                                    <Heart className="w-6 h-6 text-rose-500" />
+                                <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/10 flex items-center justify-center backdrop-blur-md">
+                                    <Heart className="w-4 h-4 text-rose-500" style={{ color: themeColor }} />
                                 </div>
-                                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-rose-500">Local Civil Registry</span>
+                                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500 dark:text-white/70 italic">Local Civil Registry</span>
                             </div>
-                            <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">
-                                Marriage <span className="text-rose-500">Registration</span>
+
+                            <h1 className="text-2xl md:text-4xl font-black uppercase italic tracking-tighter leading-none">
+                                Marriage <span style={{ color: themeColor }}>Registration</span>
                             </h1>
-                            <p className="text-slate-500 font-medium text-sm italic">File a request for official marriage records or register a new marriage.</p>
+
+                            <p className="text-slate-600 dark:text-slate-300 font-medium text-xs leading-relaxed max-w-xl italic">
+                                File a request for official marriage records or register a new marriage. Complete all sections and upload required documents.
+                            </p>
                         </div>
-                        {hasDraft && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    localStorage.removeItem(STORAGE_KEY);
-                                    window.location.reload();
-                                }}
-                                className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-colors"
-                            >
-                                Reset Form
-                            </Button>
-                        )}
+
+                        <div className="flex flex-col items-end gap-2 relative z-10 shrink-0">
+                            <div className="hidden md:block w-28 h-28 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 backdrop-blur-md flex flex-col items-center justify-center text-center p-4 shadow-sm dark:shadow-2xl relative overflow-hidden group hover:scale-105 transition-transform duration-500 mb-2">
+                                <div className="absolute inset-0 bg-gradient-to-tr opacity-0 group-hover:opacity-10 transition-opacity" style={{ backgroundImage: `linear-gradient(to top right, ${themeColor}, transparent)` }} />
+                                <CheckCircle2 className="w-8 h-8 mb-1.5 opacity-80" style={{ color: themeColor }} />
+                                <p className="text-[7px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 leading-tight">Secure Filing</p>
+                            </div>
+                            {hasDraft && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        localStorage.removeItem(STORAGE_KEY);
+                                        window.location.reload();
+                                    }}
+                                    className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-colors"
+                                >
+                                    Reset Form
+                                </Button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Progress Stepper */}
@@ -748,9 +862,9 @@ export default function MarriageRegistrationPage() {
                             {currentStep === "IDENTITY" && (
                                 <div className="space-y-8">
                                     {/* Applicant 1 */}
-                                    <Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 space-y-6">
+                                    <Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-6">
                                         <h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                                            Applicant 1
+                                            {app1Label}
                                         </h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div className="space-y-1.5">
@@ -786,6 +900,14 @@ export default function MarriageRegistrationPage() {
                                                     value={form.app1Citizenship}
                                                 />
                                             </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sex</Label>
+                                                <Input
+                                                    disabled
+                                                    className="bg-slate-100 dark:bg-white/5 border-none font-bold uppercase cursor-not-allowed opacity-75"
+                                                    value={isApp1Male ? "MALE" : "FEMALE"}
+                                                />
+                                            </div>
                                             <div className="space-y-1.5 col-span-1 md:col-span-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Informant Address</Label>
                                                 <Input
@@ -798,10 +920,10 @@ export default function MarriageRegistrationPage() {
                                     </Card>
 
                                     {/* Applicant 2 */}
-                                    <Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 space-y-6">
+                                    <Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-6">
                                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                             <h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
-                                                Applicant 2
+                                                {app2Label}
                                             </h3>
                                             <div className="flex items-center space-x-2">
                                                 <Checkbox
@@ -810,7 +932,7 @@ export default function MarriageRegistrationPage() {
                                                     onCheckedChange={(checked) => setForm({ ...form, app2IsResident: !!checked })}
                                                 />
                                                 <label htmlFor="app2Resident" className="text-xs font-bold italic text-slate-500 cursor-pointer">
-                                                    Applicant 2 is a resident of Mapandan
+                                                    {app2Label} is a resident of Mapandan
                                                 </label>
                                             </div>
                                         </div>
@@ -861,6 +983,23 @@ export default function MarriageRegistrationPage() {
                                                     onChange={e => setForm({ ...form, app2Citizenship: e.target.value.toUpperCase() })}
                                                 />
                                             </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sex</Label>
+                                                <Input
+                                                    disabled
+                                                    className="bg-slate-100 dark:bg-white/5 border-none font-bold uppercase cursor-not-allowed opacity-75"
+                                                    value={isApp1Male ? "FEMALE" : "MALE"}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5 col-span-1 md:col-span-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Address <span className="text-rose-500">*</span></Label>
+                                                <Input
+                                                    placeholder="ENTER ADDRESS"
+                                                    className="bg-slate-50 dark:bg-white/5 border-none font-bold uppercase"
+                                                    value={form.app2Address}
+                                                    onChange={e => setForm({ ...form, app2Address: e.target.value.toUpperCase() })}
+                                                />
+                                            </div>
                                         </div>
                                     </Card>
 
@@ -877,7 +1016,7 @@ export default function MarriageRegistrationPage() {
 
                             {currentStep === "DETAILS" && (
                                 <div className="space-y-8">
-                                    <Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 space-y-6">
+                                    <Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-6">
                                         <h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
                                             Marriage Details
                                         </h3>
@@ -887,6 +1026,7 @@ export default function MarriageRegistrationPage() {
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Registration Type <span className="text-rose-500">*</span></Label>
                                                 <Select 
                                                     value={form.registrationType} 
+                                                    disabled={true}
                                                     onValueChange={(val: any) => setForm({...form, registrationType: val})}
                                                 >
                                                     <SelectTrigger className="bg-slate-50 dark:bg-white/5 border-none font-bold h-12 rounded-xl">
@@ -908,9 +1048,10 @@ export default function MarriageRegistrationPage() {
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date of Marriage <span className="text-rose-500">*</span></Label>
                                                 <Input
                                                     type="date"
+                                                    max={new Date().toISOString().split("T")[0]}
                                                     className="bg-slate-50 dark:bg-white/5 border-none font-bold h-12 rounded-xl"
                                                     value={form.dateOfMarriage}
-                                                    onChange={e => setForm({ ...form, dateOfMarriage: e.target.value })}
+                                                    onChange={e => handleDateOfMarriageChange(e.target.value)}
                                                 />
                                                 {!form.dateOfMarriage && showDetailsErrors && (
                                                     <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-center gap-2 mt-1.5 text-rose-500 animate-in fade-in slide-in-from-top-1 duration-200">
@@ -936,7 +1077,7 @@ export default function MarriageRegistrationPage() {
                                         </div>
                                     </Card>
 
-                                    <Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 space-y-8">
+                                    <Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-8">
                                         <div className="space-y-2">
                                             <h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
                                                 Required Documents
@@ -958,215 +1099,51 @@ export default function MarriageRegistrationPage() {
                                                     </div>
                                                 </div>
                                             ) : form.registrationType === "STANDARD" ? (
-                                                <div className="space-y-4">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Accomplished Certificate of Marriage <span className="text-rose-500">*</span></Label>
-                                                    <div
-                                                        onClick={() => document.getElementById('marriageCert')?.click()}
-                                                        className={cn(
-                                                            "aspect-video relative rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-3 cursor-pointer transition-all group overflow-hidden",
-                                                            (form.files.marriageCert || form.previews.marriageCert) ? "border-rose-500 bg-rose-500/5" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"
-                                                        )}
-                                                    >
-                                                        {(form.files.marriageCert || form.previews.marriageCert) ? (
-                                                            <div className="relative w-full h-full group/preview">
-                                                                {checkIsPdf(form.files.marriageCert, form.previews.marriageCert) ? (
-                                                                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 dark:bg-[#151b2b] p-4 text-center">
-                                                                        <FileText className="w-10 h-10 text-red-500 mb-2 animate-bounce" />
-                                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 max-w-[80%] truncate">
-                                                                            {form.files.marriageCert ? form.files.marriageCert.name : "marriage_certificate.pdf"}
-                                                                        </span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <img src={form.previews.marriageCert!} alt="Marriage certificate preview" className="absolute inset-0 w-full h-full object-cover" />
-                                                                )}
-                                                                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover/preview:opacity-100 transition-opacity z-20 gap-2">
-                                                                    <Button
-                                                                        type="button"
-                                                                        size="sm"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            handleViewFile(form.files.marriageCert || null, form.previews.marriageCert || null, "Certificate of Marriage");
-                                                                        }}
-                                                                        className="font-black italic uppercase tracking-widest text-[9px] px-4 h-8 rounded-xl bg-white text-slate-900 hover:bg-slate-100 shadow-lg flex items-center gap-1.5 transition-all"
-                                                                    >
-                                                                        <Eye className="w-4 h-4 text-rose-500" />
-                                                                        View Document
-                                                                    </Button>
-                                                                    <span className="text-[7px] font-black uppercase tracking-widest text-white/70 italic">Click outside button to change</span>
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <>
-                                                                <Upload className="w-8 h-8 text-slate-300 group-hover:text-rose-500 transition-colors" />
-                                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Click to Upload</span>
-                                                            </>
-                                                        )}
-                                                        <input type="file" id="marriageCert" className="hidden" onChange={e => handleFileChange(e, 'marriageCert')} accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" />
-                                                    </div>
-                                                    {!(form.files.marriageCert || form.previews.marriageCert) && showDetailsErrors && (
-                                                        <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-center gap-2 mt-1.5 text-rose-500 animate-in fade-in slide-in-from-top-1 duration-200">
-                                                            <AlertCircle className="w-4 h-4 shrink-0" />
-                                                            <span className="text-[10px] font-black uppercase tracking-wider italic">Certificate of Marriage is required</span>
-                                                        </div>
-                                                    )}
+                                                <div className="col-span-1">
+                                                    <PremiumDocumentUpload
+                                                        label="Accomplished Certificate of Marriage"
+                                                        required
+                                                        file={form.files.marriageCert}
+                                                        previewUrl={form.previews.marriageCert}
+                                                        onFileSelect={(newFile) => handlePremiumFileSelect(newFile, 'marriageCert')}
+                                                        onClear={() => handleRemoveFile('marriageCert')}
+                                                        onView={() => handleViewFile(form.files.marriageCert, form.previews.marriageCert, "Certificate of Marriage")}
+                                                        error={!form.files.marriageCert && !form.previews.marriageCert && showDetailsErrors}
+                                                    />
                                                 </div>
                                             ) : (
                                                 <>
-                                                    <div className="space-y-4">
-                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Negative Certificate from PSA <span className="text-rose-500">*</span></Label>
-                                                        <div
-                                                            onClick={() => document.getElementById('psaNeg')?.click()}
-                                                            className={cn(
-                                                                "aspect-video relative rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer transition-all overflow-hidden",
-                                                                (form.files.psaNeg || form.previews.psaNeg) ? "border-rose-500 bg-rose-500/5" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"
-                                                            )}
-                                                        >
-                                                            {(form.files.psaNeg || form.previews.psaNeg) ? (
-                                                                <div className="relative w-full h-full group/preview">
-                                                                    {checkIsPdf(form.files.psaNeg, form.previews.psaNeg) ? (
-                                                                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 dark:bg-[#151b2b] p-4 text-center">
-                                                                            <FileText className="w-10 h-10 text-red-500 mb-2 animate-bounce" />
-                                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 max-w-[80%] truncate">
-                                                                                {form.files.psaNeg ? form.files.psaNeg.name : "psa_negative_certificate.pdf"}
-                                                                            </span>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <img src={form.previews.psaNeg!} alt="PSA negative certificate preview" className="absolute inset-0 w-full h-full object-cover" />
-                                                                    )}
-                                                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover/preview:opacity-100 transition-opacity z-20 gap-2">
-                                                                        <Button
-                                                                            type="button"
-                                                                            size="sm"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                handleViewFile(form.files.psaNeg || null, form.previews.psaNeg || null, "Negative Certificate from PSA");
-                                                                            }}
-                                                                            className="font-black italic uppercase tracking-widest text-[9px] px-4 h-8 rounded-xl bg-white text-slate-900 hover:bg-slate-100 shadow-lg flex items-center gap-1.5 transition-all"
-                                                                        >
-                                                                            <Eye className="w-4 h-4 text-rose-500" />
-                                                                            View Document
-                                                                        </Button>
-                                                                        <span className="text-[7px] font-black uppercase tracking-widest text-white/70 italic">Click outside button to change</span>
-                                                                    </div>
-                                                                </div>
-                                                            ) : (
-                                                                <>
-                                                                    <Upload className="w-6 h-6 text-slate-300" />
-                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Click to Upload</span>
-                                                                </>
-                                                            )}
-                                                            <input type="file" id="psaNeg" className="hidden" onChange={e => handleFileChange(e, 'psaNeg')} accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" />
-                                                        </div>
-                                                        {!(form.files.psaNeg || form.previews.psaNeg) && showDetailsErrors && (
-                                                            <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-center gap-2 mt-1.5 text-rose-500 animate-in fade-in slide-in-from-top-1 duration-200">
-                                                                <AlertCircle className="w-4 h-4 shrink-0" />
-                                                                <span className="text-[10px] font-black uppercase tracking-wider italic">PSA Negative Certificate is required</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div className="space-y-4">
-                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Affidavit of Delayed Registration <span className="text-rose-500">*</span></Label>
-                                                        <div
-                                                            onClick={() => document.getElementById('affidavitDelay')?.click()}
-                                                            className={cn(
-                                                                "aspect-video relative rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer transition-all overflow-hidden",
-                                                                (form.files.affidavitDelay || form.previews.affidavitDelay) ? "border-rose-500 bg-rose-500/5" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"
-                                                            )}
-                                                        >
-                                                            {(form.files.affidavitDelay || form.previews.affidavitDelay) ? (
-                                                                <div className="relative w-full h-full group/preview">
-                                                                    {checkIsPdf(form.files.affidavitDelay, form.previews.affidavitDelay) ? (
-                                                                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 dark:bg-[#151b2b] p-4 text-center">
-                                                                            <FileText className="w-10 h-10 text-red-500 mb-2 animate-bounce" />
-                                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 max-w-[80%] truncate">
-                                                                                {form.files.affidavitDelay ? form.files.affidavitDelay.name : "affidavit_of_delayed_registration.pdf"}
-                                                                            </span>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <img src={form.previews.affidavitDelay!} alt="Affidavit preview" className="absolute inset-0 w-full h-full object-cover" />
-                                                                    )}
-                                                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover/preview:opacity-100 transition-opacity z-20 gap-2">
-                                                                        <Button
-                                                                            type="button"
-                                                                            size="sm"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                handleViewFile(form.files.affidavitDelay || null, form.previews.affidavitDelay || null, "Affidavit of Delayed Registration");
-                                                                            }}
-                                                                            className="font-black italic uppercase tracking-widest text-[9px] px-4 h-8 rounded-xl bg-white text-slate-900 hover:bg-slate-100 shadow-lg flex items-center gap-1.5 transition-all"
-                                                                        >
-                                                                            <Eye className="w-4 h-4 text-rose-500" />
-                                                                            View Document
-                                                                        </Button>
-                                                                        <span className="text-[7px] font-black uppercase tracking-widest text-white/70 italic">Click outside button to change</span>
-                                                                    </div>
-                                                                </div>
-                                                            ) : (
-                                                                <>
-                                                                    <Upload className="w-6 h-6 text-slate-300" />
-                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Click to Upload</span>
-                                                                </>
-                                                            )}
-                                                            <input type="file" id="affidavitDelay" className="hidden" onChange={e => handleFileChange(e, 'affidavitDelay')} accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" />
-                                                        </div>
-                                                        {!(form.files.affidavitDelay || form.previews.affidavitDelay) && showDetailsErrors && (
-                                                            <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-center gap-2 mt-1.5 text-rose-500 animate-in fade-in slide-in-from-top-1 duration-200">
-                                                                <AlertCircle className="w-4 h-4 shrink-0" />
-                                                                <span className="text-[10px] font-black uppercase tracking-wider italic">Affidavit of Delayed Registration is required</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div className="space-y-4 md:col-span-2">
-                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Certified Copy of Marriage License <span className="text-rose-500">*</span></Label>
-                                                        <div
-                                                            onClick={() => document.getElementById('marriageLicense')?.click()}
-                                                            className={cn(
-                                                                "aspect-video max-w-md mx-auto relative rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer transition-all overflow-hidden",
-                                                                (form.files.marriageLicense || form.previews.marriageLicense) ? "border-rose-500 bg-rose-500/5" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"
-                                                            )}
-                                                        >
-                                                            {(form.files.marriageLicense || form.previews.marriageLicense) ? (
-                                                                <div className="relative w-full h-full group/preview">
-                                                                    {checkIsPdf(form.files.marriageLicense, form.previews.marriageLicense) ? (
-                                                                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 dark:bg-[#151b2b] p-4 text-center">
-                                                                            <FileText className="w-10 h-10 text-red-500 mb-2 animate-bounce" />
-                                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 max-w-[80%] truncate">
-                                                                                {form.files.marriageLicense ? form.files.marriageLicense.name : "certified_copy_of_marriage_license.pdf"}
-                                                                            </span>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <img src={form.previews.marriageLicense!} alt="Marriage license preview" className="absolute inset-0 w-full h-full object-cover" />
-                                                                    )}
-                                                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover/preview:opacity-100 transition-opacity z-20 gap-2">
-                                                                        <Button
-                                                                            type="button"
-                                                                            size="sm"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                handleViewFile(form.files.marriageLicense || null, form.previews.marriageLicense || null, "Certified Copy of Marriage License");
-                                                                            }}
-                                                                            className="font-black italic uppercase tracking-widest text-[9px] px-4 h-8 rounded-xl bg-white text-slate-900 hover:bg-slate-100 shadow-lg flex items-center gap-1.5 transition-all"
-                                                                        >
-                                                                            <Eye className="w-4 h-4 text-rose-500" />
-                                                                            View Document
-                                                                        </Button>
-                                                                        <span className="text-[7px] font-black uppercase tracking-widest text-white/70 italic">Click outside button to change</span>
-                                                                    </div>
-                                                                </div>
-                                                            ) : (
-                                                                <>
-                                                                    <Upload className="w-6 h-6 text-slate-300" />
-                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Click to Upload</span>
-                                                                </>
-                                                            )}
-                                                            <input type="file" id="marriageLicense" className="hidden" onChange={e => handleFileChange(e, 'marriageLicense')} accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" />
-                                                        </div>
-                                                        {!(form.files.marriageLicense || form.previews.marriageLicense) && showDetailsErrors && (
-                                                            <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-center gap-2 mt-1.5 text-rose-500 animate-in fade-in slide-in-from-top-1 duration-200">
-                                                                <AlertCircle className="w-4 h-4 shrink-0" />
-                                                                <span className="text-[10px] font-black uppercase tracking-wider italic">Certified Copy of Marriage License is required</span>
-                                                            </div>
-                                                        )}
+                                                    <PremiumDocumentUpload
+                                                        label="Negative Certificate from PSA"
+                                                        required
+                                                        file={form.files.psaNeg}
+                                                        previewUrl={form.previews.psaNeg}
+                                                        onFileSelect={(newFile) => handlePremiumFileSelect(newFile, 'psaNeg')}
+                                                        onClear={() => handleRemoveFile('psaNeg')}
+                                                        onView={() => handleViewFile(form.files.psaNeg, form.previews.psaNeg, "Negative Certificate from PSA")}
+                                                        error={!form.files.psaNeg && !form.previews.psaNeg && showDetailsErrors}
+                                                    />
+                                                    <PremiumDocumentUpload
+                                                        label="Affidavit of Delayed Registration"
+                                                        required
+                                                        file={form.files.affidavitDelay}
+                                                        previewUrl={form.previews.affidavitDelay}
+                                                        onFileSelect={(newFile) => handlePremiumFileSelect(newFile, 'affidavitDelay')}
+                                                        onClear={() => handleRemoveFile('affidavitDelay')}
+                                                        onView={() => handleViewFile(form.files.affidavitDelay, form.previews.affidavitDelay, "Affidavit of Delayed Registration")}
+                                                        error={!form.files.affidavitDelay && !form.previews.affidavitDelay && showDetailsErrors}
+                                                    />
+                                                    <div className="col-span-1 md:col-span-2">
+                                                        <PremiumDocumentUpload
+                                                            label="Certified Copy of Marriage License"
+                                                            required
+                                                            file={form.files.marriageLicense}
+                                                            previewUrl={form.previews.marriageLicense}
+                                                            onFileSelect={(newFile) => handlePremiumFileSelect(newFile, 'marriageLicense')}
+                                                            onClear={() => handleRemoveFile('marriageLicense')}
+                                                            onView={() => handleViewFile(form.files.marriageLicense, form.previews.marriageLicense, "Certified Copy of Marriage License")}
+                                                            error={!form.files.marriageLicense && !form.previews.marriageLicense && showDetailsErrors}
+                                                        />
                                                     </div>
                                                 </>
                                             )}
@@ -1186,7 +1163,7 @@ export default function MarriageRegistrationPage() {
 
                             {currentStep === "CONFIRM" && (
                                 <div className="space-y-8">
-                                    <Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 space-y-8">
+                                    <Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-8">
                                         <div className="bg-rose-500/5 p-6 rounded-3xl border border-rose-500/10 flex items-start gap-4">
                                             <AlertCircle className="w-6 h-6 text-rose-500 mt-1" />
                                             <div className="space-y-1">
@@ -1203,16 +1180,28 @@ export default function MarriageRegistrationPage() {
                                                 <h5 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 border-b pb-2">Contracting Parties</h5>
                                                 <div className="space-y-4">
                                                     <div className="flex justify-between items-center text-xs">
-                                                        <span className="font-bold text-slate-400 italic">Party 1:</span>
+                                                        <span className="font-bold text-slate-400 italic">{app1Label}:</span>
                                                         <span className="font-black uppercase italic">{form.app1FullName}</span>
                                                     </div>
                                                     <div className="flex justify-between items-center text-xs">
-                                                        <span className="font-bold text-slate-400 italic">Party 1 Address:</span>
+                                                        <span className="font-bold text-slate-400 italic">{app1Label} Sex:</span>
+                                                        <span className="font-black uppercase italic">{isApp1Male ? "MALE" : "FEMALE"}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center text-xs">
+                                                        <span className="font-bold text-slate-400 italic">{app1Label} Address:</span>
                                                         <span className="font-black uppercase italic">{form.informantAddress || "N/A"}</span>
                                                     </div>
                                                     <div className="flex justify-between items-center text-xs">
-                                                        <span className="font-bold text-slate-400 italic">Party 2:</span>
+                                                        <span className="font-bold text-slate-400 italic">{app2Label}:</span>
                                                         <span className="font-black uppercase italic">{form.app2FullName}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center text-xs">
+                                                        <span className="font-bold text-slate-400 italic">{app2Label} Sex:</span>
+                                                        <span className="font-black uppercase italic">{isApp1Male ? "FEMALE" : "MALE"}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center text-xs">
+                                                        <span className="font-bold text-slate-400 italic">{app2Label} Address:</span>
+                                                        <span className="font-black uppercase italic">{form.app2Address || "N/A"}</span>
                                                     </div>
                                                     <div className="flex justify-between items-center text-xs text-rose-500">
                                                         <span className="font-bold italic">Type:</span>

@@ -73,7 +73,12 @@ export default async function Home({
 
     // Completely block any Admin/Content Admin from the landing page unless they chose Citizen view
     if (session && role && role !== "USER" && activePortal !== "citizen") {
-        redirect("/admin/dashboard");
+        const department = (session.user as any)?.department;
+        if (department && (department.toUpperCase() === "REGISTRAR" || department.toUpperCase() === "CIVIL_REGISTRY")) {
+            redirect("/admin/registrar");
+        } else {
+            redirect("/admin/dashboard");
+        }
     }
 
 

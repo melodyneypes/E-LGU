@@ -10,7 +10,7 @@ export function GovSocioEconomicSection({ data }: { data?: any }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-semibold">TIN (Tax ID)</label>
           <Input name="tin" defaultValue={data?.tin} placeholder="XXX-XXX-XXX" />
@@ -22,6 +22,10 @@ export function GovSocioEconomicSection({ data }: { data?: any }) {
         <div className="space-y-2">
           <label className="text-sm font-semibold">SSS No.</label>
           <Input name="sss" defaultValue={data?.sss} placeholder="XX-XXXXXXX-X" />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-semibold">Philhealth No.</label>
+          <Input name="philhealthNumber" defaultValue={data?.philhealthNumber} placeholder="XX-XXXXXXXXX-X" />
         </div>
       </div>
 

@@ -62,6 +62,7 @@ export type Resident = {
     tin?: string | null;
     gsis?: string | null;
     sss?: string | null;
+    philhealthNumber?: string | null;
     occupation?: string | null;
     employer?: string | null;
     educationalAttainment?: string | null;

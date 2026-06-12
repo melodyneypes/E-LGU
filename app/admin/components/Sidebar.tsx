@@ -51,6 +51,7 @@ export function Sidebar({
     const router = useRouter();
     const searchParams = useSearchParams();
     const role = session?.user?.role || "ADMIN";
+    const department = session?.user?.department;
     const { isOpen: isSidebarOpen, close } = useSidebar();
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(pathname.startsWith("/admin/settings"));
     const [isAboutOpen, setIsAboutOpen] = React.useState(pathname.startsWith("/admin/about"));
@@ -178,8 +179,12 @@ export function Sidebar({
             isDropdown: true,
             isOpen: isRegistrarOpen,
             onToggle: () => {
-                setIsRegistrarOpen(true);
-                router.push("/admin/registrar");
+                if (isRegistrarOpen) {
+                    setIsRegistrarOpen(false);
+                } else {
+                    setIsRegistrarOpen(true);
+                    router.push("/admin/registrar?category=Birth Registration");
+                }
             },
             subItems: [
                 { href: "/admin/registrar?category=Birth Registration", label: "Birth Registration" },
@@ -199,8 +204,12 @@ export function Sidebar({
             isDropdown: true,
             isOpen: isTreasuryOpen,
             onToggle: () => {
-                setIsTreasuryOpen(true);
-                router.push("/admin/treasury?category=CEDULA");
+                if (isTreasuryOpen) {
+                    setIsTreasuryOpen(false);
+                } else {
+                    setIsTreasuryOpen(true);
+                    router.push("/admin/treasury?category=CEDULA");
+                }
             },
             subItems: [
                 { href: "/admin/treasury?category=CEDULA", label: "CEDULA" },
@@ -252,8 +261,34 @@ export function Sidebar({
     let menuItems = allMenuItems;
 
     if (role === "ADMIN") {
-        // ADMIN should be able to see all the bars in the side bar
-        menuItems = allMenuItems;
+        if (department) {
+            const deptUpper = department.toUpperCase();
+            if (deptUpper === "BPLO") {
+                menuItems = [
+                    { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "Treasury" }
+                ];
+            } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
+                const registrarHubItem = allMenuItems.find(item => item.label === "Registrar Hub");
+                menuItems = [
+                    ...(registrarHubItem ? [registrarHubItem] : [])
+                ];
+            } else if (deptUpper === "TREASURY") {
+                menuItems = allMenuItems.filter(item => 
+                    ["Treasury Hub", "Payments Ledger", "Payment Settings"].includes(item.label)
+                );
+            } else if (deptUpper === "LGU") {
+                menuItems = allMenuItems.filter(item => 
+                    !["Registrar Hub", "Treasury Hub", "Payments Ledger", "BPLO Permits", "Payment Settings"].includes(item.label)
+                );
+            } else {
+                menuItems = [
+                    { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard }
+                ];
+            }
+        } else {
+            // ADMIN without department gets allMenuItems
+            menuItems = allMenuItems;
+        }
     } else if (role === "CONTENT_ADMIN") {
         menuItems = allMenuItems.filter(item => contentAdminAllowed.includes(item.label));
     } else if (role === "BARANGAY_ADMIN") {

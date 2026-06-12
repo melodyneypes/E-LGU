@@ -1,11 +1,9 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    FileText,
     User,
     Loader2,
     Check,
@@ -18,19 +16,12 @@ import {
     Upload,
     Search,
     CheckCircle2,
-    Eye
+    Home
 } from "lucide-react";
+import Link from "next/link";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
-
-const checkIsPdf = (file: any, url: string | null) => {
-    if (file && file instanceof File) {
-        return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    }
-    if (url) {
-        return url.toLowerCase().endsWith(".pdf") || url.includes("application/pdf") || url.includes(".pdf?");
-    }
-    return false;
-};
+import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,24 +55,31 @@ import { compressImage } from "@/lib/image-compression";
 import { useRouter } from "next/navigation";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 
-const PreviewImage = ({ file, fallbackUrl, alt, className }: { file: File | null; fallbackUrl?: string; alt: string; className?: string }) => {
-    const [src, setSrc] = React.useState(fallbackUrl || "");
 
-    React.useEffect(() => {
-        if (!file) {
-            setSrc(fallbackUrl || "");
-            return;
-        }
-        const url = URL.createObjectURL(file);
-        setSrc(url);
-        return () => {
-            URL.revokeObjectURL(url);
-        };
-    }, [file, fallbackUrl]);
+// --- UPLOAD FILE CLIENT-SIDE TO SUPABASE STORAGE ---
+async function uploadFileClientSide(file: File, fieldName: string, userId: string): Promise<string> {
+    const fileExt = file.name.split('.').pop() || 'bin';
+    const fileName = `${userId}/${fieldName}_${Date.now()}.${fileExt}`;
+    const filePath = `services/lcr/marriage_certificate_request/${fileName}`;
 
-    if (!src) return null;
-    return <img src={src} alt={alt} className={className} />;
-};
+    const { error } = await supabase.storage
+        .from("system-assets")
+        .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: true
+        });
+
+    if (error) {
+        console.error(`[ClientUpload] Upload error for ${fieldName}:`, error);
+        throw new Error(`Failed to upload ${file.name}: ${error.message}`);
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+        .from("system-assets")
+        .getPublicUrl(filePath);
+
+    return publicUrl;
+}
 
 // --- TYPES ---
 
@@ -110,6 +108,7 @@ interface FormState {
     deliveryType: "PICK_UP" | "DELIVERY" | "E_COPY";
     paymentType: "WALK_IN";
     files: Record<string, File | null>;
+    previews: Record<string, string | null>;
     idTypeOverride?: string;
     email: string;
     contactNumber: string;
@@ -171,6 +170,7 @@ export default function MarriageCertificateRequestPage() {
         deliveryType: "PICK_UP",
         paymentType: "WALK_IN",
         files: {},
+        previews: {},
         idTypeOverride: "",
         email: "",
         contactNumber: "",
@@ -194,6 +194,79 @@ export default function MarriageCertificateRequestPage() {
         setViewerUrl(existingUrl);
         setViewerTitle(title);
         setViewerOpen(true);
+    };
+
+    const renderIdCard = (label: string, fileKey: string) => {
+        const file = form.files[fileKey] || null;
+        const defaultUrl = fileKey === "validIdFront" ? resident?.idFrontUrl : resident?.idBackUrl;
+        const preview = form.previews[fileKey] || defaultUrl || null;
+
+        return (
+            <PremiumDocumentUpload
+                key={fileKey}
+                label={label}
+                required
+                file={file}
+                previewUrl={preview}
+                error={showErrors && !file && !preview}
+                onFileSelect={async (newFile) => {
+                    if (newFile.size > 5 * 1024 * 1024) {
+                        toast.error("File size exceeds 5MB limit.");
+                        return;
+                    }
+
+                    let fileToProcess = newFile;
+                    if (newFile.type.startsWith("image/")) {
+                        try {
+                            toast.loading("Compressing and optimizing document...", { id: `file-compress-${fileKey}` });
+                            fileToProcess = await compressImage(newFile);
+                            toast.success("Image optimized successfully!", { id: `file-compress-${fileKey}` });
+                        } catch (err) {
+                            console.error("Compression error:", err);
+                            toast.dismiss(`file-compress-${fileKey}`);
+                        }
+                    }
+
+                    try {
+                        toast.loading("Uploading and preparing document preview...", { id: `file-upload-${fileKey}` });
+                        const userId = resident?.id || "anonymous";
+                        const sanitizedKey = fileKey.replace(/[^a-zA-Z0-9_-]/g, '_');
+                        const publicUrl = await uploadFileClientSide(fileToProcess, sanitizedKey, userId);
+
+                        setForm(prev => ({
+                            ...prev,
+                            files: { ...prev.files, [fileKey]: fileToProcess },
+                            previews: { ...prev.previews, [fileKey]: publicUrl }
+                        }));
+                        toast.success("Document uploaded & preview ready!", { id: `file-upload-${fileKey}` });
+                    } catch (uploadErr) {
+                        console.error(`[ClientUpload] Failed to upload ${fileKey} on-the-fly:`, uploadErr);
+                        toast.error("Upload failed. Local copy stored (preview limited).", { id: `file-upload-${fileKey}` });
+
+                        setForm(prev => ({
+                            ...prev,
+                            files: { ...prev.files, [fileKey]: fileToProcess },
+                            previews: { ...prev.previews, [fileKey]: fileToProcess.type.startsWith("image/") ? URL.createObjectURL(fileToProcess) : null }
+                        }));
+                    }
+                }}
+                onClear={async () => {
+                    setForm(prev => {
+                        const nextFiles = { ...prev.files };
+                        const nextPreviews = { ...prev.previews };
+                        delete nextFiles[fileKey];
+                        delete nextPreviews[fileKey];
+                        return {
+                            ...prev,
+                            files: nextFiles,
+                            previews: nextPreviews
+                        };
+                    });
+                    toast.success("File removed successfully.");
+                }}
+                onView={() => handleViewFile(file, preview, label)}
+            />
+        );
     };
 
     // Persist progress to session storage
@@ -474,45 +547,6 @@ export default function MarriageCertificateRequestPage() {
     const handleAcceptPolicy = () => { setPolicyOpen(false); setPolicyAccepted(true); };
     const dbType = availableTypes.find(t => t.code === "LCR_MARRIAGE");
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            if (file.size > 5 * 1024 * 1024) {
-                toast.error("File size exceeds 5MB limit.");
-                if (e.target.parentElement) {
-                    const parent = e.target.parentElement;
-                    let errEl = parent.querySelector('.file-error-msg');
-                    if (!errEl) {
-                        errEl = document.createElement('div');
-                        errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
-                        parent.appendChild(errEl);
-                    }
-                    errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
-                    setTimeout(() => errEl && errEl.remove(), 4000);
-                }
-                e.target.value = "";
-                return;
-            }
-            
-            let fileToProcess = file;
-            if (file.type.startsWith("image/")) {
-                try {
-                    toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-                    fileToProcess = await compressImage(file);
-                    toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-                } catch (err) {
-                    console.error("Compression error:", err);
-                    toast.dismiss("image-compress-toast");
-                }
-            }
-
-            setForm(prev => ({
-                ...prev,
-                files: { ...prev.files, [key]: fileToProcess }
-            }));
-        }
-    };
-
     const handleSubmit = async () => {
         if (submitting) return;
         if (!resident) {
@@ -520,7 +554,10 @@ export default function MarriageCertificateRequestPage() {
             return;
         }
 
-        if ((!form.files["validIdFront"] && !resident?.idFrontUrl) || (!form.files["validIdBack"] && !resident?.idBackUrl)) {
+        // Validate ID uploads
+        const hasIdFront = form.files["validIdFront"] || resident?.idFrontUrl || form.previews["validIdFront"];
+        const hasIdBack = form.files["validIdBack"] || resident?.idBackUrl || form.previews["validIdBack"];
+        if (!hasIdFront || !hasIdBack) {
             toast.error("Please upload both Front and Back of your Government ID.");
             return;
         }
@@ -554,6 +591,40 @@ export default function MarriageCertificateRequestPage() {
                 province: resident.province
             }));
 
+            const fileUrls: Record<string, string> = {};
+
+            // First, copy any existing public URLs from previews
+            Object.entries(form.previews || {}).forEach(([key, url]) => {
+                if (url && typeof url === "string" && url.startsWith("http")) {
+                    fileUrls[key] = url;
+                }
+            });
+
+            const fileEntries = Object.entries(form.files);
+            for (let i = 0; i < fileEntries.length; i++) {
+                const [key, file] = fileEntries[i];
+                if (!file) continue;
+                const sanitizedKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+                if (fileUrls[key]) {
+                    console.log(`[ClientUpload] Reusing existing public URL for ${key}:`, fileUrls[key]);
+                    continue;
+                }
+
+                try {
+                    toast.loading(`Uploading document ${i + 1}/${fileEntries.length}...`, { id: "req-upload-toast" });
+                    const userId = resident?.id || "anonymous";
+                    const url = await uploadFileClientSide(file, sanitizedKey, userId);
+                    fileUrls[key] = url;
+                } catch (uploadErr) {
+                    console.error(`[ClientUpload] Failed to upload ${key}:`, uploadErr);
+                    toast.error(`Failed to upload document: ${key}. Please try again.`, { id: "req-upload-toast" });
+                    setSubmitting(false);
+                    return;
+                }
+            }
+            toast.dismiss("req-upload-toast");
+
             const additionalData = {
                 subjectName: `${form.fullName} & ${form.spouseName}`,
                 dateOfEvent: form.dateOfEvent,
@@ -567,16 +638,12 @@ export default function MarriageCertificateRequestPage() {
                 contactNumber: form.contactNumber,
                 informantAddress: form.informantAddress,
                 idType: form.idTypeOverride || resident?.idType,
-                idFrontUrl: resident?.idFrontUrl,
-                idBackUrl: resident?.idBackUrl,
+                idFrontUrl: fileUrls["validIdFront"] || resident?.idFrontUrl,
+                idBackUrl: fileUrls["validIdBack"] || resident?.idBackUrl,
                 totalAmount: dbType?.baseFee || 150
             };
 
             formData.append("additionalData", JSON.stringify(additionalData));
-
-            Object.entries(form.files).forEach(([key, file]) => {
-                if (file) formData.append(key, file);
-            });
 
             const res = await submitCivilRegistryTransaction(formData);
             if (res.success && res.data) {
@@ -673,8 +740,20 @@ export default function MarriageCertificateRequestPage() {
                 input:not([type="button"]):not([type="submit"]), select, textarea {
                     color: #0f172a !important;
                 }
+                input:not([type="button"]):not([type="submit"]):disabled, select:disabled, textarea:disabled,
+                input:not([type="button"]):not([type="submit"])[readonly], select[readonly], textarea[readonly] {
+                    color: #1e293b !important;
+                    -webkit-text-fill-color: #1e293b !important;
+                    opacity: 0.9 !important;
+                }
                 .dark input:not([type="button"]):not([type="submit"]), .dark select, .dark textarea {
                     color: #f8fafc !important;
+                }
+                .dark input:not([type="button"]):not([type="submit"]):disabled, .dark select:disabled, .dark textarea:disabled,
+                .dark input:not([type="button"]):not([type="submit"])[readonly], .dark select[readonly], .dark textarea[readonly] {
+                    color: #cbd5e1 !important;
+                    -webkit-text-fill-color: #cbd5e1 !important;
+                    opacity: 0.8 !important;
                 }
             `}} />
             <PrivacyTermsModal
@@ -693,31 +772,70 @@ export default function MarriageCertificateRequestPage() {
                 themeColor={themeColor}
             />
             {/* Header Section */}
-            <div className="space-y-4">
+            <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                 <Breadcrumb>
-                    <BreadcrumbList>
-                        <BreadcrumbItem><BreadcrumbLink href="/">Home</BreadcrumbLink></BreadcrumbItem>
-                        <BreadcrumbSeparator />
-                        <BreadcrumbItem><BreadcrumbLink href="/user/services">Services</BreadcrumbLink></BreadcrumbItem>
-                        <BreadcrumbSeparator />
-                        <BreadcrumbItem><BreadcrumbLink href="/user/services/civil-registry">Civil Registry</BreadcrumbLink></BreadcrumbItem>
-                        <BreadcrumbSeparator />
-                        <BreadcrumbItem><BreadcrumbPage>Marriage Certificate Request</BreadcrumbPage></BreadcrumbItem>
+                    <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+                        <BreadcrumbItem>
+                            <BreadcrumbLink asChild>
+                                <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                    <Home className="w-3.5 h-3.5 mb-0.5" />
+                                    Home
+                                </Link>
+                            </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+                        <BreadcrumbItem>
+                            <BreadcrumbLink asChild>
+                                <Link href="/user/services" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                    Services
+                                </Link>
+                            </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+                        <BreadcrumbItem>
+                            <BreadcrumbLink asChild>
+                                <Link href="/user/services/civil-registry" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                    Civil Registry
+                                </Link>
+                            </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+                        <BreadcrumbItem>
+                            <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic text-emerald-700 dark:text-emerald-400">Marriage Certificate Request</BreadcrumbPage>
+                        </BreadcrumbItem>
                     </BreadcrumbList>
                 </Breadcrumb>
+            </div>
 
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 bg-white dark:bg-[#0f1117] p-8 rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 shadow-xl shadow-slate-200/40 dark:shadow-none">
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-rose-500/10 rounded-xl">
-                                <Heart className="w-6 h-6 text-rose-500" />
-                            </div>
-                            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-rose-500">Local Civil Registry</span>
+            {/* Premium Header/Banner with Ambient Gradient Backdrop */}
+            <div className="relative overflow-hidden bg-white dark:bg-[#0c1017] p-6 md:p-10 rounded-2xl md:rounded-[2rem] border border-slate-100 dark:border-white/5 text-slate-800 dark:text-white shadow-xl dark:shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
+                <div
+                    className="absolute top-0 right-0 w-96 h-96 blur-[120px] rounded-full opacity-10 dark:opacity-20 pointer-events-none -mr-40 -mt-40 transition-colors duration-700"
+                    style={{ backgroundColor: themeColor }}
+                />
+
+                <div className="space-y-3 md:space-y-4 max-w-2xl relative z-10">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/10 flex items-center justify-center backdrop-blur-md">
+                            <Heart className="w-4 h-4" style={{ color: themeColor }} />
                         </div>
-                        <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">
-                            Request <span className="text-rose-500">Marriage Certificate</span>
-                        </h1>
-                        <p className="text-slate-500 font-medium text-sm italic">Request certified copies of marriage certificates registered in Mapandan.</p>
+                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500 dark:text-white/70 italic">Local Civil Registry</span>
+                    </div>
+
+                    <h1 className="text-2xl md:text-4xl font-black uppercase italic tracking-tighter leading-none">
+                        Request <span style={{ color: themeColor }}>Marriage Certificate</span>
+                    </h1>
+
+                    <p className="text-slate-600 dark:text-slate-300 font-medium text-xs leading-relaxed max-w-xl italic">
+                        Request certified copies of marriage certificates registered in Mapandan. Complete the form and upload required identifications to verify your request.
+                    </p>
+                </div>
+
+                <div className="hidden md:block relative z-10 shrink-0">
+                    <div className="w-28 h-28 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 backdrop-blur-md flex flex-col items-center justify-center text-center p-4 shadow-sm dark:shadow-2xl relative overflow-hidden group hover:scale-105 transition-transform duration-500">
+                        <div className="absolute inset-0 bg-gradient-to-tr opacity-0 group-hover:opacity-10 transition-opacity" style={{ backgroundImage: `linear-gradient(to top right, ${themeColor}, transparent)` }} />
+                        <CheckCircle2 className="w-8 h-8 mb-1.5 opacity-80" style={{ color: themeColor }} />
+                        <p className="text-[7px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 leading-tight">Secure Filing</p>
                     </div>
                 </div>
             </div>
@@ -788,7 +906,7 @@ export default function MarriageCertificateRequestPage() {
             )}
 
             {/* Step Selection */}
-            <Card className="p-8 rounded-[2.5rem] border-slate-200/50 dark:border-white/5 bg-white dark:bg-[#0f1117] shadow-xl shadow-slate-200/40 dark:shadow-none min-h-[400px]">
+            <Card className="p-8 rounded-[2.5rem] border-slate-200/50 dark:border-white/5 bg-white dark:bg-[#0f1117] shadow-xl dark:shadow-2xl min-h-[400px]">
                 <AnimatePresence mode="wait">
                     {currentStep === "IDENTITY" && (
                         <motion.div
@@ -1292,113 +1410,8 @@ export default function MarriageCertificateRequestPage() {
                                             </Select>
                                         </div>
 
-                                        {/* Front ID Uploader */}
-                                        <div className="space-y-2">
-                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Valid Government ID (Front) <span className="text-red-500">*</span></Label>
-                                            <div className={cn(
-                                                "group relative flex flex-col items-center justify-center border-2 border-dashed rounded-[1.5rem] p-4 transition-all duration-300 min-h-[140px]",
-                                                (form.files["validIdFront"] || resident?.idFrontUrl) ? "bg-rose-50/50 border-rose-500/50" : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 hover:border-rose-500/50"
-                                            )}>
-                                                <input
-                                                    type="file"
-                                                    onChange={(e) => handleFileChange(e, "validIdFront")}
-                                                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                                                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                                                />
-                                                {(form.files["validIdFront"] || resident?.idFrontUrl) ? (
-                                                    <div className="relative w-full aspect-[16/9] rounded-xl overflow-hidden group/preview shadow-lg">
-                                                        {checkIsPdf(form.files["validIdFront"], resident?.idFrontUrl) ? (
-                                                            <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 dark:bg-white/5 p-4 text-center">
-                                                                <FileText className="w-10 h-10 text-red-500 mb-2" />
-                                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 max-w-[80%] truncate">
-                                                                    {form.files["validIdFront"] ? (form.files["validIdFront"] as File).name : "ID_FRONT.pdf"}
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            <PreviewImage
-                                                                file={form.files["validIdFront"] as File || null}
-                                                                fallbackUrl={resident?.idFrontUrl || ""}
-                                                                alt="ID Front Preview"
-                                                                className="w-full h-full object-cover transition-transform duration-500 group-hover/preview:scale-110"
-                                                            />
-                                                        )}
-                                                        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover/preview:opacity-100 transition-opacity z-20 gap-2">
-                                                            <Button
-                                                                type="button"
-                                                                size="sm"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleViewFile(form.files["validIdFront"] as File || null, resident?.idFrontUrl || null, "Valid ID (Front)");
-                                                                }}
-                                                                className="font-black italic uppercase tracking-widest text-[8px] px-3 h-7 rounded-lg bg-white text-slate-900 hover:bg-slate-100"
-                                                            >
-                                                                <Eye className="w-3.5 h-3.5 mr-1" />
-                                                                View
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-center space-y-2">
-                                                        <Upload className="w-5 h-5 text-slate-300 mx-auto group-hover:text-rose-500 transition-colors" />
-                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic group-hover:text-rose-500 transition-colors">Click or drag</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Back ID Uploader */}
-                                        <div className="space-y-2">
-                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Valid Government ID (Back) <span className="text-red-500">*</span></Label>
-                                            <div className={cn(
-                                                "group relative flex flex-col items-center justify-center border-2 border-dashed rounded-[1.5rem] p-4 transition-all duration-300 min-h-[140px]",
-                                                (form.files["validIdBack"] || resident?.idBackUrl) ? "bg-rose-50/50 border-rose-500/50" : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 hover:border-rose-500/50"
-                                            )}>
-                                                <input
-                                                    type="file"
-                                                    onChange={(e) => handleFileChange(e, "validIdBack")}
-                                                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                                                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                                                />
-                                                {(form.files["validIdBack"] || resident?.idBackUrl) ? (
-                                                    <div className="relative w-full aspect-[16/9] rounded-xl overflow-hidden group/preview shadow-lg">
-                                                        {checkIsPdf(form.files["validIdBack"], resident?.idBackUrl) ? (
-                                                            <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 dark:bg-white/5 p-4 text-center">
-                                                                <FileText className="w-10 h-10 text-red-500 mb-2" />
-                                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 max-w-[80%] truncate">
-                                                                    {form.files["validIdBack"] ? (form.files["validIdBack"] as File).name : "ID_BACK.pdf"}
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            <PreviewImage
-                                                                file={form.files["validIdBack"] as File || null}
-                                                                fallbackUrl={resident?.idBackUrl || ""}
-                                                                alt="ID Back Preview"
-                                                                className="w-full h-full object-cover transition-transform duration-500 group-hover/preview:scale-110"
-                                                            />
-                                                        )}
-                                                        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover/preview:opacity-100 transition-opacity z-20 gap-2">
-                                                            <Button
-                                                                type="button"
-                                                                size="sm"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleViewFile(form.files["validIdBack"] as File || null, resident?.idBackUrl || null, "Valid ID (Back)");
-                                                                }}
-                                                                className="font-black italic uppercase tracking-widest text-[8px] px-3 h-7 rounded-lg bg-white text-slate-900 hover:bg-slate-100"
-                                                            >
-                                                                <Eye className="w-3.5 h-3.5 mr-1" />
-                                                                View
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-center space-y-2">
-                                                        <Upload className="w-5 h-5 text-slate-300 mx-auto group-hover:text-rose-500 transition-colors" />
-                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic group-hover:text-rose-500 transition-colors">Click or drag</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
+                                        {renderIdCard("Valid Government ID (Front)", "validIdFront")}
+                                        {renderIdCard("Valid Government ID (Back)", "validIdBack")}
                                     </div>
                                 </div>
                             </Card>

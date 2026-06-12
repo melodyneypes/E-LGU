@@ -91,7 +91,7 @@ async function processImageUpload(formData: FormData, fieldName: string = "image
             const storagePath = `${folder}/${filename}`;
 
             const buffer = Buffer.from(await file.arrayBuffer());
-            const publicUrl = await uploadFile(buffer, storagePath);
+            const publicUrl = await uploadFile(buffer, storagePath, undefined, file.type);
 
             if (!publicUrl) throw new Error("Upload failed");
 
@@ -123,7 +123,7 @@ async function processMultipleImages(formData: FormData, fieldName: string = "im
                 const filename = `${Date.now()}_${(fileItem.name || "upload").replaceAll(" ", "_")}`;
                 const storagePath = `reports/${filename}`;
 
-                const publicUrl = await uploadFile(buffer, storagePath);
+                const publicUrl = await uploadFile(buffer, storagePath, undefined, fileItem.type);
                 if (publicUrl) uploadedPaths.push(publicUrl);
             } catch (error) {
                 console.error("Error processing file in multiple upload to Supabase:", error);
@@ -1499,6 +1499,7 @@ export async function addResident(formData: FormData) {
                 tin: formData.get("tin") as string || null,
                 gsis: formData.get("gsis") as string || null,
                 sss: formData.get("sss") as string || null,
+                philhealthNumber: formData.get("philhealthNumber") as string || null,
                 occupation: formData.get("occupation") as string || null,
                 employer: formData.get("employer") as string || null,
                 motherFirstName: formData.get("motherFirstName") as string || null,
@@ -1676,6 +1677,7 @@ export async function updateResident(id: string, formData: FormData) {
             tin: formData.get("tin") as string || null,
             gsis: formData.get("gsis") as string || null,
             sss: formData.get("sss") as string || null,
+            philhealthNumber: formData.get("philhealthNumber") as string || null,
             occupation: formData.get("occupation") as string || null,
             employer: formData.get("employer") as string || null,
             motherFirstName: formData.get("motherFirstName") as string || null,

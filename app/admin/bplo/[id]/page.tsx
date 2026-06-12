@@ -654,9 +654,14 @@ export default function BploDetailPage({ params }: PageProps) {
                         <ArrowLeft className="w-4 h-4" /> BACK TO DASHBOARD
                     </Button>
                 </Link>
-                <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
-                    Type Of Request: {transaction.fulfillmentType?.replace("_", " ") || "Processing"}
-                </Badge>
+                <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10 px-4 py-1">
+                        Revision Count: {transaction.revisionCount || 0} / 3
+                    </Badge>
+                    <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
+                        Type Of Request: {transaction.fulfillmentType?.replace("_", " ") || "Processing"}
+                    </Badge>
+                </div>
             </header>
 
             <main className="max-w-[1400px] mx-auto px-8 grid grid-cols-12 gap-8 mt-4">

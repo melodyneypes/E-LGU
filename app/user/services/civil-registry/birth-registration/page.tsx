@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
@@ -7,7 +6,6 @@ import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    FileText,
     User,
     Loader2,
     Check,
@@ -19,11 +17,12 @@ import {
     Search,
     CheckCircle2,
     Users,
-    Eye,
-    ChevronDown,
-    Trash2
+    ChevronDown
 } from "lucide-react";
+
+
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
+import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,20 +58,36 @@ import {
 } from "@/app/admin/transactions/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
-import { compressImage } from "@/lib/image-compression";
+import { supabase } from "@/lib/supabase";
 
 const STORAGE_KEY = "lcr_birth_registration_draft";
 
-const checkIsPdf = (file: any, url: string | null) => {
-    if (file && file instanceof File) {
-        return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+// --- UPLOAD FILE CLIENT-SIDE TO SUPABASE STORAGE (bypasses Vercel 4.5MB limit) ---
+async function uploadFileClientSide(file: File, fieldName: string, userId: string): Promise<string> {
+    const fileExt = file.name.split('.').pop() || 'bin';
+    const fileName = `${userId}/${fieldName}_${Date.now()}.${fileExt}`;
+    const filePath = `services/lcr/birth_registration/${fileName}`;
+
+    const { error } = await supabase.storage
+        .from("system-assets")
+        .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: true
+        });
+
+    if (error) {
+        console.error(`[ClientUpload] Upload error for ${fieldName}:`, error);
+        throw new Error(`Failed to upload ${file.name}: ${error.message}`);
     }
-    if (url) {
-        return url.toLowerCase().endsWith(".pdf") || url.includes("application/pdf") || url.includes(".pdf?");
-    }
-    return false;
-};
+
+    const { data: { publicUrl } } = supabase.storage
+        .from("system-assets")
+        .getPublicUrl(filePath);
+
+    return publicUrl;
+}
 
 const EVIDENCE_LABELS: Record<string, string> = {
     A: "Baptismal Certificate",
@@ -127,6 +142,7 @@ interface FormState {
     motherMiddleName: string;
     motherLastName: string;
     birthType: string;
+    birthTypeSpecify?: string;
     registrationType: "STANDARD" | "LATE";
     lateDuration?: "1-10" | "10-20" | "20+" | string;
     miscFee?: number;
@@ -144,6 +160,7 @@ interface FormState {
     email: string;
     contactNumber: string;
     relationship: string;
+    relationshipSpecify?: string;
 
     // Informant details from profile
     informantFirstName: string;
@@ -155,7 +172,6 @@ interface FormState {
     informantCivilStatus: string;
     informantCitizenship: string;
     informantOccupation: string;
-    informantAddress: string;
 }
 
 export default function BirthRegistrationPage() {
@@ -187,7 +203,7 @@ export default function BirthRegistrationPage() {
         registryType: "BIRTH_REG",
         children: [{ firstName: "", middleName: "", lastName: "", suffix: "", sex: "", birthTime: "" }],
         dateOfEvent: "",
-        placeOfEvent: "",
+        placeOfEvent: "MUNICIPALITY OF MAPANDAN",
         fatherFirstName: "",
         fatherMiddleName: "",
         fatherLastName: "",
@@ -195,6 +211,7 @@ export default function BirthRegistrationPage() {
         motherMiddleName: "",
         motherLastName: "",
         birthType: "SINGLE",
+        birthTypeSpecify: "",
         registrationType: "STANDARD",
         miscFee: 0,
         lateDuration: "",
@@ -210,6 +227,7 @@ export default function BirthRegistrationPage() {
         email: "",
         contactNumber: "",
         relationship: "",
+        relationshipSpecify: "",
         informantFirstName: "",
         informantMiddleName: "",
         informantLastName: "",
@@ -218,8 +236,7 @@ export default function BirthRegistrationPage() {
         informantAge: "",
         informantCivilStatus: "",
         informantCitizenship: "",
-        informantOccupation: "",
-        informantAddress: ""
+        informantOccupation: ""
     });
 
 
@@ -331,6 +348,7 @@ export default function BirthRegistrationPage() {
                     setForm(prev => ({
                         ...prev,
                         ...parsed,
+                        placeOfEvent: "MUNICIPALITY OF MAPANDAN",
                         supportingEvidenceTypes: parsedSupporting,
                         supportingEvidence1Type: parsed.supportingEvidence1Type || parsedSupporting[0] || "",
                         supportingEvidence2Type: parsed.supportingEvidence2Type || parsedSupporting[1] || ""
@@ -429,6 +447,15 @@ export default function BirthRegistrationPage() {
     }, [form.relationship, resident, loading]);
 
     useEffect(() => {
+        if (form.placeOfEvent !== "MUNICIPALITY OF MAPANDAN") {
+            setForm(prev => ({
+                ...prev,
+                placeOfEvent: "MUNICIPALITY OF MAPANDAN"
+            }));
+        }
+    }, [form.placeOfEvent]);
+
+    useEffect(() => {
         async function init() {
             try {
                 await ensureCivilRegistryTransactionTypes();
@@ -440,18 +467,6 @@ export default function BirthRegistrationPage() {
                 if (resResult.success && resResult.data) {
                     const r = resResult.data;
                     setResident(r);
-
-                    const parts = [
-                        r.houseNumber && `#${r.houseNumber}`,
-                        r.street && `${r.street} St.`,
-                        r.purok && `Purok ${r.purok}`,
-                        r.sitio && `Sitio ${r.sitio}`,
-                        r.barangay && `Brgy. ${r.barangay}`,
-                        r.municipality || "Mapandan",
-                        r.province || "Pangasinan"
-                    ].filter(Boolean);
-                    const constructedAddr = parts.join(", ").toUpperCase();
-
                     setForm(prev => ({
                         ...prev,
                         email: prev.email || r.email || "",
@@ -464,8 +479,7 @@ export default function BirthRegistrationPage() {
                         informantAge: r.age?.toString() || "",
                         informantCivilStatus: r.civilStatus || "",
                         informantCitizenship: r.citizenship || "Filipino",
-                        informantOccupation: r.occupation || "",
-                        informantAddress: constructedAddr
+                        informantOccupation: r.occupation || ""
                     }));
                 }
                 if (typesResult.success && typesResult.data) {
@@ -496,6 +510,8 @@ export default function BirthRegistrationPage() {
         if (val === "TWIN") count = 2;
         if (val === "TRIPLET") count = 3;
         if (val === "QUADRUPLET") count = 4;
+        if (val === "QUINTUPLET") count = 5;
+        if (val === "SEXTUPLET") count = 6;
 
         setForm(prev => {
             const currentChildren = [...prev.children];
@@ -508,7 +524,11 @@ export default function BirthRegistrationPage() {
                 // Remove extra
                 currentChildren.splice(count);
             }
-            return { ...prev, birthType: val, children: currentChildren };
+            return { 
+                ...prev, 
+                birthType: val, 
+                children: currentChildren 
+            };
         });
     };
 
@@ -575,77 +595,6 @@ export default function BirthRegistrationPage() {
         }
     };
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
-        const file = e.target.files?.[0] || null;
-        if (file) {
-            if (file && file.size > 5 * 1024 * 1024) {
-                toast.error("File size exceeds 5MB limit.");
-                if (e && e.target && e.target.parentElement) {
-                    const parent = e.target.parentElement;
-                    let errEl = parent.querySelector('.file-error-msg');
-                    if (!errEl) {
-                        errEl = document.createElement('div');
-                        errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
-                        parent.appendChild(errEl);
-                    }
-                    errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
-                    setTimeout(() => errEl && errEl.remove(), 4000);
-                }
-                if (e && e.target) e.target.value = "";
-                return;
-            }
-
-            let fileToProcess = file;
-            if (file.type.startsWith("image/")) {
-                try {
-                    toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-                    fileToProcess = await compressImage(file);
-                    toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-                } catch (err) {
-                    console.error("Compression error:", err);
-                    toast.dismiss("image-compress-toast");
-                }
-            }
-
-            // Save raw/compressed file to IndexedDB
-            saveDraftFile(STORAGE_KEY, key, fileToProcess).catch(err => {
-                console.error("Failed to save draft file to IndexedDB:", err);
-            });
-
-            if (fileToProcess.type.startsWith("image/")) {
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const dataUrl = reader.result as string | null;
-                    setForm(prev => ({
-                        ...prev,
-                        files: { ...prev.files, [key]: fileToProcess },
-                        previews: { ...prev.previews, [key]: dataUrl }
-                    }));
-                    // Clear documents error when user uploads files
-                    setErrors(prev => {
-                        if (!prev.documents) return prev;
-                        const copy = { ...prev };
-                        delete copy.documents;
-                        return copy;
-                    });
-                };
-                reader.readAsDataURL(fileToProcess);
-            } else {
-                setForm(prev => ({
-                    ...prev,
-                    files: { ...prev.files, [key]: fileToProcess },
-                    previews: { ...prev.previews, [key]: null }
-                }));
-                // Clear documents error when user uploads files
-                setErrors(prev => {
-                    if (!prev.documents) return prev;
-                    const copy = { ...prev };
-                    delete copy.documents;
-                    return copy;
-                });
-            }
-        }
-    };
 
     const handleRemoveFile = (key: string) => {
         setForm(prev => {
@@ -668,118 +617,51 @@ export default function BirthRegistrationPage() {
     const renderDocCard = (doc: { key: string; label: string }) => {
         const file = form.files[doc.key] || null;
         const preview = form.previews[doc.key] || null;
-        const isPdf = checkIsPdf(file, preview);
 
         return (
-            <div key={doc.key} className="group relative flex flex-col justify-between bg-[#ffffff] dark:bg-[#0f111a] border border-slate-200/60 dark:border-white/5 rounded-3xl p-5 transition-all duration-300 hover:border-blue-500/40 hover:shadow-xl hover:shadow-blue-500/[0.04] hover:-translate-y-0.5">
-                <div className="flex items-center justify-between gap-3 mb-4">
-                    <span className="text-[10px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider italic leading-tight">
-                        {doc.label} <span className="text-red-500">*</span>
-                    </span>
-                    <div className="shrink-0">
-                        {file || preview ? (
-                            <span className="text-[8px] font-black uppercase text-green-500 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20 flex items-center gap-1">
-                                <Check className="w-2.5 h-2.5" /> Ready
-                            </span>
-                        ) : (
-                            <span className="text-[8px] font-black uppercase text-blue-500 bg-blue-500/10 px-2.5 py-1 rounded-full border border-blue-500/20">
-                                Required
-                            </span>
-                        )}
-                    </div>
-                </div>
+            <PremiumDocumentUpload
+                key={doc.key}
+                label={doc.label}
+                required
+                file={file}
+                previewUrl={preview}
+                onFileSelect={async (newFile) => {
+                    saveDraftFile(STORAGE_KEY, doc.key, newFile).catch(err => {
+                        console.error("Failed to save draft file to IndexedDB:", err);
+                    });
+                    try {
+                        toast.loading("Uploading and preparing document preview...", { id: `file-upload-${doc.key}` });
+                        const userId = resident?.id || "anonymous";
+                        const sanitizedKey = doc.key.replace(/[^a-zA-Z0-9_-]/g, '_');
+                        const publicUrl = await uploadFileClientSide(newFile, sanitizedKey, userId);
 
-                <div className="relative w-full aspect-[16/10] rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-black/10 transition-colors duration-300">
-                    {file || preview ? (
-                        <div className="relative w-full h-full flex items-center justify-center group/preview">
-                            {isPdf ? (
-                                <div className="flex flex-col items-center justify-center w-full h-full bg-red-500/[0.03] dark:bg-red-500/[0.01] border border-red-500/10 rounded-2xl p-4 transition-transform duration-300 group-hover/preview:scale-[1.02]">
-                                    <div className="p-4 bg-red-500/10 rounded-2xl mb-2 text-red-500">
-                                        <FileText className="w-8 h-8 animate-pulse" />
-                                    </div>
-                                    <span className="text-[9px] font-black uppercase tracking-wider text-red-500 bg-red-500/10 px-2.5 py-0.5 rounded-full border border-red-500/20">PDF READY</span>
-                                    <span className="text-[7px] text-slate-400 font-bold uppercase mt-2 tracking-widest">Document Secure</span>
-                                </div>
-                            ) : preview ? (
-                                <img
-                                    src={preview}
-                                    alt={doc.label}
-                                    className="w-full h-full object-cover transition-transform duration-500 group-hover/preview:scale-[1.03]"
-                                />
-                            ) : (
-                                <div className="flex flex-col items-center justify-center w-full h-full bg-blue-500/[0.03] dark:bg-blue-500/[0.01] border border-blue-500/10 rounded-2xl p-4">
-                                    <FileText className="w-8 h-8 text-blue-500" />
-                                </div>
-                            )}
+                        setForm(prev => ({
+                            ...prev,
+                            files: { ...prev.files, [doc.key]: newFile },
+                            previews: { ...prev.previews, [doc.key]: publicUrl }
+                        }));
+                        toast.success("Document uploaded & preview ready!", { id: `file-upload-${doc.key}` });
+                    } catch (uploadErr) {
+                        console.error(`[ClientUpload] Failed to upload ${doc.key} on-the-fly:`, uploadErr);
+                        toast.error("Upload failed. Local copy stored (preview limited).", { id: `file-upload-${doc.key}` });
 
-                            {/* Glassmorphic hover overlay */}
-                            <div className="absolute inset-0 bg-slate-950/65 opacity-0 group-hover/preview:opacity-100 transition-all duration-300 flex items-center justify-center gap-2 backdrop-blur-sm z-20">
-                                <button
-                                    type="button"
-                                    onClick={() => handleViewFile(file || null, preview || null, doc.label)}
-                                    className="h-8 px-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-lg text-white text-[9px] font-black uppercase tracking-widest italic flex items-center gap-1 transition-all border border-white/10 active:scale-95 shadow-lg"
-                                >
-                                    <Eye className="w-3 h-3" />
-                                    Preview
-                                </button>
-                                <div className="relative">
-                                    <input
-                                        type="file"
-                                        onChange={(e) => handleFileChange(e, doc.key)}
-                                        className="absolute inset-0 opacity-0 cursor-pointer z-30"
-                                        accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                                    />
-                                    <button
-                                        type="button"
-                                        className="h-8 px-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-[9px] font-black uppercase tracking-widest italic flex items-center gap-1 transition-all border border-transparent active:scale-95 shadow-lg shadow-blue-500/20"
-                                    >
-                                        <Upload className="w-3 h-3" />
-                                        Replace
-                                    </button>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => handleRemoveFile(doc.key)}
-                                    className="h-8 w-8 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg flex items-center justify-center border border-red-500/20 transition-all active:scale-95"
-                                    title="Delete Upload"
-                                >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="relative w-full h-full rounded-2xl border-2 border-dashed border-slate-300 dark:border-white/10 hover:border-slate-800 dark:hover:border-white/35 transition-all duration-300 flex flex-col items-center justify-center p-4 bg-slate-50/30 dark:bg-white/[0.02] hover:bg-slate-100/50 dark:hover:bg-white/[0.04] group">
-                            <input
-                                type="file"
-                                onChange={(e) => handleFileChange(e, doc.key)}
-                                className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                            />
-                            <div className="p-3 bg-slate-200/50 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-2xl transition-all duration-300 group-hover:bg-slate-900 dark:group-hover:bg-white group-hover:text-white dark:group-hover:text-black group-hover:scale-105 shadow-sm">
-                                <Upload className="w-5 h-5" />
-                            </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 italic mt-3 transition-colors duration-300 group-hover:text-slate-900 dark:group-hover:text-white">
-                                Click to Upload
-                            </span>
-                            <span className="text-[7px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mt-1">
-                                Supports JPG, PNG, PDF (Max 5MB)
-                            </span>
-                        </div>
-                    )}
-                </div>
-
-                {file && (
-                    <div className="mt-3 flex items-center justify-between border-t border-slate-100 dark:border-white/5 pt-3 animate-fade-in">
-                        <span className="text-[8px] font-bold text-slate-400 max-w-[200px] truncate leading-none flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
-                            {file.name}
-                        </span>
-                        <span className="text-[7px] font-black uppercase text-slate-400 bg-slate-100 dark:bg-white/5 px-2.5 py-0.5 rounded shadow-sm shrink-0">
-                            {(file.size / 1024 / 1024).toFixed(2)} MB
-                        </span>
-                    </div>
-                )}
-            </div>
+                        setForm(prev => ({
+                            ...prev,
+                            files: { ...prev.files, [doc.key]: newFile },
+                            previews: { ...prev.previews, [doc.key]: newFile.type.startsWith("image/") ? URL.createObjectURL(newFile) : null }
+                        }));
+                    }
+                    setErrors(prev => {
+                        if (!prev.documents) return prev;
+                        const copy = { ...prev };
+                        delete copy.documents;
+                        return copy;
+                    });
+                }}
+                onClear={() => handleRemoveFile(doc.key)}
+                onView={() => handleViewFile(file, preview, doc.label)}
+                error={!!errors.documents && !file && !preview}
+            />
         );
     };
 
@@ -810,11 +692,11 @@ export default function BirthRegistrationPage() {
         });
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const isStepValid = (stepId: Step): boolean => {
         if (stepId === "STATUS") return true;
         if (stepId === "IDENTITY") {
-            return !!form.relationship && !!form.contactNumber;
+            const isSpecifyValid = form.relationship !== "OTHER" || !!form.relationshipSpecify?.trim();
+            return !!form.relationship && !!form.contactNumber && isSpecifyValid;
         }
         if (stepId === "DETAILS") {
             const childrenValid = form.children.every((c) => {
@@ -832,7 +714,10 @@ export default function BirthRegistrationPage() {
             return true;
         }
         if (stepId === "PARENTS") {
-            return typeof form.parentsMarried !== 'undefined';
+            const hasMarried = typeof form.parentsMarried !== 'undefined';
+            const hasFatherName = !!form.fatherFirstName?.trim() && !!form.fatherLastName?.trim();
+            const hasMotherName = !!form.motherFirstName?.trim() && !!form.motherLastName?.trim();
+            return hasMarried && hasFatherName && hasMotherName;
         }
         return true;
     };
@@ -842,6 +727,9 @@ export default function BirthRegistrationPage() {
 
         if (step === "IDENTITY") {
             if (!form.relationship) errs.relationship = "Please select relationship.";
+            if (form.relationship === "OTHER" && !form.relationshipSpecify?.trim()) {
+                errs.relationshipSpecify = "Please specify your relationship.";
+            }
             if (!form.contactNumber) errs.contactNumber = "Please enter a contact number.";
         }
 
@@ -869,6 +757,10 @@ export default function BirthRegistrationPage() {
 
         if (step === "PARENTS") {
             if (typeof form.parentsMarried === 'undefined') errs.parentsMarried = "Please indicate parents' marital status.";
+            if (!form.fatherFirstName?.trim()) errs.fatherFirstName = "Please enter father's first name.";
+            if (!form.fatherLastName?.trim()) errs.fatherLastName = "Please enter father's last name.";
+            if (!form.motherFirstName?.trim()) errs.motherFirstName = "Please enter mother's first name.";
+            if (!form.motherLastName?.trim()) errs.motherLastName = "Please enter mother's last name.";
         }
 
         setErrors(errs);
@@ -876,12 +768,45 @@ export default function BirthRegistrationPage() {
         setShowErrors(!valid);
         if (!valid) {
             toast.error("Please complete highlighted required fields.", { className: "font-black uppercase tracking-widest text-[10px] italic" });
+            
+            // Asynchronously find the first invalid element, scroll to it, and focus it
+            setTimeout(() => {
+                const firstErrorKey = Object.keys(errs)[0];
+                if (firstErrorKey) {
+                    // Try to find the element by name attribute first
+                    let element: any = document.getElementsByName(firstErrorKey)[0] || 
+                                  document.getElementById(firstErrorKey);
+                    
+                    // Fallbacks for children structure or custom select components
+                    if (!element) {
+                        if (firstErrorKey === "relationship") {
+                            // Find Select Trigger
+                            element = (document.querySelector('[role="combobox"]') || document.querySelector('button[aria-autocomplete="none"]')) as any;
+                        } else if (firstErrorKey.startsWith("children.")) {
+                            // Match children nested keys
+                            const parts = firstErrorKey.split('.');
+                            const index = parts[1];
+                            const field = parts[2];
+                            element = (document.querySelector(`[name="children.${index}.${field}"]`) || 
+                                      document.querySelector(`input[placeholder*="${field === 'firstName' ? 'First' : 'Last'}"], select`)) as any;
+                        } else if (firstErrorKey === "parentsMarried") {
+                            element = document.getElementById("parents-married-section") as any;
+                        }
+                    }
+
+                    if (element) {
+                        element.scrollIntoView({ behavior: "smooth", block: "center" });
+                        if (typeof (element as any).focus === "function") {
+                            (element as any).focus();
+                        }
+                    }
+                }
+            }, 100);
         }
         return valid;
     };
 
     const handleSubmit = async () => {
-        if (submitting) return;
         // Require privacy terms acceptance before allowing submit
         if (!policyAccepted) {
             setErrors(prev => ({ ...prev, policyAccepted: "You must agree to the Data Privacy & Terms before submitting." }));
@@ -891,7 +816,7 @@ export default function BirthRegistrationPage() {
         }
 
 
-        if (!form.relationship) {
+        if (!form.relationship || (form.relationship === "OTHER" && !form.relationshipSpecify?.trim())) {
             toast.error("Please specify your relationship.");
             return;
         }
@@ -956,8 +881,16 @@ export default function BirthRegistrationPage() {
             setErrors(prev => ({ ...prev, documents: `Please upload required documents: ${missingDocsQuick.join(', ')}` }));
             setShowErrors(true);
             toast.error('Please upload required documents before submitting.');
-            // Scroll to documents section
-            try { document.getElementById('documents-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { void e; }
+            
+            // Scroll to specific section depending on what's missing
+            const isSupportingEvidenceMissing = missingDocsQuick.some(doc => doc.includes('Supporting Evidence'));
+            const isOtherDocsMissing = missingDocsQuick.some(doc => !doc.includes('Supporting Evidence'));
+            
+            if (isSupportingEvidenceMissing && !isOtherDocsMissing) {
+                try { document.getElementById('supporting-evidence-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { void e; }
+            } else {
+                try { document.getElementById('documents-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { void e; }
+            }
             return;
         }
 
@@ -967,7 +900,7 @@ export default function BirthRegistrationPage() {
                 setErrors(prev => ({ ...prev, documents: "Please select two supporting evidence types." }));
                 setShowErrors(true);
                 toast.error("Please select two supporting evidence types before uploading files.");
-                try { document.getElementById('documents-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { void e; }
+                try { document.getElementById('supporting-evidence-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { void e; }
                 return;
             }
         }
@@ -1000,7 +933,8 @@ export default function BirthRegistrationPage() {
                 registrationType: form.registrationType,
                 fatherName: `${form.fatherFirstName} ${form.fatherMiddleName} ${form.fatherLastName}`.trim(),
                 motherName: `${form.motherFirstName} ${form.motherMiddleName} ${form.motherLastName}`.trim(),
-                relationship: form.relationship,
+                relationship: form.relationship === "OTHER" ? form.relationshipSpecify : form.relationship,
+                relationshipSpecify: form.relationshipSpecify || null,
                 email: form.email,
                 contactNumber: form.contactNumber,
                 // Informant Details
@@ -1024,43 +958,47 @@ export default function BirthRegistrationPage() {
 
 
 
-            formData.append("additionalData", JSON.stringify(baseAdditionalData));
+            const fileUrls: Record<string, string> = {};
 
-            // Helper function to convert base64 to File object
-            const dataURLtoFile = (dataurl: string, filenameWithoutExt: string): File | null => {
-                try {
-                    const arr = dataurl.split(',');
-                    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
-                    const ext = mime.includes('pdf') ? 'pdf' : (mime.split('/')[1] || 'png');
-                    const filename = `${filenameWithoutExt}.${ext}`;
-                    const bstr = atob(arr[1]);
-                    let n = bstr.length;
-                    const u8arr = new Uint8Array(n);
-                    while (n--) {
-                        u8arr[n] = bstr.charCodeAt(n);
-                    }
-                    return new File([u8arr], filename, { type: mime });
-                } catch (e) {
-                    console.error("Failed to convert dataURL to File:", e);
-                    return null;
+            // First, copy any existing public URLs from previews
+            Object.entries(form.previews || {}).forEach(([key, url]) => {
+                if (url && typeof url === "string" && url.startsWith("http")) {
+                    fileUrls[key] = url;
                 }
+            });
+
+            const finalFiles = { ...form.files };
+            const fileEntries = Object.entries(finalFiles);
+            for (let i = 0; i < fileEntries.length; i++) {
+                const [key, file] = fileEntries[i];
+                if (!file) continue;
+                const sanitizedKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+                if (fileUrls[key]) {
+                    console.log(`[ClientUpload] Reusing existing public URL for ${key}:`, fileUrls[key]);
+                    continue;
+                }
+
+                try {
+                    toast.loading(`Uploading document ${i + 1}/${fileEntries.length}...`, { id: "birth-upload-toast" });
+                    const userId = resident?.id || "anonymous";
+                    const url = await uploadFileClientSide(file, sanitizedKey, userId);
+                    fileUrls[key] = url;
+                } catch (uploadErr) {
+                    console.error(`[ClientUpload] Failed to upload ${key}:`, uploadErr);
+                    toast.error(`Failed to upload document: ${key}. Please try again.`, { id: "birth-upload-toast" });
+                    setSubmitting(false);
+                    return;
+                }
+            }
+            toast.dismiss("birth-upload-toast");
+
+            const updatedAdditionalData = {
+                ...baseAdditionalData,
+                ...fileUrls
             };
 
-            // Reconstruct any missing files from data URL previews (so reloads/drafts survive!)
-            const finalFiles = { ...form.files };
-            Object.entries(form.previews).forEach(([key, previewUrl]) => {
-                if (previewUrl && previewUrl.startsWith("data:") && !finalFiles[key]) {
-                    const reconstructedFile = dataURLtoFile(previewUrl, key);
-                    if (reconstructedFile) {
-                        finalFiles[key] = reconstructedFile;
-                    }
-                }
-            });
-
-            // Append files
-            Object.entries(finalFiles).forEach(([key, file]) => {
-                if (file) formData.append(key, file);
-            });
+            formData.append("additionalData", JSON.stringify(updatedAdditionalData));
 
             console.log("Submitting with typeId:", form.typeId);
             const res = await submitCivilRegistryTransaction(formData);
@@ -1138,8 +1076,20 @@ export default function BirthRegistrationPage() {
                 input:not([type="button"]):not([type="submit"]), select, textarea {
                     color: #0f172a !important;
                 }
+                input:not([type="button"]):not([type="submit"]):disabled, select:disabled, textarea:disabled,
+                input:not([type="button"]):not([type="submit"])[readonly], select[readonly], textarea[readonly] {
+                    color: #1e293b !important;
+                    -webkit-text-fill-color: #1e293b !important;
+                    opacity: 0.9 !important;
+                }
                 .dark input:not([type="button"]):not([type="submit"]), .dark select, .dark textarea {
                     color: #f8fafc !important;
+                }
+                .dark input:not([type="button"]):not([type="submit"]):disabled, .dark select:disabled, .dark textarea:disabled,
+                .dark input:not([type="button"]):not([type="submit"])[readonly], .dark select[readonly], .dark textarea[readonly] {
+                    color: #cbd5e1 !important;
+                    -webkit-text-fill-color: #cbd5e1 !important;
+                    opacity: 0.8 !important;
                 }
                 `
             }} />
@@ -1159,98 +1109,161 @@ export default function BirthRegistrationPage() {
                 title={viewerTitle}
                 themeColor="var(--primary-theme)"
             />
-            <div className="container max-w-5xl mx-auto px-4 pt-0 pb-0 space-y-8">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-8 pb-0 space-y-12">
+            <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                 <Breadcrumb>
-                    <BreadcrumbList>
+                    <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
                         <BreadcrumbItem>
-                            <BreadcrumbLink href="/" className="flex items-center gap-1">
-                                <Home className="w-3 h-3" />
-                                Home
+                            <BreadcrumbLink asChild>
+                                <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                    <Home className="w-3.5 h-3.5 mb-0.5" />
+                                    Home
+                                </Link>
                             </BreadcrumbLink>
                         </BreadcrumbItem>
-                        <BreadcrumbSeparator />
+                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                         <BreadcrumbItem>
-                            <BreadcrumbLink href="/user/services">Services</BreadcrumbLink>
+                            <BreadcrumbLink asChild>
+                                <Link href="/user/services" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                    Services
+                                </Link>
+                            </BreadcrumbLink>
                         </BreadcrumbItem>
-                        <BreadcrumbSeparator />
+                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                         <BreadcrumbItem>
-                            <BreadcrumbLink href="/user/services/civil-registry">Civil Registry</BreadcrumbLink>
+                            <BreadcrumbLink asChild>
+                                <Link href="/user/services/civil-registry" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                    Civil Registry
+                                </Link>
+                            </BreadcrumbLink>
                         </BreadcrumbItem>
-                        <BreadcrumbSeparator />
+                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                         <BreadcrumbItem>
-                            <BreadcrumbPage>Birth Registration</BreadcrumbPage>
+                            <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic text-emerald-700 dark:text-emerald-400">Birth Registration</BreadcrumbPage>
                         </BreadcrumbItem>
                     </BreadcrumbList>
                 </Breadcrumb>
+            </div>
 
-                <div className="space-y-6">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 bg-white dark:bg-[#0f1117] p-8 rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 shadow-xl shadow-slate-200/40 dark:shadow-none">
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-500/10 rounded-xl">
-                                    <Baby className="w-6 h-6 text-blue-500" />
-                                </div>
-                                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500">Local Civil Registry</span>
-                            </div>
-                            <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">
-                                Birth <span className="text-blue-500">Registration</span>
-                            </h1>
-                            <p className="text-slate-500 font-medium text-sm italic">Submit timely or late registration applications for newborn records.</p>
+            {/* Premium Header/Banner with Ambient Gradient Backdrop */}
+            <div className="relative overflow-hidden bg-white dark:bg-[#0c1017] p-6 md:p-10 rounded-2xl md:rounded-[2rem] border border-slate-100 dark:border-white/5 text-slate-800 dark:text-white shadow-xl dark:shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
+                <div
+                    className="absolute top-0 right-0 w-96 h-96 blur-[120px] rounded-full opacity-10 dark:opacity-20 pointer-events-none -mr-40 -mt-40 transition-colors duration-700"
+                    style={{ backgroundColor: themeColor }}
+                />
+
+                <div className="space-y-3 md:space-y-4 max-w-2xl relative z-10">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/10 flex items-center justify-center backdrop-blur-md">
+                            <Baby className="w-4 h-4 text-emerald-500" style={{ color: themeColor }} />
                         </div>
+                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500 dark:text-white/70 italic">Local Civil Registry</span>
                     </div>
 
+                    <h1 className="text-2xl md:text-4xl font-black uppercase italic tracking-tighter leading-none">
+                        Birth <span style={{ color: themeColor }}>Registration</span>
+                    </h1>
+
+                    <p className="text-slate-600 dark:text-slate-300 font-medium text-xs leading-relaxed max-w-xl italic">
+                        Register a new birth record in the municipality. Complete all sections and upload the required supporting documents to submit your application.
+                    </p>
+                </div>
+
+                <div className="hidden md:block relative z-10 shrink-0">
+                    <div className="w-28 h-28 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 backdrop-blur-md flex flex-col items-center justify-center text-center p-4 shadow-sm dark:shadow-2xl relative overflow-hidden group hover:scale-105 transition-transform duration-500">
+                        <div className="absolute inset-0 bg-gradient-to-tr opacity-0 group-hover:opacity-10 transition-opacity" style={{ backgroundImage: `linear-gradient(to top right, ${themeColor}, transparent)` }} />
+                        <CheckCircle2 className="w-8 h-8 mb-1.5 opacity-80" style={{ color: themeColor }} />
+                        <p className="text-[7px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 leading-tight">Secure Filing</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="space-y-6">
+
                     {/* Progress Stepper */}
-                    <div className="relative px-2 py-4">
-                        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 dark:bg-white/5 -translate-y-1/2 rounded-full overflow-hidden">
-                            <motion.div
-                                className="h-full bg-blue-600"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${(STEPS.findIndex(s => s.id === currentStep) / (STEPS.length - 1)) * 100}%` }}
-                            />
-                        </div>
+                    <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2">
+                        {STEPS.map((step, idx) => {
+                            const isActive = currentStep === step.id;
+                            const stepIdx = STEPS.findIndex(s => s.id === currentStep);
+                            const isCompleted = stepIdx > idx;
+                            const Icon = step.icon;
 
-                        <div className="flex justify-between items-center relative z-10">
-                            {STEPS.map((step, idx) => {
-                                const isActive = currentStep === step.id;
-                                const stepIdx = STEPS.findIndex(s => s.id === currentStep);
-                                const isCompleted = stepIdx > idx;
-                                const Icon = step.icon;
-
-                                return (
-                                    <div
-                                        key={idx}
-                                        role="button"
-                                        tabIndex={0}
-                                        onClick={() => {
+                            return (
+                                <div
+                                    key={idx}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => {
+                                        if (step.id === "STATUS") {
+                                            router.push("/user/services/civil-registry");
+                                            return;
+                                        }
+                                        const targetIdx = STEPS.findIndex(s => s.id === step.id);
+                                        const currentIdx = STEPS.findIndex(s => s.id === currentStep);
+                                        
+                                        if (targetIdx <= currentIdx) {
+                                            setCurrentStep(step.id);
+                                        } else {
+                                            // Check steps between currentStep and target step sequentially
+                                            for (let i = currentIdx; i < targetIdx; i++) {
+                                                if (!validateStep(STEPS[i].id)) return;
+                                            }
+                                            setCurrentStep(step.id);
+                                        }
+                                    }}
+                                    onKeyDown={(e) => { 
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            if (step.id === "STATUS") {
+                                                router.push("/user/services/civil-registry");
+                                                return;
+                                            }
+                                            const targetIdx = STEPS.findIndex(s => s.id === step.id);
                                             const currentIdx = STEPS.findIndex(s => s.id === currentStep);
-                                            if (idx <= currentIdx) setCurrentStep(step.id);
-                                            else toast.error('Complete earlier steps before navigating.');
-                                        }}
-                                        onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && idx <= STEPS.findIndex(s => s.id === currentStep)) setCurrentStep(step.id); }}
-                                        className="flex flex-col items-center gap-2 transition-all duration-300 cursor-pointer"
+                                            if (targetIdx <= currentIdx) {
+                                                setCurrentStep(step.id);
+                                            } else {
+                                                for (let i = currentIdx; i < targetIdx; i++) {
+                                                    if (!validateStep(STEPS[i].id)) return;
+                                                }
+                                                setCurrentStep(step.id);
+                                            }
+                                        }
+                                    }}
+                                    className={cn(
+                                        "flex flex-col items-center gap-2 md:gap-3 relative z-10 font-black group",
+                                        (() => {
+                                            const targetIdx = STEPS.findIndex(s => s.id === step.id);
+                                            const currentIdx = STEPS.findIndex(s => s.id === currentStep);
+                                            if (targetIdx <= currentIdx || step.id === "STATUS") return "cursor-pointer";
+                                            // Check if all preceding steps from current to target are valid
+                                            for (let i = currentIdx; i < targetIdx; i++) {
+                                                if (!isStepValid(STEPS[i].id)) return "opacity-50 cursor-not-allowed";
+                                            }
+                                            return "cursor-pointer";
+                                        })()
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
+                                        isActive ? "text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
+                                            isCompleted ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" :
+                                                "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
+                                    )}
+                                    style={isActive ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
                                     >
-                                        <div className={cn(
-                                            "w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-500 border-2 bg-white dark:bg-[#08090d]",
-                                            isActive ? "border-blue-600 text-blue-600 shadow-lg shadow-blue-500/20 scale-110" :
-                                                isCompleted ? "bg-blue-600 border-blue-600 text-white" :
-                                                    "border-slate-200 dark:border-white/10 text-slate-400"
-                                        )}>
-                                            {isCompleted ? (
-                                                <Check className="w-5 h-5" />
-                                            ) : (
-                                                <Icon className="w-4 h-4 md:w-5 md:h-5" />
-                                            )}
-                                        </div>
-                                        <span className={cn(
-                                            "text-[8px] md:text-[10px] font-black uppercase tracking-wider italic hidden md:block",
-                                            isActive ? "text-blue-600" : "text-slate-400"
-                                        )}>
-                                            {step.label}
-                                        </span>
+                                        <Icon className="w-4 h-4 md:w-7 md:h-7" />
                                     </div>
-                                );
-                            })}
-                        </div>
+                                    <span className={cn(
+                                        "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
+                                        isActive ? "opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
+                                    )}
+                                    style={isActive ? { color: themeColor } : {}}
+                                    >
+                                        {step.label}
+                                    </span>
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {mounted && typeof document !== "undefined" && createPortal(
@@ -1271,7 +1284,7 @@ export default function BirthRegistrationPage() {
                         document.body
                     )}
 
-                    <Card className="p-6 md:p-10 rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 bg-white dark:bg-[#0f1117] shadow-xl shadow-slate-200/40 dark:shadow-none overflow-hidden min-h-[400px]">
+                    <Card className="p-6 md:p-10 rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 bg-white dark:bg-[#0f1117] shadow-xl dark:shadow-2xl overflow-hidden min-h-[400px]">
                         <AnimatePresence mode="wait">
                             {currentStep === "IDENTITY" && (
                                 <motion.div
@@ -1287,25 +1300,66 @@ export default function BirthRegistrationPage() {
                                     </div>
 
                                     <div className="space-y-6">
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Informant&apos;s Relationship to Child <span className="text-red-500">*</span></Label>
-                                            <Select
-                                                value={form.relationship}
-                                                onValueChange={(val) => setForm({ ...form, relationship: val })}
-                                            >
-                                                <SelectTrigger className="h-12 rounded-xl border-slate-200 focus:ring-blue-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold">
-                                                    <SelectValue placeholder="Select relationship" />
-                                                </SelectTrigger>
-                                                <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
-                                                    <SelectItem value="MOTHER">Mother</SelectItem>
-                                                    <SelectItem value="FATHER">Father</SelectItem>
-                                                    <SelectItem value="GUARDIAN">Guardian/Relative</SelectItem>
-                                                    {/* <SelectItem value="HOSPITAL_REPRESENTATIVE">Hospital Representative</SelectItem> */}
-                                                </SelectContent>
-                                            </Select>
-                                            {errors.relationship && (
-                                                <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors.relationship}</p>
-                                            )}
+                                        {/* Relationship to Child — above names, same 1/4 width */}
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="col-span-2 md:col-span-1 space-y-2">
+                                                <div className="flex items-center justify-between ml-1">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Relationship to Child <span className="text-red-500">*</span></Label>
+                                                    {form.relationship === "OTHER" && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setForm({ ...form, relationship: "", relationshipSpecify: "" })}
+                                                            className="text-[9px] font-black uppercase text-blue-600 hover:underline"
+                                                        >
+                                                            Reset
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {form.relationship === "OTHER" ? (
+                                                    <Input
+                                                        id="relationshipSpecify"
+                                                        autoFocus
+                                                        placeholder="Please specify"
+                                                        value={form.relationshipSpecify || ""}
+                                                        onChange={(e) => setForm({ ...form, relationshipSpecify: e.target.value.toUpperCase() })}
+                                                        className={cn(
+                                                            "rounded-xl border-slate-950 dark:border-white h-12 font-bold italic bg-white dark:bg-slate-900",
+                                                            errors.relationshipSpecify && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                        )}
+                                                    />
+                                                ) : (
+                                                    <Select
+                                                        value={form.relationship}
+                                                        onValueChange={(val) => setForm({ 
+                                                            ...form, 
+                                                            relationship: val,
+                                                            relationshipSpecify: val === "OTHER" ? (form.relationshipSpecify || "") : "" 
+                                                        })}
+                                                    >
+                                                        <SelectTrigger 
+                                                            id="relationship"
+                                                            style={{ height: '3rem' }}
+                                                            className={cn(
+                                                            "!h-12 w-full rounded-xl border-slate-950 dark:border-white focus:ring-blue-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
+                                                            errors.relationship && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                        )}>
+                                                            <SelectValue placeholder="Select relationship" />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
+                                                            <SelectItem value="MOTHER">Mother</SelectItem>
+                                                            <SelectItem value="FATHER">Father</SelectItem>
+                                                            <SelectItem value="GUARDIAN">Guardian/Relative</SelectItem>
+                                                            <SelectItem value="OTHER">Other</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
+                                                {errors.relationship && !form.relationship && (
+                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors.relationship}</p>
+                                                )}
+                                                {form.relationship === "OTHER" && errors.relationshipSpecify && (
+                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors.relationshipSpecify}</p>
+                                                )}
+                                            </div>
                                         </div>
 
                                         {/* Names Row — First, Middle, Last, Suffix */}
@@ -1348,17 +1402,8 @@ export default function BirthRegistrationPage() {
                                             </div>
                                         </div>
 
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Informant Address</Label>
-                                            <Input
-                                                readOnly
-                                                className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 transition-all font-bold italic uppercase"
-                                                value={form.informantAddress}
-                                            />
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="space-y-2">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="col-span-2 space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Occupation</Label>
                                                 <Input
                                                     readOnly
@@ -1369,13 +1414,14 @@ export default function BirthRegistrationPage() {
                                             <div className="col-span-2 space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Contact Number <span className="text-red-500">*</span></Label>
                                                 <Input
+                                                    id="contactNumber"
                                                     className={cn(
                                                         "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all font-bold italic",
                                                         (errors.contactNumber) && "!border-red-500 bg-red-50/10 focus:ring-red-500"
                                                     )}
                                                     placeholder="e.g. 0917XXXXXXX"
                                                     value={form.contactNumber}
-                                                    onChange={(e) => setForm(p => ({ ...p, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
+                                                    onChange={(e) => setForm(p => ({ ...p, contactNumber: e.target.value.replace(/[^0-9+]/g, '') }))}
                                                 />
                                                 <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider ml-1 animate-pulse">
                                                     * Note: Please use your active contact number. This will be used to contact you regarding your transaction.
@@ -1384,6 +1430,19 @@ export default function BirthRegistrationPage() {
                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors.contactNumber}</p>
                                                 )}
                                             </div>
+                                        </div>
+
+                                        <div 
+                                            className="p-3 md:p-4 rounded-2xl md:rounded-3xl flex items-center gap-2 md:gap-3 border"
+                                            style={{ 
+                                                backgroundColor: `${themeColor}0d`, 
+                                                borderColor: `${themeColor}26` 
+                                            }}
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5 shrink-0" style={{ color: themeColor }} />
+                                            <p className="text-[8px] md:text-[10px] font-black italic leading-tight uppercase tracking-widest" style={{ color: themeColor }}>
+                                                Note: Changes will update your Resident Profile upon submission.
+                                            </p>
                                         </div>
                                     </div>
 
@@ -1417,167 +1476,175 @@ export default function BirthRegistrationPage() {
                                     </div>
 
                                     <div className="space-y-8">
-                                        {/* Type of Birth Moved Above */}
-                                        <div className="bg-blue-50/50 dark:bg-blue-500/5 p-6 rounded-[2rem] border border-blue-100 dark:border-blue-500/10 space-y-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className="p-1.5 bg-blue-500/10 rounded-lg">
-                                                    <Baby className="w-4 h-4 text-blue-500" />
-                                                </div>
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-blue-500 italic">Type of Birth <span className="text-red-500">*</span></Label>
-                                            </div>
-                                            <Select
-                                                value={form.birthType}
-                                                onValueChange={handleBirthTypeChange}
-                                            >
-                                                <SelectTrigger className="h-12 rounded-xl border-slate-200 focus:ring-blue-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold">
-                                                    <SelectValue placeholder="Select birth type" />
-                                                </SelectTrigger>
-                                                <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
-                                                    <SelectItem value="SINGLE">Single</SelectItem>
-                                                    <SelectItem value="TWIN">Twin</SelectItem>
-                                                    <SelectItem value="TRIPLET">Triplet</SelectItem>
-                                                    <SelectItem value="QUADRUPLET">Quadruplets</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
+                                         {/* Type of Birth */}
+                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                             <div className="col-span-2 md:col-span-1 space-y-2">
+                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-blue-500 italic ml-1 flex items-center gap-1.5">
+                                                     <Baby className="w-3 h-3" />Type of Birth <span className="text-red-500">*</span>
+                                                 </Label>
+                                                 <Select
+                                                     value={form.birthType}
+                                                     onValueChange={handleBirthTypeChange}
+                                                 >
+                                                     <SelectTrigger 
+                                                         style={{ height: '3rem' }}
+                                                         className="!h-12 w-full rounded-xl border-slate-950 dark:border-white focus:ring-blue-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold"
+                                                     >
+                                                         <SelectValue placeholder="Select birth type" />
+                                                     </SelectTrigger>
+                                                     <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
+                                                         <SelectItem value="SINGLE">Single</SelectItem>
+                                                         <SelectItem value="TWIN">Twin</SelectItem>
+                                                         <SelectItem value="TRIPLET">Triplet</SelectItem>
+                                                         <SelectItem value="QUADRUPLET">Quadruplets</SelectItem>
+                                                         <SelectItem value="QUINTUPLET">Quintuplets</SelectItem>
+                                                         <SelectItem value="SEXTUPLET">Sextuplets</SelectItem>
+                                                     </SelectContent>
+                                                 </Select>
+                                             </div>
+                                         </div>
 
-                                        {/* Children Inputs */}
-                                        <div className="space-y-6">
-                                            {form.children.map((child, index) => (
-                                                <div key={index} className="space-y-6 p-6 rounded-[2rem] border border-slate-100 dark:border-white/5 bg-slate-50/30 dark:bg-white/2">
-                                                    <div className="flex items-center gap-2 border-b border-slate-100 dark:border-white/5 pb-2">
-                                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Child {index + 1}</span>
-                                                    </div>
+                                         {/* Children Inputs */}
+                                         <div className="space-y-6">
+                                             {form.children.map((child, index) => (
+                                                 <div key={index} className="space-y-6">
+                                                     <div className="flex items-center gap-2 border-b border-slate-100 dark:border-white/5 pb-2">
+                                                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Child {index + 1}</span>
+                                                     </div>
 
-                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                        <div className="space-y-2">
-                                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">First Name <span className="text-red-500">*</span></Label>
-                                                            <Input
-                                                                className={cn(
-                                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                                    (errors[`children.${index}.firstName`]) && "border-red-500/50 bg-red-50/10"
-                                                                )}
-                                                                placeholder="First name"
-                                                                value={child.firstName}
-                                                                onChange={(e) => handleChildNameChange(index, 'firstName', e.target.value)}
-                                                            />
-                                                            {(errors[`children.${index}.firstName`]) && (
-                                                                <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors[`children.${index}.firstName`]}</p>
-                                                            )}
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Middle Name</Label>
-                                                            <Input
-                                                                className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
-                                                                placeholder="Middle name"
-                                                                value={child.middleName}
-                                                                onChange={(e) => handleChildNameChange(index, 'middleName', e.target.value)}
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Last Name <span className="text-red-500">*</span></Label>
-                                                            <Input
-                                                                className={cn(
-                                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                                    (errors[`children.${index}.lastName`]) && "border-red-500/50 bg-red-50/10"
-                                                                )}
-                                                                placeholder="Last name"
-                                                                value={child.lastName}
-                                                                onChange={(e) => handleChildNameChange(index, 'lastName', e.target.value)}
-                                                            />
-                                                            {(errors[`children.${index}.lastName`]) && (
-                                                                <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors[`children.${index}.lastName`]}</p>
-                                                            )}
-                                                        </div>
-                                                    </div>
+                                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                         <div className="space-y-2">
+                                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">First Name <span className="text-red-500">*</span></Label>
+                                                             <Input
+                                                                 id={`children.${index}.firstName`}
+                                                                 className={cn(
+                                                                     "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
+                                                                     (errors[`children.${index}.firstName`]) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500"
+                                                                 )}
+                                                                 placeholder="First name"
+                                                                 value={child.firstName}
+                                                                 onChange={(e) => handleChildNameChange(index, 'firstName', e.target.value)}
+                                                             />
+                                                             {(errors[`children.${index}.firstName`]) && (
+                                                                 <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors[`children.${index}.firstName`]}</p>
+                                                             )}
+                                                         </div>
+                                                         <div className="space-y-2">
+                                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Middle Name</Label>
+                                                             <Input
+                                                                 className="rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
+                                                                 placeholder="Middle name"
+                                                                 value={child.middleName}
+                                                                 onChange={(e) => handleChildNameChange(index, 'middleName', e.target.value)}
+                                                             />
+                                                         </div>
+                                                         <div className="space-y-2">
+                                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Last Name <span className="text-red-500">*</span></Label>
+                                                             <Input
+                                                                 id={`children.${index}.lastName`}
+                                                                 className={cn(
+                                                                     "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
+                                                                     (errors[`children.${index}.lastName`]) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500"
+                                                                 )}
+                                                                 placeholder="Last name"
+                                                                 value={child.lastName}
+                                                                 onChange={(e) => handleChildNameChange(index, 'lastName', e.target.value)}
+                                                             />
+                                                             {(errors[`children.${index}.lastName`]) && (
+                                                                 <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors[`children.${index}.lastName`]}</p>
+                                                             )}
+                                                         </div>
+                                                     </div>
 
-                                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                                        <div className="space-y-2 col-span-1">
-                                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Suffix</Label>
-                                                            <Input
-                                                                className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
-                                                                placeholder="e.g. Jr., III"
-                                                                value={child.suffix}
-                                                                onChange={(e) => handleChildNameChange(index, 'suffix', e.target.value)}
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-2 col-span-1">
-                                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Sex <span className="text-red-500">*</span></Label>
-                                                            <Select
-                                                                value={child.sex || ""}
-                                                                onValueChange={(val) => handleChildNameChange(index, 'sex', val)}
-                                                            >
-                                                                <SelectTrigger className={cn(
-                                                                    "h-12 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 focus:ring-blue-500 focus:border-blue-500 shadow-sm text-xs text-left px-3 transition-all font-medium uppercase text-slate-800 dark:text-slate-100",
-                                                                    (errors[`children.${index}.sex`]) && "border-red-500/50 bg-red-50/10"
-                                                                )}>
-                                                                    <SelectValue placeholder="Select sex" />
-                                                                </SelectTrigger>
-                                                                <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
-                                                                    <SelectItem value="MALE">MALE</SelectItem>
-                                                                    <SelectItem value="FEMALE">FEMALE</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
-                                                            {(errors[`children.${index}.sex`]) && (
-                                                                <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors[`children.${index}.sex`]}</p>
-                                                            )}
-                                                        </div>
-                                                        {form.birthType !== "SINGLE" && (
-                                                            <div className="space-y-2 col-span-1 md:col-span-2">
-                                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Exact Time of Birth <span className="text-red-500">*</span></Label>
-                                                                <Input
-                                                                    type="time"
-                                                                    className={cn(
-                                                                        "rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-medium",
-                                                                        (errors[`children.${index}.birthTime`]) && "border-red-500/50 bg-red-50/10"
-                                                                    )}
-                                                                    value={child.birthTime || ""}
-                                                                    onChange={(e) => handleChildNameChange(index, 'birthTime', e.target.value)}
-                                                                />
-                                                                {(errors[`children.${index}.birthTime`]) && (
-                                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors[`children.${index}.birthTime`]}</p>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
+                                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                                         <div className="space-y-2 col-span-1">
+                                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Suffix</Label>
+                                                             <Input
+                                                                 className="rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
+                                                                 placeholder="e.g. Jr., III"
+                                                                 value={child.suffix}
+                                                                 onChange={(e) => handleChildNameChange(index, 'suffix', e.target.value)}
+                                                             />
+                                                         </div>
+                                                         <div className="space-y-2 col-span-1">
+                                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Sex <span className="text-red-500">*</span></Label>
+                                                             <Select
+                                                                 value={child.sex || ""}
+                                                                 onValueChange={(val) => handleChildNameChange(index, 'sex', val)}
+                                                             >
+                                                                 <SelectTrigger 
+                                                                     style={{ height: '3rem' }}
+                                                                     className={cn(
+                                                                     "!h-12 w-full rounded-xl border border-slate-950 dark:border-white bg-white dark:bg-slate-900 shadow-sm text-xs text-left px-3 transition-all font-medium uppercase text-slate-800 dark:text-slate-100",
+                                                                     (errors[`children.${index}.sex`]) && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                                 )}>
+                                                                     <SelectValue placeholder="Select sex" />
+                                                                 </SelectTrigger>
+                                                                 <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
+                                                                     <SelectItem value="MALE">MALE</SelectItem>
+                                                                     <SelectItem value="FEMALE">FEMALE</SelectItem>
+                                                                 </SelectContent>
+                                                             </Select>
+                                                             {(errors[`children.${index}.sex`]) && (
+                                                                 <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors[`children.${index}.sex`]}</p>
+                                                             )}
+                                                         </div>
+                                                         {form.birthType !== "SINGLE" && (
+                                                             <div className="space-y-2 col-span-1 md:col-span-2">
+                                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Exact Time of Birth <span className="text-red-500">*</span></Label>
+                                                                 <Input
+                                                                     type="time"
+                                                                     className={cn(
+                                                                         "rounded-xl border border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all font-medium",
+                                                                         (errors[`children.${index}.birthTime`]) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500"
+                                                                     )}
+                                                                     value={child.birthTime || ""}
+                                                                     onChange={(e) => handleChildNameChange(index, 'birthTime', e.target.value)}
+                                                                 />
+                                                                 {(errors[`children.${index}.birthTime`]) && (
+                                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors[`children.${index}.birthTime`]}</p>
+                                                                 )}
+                                                             </div>
+                                                         )}
+                                                     </div>
+                                                 </div>
+                                             ))}
+                                         </div>
 
-                                        {/* Date & Place Shared */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Date of Birth <span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    type="date"
-                                                    className={cn(
-                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-medium",
-                                                        (errors.dateOfEvent) && "border-red-500/50 bg-red-50/10"
-                                                    )}
-                                                    value={form.dateOfEvent}
-                                                    max={new Date().toISOString().split('T')[0]}
-                                                    onChange={(e) => handleDateOfEventChange(e.target.value)}
-                                                />
-                                                {errors.dateOfEvent && (
-                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors.dateOfEvent}</p>
-                                                )}
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Place of Birth <span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    className={cn(
-                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                        (errors.placeOfEvent) && "border-red-500/50 bg-red-50/10"
-                                                    )}
-                                                    placeholder="Hospital/Municipality, Province"
-                                                    value={form.placeOfEvent}
-                                                    onChange={(e) => setForm({ ...form, placeOfEvent: e.target.value.toUpperCase() })}
-                                                />
-                                                {errors.placeOfEvent && (
-                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors.placeOfEvent}</p>
-                                                )}
-                                            </div>
-                                        </div>
+                                         {/* Date & Place Shared */}
+                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                             <div className="space-y-2">
+                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Date of Birth <span className="text-red-500">*</span></Label>
+                                                 <Input
+                                                     type="date"
+                                                     className={cn(
+                                                         "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all font-medium",
+                                                         (errors.dateOfEvent) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500"
+                                                     )}
+                                                     value={form.dateOfEvent}
+                                                     max={new Date().toISOString().split('T')[0]}
+                                                     onChange={(e) => handleDateOfEventChange(e.target.value)}
+                                                 />
+                                                 {errors.dateOfEvent && (
+                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors.dateOfEvent}</p>
+                                                 )}
+                                             </div>
+                                             <div className="space-y-2">
+                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Place of Birth <span className="text-red-500">*</span></Label>
+                                                 <Input
+                                                     readOnly
+                                                     className={cn(
+                                                         "rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 transition-all uppercase font-bold italic cursor-not-allowed",
+                                                         (errors.placeOfEvent) && "border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500"
+                                                     )}
+                                                     placeholder="Hospital/Municipality, Province"
+                                                     value={form.placeOfEvent || "MUNICIPALITY OF MAPANDAN"}
+                                                 />
+                                                 {errors.placeOfEvent && (
+                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors.placeOfEvent}</p>
+                                                 )}
+                                             </div>
+                                         </div>
                                     </div>
 
                                     <div className="flex justify-end pt-6">
@@ -1669,34 +1736,49 @@ export default function BirthRegistrationPage() {
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">First Name</Label>
-                                                    <Input
-                                                        className="rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12"
-                                                        placeholder="First name"
-                                                        value={form.fatherFirstName}
-                                                        onChange={(e) => setForm({ ...form, fatherFirstName: e.target.value.toUpperCase() })}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Middle Name</Label>
-                                                    <Input
-                                                        className="rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12"
-                                                        placeholder="Middle name"
-                                                        value={form.fatherMiddleName}
-                                                        onChange={(e) => setForm({ ...form, fatherMiddleName: e.target.value.toUpperCase() })}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Last Name</Label>
-                                                    <Input
-                                                        className="rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12"
-                                                        placeholder="Last name"
-                                                        value={form.fatherLastName}
-                                                        onChange={(e) => setForm({ ...form, fatherLastName: e.target.value.toUpperCase() })}
-                                                    />
-                                                </div>
-                                            </div>
+
+                                                 <div className="space-y-2">
+                                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">First Name <span className="text-red-500">*</span></Label>
+                                                     <Input
+                                                         id="fatherFirstName"
+                                                         className={cn(
+                                                             "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
+                                                             errors.fatherFirstName && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                         )}
+                                                         placeholder="First name"
+                                                         value={form.fatherFirstName}
+                                                         onChange={(e) => setForm({ ...form, fatherFirstName: e.target.value.toUpperCase() })}
+                                                     />
+                                                     {errors.fatherFirstName && (
+                                                         <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors.fatherFirstName}</p>
+                                                     )}
+                                                 </div>
+                                                 <div className="space-y-2">
+                                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Middle Name</Label>
+                                                     <Input
+                                                         className="rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12"
+                                                         placeholder="Middle name"
+                                                         value={form.fatherMiddleName}
+                                                         onChange={(e) => setForm({ ...form, fatherMiddleName: e.target.value.toUpperCase() })}
+                                                     />
+                                                 </div>
+                                                 <div className="space-y-2">
+                                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Last Name <span className="text-red-500">*</span></Label>
+                                                     <Input
+                                                         id="fatherLastName"
+                                                         className={cn(
+                                                             "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
+                                                             errors.fatherLastName && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                         )}
+                                                         placeholder="Last name"
+                                                         value={form.fatherLastName}
+                                                         onChange={(e) => setForm({ ...form, fatherLastName: e.target.value.toUpperCase() })}
+                                                     />
+                                                     {errors.fatherLastName && (
+                                                         <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors.fatherLastName}</p>
+                                                     )}
+                                                 </div>
+                                             </div>
                                         </div>
 
                                         {/* Mother */}
@@ -1709,34 +1791,48 @@ export default function BirthRegistrationPage() {
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">First Name</Label>
-                                                    <Input
-                                                        className="rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12"
-                                                        placeholder="First name"
-                                                        value={form.motherFirstName}
-                                                        onChange={(e) => setForm({ ...form, motherFirstName: e.target.value.toUpperCase() })}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Middle Name</Label>
-                                                    <Input
-                                                        className="rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12"
-                                                        placeholder="Middle name"
-                                                        value={form.motherMiddleName}
-                                                        onChange={(e) => setForm({ ...form, motherMiddleName: e.target.value.toUpperCase() })}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Last Name</Label>
-                                                    <Input
-                                                        className="rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12"
-                                                        placeholder="Last name"
-                                                        value={form.motherLastName}
-                                                        onChange={(e) => setForm({ ...form, motherLastName: e.target.value.toUpperCase() })}
-                                                    />
-                                                </div>
-                                            </div>
+                                                 <div className="space-y-2">
+                                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">First Name <span className="text-red-500">*</span></Label>
+                                                     <Input
+                                                         id="motherFirstName"
+                                                         className={cn(
+                                                             "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
+                                                             errors.motherFirstName && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                         )}
+                                                         placeholder="First name"
+                                                         value={form.motherFirstName}
+                                                         onChange={(e) => setForm({ ...form, motherFirstName: e.target.value.toUpperCase() })}
+                                                     />
+                                                     {errors.motherFirstName && (
+                                                         <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors.motherFirstName}</p>
+                                                     )}
+                                                 </div>
+                                                 <div className="space-y-2">
+                                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Middle Name</Label>
+                                                     <Input
+                                                         className="rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12"
+                                                         placeholder="Middle name"
+                                                         value={form.motherMiddleName}
+                                                         onChange={(e) => setForm({ ...form, motherMiddleName: e.target.value.toUpperCase() })}
+                                                     />
+                                                 </div>
+                                                 <div className="space-y-2">
+                                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Last Name <span className="text-red-500">*</span></Label>
+                                                     <Input
+                                                         id="motherLastName"
+                                                         className={cn(
+                                                             "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
+                                                             errors.motherLastName && "!border-red-500 bg-red-50/10 focus:ring-red-500"
+                                                         )}
+                                                         placeholder="Last name"
+                                                         value={form.motherLastName}
+                                                         onChange={(e) => setForm({ ...form, motherLastName: e.target.value.toUpperCase() })}
+                                                     />
+                                                     {errors.motherLastName && (
+                                                         <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors.motherLastName}</p>
+                                                     )}
+                                                 </div>
+                                             </div>
                                         </div>
                                     </div>
 
@@ -1778,7 +1874,7 @@ export default function BirthRegistrationPage() {
                                         </div>
                                     </div>
 
-                                    <Card className="bg-slate-50 dark:bg-white/5 border-none p-6 rounded-[2rem] space-y-4">
+                                    <div className="space-y-6">
                                         <div className="grid grid-cols-2 gap-6">
                                             <div className="space-y-1">
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Certificate Type</span>
@@ -1788,23 +1884,13 @@ export default function BirthRegistrationPage() {
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Type of Birth</span>
                                                 <p className="font-black text-slate-900 dark:text-white italic uppercase">{form.birthType}</p>
                                             </div>
-                                            <div className="space-y-1">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Informant</span>
-                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">
-                                                    {`${form.informantFirstName} ${form.informantLastName}`.trim()} ({form.relationship})
-                                                </p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Informant Address</span>
-                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{form.informantAddress || "N/A"}</p>
-                                            </div>
                                             <div className="col-span-2 space-y-2">
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Children to Register</span>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                <div className="space-y-2.5 pl-1">
                                                     {form.children.map((child, i) => (
-                                                        <div key={i} className="p-3 bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10">
-                                                            <span className="text-[8px] font-black text-blue-500 uppercase italic mb-1 block">Child {i + 1}</span>
-                                                            <p className="font-black text-slate-900 dark:text-white italic uppercase text-xs">
+                                                        <div key={i} className="flex items-center gap-2">
+                                                            <span className="text-[9px] font-black text-blue-500 uppercase italic">Child {i + 1}:</span>
+                                                            <p className="font-black text-slate-900 dark:text-white italic uppercase text-sm">
                                                                 {`${child.firstName} ${child.middleName} ${child.lastName} ${child.suffix}`.trim()}
                                                             </p>
                                                         </div>
@@ -1816,48 +1902,14 @@ export default function BirthRegistrationPage() {
                                         <div className="pt-4 border-t border-slate-200 dark:border-white/5 space-y-4">
                                             <div className="flex items-center gap-4">
                                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Registration Type:</span>
-                                                <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-full border border-slate-200 dark:border-white/10">
-                                                    <button
-                                                        onClick={() => {
-                                                            // Prevent switching to STANDARD if DOB is more than 1 month ago
-                                                            try {
-                                                                if (form.dateOfEvent) {
-                                                                    const dob = new Date(form.dateOfEvent);
-                                                                    const today = new Date();
-                                                                    const dobNorm = new Date(dob.getFullYear(), dob.getMonth(), dob.getDate());
-                                                                    const todayNorm = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                                                                    const diffDays = Math.floor((todayNorm.getTime() - dobNorm.getTime()) / (1000 * 60 * 60 * 24));
-                                                                    if (diffDays > 30) {
-                                                                        toast.error("The selected date of birth is more than 1 month ago — registration should be LATE.");
-                                                                        return;
-                                                                    }
-                                                                }
-                                                            } catch {
-                                                                // ignore parse errors and allow change
-                                                            }
-                                                            setForm(prev => ({ ...prev, registrationType: "STANDARD", lateDuration: "", miscFee: 0 }));
-                                                        }}
-                                                        className={cn(
-                                                            "px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300",
-                                                            form.registrationType === "STANDARD"
-                                                                ? "bg-white dark:bg-slate-800 text-blue-600 shadow-sm"
-                                                                : "text-slate-400 hover:text-slate-600"
-                                                        )}
-                                                    >
-                                                        Standard
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setForm(prev => ({ ...prev, registrationType: "LATE" }))}
-                                                        className={cn(
-                                                            "px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300",
-                                                            form.registrationType === "LATE"
-                                                                ? "bg-white dark:bg-slate-800 text-blue-600 shadow-sm"
-                                                                : "text-slate-400 hover:text-slate-600"
-                                                        )}
-                                                    >
-                                                        Late
-                                                    </button>
-                                                </div>
+                                                <span className={cn(
+                                                    "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest italic",
+                                                    form.registrationType === "STANDARD" 
+                                                        ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" 
+                                                        : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                                )}>
+                                                    {form.registrationType === "STANDARD" ? "Standard" : "Late"}
+                                                </span>
                                             </div>
 
                                             {form.registrationType === "LATE" && (
@@ -1921,7 +1973,7 @@ export default function BirthRegistrationPage() {
 
 
 
-                                                <div id="documents-section" className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
+                                                <div id="documents-section" className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 items-start">
                                                     {form.registrationType === "STANDARD" ? (
                                                         (form.parentsMarried ? [
                                                             { key: "marriageCertificate", label: "Marriage Certificate of Parents" },
@@ -1943,12 +1995,15 @@ export default function BirthRegistrationPage() {
                                                                 ])
                                                             ].map((doc) => renderDocCard(doc))}
 
-                                                            <div className="col-span-1 md:col-span-2 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4">
+                                                            <div id="supporting-evidence-section" className="col-span-1 md:col-span-2 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4">
                                                                 <div className="space-y-3 w-full">
                                                                     <div>
-                                                                        <Label className="text-[9px] font-black uppercase tracking-wider text-slate-500 italic">Supporting Evidence (select up to 2)</Label>
+                                                                        <Label className="text-[9px] font-black uppercase tracking-wider text-slate-500 italic">Supporting Evidence (select up to 2) <span className="text-red-500">*</span></Label>
                                                                         <DropdownMenu open={evidenceMenuOpen} onOpenChange={setEvidenceMenuOpen}>
-                                                                            <DropdownMenuTrigger className="h-10 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-xs font-bold w-full text-left px-3 flex items-center justify-between">
+                                                                            <DropdownMenuTrigger className={cn(
+                                                                                "h-10 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-xs font-bold w-full text-left px-3 flex items-center justify-between transition-all",
+                                                                                errors.documents && (!form.supportingEvidenceTypes || form.supportingEvidenceTypes.length < 2) && "!border-red-500 bg-red-50/10 focus:ring-red-500 focus:border-red-500"
+                                                                            )}>
                                                                                 <div className="flex items-center gap-2">
                                                                                     {form.supportingEvidenceTypes && form.supportingEvidenceTypes.length > 0 ? (
                                                                                         <span className="text-xs font-bold uppercase">{form.supportingEvidenceTypes.map(v => EVIDENCE_LABELS[v] || v).join(', ')}</span>
@@ -1987,7 +2042,7 @@ export default function BirthRegistrationPage() {
 
                                                                     <div>
                                                                         {(form.supportingEvidenceTypes && form.supportingEvidenceTypes.length === 2) ? (
-                                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 items-start">
                                                                                 {['supportingEvidence1', 'supportingEvidence2'].map((k, idx) => {
                                                                                     const selectedLabel = EVIDENCE_LABELS[form.supportingEvidenceTypes[idx]] || (k === 'supportingEvidence1' ? 'Supporting Evidence 1' : 'Supporting Evidence 2');
                                                                                     return renderDocCard({ key: k, label: selectedLabel });
@@ -2007,22 +2062,33 @@ export default function BirthRegistrationPage() {
                                                 )}
                                             </div>
                                         </div>
-                                    </Card>
+                                    </div>
 
                                     <div className="space-y-4">
-                                        <div className="p-4 rounded-2xl border border-slate-200/40 bg-white/30 dark:bg-white/5 flex items-start gap-4">
-                                            <button type="button" onClick={() => setPolicyOpen(true)} className={cn("w-5 h-5 rounded-full border flex items-center justify-center", policyAccepted ? "bg-blue-500 border-blue-500 text-white" : "border-slate-300")}>
-                                                {policyAccepted ? <Check className="w-3 h-3" /> : null}
+                                        <div className="p-6 rounded-3xl border border-slate-200/20 bg-[#11131e]/90 dark:bg-[#11131e]/90 flex items-center gap-5">
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setPolicyOpen(true)} 
+                                                className={cn(
+                                                    "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-300", 
+                                                    policyAccepted 
+                                                        ? "bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-500/20" 
+                                                        : "border-slate-500 hover:border-emerald-500"
+                                                )}
+                                            >
+                                                {policyAccepted ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : null}
                                             </button>
-                                            <div className="flex-1 text-xs cursor-pointer select-none" onClick={() => setPolicyOpen(true)}>
-                                                <div className="font-black uppercase text-[11px] tracking-wider">DATA PRIVACY AND TERMS AGREEMENT</div>
-                                                <div className="text-[10px] text-slate-500 italic mt-1">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
+                                            <div className="flex-1 cursor-pointer select-none" onClick={() => setPolicyOpen(true)}>
+                                                <div className="font-black uppercase text-xs tracking-wider text-slate-100 italic">DATA PRIVACY AND TERMS AGREEMENT</div>
+                                                <div className="text-[8px] text-slate-400 font-bold uppercase tracking-widest italic mt-2 leading-relaxed">
+                                                    I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. I CONFIRM ALL INFO IS TRUE AND CORRECT. CLICK TO REVIEW AGREEMENT.
+                                                </div>
                                                 {errors.policyAccepted && (
-                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">{errors.policyAccepted}</p>
+                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse mt-2">{errors.policyAccepted}</p>
                                                 )}
                                             </div>
-                                            <button type="button" onClick={() => setPolicyOpen(true)} className="text-[10px] font-black italic text-blue-600">Review</button>
                                         </div>
+
                                         <div className="p-5 rounded-2xl border border-slate-200/20 bg-white/30 dark:bg-white/5 space-y-3">
                                             <div className="flex justify-between items-center text-xs font-semibold italic text-slate-500">
                                                 <span>Registration Fee ({form.registrationType === "STANDARD" ? "Standard" : "Late"})</span>

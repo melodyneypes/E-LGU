@@ -84,6 +84,7 @@ export function ResidentTable() {
                             <TableHead className="font-bold text-slate-700 dark:text-slate-300">Name</TableHead>
                             <TableHead className="font-bold text-slate-700 dark:text-slate-300">Category</TableHead>
                             <TableHead className="font-bold text-slate-700 dark:text-slate-300">Info & Status</TableHead>
+                            <TableHead className="font-bold text-slate-700 dark:text-slate-300">Philhealth</TableHead>
                             <TableHead className="font-bold text-slate-700 dark:text-slate-300">Location</TableHead>
                             <TableHead className="font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">Contact</TableHead>
                         </TableRow>
@@ -91,7 +92,7 @@ export function ResidentTable() {
                     <TableBody>
                         {filteredResidents.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-[400px] text-center">
+                                <TableCell colSpan={8} className="h-[400px] text-center">
                                     <div className="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
                                         <Search className="w-16 h-16 mb-4 text-slate-300 dark:text-slate-600" />
                                         <p className="text-xl font-bold text-slate-700 dark:text-slate-300">No residents found</p>
@@ -170,6 +171,15 @@ export function ResidentTable() {
                                             <span className="font-semibold text-slate-700 dark:text-slate-300">{resident.gender} • {resident.civilStatus}</span>
                                             <span>DOB: {new Date(resident.dateOfBirth).toLocaleDateString()}</span>
                                             {resident.is4Ps && <span className="text-green-600 font-bold dark:text-green-400 text-[10px]">4Ps Beneficiary</span>}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-col">
+                                            {resident.philhealthNumber ? (
+                                                <span className="font-bold text-xs text-slate-800 dark:text-slate-200">{resident.philhealthNumber}</span>
+                                            ) : (
+                                                <span className="text-xs text-slate-400 italic">N/A</span>
+                                            )}
                                         </div>
                                     </TableCell>
                                     <TableCell>

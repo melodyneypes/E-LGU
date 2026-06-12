@@ -116,7 +116,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                         Back to Requests
                     </Link>
 
-                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 md:p-10 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 text-center space-y-4">
+                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 md:p-10 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 text-center space-y-4">
                         <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
                             <Clock className="w-6 h-6" />
                         </div>
@@ -173,7 +173,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                         />
 
                         {/* MAIN ASSESSMENT CARD */}
-                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-12 animate-in fade-in duration-300">
+                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-12 animate-in fade-in duration-300">
                             {/* IDENTIFIER / ACCORDION HEADER */}
                             <div
                                 className="flex justify-between items-center cursor-pointer select-none"
@@ -349,7 +349,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                         />
 
                         {/* Primary LCR Specific Details Panel */}
-                        <div className="bg-[#111827] border border-slate-800 rounded-[2.5rem] p-8 md:p-12 shadow-2xl space-y-8 animate-in fade-in duration-300">
+                        <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 md:p-12 shadow-xl dark:shadow-2xl space-y-8 animate-in fade-in duration-300">
                             <div className="flex items-center gap-3">
                                 <div className="p-2.5 bg-primary rounded-xl text-white shadow-lg shadow-primary/20">
                                     <FileText className="w-5 h-5" />
@@ -364,7 +364,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                     {additional.orSeriesNumber && (
                                         <div className="flex flex-col justify-center gap-2">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">O.R. Series Number</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {additional.orSeriesNumber}
                                             </div>
                                         </div>
@@ -372,12 +372,12 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                     {additional.scannedDocUrl && (
                                         <div className="flex flex-col justify-center gap-2">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Verified Registry Document</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center">
                                                 <Button
                                                     onClick={() => handleViewFile?.(additional.scannedDocUrl, "Scanned Death Registration Document")}
                                                     variant="outline"
                                                     size="sm"
-                                                    className="text-[10px] font-black uppercase tracking-wider flex items-center gap-2 bg-[#1f2937]/50 border-slate-800 text-white hover:bg-[#1f2937] h-8"
+                                                    className="text-[10px] font-black uppercase tracking-wider flex items-center gap-2 bg-white dark:bg-[#1f2937]/50 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-white hover:bg-slate-100 dark:hover:bg-[#1f2937] h-8"
                                                 >
                                                     <FileText className="w-3.5 h-3.5" /> View Scanned Document
                                                 </Button>
@@ -395,7 +395,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                     <div className="space-y-6">
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Deceased Full Name</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {subjectName}
                                             </div>
                                         </div>
@@ -403,13 +403,13 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Date of Death</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {safeFormatDate(additional.dateOfDeath || additional.dateOfEvent)}
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Registry No.</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {transaction.deathRegistration?.registryNumber || "PENDING"}
                                                 </div>
                                             </div>
@@ -418,22 +418,22 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Cause of Death</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {additional.causeOfDeath || "—"}
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Death</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {additional.placeOfEvent || additional.placeOfDeath || "—"}
                                                 </div>
                                             </div>
                                         </div>
 
                                         {(transaction.deathRegistration?.issuedBy || additional.issuedBy) && (
-                                            <div className="space-y-1.5 pt-4 border-t border-slate-800/50">
+                                            <div className="space-y-1.5 pt-4 border-t border-slate-100 dark:border-slate-800/50">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Issued By</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {transaction.deathRegistration?.issuedBy || additional.issuedBy}
                                                 </div>
                                             </div>
@@ -447,13 +447,13 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Father&apos;s Full Name</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {additional.fathersName || "—"}
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Mother&apos;s Full Name</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {additional.mothersName || "—"}
                                                 </div>
                                             </div>
@@ -462,13 +462,13 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Gender</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {additional.gender || "—"}
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Civil Status</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {additional.civilStatus || "—"}
                                                 </div>
                                             </div>
@@ -476,7 +476,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
 
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Deceased Date of Birth</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                 {safeFormatDate(additional.dateOfBirth)}
                                             </div>
                                         </div>
@@ -484,7 +484,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                         {additional.civilStatus === "MARRIED" && additional.survivingSpouseName && (
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Surviving Spouse Name</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                                     {additional.survivingSpouseName}
                                                 </div>
                                             </div>
@@ -494,18 +494,18 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                             </div>
 
                             {/* CORPSE DISPOSAL & BURIAL DETAILS */}
-                            <div className="pt-8 border-t border-slate-800/50 space-y-6">
+                            <div className="pt-8 border-t border-slate-100 dark:border-slate-800/50 space-y-6">
                                 <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic">Corpse Disposal & Burial Details</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
                                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Disposal Method</span>
-                                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                             {additional.corpseDisposal || "—"}
                                         </div>
                                     </div>
                                     <div className="space-y-1.5">
                                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Cemetery / Disposal Location</span>
-                                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
                                             {additional.burialLocation || "—"}
                                         </div>
                                     </div>
@@ -515,7 +515,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
 
                         {/* ATTACHMENT CARD FOR EVIDENCE */}
                         {evidenceDocs && evidenceDocs.filter((d: any) => d?.url).length > 0 && (
-                            <div className="bg-white dark:bg-[#151b28] rounded-[2.5rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
+                            <div className="bg-white dark:bg-[#151b28] rounded-[2.5rem] p-12 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e293b] dark:text-white leading-none">
                                     Submitted Identifications & Requirements
                                 </h3>
@@ -556,7 +556,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                     {/* Right Column: Workflow Actions Controls */}
                     <div className="lg:col-span-4 space-y-8 lg:sticky lg:top-8 animate-in fade-in duration-300">
                         {/* PHASE TRACKER STEPPER */}
-                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
+                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-8">
                             <h3 className="text-[10px] font-black uppercase tracking-widest text-[#1e293b] dark:text-slate-400">
                                 Service Request Progress
                             </h3>
@@ -593,7 +593,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                         {transaction.status === "FOR_REVISION" && (() => {
                             const revisionRemarks = transaction.rejectionRemarks || additional?.revisionRemarks || "";
                             return (
-                                <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-6 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-orange-200 dark:border-orange-500/20 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-6 shadow-xl dark:shadow-2xl border border-orange-200 dark:border-orange-500/20 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center shrink-0 animate-[spin_3s_linear_infinite]">
                                             <RotateCw className="w-5 h-5" />
@@ -625,7 +625,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                         {transaction.status === "REJECTED" && (() => {
                             const rejectionRemarks = transaction.rejectionRemarks || additional?.rejectionRemarks || "";
                             return (
-                                <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-6 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-red-200 dark:border-red-500/20 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-6 shadow-xl dark:shadow-2xl border border-red-200 dark:border-red-500/20 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
                                             <AlertCircle className="w-5 h-5" />
@@ -669,7 +669,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                     if (!refNo) return null;
 
                                     return (
-                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-4">
+                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 rounded-xl bg-primary/10 text-primary">
                                                     <Hash className="w-4 h-4" />
@@ -712,7 +712,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                     if (!orNo && !orDocUrl) return null;
 
                                     return (
-                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-4">
+                                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 rounded-xl bg-green-500/10 text-green-500">
                                                     <FileText className="w-4 h-4" />
@@ -1090,14 +1090,14 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                         {/* REGISTRAR PROCESS STATE (FOR_PROCESSING) */}
                         {transaction.status === "FOR_PROCESSING" && (
                             <div className="space-y-6">
-                                <div className="bg-[#111827] border border-slate-800 rounded-[2rem] p-8 shadow-2xl space-y-6">
+                                <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 rounded-[2rem] p-8 shadow-xl dark:shadow-2xl space-y-6">
                                     <div className="space-y-1">
                                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#10b981] italic">Upload & Release Document</h4>
                                         <p className="text-xs font-bold text-slate-500 italic">Verify registry book, attach records, and release e-copy.</p>
                                     </div>
 
                                     {/* Digital E-Copy Upload Block */}
-                                    <div className="space-y-3 pt-4 border-t border-slate-800/50">
+                                    <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800/50">
                                         <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
                                             Attach Official Digital E-Copy Registry Record <span className="text-rose-500 font-extrabold">*Required</span>
                                         </label>
@@ -1137,10 +1137,10 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                         <label
                                             htmlFor="treasury-ecopy-upload"
                                             className={cn(
-                                                "flex flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed transition-all h-44 bg-[#1f2937]/20 overflow-hidden relative group cursor-pointer",
+                                                "flex flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed transition-all h-44 bg-slate-50 dark:bg-[#1f2937]/20 overflow-hidden relative group cursor-pointer",
                                                 (eCopyFile || transaction.eCopyUrl)
                                                     ? "border-primary/30 bg-primary/5 shadow-inner"
-                                                    : "border-slate-850 hover:border-primary/30"
+                                                    : "border-slate-200 dark:border-slate-800 hover:border-primary/30"
                                             )}
                                         >
                                             {(eCopyPreview || transaction.eCopyUrl) ? (
@@ -1154,7 +1154,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                                                 className="w-full h-full object-cover opacity-60 group-hover:opacity-85 transition-opacity"
                                                             />
                                                             <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity duration-350 backdrop-blur-[1px] z-10">
-                                                                <Button
+                                                                 <Button
                                                                     type="button"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
@@ -1177,7 +1177,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                                 </div>
                                             ) : (
                                                 <>
-                                                    <div className="p-3.5 rounded-2xl bg-slate-900 text-slate-600 shadow-sm transition-all group-hover:bg-primary group-hover:text-white">
+                                                    <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-500 shadow-sm transition-all group-hover:bg-primary group-hover:text-white">
                                                         <Upload className="w-4.5 h-4.5 group-hover:scale-110 transition-transform" />
                                                     </div>
                                                     <div className="text-center space-y-1">

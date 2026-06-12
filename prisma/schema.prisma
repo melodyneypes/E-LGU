@@ -297,6 +297,7 @@ model Resident {
   tin                   String?
   gsis                  String?
   sss                   String?
+  philhealthNumber      String?
   occupation            String?
   employer              String?
   motherFirstName       String?

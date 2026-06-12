@@ -35,10 +35,14 @@ export function GovSocioEconomicSection({ data }: { data?: any }) {
     if (!data?.sss) return "";
     return data.sss.replace(/[^0-9]/g, "");
   });
+  const [philhealth, setPhilhealth] = useState(() => {
+    if (!data?.philhealthNumber) return "";
+    return data.philhealthNumber.replace(/[^0-9]/g, "");
+  });
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-semibold">TIN (Tax ID)</label>
           <Input 
@@ -69,6 +73,17 @@ export function GovSocioEconomicSection({ data }: { data?: any }) {
             onChange={(e) => setSss(e.target.value.replace(/[^0-9]/g, "").slice(0, 10))} 
             placeholder="10-digit number" 
             maxLength={10}
+            className="font-bold"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-semibold">Philhealth No.</label>
+          <Input 
+            name="philhealthNumber" 
+            value={philhealth} 
+            onChange={(e) => setPhilhealth(e.target.value.replace(/[^0-9]/g, "").slice(0, 12))} 
+            placeholder="12-digit number" 
+            maxLength={12}
             className="font-bold"
           />
         </div>
