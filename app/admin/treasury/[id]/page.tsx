@@ -3,7 +3,7 @@
 
 import React, { useState, useRef, useEffect, use, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, useParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -258,7 +258,8 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
 }
 
 export default function TreasuryDetailPage({ params }: PageProps) {
-    const { id } = use(params);
+    const routeParams = useParams();
+    const id = routeParams?.id as string;
     const router = useRouter();
     const { data: session } = useSession();
     const rawUserRole = (session?.user as any)?.role;

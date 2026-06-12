@@ -2818,9 +2818,9 @@ export async function markForReinspection(id: string, reason: string, details?: 
         let newStatus = "FOR_REINSPECTION";
         let rejectionRemarks = null;
 
-        if (count >= 4) {
+        if (count >= 3) {
             newStatus = "REJECTED";
-            rejectionRemarks = `Automatically rejected after 4 re-inspection attempts. Final Reason: ${reason}`;
+            rejectionRemarks = `Automatically rejected after 3 re-inspection attempts. Final Reason: ${reason}`;
         }
 
         const newAdditionalData = {
@@ -2829,7 +2829,7 @@ export async function markForReinspection(id: string, reason: string, details?: 
             reinspectionHistory: newHistory
         };
 
-        if (details && count < 4) {
+        if (details && count < 3) {
             newAdditionalData.inspectionSchedule = {
                 type: details.type,
                 date: details.date,
@@ -2857,12 +2857,12 @@ export async function markForReinspection(id: string, reason: string, details?: 
             const resident = transaction.residentSnapshot as any;
 
             await sendEmail({
-                type: count >= 4 ? "REJECTED" : "FOR_REINSPECTION",
+                type: count >= 3 ? "REJECTED" : "FOR_REINSPECTION",
                 to: transaction.user.email,
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : transaction.user.name || "Resident",
                 transactionId: id.slice(-8).toUpperCase(),
                 serviceName: transaction.type?.name || "Building Permit",
-                remarks: count >= 4 ? reason : `Attempt ${count} of 3. Reason: ${reason} ${details ? `| Date: ${details.date} | Time: ${details.time}` : ''}`
+                remarks: count >= 3 ? reason : `Attempt ${count} of 3. Reason: ${reason} ${details ? `| Date: ${details.date} | Time: ${details.time}` : ''}`
             });
         }
 
@@ -3029,6 +3029,7 @@ export async function reviseBuildingPermitClearancesAction(id: string, reason: s
         const updatedTransaction = await prisma.transaction.update({
             where: { id },
             data: {
+                revisionCount: nextClearanceRevisionCount,
                 additionalData: updatedAdditionalData
             },
             include: { user: true, type: true }

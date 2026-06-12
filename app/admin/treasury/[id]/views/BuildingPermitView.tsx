@@ -512,7 +512,7 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                         </div>
 
                         {/* Interactive Decision / Actions box */}
-                        {(!isReadOnlyAide || transaction.status === "FOR_PROCESSING") && (
+                        {(!isReadOnlyAide && transaction.status !== "FOR_PROCESSING") && (
                             <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 md:p-10 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-6">
                                 <div>
                                     <h3 className="text-md font-black italic uppercase tracking-wider text-slate-800 dark:text-slate-200">
@@ -787,7 +787,7 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                      </div>
                                 )}
 
-                                {["FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING"].includes(transaction.status) && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN" || rawUserRole === "COURIER") && (
+                                {["FOR_CLAIM", "FOR_PICKING"].includes(transaction.status) && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN" || rawUserRole === "COURIER") && (
                                     <div className="space-y-6">
                                         <PrintWaybill
                                             transaction={transaction}

@@ -207,7 +207,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
                             Revision Count: {transaction?.revisionCount || 0} / 3
                         </Badge>
                         <Badge className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 border border-blue-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
-                            Re-inspection Count: {transaction?.additionalData?.reinspectionCount || 0} / 4
+                            Re-inspection Count: {transaction?.additionalData?.reinspectionCount || 0} / 3
                         </Badge>
                     </div>
                     <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
