@@ -432,18 +432,26 @@ export default function BirthCertificateView(props: TreasuryViewProps) {
                                     <div className="grid grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-4 duration-300">
                                         {evidenceDocs.map((doc: any, idx: number) => {
                                             if (!doc.url) return null;
+                                            const isPdf = doc.url.toLowerCase().endsWith(".pdf") || doc.url.includes("application/pdf") || doc.url.includes(".pdf?");
                                             return (
                                                 <div
                                                     key={idx}
                                                     onClick={() => handleViewFile?.(doc.url, doc.label, evidenceDocs, idx)}
                                                     className="relative group rounded-3xl overflow-hidden aspect-[3/2] bg-[#f8fafd] dark:bg-white/5 border border-slate-200/50 dark:border-white/5 cursor-pointer shadow-md hover:shadow-xl transition-all"
                                                 >
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img
-                                                        src={doc.url}
-                                                        alt={doc.label}
-                                                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-all duration-500"
-                                                    />
+                                                    {isPdf ? (
+                                                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-[#1f2937]/20 gap-2 p-4 group-hover:scale-[1.03] transition-all duration-500">
+                                                            <FileText className="w-10 h-10 text-red-500 animate-pulse" />
+                                                            <span className="text-[9px] font-black uppercase text-red-500/70 tracking-widest text-center">View PDF Document</span>
+                                                        </div>
+                                                    ) : (
+                                                        /* eslint-disable-next-line @next/next/no-img-element */
+                                                        <img
+                                                            src={doc.url}
+                                                            alt={doc.label}
+                                                            className="w-full h-full object-cover group-hover:scale-[1.03] transition-all duration-500"
+                                                        />
+                                                    )}
                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center z-10">
                                                         <div
                                                             style={{ backgroundColor: themeColor }}

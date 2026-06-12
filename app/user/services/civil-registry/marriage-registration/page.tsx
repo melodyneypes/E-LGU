@@ -229,8 +229,13 @@ export default function MarriageRegistrationPage() {
     // Privacy / Terms modal state (shared key across LCR pages)
     const [policyOpen, setPolicyOpen] = useState(false);
     const [policyAccepted, setPolicyAccepted] = useState(false);
+    const [showConfirmErrors, setShowConfirmErrors] = useState(false);
 
-    const handleAcceptPolicy = () => { setPolicyOpen(false); setPolicyAccepted(true); };
+    const handleAcceptPolicy = () => { 
+        setPolicyOpen(false); 
+        setPolicyAccepted(true); 
+        setShowConfirmErrors(false);
+    };
 
     // Save progress to localStorage
     useEffect(() => {
@@ -410,9 +415,11 @@ export default function MarriageRegistrationPage() {
         if (submitting) return;
         // Require privacy terms acceptance before allowing submit
         if (!policyAccepted) {
+            setShowConfirmErrors(true);
             toast.error("Please review and accept the Privacy Policy & Terms before submitting. Click Review to open the agreement.");
             return;
         }
+        setShowConfirmErrors(false);
         setSubmitting(true);
         try {
             const formData = new FormData();
@@ -1255,15 +1262,34 @@ export default function MarriageRegistrationPage() {
 
                                         <div className="pt-6 space-y-4">
                                             {/* Data Privacy Agreement panel */}
-                                            <div className="p-4 rounded-2xl border border-slate-200/40 bg-white/30 dark:bg-white/5 flex items-start gap-4">
-                                                <button type="button" onClick={() => setPolicyOpen(true)} className={cn("w-5 h-5 rounded-full border flex items-center justify-center", policyAccepted ? "bg-rose-500 border-rose-500 text-white" : "border-slate-300")}>
+                                            <div className={cn(
+                                                "p-4 rounded-2xl border bg-white/30 dark:bg-white/5 flex items-start gap-4 transition-all duration-300",
+                                                (showConfirmErrors && !policyAccepted)
+                                                    ? "border-red-500 bg-red-500/5 shadow-md shadow-red-500/5"
+                                                    : "border-slate-200/40"
+                                            )}>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => setPolicyOpen(true)} 
+                                                    className={cn(
+                                                        "w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all", 
+                                                        policyAccepted 
+                                                            ? "bg-rose-500 border-rose-500 text-white" 
+                                                            : showConfirmErrors
+                                                                ? "border-red-500"
+                                                                : "border-slate-300"
+                                                    )}
+                                                >
                                                     {policyAccepted ? <Check className="w-3 h-3" /> : null}
                                                 </button>
-                                                <div className="flex-1 text-xs cursor-pointer select-none" onClick={() => setPolicyOpen(true)}>
-                                                    <div className="font-black uppercase text-[11px] tracking-wider">DATA PRIVACY AND TERMS AGREEMENT</div>
-                                                    <div className="text-[10px] text-slate-500 italic mt-1">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
+                                                <div className="flex-1 text-xs cursor-pointer select-none text-left" onClick={() => setPolicyOpen(true)}>
+                                                    <div className="font-black uppercase text-[11px] tracking-wider text-slate-800 dark:text-white">DATA PRIVACY AND TERMS AGREEMENT</div>
+                                                    <div className="text-[10px] text-slate-500 italic mt-1 leading-relaxed">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
+                                                    {(showConfirmErrors && !policyAccepted) && (
+                                                        <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest mt-1 animate-pulse">Agreement required before submitting</p>
+                                                    )}
                                                 </div>
-                                                <button type="button" onClick={() => setPolicyOpen(true)} className="text-[10px] font-black italic text-rose-600">Review</button>
+                                                <button type="button" onClick={() => setPolicyOpen(true)} className="text-[10px] font-black italic text-rose-600 shrink-0">Review</button>
                                             </div>
                                         </div>
                                     </Card>

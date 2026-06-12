@@ -98,11 +98,30 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
     const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
     const additional = transaction.additionalData || {};
 
+    const app1 = additional.applicant1 || {
+        fullName: additional.app1FullName,
+        birthDate: additional.app1BirthDate,
+        citizenship: additional.app1Citizenship,
+        birthPlace: additional.app1BirthPlace,
+        gender: additional.app1Gender || "MALE"
+    };
+    const app2 = additional.applicant2 || {
+        fullName: additional.app2FullName,
+        birthDate: additional.app2BirthDate,
+        citizenship: additional.app2Citizenship,
+        birthPlace: additional.app2BirthPlace,
+        gender: additional.app2Gender || "FEMALE"
+    };
+
+    const isApp1Male = app1.gender === "MALE";
+    const husband = isApp1Male ? app1 : app2;
+    const wife = isApp1Male ? app2 : app1;
+
     const isTreasuryContext = backUrl?.includes("/admin/treasury") || rawUserRole === "TREASURY_STAFF";
     const regType = (additional.registrationType || "").toUpperCase();
 
-    const contractingCouples = additional.app1FullName && additional.app2FullName
-        ? `${additional.app1FullName} & ${additional.app2FullName}`
+    const contractingCouples = husband.fullName && wife.fullName
+        ? `${husband.fullName} & ${wife.fullName}`
         : transaction.marriageRegistration?.businessName || additional.subjectName || "N/A";
 
     return (
@@ -362,13 +381,13 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                 <div className="space-y-6">
                                     <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic">
-                                        Husband (Applicant 1) Details
+                                        Husband Details
                                     </h4>
                                     <div className="space-y-6">
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Full Name</span>
                                             <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                {additional.app1FullName || "—"}
+                                                {husband.fullName || "—"}
                                             </div>
                                         </div>
 
@@ -376,13 +395,13 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Date of Birth</span>
                                                 <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                    {safeFormatDate(additional.app1BirthDate)}
+                                                    {safeFormatDate(husband.birthDate)}
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Citizenship</span>
                                                 <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                    {additional.app1Citizenship || "FILIPINO"}
+                                                    {husband.citizenship || "FILIPINO"}
                                                 </div>
                                             </div>
                                         </div>
@@ -390,7 +409,7 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Birth</span>
                                             <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                {additional.app1BirthPlace || "—"}
+                                                {husband.birthPlace || "—"}
                                             </div>
                                         </div>
                                     </div>
@@ -398,13 +417,13 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
 
                                 <div className="space-y-6">
                                     <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic">
-                                        Wife (Applicant 2) Details
+                                        Wife Details (Maiden Name)
                                     </h4>
                                     <div className="space-y-6">
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Full Name</span>
                                             <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                {additional.app2FullName || "—"}
+                                                {wife.fullName || "—"}
                                             </div>
                                         </div>
 
@@ -412,13 +431,13 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Date of Birth</span>
                                                 <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                    {safeFormatDate(additional.app2BirthDate)}
+                                                    {safeFormatDate(wife.birthDate)}
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
                                                 <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Citizenship</span>
                                                 <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                    {additional.app2Citizenship || "FILIPINO"}
+                                                    {wife.citizenship || "FILIPINO"}
                                                 </div>
                                             </div>
                                         </div>
@@ -426,7 +445,7 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                                         <div className="space-y-1.5">
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Birth</span>
                                             <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                {additional.app2BirthPlace || "—"}
+                                                {wife.birthPlace || "—"}
                                             </div>
                                         </div>
                                     </div>
@@ -479,18 +498,26 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                                 <div className={cn("grid gap-6", evidenceDocs.filter((d: any) => d?.url).length === 1 ? "grid-cols-1 max-w-sm" : "grid-cols-2")}>
                                     {evidenceDocs.map((doc: any, idx: number) => {
                                         if (!doc.url) return null;
+                                        const isPdf = doc.url.toLowerCase().endsWith(".pdf") || doc.url.includes("application/pdf") || doc.url.includes(".pdf?");
                                         return (
                                             <div
                                                 key={idx}
                                                 onClick={() => handleViewFile?.(doc.url, doc.label, evidenceDocs, idx)}
                                                 className="relative group rounded-3xl overflow-hidden aspect-[3/2] bg-[#f8fafd] dark:bg-white/5 border border-slate-200/50 dark:border-white/5 cursor-pointer shadow-md hover:shadow-xl transition-all"
                                             >
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img
-                                                    src={doc.url}
-                                                    alt={doc.label}
-                                                    className="w-full h-full object-cover group-hover:scale-[1.03] transition-all duration-500"
-                                                />
+                                                {isPdf ? (
+                                                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-[#1f2937]/20 gap-2 p-4 group-hover:scale-[1.03] transition-all duration-500">
+                                                        <FileText className="w-10 h-10 text-red-500 animate-pulse" />
+                                                        <span className="text-[9px] font-black uppercase text-red-500/70 tracking-widest text-center">View PDF Document</span>
+                                                    </div>
+                                                ) : (
+                                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                                    <img
+                                                        src={doc.url}
+                                                        alt={doc.label}
+                                                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-all duration-500"
+                                                    />
+                                                )}
                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center z-10">
                                                     <div
                                                         style={{ backgroundColor: themeColor }}

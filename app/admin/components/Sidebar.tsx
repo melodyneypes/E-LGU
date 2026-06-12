@@ -189,7 +189,7 @@ export function Sidebar({
             subItems: [
                 { href: "/admin/registrar?category=Birth Registration", label: "Birth Registration" },
                 { href: "/admin/registrar?category=Birth Certificate", label: "Birth Certificate" },
-                { href: "/admin/registrar?category=Birth PSA Endorsement", label: "PSA Endorsement" },
+                { href: "/admin/registrar?category=PSA Endorsement", label: "PSA Endorsement" },
                 { href: "/admin/registrar?category=Death Registration", label: "Death Registration" },
                 { href: "/admin/registrar?category=Death Certificate", label: "Death Certificate" },
                 { href: "/admin/registrar?category=Marriage License", label: "Marriage License" },

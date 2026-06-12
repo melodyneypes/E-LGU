@@ -991,6 +991,52 @@ export default function RequestHubPage() {
         );
     }
 
+    const renderDocCard = (doc: { label: string; url: string }) => {
+        const isPdf = checkIsPdf(doc.url);
+        const originalIndex = documentList.findIndex(d => d.url === doc.url);
+
+        if (isPdf) {
+            return (
+                <button
+                    key={doc.url}
+                    onClick={() => handleViewFile(doc.url, doc.label)}
+                    className="relative aspect-[16/9] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden group/doc hover:shadow-xl transition-all w-full flex flex-col items-center justify-center bg-slate-50 dark:bg-white/5 hover:border-red-500/50"
+                >
+                    <FileText className="w-8 h-8 text-red-500 group-hover/doc:scale-110 transition-transform duration-300 animate-pulse" />
+                    <span className="text-[7px] font-black uppercase text-red-500/70 tracking-wider mt-1">View PDF Document</span>
+                    <div className="absolute bottom-2 left-2 right-2">
+                        <Badge className="text-[7px] bg-white/95 dark:bg-slate-950/95 text-slate-900 dark:text-white border-none font-black italic tracking-widest uppercase w-full block text-center py-0.5 truncate">{doc.label}</Badge>
+                    </div>
+                </button>
+            );
+        }
+        return (
+            <button
+                key={doc.url}
+                onClick={() => {
+                    if (originalIndex !== -1) {
+                        setLightboxIndex(originalIndex);
+                        setLightboxOpen(true);
+                    }
+                }}
+                className="relative aspect-[16/9] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden group/doc hover:shadow-xl transition-all w-full text-left"
+            >
+                <Image src={doc.url} alt={doc.label} fill className="object-cover transition-transform group-hover/doc:scale-110 duration-700" unoptimized />
+                <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover/doc:opacity-100 transition-all duration-300 flex items-center justify-center gap-2">
+                    <div
+                        style={{ backgroundColor: themeColor }}
+                        className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] scale-75 group-hover/doc:scale-100 transition-transform duration-300"
+                    >
+                        <span>View</span>
+                    </div>
+                </div>
+                <div className="absolute bottom-2 left-2 right-2">
+                    <Badge className="text-[7px] bg-white/95 dark:bg-slate-950/95 text-slate-900 dark:text-white border-none font-black italic tracking-widest uppercase w-full block text-center py-0.5 truncate">{doc.label}</Badge>
+                </div>
+            </button>
+        );
+    };
+
     if (loading) {
         return (
             <div className="min-h-[80vh] flex flex-col items-center justify-center gap-4">
@@ -1369,7 +1415,7 @@ export default function RequestHubPage() {
                             </TabsList>
 
                             <TabsContent value="overview" className="mt-0 space-y-3 md:space-y-4">
-                                {(((isBusinessPermit && request.status === "FOR_INSPECTION") || (isCedula && request.status === "FOR_REQUESTING")) && !request.isCancelled) && (
+                                {(((isBusinessPermit && request.status === "FOR_INSPECTION") || (isCedula && request.status === "FOR_REQUESTING") || (isCivilRegistry && request.status === "FOR_INSPECTION")) && !request.isCancelled) && (
                                     <div className="w-full flex justify-end animate-in fade-in duration-300">
                                         <button
                                             id="cancel-request-btn"
@@ -1388,7 +1434,7 @@ export default function RequestHubPage() {
                                             onOpenChange={setCancelConfirmOpen}
                                             onConfirm={handleCancel}
                                             isCancelling={isCancelling}
-                                            serviceName={isBusinessPermit ? "Business Permit" : "Cedula"}
+                                            serviceName={isBusinessPermit ? "Business Permit" : isCedula ? "Cedula" : (request.type?.name || "Request")}
                                         />
                                     </div>
                                 )}
@@ -1639,6 +1685,8 @@ export default function RequestHubPage() {
                                                     <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Birth Date</p><p className="text-xs md:text-lg font-bold italic">{residentData.dateOfBirth && !isNaN(new Date(residentData.dateOfBirth).getTime()) ? format(new Date(residentData.dateOfBirth), "MMM d, yyyy") : "N/A"}</p></div>
                                                     <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Civil Status</p><p className="text-xs md:text-lg font-bold italic uppercase">{residentData.civilStatus || "Single"}</p></div>
                                                     <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Citizenship</p><p className="text-xs md:text-lg font-bold italic uppercase">{residentData.citizenship || "Filipino"}</p></div>
+                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Contact Number</p><p className="text-xs md:text-lg font-bold italic">{residentData.contactNumber || additionalData.contactNumber || "N/A"}</p></div>
+                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Email Address</p><p className="text-xs md:text-lg font-bold italic">{residentData.email || additionalData.email || "—"}</p></div>
                                                 </div>
                                             </div>
                                             {!isCivilRegistry && (
@@ -1709,11 +1757,20 @@ export default function RequestHubPage() {
                                             <div className="bg-slate-50 dark:bg-white/5 p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] border border-slate-100 dark:border-white/5 relative overflow-hidden">
                                                 <MapPin className="absolute top-4 right-4 w-12 h-12 text-primary/10" />
                                                 <div className="relative z-10 space-y-6">
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">House / Street</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.houseNumber} {residentData.street}</p></div>
-                                                        <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Sitio / Purok</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.sitio} {residentData.purok}</p></div>
-                                                    </div>
-                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Barangay Matrix</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.barangay}, Mapandan</p></div>
+                                                    {residentData.houseNumber || residentData.street || residentData.sitio || residentData.purok || residentData.barangay ? (
+                                                        <>
+                                                            <div className="grid grid-cols-2 gap-4">
+                                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">House / Street</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.houseNumber} {residentData.street}</p></div>
+                                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Sitio / Purok</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.sitio} {residentData.purok}</p></div>
+                                                            </div>
+                                                            <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Barangay Matrix</p><p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{residentData.barangay}, Mapandan</p></div>
+                                                        </>
+                                                    ) : (
+                                                        <div className="space-y-1">
+                                                            <p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Informant Address</p>
+                                                            <p className="text-[11px] md:text-md font-bold italic leading-tight uppercase">{additionalData.informantAddress || "N/A"}</p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -1739,52 +1796,100 @@ export default function RequestHubPage() {
 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10">
                                     <div className="space-y-6">
-                                        <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Requirements</h4>
-                                        <div className="grid grid-cols-2 gap-2 sm:gap-4">
-                                            {documentList.length > 0 ? documentList.map((doc, i) => {
-                                                const isPdf = checkIsPdf(doc.url);
-                                                if (isPdf) {
-                                                    return (
-                                                        <button
-                                                            key={i}
-                                                            onClick={() => handleViewFile(doc.url, doc.label)}
-                                                            className="relative aspect-[16/9] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden group/doc hover:shadow-xl transition-all w-full flex flex-col items-center justify-center bg-slate-50 dark:bg-white/5 hover:border-red-500/50"
-                                                        >
-                                                            <FileText className="w-8 h-8 text-red-500 group-hover/doc:scale-110 transition-transform duration-300 animate-pulse" />
-                                                            <span className="text-[7px] font-black uppercase text-red-500/70 tracking-wider mt-1">View PDF Document</span>
-                                                            <div className="absolute bottom-2 left-2 right-2">
-                                                                <Badge className="text-[7px] bg-white/95 dark:bg-slate-950/95 text-slate-900 dark:text-white border-none font-black italic tracking-widest uppercase w-full block text-center py-0.5 truncate">{doc.label}</Badge>
+                                        {isCivilRegistry ? (
+                                            <>
+                                                {/* ID Documents Section */}
+                                                <div className="space-y-4">
+                                                    <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Identification Documents</h4>
+                                                    <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                                                        {documentList.filter(doc => {
+                                                            const low = doc.label.toLowerCase();
+                                                            return low.includes("valid id") || low.includes("identity matrix");
+                                                        }).length > 0 ? (
+                                                            documentList.filter(doc => {
+                                                                const low = doc.label.toLowerCase();
+                                                                return low.includes("valid id") || low.includes("identity matrix");
+                                                            }).map(doc => renderDocCard(doc))
+                                                        ) : (
+                                                            <div className="col-span-2 py-10 flex flex-col items-center justify-center text-slate-300 dark:text-white/20">
+                                                                <FileText className="w-8 h-8 mb-2 opacity-30" />
+                                                                <p className="text-[9px] font-black uppercase tracking-widest italic">No identification documents uploaded</p>
                                                             </div>
-                                                        </button>
-                                                    );
-                                                }
-                                                return (
-                                                    <button
-                                                        key={i}
-                                                        onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}
-                                                        className="relative aspect-[16/9] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden group/doc hover:shadow-xl transition-all w-full text-left"
-                                                    >
-                                                        <Image src={doc.url} alt={doc.label} fill className="object-cover transition-transform group-hover/doc:scale-110 duration-700" unoptimized />
-                                                        <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover/doc:opacity-100 transition-all duration-300 flex items-center justify-center gap-2">
-                                                            <div
-                                                                style={{ backgroundColor: themeColor }}
-                                                                className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] scale-75 group-hover/doc:scale-100 transition-transform duration-300"
-                                                            >
-                                                                <span>View</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="absolute bottom-2 left-2 right-2">
-                                                            <Badge className="text-[7px] bg-white/95 dark:bg-slate-950/95 text-slate-900 dark:text-white border-none font-black italic tracking-widest uppercase w-full block text-center py-0.5 truncate">{doc.label}</Badge>
-                                                        </div>
-                                                    </button>
-                                                );
-                                            }) : (
-                                                <div className="col-span-1 sm:col-span-2 py-10 flex flex-col items-center justify-center text-slate-300 dark:text-white/20">
-                                                    <FileText className="w-8 h-8 mb-2 opacity-30" />
-                                                    <p className="text-[9px] font-black uppercase tracking-widest italic">No documents uploaded</p>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            )}
-                                        </div>
+
+                                                {/* Supporting Documents Section */}
+                                                <div className="space-y-4">
+                                                    <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Supporting Documents</h4>
+                                                    <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                                                        {documentList.filter(doc => {
+                                                            const low = doc.label.toLowerCase();
+                                                            return !low.includes("valid id") && !low.includes("identity matrix");
+                                                        }).length > 0 ? (
+                                                            documentList.filter(doc => {
+                                                                const low = doc.label.toLowerCase();
+                                                                return !low.includes("valid id") && !low.includes("identity matrix");
+                                                            }).map(doc => renderDocCard(doc))
+                                                        ) : (
+                                                            <div className="col-span-2 py-10 flex flex-col items-center justify-center text-slate-300 dark:text-white/20">
+                                                                <FileText className="w-8 h-8 mb-2 opacity-30" />
+                                                                <p className="text-[9px] font-black uppercase tracking-widest italic">No supporting documents uploaded</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Requirements</h4>
+                                                <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                                                    {documentList.length > 0 ? documentList.map((doc, i) => {
+                                                        const isPdf = checkIsPdf(doc.url);
+                                                        if (isPdf) {
+                                                            return (
+                                                                <button
+                                                                    key={i}
+                                                                    onClick={() => handleViewFile(doc.url, doc.label)}
+                                                                    className="relative aspect-[16/9] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden group/doc hover:shadow-xl transition-all w-full flex flex-col items-center justify-center bg-slate-50 dark:bg-white/5 hover:border-red-500/50"
+                                                                >
+                                                                    <FileText className="w-8 h-8 text-red-500 group-hover/doc:scale-110 transition-transform duration-300 animate-pulse" />
+                                                                    <span className="text-[7px] font-black uppercase text-red-500/70 tracking-wider mt-1">View PDF Document</span>
+                                                                    <div className="absolute bottom-2 left-2 right-2">
+                                                                        <Badge className="text-[7px] bg-white/95 dark:bg-slate-950/95 text-slate-900 dark:text-white border-none font-black italic tracking-widest uppercase w-full block text-center py-0.5 truncate">{doc.label}</Badge>
+                                                                    </div>
+                                                                </button>
+                                                            );
+                                                        }
+                                                        return (
+                                                            <button
+                                                                key={i}
+                                                                onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}
+                                                                className="relative aspect-[16/9] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden group/doc hover:shadow-xl transition-all w-full text-left"
+                                                            >
+                                                                <Image src={doc.url} alt={doc.label} fill className="object-cover transition-transform group-hover/doc:scale-110 duration-700" unoptimized />
+                                                                <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover/doc:opacity-100 transition-all duration-300 flex items-center justify-center gap-2">
+                                                                    <div
+                                                                        style={{ backgroundColor: themeColor }}
+                                                                        className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] scale-75 group-hover/doc:scale-100 transition-transform duration-300"
+                                                                    >
+                                                                        <span>View</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="absolute bottom-2 left-2 right-2">
+                                                                    <Badge className="text-[7px] bg-white/95 dark:bg-slate-950/95 text-slate-900 dark:text-white border-none font-black italic tracking-widest uppercase w-full block text-center py-0.5 truncate">{doc.label}</Badge>
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    }) : (
+                                                        <div className="col-span-1 sm:col-span-2 py-10 flex flex-col items-center justify-center text-slate-300 dark:text-white/20">
+                                                            <FileText className="w-8 h-8 mb-2 opacity-30" />
+                                                            <p className="text-[9px] font-black uppercase tracking-widest italic">No documents uploaded</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
 
                                     <div className="space-y-6">

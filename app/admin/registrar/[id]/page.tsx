@@ -248,15 +248,17 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         ? "/admin/registrar?category=Birth%20Registration"
         : typeCodeForBack === "LCR_BIRTH"
             ? "/admin/registrar?category=Birth%20Certificate"
-            : typeCodeForBack === "LCR_DEATH_REG"
-                ? "/admin/registrar?category=Death%20Registration"
-                : typeCodeForBack === "LCR_DEATH"
-                    ? "/admin/registrar?category=Death%20Certificate"
-                    : typeCodeForBack === "LCR_MARRIAGE_LICENSE"
-                        ? "/admin/registrar?category=Marriage%20License"
-                        : typeCodeForBack === "LCR_MARRIAGE_REG"
-                            ? "/admin/registrar?category=Marriage%20Registration"
-                            : "/admin/registrar";
+            : (typeCodeForBack === "LCR_PSA_ENDORSEMENT" || typeCodeForBack === "LCR_DEATH_PSA_ENDORSEMENT")
+                ? "/admin/registrar?category=PSA%20Endorsement"
+                : typeCodeForBack === "LCR_DEATH_REG"
+                    ? "/admin/registrar?category=Death%20Registration"
+                    : typeCodeForBack === "LCR_DEATH"
+                        ? "/admin/registrar?category=Death%20Certificate"
+                        : typeCodeForBack === "LCR_MARRIAGE_LICENSE"
+                            ? "/admin/registrar?category=Marriage%20License"
+                            : typeCodeForBack === "LCR_MARRIAGE_REG"
+                                ? "/admin/registrar?category=Marriage%20Registration"
+                                : "/admin/registrar";
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [remarks, setRemarks] = useState("");
@@ -1168,7 +1170,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     if (!transaction) return <div className="p-20 text-center dark:text-white">Protocol Error: Transaction Inaccessible</div>;
 
     const isRegistrar = rawUserRole === "REGISTRAR" || userDepartment?.toUpperCase() === "REGISTRAR";
-    if ((isLcrBirthCertifiedCopy || typeCode === "LCR_PSA_ENDORSEMENT") && isRegistrar && ["PAID", "PENDING_PAYMENT_VERIFICATION"].includes(transaction?.status)) {
+    if ((isLcrBirthCertifiedCopy || typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT") && isRegistrar && ["PAID", "PENDING_PAYMENT_VERIFICATION"].includes(transaction?.status)) {
         return (
             <div className="min-h-[50vh] flex flex-col items-center justify-center text-center p-8 space-y-6">
                 <div className="p-6 rounded-[2.5rem] bg-white dark:bg-[#151b28] border border-amber-500/20 shadow-2xl relative">

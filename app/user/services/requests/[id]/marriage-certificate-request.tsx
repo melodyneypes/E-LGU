@@ -18,6 +18,26 @@ interface MarriageCertificateRequestDetailsProps {
         email?: string;
         contactNumber?: string;
         registryBookVerification?: string;
+        applicant1?: {
+            fullName: string;
+            birthDate: string;
+            birthPlace: string;
+            citizenship: string;
+            gender: string;
+        };
+        applicant2?: {
+            isResident?: boolean;
+            fullName: string;
+            birthDate: string;
+            birthPlace: string;
+            citizenship: string;
+            address: string;
+            gender: string;
+        };
+        dateOfMarriage?: string;
+        placeOfMarriage?: string;
+        registrationType?: string;
+        informantAddress?: string;
     };
 }
 
@@ -31,10 +51,122 @@ export function MarriageCertificateRequestDetails({ additionalData }: MarriageCe
         }
     };
 
+    const isRegistration = !!additionalData.applicant1;
+    const title = isRegistration ? "Marriage Registration Details" : "Marriage Certificate Request Details";
+
+    if (isRegistration) {
+        const app1 = additionalData.applicant1;
+        const app2 = additionalData.applicant2;
+        const isApp1Male = app1?.gender === "MALE";
+        const husband = isApp1Male ? app1 : app2;
+        const wife = isApp1Male ? app2 : app1;
+
+        return (
+            <div className="space-y-6 pb-8 border-b border-slate-100 dark:border-white/5 animate-in fade-in duration-300">
+                <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">
+                    {title}
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Husband Info Card */}
+                    <div className="p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-4">
+                        <div className="flex items-center gap-2 text-primary">
+                            <User className="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase tracking-wider">Husband Details</span>
+                        </div>
+                        <div className="space-y-3">
+                            <div>
+                                <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Full Name</p>
+                                <p className="text-sm font-bold uppercase text-slate-800 dark:text-slate-100">{husband?.fullName || "N/A"}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Date of Birth</p>
+                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{formatDate(husband?.birthDate)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Citizenship</p>
+                                    <p className="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">{husband?.citizenship || "N/A"}</p>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Place of Birth</p>
+                                <p className="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">{husband?.birthPlace || "N/A"}</p>
+                            </div>
+                            {!isApp1Male && app2?.address && (
+                                <div>
+                                    <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Address</p>
+                                    <p className="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">{app2.address}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Wife Info Card */}
+                    <div className="p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-4">
+                        <div className="flex items-center gap-2 text-primary">
+                            <User className="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase tracking-wider">Wife Details (Maiden Name)</span>
+                        </div>
+                        <div className="space-y-3">
+                            <div>
+                                <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Full Name</p>
+                                <p className="text-sm font-bold uppercase text-slate-800 dark:text-slate-100">{wife?.fullName || "N/A"}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Date of Birth</p>
+                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{formatDate(wife?.birthDate)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Citizenship</p>
+                                    <p className="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">{wife?.citizenship || "N/A"}</p>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Place of Birth</p>
+                                <p className="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">{wife?.birthPlace || "N/A"}</p>
+                            </div>
+                            {isApp1Male && app2?.address && (
+                                <div>
+                                    <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Address</p>
+                                    <p className="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">{app2.address}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Marriage Details Card */}
+                    <div className="p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-4 md:col-span-2">
+                        <div className="flex items-center gap-2 text-primary">
+                            <Users className="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase tracking-wider">Marriage Event Details</span>
+                        </div>
+                        <div className="space-y-3">
+                            <div>
+                                <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Date of Marriage</p>
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{formatDate(additionalData.dateOfMarriage)}</p>
+                            </div>
+                            <div>
+                                <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Place of Marriage</p>
+                                <p className="text-sm font-bold uppercase text-slate-800 dark:text-slate-100">{additionalData.placeOfMarriage || "N/A"}</p>
+                            </div>
+                            {additionalData.registrationType && (
+                                <div>
+                                    <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Registration Type</p>
+                                    <p className="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">{additionalData.registrationType}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6 pb-8 border-b border-slate-100 dark:border-white/5">
             <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">
-                Marriage Certificate Request Details
+                {title}
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Left Card: Spouses Identity Info */}
@@ -72,15 +204,9 @@ export function MarriageCertificateRequestDetails({ additionalData }: MarriageCe
                         <span className="text-[10px] font-black uppercase tracking-wider">Requester Information</span>
                     </div>
                     <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Relationship</p>
-                                <p className="text-xs font-black uppercase text-primary italic">{additionalData.relationship || "N/A"}</p>
-                            </div>
-                            <div>
-                                <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Contact Number</p>
-                                <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{additionalData.contactNumber || "N/A"}</p>
-                            </div>
+                        <div>
+                            <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Contact Number</p>
+                            <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{additionalData.contactNumber || "N/A"}</p>
                         </div>
                         <div>
                             <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Email Address</p>
