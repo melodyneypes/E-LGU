@@ -29,7 +29,7 @@ const STEPS = [
 ];
 
 export function AddResidentModal() {
-    const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, setCurrentFamilyMembers, themeColor } = useResident();
+    const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, setCurrentFamilyMembers, themeColor, formCategoryName } = useResident();
     const { handleSubmit, loading } = useResidentForm();
     const [currentStep, setCurrentStep] = useState(0);
 
@@ -138,6 +138,8 @@ export function AddResidentModal() {
             }
         };
 
+        const isNonResident = formCategoryName?.toUpperCase().replace("-", " ").includes("NON RESIDENT");
+
         if (stepIndex === 0) { // Personal
             if (!formData.get("lastName")) { 
                 addError("lastName", "Last Name is required."); 
@@ -145,7 +147,7 @@ export function AddResidentModal() {
             if (!formData.get("firstName")) { 
                 addError("firstName", "First Name is required."); 
             }
-            if (!formData.get("placeOfBirth")) { 
+            if (!isNonResident && !formData.get("placeOfBirth")) { 
                 addError("placeOfBirth", "Place of Birth is required."); 
             }
             if (!formData.get("gender")) { 
@@ -181,7 +183,7 @@ export function AddResidentModal() {
         }
 
         if (stepIndex === 2) { // Socio-Gov
-            if (!formData.get("occupation")) { 
+            if (!isNonResident && !formData.get("occupation")) { 
                 addError("occupation", "Occupation is required."); 
             }
             if (formData.get("educationalAttainment") === "Other" && !formData.get("otherEducationalAttainment")) {

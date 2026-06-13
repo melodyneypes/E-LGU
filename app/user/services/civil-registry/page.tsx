@@ -1,5 +1,5 @@
 "use client";
-
+ 
 import React from "react";
 import {
     Baby,
@@ -10,19 +10,22 @@ import {
     Home,
     User,
     Upload,
-    CheckCircle2
+    CheckCircle2,
+    Scroll,
+    FileSignature,
+    HeartHandshake
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { getSystemSettingAction } from "@/app/admin/transactions/actions";
-
+ 
 const REGISTRY_TYPES = [
     {
         id: "BIRTH_REQ",
         label: "Birth Certificate Request (True Copy)",
-        icon: FileText,
+        icon: Scroll,
         description: "Request a certified true copy of an existing birth certificate.",
         color: "blue",
         href: "/user/services/civil-registry/birth-certificate-request",
@@ -40,7 +43,7 @@ const REGISTRY_TYPES = [
     {
         id: "PSA_ENDORSEMENT",
         label: "Birth PSA Endorsement",
-        icon: FileText,
+        icon: FileSignature,
         description: "Request endorsement of a verified local birth certificate record to the PSA.",
         color: "blue",
         href: "/user/services/civil-registry/birth-psa-endorsement",
@@ -49,7 +52,7 @@ const REGISTRY_TYPES = [
     {
         id: "DEATH_PSA_ENDORSEMENT",
         label: "Death PSA Endorsement",
-        icon: FileText,
+        icon: FileSignature,
         description: "Request endorsement of a verified local death certificate record to the PSA.",
         color: "slate",
         href: "/user/services/civil-registry/death-psa-endorsement",
@@ -58,7 +61,7 @@ const REGISTRY_TYPES = [
     {
         id: "DEATH_REQ",
         label: "Death Certificate Request (True Copy)",
-        icon: FileText,
+        icon: Scroll,
         description: "Request a certified true copy of an existing death certificate.",
         color: "slate",
         href: "/user/services/civil-registry/death-certificate-request",
@@ -76,7 +79,7 @@ const REGISTRY_TYPES = [
     {
         id: "MARRIAGE_REQ",
         label: "Marriage Certificate Request (True Copy)",
-        icon: FileText,
+        icon: Scroll,
         description: "Request a certified true copy of an existing marriage certificate.",
         color: "rose",
         href: "/user/services/civil-registry/marriage-certificate-request",
@@ -85,7 +88,7 @@ const REGISTRY_TYPES = [
     {
         id: "MARRIAGE_PSA_ENDORSEMENT",
         label: "Marriage PSA Endorsement",
-        icon: FileText,
+        icon: FileSignature,
         description: "Request endorsement of a verified local marriage certificate record to the PSA.",
         color: "rose",
         href: "/user/services/civil-registry/marriage-psa-endorsement",
@@ -103,7 +106,7 @@ const REGISTRY_TYPES = [
     {
         id: "MARRIAGE_LICENSE",
         label: "Marriage License Application",
-        icon: FileText,
+        icon: HeartHandshake,
         description: "Apply for a legal license to be married in the Philippines.",
         color: "amber",
         href: "/user/services/civil-registry/marriage-license-application",

@@ -4,7 +4,7 @@ import * as React from "react";
 import { SidebarProvider } from "./SidebarContext";
 import { Sidebar } from "./Sidebar";
 import { TopNav } from "./TopNav";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 interface AdminShellProps {
     children: React.ReactNode;
@@ -39,11 +39,7 @@ export function AdminShell({
     pendingTransactionsCount,
 }: AdminShellProps) {
     const router = useRouter();
-    const [pathname, setPathname] = React.useState("");
-
-    React.useEffect(() => {
-        setPathname(window.location.pathname);
-    }, []);
+    const pathname = usePathname();
 
     const role = session.user?.role || "ADMIN";
     const department = session.user?.department || "";
@@ -52,6 +48,8 @@ export function AdminShell({
     // Route Protection Logic
     let isRestricted = false;
     let isRedirecting = false;
+
+    console.log("DEBUG AdminShell:", { pathname, role, deptUpper });
 
     // Special Rule: ONLY ADMIN with department LGU can access the admin dashboard
     if (pathname === "/admin/dashboard" || pathname === "/admin") {
@@ -107,21 +105,24 @@ export function AdminShell({
         if (!pathname) return;
         if (pathname === "/admin/dashboard" || pathname === "/admin") {
             if (role !== "ADMIN" || deptUpper !== "LGU") {
-                if (role === "ADMIN") {
-                    if (deptUpper === "TREASURY") {
-                        router.push("/admin/treasury");
-                    } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
-                        router.push("/admin/registrar");
-                    } else if (deptUpper === "BPLO") {
+                const timer = setTimeout(() => {
+                    if (role === "ADMIN") {
+                        if (deptUpper === "TREASURY") {
+                            router.push("/admin/treasury?category=CEDULA");
+                        } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
+                            router.push("/admin/registrar");
+                        } else if (deptUpper === "BPLO") {
+                            router.push("/admin/bplo");
+                        }
+                    } else if (role === "TREASURY_STAFF") {
+                        router.push("/admin/treasury?category=CEDULA");
+                    } else if (role === "ADMIN_AIDE") {
                         router.push("/admin/bplo");
+                    } else if (role === "ENGINEER") {
+                        router.push("/admin/engineer");
                     }
-                } else if (role === "TREASURY_STAFF") {
-                    router.push("/admin/treasury");
-                } else if (role === "ADMIN_AIDE") {
-                    router.push("/admin/bplo");
-                } else if (role === "ENGINEER") {
-                    router.push("/admin/engineer");
-                }
+                }, 100);
+                return () => clearTimeout(timer);
             }
         }
     }, [pathname, role, deptUpper, router]);

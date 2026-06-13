@@ -21,6 +21,7 @@ interface BirthCertificateRequestDetailsProps {
         relationship?: string;
         email?: string;
         contactNumber?: string;
+        authorizationLetter?: string;
     };
 }
 
@@ -89,6 +90,21 @@ export function BirthCertificateRequestDetails({ additionalData }: BirthCertific
                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{additionalData.contactNumber || "N/A"}</p>
                             </div>
                         </div>
+                        {additionalData.authorizationLetter && (
+                            <div className="pt-2 border-t border-slate-100 dark:border-white/5">
+                                <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest mb-1">Authorization Documents</p>
+                                <a
+                                    href={additionalData.authorizationLetter}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group cursor-pointer text-xs font-bold uppercase"
+                                    style={{ color: "var(--primary-theme)" }}
+                                >
+                                    <span>📄 View Authorization Letter</span>
+                                    <span className="opacity-0 group-hover:opacity-100 transition-opacity ml-auto">➔</span>
+                                </a>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

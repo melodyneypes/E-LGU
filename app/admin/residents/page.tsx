@@ -35,10 +35,10 @@ export default async function Page() {
     const residents = (residentsRaw as any[]).map((r: any) => ({
         ...r,
         headId: r.familyHeadId || r.household?.headId || null,
-        headName: r.familyHead 
-            ? `${r.familyHead.firstName} ${r.familyHead.lastName}` 
-            : r.household?.head 
-                ? `${r.household.head.firstName} ${r.household.head.lastName}` 
+        headName: r.familyHead
+            ? `${r.familyHead.firstName} ${r.familyHead.lastName}`
+            : r.household?.head
+                ? `${r.household.head.firstName} ${r.household.head.lastName}`
                 : null
     })) as Resident[];
 

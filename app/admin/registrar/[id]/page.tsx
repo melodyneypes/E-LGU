@@ -1503,6 +1503,9 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             if (typeCode === "LCR_BIRTH") {
                 docs.push({ url: additional.validIdFront || additional.idFrontUrl || resident.idFrontUrl || transaction.user?.residentProfile?.idFrontUrl, label: "Government ID (Front)" });
                 docs.push({ url: additional.validIdBack || additional.idBackUrl || resident.idBackUrl || transaction.user?.residentProfile?.idBackUrl, label: "Government ID (Back)" });
+                if (additional.authorizationLetter) {
+                    docs.push({ url: additional.authorizationLetter, label: "Authorization Letter" });
+                }
                 return docs;
             }
 

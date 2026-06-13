@@ -18,7 +18,7 @@ export default async function LoginPage() {
     }, {});
 
     return (
-        <AuthLayout 
+        <AuthLayout
             slides={slides}
             logoSrc={settings.site_logo}
             brandWord1={settings.brand_word_1}

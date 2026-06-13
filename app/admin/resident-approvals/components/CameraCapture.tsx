@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import Webcam from "react-webcam";
-import { RotateCcw, Check, X, SwitchCamera } from "lucide-react";
+import { RotateCcw, Check, X, SwitchCamera, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -17,6 +17,14 @@ export function CameraCapture({ isOpen, onClose, onCapture, title = "Capture Pho
     const webcamRef = useRef<Webcam>(null);
     const [capturedImage, setCapturedImage] = useState<string | null>(null);
     const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+    const [isCameraSupported, setIsCameraSupported] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        setIsCameraSupported(
+            typeof window !== "undefined" && 
+            !!navigator?.mediaDevices?.getUserMedia
+        );
+    }, []);
 
     const capture = useCallback(() => {
         const imageSrc = webcamRef.current?.getScreenshot();
@@ -57,7 +65,19 @@ export function CameraCapture({ isOpen, onClose, onCapture, title = "Capture Pho
                 </DialogHeader>
 
                 <div className="relative aspect-video bg-black flex items-center justify-center mt-12">
-                    {capturedImage ? (
+                    {isCameraSupported === false ? (
+                        <div className="flex flex-col items-center justify-center p-6 text-center text-rose-500 bg-rose-500/10 h-full w-full gap-2">
+                            <AlertCircle className="w-8 h-8 shrink-0 animate-pulse" />
+                            <p className="text-xs font-bold uppercase tracking-wider">Camera Access Not Supported</p>
+                            <p className="text-[10px] text-slate-400 italic max-w-xs leading-relaxed">
+                                Your browser does not support webcam access, or this site is not using a secure connection (HTTPS/localhost).
+                            </p>
+                        </div>
+                    ) : isCameraSupported === null ? (
+                        <div className="flex flex-col items-center justify-center p-6 text-center text-slate-400 h-full w-full gap-2 animate-pulse">
+                            <p className="text-xs font-bold uppercase tracking-wider">Initializing Camera...</p>
+                        </div>
+                    ) : capturedImage ? (
                         /* eslint-disable-next-line @next/next/no-img-element */
                         <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" />
                     ) : (
@@ -74,7 +94,21 @@ export function CameraCapture({ isOpen, onClose, onCapture, title = "Capture Pho
                 </div>
 
                 <div className="p-6 bg-white dark:bg-slate-900 flex justify-center items-center gap-4">
-                    {!capturedImage ? (
+                    {isCameraSupported === false ? (
+                        <Button 
+                            onClick={onClose} 
+                            className="w-full h-12 rounded-xl font-bold uppercase text-xs tracking-widest bg-rose-600 hover:bg-rose-700 text-white"
+                        >
+                            Close Capture
+                        </Button>
+                    ) : isCameraSupported === null ? (
+                        <Button 
+                            disabled
+                            className="w-full h-12 rounded-xl font-bold uppercase text-xs tracking-widest bg-slate-200 text-slate-400"
+                        >
+                            Initializing...
+                        </Button>
+                    ) : !capturedImage ? (
                         <>
                             <Button 
                                 variant="outline" 

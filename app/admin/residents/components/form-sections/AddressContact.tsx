@@ -78,7 +78,7 @@ export function AddressContactSection({ data }: { data?: Partial<Resident> }) {
 
     // Sync isGuest with category selection
     useEffect(() => {
-        if (formCategoryName?.toLowerCase().includes("guest")) {
+        if (formCategoryName?.toLowerCase().includes("guest") || formCategoryName?.toLowerCase().replace("-", " ").includes("non resident")) {
             setIsGuest(true);
         } else {
             // Also check initial data if no category name is set yet (during mount)
@@ -136,8 +136,8 @@ export function AddressContactSection({ data }: { data?: Partial<Resident> }) {
                             name="barangay" 
                             defaultValue={data?.barangay || ""} 
                             placeholder="Enter Village/Barangay" 
-                            className="bg-orange-50/20 border-orange-200 focus:border-orange-500 font-black" 
-                            required 
+                            className="bg-orange-50/20 border-orange-200 focus:border-orange-500 font-black uppercase" 
+                            required={true} 
                         />
                     ) : (
                         isBarangayAdmin ? (
@@ -145,52 +145,54 @@ export function AddressContactSection({ data }: { data?: Partial<Resident> }) {
                                 <Input 
                                     value={managedBarangay || ""} 
                                     readOnly 
-                                    className="bg-slate-50 dark:bg-slate-900 font-bold border-slate-200 dark:border-slate-800 cursor-not-allowed"
+                                    className="bg-slate-50 dark:bg-slate-900 font-bold border-slate-200 dark:border-slate-800 cursor-not-allowed uppercase"
                                 />
                                 <input type="hidden" name="barangay" value={managedBarangay || ""} />
                             </>
                         ) : (
-                            <Select 
-                                name="barangay" 
-                                value={selectedBarangay} 
-                                onValueChange={setSelectedBarangay}
-                                onOpenChange={(open) => {
-                                    if (!open) setSearchQuery("");
-                                }}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select Barangay" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-[300px] flex flex-col p-0" position="popper">
-                                    <div className="p-2 border-b border-slate-100 dark:border-white/5 bg-white dark:bg-[#0f1117] sticky top-0 z-20">
-                                        <div className="relative flex items-center">
-                                            <Search className="absolute left-2.5 w-4 h-4 text-slate-400" />
-                                            <input
-                                                type="text"
-                                                placeholder="Search barangay..."
-                                                value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                    e.stopPropagation();
-                                                }}
-                                                onPointerDown={(e) => {
-                                                    e.stopPropagation();
-                                                }}
-                                                className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-[#2a3040] rounded-lg outline-none focus:border-slate-300 dark:focus:border-white/20 font-semibold"
-                                            />
+                            <>
+                                <Select 
+                                    value={selectedBarangay} 
+                                    onValueChange={setSelectedBarangay}
+                                    onOpenChange={(open) => {
+                                        if (!open) setSearchQuery("");
+                                    }}
+                                >
+                                    <SelectTrigger className="uppercase font-bold">
+                                        <SelectValue placeholder="Select Barangay" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-[300px] flex flex-col p-0" position="popper">
+                                        <div className="p-2 border-b border-slate-100 dark:border-white/5 bg-white dark:bg-[#0f1117] sticky top-0 z-20">
+                                            <div className="relative flex items-center">
+                                                <Search className="absolute left-2.5 w-4 h-4 text-slate-400" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search barangay..."
+                                                    value={searchQuery}
+                                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        e.stopPropagation();
+                                                    }}
+                                                    onPointerDown={(e) => {
+                                                        e.stopPropagation();
+                                                    }}
+                                                    className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-[#2a3040] rounded-lg outline-none focus:border-slate-300 dark:focus:border-white/20 font-semibold uppercase"
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="overflow-y-auto max-h-[220px] p-1">
-                                        {filteredBarangays.length > 0 ? (
-                                            filteredBarangays.map(b => (
-                                                <SelectItem key={b} value={b}>{b}</SelectItem>
-                                            ))
-                                        ) : (
-                                            <div className="p-4 text-center text-xs text-slate-400">No barangay found</div>
-                                        )}
-                                    </div>
-                                </SelectContent>
-                            </Select>
+                                        <div className="overflow-y-auto max-h-[220px] p-1">
+                                            {filteredBarangays.length > 0 ? (
+                                                filteredBarangays.map(b => (
+                                                    <SelectItem key={b} value={b}>{b}</SelectItem>
+                                                ))
+                                            ) : (
+                                                <div className="p-4 text-center text-xs text-slate-400">No barangay found</div>
+                                            )}
+                                        </div>
+                                    </SelectContent>
+                                </Select>
+                                <input type="hidden" name="barangay" value={selectedBarangay || ""} />
+                            </>
                         )
                     )}
                 </div>
@@ -201,7 +203,7 @@ export function AddressContactSection({ data }: { data?: Partial<Resident> }) {
                             name="municipality" 
                             defaultValue={data?.municipality || ""} 
                             placeholder="Enter City/Municipality" 
-                            className="bg-orange-50/20 border-orange-200 focus:border-orange-500 font-black" 
+                            className="bg-orange-50/20 border-orange-200 focus:border-orange-500 font-black uppercase" 
                             required 
                         />
                     ) : (
@@ -209,7 +211,7 @@ export function AddressContactSection({ data }: { data?: Partial<Resident> }) {
                             name="municipality" 
                             defaultValue={data?.municipality || "Mapandan"} 
                             readOnly 
-                            className="bg-slate-100 dark:bg-slate-800 cursor-not-allowed font-bold" 
+                            className="bg-slate-100 dark:bg-slate-800 cursor-not-allowed font-bold uppercase" 
                             />
                     )}
                 </div>
@@ -220,7 +222,7 @@ export function AddressContactSection({ data }: { data?: Partial<Resident> }) {
                             name="province" 
                             defaultValue={data?.province || ""} 
                             placeholder="Enter Province" 
-                            className="bg-orange-50/20 border-orange-200 focus:border-orange-500 font-black" 
+                            className="bg-orange-50/20 border-orange-200 focus:border-orange-500 font-black uppercase" 
                             required 
                         />
                     ) : (
@@ -228,7 +230,7 @@ export function AddressContactSection({ data }: { data?: Partial<Resident> }) {
                             name="province" 
                             defaultValue={data?.province || "Pangasinan"} 
                             readOnly 
-                            className="bg-slate-100 dark:bg-slate-800 cursor-not-allowed font-bold" 
+                            className="bg-slate-100 dark:bg-slate-800 cursor-not-allowed font-bold uppercase" 
                         />
                     )}
                 </div>

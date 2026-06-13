@@ -69,7 +69,7 @@ export const authOptions: NextAuthOptions = {
                     throw new Error("Your account has not been approved yet. Please wait for an administrator to process your registration.");
                 }
 
-                 return {
+                return {
                     id: user.id,
                     email: user.email,
                     name: user.name,
@@ -105,6 +105,7 @@ export const authOptions: NextAuthOptions = {
                 const dbUser = await prisma.user.findUnique({
                     where: { id: token.id as string },
                     select: {
+                        email: true,
                         isEmailVerified: true,
                         rejectionCount: true,
                         residentProfile: {
@@ -113,8 +114,14 @@ export const authOptions: NextAuthOptions = {
                     }
                 });
 
-                // If user is deactivated OR has hit the rejection limit OR is deceased, expire the session
-                if (!dbUser || !dbUser.isEmailVerified || (dbUser as any).rejectionCount >= 3 || dbUser.residentProfile?.isDead) {
+                // If user is deactivated OR has hit the rejection limit OR is deceased OR email was changed/cleared, expire the session
+                if (
+                    !dbUser || 
+                    !dbUser.isEmailVerified || 
+                    (dbUser as any).rejectionCount >= 3 || 
+                    dbUser.residentProfile?.isDead ||
+                    dbUser.email !== token.email
+                ) {
                     // Force the session to expire immediately (triggering auto-logout)
                     token.exp = 1; // Set to very small number to trigger expiration
                     token.deactivated = true;

@@ -4,13 +4,12 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { 
-    Mail, 
-    ShieldCheck, 
-    Check, 
-    Loader2, 
-    ArrowRight, 
-    Eye, 
+import {
+    Mail,
+    ShieldCheck,
+    Loader2,
+    ArrowRight,
+    Eye,
     EyeOff,
     ShieldAlert
 } from "lucide-react";
@@ -73,13 +72,13 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
         },
     });
 
-    const password = form.watch("password");
+    const passwordValue = form.watch("password") || "";
 
     const requirements = [
-        { label: "At least one lowercase letter", met: /[a-z]/.test(password) },
-        { label: "At least one uppercase letter", met: /[A-Z]/.test(password) },
-        { label: "At least one digit", met: /[0-9]/.test(password) },
-        { label: "At least one special symbol", met: /[^a-zA-Z0-9]/.test(password) },
+        { label: "At least one lowercase letter", met: /[a-z]/.test(passwordValue) },
+        { label: "At least one uppercase letter", met: /[A-Z]/.test(passwordValue) },
+        { label: "At least one digit", met: /[0-9]/.test(passwordValue) },
+        { label: "At least one special symbol", met: /[^a-zA-Z0-9]/.test(passwordValue) },
     ];
 
     // Timer logic and Step back if timeout
@@ -163,7 +162,7 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
             if (result.success) {
                 toast.success("Account setup complete!");
                 onSuccess();
-                
+
                 // Fetch current session to determine role and auto-set portal cookie
                 const response = await fetch("/api/auth/session");
                 const session = await response.json();
@@ -186,7 +185,7 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-[380px] w-[calc(100%-2rem)] p-0 overflow-hidden bg-background dark:bg-[#0B0E14] border-none rounded-[32px] shadow-2xl ring-1 ring-black/5 dark:ring-white/10 z-[150]">
-                
+
                 <AnimatePresence mode="wait">
                     {step === 'identity' && (
                         <motion.div
@@ -197,7 +196,7 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
                             className="p-8 pt-10 pb-8"
                         >
                             <DialogHeader className="mb-8 text-center space-y-4">
-                                <div 
+                                <div
                                     className="mx-auto w-16 h-16 rounded-full flex items-center justify-center border shadow-sm transition-transform hover:scale-105"
                                     style={{ backgroundColor: `${themeColor}10`, borderColor: `${themeColor}20` }}
                                 >
@@ -213,7 +212,7 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
                                 </div>
                             </DialogHeader>
 
-                            <div 
+                            <div
                                 className="bg-muted/30 border border-border p-4 rounded-xl mb-8 flex items-center gap-3 group transition-all"
                                 style={{ transitionProperty: "border-color" }}
                             >
@@ -226,7 +225,7 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
                                 </div>
                             </div>
 
-                             <Button
+                            <Button
                                 onClick={() => handleSendOTP(false)}
                                 disabled={isLoading}
                                 className="w-full text-white h-11 font-bold shadow-lg active:scale-[0.98] transition-all rounded-xl text-base hover:opacity-90"
@@ -250,7 +249,7 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
                             className="p-8 pt-10 pb-8"
                         >
                             <DialogHeader className="mb-8 text-center space-y-4">
-                                <div 
+                                <div
                                     className="mx-auto w-16 h-16 rounded-full flex items-center justify-center border shadow-sm"
                                     style={{ backgroundColor: `${themeColor}10`, borderColor: `${themeColor}20` }}
                                 >
@@ -281,7 +280,7 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
                                     />
                                 </div>
 
-                                 <Button
+                                <Button
                                     onClick={handleVerifyOTP}
                                     disabled={isLoading}
                                     className="w-full text-white h-11 font-bold shadow-lg active:scale-[0.98] transition-all rounded-xl text-base hover:opacity-90"
@@ -296,7 +295,7 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
 
                                 <div className="flex flex-col items-center gap-6">
                                     <div className="flex gap-4">
-                                         <div className="text-center group">
+                                        <div className="text-center group">
                                             <div className="bg-muted dark:bg-slate-900/50 w-16 h-12 rounded-xl flex items-center justify-center font-bold text-2xl group-hover:bg-muted/70 transition-colors shadow-sm" style={{ color: themeColor }}>{formatTimer(timeLeft).mins}</div>
                                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-2 block">Minutes</span>
                                         </div>
@@ -306,7 +305,7 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
                                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-2 block">Seconds</span>
                                         </div>
                                     </div>
-                                    
+
                                     <p className="text-base font-medium text-muted-foreground">
                                         Didn&apos;t receive code? <button onClick={() => handleSendOTP(true)} disabled={isLoading || timeLeft > 60} className="font-bold hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200" style={{ color: themeColor }}>Resend code {timeLeft > 60 && `(${timeLeft - 60}s)`}</button>
                                     </p>
@@ -349,8 +348,8 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
                                                     onBlur: () => setIsPassFocused(false)
                                                 })}
                                             />
-                                            <button 
-                                                type="button" 
+                                            <button
+                                                type="button"
                                                 onClick={() => setShowPassword(!showPassword)}
                                                 className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                                                 style={{ color: isPassFocused || showPassword ? themeColor : undefined }}
@@ -386,28 +385,26 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
                                     </div>
                                 </div>
 
-                                <div className="bg-muted/30 dark:bg-slate-900/40 border border-border rounded-[24px] p-7 space-y-4 shadow-sm">
-                                    <p className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-3 leading-none opacity-80">Password Requirements</p>
-                                    <div className="space-y-3.5">
-                                        {requirements.map((req, i) => (
-                                            <div key={i} className="flex items-center gap-4">
-                                                <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 ${req.met ? 'bg-emerald-100 dark:bg-emerald-500/20 scale-110' : 'border border-border bg-background'}`}>
-                                                    {req.met ? (
-                                                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 stroke-[4px]" />
-                                                    ) : (
+                                {requirements.some(req => !req.met) && (
+                                    <div className="space-y-3 mt-4">
+                                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] leading-none opacity-80">Password Requirements</p>
+                                        <div className="space-y-2.5">
+                                            {requirements.filter(req => !req.met).map((req, i) => (
+                                                <div key={i} className="flex items-center gap-3">
+                                                    <div className="w-4 h-4 rounded-full flex items-center justify-center border border-border bg-background">
                                                         <div className="w-1.5 h-1.5 bg-muted rounded-full" />
-                                                    )}
+                                                    </div>
+                                                    <span className="text-[13px] font-semibold text-muted-foreground">
+                                                        {req.label}
+                                                    </span>
                                                 </div>
-                                                <span className={`text-[14px] font-semibold transition-colors duration-300 ${req.met ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground'}`}>
-                                                    {req.label}
-                                                </span>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
                                 <div className="pt-2">
-                                     <Button
+                                    <Button
                                         type="submit"
                                         disabled={isLoading}
                                         className="w-full text-white h-11 font-bold shadow-xl active:scale-[0.98] transition-all rounded-xl text-base relative overflow-hidden hover:opacity-90"

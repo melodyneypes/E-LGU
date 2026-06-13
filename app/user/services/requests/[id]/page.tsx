@@ -980,6 +980,9 @@ export default function RequestHubPage() {
             if (addData.validIdUrl) {
                 lcrDocs.push({ label: "Identity Matrix", url: addData.validIdUrl });
             }
+            if (addData.authorizationLetter) {
+                lcrDocs.push({ label: "Authorization Letter", url: addData.authorizationLetter });
+            }
             return lcrDocs.filter(d => !!d.url) as { label: string; url: string }[];
         }
 

@@ -692,8 +692,21 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                             </div>
                         )}
 
+                        {/* AWAITING CITIZEN PAYMENT NOTICE */}
+                        {transaction.status === "EVALUATED" && !isTreasuryContext && (
+                            <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
+                                <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
+                                    <Clock className="w-6 h-6 animate-pulse" />
+                                </div>
+                                <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Citizen Payment</h4>
+                                <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
+                                    The assessment fee has been computed. We are currently waiting for the citizen to complete the payment online or upload their proof of payment.
+                                </p>
+                            </div>
+                        )}
+
                         {/* TREASURY PAYMENT PHASE (PAID / PENDING_PAYMENT_VERIFICATION / EVALUATED / UNPAID) */}
-                        {isTreasuryContext && (
+                        {isTreasuryContext && ["PAID", "PENDING_PAYMENT_VERIFICATION", "EVALUATED", "UNPAID"].includes(transaction.status) && (
                             <TreasuryPaymentCollectionPanel
                                 transaction={transaction}
                                 additional={additional}

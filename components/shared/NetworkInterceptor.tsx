@@ -16,6 +16,11 @@ export function NetworkInterceptor() {
                         ? args[0] 
                         : (args[0] instanceof URL ? args[0].toString() : (args[0] as Request).url || '');
                     
+                    // Bypass NextAuth authentication routes completely
+                    if (url.includes('api/auth')) {
+                        return response;
+                    }
+
                     // Intercept only standard actions/API requests, ignore static resources/fonts/images
                     if (url.includes('/api/') || (!url.includes('.') && !url.includes('_next/data'))) {
                         try {

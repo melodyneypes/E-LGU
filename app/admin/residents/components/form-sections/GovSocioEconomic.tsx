@@ -6,7 +6,8 @@ import { useResident } from "../../providers/ResidentProvider";
 import { Search } from "lucide-react";
 
 export function GovSocioEconomicSection({ data }: { data?: any }) {
-  const { themeColor } = useResident();
+  const { themeColor, formCategoryName } = useResident();
+  const isNonResident = formCategoryName?.toUpperCase().replace("-", " ").includes("NON RESIDENT");
   const [eduVal, setEduVal] = useState(() => {
     if (!data?.educationalAttainment) return "";
     return EDUCATIONAL_ATTAINMENT.includes(data.educationalAttainment) ? data.educationalAttainment : "Other";
@@ -91,14 +92,14 @@ export function GovSocioEconomicSection({ data }: { data?: any }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="text-sm font-semibold">Occupation <span className="text-red-500">*</span></label>
+          <label className="text-sm font-semibold">Occupation {!isNonResident && <span className="text-red-500">*</span>}</label>
           {occupationVal === "OTHER" ? (
             <div className="relative flex items-center gap-2 animate-in slide-in-from-right-2 duration-300">
               <Input 
                 name="occupation" 
                 placeholder="Specify occupation" 
                 defaultValue={(data?.occupation === "OTHER" ? "" : data?.occupation) || ""}
-                required 
+                required={!isNonResident} 
                 style={{ borderColor: themeColor, backgroundColor: `${themeColor}0d` }}
                 className="h-10 font-bold focus-visible:ring-1 uppercase"
                 autoFocus
@@ -117,43 +118,45 @@ export function GovSocioEconomicSection({ data }: { data?: any }) {
               </button>
             </div>
           ) : (
-            <Select 
-              name="occupation" 
-              value={occupationVal}
-              onValueChange={setOccupationVal}
-              onOpenChange={(open) => {
-                if (!open) setOccupationSearch("");
-              }}
-            >
-              <SelectTrigger className="h-10 font-semibold">
-                <SelectValue placeholder="Select Occupation" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[300px] flex flex-col p-0" position="popper">
-                <div className="p-2 border-b border-slate-100 dark:border-white/5 bg-white dark:bg-[#0f1117] sticky top-0 z-20">
-                  <div className="relative flex items-center">
-                    <Search className="absolute left-2.5 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search occupation..."
-                      value={occupationSearch}
-                      onChange={(e) => setOccupationSearch(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      onPointerDown={(e) => e.stopPropagation()}
-                      className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-[#2a3040] rounded-lg outline-none focus:border-slate-300 dark:focus:border-white/20 font-semibold"
-                    />
+            <>
+              <Select 
+                value={occupationVal}
+                onValueChange={setOccupationVal}
+                onOpenChange={(open) => {
+                  if (!open) setOccupationSearch("");
+                }}
+              >
+                <SelectTrigger className="h-10 font-semibold">
+                  <SelectValue placeholder="Select Occupation" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px] flex flex-col p-0" position="popper">
+                  <div className="p-2 border-b border-slate-100 dark:border-white/5 bg-white dark:bg-[#0f1117] sticky top-0 z-20">
+                    <div className="relative flex items-center">
+                      <Search className="absolute left-2.5 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search occupation..."
+                        value={occupationSearch}
+                        onChange={(e) => setOccupationSearch(e.target.value)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-[#2a3040] rounded-lg outline-none focus:border-slate-300 dark:focus:border-white/20 font-semibold"
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="overflow-y-auto max-h-[220px] p-1">
-                  {OCCUPATIONS.filter(oc => oc.toLowerCase().includes(occupationSearch.toLowerCase())).length > 0 ? (
-                    OCCUPATIONS.filter(oc => oc.toLowerCase().includes(occupationSearch.toLowerCase())).map(oc => (
-                      <SelectItem key={oc} value={oc} className="font-bold text-xs uppercase">{oc}</SelectItem>
-                    ))
-                  ) : (
-                    <div className="p-4 text-center text-xs text-slate-400">No occupation found</div>
-                  )}
-                </div>
-              </SelectContent>
-            </Select>
+                  <div className="overflow-y-auto max-h-[220px] p-1">
+                    {OCCUPATIONS.filter(oc => oc.toLowerCase().includes(occupationSearch.toLowerCase())).length > 0 ? (
+                      OCCUPATIONS.filter(oc => oc.toLowerCase().includes(occupationSearch.toLowerCase())).map(oc => (
+                        <SelectItem key={oc} value={oc} className="font-bold text-xs uppercase">{oc}</SelectItem>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-xs text-slate-400">No occupation found</div>
+                    )}
+                  </div>
+                </SelectContent>
+              </Select>
+              <input type="hidden" name="occupation" value={occupationVal || ""} />
+            </>
           )}
         </div>
         <div className="space-y-2">

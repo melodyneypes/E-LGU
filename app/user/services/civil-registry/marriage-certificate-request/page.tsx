@@ -486,6 +486,17 @@ export default function MarriageCertificateRequestPage() {
                 if (resResult.success && resResult.data) {
                     const r = resResult.data;
                     setResident(r);
+
+                    const parts = [
+                        r.houseNumber && `#${r.houseNumber}`,
+                        r.street && `${r.street} St.`,
+                        r.purok && `Purok ${r.purok}`,
+                        r.sitio && `Sitio ${r.sitio}`,
+                        r.barangay && `Brgy. ${r.barangay}`,
+                        r.municipality || "Mapandan",
+                        r.province || "Pangasinan"
+                    ].filter(Boolean);
+                    const constructedAddr = parts.join(", ").toUpperCase();
                     
                     if (txData) {
                         const addData = txData.additionalData as any || {};
@@ -494,8 +505,10 @@ export default function MarriageCertificateRequestPage() {
                         const previews: Record<string, string | null> = {};
                         const fileKeys = ["validIdFront", "validIdBack"];
                         fileKeys.forEach(k => {
-                            if (addData[k] && typeof addData[k] === "string" && addData[k].startsWith("http")) {
-                                previews[k] = addData[k];
+                            const altKey = k === "validIdFront" ? "idFrontUrl" : "idBackUrl";
+                            const url = addData[k] || addData[altKey];
+                            if (url && typeof url === "string" && url.startsWith("http")) {
+                                previews[k] = url;
                             }
                         });
 
@@ -533,7 +546,7 @@ export default function MarriageCertificateRequestPage() {
                             email: addData.email || resSnapshot.email || prev.email,
                             contactNumber: addData.contactNumber || resSnapshot.contactNumber || prev.contactNumber,
                             relationship: addData.relationship || prev.relationship,
-                            informantAddress: addData.informantAddress || prev.informantAddress,
+                            informantAddress: addData.informantAddress || constructedAddr || prev.informantAddress || "",
                             previews
                         }));
 
@@ -546,17 +559,6 @@ export default function MarriageCertificateRequestPage() {
                             }
                         }
                     } else {
-                        const parts = [
-                            r.houseNumber && `#${r.houseNumber}`,
-                            r.street && `${r.street} St.`,
-                            r.purok && `Purok ${r.purok}`,
-                            r.sitio && `Sitio ${r.sitio}`,
-                            r.barangay && `Brgy. ${r.barangay}`,
-                            r.municipality || "Mapandan",
-                            r.province || "Pangasinan"
-                        ].filter(Boolean);
-                        const constructedAddr = parts.join(", ").toUpperCase();
-
                         setForm(prev => ({
                             ...prev,
                             email: r.user?.email || r.email || "",
@@ -669,6 +671,7 @@ export default function MarriageCertificateRequestPage() {
                 suffix: resident.suffix,
                 contactNumber: resident.contactNumber,
                 email: resident.email,
+                civilStatus: resident.civilStatus || "",
                 gender: resident.gender,
                 barangay: resident.barangay,
                 municipality: resident.municipality,
@@ -729,6 +732,8 @@ export default function MarriageCertificateRequestPage() {
                 idType: form.idTypeOverride || resident?.idType,
                 idFrontUrl: fileUrls["validIdFront"] || resident?.idFrontUrl,
                 idBackUrl: fileUrls["validIdBack"] || resident?.idBackUrl,
+                validIdFront: fileUrls["validIdFront"] || resident?.idFrontUrl,
+                validIdBack: fileUrls["validIdBack"] || resident?.idBackUrl,
                 totalAmount: dbType?.baseFee || 150
             };
 

@@ -18,8 +18,11 @@ export function PersonalInfoSection({ data }: { data?: Partial<Resident> }) {
         formCategoryId: selectedId, 
         setFormCategoryId: setSelectedId,
         setFormCategoryName,
+        formCategoryName,
         themeColor
     } = useResident();
+
+    const isNonResident = formCategoryName?.toUpperCase().replace("-", " ").includes("NON RESIDENT");
 
     const [genderVal, setGenderVal] = useState(() => {
         if (!data?.gender) return "Male";
@@ -81,6 +84,48 @@ export function PersonalInfoSection({ data }: { data?: Partial<Resident> }) {
 
     return (
         <div className="space-y-6">
+            <div className="space-y-4 pb-6 border-b border-slate-100 dark:border-white/5">
+                <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Resident Categories <span className="text-red-500">*</span></label>
+                    <span style={{ color: themeColor }} className="text-[10px] font-bold uppercase">Select a category</span>
+                </div>
+                <div className="flex flex-wrap gap-2 p-1 transition-all duration-300 rounded-2xl">
+                    {categories.map(cat => {
+                        const isSelected = selectedId === cat.id;
+                        return (
+                            <div 
+                                key={cat.id} 
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    selectCategory(cat.id, cat.name);
+                                }}
+                                style={isSelected ? { backgroundColor: themeColor, borderColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` } : undefined}
+                                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none group ${
+                                    isSelected
+                                    ? 'text-white scale-105'
+                                    : 'bg-white border-slate-200 text-slate-600 dark:bg-[#1a1f2e] dark:border-[#2a3040] dark:text-slate-400 opacity-80 hover:opacity-100'
+                                }`}
+                            >
+                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
+                                    isSelected ? 'bg-white border-white' : 'border-slate-300 dark:border-slate-600'
+                                }`}>
+                                    {isSelected && <div style={{ backgroundColor: themeColor }} className="w-2 h-2 rounded-full animate-in zoom-in-50 duration-200" />}
+                                </div>
+                                <span className="text-xs font-black uppercase tracking-tight">
+                                    {cat.name}
+                                </span>
+                            </div>
+                        );
+                    })}
+                    {categories.length === 0 && (
+                        <div className="flex items-center gap-2 text-slate-400 italic text-xs py-2">
+                             Initializing system categories...
+                        </div>
+                    )}
+                    <input type="hidden" name="categories" value={selectedId || ""} />
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
                     <label className="text-sm font-semibold">Last Name <span className="text-red-500">*</span></label>
@@ -199,8 +244,8 @@ export function PersonalInfoSection({ data }: { data?: Partial<Resident> }) {
                     )}
                 </div>
                 <div className="space-y-2">
-                    <label className="text-sm font-semibold">Place of Birth <span className="text-red-500">*</span></label>
-                    <Input name="placeOfBirth" defaultValue={data?.placeOfBirth || ""} placeholder="City/Municipality, Province" className="uppercase font-bold" required />
+                    <label className="text-sm font-semibold">Place of Birth {!isNonResident && <span className="text-red-500">*</span>}</label>
+                    <Input name="placeOfBirth" defaultValue={data?.placeOfBirth || ""} placeholder="City/Municipality, Province" className="uppercase font-bold" required={!isNonResident} />
                 </div>
                 <div className="space-y-2">
                     <label className="text-sm font-semibold">Citizenship</label>
@@ -354,48 +399,6 @@ export function PersonalInfoSection({ data }: { data?: Partial<Resident> }) {
                 <div className="space-y-2">
                     <label className="text-sm font-semibold">Weight (kg)</label>
                     <Input name="weight" type="number" defaultValue={data?.weight || ""} placeholder="e.g. 65" />
-                </div>
-            </div>
-
-            <div className="space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
-                <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Resident Categories <span className="text-red-500">*</span></label>
-                    <span style={{ color: themeColor }} className="text-[10px] font-bold uppercase">Select a category</span>
-                </div>
-                <div className="flex flex-wrap gap-2 p-1 transition-all duration-300 rounded-2xl">
-                    {categories.map(cat => {
-                        const isSelected = selectedId === cat.id;
-                        return (
-                            <div 
-                                key={cat.id} 
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    selectCategory(cat.id, cat.name);
-                                }}
-                                style={isSelected ? { backgroundColor: themeColor, borderColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` } : undefined}
-                                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none group ${
-                                    isSelected
-                                    ? 'text-white scale-105'
-                                    : 'bg-white border-slate-200 text-slate-600 dark:bg-[#1a1f2e] dark:border-[#2a3040] dark:text-slate-400 opacity-80 hover:opacity-100'
-                                }`}
-                            >
-                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
-                                    isSelected ? 'bg-white border-white' : 'border-slate-300 dark:border-slate-600'
-                                }}`}>
-                                    {isSelected && <div style={{ backgroundColor: themeColor }} className="w-2 h-2 rounded-full animate-in zoom-in-50 duration-200" />}
-                                </div>
-                                <span className="text-xs font-black uppercase tracking-tight">
-                                    {cat.name}
-                                </span>
-                            </div>
-                        );
-                    })}
-                    {categories.length === 0 && (
-                        <div className="flex items-center gap-2 text-slate-400 italic text-xs py-2">
-                             Initializing system categories...
-                        </div>
-                    )}
-                    <input type="hidden" name="categories" value={selectedId || ""} />
                 </div>
             </div>
         </div>

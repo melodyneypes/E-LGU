@@ -42,6 +42,14 @@ export function FacialVerification({ isOpen, onClose, onVerified }: FacialVerifi
     const baselineFrames = useRef(0);
     const blinkFrameCounter = useRef(0);
     const eyeWasClosed = useRef(false);
+    const [isCameraSupported, setIsCameraSupported] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        setIsCameraSupported(
+            typeof window !== "undefined" && 
+            !!navigator?.mediaDevices?.getUserMedia
+        );
+    }, []);
 
     // Liveness Detection State
     const [liveness, setLiveness] = useState({
@@ -55,6 +63,7 @@ export function FacialVerification({ isOpen, onClose, onVerified }: FacialVerifi
     useEffect(() => {
         const loadModels = async () => {
             try {
+                if (isCameraSupported === false) return;
                 console.log("Loading AI Vision Engines...");
                 const MODEL_URL = "/models";
                 
@@ -88,10 +97,10 @@ export function FacialVerification({ isOpen, onClose, onVerified }: FacialVerifi
             }
         };
 
-        if (isOpen && !modelsLoaded) {
+        if (isOpen && !modelsLoaded && isCameraSupported !== null) {
             loadModels();
         }
-    }, [isOpen, modelsLoaded]);
+    }, [isOpen, modelsLoaded, isCameraSupported]);
 
     const resetVerification = useCallback(() => {
         setStep("NEUTRAL");
@@ -124,6 +133,7 @@ export function FacialVerification({ isOpen, onClose, onVerified }: FacialVerifi
     };
 
     const handleVerification = useCallback(async () => {
+        if (isCameraSupported === false) return;
         if (!webcamRef.current || !webcamRef.current.video || !modelsLoaded || !faceLandmarkerRef.current) return;
         if (isProcessing.current || step === "COMPLETED" || step === "PROCESSING" || showGuide) return;
 
@@ -254,19 +264,20 @@ export function FacialVerification({ isOpen, onClose, onVerified }: FacialVerifi
         } finally {
             isProcessing.current = false;
         }
-    }, [modelsLoaded, step, liveness, showGuide, onVerified, resetVerification]);
+    }, [modelsLoaded, step, liveness, showGuide, onVerified, resetVerification, isCameraSupported]);
 
     // Interval Management (Ultra-Fast for Mediapipe)
     const handleRef = useRef(handleVerification);
     useEffect(() => { handleRef.current = handleVerification; }, [handleVerification]);
 
     useEffect(() => {
+        if (isCameraSupported === false) return;
         if (!isOpen || !modelsLoaded || ["COMPLETED", "INITIALIZING", "PROCESSING"].includes(step) || showGuide) return;
         
         const speed = step === "BLINK" ? 30 : 100; // Ultra-fast 30ms for Mediapipe!
         const interval = setInterval(() => handleRef.current(), speed);
         return () => clearInterval(interval);
-    }, [isOpen, modelsLoaded, step, showGuide]);
+    }, [isOpen, modelsLoaded, step, showGuide, isCameraSupported]);
 
     const handleWebcamError = (err: string | DOMException) => {
         console.error("Webcam:", err);
@@ -285,7 +296,7 @@ export function FacialVerification({ isOpen, onClose, onVerified }: FacialVerifi
                 </DialogHeader>
 
                 <div className="relative aspect-square flex items-center justify-center bg-black overflow-hidden group">
-                    {showGuide && (
+                    {showGuide && isCameraSupported !== false && (
                         <div className="absolute inset-0 z-50 bg-[#0f1117] p-8 flex flex-col items-center justify-center text-center animate-in fade-in zoom-in-95 duration-300">
                             <ShieldAlert className="w-16 h-16 text-primary mb-6" />
                             <h2 className="text-xl font-black italic uppercase tracking-tighter text-white mb-2">Pro-Level Scan</h2>
@@ -294,7 +305,15 @@ export function FacialVerification({ isOpen, onClose, onVerified }: FacialVerifi
                         </div>
                     )}
 
-                    {modelsLoaded ? (
+                    {isCameraSupported === false ? (
+                        <div className="flex flex-col items-center justify-center p-12 text-center text-rose-500 bg-rose-500/10 h-full w-full gap-4">
+                            <ShieldAlert className="w-12 h-12 shrink-0 animate-pulse" />
+                            <p className="font-bold uppercase tracking-widest text-xs">Camera Access Not Supported</p>
+                            <p className="text-[10px] text-slate-400 italic max-w-xs leading-relaxed">
+                                Your browser does not support webcam access, or this site is not using a secure connection (HTTPS/localhost).
+                            </p>
+                        </div>
+                    ) : modelsLoaded ? (
                         <>
                             <Webcam
                                 audio={false}
@@ -319,7 +338,7 @@ export function FacialVerification({ isOpen, onClose, onVerified }: FacialVerifi
                         </div>
                     )}
 
-                    {!showGuide && (
+                    {!showGuide && isCameraSupported !== false && (
                         <div className="absolute bottom-6 left-6 right-6 p-4 bg-transparent flex flex-col items-center animate-in slide-in-from-bottom-4">
                             <span className="text-[10px] font-black text-primary uppercase tracking-widest mb-1 font-mono">NEURAL STATUS: OK</span>
                             <h3 className="text-white text-lg font-black uppercase italic tracking-tighter text-center">

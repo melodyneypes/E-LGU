@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ["@prisma/client", ".prisma/client", "mariadb", "@prisma/adapter-mariadb"],
-  allowedDevOrigins: ["100.67.250.58", "100.110.197.61", "100.107.231.23", "msi-eulysis"],
+  allowedDevOrigins: ["100.67.250.58", "100.110.197.61", "100.107.231.23", "100.127.242.29", "msi-eulysis"],
   experimental: {
     serverActions: {
       bodySizeLimit: "50mb",

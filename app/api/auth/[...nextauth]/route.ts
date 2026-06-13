@@ -4,9 +4,12 @@ import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const handler = NextAuth(authOptions);
-
 async function customHandler(req: NextRequest, context: any): Promise<Response> {
+    const host = req.headers.get("host") || "localhost:3000";
+    const protocol = req.headers.get("x-forwarded-proto") || "http";
+    process.env.NEXTAUTH_URL = `${protocol}://${host}`;
+
+    const handler = NextAuth(authOptions);
     const res = await handler(req, context);
     
     // Check if this is a signout request

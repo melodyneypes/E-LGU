@@ -573,6 +573,70 @@ export default function MarriageRegistrationView(props: TreasuryViewProps) {
                             </div>
                         </div>
 
+                        {/* WAITING FOR REVISION NOTICE */}
+                        {transaction.status === "FOR_REVISION" && (() => {
+                            const revisionRemarks = transaction.rejectionRemarks || additional?.revisionRemarks || "";
+                            return (
+                                <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-6 shadow-xl dark:shadow-2xl border border-orange-200 dark:border-orange-500/20 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center shrink-0 animate-[spin_3s_linear_infinite]">
+                                            <RotateCw className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-600 dark:text-orange-400 leading-none">
+                                                Waiting for Citizen Revision
+                                            </h4>
+                                            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 italic mt-1 leading-relaxed">
+                                                Returned to citizen for corrections. Will reappear once resubmitted.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {revisionRemarks && (
+                                        <div className="bg-orange-50 dark:bg-orange-500/5 border border-orange-100 dark:border-orange-500/10 rounded-xl p-4 space-y-1.5">
+                                            <span className="text-[8px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400">
+                                                Remarks Sent
+                                            </span>
+                                            <p className="text-xs font-bold text-orange-800 dark:text-orange-300 italic leading-relaxed">
+                                                &ldquo;{revisionRemarks}&rdquo;
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
+
+                        {/* REJECTED REMARKS NOTICE */}
+                        {transaction.status === "REJECTED" && (() => {
+                            const rejectionRemarks = transaction.rejectionRemarks || additional?.rejectionRemarks || "";
+                            return (
+                                <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-6 shadow-xl dark:shadow-2xl border border-red-200 dark:border-red-500/20 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
+                                            <AlertCircle className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-red-600 dark:text-red-400 leading-none">
+                                                Request Rejected
+                                            </h4>
+                                            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 italic mt-1 leading-relaxed">
+                                                This request has been declined.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {rejectionRemarks && (
+                                        <div className="bg-red-50 dark:bg-red-500/5 border border-red-100 dark:border-red-500/10 rounded-xl p-4 space-y-1.5">
+                                            <span className="text-[8px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">
+                                                Rejection Remarks
+                                            </span>
+                                            <p className="text-xs font-bold text-red-800 dark:text-red-300 italic leading-relaxed">
+                                                &ldquo;{rejectionRemarks}&rdquo;
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
+
                         {/* PAYMENT REFERENCE AND O.R. DETAILS */}
                         {transaction.status === "FOR_REINSPECTION" && (
                             <RegistrarPaymentDetailsPanel
