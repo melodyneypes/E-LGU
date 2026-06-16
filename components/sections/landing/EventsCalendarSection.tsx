@@ -103,7 +103,7 @@ export function EventsCalendarSection({ events }: EventsCalendarSectionProps) {
                         </h2>
                     </div>
 
-                    <div className="mt-8 bg-white dark:bg-[#0f1117] rounded-[2rem] p-6 border border-slate-200 dark:border-[#2a3040] shadow-2xl shadow-primary/5 ring-1 ring-slate-200 dark:ring-white/5 max-w-md">
+                    <div className="mt-8 bg-white dark:bg-[#0f1117] rounded-[2rem] p-6 border border-slate-200 dark:border-[#2a3040] shadow-2xl shadow-primary/5 ring-1 ring-slate-200 dark:ring-white/5 w-full">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">
                                 {format(currentDate, "MMMM yyyy")}
@@ -133,7 +133,7 @@ export function EventsCalendarSection({ events }: EventsCalendarSectionProps) {
                 </div>
 
                 {/* Right Side: Event Details */}
-                <div className="w-full lg:w-[450px]">
+                <div className="w-full lg:flex-1">
                     <div className="sticky md:static top-[70px] md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-white dark:bg-slate-950 md:bg-transparent md:dark:bg-transparent backdrop-blur-none flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-4 md:mb-0">
                         <div className="space-y-1">
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Selected Date</p>

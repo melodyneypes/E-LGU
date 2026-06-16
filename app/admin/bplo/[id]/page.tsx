@@ -1348,12 +1348,14 @@ export default function BploDetailPage({ params }: PageProps) {
 
                                 {transaction.status !== "FOR_REINSPECTION" && (
                                     <div className="flex gap-2">
-                                        <Button
-                                            onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
-                                            className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase"
-                                        >
-                                            Request Revision
-                                        </Button>
+                                        {(transaction.revisionCount || 0) < 3 && (
+                                            <Button
+                                                                                        onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
+                                                                                        className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase"
+                                                                                    >
+                                                                                        Request Revision
+                                                                                    </Button>
+                                        )}
                                         <Button
                                             onClick={() => { setIsRejecting(true); setRemarks(""); }}
                                             className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase"

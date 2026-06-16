@@ -1,14 +1,12 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Home, User, Search, CheckCircle2, Check, Loader2, FileText, Eye, Heart, ShieldCheck, AlertCircle } from "lucide-react";
+import { Home, User, Search, CheckCircle2, Check, Loader2, FileText, Heart, ShieldCheck, AlertCircle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
@@ -32,15 +30,7 @@ import { searchResidents, getResidentDataById } from "@/app/admin/actions";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
 import { supabase } from "@/lib/supabase";
 
-const checkIsPdf = (file: any, url: string | null) => {
-	if (file && file instanceof File) {
-		return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-	}
-	if (url) {
-		return url.toLowerCase().endsWith(".pdf") || url.includes("application/pdf") || url.includes(".pdf?");
-	}
-	return false;
-};
+
 
 const REQUIRED_DOCS = [
 	"Municipal Form No. 90",
@@ -155,7 +145,7 @@ export default function MarriageLicenseApplicationPage() {
 	const [loading, setLoading] = useState(true);
 	const [mounted, setMounted] = useState(false);
 
-	const [themeColor, setThemeColor] = useState("theme_color");
+	const [themeColor, setThemeColor] = useState("var(--primary-theme)");
 
 	useEffect(() => {
 		getSystemSettingAction("theme_color").then((res) => {
@@ -189,8 +179,9 @@ export default function MarriageLicenseApplicationPage() {
 	const [resident, setResident] = useState<any>(null);
 	const [, setHasDraft] = useState(false);
 
-	type Step = "IDENTITY" | "DETAILS" | "CONFIRM";
+	type Step = "STATUS" | "IDENTITY" | "DETAILS" | "CONFIRM";
 	const STEPS: { id: Step; label: string; icon: any }[] = [
+		{ id: "STATUS", label: "Status", icon: Sparkles },
 		{ id: "IDENTITY", label: "Applicants", icon: User },
 		{ id: "DETAILS", label: "Documents", icon: FileText },
 		{ id: "CONFIRM", label: "Submit", icon: CheckCircle2 },
@@ -569,8 +560,8 @@ export default function MarriageLicenseApplicationPage() {
 		}
 	};
 
-	const nextStep = () => {
-		if (currentStep === "IDENTITY") {
+	const validateStep = (step: Step): boolean => {
+		if (step === "IDENTITY") {
 			const required = [
 				"app1FullName",
 				"app1BirthDate",
@@ -595,22 +586,28 @@ export default function MarriageLicenseApplicationPage() {
 				missing.forEach((m) => (markers[m] = true));
 				setMissingInputs((prev) => ({ ...prev, ...markers }));
 				toast.error("Please complete the highlighted fields before proceeding.");
-				return;
+				setTimeout(() => {
+					const firstInvalid = document.querySelector(".border-red-500, [class*='border-red-500']");
+					if (firstInvalid) {
+						firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
+					}
+				}, 100);
+				return false;
 			}
 
 			if (resident?.civilStatus && resident.civilStatus.toUpperCase() === "MARRIED") {
 				toast.error("Your civil status is registered as Married. You cannot apply for another marriage application.");
-				return;
+				return false;
 			}
 
 			if (form.app2Resident?.civilStatus && form.app2Resident.civilStatus.toUpperCase() === "MARRIED") {
 				toast.error("Your civil status is registered as Married. You cannot apply for another marriage application.");
-				return;
+				return false;
 			}
 
 			if (form.app1Gender && form.app2Gender && form.app1Gender === form.app2Gender) {
 				toast.error("Same-sex marriage is not permitted. The Groom and Bride / Wife must be of opposite sex.");
-				return;
+				return false;
 			}
 
 			// Mark all visible documents as required (user requested all documents be required)
@@ -619,8 +616,8 @@ export default function MarriageLicenseApplicationPage() {
 				docsToShow.forEach(d => { requiredMap[d] = true; });
 				return { ...p, requiredDocs: requiredMap };
 			});
-			setCurrentStep("DETAILS");
-		} else if (currentStep === "DETAILS") {
+			return true;
+		} else if (step === "DETAILS") {
 			// Validate that for each selected required doc, a file was uploaded
 			const selectedDocs = Object.keys(form.requiredDocs || {}).filter((k) => (form.requiredDocs || {})[k]);
 			const missing = selectedDocs.filter((d) => !form.files?.[d] && !form.previews?.[d]);
@@ -630,8 +627,25 @@ export default function MarriageLicenseApplicationPage() {
 				missing.forEach((m) => (markers[m] = true));
 				setMissingFiles((prev) => ({ ...prev, ...markers }));
 				toast.error("Please upload all selected required documents before proceeding.");
-				return;
+				setTimeout(() => {
+					const firstInvalid = document.querySelector(".border-red-500, [class*='border-red-500']");
+					if (firstInvalid) {
+						firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
+					}
+				}, 100);
+				return false;
 			}
+			return true;
+		}
+		return true;
+	};
+
+	const nextStep = () => {
+		if (currentStep === "IDENTITY") {
+			if (!validateStep("IDENTITY")) return;
+			setCurrentStep("DETAILS");
+		} else if (currentStep === "DETAILS") {
+			if (!validateStep("DETAILS")) return;
 			setCurrentStep("CONFIRM");
 		}
 	};
@@ -829,7 +843,7 @@ export default function MarriageLicenseApplicationPage() {
 	if (loading || !mounted) {
 		return (
 			<div className="flex items-center justify-center min-h-[60vh]">
-				<Loader2 className="w-8 h-8 animate-spin" style={{ color: themeColor }} />
+				<Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--primary-theme)" }} />
 			</div>
 		);
 	}
@@ -839,9 +853,11 @@ export default function MarriageLicenseApplicationPage() {
 		<>
 			<style dangerouslySetInnerHTML={{
 				__html: `
+				${themeColor !== "var(--primary-theme)" ? `
 				:root, * {
 					--primary-theme: ${themeColor} !important;
 				}
+				` : ""}
 				.text-amber-500, [class*="text-amber-500"]:not(input):not(select):not(textarea) {
 					color: ${themeColor} !important;
 				}
@@ -861,17 +877,17 @@ export default function MarriageLicenseApplicationPage() {
 					border-color: ${themeColor} !important;
 				}
 				.bg-amber-500\\/5, [class*="bg-amber-500/5"] {
-					background-color: ${themeColor}0d !important;
+					background-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 5%, transparent)" : `${themeColor}0d`} !important;
 				}
 				.shadow-amber-500\\/20, [class*="shadow-amber-500/20"] {
-					--tw-shadow-color: ${themeColor}33 !important;
+					--tw-shadow-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33`} !important;
 				}
 				.hover\\:bg-amber-600:hover, [class*="hover:bg-amber-600"]:hover {
 					background-color: ${themeColor} !important;
 					filter: brightness(0.9);
 				}
 				.hover\\:ring-amber-500\\/50:hover, [class*="hover:ring-amber-500"]:hover {
-					--tw-ring-color: ${themeColor}80 !important;
+					--tw-ring-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 50%, transparent)" : `${themeColor}80`} !important;
 				}
 				input:not([type="button"]):not([type="submit"]), select, textarea {
 					color: #0f172a !important;
@@ -986,580 +1002,577 @@ export default function MarriageLicenseApplicationPage() {
 
 				<div className="space-y-6">
 					{/* Progress Stepper */}
-					<div className="relative px-2 py-4">
-						<div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 dark:bg-white/5 -translate-y-1/2 rounded-full overflow-hidden">
-							<motion.div
-								className="h-full bg-amber-600"
-								initial={{ width: 0 }}
-								animate={{ width: `${(STEPS.findIndex(s => s.id === currentStep) / (STEPS.length - 1)) * 100}%` }}
-							/>
-						</div>
-						<div className="flex justify-between items-center relative z-10">
-							{STEPS.map((step, idx) => {
-								const isActive = currentStep === step.id;
-								const stepIdx = STEPS.findIndex(s => s.id === currentStep);
-								const isCompleted = stepIdx > idx;
-								const Icon = step.icon;
-								return (
-									<div key={idx} className="flex flex-col items-center gap-2">
-										<div className={cn(
-											"w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-500 border-2 bg-white dark:bg-[#08090d]",
-											isActive ? "border-amber-600 text-amber-600 shadow-lg shadow-amber-500/20 scale-110" : isCompleted ? "bg-amber-600 border-amber-600 text-white" : "border-slate-200 dark:border-white/10 text-slate-400"
-										)}>
-											{isCompleted ? <Check className="w-5 h-5" /> : <Icon className="w-4 h-4 md:w-5 md:h-5" />}
-										</div>
-										<span className={cn(
-											"text-[8px] md:text-[10px] font-black uppercase tracking-wider italic hidden md:block",
-											isActive ? "text-amber-600" : "text-slate-400"
-										)}>
-											{step.label}
-										</span>
+					<div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2 py-4">
+						{STEPS.map((step, idx) => {
+							const isActive = currentStep === step.id;
+							const stepIdx = STEPS.findIndex(s => s.id === currentStep);
+							const isCompleted = stepIdx > idx;
+							const Icon = step.icon;
+
+							return (
+								<div
+									key={idx}
+									className="flex flex-col items-center gap-2 md:gap-3 relative z-10 font-black group cursor-pointer"
+									onClick={() => {
+										if (step.id === "STATUS") {
+											router.push("/user/services/civil-registry");
+											return;
+										}
+										const targetIdx = STEPS.findIndex(s => s.id === step.id);
+										const currentIdx = STEPS.findIndex(s => s.id === currentStep);
+										if (targetIdx <= currentIdx) {
+											setCurrentStep(step.id);
+										} else {
+											for (let i = currentIdx; i < targetIdx; i++) {
+												const stepToValidate = STEPS[i].id;
+												if (stepToValidate !== "STATUS" && !validateStep(stepToValidate)) {
+													return;
+												}
+											}
+											setCurrentStep(step.id);
+										}
+									}}
+								>
+									<div 
+										className={cn(
+											"w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
+											isActive ? "text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
+												isCompleted ? "border-transparent" :
+													"bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-slate-500/30"
+										)}
+										style={
+											isActive
+												? { backgroundColor: themeColor, borderColor: themeColor }
+												: isCompleted
+													? { backgroundColor: themeColor + "1a", color: themeColor, borderColor: themeColor + "33" }
+													: {}
+										}
+									>
+										<Icon className="w-4 h-4 md:w-7 md:h-7" />
 									</div>
-								);
-							})}
-						</div>
+									<span 
+										className={cn(
+											"text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
+											(isActive || isCompleted) ? "opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity text-slate-400"
+										)}
+										style={
+											(isActive || isCompleted)
+												? { color: themeColor }
+												: {}
+										}
+									>
+										{step.label}
+									</span>
+								</div>
+							);
+						})}
 					</div>
 
-					{mounted && typeof document !== "undefined" && createPortal(
-						<div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#06080a] border-t border-slate-200 dark:border-white/10 z-50 pt-2.5 pb-2.5 px-4 flex flex-col items-center">
-							<div className="w-full max-w-5xl flex items-center justify-center gap-4">
-								<div className="h-1.5 flex-1 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-									<motion.div
-										className="h-full bg-amber-600"
-										initial={{ width: 0 }}
-										animate={{ width: `${((STEPS.findIndex(s => s.id === currentStep) + 1) / STEPS.length) * 100}%` }}
-									/>
-								</div>
-								<span className="font-black uppercase tracking-widest italic text-[8px] md:text-[10px] text-slate-400 whitespace-nowrap">
-									Phase {STEPS.findIndex(s => s.id === currentStep) + 1} / {STEPS.length}
-								</span>
-							</div>
-						</div>,
-						document.body
-					)}
-
-					{/* Identity Step */}
-					{currentStep === 'IDENTITY' && (
-						<>
-							{revisionTx && (
-								<div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-800 dark:text-red-400 animate-in fade-in duration-300">
-									<AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
-									<div className="text-left space-y-1">
-										<p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
-										<p className="text-xs font-bold text-slate-900 dark:text-slate-300 leading-relaxed italic">
-											&ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+					{/* Form Card */}
+					<Card className="p-6 md:p-10 rounded-[2.5rem] border border-slate-200/50 dark:border-white/5 bg-white dark:bg-[#0f1117] shadow-xl dark:shadow-2xl overflow-hidden min-h-[400px]">
+						<AnimatePresence mode="wait">
+							{/* Identity Step */}
+							{currentStep === 'IDENTITY' && (
+								<motion.div
+									key="identity-step"
+									initial={{ opacity: 0, scale: 0.95 }}
+									animate={{ opacity: 1, scale: 1 }}
+									exit={{ opacity: 0, scale: 1.05 }}
+									className="space-y-8 animate-in fade-in duration-300"
+								>
+									<div className="space-y-1">
+										<h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight text-slate-900 dark:text-white">
+											Applicants <span style={{ color: themeColor }}>Identity</span>
+										</h2>
+										<p className="text-[10px] md:text-xs text-slate-500 font-medium italic">
+											Verify or enter details for both applicants.
 										</p>
 									</div>
-								</div>
-							)}
 
-							<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-6">
-								<h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
-									{form.app1Gender === "MALE" ? "Groom (Male)" : form.app1Gender === "FEMALE" ? "Bride / Wife (Female)" : "Applicant 1"}
-								</h3>
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-									<div className="space-y-1.5">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Full Name</Label>
-										<Input disabled value={form.app1FullName} className="bg-slate-100 dark:bg-white/5 font-bold uppercase cursor-not-allowed opacity-75 border-none" />
+									{revisionTx && (
+										<div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-800 dark:text-red-400 animate-in fade-in duration-300">
+											<AlertCircle className="w-5 h-5 shrink-0 animate-pulse mt-0.5" />
+											<div className="text-left space-y-1">
+												<p className="text-[10px] font-black uppercase tracking-wider italic">Attention: Revision Needed</p>
+												<p className="text-xs font-bold text-slate-900 dark:text-slate-300 leading-relaxed italic">
+													&ldquo;{revisionTx.rejectionRemarks || "Please check the highlighted checklist files or values and submit them again."}&rdquo;
+												</p>
+											</div>
+										</div>
+									)}
+
+									{/* Applicant 1 Details */}
+									<div className="space-y-6 border-b border-slate-200/50 dark:border-white/5 pb-8">
+										<h3 className="text-sm font-black uppercase tracking-wider italic text-slate-800 dark:text-white">
+											{form.app1Gender === "MALE" ? <>Groom <span style={{ color: themeColor }}>(Male)</span></> : form.app1Gender === "FEMALE" ? <>Bride / Wife <span style={{ color: themeColor }}>(Female)</span></> : "Applicant 1"}
+										</h3>
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+											<div className="space-y-1.5">
+												<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Full Name</Label>
+												<Input disabled value={form.app1FullName} className="bg-slate-100 dark:bg-white/5 font-bold uppercase cursor-not-allowed opacity-75 border-none" />
+											</div>
+											<div className="space-y-1.5">
+												<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date of Birth</Label>
+												<Input disabled type="date" value={form.app1BirthDate} className="bg-slate-100 dark:bg-white/5 font-bold cursor-not-allowed opacity-75 border-none" />
+											</div>
+											<div className="space-y-1.5">
+												<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Place of Birth</Label>
+												<Input disabled value={form.app1BirthPlace} className="bg-slate-100 dark:bg-white/5 font-bold uppercase cursor-not-allowed opacity-75 border-none" />
+											</div>
+											<div className="space-y-1.5">
+												<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Citizenship</Label>
+												<Input disabled value={form.app1Citizenship} className="bg-slate-100 dark:bg-white/5 font-bold uppercase cursor-not-allowed opacity-75 border-none" />
+											</div>
+											<div className="space-y-1.5">
+												<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sex</Label>
+												<Select
+													disabled={!!resident?.gender}
+													value={form.app1Gender}
+													onValueChange={(val) => {
+														setForm((prev: any) => ({ 
+															...prev, 
+															app1Gender: val,
+															app2Gender: val === "MALE" ? "FEMALE" : val === "FEMALE" ? "MALE" : ""
+														}));
+													}}
+												>
+													<SelectTrigger className="w-full h-10 px-3 bg-slate-100 dark:bg-white/5 border-none font-bold uppercase text-xs rounded-md disabled:cursor-not-allowed opacity-75 focus:ring-2 focus:ring-amber-500 text-left">
+														<SelectValue placeholder="SELECT GENDER" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="MALE">Groom (Male)</SelectItem>
+														<SelectItem value="FEMALE">Bride / Wife (Female)</SelectItem>
+													</SelectContent>
+												</Select>
+												{form.app1Gender && form.app2Gender && form.app1Gender === form.app2Gender && (
+													<div className="text-[10px] text-red-600 font-black uppercase tracking-widest mt-1">
+														⚠️ Same-sex marriage is not permitted
+													</div>
+												)}
+											</div>
+											<div className="space-y-1.5 col-span-1 md:col-span-2">
+												<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Informant Address</Label>
+												<Input disabled value={form.informantAddress || ""} className="bg-slate-100 dark:bg-white/5 font-bold uppercase cursor-not-allowed opacity-75 border-none" />
+											</div>
+										</div>
 									</div>
-									<div className="space-y-1.5">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date of Birth</Label>
-										<Input disabled type="date" value={form.app1BirthDate} className="bg-slate-100 dark:bg-white/5 font-bold cursor-not-allowed opacity-75 border-none" />
-									</div>
-									<div className="space-y-1.5">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Place of Birth</Label>
-										<Input disabled value={form.app1BirthPlace} className="bg-slate-100 dark:bg-white/5 font-bold uppercase cursor-not-allowed opacity-75 border-none" />
-									</div>
-									<div className="space-y-1.5">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Citizenship</Label>
-										<Input disabled value={form.app1Citizenship} className="bg-slate-100 dark:bg-white/5 font-bold uppercase cursor-not-allowed opacity-75 border-none" />
-									</div>
-									<div className="space-y-1.5">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sex</Label>
-										<Select
-											disabled={!!resident?.gender}
-											value={form.app1Gender}
-											onValueChange={(val) => {
-												setForm((prev: any) => ({ 
-													...prev, 
-													app1Gender: val,
-													app2Gender: val === "MALE" ? "FEMALE" : val === "FEMALE" ? "MALE" : ""
-												}));
-											}}
-										>
-											<SelectTrigger className="w-full h-10 px-3 bg-slate-100 dark:bg-white/5 border-none font-bold uppercase text-xs rounded-md disabled:cursor-not-allowed opacity-75 focus:ring-2 focus:ring-amber-500 text-left">
-												<SelectValue placeholder="SELECT GENDER" />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="MALE">Groom (Male)</SelectItem>
-												<SelectItem value="FEMALE">Bride / Wife (Female)</SelectItem>
-											</SelectContent>
-										</Select>
-										{form.app1Gender && form.app2Gender && form.app1Gender === form.app2Gender && (
-											<div className="text-[10px] text-red-600 font-black uppercase tracking-widest mt-1">
-												⚠️ Same-sex marriage is not permitted
+
+									{/* Applicant 2 Details */}
+									<div className="space-y-6 pt-4">
+										<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+											<h3 className="text-sm font-black uppercase tracking-wider italic text-slate-800 dark:text-white">
+												{form.app2Gender === "MALE" ? <>Groom <span style={{ color: themeColor }}>(Male)</span></> : form.app2Gender === "FEMALE" ? <>Bride / Wife <span style={{ color: themeColor }}>(Female)</span></> : "Applicant 2"}
+											</h3>
+											<div className="flex items-center space-x-2">
+												<Checkbox
+													id="app2Resident"
+													checked={form.app2IsResident}
+													onCheckedChange={(checked) => {
+														setForm((prev: any) => {
+															const newGender = prev.app1Gender === "MALE" ? "FEMALE" : prev.app1Gender === "FEMALE" ? "MALE" : "";
+															return {
+																...prev,
+																app2IsResident: !!checked,
+																...(checked ? {} : {
+																	app2FullName: "",
+																	app2BirthDate: "",
+																	app2BirthPlace: "",
+																	app2Citizenship: "FILIPINO",
+																	app2Gender: newGender,
+																	app2Resident: null
+																})
+															};
+														});
+													}}
+												/>
+												<label htmlFor="app2Resident" className="text-xs font-bold italic text-slate-500 cursor-pointer">Applicant 2 is a resident of Mapandan</label>
+											</div>
+										</div>
+
+										<div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+											<div className="flex items-center gap-3">
+												<label className="text-xs font-bold italic text-slate-500">Is Applicant 2 a foreigner? <span className="text-red-500">*</span></label>
+												<div role="tablist" aria-label="Applicant 2 foreigner selector" className={cn(
+													"flex items-center gap-2 ml-2 p-1 rounded-full transition-all",
+													missingInputs.app2IsForeigner ? "!border-2 !border-red-500" : ""
+												)}>
+													<button
+														type="button"
+														aria-pressed={form.app2IsForeigner === true}
+														onClick={() => setApp2Foreigner(true)}
+														className={cn(
+															"px-3 py-1 rounded-full text-sm font-bold transition",
+															form.app2IsForeigner === true ? "bg-amber-500 text-white" : "border border-slate-200 text-slate-700 bg-white dark:bg-[#0b1220]"
+														)}
+													>
+														Yes
+													</button>
+													<button
+														type="button"
+														aria-pressed={form.app2IsForeigner === false}
+														onClick={() => setApp2Foreigner(false)}
+														className={cn(
+															"px-3 py-1 rounded-full text-sm font-bold transition",
+															form.app2IsForeigner === false ? "bg-amber-500 text-white" : "border border-slate-200 text-slate-700 bg-white dark:bg-[#0b1220]"
+														)}
+													>
+														No
+													</button>
+												</div>
+												{missingInputs.app2IsForeigner && (
+													<div className="text-xs text-red-500 font-bold ml-3 italic uppercase tracking-wider">Required</div>
+												)}
+											</div>
+										</div>
+
+										{form.app2IsResident && (
+											<div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+												{form.app2Resident ? (
+													<div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10">
+														<div className="flex items-center gap-3">
+															<div>
+																<p className="text-xs font-black uppercase italic">{form.app2FullName}</p>
+																<p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Mapandan Resident</p>
+															</div>
+														</div>
+														<Button
+															type="button"
+															variant="ghost"
+															onClick={handleClearApp2Resident}
+															className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-600 hover:bg-red-500/10 h-8 rounded-xl px-3"
+														>
+															Remove Resident
+														</Button>
+													</div>
+												) : (
+													<>
+														<Label className="text-[10px] font-black uppercase tracking-widest text-blue-500">Search Mapandan Records</Label>
+														<ResidentSearch onSelect={handleApp2Select} placeholder="Search by first or last name..." />
+													</>
+												)}
 											</div>
 										)}
-									</div>
-									<div className="space-y-1.5 col-span-1 md:col-span-2">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Informant Address</Label>
-										<Input disabled value={form.informantAddress || ""} className="bg-slate-100 dark:bg-white/5 font-bold uppercase cursor-not-allowed opacity-75 border-none" />
-									</div>
-								</div>
-							</Card>
 
-							<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-6">
-								<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-									<h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
-										{form.app2Gender === "MALE" ? "Groom (Male)" : form.app2Gender === "FEMALE" ? "Bride / Wife (Female)" : "Applicant 2"}
-									</h3>
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="app2Resident"
-											checked={form.app2IsResident}
-											onCheckedChange={(checked) => {
-												setForm((prev: any) => {
-													const newGender = prev.app1Gender === "MALE" ? "FEMALE" : prev.app1Gender === "FEMALE" ? "MALE" : "";
-													return {
-														...prev,
-														app2IsResident: !!checked,
-														...(checked ? {} : {
-															app2FullName: "",
-															app2BirthDate: "",
-															app2BirthPlace: "",
-															app2Citizenship: "FILIPINO",
-															app2Gender: newGender,
-															app2Resident: null
-														})
-													};
-												});
-											}}
-										/>
-										<label htmlFor="app2Resident" className="text-xs font-bold italic text-slate-500 cursor-pointer">Applicant 2 is a resident of Mapandan</label>
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+											<div className="space-y-1.5">
+												<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Full Name <span className="text-red-500">*</span></Label>
+												<Input
+													placeholder="ENTER FULL NAME"
+													disabled={!!form.app2Resident}
+													className={cn(
+														"bg-slate-50 dark:bg-white/5 font-bold uppercase transition-all",
+														missingInputs.app2FullName ? "!border-2 !border-red-500" : "border-none",
+														!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
+													)}
+													value={form.app2FullName}
+													onChange={e => { setForm((p: any) => ({ ...p, app2FullName: e.target.value.toUpperCase() })); setMissingInputs((m) => ({ ...m, app2FullName: false })); }}
+												/>
+												{missingInputs.app2FullName && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
+											</div>
+											<div className="space-y-1.5">
+												<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date of Birth <span className="text-red-500">*</span></Label>
+												<Input
+													type="date"
+													disabled={!!form.app2Resident}
+													className={cn(
+														"bg-slate-50 dark:bg-white/5 font-bold transition-all",
+														missingInputs.app2BirthDate ? "!border-2 !border-red-500" : "border-none",
+														!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
+													)}
+													value={form.app2BirthDate}
+													onChange={e => { setForm((p: any) => ({ ...p, app2BirthDate: e.target.value })); setMissingInputs((m) => ({ ...m, app2BirthDate: false })); }}
+												/>
+												{missingInputs.app2BirthDate && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
+											</div>
+											<div className="space-y-1.5">
+												<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Place of Birth <span className="text-red-500">*</span></Label>
+												<Input
+													placeholder="ENTER PLACE"
+													disabled={!!form.app2Resident}
+													className={cn(
+														"bg-slate-50 dark:bg-white/5 font-bold uppercase transition-all",
+														missingInputs.app2BirthPlace ? "!border-2 !border-red-500" : "border-none",
+														!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
+													)}
+													value={form.app2BirthPlace}
+													onChange={e => { setForm((p: any) => ({ ...p, app2BirthPlace: e.target.value.toUpperCase() })); setMissingInputs((m) => ({ ...m, app2BirthPlace: false })); }}
+												/>
+												{missingInputs.app2BirthPlace && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
+											</div>
+											<div className="space-y-1.5">
+												<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Citizenship <span className="text-red-500">*</span></Label>
+												<Input
+													disabled={!!form.app2Resident}
+													className={cn(
+														"bg-slate-50 dark:bg-white/5 font-bold uppercase transition-all",
+														missingInputs.app2Citizenship ? "!border-2 !border-red-500" : "border-none",
+														!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
+													)}
+													value={form.app2Citizenship}
+													onChange={e => { setForm((p: any) => ({ ...p, app2Citizenship: e.target.value.toUpperCase() })); setMissingInputs((m) => ({ ...m, app2Citizenship: false })); }}
+												/>
+												{missingInputs.app2Citizenship && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
+											</div>
+											<div className="space-y-1.5">
+												<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sex <span className="text-red-500">*</span></Label>
+												<Select
+													disabled={!!form.app2Resident}
+													value={form.app2Gender}
+													onValueChange={(val) => {
+														if (resident?.gender) {
+															const app1Gender = resident.gender.toUpperCase();
+															if (val && val === app1Gender) {
+																toast.error("Same-sex marriage is not permitted. Both applicants must be of opposite sex.");
+																return;
+															}
+														}
+														setForm((prev: any) => ({ 
+															...prev, 
+															app2Gender: val,
+															app1Gender: val === "MALE" ? "FEMALE" : val === "FEMALE" ? "MALE" : prev.app1Gender
+														}));
+														setMissingInputs((m) => ({ ...m, app2Gender: false }));
+													}}
+												>
+													<SelectTrigger 
+														className={cn(
+															"w-full h-10 px-3 rounded-md font-bold uppercase text-xs transition-all text-left",
+															missingInputs.app2Gender ? "!border-2 !border-red-500" : "border-none",
+															form.app2Resident 
+																? "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed" 
+																: "bg-slate-50 dark:bg-white/5"
+														)}
+													>
+														<SelectValue placeholder="SELECT GENDER" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="MALE">Groom (Male)</SelectItem>
+														<SelectItem value="FEMALE">Bride / Wife (Female)</SelectItem>
+													</SelectContent>
+												</Select>
+												{missingInputs.app2Gender && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
+												{form.app1Gender && form.app2Gender && form.app1Gender === form.app2Gender && (
+													<div className="text-[10px] text-red-600 font-black uppercase tracking-widest mt-1">
+														⚠️ Same-sex marriage is not permitted
+													</div>
+												)}
+											</div>
+											<div className="space-y-1.5 col-span-1 md:col-span-2">
+												<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Address <span className="text-red-500">*</span></Label>
+												<Input
+													placeholder="ENTER ADDRESS"
+													disabled={!!form.app2Resident}
+													className={cn(
+														"bg-slate-50 dark:bg-white/5 font-bold uppercase transition-all",
+														missingInputs.app2Address ? "!border-2 !border-red-500" : "border-none",
+														!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
+													)}
+													value={form.app2Address || ""}
+													onChange={e => {
+														setForm((p: any) => ({ ...p, app2Address: e.target.value.toUpperCase() }));
+														setMissingInputs((m) => ({ ...m, app2Address: false }));
+													}}
+												/>
+												{missingInputs.app2Address && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
+											</div>
+										</div>
 									</div>
-								</div>
 
-								<div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-									<div className="flex items-center gap-3">
-										<label className="text-xs font-bold italic text-slate-500">Is Applicant 2 a foreigner? <span className="text-red-500">*</span></label>
-										<div role="tablist" aria-label="Applicant 2 foreigner selector" className={cn(
-											"flex items-center gap-2 ml-2 p-1 rounded-full transition-all",
-											missingInputs.app2IsForeigner ? "border-2 border-red-500" : ""
+									{/* Step Nav */}
+									<div className="flex justify-end gap-4 pt-8">
+										<Button variant="outline" onClick={() => router.back()} className="h-14 px-8 rounded-2xl font-black uppercase italic tracking-widest">Cancel</Button>
+										<Button onClick={nextStep} style={{ backgroundColor: themeColor }} className="h-14 px-10 rounded-2xl text-white font-black uppercase italic tracking-widest hover:opacity-90 transition-all">Next</Button>
+									</div>
+								</motion.div>
+							)}
+
+							{/* Details Step */}
+							{currentStep === 'DETAILS' && (() => {
+								const app1Docs = docsToShow.filter(d => d.includes("Applicant 1"));
+								const app2Docs = docsToShow.filter(d => d.includes("Applicant 2") || d.toLowerCase().includes("legal capacity"));
+								const generalDocs = docsToShow.filter(d => !d.includes("Applicant 1") && !d.includes("Applicant 2") && !d.toLowerCase().includes("legal capacity"));
+
+								return (
+									<motion.div
+										key="details-step"
+										initial={{ opacity: 0, scale: 0.95 }}
+										animate={{ opacity: 1, scale: 1 }}
+										exit={{ opacity: 0, scale: 1.05 }}
+										className="space-y-6 animate-in fade-in duration-300"
+									>
+										<div className="space-y-1">
+											<h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">Required <span style={{ color: themeColor }}>Documents</span></h3>
+											<p className="text-xs text-slate-400 font-bold italic">Please upload the documents prepared by each applicant (max 5MB each).</p>
+										</div>
+
+										{/* Applicant 1 Documents */}
+										<div className="space-y-4 pt-4 border-t border-slate-200/50 dark:border-white/5 mt-4">
+											<h4 className="text-sm font-black uppercase italic text-slate-900 dark:text-white">
+												{form.app1Gender === "MALE" ? <>Groom <span style={{ color: themeColor }}>Documents</span> (Male)</> : form.app1Gender === "FEMALE" ? <>Bride / Wife <span style={{ color: themeColor }}>Documents</span> (Female)</> : <>Applicant 1 <span style={{ color: themeColor }}>Documents</span></>}
+											</h4>
+											<p className="text-[10px] text-slate-500 font-bold uppercase">{form.app1FullName || "Applicant 1"}</p>
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 items-start">
+												{app1Docs.map((d) => (
+													<PremiumDocumentUpload
+														key={d}
+														label={formatDocLabel(d, form.app1Gender)}
+														required={form.requiredDocs?.[d]}
+														file={form.files?.[d] || null}
+														previewUrl={form.previews?.[d]}
+														onFileSelect={(file) => handlePremiumFileSelect(file, d)}
+														onView={() => handleViewFile(form.files?.[d] || null, form.previews?.[d] || null, d)}
+														error={missingFiles[d] && !form.files?.[d] && !form.previews?.[d]}
+													/>
+												))}
+											</div>
+										</div>
+
+										{/* Applicant 2 Documents */}
+										<div className="space-y-4 pt-6 border-t border-slate-200/50 dark:border-white/5 mt-6">
+											<h4 className="text-sm font-black uppercase italic text-slate-900 dark:text-white">
+												{form.app2Gender === "MALE" ? <>Groom <span style={{ color: themeColor }}>Documents</span> (Male)</> : form.app2Gender === "FEMALE" ? <>Bride / Wife <span style={{ color: themeColor }}>Documents</span> (Female)</> : <>Applicant 2 <span style={{ color: themeColor }}>Documents</span></>}
+											</h4>
+											<p className="text-[10px] text-slate-500 font-bold uppercase">{form.app2FullName || "Applicant 2"}</p>
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 items-start">
+												{app2Docs.map((d) => (
+													<PremiumDocumentUpload
+														key={d}
+														label={formatDocLabel(d, form.app1Gender)}
+														required={form.requiredDocs?.[d]}
+														file={form.files?.[d] || null}
+														previewUrl={form.previews?.[d]}
+														onFileSelect={(file) => handlePremiumFileSelect(file, d)}
+														onView={() => handleViewFile(form.files?.[d] || null, form.previews?.[d] || null, d)}
+														error={missingFiles[d] && !form.files?.[d] && !form.previews?.[d]}
+													/>
+												))}
+											</div>
+										</div>
+
+										{/* General Documents */}
+										<div className="space-y-4 pt-6 border-t border-slate-200/50 dark:border-white/5 mt-6">
+											<h4 className="text-sm font-black uppercase italic text-slate-900 dark:text-white">General / Shared <span style={{ color: themeColor }}>Documents</span></h4>
+											<p className="text-[10px] text-slate-500 font-bold uppercase">Joint & Administrative Requirements</p>
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 items-start">
+												{generalDocs.map((d) => (
+													<PremiumDocumentUpload
+														key={d}
+														label={d}
+														required={form.requiredDocs?.[d]}
+														file={form.files?.[d] || null}
+														previewUrl={form.previews?.[d]}
+														onFileSelect={(file) => handlePremiumFileSelect(file, d)}
+														onView={() => handleViewFile(form.files?.[d] || null, form.previews?.[d] || null, d)}
+														error={missingFiles[d] && !form.files?.[d] && !form.previews?.[d]}
+													/>
+												))}
+											</div>
+										</div>
+
+										{/* Step Nav */}
+										<div className="flex justify-end gap-4 pt-8">
+											<Button variant="outline" onClick={prevStep} className="h-14 px-8 rounded-2xl font-black uppercase italic tracking-widest">Back</Button>
+											<Button onClick={nextStep} style={{ backgroundColor: themeColor }} className="h-14 px-10 rounded-2xl text-white font-black uppercase italic tracking-widest hover:opacity-90 transition-all">Next</Button>
+										</div>
+									</motion.div>
+								);
+							})()}
+
+							{/* Confirm Step */}
+							{currentStep === 'CONFIRM' && (
+								<motion.div
+									key="confirm-step"
+									initial={{ opacity: 0, scale: 0.95 }}
+									animate={{ opacity: 1, scale: 1 }}
+									exit={{ opacity: 0, scale: 1.05 }}
+									className="space-y-6 animate-in fade-in duration-300"
+								>
+									<h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">Review & <span style={{ color: themeColor }}>Submit</span></h3>
+									<div className="space-y-3">
+										<div className="text-sm font-bold">Applicants</div>
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+											<div className="p-4 rounded-2xl border bg-white dark:bg-[#071018] relative pt-8">
+												<span className="absolute top-2 left-4 text-[9px] font-black uppercase tracking-widest text-primary italic">
+													{form.app1Gender === "MALE" ? "Groom (Male)" : form.app1Gender === "FEMALE" ? "Bride / Wife (Female)" : "Applicant 1"}
+												</span>
+												<div className="text-sm font-black">{form.app1FullName}</div>
+												<div className="text-xs text-slate-600">{form.app1BirthDate} {form.app1BirthPlace ? `• ${form.app1BirthPlace}` : ''}</div>
+												<div className="text-xs text-slate-400">{form.app1Citizenship}</div>
+												<div className="text-xs text-slate-400 mt-1">Address: {form.informantAddress || "N/A"}</div>
+											</div>
+											<div className="p-4 rounded-2xl border bg-white dark:bg-[#071018] relative pt-8">
+												<span className="absolute top-2 left-4 text-[9px] font-black uppercase tracking-widest text-primary italic">
+													{form.app2Gender === "MALE" ? "Groom (Male)" : form.app2Gender === "FEMALE" ? "Bride / Wife (Female)" : "Applicant 2"}
+												</span>
+												<div className="text-sm font-black">{form.app2FullName || 'N/A'}</div>
+												<div className="text-xs text-slate-600">{form.app2BirthDate || ''} {form.app2BirthPlace ? `• ${form.app2BirthPlace}` : ''}</div>
+												<div className="text-xs text-slate-400">{form.app2Citizenship || ''}</div>
+												<div className="text-xs text-slate-400 mt-1">Address: {form.app2Address || "N/A"}</div>
+											</div>
+										</div>
+									</div>
+									{/* Payment Summary */}
+									<div className="mt-4">
+										<div className="p-4 rounded-2xl border border-slate-200/40 bg-slate-50 dark:bg-white/5">
+											<div className="flex items-center justify-between">
+												<div className="font-black uppercase text-sm">Payment Summary</div>
+												<div className="text-[12px] text-slate-500 italic">Payable now</div>
+											</div>
+											<div className="mt-3">
+												<div className="flex justify-between items-center">
+													<div className="text-xs text-slate-600">Misc Fee</div>
+													<div className="font-black">{formatCurrency(dbMiscFee)}</div>
+												</div>
+												<div className="flex justify-between items-center mt-3 border-t pt-3">
+													<div className="text-sm font-black">Total</div>
+													<div className="text-sm font-black text-amber-600">{formatCurrency(dbMiscFee)}</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									{/* Data Privacy Agreement panel */}
+									<div className="mt-4">
+										<div className={cn(
+											"p-4 rounded-2xl border flex items-start gap-4 transition-all duration-300",
+											(showSubmitErrors && !policyAccepted)
+												? "border-2 border-red-500"
+												: "border-slate-200/40 bg-slate-50 dark:bg-white/5"
 										)}>
 											<button
 												type="button"
-												aria-pressed={form.app2IsForeigner === true}
-												onClick={() => setApp2Foreigner(true)}
+												onClick={() => setPolicyOpen(true)}
 												className={cn(
-													"px-3 py-1 rounded-full text-sm font-bold transition",
-													form.app2IsForeigner === true ? "bg-amber-500 text-white" : "border border-slate-200 text-slate-700 bg-white dark:bg-[#0b1220]"
+													"w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all",
+													policyAccepted
+														? "bg-amber-500 border-amber-500 text-white"
+														: showSubmitErrors
+															? "border-2 border-red-500"
+															: "border-slate-300"
 												)}
 											>
-												Yes
+												{policyAccepted ? <Check className="w-3 h-3" /> : null}
 											</button>
-											<button
-												type="button"
-												aria-pressed={form.app2IsForeigner === false}
-												onClick={() => setApp2Foreigner(false)}
-												className={cn(
-													"px-3 py-1 rounded-full text-sm font-bold transition",
-													form.app2IsForeigner === false ? "bg-amber-500 text-white" : "border border-slate-200 text-slate-700 bg-white dark:bg-[#0b1220]"
-												)}
-											>
-												No
-											</button>
-										</div>
-										{missingInputs.app2IsForeigner && (
-											<div className="text-xs text-red-500 font-bold ml-3 italic uppercase tracking-wider">Required</div>
-										)}
-									</div>
-
-								</div>
-
-								{form.app2IsResident && (
-									<div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
-										{form.app2Resident ? (
-											<div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10">
-												<div className="flex items-center gap-3">
-
-													<div>
-														<p className="text-xs font-black uppercase italic">{form.app2FullName}</p>
-														<p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Mapandan Resident</p>
-													</div>
-												</div>
-												<Button
-													type="button"
-													variant="ghost"
-													onClick={handleClearApp2Resident}
-													className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-600 hover:bg-red-500/10 h-8 rounded-xl px-3"
-												>
-													Remove Resident
-												</Button>
+											<div className="flex-1 text-xs cursor-pointer select-none" onClick={() => setPolicyOpen(true)}>
+												<div className="font-black uppercase text-[11px] tracking-wider">DATA PRIVACY AND TERMS AGREEMENT</div>
+												<div className="text-[10px] text-slate-500 italic mt-1">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
 											</div>
-										) : (
-											<>
-												<Label className="text-[10px] font-black uppercase tracking-widest text-blue-500">Search Mapandan Records</Label>
-												<ResidentSearch onSelect={handleApp2Select} placeholder="Search by first or last name..." />
-											</>
-										)}
-									</div>
-								)}
-
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-									<div className="space-y-1.5">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Full Name <span className="text-red-500">*</span></Label>
-										<Input
-											placeholder="ENTER FULL NAME"
-											disabled={!!form.app2Resident}
-											className={cn(
-												"bg-slate-50 dark:bg-white/5 font-bold uppercase transition-all",
-												missingInputs.app2FullName ? "border-2 border-red-500" : "border-none",
-												!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
-											)}
-											value={form.app2FullName}
-											onChange={e => { setForm((p: any) => ({ ...p, app2FullName: e.target.value.toUpperCase() })); setMissingInputs((m) => ({ ...m, app2FullName: false })); }}
-										/>
-										{missingInputs.app2FullName && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
-									</div>
-									<div className="space-y-1.5">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date of Birth <span className="text-red-500">*</span></Label>
-										<Input
-											type="date"
-											disabled={!!form.app2Resident}
-											className={cn(
-												"bg-slate-50 dark:bg-white/5 font-bold transition-all",
-												missingInputs.app2BirthDate ? "border-2 border-red-500" : "border-none",
-												!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
-											)}
-											value={form.app2BirthDate}
-											onChange={e => { setForm((p: any) => ({ ...p, app2BirthDate: e.target.value })); setMissingInputs((m) => ({ ...m, app2BirthDate: false })); }}
-										/>
-										{missingInputs.app2BirthDate && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
-									</div>
-									<div className="space-y-1.5">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Place of Birth <span className="text-red-500">*</span></Label>
-										<Input
-											placeholder="ENTER PLACE"
-											disabled={!!form.app2Resident}
-											className={cn(
-												"bg-slate-50 dark:bg-white/5 font-bold uppercase transition-all",
-												missingInputs.app2BirthPlace ? "border-2 border-red-500" : "border-none",
-												!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
-											)}
-											value={form.app2BirthPlace}
-											onChange={e => { setForm((p: any) => ({ ...p, app2BirthPlace: e.target.value.toUpperCase() })); setMissingInputs((m) => ({ ...m, app2BirthPlace: false })); }}
-										/>
-										{missingInputs.app2BirthPlace && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
-									</div>
-									<div className="space-y-1.5">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Citizenship <span className="text-red-500">*</span></Label>
-										<Input
-											disabled={!!form.app2Resident}
-											className={cn(
-												"bg-slate-50 dark:bg-white/5 font-bold uppercase transition-all",
-												missingInputs.app2Citizenship ? "border-2 border-red-500" : "border-none",
-												!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
-											)}
-											value={form.app2Citizenship}
-											onChange={e => { setForm((p: any) => ({ ...p, app2Citizenship: e.target.value.toUpperCase() })); setMissingInputs((m) => ({ ...m, app2Citizenship: false })); }}
-										/>
-										{missingInputs.app2Citizenship && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
-									</div>
-									<div className="space-y-1.5">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sex <span className="text-red-500">*</span></Label>
-										<Select
-											disabled={!!form.app2Resident}
-											value={form.app2Gender}
-											onValueChange={(val) => {
-												if (resident?.gender) {
-													const app1Gender = resident.gender.toUpperCase();
-													if (val && val === app1Gender) {
-														toast.error("Same-sex marriage is not permitted. Both applicants must be of opposite sex.");
-														return;
-													}
-												}
-												setForm((prev: any) => ({ 
-													...prev, 
-													app2Gender: val,
-													app1Gender: val === "MALE" ? "FEMALE" : val === "FEMALE" ? "MALE" : prev.app1Gender
-												}));
-												setMissingInputs((m) => ({ ...m, app2Gender: false }));
-											}}
-										>
-											<SelectTrigger 
-												className={cn(
-													"w-full h-10 px-3 rounded-md font-bold uppercase text-xs transition-all text-left",
-													missingInputs.app2Gender ? "border-2 border-red-500" : "border-none",
-													form.app2Resident 
-														? "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed" 
-														: "bg-slate-50 dark:bg-white/5"
-												)}
-											>
-												<SelectValue placeholder="SELECT GENDER" />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="MALE">Groom (Male)</SelectItem>
-												<SelectItem value="FEMALE">Bride / Wife (Female)</SelectItem>
-											</SelectContent>
-										</Select>
-										{missingInputs.app2Gender && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
-										{form.app1Gender && form.app2Gender && form.app1Gender === form.app2Gender && (
-											<div className="text-[10px] text-red-600 font-black uppercase tracking-widest mt-1">
-												⚠️ Same-sex marriage is not permitted
-											</div>
-										)}
-									</div>
-									<div className="space-y-1.5 col-span-1 md:col-span-2">
-										<Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Address <span className="text-red-500">*</span></Label>
-										<Input
-											placeholder="ENTER ADDRESS"
-											disabled={!!form.app2Resident}
-											className={cn(
-												"bg-slate-50 dark:bg-white/5 font-bold uppercase transition-all",
-												missingInputs.app2Address ? "border-2 border-red-500" : "border-none",
-												!!form.app2Resident && "bg-slate-100 dark:bg-white/5 opacity-75 cursor-not-allowed"
-											)}
-											value={form.app2Address || ""}
-											onChange={e => {
-												setForm((p: any) => ({ ...p, app2Address: e.target.value.toUpperCase() }));
-												setMissingInputs((m) => ({ ...m, app2Address: false }));
-											}}
-										/>
-										{missingInputs.app2Address && <div className="text-[10px] text-red-500 font-bold italic uppercase tracking-wider">Required</div>}
-									</div>
-								</div>
-							</Card>
-						</>
-					)}
-
-					{/* Details Step */}
-					{currentStep === 'DETAILS' && (() => {
-						const app1Docs = docsToShow.filter(d => d.includes("Applicant 1"));
-						const app2Docs = docsToShow.filter(d => d.includes("Applicant 2") || d.toLowerCase().includes("legal capacity"));
-						const generalDocs = docsToShow.filter(d => !d.includes("Applicant 1") && !d.includes("Applicant 2") && !d.toLowerCase().includes("legal capacity"));
-
-						return (
-							<div className="space-y-6 animate-in fade-in duration-300">
-								<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-4">
-									<h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">Required Documents</h3>
-									<p className="text-xs text-slate-400 font-bold italic">Please upload the documents prepared by each applicant (max 5MB each).</p>
-								</Card>
-
-								{/* Applicant 1 Documents */}
-								<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-4">
-									<div className="flex items-center gap-3 border-b border-slate-100 dark:border-white/5 pb-3">
-
-										<div>
-											<h4 className="text-sm font-black uppercase italic text-slate-900 dark:text-white">
-												{form.app1Gender === "MALE" ? "Groom Documents (Male)" : form.app1Gender === "FEMALE" ? "Bride / Wife Documents (Female)" : "Applicant 1 Documents"}
-											</h4>
-											<p className="text-[10px] text-slate-500 font-bold uppercase">{form.app1FullName || "Applicant 1"}</p>
+											<button type="button" onClick={() => setPolicyOpen(true)} className="text-[10px] font-black italic text-amber-600">Review</button>
 										</div>
 									</div>
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-										{app1Docs.map((d) => (
-											<PremiumDocumentUpload
-												key={d}
-												label={formatDocLabel(d, form.app1Gender)}
-												required={form.requiredDocs?.[d]}
-												file={form.files?.[d] || null}
-												previewUrl={form.previews?.[d]}
-												onFileSelect={(file) => handlePremiumFileSelect(file, d)}
-												onView={() => handleViewFile(form.files?.[d] || null, form.previews?.[d] || null, d)}
-												error={missingFiles[d] && !form.files?.[d] && !form.previews?.[d]}
-											/>
-										))}
-									</div>
-								</Card>
 
-								{/* Applicant 2 Documents */}
-								<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-4">
-									<div className="flex items-center gap-3 border-b border-slate-100 dark:border-white/5 pb-3">
-
-										<div>
-											<h4 className="text-sm font-black uppercase italic text-slate-900 dark:text-white">
-												{form.app2Gender === "MALE" ? "Groom Documents (Male)" : form.app2Gender === "FEMALE" ? "Bride / Wife Documents (Female)" : "Applicant 2 Documents"}
-											</h4>
-											<p className="text-[10px] text-slate-500 font-bold uppercase">{form.app2FullName || "Applicant 2"}</p>
-										</div>
+									{/* Step Nav */}
+									<div className="flex justify-end gap-4 pt-8">
+										<Button variant="outline" onClick={prevStep} className="h-14 px-8 rounded-2xl font-black uppercase italic tracking-widest">Back</Button>
+										<Button onClick={handleSubmit} disabled={!policyAccepted || submitting} style={{ backgroundColor: themeColor }} className="h-14 px-10 rounded-2xl text-white font-black uppercase italic tracking-widest hover:opacity-90 transition-all disabled:opacity-50">
+											{submitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
+											Submit Application
+										</Button>
 									</div>
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-										{app2Docs.map((d) => (
-											<PremiumDocumentUpload
-												key={d}
-												label={formatDocLabel(d, form.app1Gender)}
-												required={form.requiredDocs?.[d]}
-												file={form.files?.[d] || null}
-												previewUrl={form.previews?.[d]}
-												onFileSelect={(file) => handlePremiumFileSelect(file, d)}
-												onView={() => handleViewFile(form.files?.[d] || null, form.previews?.[d] || null, d)}
-												error={missingFiles[d] && !form.files?.[d] && !form.previews?.[d]}
-											/>
-										))}
-									</div>
-								</Card>
-
-								{/* General Documents */}
-								<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-4">
-									<div className="flex items-center gap-3 border-b border-slate-100 dark:border-white/5 pb-3">
-
-										<div>
-											<h4 className="text-sm font-black uppercase italic text-slate-900 dark:text-white">General / Shared Documents</h4>
-											<p className="text-[10px] text-slate-500 font-bold uppercase">Joint & Administrative Requirements</p>
-										</div>
-									</div>
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-										{generalDocs.map((d) => (
-											<PremiumDocumentUpload
-												key={d}
-												label={d}
-												required={form.requiredDocs?.[d]}
-												file={form.files?.[d] || null}
-												previewUrl={form.previews?.[d]}
-												onFileSelect={(file) => handlePremiumFileSelect(file, d)}
-												onView={() => handleViewFile(form.files?.[d] || null, form.previews?.[d] || null, d)}
-												error={missingFiles[d] && !form.files?.[d] && !form.previews?.[d]}
-											/>
-										))}
-									</div>
-								</Card>
-							</div>
-						);
-					})()}
-
-					{/* Confirm Step */}
-					{currentStep === 'CONFIRM' && (
-						<Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-4">
-							<h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">Review & Submit</h3>
-							<div className="space-y-3">
-								<div className="text-sm font-bold">Applicants</div>
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									<div className="p-4 rounded-2xl border bg-white dark:bg-[#071018] relative pt-8">
-										<span className="absolute top-2 left-4 text-[9px] font-black uppercase tracking-widest text-primary italic">
-											{form.app1Gender === "MALE" ? "Groom (Male)" : form.app1Gender === "FEMALE" ? "Bride / Wife (Female)" : "Applicant 1"}
-										</span>
-										<div className="text-sm font-black">{form.app1FullName}</div>
-										<div className="text-xs text-slate-600">{form.app1BirthDate} {form.app1BirthPlace ? `• ${form.app1BirthPlace}` : ''}</div>
-										<div className="text-xs text-slate-400">{form.app1Citizenship}</div>
-										<div className="text-xs text-slate-400 mt-1">Address: {form.informantAddress || "N/A"}</div>
-									</div>
-									<div className="p-4 rounded-2xl border bg-white dark:bg-[#071018] relative pt-8">
-										<span className="absolute top-2 left-4 text-[9px] font-black uppercase tracking-widest text-primary italic">
-											{form.app2Gender === "MALE" ? "Groom (Male)" : form.app2Gender === "FEMALE" ? "Bride / Wife (Female)" : "Applicant 2"}
-										</span>
-										<div className="text-sm font-black">{form.app2FullName || 'N/A'}</div>
-										<div className="text-xs text-slate-600">{form.app2BirthDate || ''} {form.app2BirthPlace ? `• ${form.app2BirthPlace}` : ''}</div>
-										<div className="text-xs text-slate-400">{form.app2Citizenship || ''}</div>
-									</div>
-								</div>
-								<div className="mt-3 text-sm font-bold">Documents</div>
-								<ul className="text-xs list-disc list-inside space-y-2">
-									{REQUIRED_DOCS.filter(d => form.requiredDocs?.[d]).map(d => (
-										<li key={d} className="flex items-center gap-3">
-											<div
-												onClick={() => {
-													if (form.files?.[d] || form.previews?.[d]) {
-														handleViewFile(form.files?.[d] || null, form.previews?.[d] || null, d);
-													}
-												}}
-												className={cn(
-													"flex-1",
-													(form.files?.[d] || form.previews?.[d]) ? "cursor-pointer hover:opacity-80" : ""
-												)}
-											>
-												{formatDocLabel(d, form.app1Gender)} {form.files?.[d] ? ` — ${form.files[d]?.name}` : ''}
-												{(form.files?.[d] || form.previews?.[d]) && (
-													<span className="text-[9px] text-amber-600 font-bold ml-1.5 select-none">(Click to Preview)</span>
-												)}
-											</div>
-											{form.files?.[d] || form.previews?.[d] ? (
-												<div
-													onClick={() => handleViewFile(form.files?.[d] || null, form.previews?.[d] || null, d)}
-													className="w-16 h-12 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shrink-0 cursor-pointer hover:ring-2 hover:ring-amber-500/50 transition-all flex items-center justify-center bg-slate-50 dark:bg-white/5 relative group/thumb"
-												>
-													{checkIsPdf(form.files?.[d], form.previews?.[d]) ? (
-														<FileText className="w-6 h-6 text-red-500" />
-													) : (
-														<img src={form.previews?.[d] || undefined} alt="Document thumbnail" className="w-full h-full object-cover" />
-													)}
-													<div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
-														<Eye className="w-4 h-4 text-white" />
-													</div>
-												</div>
-											) : null}
-										</li>
-									))}
-								</ul>
-							</div>
-							{/* Payment Summary */}
-							<div className="mt-4">
-								<div className="p-4 rounded-2xl border border-slate-200/40 bg-slate-50 dark:bg-white/5">
-									<div className="flex items-center justify-between">
-										<div className="font-black uppercase text-sm">Payment Summary</div>
-										<div className="text-[12px] text-slate-500 italic">Payable now</div>
-									</div>
-									<div className="mt-3">
-										<div className="flex justify-between items-center">
-											<div className="text-xs text-slate-600">Misc Fee</div>
-											<div className="font-black">{formatCurrency(dbMiscFee)}</div>
-										</div>
-										<div className="flex justify-between items-center mt-3 border-t pt-3">
-											<div className="text-sm font-black">Total</div>
-											<div className="text-sm font-black text-amber-600">{formatCurrency(dbMiscFee)}</div>
-										</div>
-									</div>
-								</div>
-							</div>
-
-							{/* Data Privacy Agreement panel */}
-							<div className="mt-4">
-								<div className={cn(
-									"p-4 rounded-2xl border flex items-start gap-4 transition-all duration-300",
-									(showSubmitErrors && !policyAccepted)
-										? "border-2 border-red-500"
-										: "border-slate-200/40 bg-slate-50 dark:bg-white/5"
-								)}>
-									<button
-										type="button"
-										onClick={() => setPolicyOpen(true)}
-										className={cn(
-											"w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all",
-											policyAccepted
-												? "bg-amber-500 border-amber-500 text-white"
-												: showSubmitErrors
-													? "border-2 border-red-500"
-													: "border-slate-300"
-										)}
-									>
-										{policyAccepted ? <Check className="w-3 h-3" /> : null}
-									</button>
-									<div className="flex-1 text-xs cursor-pointer select-none" onClick={() => setPolicyOpen(true)}>
-										<div className="font-black uppercase text-[11px] tracking-wider">DATA PRIVACY AND TERMS AGREEMENT</div>
-										<div className="text-[10px] text-slate-500 italic mt-1">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
-									</div>
-									<button type="button" onClick={() => setPolicyOpen(true)} className="text-[10px] font-black italic text-amber-600">Review</button>
-								</div>
-							</div>
-						</Card>
-					)}
-
-					{/* Navigation Buttons */}
-					<div className="flex justify-end gap-4">
-						{currentStep !== 'IDENTITY' ? (
-							<Button variant="outline" onClick={prevStep} className="h-14 px-8 rounded-2xl font-black uppercase italic tracking-widest">Back</Button>
-						) : (
-							<Button variant="outline" onClick={() => router.back()} className="h-14 px-8 rounded-2xl font-black uppercase italic tracking-widest">Cancel</Button>
-						)}
-
-						{currentStep !== 'CONFIRM' ? (
-							<Button onClick={nextStep} style={{ backgroundColor: themeColor }} className="h-14 px-10 rounded-2xl text-white font-black uppercase italic tracking-widest hover:opacity-90 transition-all">Next</Button>
-						) : (
-							<Button onClick={handleSubmit} disabled={!policyAccepted || submitting} style={{ backgroundColor: themeColor }} className="h-14 px-10 rounded-2xl text-white font-black uppercase italic tracking-widest hover:opacity-90 transition-all disabled:opacity-50">
-								{submitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
-								Submit Application
-							</Button>
-						)}
-					</div>
+								</motion.div>
+							)}
+						</AnimatePresence>
+					</Card>
 				</div>
 			</div>
 		</>

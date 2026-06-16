@@ -16,9 +16,15 @@ export async function uploadFile(
     contentType?: string
 ): Promise<string | null> {
     try {
+        // Sanitize path segments to replace special/non-ASCII characters with underscores
+        const sanitizedPath = path
+            .split('/')
+            .map(segment => segment.replace(/[^a-zA-Z0-9.-]/g, "_").replace(/_+/g, "_"))
+            .join('/');
+
         const { data, error } = await supabaseAdmin.storage
             .from(bucket)
-            .upload(path, file, {
+            .upload(sanitizedPath, file, {
                 upsert: true, // Overwrite if exists
                 contentType: contentType || (file as any).type || 'application/octet-stream'
             });

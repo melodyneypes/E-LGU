@@ -665,14 +665,16 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                                                 </div>
                                                             )}
                                                             <div className="flex gap-2">
-                                                                <Button
-                                                                    variant="outline"
-                                                                    onClick={() => setIsRequestingRevision(true)}
-                                                                    disabled={actionLoading || isMaxed || (!transaction.paymentReference && !transaction.paymentProofUrl)}
-                                                                    className="flex-1 h-11 border-dashed rounded-xl font-bold text-[10px] uppercase tracking-wider text-amber-500 hover:text-amber-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                                                                >
-                                                                    {isMaxed ? "Revise (Maxed)" : `Revise (${revCount}/3)`}
-                                                                </Button>
+                                                                {(transaction.revisionCount || 0) < 3 && (
+                                                                    <Button
+                                                                                                                                        variant="outline"
+                                                                                                                                        onClick={() => setIsRequestingRevision(true)}
+                                                                                                                                        disabled={actionLoading || isMaxed || (!transaction.paymentReference && !transaction.paymentProofUrl)}
+                                                                                                                                        className="flex-1 h-11 border-dashed rounded-xl font-bold text-[10px] uppercase tracking-wider text-amber-500 hover:text-amber-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                                                                                                                    >
+                                                                                                                                        {isMaxed ? "Revise (Maxed)" : `Revise (${revCount}/3)`}
+                                                                                                                                    </Button>
+                                                                )}
                                                                 <Button
                                                                     variant="outline"
                                                                     onClick={() => setIsRejecting(true)}

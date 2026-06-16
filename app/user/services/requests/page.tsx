@@ -267,7 +267,7 @@ export default function UserServiceRequestsPage() {
                                         <FileText className="w-5 h-5 md:w-7 md:h-7 transition-colors" />
                                     </div>
                                     <div className="space-y-0.5 md:space-y-1 min-w-0">
-                                        <h3 className="text-lg md:text-2xl font-black uppercase tracking-tighter italic truncate transition-colors text-slate-900 dark:text-white group-hover:text-primary">
+                                        <h3 className="text-lg md:text-2xl font-black uppercase tracking-tighter italic truncate transition-colors text-slate-900 dark:text-white group-hover:text-primary py-1 pr-4 leading-normal">
                                             {req.type?.name || "Service Request"}
                                         </h3>
                                         <div className="flex flex-wrap items-center gap-2 md:gap-4 text-slate-400">

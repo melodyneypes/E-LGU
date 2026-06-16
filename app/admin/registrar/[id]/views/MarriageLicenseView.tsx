@@ -18,8 +18,7 @@ import {
     ChevronDown,
     ChevronUp,
     Copy,
-    Hash,
-    Home
+    Hash
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -32,14 +31,6 @@ import ResidentIdentityProfile from "@/app/admin/treasury/[id]/components/Reside
 import TransactionInfoCard from "@/app/admin/treasury/[id]/components/TransactionInfoCard";
 import RejectionRevisionControls from "@/app/admin/treasury/[id]/components/RejectionRevisionControls";
 import { cn } from "@/lib/utils";
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 
 export default function MarriageLicenseView(props: TreasuryViewProps) {
     const {
@@ -237,30 +228,13 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
 
                 {/* Back Button & Navigation */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-in fade-in duration-300">
-                    <Breadcrumb>
-                        <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
-                            <BreadcrumbItem>
-                                <BreadcrumbLink asChild>
-                                    <Link href="/admin" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
-                                        <Home className="w-3.5 h-3.5 mb-0.5" />
-                                        Home
-                                    </Link>
-                                </BreadcrumbLink>
-                            </BreadcrumbItem>
-                            <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
-                            <BreadcrumbItem>
-                                <BreadcrumbLink asChild>
-                                    <Link href={backUrl} className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
-                                        Registrar
-                                    </Link>
-                                </BreadcrumbLink>
-                            </BreadcrumbItem>
-                            <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
-                            <BreadcrumbItem>
-                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic text-emerald-700 dark:text-emerald-400">Marriage License View</BreadcrumbPage>
-                            </BreadcrumbItem>
-                        </BreadcrumbList>
-                    </Breadcrumb>
+                    <Link
+                        href={backUrl}
+                        className="group flex items-center gap-2 bg-white/80 dark:bg-white/5 backdrop-blur-md px-5 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-emerald-700 dark:hover:text-emerald-400 transition-all duration-300 shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-white/10 italic"
+                    >
+                        <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform duration-300" />
+                        Back to Registrar
+                    </Link>
                     <div className="flex items-center gap-2">
                         <Badge variant="outline" className="px-3 py-1 text-[9px] font-black uppercase tracking-widest border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 rounded-full">
                             ID: {transaction.id}
@@ -923,12 +897,14 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
                                     </Button>
 
                                     <div className="flex gap-2">
-                                        <Button
-                                            onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
-                                            className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
-                                        >
-                                            Revision
-                                        </Button>
+                                        {(transaction.revisionCount || 0) < 3 && (
+                                            <Button
+                                                                                        onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
+                                                                                        className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
+                                                                                    >
+                                                                                        Revision
+                                                                                    </Button>
+                                        )}
                                         <Button
                                             onClick={() => { setIsRejecting(true); setRemarks(""); }}
                                             className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"

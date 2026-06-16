@@ -22,6 +22,17 @@ interface BirthCertificateRequestDetailsProps {
         email?: string;
         contactNumber?: string;
         authorizationLetter?: string;
+        gender?: string;
+        sex?: string;
+        children?: Array<{
+            firstName?: string;
+            middleName?: string;
+            lastName?: string;
+            suffix?: string;
+            sex?: string;
+            gender?: string;
+            birthTime?: string;
+        }>;
     };
 }
 
@@ -33,6 +44,15 @@ export function BirthCertificateRequestDetails({ additionalData }: BirthCertific
         } catch {
             return dateStr;
         }
+    };
+
+    const getSexValue = () => {
+        if (additionalData.gender) return additionalData.gender;
+        if (additionalData.sex) return additionalData.sex;
+        if (Array.isArray(additionalData.children) && additionalData.children.length > 0) {
+            return additionalData.children.map((c: any) => c.sex || c.gender || "N/A").join(" & ");
+        }
+        return "N/A";
     };
 
     return (
@@ -51,15 +71,23 @@ export function BirthCertificateRequestDetails({ additionalData }: BirthCertific
                             <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">{"Child's Full Name"}</p>
                             <p className="text-sm font-bold uppercase text-slate-800 dark:text-slate-100">{additionalData.subjectName || "N/A"}</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                             <div>
                                 <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Date of Birth</p>
                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{formatDate(additionalData.dateOfEvent)}</p>
                             </div>
                             <div>
+                                <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Sex</p>
+                                <p className="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">{getSexValue()}</p>
+                            </div>
+                            <div>
                                 <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Place of Birth</p>
                                 <p className="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">{additionalData.placeOfEvent || "N/A"}</p>
                             </div>
+                        </div>
+                        <div className="pt-2 border-t border-slate-100 dark:border-white/5">
+                            <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Relationship to Child</p>
+                            <p className="text-xs font-black uppercase text-primary italic">{additionalData.relationship || "N/A"}</p>
                         </div>
                     </div>
                 </div>
@@ -80,15 +108,9 @@ export function BirthCertificateRequestDetails({ additionalData }: BirthCertific
                                 <p className="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">{additionalData.motherName || "—"}</p>
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Relationship</p>
-                                <p className="text-xs font-black uppercase text-primary italic">{additionalData.relationship || "N/A"}</p>
-                            </div>
-                            <div>
-                                <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Contact Number</p>
-                                <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{additionalData.contactNumber || "N/A"}</p>
-                            </div>
+                        <div className="pt-2 border-t border-slate-100 dark:border-white/5">
+                            <p className="text-[8px] md:text-[9px] uppercase font-semibold text-slate-400 tracking-widest">Contact Number</p>
+                            <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{additionalData.contactNumber || "N/A"}</p>
                         </div>
                         {additionalData.authorizationLetter && (
                             <div className="pt-2 border-t border-slate-100 dark:border-white/5">

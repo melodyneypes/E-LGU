@@ -59,6 +59,9 @@ import { releaseDeathCertificate, evaluateDeathCertificateTransaction } from "@/
 import { releaseMarriageLicense, evaluateMarriageLicenseTransaction } from "@/app/admin/transactions/marriage-license-actions";
 import { releaseMarriageRegistry, evaluateMarriageRegistrationTransaction } from "@/app/admin/transactions/marriage-regis-actions";
 import { evaluateStudentCedulaTransaction } from "@/app/admin/transactions/student-actions";
+import { releaseMarriagePsaEndorsement } from "@/app/admin/transactions/marriage-endorsement-actions";
+import { releaseBirthPsaEndorsement } from "@/app/admin/transactions/birth-endorsement-actions";
+import { releaseDeathPsaEndorsement } from "@/app/admin/transactions/death-endorsement-actions";
 import { cn } from "@/lib/utils";
 import { calculateCedula } from "@/lib/cedula";
 import { calculateBusinessPermit } from "@/lib/business-permit";
@@ -788,7 +791,13 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                         ? await releaseBirthRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
                         : typeCode === "LCR_MARRIAGE_LICENSE"
                             ? await releaseMarriageLicense(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                            : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
+                            : typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT"
+                                ? await releaseMarriagePsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                : typeCode === "LCR_PSA_ENDORSEMENT"
+                                    ? await releaseBirthPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                    : typeCode === "LCR_DEATH_PSA_ENDORSEMENT"
+                                        ? await releaseDeathPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                        : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
             if (res.success) {
                 const status = res.data?.status;
                 const message = status === "FOR_PICKING"
@@ -892,7 +901,12 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         );
     }
 
-    if ((typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT") && !["PAID", "PENDING_PAYMENT_VERIFICATION"].includes(transaction?.status)) {
+    const allowedStatuses = ["PAID", "PENDING_PAYMENT_VERIFICATION"];
+    if (typeCode === "LCR_DEATH_PSA_ENDORSEMENT") {
+        allowedStatuses.push("FOR_REQUESTING");
+    }
+
+    if ((typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT") && !allowedStatuses.includes(transaction?.status)) {
         return (
             <div className="min-h-screen bg-white dark:bg-[#0c111d] flex flex-col items-center justify-center p-8 text-center space-y-8 animate-in fade-in duration-700">
                 <div className="relative">
@@ -1287,6 +1301,23 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 }
             }
 
+            if (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_ENDORSEMENT" || typeCode.includes("PSA_ENDORSEMENT")) {
+                const idFront = additional.validIdFront || additional.idFrontUrl || resident.idFrontUrl || transaction.user?.residentProfile?.idFrontUrl;
+                const idBack = additional.validIdBack || additional.idBackUrl || resident.idBackUrl || transaction.user?.residentProfile?.idBackUrl;
+                if (idFront) docs.push({ url: idFront, label: "Government ID (Front)" });
+                if (idBack) docs.push({ url: idBack, label: "Government ID (Back)" });
+                if (additional.psaNegativeCert) {
+                    docs.push({ url: additional.psaNegativeCert, label: "PSA Negative Certification" });
+                }
+                if (additional.form1a) docs.push({ url: additional.form1a, label: "Form 1A (Birth PSA Endorsement)" });
+                if (additional.form2a) docs.push({ url: additional.form2a, label: "Form 2A (Death PSA Endorsement)" });
+                if (additional.form3a) docs.push({ url: additional.form3a, label: "Form 3A (Marriage PSA Endorsement)" });
+                if (additional.authorizationLetter) {
+                    docs.push({ url: additional.authorizationLetter, label: "Authorization Letter" });
+                }
+                return docs;
+            }
+
             // --- Marriage License Application ---
             if (typeCode === "LCR_MARRIAGE_LICENSE") {
                 const licenseDocs = [
@@ -1511,7 +1542,13 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                                     ? releaseMarriageRegistry
                                     : typeCode === "LCR_MARRIAGE_LICENSE"
                                         ? releaseMarriageLicense
-                                        : releaseCedula;
+                                        : typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT"
+                                            ? releaseMarriagePsaEndorsement
+                                            : typeCode === "LCR_PSA_ENDORSEMENT"
+                                                ? releaseBirthPsaEndorsement
+                                                : typeCode === "LCR_DEATH_PSA_ENDORSEMENT"
+                                                    ? releaseDeathPsaEndorsement
+                                                    : releaseCedula;
                 const rel = await releaseFn(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "");
                 if (rel.success) {
                     toast.success(isLCR || isBusinessPermit ? "Proceeding to Re-Inspection" : "Proceeding to Processing");
@@ -1551,7 +1588,13 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                                     ? releaseMarriageRegistry
                                     : typeCode === "LCR_MARRIAGE_LICENSE"
                                         ? releaseMarriageLicense
-                                        : releaseCedula;
+                                        : typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT"
+                                            ? releaseMarriagePsaEndorsement
+                                            : typeCode === "LCR_PSA_ENDORSEMENT"
+                                                ? releaseBirthPsaEndorsement
+                                                : typeCode === "LCR_DEATH_PSA_ENDORSEMENT"
+                                                    ? releaseDeathPsaEndorsement
+                                                    : releaseCedula;
                 const rel = await releaseFn(
                     transaction.id, 
                     ctcNumber || transaction?.cedula?.ctcNumber || "",

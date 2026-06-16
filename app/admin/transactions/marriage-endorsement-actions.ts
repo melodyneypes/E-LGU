@@ -13,7 +13,7 @@ async function getSession() {
     return await getServerSession(authOptions);
 }
 
-export async function releaseBirthPsaEndorsement(
+export async function releaseMarriagePsaEndorsement(
     id: string,
     registryNumber: string,
     eCopyUrl?: string,
@@ -36,7 +36,7 @@ export async function releaseBirthPsaEndorsement(
             include: {
                 type: true,
                 user: true,
-                birthPsaEndorsementRequest: true
+                marriagePsaEndorsementRequest: true
             }
         });
 
@@ -75,37 +75,39 @@ export async function releaseBirthPsaEndorsement(
             }
         }
 
-        const bpeExisting = (transaction as any).birthPsaEndorsementRequest;
-        if (!bpeExisting && ["RELEASED", "FOR_PICKING", "FOR_CLAIM"].includes(targetStatus)) {
+        const mpeExisting = (transaction as any).marriagePsaEndorsementRequest;
+        if (!mpeExisting && ["RELEASED", "FOR_PICKING", "FOR_CLAIM"].includes(targetStatus)) {
             const src: any = additionalData || {};
-
-            // Required fields from birth-psa-endorsement form
-            const subjectFullName = src.subjectFullName || src.subjectName || "—";
-            const subjectDateOfBirth = src.subjectDateOfBirth ? new Date(src.subjectDateOfBirth) : null;
-            const mothersMaidenName = src.mothersMaidenName || null;
-
+            
+            // Required fields from marriage-psa-endorsement form
+            const husbandFullName = src.husbandFullName || "—";
+            const wifeFullName = src.wifeFullName || "—";
+            const dateOfMarriage = src.dateOfMarriage ? new Date(src.dateOfMarriage) : null;
+            const placeOfMarriage = src.placeOfMarriage || "—";
+            
             const relationship = src.relationship || "RELATIVE";
             const contactNumber = src.contactNumber || "—";
             const email = src.email || null;
-
+            
             const psaNegativeCert = src.psaNegativeCert || "";
-            const form1a = src.form1a || "";
+            const form3a = src.form3a || "";
 
-            if (subjectFullName) {
-                const generatedRegistryNumber = registryNumber?.trim() || src.registryNumber || `REQ-BIRTH-PSA-${new Date().getFullYear()}-${id.slice(-6).toUpperCase()}`;
+            if (husbandFullName && wifeFullName && dateOfMarriage && placeOfMarriage) {
+                const generatedRegistryNumber = registryNumber?.trim() || src.registryNumber || `REQ-MARRIAGE-PSA-${new Date().getFullYear()}-${id.slice(-6).toUpperCase()}`;
                 try {
-                    await prisma.birthPsaEndorsementRequest.create({
+                    await prisma.marriagePsaEndorsementRequest.create({
                         data: {
                             transactionId: id,
                             registryNumber: generatedRegistryNumber,
-                            subjectFullName,
-                            subjectDateOfBirth,
-                            mothersMaidenName,
+                            husbandFullName,
+                            wifeFullName,
+                            dateOfMarriage,
+                            placeOfMarriage,
                             relationship,
                             contactNumber,
                             email,
                             psaNegativeCert,
-                            form1a,
+                            form3a,
                             informantFirstName: src.informantFirstName || "",
                             informantMiddleName: src.informantMiddleName || null,
                             informantLastName: src.informantLastName || "",
@@ -118,11 +120,11 @@ export async function releaseBirthPsaEndorsement(
                             informantAddress: src.informantAddress || null,
                             issuedBy: user.name || "System Administrator",
                             documentUrl: eCopyUrl || transaction.eCopyUrl || null,
-                            verificationId: `VER-BPE-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`
+                            verificationId: `VER-MPE-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`
                         }
                     });
                 } catch (createErr) {
-                    console.error("Failed to create BirthPsaEndorsementRequest:", createErr);
+                    console.error("Failed to create MarriagePsaEndorsementRequest:", createErr);
                 }
             }
         }
@@ -154,7 +156,7 @@ export async function releaseBirthPsaEndorsement(
         revalidatePath("/user/services");
         return { success: true, data: { status: targetStatus } };
     } catch (error: any) {
-        console.error("Release birth psa endorsement error:", error);
-        return { success: false, error: error?.message || "Failed to release birth psa endorsement." };
+        console.error("Release marriage psa endorsement error:", error);
+        return { success: false, error: error?.message || "Failed to release marriage psa endorsement." };
     }
 }

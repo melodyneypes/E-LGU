@@ -105,7 +105,7 @@ function formatPHDateTime(date: string | Date): string {
         day: "numeric",
         hour: "numeric",
         minute: "2-digit",
-        hour12: false,
+        hour12: true,
     }).format(new Date(date));
 }
 import {
@@ -134,6 +134,7 @@ import { DeathCertificateRequestDetails, DeathCertificateVerificationCard } from
 import { DeathRegistrationRequestDetails, DeathRegistrationVerificationCard } from "./death-registration";
 import { MarriageCertificateRequestDetails, MarriageCertificateVerificationCard } from "./marriage-certificate-request";
 import { MarriageLicenseRequestDetails } from "./marriage-license-request";
+import { PsaEndorsementRequestDetails } from "./psa-endorsement-request";
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
     ssr: false,
@@ -968,6 +969,12 @@ export default function RequestHubPage() {
             if (addData.affidavitDelay) lcrDocs.push({ label: "Affidavit of Delayed Registration", url: addData.affidavitDelay });
             if (addData.marriageLicense) lcrDocs.push({ label: "Certified Copy of Marriage License", url: addData.marriageLicense });
 
+            // PSA Endorsements (Birth, Death, Marriage)
+            if (addData.psaNegativeCert) lcrDocs.push({ label: "PSA Negative Certification (Endorsement)", url: addData.psaNegativeCert });
+            if (addData.form1a) lcrDocs.push({ label: "Form 1A (Birth PSA Endorsement)", url: addData.form1a });
+            if (addData.form2a) lcrDocs.push({ label: "Form 2A (Death PSA Endorsement)", url: addData.form2a });
+            if (addData.form3a) lcrDocs.push({ label: "Form 3A (Marriage PSA Endorsement)", url: addData.form3a });
+
             // Shared LCR IDs
             const idFront = addData.validIdFront || addData.validIdFrontUrl || addData.idFrontUrl || residentIdFront || request?.user?.residentProfile?.idFrontUrl;
             const idBack = addData.validIdBack || addData.validIdBackUrl || addData.idBackUrl || residentIdBack || request?.user?.residentProfile?.idBackUrl;
@@ -1567,7 +1574,11 @@ export default function RequestHubPage() {
                                                                     "Negative Certificate from PSA (Marriage)": "psaNeg",
                                                                     "Certified Copy of Marriage License": "marriageLicense",
                                                                     "Valid ID (Front)": "validIdFront",
-                                                                    "Valid ID (Back)": "validIdBack"
+                                                                    "Valid ID (Back)": "validIdBack",
+                                                                    "Form 1A (Birth PSA Endorsement)": "form1a",
+                                                                    "Form 2A (Death PSA Endorsement)": "form2a",
+                                                                    "Form 3A (Marriage PSA Endorsement)": "form3a",
+                                                                    "PSA Negative Certification (Endorsement)": "psaNegativeCert"
                                                                 };
                                                                 const fileKey = labelKeyMap[doc.label] || `doc_${idx}`;
                                                                 return (
@@ -1676,6 +1687,9 @@ export default function RequestHubPage() {
                                     )}
                                     {isLcrMarriageLicense && (
                                         <MarriageLicenseRequestDetails additionalData={additionalData} />
+                                    )}
+                                    {isPsaEndorsement && (
+                                        <PsaEndorsementRequestDetails typeCode={typeCode} additionalData={additionalData} />
                                     )}
 
                                     {request.type?.code.startsWith("BUSINESS_PERMIT") && (

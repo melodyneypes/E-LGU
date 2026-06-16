@@ -141,7 +141,7 @@ const REGISTRY_SECTIONS = [
 ];
 
 export default function CivilRegistryPage() {
-    const [themeColor, setThemeColor] = React.useState("theme_color");
+    const [themeColor, setThemeColor] = React.useState("var(--primary-theme)");
 
     React.useEffect(() => {
         getSystemSettingAction("theme_color").then((res) => {
@@ -156,7 +156,7 @@ export default function CivilRegistryPage() {
             <style dangerouslySetInnerHTML={{
                 __html: `
                 .theme-icon-bg {
-                    background-color: ${themeColor}1a !important; /* 10% opacity */
+                    background-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 10%, transparent)" : `${themeColor}1a`} !important; /* 10% opacity */
                 }
                 .theme-icon-text {
                     color: ${themeColor} !important;
@@ -206,7 +206,7 @@ export default function CivilRegistryPage() {
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 px-1 md:px-0">
                     <div className="space-y-1 md:space-y-2">
                         <h1 className="text-4xl md:text-7xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none select-none">
-                            CIVIL <span className="text-primary underline decoration-[6px] md:decoration-8 decoration-primary/20 underline-offset-[6px] md:underline-offset-[12px]" style={{ textDecorationColor: `${themeColor}33` }}>REGISTRY</span>
+                            CIVIL <span className="text-primary underline decoration-[6px] md:decoration-8 decoration-primary/20 underline-offset-[6px] md:underline-offset-[12px]" style={{ textDecorationColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33` }}>REGISTRY</span>
                         </h1>
                         <p className="text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-[0.4em] ml-1 md:ml-2 italic">Local Civil Registry (LCR) Services</p>
                     </div>

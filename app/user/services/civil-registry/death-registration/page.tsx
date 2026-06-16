@@ -16,7 +16,8 @@ import {
     Skull,
     ArrowRight,
     Upload,
-    CheckCircle2
+    CheckCircle2,
+    Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,7 +53,6 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
-import { compressImage } from "@/lib/image-compression";
 import { supabase } from "@/lib/supabase";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 
@@ -84,12 +84,13 @@ async function uploadFileClientSide(file: File, fieldName: string, userId: strin
     return publicUrl;
 }
 
-type Step = "IDENTITY" | "DETAILS" | "CONFIRM";
+type Step = "STATUS" | "IDENTITY" | "DETAILS" | "CONFIRM";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
+    { id: "STATUS", label: "Status", icon: Sparkles },
     { id: "IDENTITY", label: "Informant Info", icon: User },
     { id: "DETAILS", label: "Deceased Details", icon: Skull },
-    { id: "CONFIRM", label: "Review & Submit", icon: CheckCircle2 },
+    { id: "CONFIRM", label: "Documents & Submit", icon: CheckCircle2 },
 ];
 
 // --- Resident Search Component ---
@@ -163,7 +164,7 @@ export default function DeathRegistrationPage() {
     const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    const [themeColor, setThemeColor] = useState("theme_color");
+    const [themeColor, setThemeColor] = useState("var(--primary-theme)");
 
     useEffect(() => {
         getSystemSettingAction("theme_color").then((res) => {
@@ -204,6 +205,99 @@ export default function DeathRegistrationPage() {
         setViewerUrl(url);
         setViewerTitle(title);
         setViewerOpen(true);
+    };
+
+    const isStepValid = (stepId: Step): boolean => {
+        if (stepId === "STATUS") return true;
+        if (stepId === "IDENTITY") {
+            const isSpecifyEmpty = formData.relationship === "RELATIVE" && !formData.relationshipSpecify.trim();
+            return !!formData.relationship && !!formData.contactNumber && !isSpecifyEmpty;
+        }
+        if (stepId === "DETAILS") {
+            if (!formData.fullName || !formData.dateOfBirth || !formData.dateOfDeath || !formData.placeOfDeath || !formData.causeOfDeath || !formData.gender || !formData.civilStatus || !formData.fathersName || !formData.mothersName || !formData.corpseDisposal || !formData.burialLocation) {
+                return false;
+            }
+            if (formData.placeOfDeath === "OUTSIDE_MAPANDAN") return false;
+            if (isSelfRegistration()) return false;
+            return true;
+        }
+        return true;
+    };
+
+    const validateStep = (step: Step): boolean => {
+        if (step === "IDENTITY") {
+            const isSpecifyEmpty = formData.relationship === "RELATIVE" && !formData.relationshipSpecify.trim();
+            if (!formData.relationship || !formData.contactNumber || isSpecifyEmpty) {
+                setShowErrors(true);
+                toast.error("Please complete highlighted required fields.", { className: "font-black uppercase tracking-widest text-[10px] italic" });
+                
+                setTimeout(() => {
+                    let firstErrorId = "";
+                    if (!formData.relationship) firstErrorId = "relationship";
+                    else if (isSpecifyEmpty) firstErrorId = "relationshipSpecify";
+                    else if (!formData.contactNumber) firstErrorId = "contactNumber";
+
+                    if (firstErrorId) {
+                        let element = document.getElementById(firstErrorId);
+                        if (!element && firstErrorId === "relationship") {
+                            element = document.querySelector('[role="combobox"]') as HTMLElement;
+                        }
+                        if (element) {
+                            element.scrollIntoView({ behavior: "smooth", block: "center" });
+                            element.focus();
+                        }
+                    }
+                }, 100);
+                
+                return false;
+            }
+        }
+        if (step === "DETAILS") {
+            const missingFields: string[] = [];
+            if (!formData.fullName) missingFields.push("fullName");
+            if (!formData.dateOfBirth) missingFields.push("dateOfBirth");
+            if (!formData.dateOfDeath) missingFields.push("dateOfDeath");
+            if (!formData.placeOfDeath) missingFields.push("placeOfDeath");
+            if (!formData.causeOfDeath) missingFields.push("causeOfDeath");
+            if (!formData.gender) missingFields.push("gender");
+            if (!formData.civilStatus) missingFields.push("civilStatus");
+            if (!formData.fathersName) missingFields.push("fathersName");
+            if (!formData.mothersName) missingFields.push("mothersName");
+            if (!formData.corpseDisposal) missingFields.push("corpseDisposal");
+            if (!formData.burialLocation) missingFields.push("burialLocation");
+
+            if (missingFields.length > 0) {
+                setShowErrors(true);
+                toast.error("Please complete highlighted required fields.", { className: "font-black uppercase tracking-widest text-[10px] italic" });
+                
+                setTimeout(() => {
+                    const firstErrorId = missingFields[0];
+                    let element = document.getElementById(firstErrorId);
+                    if (!element) {
+                        if (["placeOfDeath", "gender", "civilStatus", "corpseDisposal"].includes(firstErrorId)) {
+                            element = document.querySelector(`button#${firstErrorId}`) || document.getElementById(firstErrorId);
+                        }
+                    }
+                    if (element) {
+                        element.scrollIntoView({ behavior: "smooth", block: "center" });
+                        element.focus();
+                    }
+                }, 100);
+
+                return false;
+            }
+
+            if (formData.placeOfDeath === "OUTSIDE_MAPANDAN") {
+                toast.error("Registration blocked: Place of death is outside Mapandan.", { className: "font-black uppercase tracking-widest text-[10px] italic" });
+                return false;
+            }
+            if (isSelfRegistration()) {
+                toast.error("You cannot register yourself as deceased.", { className: "font-black uppercase tracking-widest text-[10px] italic" });
+                return false;
+            }
+        }
+        setShowErrors(false);
+        return true;
     };
 
     // Form State
@@ -544,17 +638,7 @@ export default function DeathRegistrationPage() {
                         return;
                     }
 
-                    let fileToProcess = newFile;
-                    if (newFile.type.startsWith("image/")) {
-                        try {
-                            toast.loading("Compressing and optimizing document...", { id: `file-compress-${fileKey}` });
-                            fileToProcess = await compressImage(newFile);
-                            toast.success("Image optimized successfully!", { id: `file-compress-${fileKey}` });
-                        } catch (err) {
-                            console.error("Compression error:", err);
-                            toast.dismiss(`file-compress-${fileKey}`);
-                        }
-                    }
+                    const fileToProcess = newFile;
 
                     saveDraftFile(STORAGE_KEY, fileKey, fileToProcess).catch(err => {
                         console.error("Failed to save draft file to IndexedDB:", err);
@@ -646,6 +730,8 @@ export default function DeathRegistrationPage() {
                 return;
             }
         }
+        
+
 
         // Validate valid ID
         const hasIdFront = files.validIdFront || resident?.idFrontUrl || existingUrls.validIdFront || previews.validIdFront;
@@ -755,7 +841,7 @@ export default function DeathRegistrationPage() {
     if (loading) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
-                <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mb-4" />
+                <Loader2 className="w-10 h-10 animate-spin mb-4" style={{ color: "var(--primary-theme)" }} />
                 <p className="font-black uppercase tracking-widest text-[10px] text-slate-400 italic">Initializing Registration Form...</p>
             </div>
         );
@@ -765,9 +851,11 @@ export default function DeathRegistrationPage() {
         <>
             <style dangerouslySetInnerHTML={{
                 __html: `
+                ${themeColor !== "var(--primary-theme)" ? `
                 :root, * {
                     --primary-theme: ${themeColor} !important;
                 }
+                ` : ""}
                 .text-emerald-500, [class*="text-emerald-500"]:not(input):not(select):not(textarea) {
                     color: ${themeColor} !important;
                 }
@@ -787,23 +875,23 @@ export default function DeathRegistrationPage() {
                     border-color: ${themeColor} !important;
                 }
                 .bg-emerald-500\\/10, [class*="bg-emerald-500/10"] {
-                    background-color: ${themeColor}1a !important;
+                    background-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 10%, transparent)" : `${themeColor}1a`} !important;
                 }
                 .bg-emerald-500\\/20, [class*="bg-emerald-500/20"] {
-                    background-color: ${themeColor}33 !important;
+                    background-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33`} !important;
                 }
                 .bg-emerald-500\\/5, [class*="bg-emerald-500/5"] {
-                    background-color: ${themeColor}0d !important;
+                    background-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 5%, transparent)" : `${themeColor}0d`} !important;
                 }
                 .shadow-emerald-500\\/20, [class*="shadow-emerald-500/20"] {
-                    --tw-shadow-color: ${themeColor}33 !important;
+                    --tw-shadow-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33`} !important;
                 }
                 .hover\\:bg-emerald-600:hover, [class*="hover:bg-emerald-600"]:hover {
                     background-color: ${themeColor} !important;
                     filter: brightness(0.9);
                 }
                 .hover\\:border-emerald-500\\/50:hover, [class*="hover:border-emerald-500/50"]:hover {
-                    border-color: ${themeColor}80 !important;
+                    border-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 50%, transparent)" : `${themeColor}80`} !important;
                 }
                 input:not([type="button"]):not([type="submit"]), select, textarea {
                     color: #0f172a !important;
@@ -913,49 +1001,88 @@ export default function DeathRegistrationPage() {
 
 
                     {/* Progress Stepper */}
-                    <div className="relative px-2 py-4">
-                        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 dark:bg-white/5 -translate-y-1/2 rounded-full overflow-hidden">
-                            <motion.div
-                                className="h-full bg-emerald-500"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${(STEPS.findIndex(s => s.id === currentStep) / (STEPS.length - 1)) * 100}%` }}
-                            />
-                        </div>
+                    <div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2">
+                        {STEPS.map((step, idx) => {
+                            const isActive = currentStep === step.id;
+                            const stepIdx = STEPS.findIndex(s => s.id === currentStep);
+                            const isCompleted = stepIdx > idx;
+                            const Icon = step.icon;
 
-                        <div className="flex justify-between items-center relative z-10">
-                            {STEPS.map((step, idx) => {
-                                const isActive = currentStep === step.id;
-                                const stepIdx = STEPS.findIndex(s => s.id === currentStep);
-                                const isCompleted = stepIdx > idx;
-                                const Icon = step.icon;
-
-                                return (
-                                    <div
-                                        key={idx}
-                                        className="flex flex-col items-center gap-2 transition-all duration-300"
+                            return (
+                                <div
+                                    key={idx}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => {
+                                        if (step.id === "STATUS") {
+                                            router.push("/user/services/civil-registry");
+                                            return;
+                                        }
+                                        const targetIdx = STEPS.findIndex(s => s.id === step.id);
+                                        const currentIdx = STEPS.findIndex(s => s.id === currentStep);
+                                        
+                                        if (targetIdx <= currentIdx) {
+                                            setCurrentStep(step.id);
+                                        } else {
+                                            // Check steps between currentStep and target step sequentially
+                                            for (let i = currentIdx; i < targetIdx; i++) {
+                                                if (STEPS[i].id !== "STATUS" && !validateStep(STEPS[i].id)) return;
+                                            }
+                                            setCurrentStep(step.id);
+                                        }
+                                    }}
+                                    onKeyDown={(e) => { 
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            if (step.id === "STATUS") {
+                                                router.push("/user/services/civil-registry");
+                                                return;
+                                            }
+                                            const targetIdx = STEPS.findIndex(s => s.id === step.id);
+                                            const currentIdx = STEPS.findIndex(s => s.id === currentStep);
+                                            if (targetIdx <= currentIdx) {
+                                                setCurrentStep(step.id);
+                                            } else {
+                                                for (let i = currentIdx; i < targetIdx; i++) {
+                                                    if (STEPS[i].id !== "STATUS" && !validateStep(STEPS[i].id)) return;
+                                                }
+                                                setCurrentStep(step.id);
+                                            }
+                                        }
+                                    }}
+                                    className={cn(
+                                        "flex flex-col items-center gap-2 md:gap-3 relative z-10 font-black group",
+                                        (() => {
+                                            const targetIdx = STEPS.findIndex(s => s.id === step.id);
+                                            const currentIdx = STEPS.findIndex(s => s.id === currentStep);
+                                            if (targetIdx <= currentIdx || step.id === "STATUS") return "cursor-pointer";
+                                            for (let i = currentIdx; i < targetIdx; i++) {
+                                                if (STEPS[i].id !== "STATUS" && !isStepValid(STEPS[i].id)) return "opacity-50 cursor-not-allowed";
+                                            }
+                                            return "cursor-pointer";
+                                        })()
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
+                                        isActive ? "text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
+                                            isCompleted ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" :
+                                                "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
+                                    )}
+                                    style={isActive ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
                                     >
-                                        <div className={cn(
-                                            "w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-500 border-2 bg-white dark:bg-[#08090d]",
-                                            isActive ? "border-emerald-500 text-emerald-600 shadow-lg shadow-emerald-500/20 scale-110" :
-                                                isCompleted ? "bg-emerald-500 border-emerald-500 text-white" :
-                                                    "border-slate-200 dark:border-white/10 text-slate-400"
-                                        )}>
-                                            {isCompleted ? (
-                                                <Check className="w-5 h-5" />
-                                            ) : (
-                                                <Icon className="w-4 h-4 md:w-5 md:h-5" />
-                                            )}
-                                        </div>
-                                        <span className={cn(
-                                            "text-[8px] md:text-[10px] font-black uppercase tracking-wider italic hidden md:block",
-                                            isActive ? "text-emerald-600" : "text-slate-400"
-                                        )}>
-                                            {step.label}
-                                        </span>
+                                        <Icon className="w-4 h-4 md:w-7 md:h-7" />
                                     </div>
-                                );
-                            })}
-                        </div>
+                                    <span className={cn(
+                                        "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
+                                        isActive ? "opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
+                                    )}
+                                    style={isActive ? { color: themeColor } : {}}
+                                    >
+                                        {step.label}
+                                    </span>
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {mounted && typeof document !== "undefined" && createPortal(
@@ -987,7 +1114,8 @@ export default function DeathRegistrationPage() {
                                     className="space-y-6"
                                 >
                                     <div className="space-y-2">
-                                        <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Informant Information</h2>
+
+                                        <h2 className="text-xl font-black uppercase italic tracking-tight" style={{ color: themeColor }}> Information</h2>
                                         <p className="text-xs text-slate-500 font-medium italic">Details of the person registering the death</p>
                                     </div>
 
@@ -1004,133 +1132,148 @@ export default function DeathRegistrationPage() {
                                     )}
 
                                     <div className="space-y-6">
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Informant&apos;s Relationship to Deceased <span className="text-red-500">*</span></Label>
-                                            <Select
-                                                value={formData.relationship}
-                                                onValueChange={(v) => handleSelectChange("relationship", v)}
-                                            >
-                                                <SelectTrigger className="h-12 rounded-xl border-slate-200 focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold">
-                                                    <SelectValue placeholder="SELECT RELATIONSHIP" />
-                                                </SelectTrigger>
-                                                <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
-                                                    <SelectItem value="SPOUSE">SPOUSE</SelectItem>
-                                                    <SelectItem value="CHILD">CHILD</SelectItem>
-                                                    <SelectItem value="PARENT">PARENT</SelectItem>
-                                                    <SelectItem value="SIBLING">SIBLING</SelectItem>
-                                                    <SelectItem value="RELATIVE">OTHER RELATIVE</SelectItem>
-                                                    <SelectItem value="REPRESENTATIVE">AUTHORIZED REPRESENTATIVE</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            {(showErrors && !formData.relationship) && (
-                                                <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
-                                            )}
-                                        </div>
-
-                                        {formData.relationship === "RELATIVE" && (
-                                            <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Specify Relationship <span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    className={cn(
-                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-bold italic uppercase",
-                                                        (showErrors && !formData.relationshipSpecify) && "border-2 border-red-500"
-                                                    )}
-                                                    placeholder="e.g. COUSIN, UNCLE, AUNT"
-                                                    name="relationshipSpecify"
-                                                    value={formData.relationshipSpecify}
-                                                    onChange={handleInputChange}
-                                                />
-                                                {(showErrors && !formData.relationshipSpecify) && (
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="col-span-2 md:col-span-1 space-y-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Informant&apos;s Relationship to Deceased <span className="text-red-500">*</span></Label>
+                                                <Select
+                                                    value={formData.relationship}
+                                                    onValueChange={(v) => handleSelectChange("relationship", v)}
+                                                >
+                                                    <SelectTrigger 
+                                                        id="relationship"
+                                                        style={{ height: '3rem' }}
+                                                        className={cn(
+                                                            "!h-12 w-full rounded-xl border-slate-950 dark:border-white focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
+                                                            showErrors && !formData.relationship && "!border-2 !border-red-500 focus:!ring-red-500 focus-visible:!ring-red-500"
+                                                        )}
+                                                    >
+                                                        <SelectValue placeholder="SELECT RELATIONSHIP" />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
+                                                        <SelectItem value="SPOUSE">SPOUSE</SelectItem>
+                                                        <SelectItem value="CHILD">CHILD</SelectItem>
+                                                        <SelectItem value="PARENT">PARENT</SelectItem>
+                                                        <SelectItem value="SIBLING">SIBLING</SelectItem>
+                                                        <SelectItem value="RELATIVE">OTHER RELATIVE</SelectItem>
+                                                        <SelectItem value="REPRESENTATIVE">AUTHORIZED REPRESENTATIVE</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {(showErrors && !formData.relationship) && (
                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                                 )}
                                             </div>
-                                        )}
-
+ 
+                                            {formData.relationship === "RELATIVE" ? (
+                                                <div className="col-span-2 md:col-span-1 space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Specify Relationship <span className="text-red-500">*</span></Label>
+                                                    <Input
+                                                        id="relationshipSpecify"
+                                                        className={cn(
+                                                            "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all font-bold italic uppercase",
+                                                            (showErrors && !formData.relationshipSpecify) && "!border-2 !border-red-500 focus-visible:!ring-red-500 focus:!ring-red-500"
+                                                        )}
+                                                        placeholder="e.g. COUSIN, UNCLE, AUNT"
+                                                        name="relationshipSpecify"
+                                                        value={formData.relationshipSpecify}
+                                                        onChange={handleInputChange}
+                                                    />
+                                                    {(showErrors && !formData.relationshipSpecify) && (
+                                                        <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div />
+                                            )}
+                                        </div>
+ 
                                         {/* Personal Details Grid */}
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                             <div className="md:col-span-1 space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">First Name</Label>
-                                                <Input readOnly value={formData.informantFirstName} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantFirstName} className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
                                             </div>
                                             <div className="md:col-span-1 space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Middle Name</Label>
-                                                <Input readOnly value={formData.informantMiddleName} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantMiddleName} className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
                                             </div>
                                             <div className="md:col-span-1 space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Last Name</Label>
-                                                <Input readOnly value={formData.informantLastName} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantLastName} className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
                                             </div>
                                             <div className="md:col-span-1 space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Suffix</Label>
-                                                <Input readOnly value={formData.informantSuffix} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantSuffix} className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
                                             </div>
                                         </div>
-
+ 
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Birth Date</Label>
-                                                <Input readOnly value={formData.informantBirthDate} type="date" className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantBirthDate} type="date" className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Age</Label>
-                                                <Input readOnly value={formData.informantAge} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantAge} className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Civil Status</Label>
-                                                <Input readOnly value={formData.informantCivilStatus} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantCivilStatus} className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Citizenship</Label>
-                                                <Input readOnly value={formData.informantCitizenship} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantCitizenship} className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
                                             </div>
                                         </div>
-
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Informant Address</Label>
-                                            <Input
-                                                readOnly
-                                                className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 transition-all font-bold italic text-slate-600 uppercase"
-                                                value={formData.informantAddress}
-                                            />
-                                        </div>
-
+ 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Occupation</Label>
                                                 <Input
                                                     readOnly
-                                                    className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 transition-all font-bold italic text-slate-600"
+                                                    className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 transition-all font-bold italic text-slate-600"
                                                     value={formData.informantOccupation}
                                                 />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Contact Number <span className="text-red-500">*</span></Label>
                                                 <Input
+                                                    id="contactNumber"
+                                                    name="contactNumber"
                                                     className={cn(
-                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-bold italic",
-                                                        (showErrors && !formData.contactNumber) && "border-2 border-red-500"
+                                                        "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all font-bold italic",
+                                                        (showErrors && !formData.contactNumber) && "!border-2 !border-red-500 focus-visible:!ring-red-500 focus:!ring-red-500"
                                                     )}
-                                                    placeholder="e.g. 0917XXXXXXX"
+                                                    placeholder="e.g. +63917XXXXXXX"
                                                     value={formData.contactNumber}
-                                                    onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value.replace(/[^0-9+]/g, '') }))}
                                                 />
+                                                <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider ml-1 animate-pulse">
+                                                    * Note: Please use your active contact number. This will be used to contact you regarding your transaction.
+                                                </p>
                                                 {(showErrors && !formData.contactNumber) && (
                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                                 )}
                                             </div>
+                                        </div>
+
+                                        <div 
+                                            className="p-3 md:p-4 rounded-2xl md:rounded-3xl flex items-center gap-2 md:gap-3 border animate-in fade-in duration-300"
+                                            style={{ 
+                                                backgroundColor: `${themeColor}0d`, 
+                                                borderColor: `${themeColor}26` 
+                                            }}
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5 shrink-0" style={{ color: themeColor }} />
+                                            <p className="text-[8px] md:text-[10px] font-black italic leading-tight uppercase tracking-widest" style={{ color: themeColor }}>
+                                                Note: Changes will update your Resident Profile upon submission.
+                                            </p>
                                         </div>
                                     </div>
 
                                     <div className="flex justify-end pt-6">
                                         <Button
                                             onClick={() => {
-                                                const isSpecifyEmpty = formData.relationship === "RELATIVE" && !formData.relationshipSpecify.trim();
-                                                if (!formData.relationship || !formData.contactNumber || isSpecifyEmpty) {
-                                                    setShowErrors(true);
-                                                    toast.error("Please fill in all informant details.");
-                                                    return;
-                                                }
-                                                setShowErrors(false);
+                                                if (!validateStep("IDENTITY")) return;
                                                 setCurrentStep("DETAILS");
                                             }}
                                             className="rounded-full px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-emerald-500/20"
@@ -1151,7 +1294,7 @@ export default function DeathRegistrationPage() {
                                     className="space-y-6"
                                 >
                                     <div className="space-y-2">
-                                        <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight flex items-center gap-2">
+                                        <h2 className="text-xl font-black uppercase italic tracking-tight flex items-center gap-2" style={{ color: themeColor }}>
                                             Deceased Information
                                         </h2>
                                         <p className="text-xs text-slate-500 font-medium italic">Provide the details of the deceased individual</p>
@@ -1221,13 +1364,14 @@ export default function DeathRegistrationPage() {
                                         <div className="space-y-2">
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Full Name <span className="text-red-500">*</span></Label>
                                             <Input
+                                                id="fullName"
                                                 name="fullName"
                                                 placeholder="ENTER FULL NAME"
                                                 value={formData.fullName}
                                                 onChange={handleInputChange}
                                                 className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                    (showErrors && !formData.fullName) && "border-2 border-red-500"
+                                                    "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
+                                                    (showErrors && !formData.fullName) && "!border-2 !border-red-500 focus-visible:!ring-red-500 focus:!ring-red-500"
                                                 )}
                                             />
                                             {(showErrors && !formData.fullName) && (
@@ -1237,13 +1381,14 @@ export default function DeathRegistrationPage() {
                                         <div className="space-y-2">
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Date of Birth <span className="text-red-500">*</span></Label>
                                             <Input
+                                                id="dateOfBirth"
                                                 type="date"
                                                 name="dateOfBirth"
                                                 value={formData.dateOfBirth}
                                                 onChange={handleInputChange}
                                                 className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-medium",
-                                                    (showErrors && !formData.dateOfBirth) && "border-2 border-red-500"
+                                                    "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all font-medium",
+                                                    (showErrors && !formData.dateOfBirth) && "!border-2 !border-red-500 focus-visible:!ring-red-500 focus:!ring-red-500"
                                                 )}
                                             />
                                             {(showErrors && !formData.dateOfBirth) && (
@@ -1253,14 +1398,15 @@ export default function DeathRegistrationPage() {
                                         <div className="space-y-2">
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Date of Death <span className="text-red-500">*</span></Label>
                                             <Input
+                                                id="dateOfDeath"
                                                 type="date"
                                                 name="dateOfDeath"
                                                 max={new Date().toLocaleDateString('en-CA')}
                                                 value={formData.dateOfDeath}
                                                 onChange={handleInputChange}
                                                 className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all font-medium",
-                                                    (showErrors && !formData.dateOfDeath) && "border-2 border-red-500"
+                                                    "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all font-medium",
+                                                    (showErrors && !formData.dateOfDeath) && "!border-2 !border-red-500 focus-visible:!ring-red-500 focus:!ring-red-500"
                                                 )}
                                             />
                                             {(showErrors && !formData.dateOfDeath) && (
@@ -1286,10 +1432,14 @@ export default function DeathRegistrationPage() {
                                                 value={formData.placeOfDeath}
                                                 onValueChange={(v) => handleSelectChange("placeOfDeath", v)}
                                             >
-                                                <SelectTrigger className={cn(
-                                                    "h-12 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 focus:ring-emerald-500 font-medium text-xs md:text-sm uppercase font-bold",
-                                                    (showErrors && !formData.placeOfDeath) && "border-2 border-red-500"
-                                                )}>
+                                                <SelectTrigger 
+                                                    id="placeOfDeath"
+                                                    style={{ height: '3rem' }}
+                                                    className={cn(
+                                                        "!h-12 w-full rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 focus:ring-emerald-500 font-medium text-xs md:text-sm uppercase font-bold",
+                                                        (showErrors && !formData.placeOfDeath) && "!border-2 !border-red-500 focus:!ring-red-500 focus-visible:!ring-red-500"
+                                                    )}
+                                                >
                                                     <SelectValue placeholder="SELECT PLACE OF DEATH" />
                                                 </SelectTrigger>
                                                 <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
@@ -1308,13 +1458,14 @@ export default function DeathRegistrationPage() {
                                         <div className="space-y-2">
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Cause of Death <span className="text-red-500">*</span></Label>
                                             <Input
+                                                id="causeOfDeath"
                                                 name="causeOfDeath"
                                                 placeholder="ENTER CAUSE"
                                                 value={formData.causeOfDeath}
                                                 onChange={handleInputChange}
                                                 className={cn(
-                                                    "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                    (showErrors && !formData.causeOfDeath) && "border-2 border-red-500"
+                                                    "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
+                                                    (showErrors && !formData.causeOfDeath) && "!border-2 !border-red-500 focus-visible:!ring-red-500 focus:!ring-red-500"
                                                 )}
                                             />
                                             {(showErrors && !formData.causeOfDeath) && (
@@ -1327,10 +1478,14 @@ export default function DeathRegistrationPage() {
                                                 value={formData.gender}
                                                 onValueChange={(v) => handleSelectChange("gender", v)}
                                             >
-                                                <SelectTrigger className={cn(
-                                                    "h-12 rounded-xl border-slate-200 focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
-                                                    (showErrors && !formData.gender) && "border-2 border-red-500"
-                                                )}>
+                                                <SelectTrigger 
+                                                    id="gender"
+                                                    style={{ height: '3rem' }}
+                                                    className={cn(
+                                                        "!h-12 w-full rounded-xl border-slate-950 dark:border-white focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
+                                                        (showErrors && !formData.gender) && "!border-2 !border-red-500 focus:!ring-red-500 focus-visible:!ring-red-500"
+                                                    )}
+                                                >
                                                     <SelectValue placeholder="SELECT GENDER" />
                                                 </SelectTrigger>
                                                 <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
@@ -1348,10 +1503,14 @@ export default function DeathRegistrationPage() {
                                                 value={formData.civilStatus}
                                                 onValueChange={(v) => handleSelectChange("civilStatus", v)}
                                             >
-                                                <SelectTrigger className={cn(
-                                                    "h-12 rounded-xl border-slate-200 focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
-                                                    (showErrors && !formData.civilStatus) && "border-2 border-red-500"
-                                                )}>
+                                                <SelectTrigger 
+                                                    id="civilStatus"
+                                                    style={{ height: '3rem' }}
+                                                    className={cn(
+                                                        "!h-12 w-full rounded-xl border-slate-950 dark:border-white focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
+                                                        (showErrors && !formData.civilStatus) && "!border-2 !border-red-500 focus:!ring-red-500 focus-visible:!ring-red-500"
+                                                    )}
+                                                >
                                                     <SelectValue placeholder="SELECT STATUS" />
                                                 </SelectTrigger>
                                                 <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
@@ -1369,11 +1528,12 @@ export default function DeathRegistrationPage() {
                                             <div className="md:col-span-2 space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Surviving Spouse&apos;s Full Name <span className="text-slate-400 font-medium">(Optional)</span></Label>
                                                 <Input
+                                                    id="survivingSpouseName"
                                                     name="survivingSpouseName"
                                                     placeholder="ENTER SURVIVING SPOUSE'S FULL NAME"
                                                     value={formData.survivingSpouseName}
                                                     onChange={handleInputChange}
-                                                    className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
+                                                    className="rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
                                                 />
                                             </div>
                                         )}
@@ -1385,13 +1545,14 @@ export default function DeathRegistrationPage() {
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Father&apos;s Name <span className="text-red-500">*</span></Label>
                                                 <Input
+                                                    id="fathersName"
                                                     name="fathersName"
                                                     placeholder="ENTER FATHER'S NAME"
                                                     value={formData.fathersName}
                                                     onChange={handleInputChange}
                                                     className={cn(
-                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                        (showErrors && !formData.fathersName) && "border-2 border-red-500"
+                                                        "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
+                                                        (showErrors && !formData.fathersName) && "!border-2 !border-red-500 focus-visible:!ring-red-500 focus:!ring-red-500"
                                                     )}
                                                 />
                                                 {(showErrors && !formData.fathersName) && (
@@ -1401,13 +1562,14 @@ export default function DeathRegistrationPage() {
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Mother&apos;s Maiden Name <span className="text-red-500">*</span></Label>
                                                 <Input
+                                                    id="mothersName"
                                                     name="mothersName"
                                                     placeholder="ENTER MOTHER'S MAIDEN NAME"
                                                     value={formData.mothersName}
                                                     onChange={handleInputChange}
                                                     className={cn(
-                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                        (showErrors && !formData.mothersName) && "border-2 border-red-500"
+                                                        "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
+                                                        (showErrors && !formData.mothersName) && "!border-2 !border-red-500 focus-visible:!ring-red-500 focus:!ring-red-500"
                                                     )}
                                                 />
                                                 {(showErrors && !formData.mothersName) && (
@@ -1416,7 +1578,7 @@ export default function DeathRegistrationPage() {
                                             </div>
                                         </div>
                                     </div>
-
+ 
                                     <div className="space-y-2 pt-4">
                                         <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Corpse Disposal</h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1426,10 +1588,14 @@ export default function DeathRegistrationPage() {
                                                     value={formData.corpseDisposal}
                                                     onValueChange={(v) => handleSelectChange("corpseDisposal", v)}
                                                 >
-                                                    <SelectTrigger className={cn(
-                                                        "h-12 rounded-xl border-slate-200 focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
-                                                        (showErrors && !formData.corpseDisposal) && "border-2 border-red-500"
-                                                    )}>
+                                                    <SelectTrigger 
+                                                        id="corpseDisposal"
+                                                        style={{ height: '3rem' }}
+                                                        className={cn(
+                                                            "!h-12 w-full rounded-xl border-slate-950 dark:border-white focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
+                                                            (showErrors && !formData.corpseDisposal) && "!border-2 !border-red-500 focus:!ring-red-500 focus-visible:!ring-red-500"
+                                                        )}
+                                                    >
                                                         <SelectValue placeholder="SELECT METHOD" />
                                                     </SelectTrigger>
                                                     <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
@@ -1445,13 +1611,14 @@ export default function DeathRegistrationPage() {
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">{formData.corpseDisposal === "CREMATION" ? "Cremation Location" : formData.corpseDisposal === "RESOMATION" ? "Resomation Location" : "Cemetery Location"} <span className="text-red-500">*</span></Label>
                                                 <Input
+                                                    id="burialLocation"
                                                     name="burialLocation"
                                                     placeholder={formData.corpseDisposal === "CREMATION" ? "ENTER CREMATION LOCATION" : formData.corpseDisposal === "RESOMATION" ? "ENTER RESOMATION LOCATION" : "ENTER CEMETERY NAME OR LOCATION"}
                                                     value={formData.burialLocation}
                                                     onChange={handleInputChange}
                                                     className={cn(
-                                                        "rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                        (showErrors && !formData.burialLocation) && "border-2 border-red-500"
+                                                        "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
+                                                        (showErrors && !formData.burialLocation) && "!border-2 !border-red-500 focus-visible:!ring-red-500 focus:!ring-red-500"
                                                     )}
                                                 />
                                                 {(showErrors && !formData.burialLocation) && (
@@ -1472,20 +1639,7 @@ export default function DeathRegistrationPage() {
                                         </Button>
                                         <Button
                                             onClick={() => {
-                                                if (!formData.fullName || !formData.dateOfBirth || !formData.dateOfDeath || !formData.placeOfDeath || !formData.causeOfDeath || !formData.gender || !formData.civilStatus || !formData.fathersName || !formData.mothersName || !formData.corpseDisposal || !formData.burialLocation) {
-                                                    setShowErrors(true);
-                                                    toast.error("Please fill in all deceased details.");
-                                                    return;
-                                                }
-                                                if (formData.placeOfDeath === "OUTSIDE_MAPANDAN") {
-                                                    toast.error("Registration blocked: Place of death is outside Mapandan.");
-                                                    return;
-                                                }
-                                                if (isSelfRegistration()) {
-                                                    toast.error("You cannot register yourself as deceased.");
-                                                    return;
-                                                }
-                                                setShowErrors(false);
+                                                if (!validateStep("DETAILS")) return;
                                                 setCurrentStep("CONFIRM");
                                             }}
                                             className="rounded-full px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-emerald-500/20"
@@ -1507,12 +1661,12 @@ export default function DeathRegistrationPage() {
                                 >
                                     <div className="flex items-center gap-4 mb-4">
                                         <div>
-                                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Registration Review</h2>
+                                            <h2 className="text-xl font-black uppercase italic tracking-tight" style={{ color: themeColor }}>Registration Review</h2>
                                             <p className="text-xs text-slate-500 font-medium italic">Verify information and upload required documents</p>
                                         </div>
                                     </div>
 
-                                    <Card className="bg-slate-50 dark:bg-white/5 border-none p-6 rounded-[2rem] space-y-4">
+                                    <div className="space-y-6">
                                         <div className="grid grid-cols-2 gap-6">
                                             <div className="space-y-1">
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Deceased Name</span>
@@ -1559,28 +1713,14 @@ export default function DeathRegistrationPage() {
                                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                                 <div className="flex items-center gap-4">
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Registration Type:</span>
-                                                    <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-full border border-slate-200 dark:border-white/10 opacity-80">
-                                                        <div
-                                                            className={cn(
-                                                                "px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 select-none",
-                                                                formData.registrationType === "STANDARD"
-                                                                    ? "bg-white dark:bg-slate-800 text-emerald-600 shadow-sm"
-                                                                    : "text-slate-400"
-                                                            )}
-                                                        >
-                                                            Standard
-                                                        </div>
-                                                        <div
-                                                            className={cn(
-                                                                "px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 select-none",
-                                                                formData.registrationType === "LATE"
-                                                                    ? "bg-white dark:bg-slate-800 text-emerald-600 shadow-sm"
-                                                                    : "text-slate-400"
-                                                            )}
-                                                        >
-                                                            Late
-                                                        </div>
-                                                    </div>
+                                                    <span className={cn(
+                                                        "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest italic",
+                                                        formData.registrationType === "STANDARD" 
+                                                            ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" 
+                                                            : "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                                                    )}>
+                                                        {formData.registrationType}
+                                                    </span>
                                                 </div>
                                                 {formData.dateOfDeath && (() => {
                                                     const [y, m, d] = formData.dateOfDeath.split('-').map(Number);
@@ -1599,22 +1739,6 @@ export default function DeathRegistrationPage() {
                                                 })()}
                                             </div>
 
-                                            {/* Miscellaneous Fee */}
-                                            <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20">
-                                                <div>
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Miscellaneous Fee</span>
-                                                    <p className="text-[9px] text-slate-400 italic mt-0.5">
-                                                        {formData.registrationType === "STANDARD" ? "No additional fee for standard registration" : "Late registration surcharge"}
-                                                    </p>
-                                                </div>
-                                                <div className="text-right">
-                                                    {formData.registrationType === "STANDARD" ? (
-                                                        <span className="text-lg font-black text-emerald-600 tracking-tight">FREE</span>
-                                                    ) : (
-                                                        <span className="text-lg font-black text-amber-600 tracking-tight">₱{lateFee.toFixed(2)}</span>
-                                                    )}
-                                                </div>
-                                            </div>
 
                                             <div className="space-y-4">
                                                 <div className="flex items-center gap-2">
@@ -1627,7 +1751,7 @@ export default function DeathRegistrationPage() {
 
 
                                                 <div className="pb-4">
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                                         {formData.registrationType === "STANDARD" && (
                                                             renderDocCard("Municipal Form No. 103", "municipalForm103", "doc-upload")
                                                         )}
@@ -1642,10 +1766,10 @@ export default function DeathRegistrationPage() {
                                                 </div>
                                             </div>
                                         </div>
-                                    </Card>
+                                    </div>
 
                                     {/* Valid ID Section */}
-                                    <Card className="bg-slate-50 dark:bg-white/5 border-none p-6 rounded-[2rem] space-y-4">
+                                    <div className="space-y-4">
                                         <div className="flex items-center gap-2">
                                             <div className="p-1.5 bg-emerald-500/10 rounded-lg">
                                                 <User className="w-3.5 h-3.5 text-emerald-500" />
@@ -1656,13 +1780,30 @@ export default function DeathRegistrationPage() {
                                             Your registered ID from your profile is shown below. You may replace it with a different valid ID for this transaction only.
                                         </p>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                             {renderDocCard("Valid ID (Front)", "validIdFront", "valid-id-front", true)}
                                             {renderDocCard("Valid ID (Back)", "validIdBack", "valid-id-back", true)}
                                         </div>
-                                    </Card>
+                                    </div>
 
                                     <div className="space-y-4">
+                                        {/* Miscellaneous Fee */}
+                                        <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20">
+                                            <div>
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Miscellaneous Fee</span>
+                                                <p className="text-[9px] text-slate-400 italic mt-0.5">
+                                                    {formData.registrationType === "STANDARD" ? "No additional fee for standard registration" : "Late registration surcharge"}
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                {formData.registrationType === "STANDARD" ? (
+                                                    <span className="text-lg font-black text-emerald-600 tracking-tight">FREE</span>
+                                                ) : (
+                                                    <span className="text-lg font-black text-amber-600 tracking-tight">₱{lateFee.toFixed(2)}</span>
+                                                )}
+                                            </div>
+                                        </div>
+
                                         {/* Data Privacy Agreement panel */}
                                         <div
                                             onClick={() => {

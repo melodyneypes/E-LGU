@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
@@ -14,7 +14,8 @@ import {
     Home,
     Heart,
     ArrowRight,
-    CheckCircle2
+    CheckCircle2,
+    Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +49,6 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
-import { compressImage } from "@/lib/image-compression";
 import { supabase } from "@/lib/supabase";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 
@@ -80,20 +80,87 @@ async function uploadFileClientSide(file: File, fieldName: string, userId: strin
 
 const STORAGE_KEY = "lcr_marriage_psa_endorsement_draft";
 
-type Step = "INFORMANT" | "SUBJECT" | "REVIEW";
+type Step = "STATUS" | "INFORMANT" | "SUBJECT" | "REVIEW";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
-    { id: "INFORMANT", label: "Informant Info", icon: User },
-    { id: "SUBJECT", label: "Spouse & Documents", icon: Heart },
-    { id: "REVIEW", label: "Review & Submit", icon: CheckCircle2 },
+    { id: "STATUS", label: "STATUS", icon: Sparkles },
+    { id: "INFORMANT", label: "INFORMANT INFO", icon: User },
+    { id: "SUBJECT", label: "MARRIAGE DETAILS", icon: Heart },
+    { id: "REVIEW", label: "DOCUMENTS & SUBMIT", icon: CheckCircle2 },
 ];
 
 export default function MarriagePsaEndorsementPage() {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<Step>("INFORMANT");
+    const isRestoredRef = useRef(false);
+
+
+    const validateStep = (step: Step): boolean => {
+        if (step === "INFORMANT") {
+            if (!formData.relationship || !formData.contactNumber) {
+                setShowErrors(true);
+                toast.error("Please fill in all required informant details.");
+                
+                setTimeout(() => {
+                    let firstErrorId = "";
+                    if (!formData.relationship) firstErrorId = "relationship";
+                    else if (!formData.contactNumber) firstErrorId = "contactNumber";
+
+                    if (firstErrorId) {
+                        let element = document.getElementById(firstErrorId);
+                        if (!element && firstErrorId === "relationship") {
+                            element = document.querySelector('[role="combobox"]') as HTMLElement;
+                        }
+                        if (element) {
+                            element.scrollIntoView({ behavior: "smooth", block: "center" });
+                            element.focus();
+                        }
+                    }
+                }, 100);
+                
+                return false;
+            }
+        }
+        if (step === "SUBJECT") {
+            const missingFields: string[] = [];
+            if (!formData.husbandFullName) missingFields.push("husbandFullName");
+            if (!formData.wifeFullName) missingFields.push("wifeFullName");
+            if (!formData.dateOfMarriage) missingFields.push("dateOfMarriage");
+            if (!formData.placeOfMarriage) missingFields.push("placeOfMarriage");
+
+            if (missingFields.length > 0) {
+                setShowErrors(true);
+                toast.error("Please fill in all required marriage details.");
+
+                setTimeout(() => {
+                    const firstErrorId = missingFields[0];
+                    const element = document.getElementById(firstErrorId);
+                    if (element) {
+                        element.scrollIntoView({ behavior: "smooth", block: "center" });
+                        element.focus();
+                    }
+                }, 100);
+
+                return false;
+            }
+
+            if (!files.psaNegativeCert && !previews.psaNegativeCert) {
+                setShowErrors(true);
+                toast.error("Please upload PSA Negative Certification.");
+                return false;
+            }
+            if (!files.form3a && !previews.form3a) {
+                setShowErrors(true);
+                toast.error("Please upload Form 3A (Local Registry Copy).");
+                return false;
+            }
+        }
+        setShowErrors(false);
+        return true;
+    };
     const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [themeColor, setThemeColor] = useState("theme_color");
+    const [themeColor, setThemeColor] = useState("var(--primary-theme)");
 
     useEffect(() => {
         getSystemSettingAction("theme_color").then((res) => {
@@ -184,7 +251,8 @@ export default function MarriagePsaEndorsementPage() {
         async function hydrateFiles() {
             try {
                 const draftFiles = await getDraftFiles(STORAGE_KEY);
-                if (draftFiles && Object.keys(draftFiles).length > 0) {
+                if (draftFiles && Object.keys(draftFiles).length > 0 && !isRestoredRef.current) {
+                    isRestoredRef.current = true;
                     setFiles(prev => ({ ...prev, ...draftFiles }));
                     const localPreviews: Record<string, string> = {};
                     Object.entries(draftFiles).forEach(([key, file]) => {
@@ -417,17 +485,7 @@ export default function MarriagePsaEndorsementPage() {
                         return;
                     }
 
-                    let fileToProcess = newFile;
-                    if (newFile.type.startsWith("image/")) {
-                        try {
-                            toast.loading("Compressing and optimizing document...", { id: `file-compress-${fileKey}` });
-                            fileToProcess = await compressImage(newFile);
-                            toast.success("Image optimized successfully!", { id: `file-compress-${fileKey}` });
-                        } catch (err) {
-                            console.error("Compression error:", err);
-                            toast.dismiss(`file-compress-${fileKey}`);
-                        }
-                    }
+                    const fileToProcess = newFile;
 
                     try {
                         toast.loading("Uploading and preparing document preview...", { id: `file-upload-${fileKey}` });
@@ -562,30 +620,10 @@ export default function MarriagePsaEndorsementPage() {
 
     const nextStep = () => {
         if (currentStep === "INFORMANT") {
-            if (!formData.relationship || !formData.contactNumber) {
-                setShowErrors(true);
-                toast.error("Please fill in all required informant details.");
-                return;
-            }
-            setShowErrors(false);
+            if (!validateStep("INFORMANT")) return;
             setCurrentStep("SUBJECT");
         } else if (currentStep === "SUBJECT") {
-            if (!formData.husbandFullName || !formData.wifeFullName || !formData.dateOfMarriage || !formData.placeOfMarriage) {
-                setShowErrors(true);
-                toast.error("Please fill in all required marriage details.");
-                return;
-            }
-            if (!files.psaNegativeCert && !previews.psaNegativeCert) {
-                setShowErrors(true);
-                toast.error("Please upload PSA Negative Certification.");
-                return;
-            }
-            if (!files.form3a && !previews.form3a) {
-                setShowErrors(true);
-                toast.error("Please upload Form 3A (Local Registry Copy).");
-                return;
-            }
-            setShowErrors(false);
+            if (!validateStep("SUBJECT")) return;
             setCurrentStep("REVIEW");
         }
     };
@@ -598,7 +636,7 @@ export default function MarriagePsaEndorsementPage() {
     if (loading) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
-                <Loader2 className="w-10 h-10 animate-spin text-rose-500 mb-4" />
+                <Loader2 className="w-10 h-10 animate-spin mb-4" style={{ color: "var(--primary-theme)" }} />
                 <p className="font-black uppercase tracking-widest text-[10px] text-slate-400 italic">Initializing Endorsement Form...</p>
             </div>
         );
@@ -608,9 +646,11 @@ export default function MarriagePsaEndorsementPage() {
         <>
             <style dangerouslySetInnerHTML={{
                 __html: `
+                ${themeColor !== "var(--primary-theme)" ? `
                 :root, * {
                     --primary-theme: ${themeColor} !important;
                 }
+                ` : ""}
                 .text-rose-500, [class*="text-rose-500"]:not(input):not(select):not(textarea) {
                     color: ${themeColor} !important;
                 }
@@ -630,13 +670,13 @@ export default function MarriagePsaEndorsementPage() {
                     border-color: ${themeColor} !important;
                 }
                 .bg-rose-500\\/10, [class*="bg-rose-500/10"] {
-                    background-color: ${themeColor}1a !important;
+                    background-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 10%, transparent)" : `${themeColor}1a`} !important;
                 }
                 .bg-rose-500\\/5, [class*="bg-rose-500/5"] {
-                    background-color: ${themeColor}0d !important;
+                    background-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 5%, transparent)" : `${themeColor}0d`} !important;
                 }
                 .shadow-rose-500\\/20, [class*="shadow-rose-500/20"] {
-                    --tw-shadow-color: ${themeColor}33 !important;
+                    --tw-shadow-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33`} !important;
                 }
                 .hover\\:bg-rose-600:hover, [class*="hover:bg-rose-600"]:hover {
                     background-color: ${themeColor} !important;
@@ -647,7 +687,7 @@ export default function MarriagePsaEndorsementPage() {
                     filter: brightness(0.85);
                 }
                 .hover\\:border-rose-500\\/50:hover, [class*="hover:border-rose-500/50"]:hover {
-                    border-color: ${themeColor}80 !important;
+                    border-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 50%, transparent)" : `${themeColor}80`} !important;
                 }
                 input:not([type="button"]):not([type="submit"]), select, textarea {
                     color: #0f172a !important;
@@ -756,42 +796,79 @@ export default function MarriagePsaEndorsementPage() {
                     </div>
 
                     {/* Progress Stepper */}
-                    <div className="relative px-2 py-4">
-                        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 dark:bg-white/5 -translate-y-1/2 rounded-full overflow-hidden">
-                            <motion.div
-                                className="h-full bg-rose-600"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${(STEPS.findIndex(s => s.id === currentStep) / (STEPS.length - 1)) * 100}%` }}
-                            />
-                        </div>
+                    <div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2">
+                        {STEPS.map((step, idx) => {
+                            const isActive = currentStep === step.id;
+                            const stepIdx = STEPS.findIndex(s => s.id === currentStep);
+                            const isCompleted = stepIdx > idx;
+                            const Icon = step.icon;
 
-                        <div className="flex justify-between items-center relative z-10">
-                            {STEPS.map((step, idx) => {
-                                const isActive = currentStep === step.id;
-                                const stepIdx = STEPS.findIndex(s => s.id === currentStep);
-                                const isCompleted = stepIdx > idx;
-                                const Icon = step.icon;
-
-                                return (
-                                    <div key={idx} className="flex flex-col items-center gap-2">
-                                        <div className={cn(
-                                            "w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-500 border-2 bg-white dark:bg-[#08090d]",
-                                            isActive ? "border-rose-600 text-rose-600 shadow-lg shadow-rose-500/20 scale-110" :
-                                                isCompleted ? "bg-rose-600 border-rose-600 text-white" :
-                                                    "border-slate-200 dark:border-white/10 text-slate-400"
-                                        )}>
-                                            {isCompleted ? <Check className="w-5 h-5" /> : <Icon className="w-4 h-4 md:w-5 md:h-5" />}
-                                        </div>
-                                        <span className={cn(
-                                            "text-[8px] md:text-[10px] font-black uppercase tracking-wider italic hidden md:block",
-                                            isActive ? "text-rose-600" : "text-slate-400"
-                                        )}>
-                                            {step.label}
-                                        </span>
+                            return (
+                                <div
+                                    key={idx}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => {
+                                        if (step.id === "STATUS") {
+                                            router.push("/user/services/civil-registry");
+                                            return;
+                                        }
+                                        const targetIdx = STEPS.findIndex(s => s.id === step.id);
+                                        const currentIdx = STEPS.findIndex(s => s.id === currentStep);
+                                        
+                                        if (targetIdx <= currentIdx) {
+                                            setCurrentStep(step.id);
+                                        } else {
+                                            for (let i = currentIdx; i < targetIdx; i++) {
+                                                if (STEPS[i].id !== "STATUS" && !validateStep(STEPS[i].id)) return;
+                                            }
+                                            setCurrentStep(step.id);
+                                        }
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            if (step.id === "STATUS") {
+                                                router.push("/user/services/civil-registry");
+                                                return;
+                                            }
+                                            const targetIdx = STEPS.findIndex(s => s.id === step.id);
+                                            const currentIdx = STEPS.findIndex(s => s.id === currentStep);
+                                            if (targetIdx <= currentIdx) {
+                                                setCurrentStep(step.id);
+                                            } else {
+                                                for (let i = currentIdx; i < targetIdx; i++) {
+                                                    if (STEPS[i].id !== "STATUS" && !validateStep(STEPS[i].id)) return;
+                                                }
+                                                setCurrentStep(step.id);
+                                            }
+                                        }
+                                    }}
+                                    className={cn(
+                                        "flex flex-col items-center gap-2 md:gap-3 relative z-10 font-black group cursor-pointer",
+                                        isActive ? "opacity-100" : "opacity-40 hover:opacity-100"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
+                                        isActive ? "text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
+                                            isCompleted ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" :
+                                                "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
+                                    )}
+                                    style={isActive ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
+                                    >
+                                        <Icon className="w-4 h-4 md:w-7 md:h-7" />
                                     </div>
-                                );
-                            })}
-                        </div>
+                                    <span className={cn(
+                                        "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
+                                        isActive ? "opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
+                                    )}
+                                    style={isActive ? { color: themeColor } : {}}
+                                    >
+                                        {step.label}
+                                    </span>
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {mounted && typeof document !== "undefined" && createPortal(
@@ -835,111 +912,121 @@ export default function MarriagePsaEndorsementPage() {
                             {/* ===== STEP 1: INFORMANT INFO ===== */}
                             {currentStep === "INFORMANT" && (
                                 <div className="space-y-8">
-                                    <Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-6">
-                                        <h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                                            Requester & Informant Details
+                                    <Card className="p-8 rounded-[2rem] border border-slate-200/50 dark:border-white/5 bg-white dark:bg-[#0f1117] shadow-xl dark:shadow-2xl space-y-6">
+                                        <h3 className="text-xl font-black uppercase italic tracking-tight flex items-center gap-2" style={{ color: themeColor }}>
+                                            INFORMANT INFORMATION
                                         </h3>
-                                        <p className="text-xs text-slate-400 font-bold italic">Your details as the requesting informant</p>
+                                        <p className="text-xs text-slate-400 font-bold italic">Details of the person registering the marriage</p>
 
                                         <div className="space-y-6">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relationship to Spouse/Subject <span className="text-red-500">*</span></Label>
-                                                <Select
-                                                    value={formData.relationship}
-                                                    onValueChange={(v) => handleSelectChange("relationship", v)}
-                                                >
-                                                    <SelectTrigger className={cn("bg-slate-50 dark:bg-white/5 font-bold h-12 rounded-xl transition-all", (showErrors && !formData.relationship) ? "border-2 border-red-500" : "border-none")}>
-                                                        <SelectValue placeholder="SELECT RELATIONSHIP" />
-                                                    </SelectTrigger>
-                                                    <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
-                                                        <SelectItem value="SELF">SELF (HUSBAND / WIFE)</SelectItem>
-                                                        <SelectItem value="CHILD">CHILD</SelectItem>
-                                                        <SelectItem value="PARENT">PARENT</SelectItem>
-                                                        <SelectItem value="SIBLING">SIBLING</SelectItem>
-                                                        <SelectItem value="RELATIVE">OTHER RELATIVE</SelectItem>
-                                                        <SelectItem value="REPRESENTATIVE">AUTHORIZED REPRESENTATIVE</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                {(showErrors && !formData.relationship) && (
-                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
-                                                )}
+                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                                <div className="space-y-1.5 col-span-1 md:col-span-1">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Relationship to Spouse <span className="text-red-500">*</span></Label>
+                                                    <Select
+                                                        value={formData.relationship}
+                                                        onValueChange={(v) => handleSelectChange("relationship", v)}
+                                                    >
+                                                        <SelectTrigger className={cn("!h-12 w-full rounded-xl border-slate-950 dark:border-white focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold italic", (showErrors && !formData.relationship) ? "border-2 border-red-500 focus:ring-red-500" : "")}>
+                                                            <SelectValue placeholder="SELECT RELATIONSHIP" />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
+                                                            <SelectItem value="SELF">SELF (HUSBAND / WIFE)</SelectItem>
+                                                            <SelectItem value="CHILD">CHILD</SelectItem>
+                                                            <SelectItem value="PARENT">PARENT</SelectItem>
+                                                            <SelectItem value="SIBLING">SIBLING</SelectItem>
+                                                            <SelectItem value="RELATIVE">OTHER RELATIVE</SelectItem>
+                                                            <SelectItem value="REPRESENTATIVE">AUTHORIZED REPRESENTATIVE</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    {(showErrors && !formData.relationship) && (
+                                                        <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             {/* Personal Details Grid */}
                                             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">First Name</Label>
-                                                    <Input disabled value={formData.informantFirstName} className="bg-slate-100 dark:bg-white/5 border-none font-bold uppercase cursor-not-allowed opacity-75" />
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">First Name</Label>
+                                                    <Input disabled value={formData.informantFirstName} className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600 cursor-not-allowed opacity-75" />
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Middle Name</Label>
-                                                    <Input disabled value={formData.informantMiddleName} className="bg-slate-100 dark:bg-white/5 border-none font-bold uppercase cursor-not-allowed opacity-75" />
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Middle Name</Label>
+                                                    <Input disabled value={formData.informantMiddleName} className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600 cursor-not-allowed opacity-75" />
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Last Name</Label>
-                                                    <Input disabled value={formData.informantLastName} className="bg-slate-100 dark:bg-white/5 border-none font-bold uppercase cursor-not-allowed opacity-75" />
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Last Name</Label>
+                                                    <Input disabled value={formData.informantLastName} className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600 cursor-not-allowed opacity-75" />
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Suffix</Label>
-                                                    <Input disabled value={formData.informantSuffix} className="bg-slate-100 dark:bg-white/5 border-none font-bold uppercase cursor-not-allowed opacity-75" />
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Suffix</Label>
+                                                    <Input disabled value={formData.informantSuffix} className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600 cursor-not-allowed opacity-75" />
                                                 </div>
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Birth Date</Label>
-                                                    <Input disabled value={formData.informantBirthDate} type="date" className="bg-slate-100 dark:bg-white/5 border-none font-bold cursor-not-allowed opacity-75" />
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Birth Date</Label>
+                                                    <Input disabled value={formData.informantBirthDate} type="date" className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600 cursor-not-allowed opacity-75" />
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Age</Label>
-                                                    <Input disabled value={formData.informantAge} className="bg-slate-100 dark:bg-white/5 border-none font-bold cursor-not-allowed opacity-75" />
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Age</Label>
+                                                    <Input disabled value={formData.informantAge} className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600 cursor-not-allowed opacity-75" />
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Civil Status</Label>
-                                                    <Input disabled value={formData.informantCivilStatus} className="bg-slate-100 dark:bg-white/5 border-none font-bold cursor-not-allowed opacity-75" />
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Civil Status</Label>
+                                                    <Input disabled value={formData.informantCivilStatus} className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600 cursor-not-allowed opacity-75" />
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Citizenship</Label>
-                                                    <Input disabled value={formData.informantCitizenship} className="bg-slate-100 dark:bg-white/5 border-none font-bold cursor-not-allowed opacity-75" />
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Citizenship</Label>
+                                                    <Input disabled value={formData.informantCitizenship} className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600 cursor-not-allowed opacity-75" />
                                                 </div>
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Informant Address</Label>
-                                                <Input
-                                                    disabled
-                                                    className="bg-slate-100 dark:bg-white/5 border-none font-bold uppercase cursor-not-allowed opacity-75"
-                                                    value={formData.informantAddress}
-                                                />
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Occupation</Label>
-                                                    <Input disabled className="bg-slate-100 dark:bg-white/5 border-none font-bold cursor-not-allowed opacity-75" value={formData.informantOccupation} />
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Occupation</Label>
+                                                    <Input disabled className="rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600 cursor-not-allowed opacity-75" value={formData.informantOccupation} />
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Contact Number <span className="text-red-500">*</span></Label>
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Contact Number <span className="text-red-500">*</span></Label>
                                                     <Input
-                                                        className={cn("bg-slate-50 dark:bg-white/5 font-bold uppercase transition-all", (showErrors && !formData.contactNumber) ? "border-2 border-red-500" : "border-none")}
+                                                        className={cn("rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic transition-all", (showErrors && !formData.contactNumber) ? "border-2 border-red-500 focus-visible:ring-red-500" : "")}
                                                         placeholder="e.g. 0917XXXXXXX"
                                                         value={formData.contactNumber}
-                                                        onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
+                                                        onChange={(e) => {
+                                                            let val = e.target.value;
+                                                            val = val.replace(/[^0-9+]/g, '');
+                                                            if (val.includes('+')) {
+                                                                val = '+' + val.replace(/\+/g, '');
+                                                            }
+                                                            setFormData(prev => ({ ...prev, contactNumber: val }));
+                                                        }}
                                                     />
                                                     {(showErrors && !formData.contactNumber) && (
                                                         <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                                     )}
+                                                    <p className="text-[9px] font-black uppercase italic tracking-widest text-amber-500 mt-2">
+                                                        * NOTE: PLEASE USE YOUR ACTIVE CONTACT NUMBER. THIS WILL BE USED TO CONTACT YOU REGARDING YOUR TRANSACTION.
+                                                    </p>
                                                 </div>
                                             </div>
+                                        </div>
+
+                                        <div className="p-4 rounded-2xl mt-6 border" style={{ backgroundColor: `${themeColor}0d`, borderColor: `${themeColor}1a` }}>
+                                            <p className="text-[10px] font-black uppercase italic tracking-wider flex items-center gap-2" style={{ color: themeColor }}>
+                                                <Sparkles className="w-4 h-4" /> NOTE: CHANGES WILL UPDATE YOUR RESIDENT PROFILE UPON SUBMISSION.
+                                            </p>
                                         </div>
                                     </Card>
 
                                     <div className="flex justify-end pt-4">
                                         <Button
                                             onClick={nextStep}
-                                            className="h-14 px-10 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black uppercase italic tracking-widest"
+                                            className="h-14 px-10 rounded-full text-white font-black uppercase italic tracking-widest shadow-lg shadow-emerald-500/10 hover:opacity-90 transition-opacity"
+                                            style={{ backgroundColor: themeColor }}
                                         >
-                                            Next Part <ArrowRight className="ml-2 w-5 h-5" />
+                                            Next Step <ArrowRight className="ml-2 w-5 h-5" />
                                         </Button>
                                     </div>
                                 </div>
@@ -948,109 +1035,115 @@ export default function MarriagePsaEndorsementPage() {
                             {/* ===== STEP 2: SPOUSE INFO & DOCUMENTS ===== */}
                             {currentStep === "SUBJECT" && (
                                 <div className="space-y-8">
-                                    <Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-6">
-                                        <h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
-                                            Marriage Details
-                                        </h3>
-                                        <p className="text-xs text-slate-400 font-bold italic">Provide the details of the marriage record that needs PSA endorsement</p>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Husband&apos;s Full Name <span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    name="husbandFullName"
-                                                    placeholder="ENTER HUSBAND'S FULL NAME"
-                                                    value={formData.husbandFullName}
-                                                    onChange={handleInputChange}
-                                                    className={cn("bg-slate-50 dark:bg-white/5 font-bold uppercase transition-all", (showErrors && !formData.husbandFullName) ? "border-2 border-red-500" : "border-none")}
-                                                />
-                                                {(showErrors && !formData.husbandFullName) && (
-                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
-                                                )}
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Wife&apos;s Full Name (Maiden Name) <span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    name="wifeFullName"
-                                                    placeholder="ENTER WIFE'S MAIDEN NAME"
-                                                    value={formData.wifeFullName}
-                                                    onChange={handleInputChange}
-                                                    className={cn("bg-slate-50 dark:bg-white/5 font-bold uppercase transition-all", (showErrors && !formData.wifeFullName) ? "border-2 border-red-500" : "border-none")}
-                                                />
-                                                {(showErrors && !formData.wifeFullName) && (
-                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
-                                                )}
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date of Marriage <span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    type="date"
-                                                    name="dateOfMarriage"
-                                                    value={formData.dateOfMarriage}
-                                                    onChange={handleInputChange}
-                                                    className={cn("bg-slate-50 dark:bg-white/5 font-bold h-12 rounded-xl transition-all", (showErrors && !formData.dateOfMarriage) ? "border-2 border-red-500" : "border-none")}
-                                                />
-                                                {(showErrors && !formData.dateOfMarriage) && (
-                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
-                                                )}
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Place of Marriage <span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    name="placeOfMarriage"
-                                                    placeholder="ENTER PLACE OF MARRIAGE"
-                                                    value={formData.placeOfMarriage}
-                                                    onChange={handleInputChange}
-                                                    className={cn("bg-slate-50 dark:bg-white/5 font-bold uppercase h-12 rounded-xl transition-all", (showErrors && !formData.placeOfMarriage) ? "border-2 border-red-500" : "border-none")}
-                                                />
-                                                {(showErrors && !formData.placeOfMarriage) && (
-                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </Card>
-
-                                    {/* Documents Section */}
-                                    <Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-8">
-                                        <div className="space-y-2">
-                                            <h3 className="text-lg font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
-                                                Required Documents
+                                    <Card className="p-8 rounded-[2rem] border border-slate-200/50 dark:border-white/5 bg-white dark:bg-[#0f1117] shadow-xl dark:shadow-2xl space-y-8">
+                                        <div className="space-y-6">
+                                            <h3 className="text-xl font-black uppercase italic tracking-tight flex items-center gap-2" style={{ color: themeColor }}>
+                                                Marriage Details
                                             </h3>
-                                            <p className="text-xs text-slate-400 font-bold italic">
-                                                Please upload clear photos or scanned copies of the following requirements.
-                                            </p>
-                                        </div>
+                                            <p className="text-xs text-slate-400 font-bold italic">Provide the details of the marriage record that needs PSA endorsement</p>
 
-                                        <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200/60 dark:border-amber-500/20">
-                                            <div className="flex items-start gap-3">
-                                                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                                                <div>
-                                                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">PSA Negative Certification Required</p>
-                                                    <p className="text-[9px] text-amber-600/80 dark:text-amber-400/80 italic mt-1">
-                                                        This is strictly required as proof that the record is not available in the national database. Obtain this from any PSA Serbilis outlet.
-                                                    </p>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Husband&apos;s Full Name <span className="text-red-500">*</span></Label>
+                                                    <Input
+                                                        id="husbandFullName"
+                                                        name="husbandFullName"
+                                                        placeholder="ENTER HUSBAND'S FULL NAME"
+                                                        value={formData.husbandFullName}
+                                                        onChange={handleInputChange}
+                                                        className={cn("rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic transition-all uppercase", (showErrors && !formData.husbandFullName) ? "border-2 border-red-500 focus-visible:ring-red-500" : "")}
+                                                    />
+                                                    {(showErrors && !formData.husbandFullName) && (
+                                                        <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
+                                                    )}
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Wife&apos;s Full Name (Maiden Name) <span className="text-red-500">*</span></Label>
+                                                    <Input
+                                                        id="wifeFullName"
+                                                        name="wifeFullName"
+                                                        placeholder="ENTER WIFE'S MAIDEN NAME"
+                                                        value={formData.wifeFullName}
+                                                        onChange={handleInputChange}
+                                                        className={cn("rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic transition-all uppercase", (showErrors && !formData.wifeFullName) ? "border-2 border-red-500 focus-visible:ring-red-500" : "")}
+                                                    />
+                                                    {(showErrors && !formData.wifeFullName) && (
+                                                        <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
+                                                    )}
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Date of Marriage <span className="text-red-500">*</span></Label>
+                                                    <Input
+                                                        id="dateOfMarriage"
+                                                        type="date"
+                                                        name="dateOfMarriage"
+                                                        value={formData.dateOfMarriage}
+                                                        onChange={handleInputChange}
+                                                        className={cn("rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic transition-all", (showErrors && !formData.dateOfMarriage) ? "border-2 border-red-500 focus-visible:ring-red-500" : "")}
+                                                    />
+                                                    {(showErrors && !formData.dateOfMarriage) && (
+                                                        <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
+                                                    )}
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Place of Marriage <span className="text-red-500">*</span></Label>
+                                                    <Input
+                                                        id="placeOfMarriage"
+                                                        name="placeOfMarriage"
+                                                        placeholder="ENTER PLACE OF MARRIAGE"
+                                                        value={formData.placeOfMarriage}
+                                                        onChange={handleInputChange}
+                                                        className={cn("rounded-xl border-slate-950 dark:border-white bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic transition-all uppercase", (showErrors && !formData.placeOfMarriage) ? "border-2 border-red-500 focus-visible:ring-red-500" : "")}
+                                                    />
+                                                    {(showErrors && !formData.placeOfMarriage) && (
+                                                        <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                            {renderDocCard("PSA Negative Certification", "psaNegativeCert", true)}
-                                            {renderDocCard("Form 3A (Local Registry Copy)", "form3a", true)}
+                                        <div className="border-t border-slate-200/60 dark:border-white/5 pt-8 space-y-6">
+                                            <div className="space-y-2">
+                                                <h3 className="text-xl font-black uppercase italic tracking-tight flex items-center gap-2" style={{ color: themeColor }}>
+                                                    Required Documents
+                                                </h3>
+                                                <p className="text-xs text-slate-400 font-bold italic">
+                                                    Please upload clear photos or scanned copies of the following requirements.
+                                                </p>
+                                            </div>
+
+                                            <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200/60 dark:border-amber-500/20">
+                                                <div className="flex items-start gap-3">
+                                                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">PSA Negative Certification Required</p>
+                                                        <p className="text-[9px] text-amber-600/80 dark:text-amber-400/80 italic mt-1">
+                                                            This is strictly required as proof that the record is not available in the national database. Obtain this from any PSA Serbilis outlet.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                                {renderDocCard("PSA Negative Certification", "psaNegativeCert", true)}
+                                                {renderDocCard("Form 3A (Local Registry Copy)", "form3a", true)}
+                                            </div>
                                         </div>
                                     </Card>
 
                                     <div className="flex justify-end gap-4 pt-4">
-                                        <Button variant="outline" onClick={prevStep} className="h-14 px-8 rounded-2xl font-black uppercase italic tracking-widest">
+                                        <Button variant="outline" onClick={prevStep} className="h-14 px-8 rounded-full font-black uppercase italic tracking-widest">
                                             Back
                                         </Button>
                                         <Button
                                             onClick={nextStep}
-                                            className="h-14 px-10 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black uppercase italic tracking-widest"
+                                            className="h-14 px-10 rounded-full text-white font-black uppercase italic tracking-widest shadow-lg shadow-emerald-500/10 hover:opacity-90 transition-opacity"
+                                            style={{ backgroundColor: themeColor }}
                                         >
-                                            Final Review <ArrowRight className="ml-2 w-5 h-5" />
+                                            Next Step <ArrowRight className="ml-2 w-5 h-5" />
                                         </Button>
                                     </div>
                                 </div>
@@ -1059,7 +1152,7 @@ export default function MarriagePsaEndorsementPage() {
                             {/* ===== STEP 3: REVIEW & SUBMIT ===== */}
                             {currentStep === "REVIEW" && (
                                 <div className="space-y-8">
-                                    <Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-8">
+                                    <Card className="p-8 rounded-[2rem] border border-slate-200/50 dark:border-white/5 bg-white dark:bg-[#0f1117] shadow-xl dark:shadow-2xl space-y-8">
                                         <div className="bg-rose-500/5 p-6 rounded-3xl border border-rose-500/10 flex items-start gap-4">
                                             <AlertCircle className="w-6 h-6 text-rose-500 mt-1" />
                                             <div className="space-y-1">
@@ -1188,14 +1281,14 @@ export default function MarriagePsaEndorsementPage() {
                                     </Card>
 
                                     <div className="flex justify-end gap-4 pt-4">
-                                        <Button variant="outline" onClick={prevStep} className="h-14 px-8 rounded-2xl font-black uppercase italic tracking-widest">
+                                        <Button variant="outline" onClick={prevStep} className="h-14 px-8 rounded-full font-black uppercase italic tracking-widest">
                                             Back
                                         </Button>
                                         <Button
                                             onClick={handleSubmit}
                                             disabled={submitting || (!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form3a && !previews.form3a)}
                                             className={cn(
-                                                "h-14 px-12 rounded-2xl font-black uppercase italic tracking-widest shadow-xl transition-all duration-300",
+                                                "h-14 px-12 rounded-full font-black uppercase italic tracking-widest shadow-xl transition-all duration-300",
                                                 ((!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form3a && !previews.form3a))
                                                     ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                                                     : "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/20"

@@ -31,6 +31,7 @@ import ResidentIdentityProfile from "@/app/admin/treasury/[id]/components/Reside
 import TransactionInfoCard from "@/app/admin/treasury/[id]/components/TransactionInfoCard";
 import RejectionRevisionControls from "@/app/admin/treasury/[id]/components/RejectionRevisionControls";
 import PrintWaybill from "@/app/admin/treasury/[id]/components/PrintWaybill";
+import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 import { cn } from "@/lib/utils";
 
 export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
@@ -459,40 +460,18 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Official Receipt Image (Optional)</span>
-                                    {orPreview ? (
-                                        <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 aspect-[3/2] bg-[#f8fafd] dark:bg-white/5">
-                                            <img src={orPreview} alt="OR Preview" className="w-full h-full object-cover" />
-                                            <button
-                                                type="button"
-                                                onClick={() => { setOrFile(null); setOrPreview?.(null); }}
-                                                className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black text-white rounded-full transition-colors"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <Label
-                                            htmlFor="or-upload"
-                                            className="flex flex-col items-center justify-center py-6 px-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 hover:border-primary/50 transition-colors cursor-pointer text-center bg-white/50 dark:bg-slate-900/50"
-                                        >
-                                            <Upload className="w-5 h-5 text-slate-400 mb-1" />
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">Click to Upload O.R. Image</span>
-                                            <input
-                                                id="or-upload"
-                                                type="file"
-                                                accept=".pdf,.jpg,.jpeg,.png"
-                                                onChange={(e) => {
-                                                    const file = e.target.files?.[0];
-                                                    if (file) {
-                                                        setOrFile(file);
-                                                        setOrPreview?.(URL.createObjectURL(file));
-                                                    }
-                                                }}
-                                                className="hidden"
-                                            />
-                                        </Label>
-                                    )}
+                                     <PremiumDocumentUpload
+                                         label="Official Receipt Image"
+                                         file={orFile}
+                                         previewUrl={orPreview}
+                                         existingUrl={transaction.orUrl}
+                                         onFileSelect={(file) => {
+                                             setOrFile(file);
+                                             setOrPreview?.(URL.createObjectURL(file));
+                                         }}
+                                         onView={() => handleViewFile?.(orPreview || transaction.orUrl, "Official Treasury Receipt")}
+                                         infoText="PDF / IMAGE (MAX 5MB)"
+                                     />
                                 </div>
 
                                 <Button
@@ -515,6 +494,19 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                                 </div>
                             </div>
                         ))}
+
+                        {isTreasuryContext && transaction.status === "FOR_REQUESTING" && (
+                            <div className="space-y-6">
+                                <Button
+                                    onClick={handleEvaluate}
+                                    disabled={actionLoading}
+                                    className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-green-500/10"
+                                >
+                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                    PROCEED TO PAYMENT
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

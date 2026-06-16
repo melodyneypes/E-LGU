@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { format } from "date-fns";
+import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import { 
     Eye, 
     MoreVertical, 
@@ -72,6 +73,18 @@ export function ReportsTable({ initialReports }: { initialReports: Report[] }) {
     const [adminComment, setAdminComment] = useState("");
     const [isUpdating, setIsUpdating] = useState(false);
     const [currentStatus, setCurrentStatus] = useState("");
+
+    const [viewerOpen, setViewerOpen] = useState(false);
+    const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+    const [viewerTitle, setViewerTitle] = useState("");
+    const [viewerIndex, setViewerIndex] = useState(0);
+
+    const handleViewImage = (url: string, index: number) => {
+        setViewerUrl(url);
+        setViewerTitle(`${selectedReport?.category || "Report"} Photo`);
+        setViewerIndex(index);
+        setViewerOpen(true);
+    };
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -204,22 +217,32 @@ export function ReportsTable({ initialReports }: { initialReports: Report[] }) {
 
             {/* Detailed View Modal */}
             <Dialog open={!!selectedReport} onOpenChange={(open) => !open && setSelectedReport(null)}>
-                <DialogContent className="w-full sm:max-w-2xl bg-white dark:bg-[#0f1117] border-slate-200 dark:border-white/10 p-0 overflow-hidden rounded-[2.5rem]">
-                    <div className="max-h-[90vh] overflow-y-auto custom-scrollbar">
-                        <div className="p-8 space-y-8">
-                            <DialogHeader>
-                                <div className="flex items-center gap-3 bg-primary/5 p-4 rounded-3xl border border-primary/10">
-                                    <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
-                                        <AlertTriangle className="w-6 h-6 text-primary" />
-                                    </div>
-                                    <div className="text-left">
-                                        <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Report <span className="text-primary">Summary</span></DialogTitle>
-                                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 italic mt-0.5">Reference: {selectedReport?.id}</p>
-                                    </div>
+                <DialogContent 
+                    onPointerDownOutside={(e) => {
+                        if (viewerOpen) e.preventDefault();
+                    }}
+                    onInteractOutside={(e) => {
+                        if (viewerOpen) e.preventDefault();
+                    }}
+                    className="w-full sm:max-w-2xl bg-white dark:bg-[#0f1117] border-slate-200 dark:border-white/10 p-0 overflow-hidden rounded-[2.5rem] flex flex-col max-h-[90vh]"
+                >
+                    <div className="p-8 pb-4 shrink-0">
+                        <DialogHeader>
+                            <div className="flex items-center gap-3 bg-primary/5 p-4 rounded-3xl border border-primary/10">
+                                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
+                                    <AlertTriangle className="w-6 h-6 text-primary" />
                                 </div>
-                            </DialogHeader>
+                                <div className="text-left">
+                                    <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Report <span className="text-primary">Summary</span></DialogTitle>
+                                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 italic mt-0.5">Reference: {selectedReport?.id}</p>
+                                </div>
+                            </div>
+                        </DialogHeader>
+                    </div>
 
-                            {selectedReport && (
+                    {selectedReport && (
+                        <>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar px-8 pb-6 space-y-8">
                                 <div className="space-y-8 animate-in zoom-in-95 duration-300">
                                     {/* Metadata Grid */}
                                     <div className="grid grid-cols-2 gap-4">
@@ -257,7 +280,11 @@ export function ReportsTable({ initialReports }: { initialReports: Report[] }) {
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic flex items-center gap-2"><ImageIcon className="w-3 h-3" /> Attached Photos</p>
                                             <div className="grid grid-cols-4 gap-3">
                                                 {selectedReport.images.map((img, i) => (
-                                                    <div key={i} className="aspect-square relative rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-lg group cursor-pointer" onClick={() => window.open(img, '_blank')}>
+                                                    <div 
+                                                        key={i} 
+                                                        className="aspect-square relative rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-lg group cursor-pointer" 
+                                                        onClick={() => handleViewImage(img, i)}
+                                                    >
                                                         {/* eslint-disable-next-line @next/next/no-img-element */}
                                                         <img src={img} alt={`report-${i}`} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                                                     </div>
@@ -315,22 +342,36 @@ export function ReportsTable({ initialReports }: { initialReports: Report[] }) {
                                                 />
                                             </div>
                                         </div>
-
-                                        <Button 
-                                            disabled={isUpdating}
-                                            onClick={() => handleUpdateStatus(selectedReport.id, currentStatus)}
-                                            className="w-full h-14 rounded-2xl bg-primary hover:opacity-90 text-white font-black uppercase tracking-widest text-xs italic shadow-xl shadow-primary/25 transition-all active:scale-95 flex items-center justify-center gap-3"
-                                        >
-                                            {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                            {isUpdating ? "Applying Changes..." : "Apply Status & Send Feedback"}
-                                        </Button>
                                     </div>
                                 </div>
-                            )}
-                        </div>
-                    </div>
+                            </div>
+
+                            {/* Sticky Action Footer */}
+                            <div className="p-8 pt-4 border-t border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] shrink-0">
+                                <Button 
+                                    disabled={isUpdating}
+                                    onClick={() => handleUpdateStatus(selectedReport.id, currentStatus)}
+                                    className="w-full h-14 rounded-2xl bg-primary hover:opacity-90 text-white font-black uppercase tracking-widest text-xs italic shadow-xl shadow-primary/25 transition-all active:scale-95 flex items-center justify-center gap-3"
+                                >
+                                    {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                    {isUpdating ? "Applying Changes..." : "Apply Status & Send Feedback"}
+                                </Button>
+                            </div>
+                        </>
+                    )}
                 </DialogContent>
             </Dialog>
+
+            <DocumentViewerModal
+                isOpen={viewerOpen}
+                onClose={() => setViewerOpen(false)}
+                file={null}
+                fileUrl={viewerUrl}
+                title={viewerTitle}
+                themeColor="var(--primary-theme)"
+                documents={selectedReport?.images.map((img, idx) => ({ url: img, label: `Photo ${idx + 1}` }))}
+                initialIndex={viewerIndex}
+            />
         </div>
     );
 }

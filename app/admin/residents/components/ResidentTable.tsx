@@ -431,6 +431,7 @@ export function ResidentTable() {
                 isOpen={isReviewModalOpen}
                 onClose={() => { setIsReviewModalOpen(false); setReviewResident(null); }}
                 onStatusChange={handleStatusChange}
+                themeColor={themeColor}
             />
         </div>
     );

@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { TreasuryViewProps } from "./types";
 import React from "react";
@@ -400,54 +401,72 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                     Submitted Identifications & Requirements
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {psaNegativeCertUrl && (
-                                        <div
-                                            onClick={() => handleViewFile?.(psaNegativeCertUrl, "PSA Negative Certification")}
-                                            className="relative group rounded-3xl overflow-hidden aspect-[3/2] bg-[#f8fafd] dark:bg-white/5 border border-slate-200/50 dark:border-white/5 cursor-pointer shadow-md hover:shadow-xl transition-all"
-                                        >
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img
-                                                src={psaNegativeCertUrl}
-                                                alt="PSA Negative Certification"
-                                                className="w-full h-full object-cover group-hover:scale-[1.03] transition-all duration-500"
-                                            />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center z-10">
-                                                <div
-                                                    style={{ backgroundColor: themeColor }}
-                                                    className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg animate-in zoom-in-75 duration-200"
-                                                >
-                                                    <span>VIEW</span>
+                                    {psaNegativeCertUrl && (() => {
+                                        const isPdf = psaNegativeCertUrl.split("?")[0].toLowerCase().endsWith(".pdf") || psaNegativeCertUrl.includes("application/pdf") || psaNegativeCertUrl.includes(".pdf?");
+                                        return (
+                                            <div
+                                                onClick={() => handleViewFile?.(psaNegativeCertUrl, "PSA Negative Certification")}
+                                                className="relative group rounded-3xl overflow-hidden aspect-[3/2] bg-[#f8fafd] dark:bg-white/5 border border-slate-200/50 dark:border-white/5 cursor-pointer shadow-md hover:shadow-xl transition-all"
+                                            >
+                                                {isPdf ? (
+                                                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-[#1f2937]/20 gap-2 p-4 group-hover:scale-[1.03] transition-all duration-500">
+                                                        <FileText className="w-10 h-10 text-red-500 animate-pulse" />
+                                                        <span className="text-[9px] font-black uppercase text-red-500/70 tracking-widest text-center">View PDF Document</span>
+                                                    </div>
+                                                ) : (
+                                                    <img
+                                                        src={psaNegativeCertUrl}
+                                                        alt="PSA Negative Certification"
+                                                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-all duration-500"
+                                                    />
+                                                )}
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center z-10">
+                                                    <div
+                                                        style={{ backgroundColor: themeColor }}
+                                                        className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg animate-in zoom-in-75 duration-200"
+                                                    >
+                                                        <span>VIEW</span>
+                                                    </div>
+                                                </div>
+                                                <div className="absolute bottom-2 left-2 right-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-white font-black italic uppercase tracking-wider text-[8px] truncate z-10">
+                                                    PSA Negative Certification (Required)
                                                 </div>
                                             </div>
-                                            <div className="absolute bottom-2 left-2 right-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-white font-black italic uppercase tracking-wider text-[8px] truncate z-10">
-                                                PSA Negative Certification (Required)
-                                            </div>
-                                        </div>
-                                    )}
-                                    {form1aUrl && (
-                                        <div
-                                            onClick={() => handleViewFile?.(form1aUrl, "Form 1A (Local Copy)")}
-                                            className="relative group rounded-3xl overflow-hidden aspect-[3/2] bg-[#f8fafd] dark:bg-white/5 border border-slate-200/50 dark:border-white/5 cursor-pointer shadow-md hover:shadow-xl transition-all"
-                                        >
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img
-                                                src={form1aUrl}
-                                                alt="Form 1A (Local Copy)"
-                                                className="w-full h-full object-cover group-hover:scale-[1.03] transition-all duration-500"
-                                            />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center z-10">
-                                                <div
-                                                    style={{ backgroundColor: themeColor }}
-                                                    className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg animate-in zoom-in-75 duration-200"
-                                                >
-                                                    <span>VIEW</span>
+                                        );
+                                    })()}
+                                    {form1aUrl && (() => {
+                                        const isPdf = form1aUrl.split("?")[0].toLowerCase().endsWith(".pdf") || form1aUrl.includes("application/pdf") || form1aUrl.includes(".pdf?");
+                                        return (
+                                            <div
+                                                onClick={() => handleViewFile?.(form1aUrl, "Form 1A (Local Copy)")}
+                                                className="relative group rounded-3xl overflow-hidden aspect-[3/2] bg-[#f8fafd] dark:bg-white/5 border border-slate-200/50 dark:border-white/5 cursor-pointer shadow-md hover:shadow-xl transition-all"
+                                            >
+                                                {isPdf ? (
+                                                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-[#1f2937]/20 gap-2 p-4 group-hover:scale-[1.03] transition-all duration-500">
+                                                        <FileText className="w-10 h-10 text-red-500 animate-pulse" />
+                                                        <span className="text-[9px] font-black uppercase text-red-500/70 tracking-widest text-center">View PDF Document</span>
+                                                    </div>
+                                                ) : (
+                                                    <img
+                                                        src={form1aUrl}
+                                                        alt="Form 1A (Local Copy)"
+                                                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-all duration-500"
+                                                    />
+                                                )}
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center z-10">
+                                                    <div
+                                                        style={{ backgroundColor: themeColor }}
+                                                        className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg animate-in zoom-in-75 duration-200"
+                                                    >
+                                                        <span>VIEW</span>
+                                                    </div>
+                                                </div>
+                                                <div className="absolute bottom-2 left-2 right-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-white font-black italic uppercase tracking-wider text-[8px] truncate z-10">
+                                                    Form 1A (Local Registry Copy)
                                                 </div>
                                             </div>
-                                            <div className="absolute bottom-2 left-2 right-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-white font-black italic uppercase tracking-wider text-[8px] truncate z-10">
-                                                Form 1A (Local Registry Copy)
-                                            </div>
-                                        </div>
-                                    )}
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         ))}
@@ -580,12 +599,14 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                 </Button>
 
                                 <div className="flex gap-2">
-                                    <Button
-                                        onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
-                                        className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
-                                    >
-                                        Revision
-                                    </Button>
+                                    {(transaction.revisionCount || 0) < 3 && (
+                                        <Button
+                                                                                onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
+                                                                                className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
+                                                                            >
+                                                                                Revision
+                                                                            </Button>
+                                    )}
                                     <Button
                                         onClick={() => { setIsRejecting(true); setRemarks(""); }}
                                         className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
@@ -609,12 +630,14 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                 </Button>
 
                                 <div className="flex gap-2">
-                                    <Button
-                                        onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
-                                        className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
-                                    >
-                                        Revision
-                                    </Button>
+                                    {(transaction.revisionCount || 0) < 3 && (
+                                        <Button
+                                                                                onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
+                                                                                className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
+                                                                            >
+                                                                                Revision
+                                                                            </Button>
+                                    )}
                                     <Button
                                         onClick={() => { setIsRejecting(true); setRemarks(""); }}
                                         className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
@@ -818,7 +841,6 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                                     onClick={() => handleViewFile?.(transaction.paymentReference, "Payment Proof")}
                                                     className="relative aspect-[4/3] rounded-xl bg-slate-100 dark:bg-black/20 border border-slate-200 dark:border-white/5 overflow-hidden group cursor-pointer hover:border-primary/50 transition-all select-none"
                                                 >
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                                     <img
                                                         src={transaction.paymentReference}
                                                         alt="Payment Proof"
@@ -930,7 +952,6 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                                             onClick={() => handleViewFile?.(orPreview || transaction.orUrl, "Official Treasury Receipt")}
                                                             className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all text-left block cursor-pointer select-none"
                                                         >
-                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
                                                             <img
                                                                 src={orPreview || transaction.orUrl}
                                                                 alt="OR Preview"
@@ -1147,7 +1168,6 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                                         onClick={() => handleViewFile?.(docUrl, "Issued Registry Endorsement Document")}
                                                         className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all cursor-pointer select-none"
                                                     >
-                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                                         <img
                                                             src={docUrl}
                                                             alt="Endorsement Document Preview"

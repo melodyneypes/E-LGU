@@ -177,7 +177,7 @@ export default function CivilRegistryPage() {
     const [showErrors, setShowErrors] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [availableTypes, setAvailableTypes] = useState<any[]>([]);
-    const [themeColor, setThemeColor] = useState("#2563eb");
+    const [themeColor, setThemeColor] = useState("var(--primary-theme)");
 
     const isStepValid = (stepId: Step) => {
         switch (stepId) {
@@ -416,7 +416,7 @@ export default function CivilRegistryPage() {
                 const [resResult, typesResult, themeResult] = await Promise.all([
                     getCurrentUserResident(),
                     getTransactionTypes(),
-                    getSystemSettingAction("theme_color", "#2563eb")
+                    getSystemSettingAction("theme_color", "var(--primary-theme)")
                 ]);
 
                 if (themeResult.success && themeResult.data) {
@@ -737,9 +737,11 @@ export default function CivilRegistryPage() {
         <>
             <style dangerouslySetInnerHTML={{
                 __html: `
+                ${themeColor !== "var(--primary-theme)" ? `
                 :root, * {
                     --primary-theme: ${themeColor} !important;
                 }
+                ` : ""}
                 .text-blue-500, [class*="text-blue-500"]:not(input):not(select):not(textarea) {
                     color: ${themeColor} !important;
                 }
@@ -759,20 +761,20 @@ export default function CivilRegistryPage() {
                     border-color: ${themeColor} !important;
                 }
                 .bg-blue-500\\/10, [class*="bg-blue-500/10"] {
-                    background-color: ${themeColor}1a !important;
+                    background-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 10%, transparent)" : `${themeColor}1a`} !important;
                 }
                 .bg-blue-500\\/5, [class*="bg-blue-500/5"] {
-                    background-color: ${themeColor}0d !important;
+                    background-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 5%, transparent)" : `${themeColor}0d`} !important;
                 }
                 .shadow-blue-500\\/20, [class*="shadow-blue-500/20"] {
-                    --tw-shadow-color: ${themeColor}33 !important;
+                    --tw-shadow-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33`} !important;
                 }
                 .hover\\:bg-blue-600:hover, [class*="hover:bg-blue-600"]:hover {
                     background-color: ${themeColor} !important;
                     filter: brightness(0.9);
                 }
                 .hover\\:border-blue-500\\/50:hover, [class*="hover:border-blue-500/50"]:hover {
-                    border-color: ${themeColor}80 !important;
+                    border-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 50%, transparent)" : `${themeColor}80`} !important;
                 }
                 input:not([type="button"]):not([type="submit"]), select, textarea {
                     color: #0f172a !important;

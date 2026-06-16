@@ -5,7 +5,7 @@ import Image from "next/image";
 import {
     CheckCircle, XCircle, X, User, MapPin, Phone,
     Briefcase, Shield, Heart, Users, FileText, AlertTriangle,
-    Clock, BadgeCheck, RotateCw, RefreshCw, ZoomIn, ZoomOut
+    Clock, RotateCw, RefreshCw, ZoomIn, ZoomOut
 } from "lucide-react";
 import type { Resident } from "../providers/ResidentProvider";
 
@@ -31,22 +31,24 @@ const Section = ({ icon: Icon, title, children }: { icon: React.ElementType, tit
 
 const Field = ({ label, value }: { label: string, value: string | null | undefined | boolean | number }) => {
     const displayValue = value === null || value === undefined || value === "" ? (
-        <span className="text-slate-400 italic text-xs">N/A</span>
+        <span className="text-slate-400 dark:text-slate-600 italic text-xs font-semibold">N/A</span>
     ) : typeof value === "boolean" ? (
-        <span className={`text-xs font-bold ${value ? "text-emerald-600" : "text-slate-400"}`}>{value ? "Yes" : "No"}</span>
+        <span className={`text-xs font-bold ${value ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"}`}>{value ? "Yes" : "No"}</span>
     ) : (
-        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{String(value)}</span>
+        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">{String(value)}</span>
     );
 
     return (
         <div className="flex flex-col gap-0.5">
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{label}</span>
             {displayValue}
         </div>
     );
 };
 
-export function ResidentReviewModal({ resident, isOpen, onClose }: ResidentReviewModalProps) {
+export function ResidentReviewModal({ resident, isOpen, onClose, themeColor }: ResidentReviewModalProps) {
+    const [activeTab, setActiveTab] = useState<"profile" | "socio" | "family">("profile");
+
     // Zoom, Rotation, and Drag Lightbox state
     const [zoomedImage, setZoomedImage] = useState<{ src: string; label: string } | null>(null);
     const [rotation, setRotation] = useState(0);
@@ -110,6 +112,13 @@ export function ResidentReviewModal({ resident, isOpen, onClose }: ResidentRevie
         };
     }, [zoomedImage]);
 
+    // Reset activeTab when modal opens or resident changes
+    useEffect(() => {
+        if (isOpen) {
+            setActiveTab("profile");
+        }
+    }, [isOpen, resident?.id]);
+
     if (!isOpen || !resident) return null;
 
     const statusConfig = {
@@ -126,39 +135,12 @@ export function ResidentReviewModal({ resident, isOpen, onClose }: ResidentRevie
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-            <div className="relative bg-white dark:bg-[#151b2b] rounded-3xl shadow-2xl border border-slate-200 dark:border-[#2a3040] w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="relative bg-white dark:bg-[#151b2b] rounded-3xl shadow-2xl border border-slate-200 dark:border-[#2a3040] w-[95vw] max-w-[95vw] h-[90vh] max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                 {/* Header */}
                 <div className="flex items-start justify-between p-6 border-b border-slate-100 dark:border-[#2a3040] flex-shrink-0">
                     <div className="flex items-center gap-4">
-                        {/* Interactive Profile Picture */}
-                        <button 
-                            type="button"
-                            className={`group relative w-16 h-16 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex-shrink-0 transition-all duration-300 hover:scale-105 hover:shadow-md ${(resident.livenessUrl || resident.imageUrl) ? "cursor-zoom-in" : "cursor-default"}`}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                const url = resident.livenessUrl || resident.imageUrl;
-                                if (url) {
-                                    openLightbox(url, "Profile Photo");
-                                }
-                            }}
-                            disabled={!(resident.livenessUrl || resident.imageUrl)}
-                            title={(resident.livenessUrl || resident.imageUrl) ? "Click to view full photo" : ""}
-                        >
-                            {(resident.livenessUrl || resident.imageUrl) ? (
-                                <Image 
-                                    src={(resident.livenessUrl || resident.imageUrl) || ""} 
-                                    alt="Profile" 
-                                    fill 
-                                    className="object-cover transition-transform duration-300 group-hover:scale-110" 
-                                />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center font-black text-xl text-slate-400 uppercase">
-                                    {(resident.firstName && resident.firstName[0]) || ""}{(resident.lastName && resident.lastName[0]) || ""}
-                                </div>
-                            )}
-                        </button>
                         <div>
-                            <h2 className="text-xl font-black uppercase tracking-tighter italic text-slate-900 dark:text-white leading-none">
+                            <h2 className="text-2xl font-black uppercase tracking-tighter italic text-slate-900 dark:text-white leading-none">
                                 {resident.lastName}, {resident.firstName} {resident.middleName ? `${resident.middleName[0]}.` : ""} {resident.suffix}
                             </h2>
                             <p className="text-xs text-slate-500 mt-1 font-medium">{resident.email || "No email on file"}</p>
@@ -184,141 +166,223 @@ export function ResidentReviewModal({ resident, isOpen, onClose }: ResidentRevie
                     </button>
                 </div>
 
-                {/* Body - Scrollable */}
-                <div className="overflow-y-auto custom-scrollbar flex-1 p-6 space-y-6">
-                    <Section icon={User} title="Personal Information">
-                        <Field label="Gender" value={resident.gender} />
-                        <Field label="Civil Status" value={resident.civilStatus} />
-                        <Field label="Date of Birth" value={resident.dateOfBirth ? new Date(resident.dateOfBirth).toLocaleDateString() : null} />
-                        <Field label="Age" value={resident.age} />
-                        <Field label="Place of Birth" value={resident.placeOfBirth} />
-                        <Field label="Citizenship" value={resident.citizenship} />
-                        <Field label="Religion" value={resident.religion} />
-                        <Field label="Blood Type" value={resident.bloodType} />
-                        <Field label="Height" value={resident.height} />
-                        <Field label="Weight" value={resident.weight} />
-                    </Section>
+                {/* Split Body Layout */}
+                <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+                    {/* Left Panel: Resident Details (Tabbed) */}
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6 flex flex-col min-h-0">
+                        {/* Modern Premium Tabs Selector */}
+                        <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 dark:bg-slate-900/60 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 mb-6 flex-shrink-0">
+                            {(["profile", "socio", "family"] as const).map((tab) => {
+                                const tabLabels = {
+                                    profile: { label: "Profile & Address", icon: User },
+                                    socio: { label: "Socio-Gov & IDs", icon: Briefcase },
+                                    family: { label: "Household & Family", icon: Users },
+                                };
+                                const Icon = tabLabels[tab].icon;
+                                const isActive = activeTab === tab;
+                                return (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setActiveTab(tab)}
+                                        style={isActive ? { backgroundColor: themeColor || '#3b82f6', borderColor: themeColor || '#3b82f6' } : undefined}
+                                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-300 border ${
+                                            isActive
+                                                ? "text-white shadow-md scale-[1.02]"
+                                                : "bg-transparent border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 opacity-80"
+                                        }`}
+                                    >
+                                        <Icon className="w-4 h-4" />
+                                        <span>{tabLabels[tab].label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
 
-                    <Section icon={Users} title="Family Status">
-                        <Field label="Is Family Head?" value={resident.isHead} />
-                        {!resident.isHead ? (
-                            <>
-                                <Field label="Relationship to Head" value={resident.relationshipToHead || "Member"} />
-                                <Field label="Family Head Name" value={resident.headName} />
-                            </>
-                        ) : (
-                            <Field label="Family Members Count" value={resident.household?.members?.length || 0} />
-                        )}
+                        {/* Tab Content Area */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6 pr-1">
+                            {activeTab === "profile" && (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                    <Section icon={User} title="Personal Details">
+                                        <Field label="Gender" value={resident.gender} />
+                                        <Field label="Civil Status" value={resident.civilStatus} />
+                                        <Field label="Date of Birth" value={resident.dateOfBirth ? new Date(resident.dateOfBirth).toLocaleDateString() : null} />
+                                        <Field label="Age" value={resident.age} />
+                                        <Field label="Place of Birth" value={resident.placeOfBirth} />
+                                        <Field label="Citizenship" value={resident.citizenship} />
+                                        <Field label="Religion" value={resident.religion} />
+                                        <Field label="Blood Type" value={resident.bloodType} />
+                                        <Field label="Height (cm)" value={resident.height} />
+                                        <Field label="Weight (kg)" value={resident.weight} />
+                                    </Section>
 
-                        {((resident.household?.members && resident.household.members.length > 0) || (resident.familyMembers && resident.familyMembers.length > 0)) && (
-                            <div className="col-span-2 mt-4 bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 space-y-3 shadow-sm">
-                                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Registered Family / Household Members</p>
-                                <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
-                                    {resident.household?.members && resident.household.members.length > 0 ? (
-                                        resident.household.members.map((member, idx) => (
-                                            <div key={member.id || idx} className="py-2.5 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-500 uppercase border border-slate-200 dark:border-slate-700">
-                                                        {(member.firstName && member.firstName[0]) || ""}{(member.lastName && member.lastName[0]) || ""}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                                                            {member.firstName} {member.lastName} {member.id === resident.id && <span className="text-[9px] font-bold text-primary dark:text-blue-400 uppercase tracking-wider ml-1">(Current)</span>}
-                                                        </p>
-                                                        <p className="text-[10px] font-semibold text-slate-400">
-                                                            {member.isHead ? "Family Head" : (member.relationshipToHead || "Member")}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-xs font-bold text-slate-600 dark:text-slate-400">{member.gender}</p>
-                                                    <p className="text-[9px] font-bold text-slate-400">{member.age ? `${member.age} yrs old` : "Age N/A"}</p>
-                                                </div>
+                                    <Section icon={MapPin} title="Address Details">
+                                        <Field label="House No." value={resident.houseNumber} />
+                                        <Field label="Street" value={resident.street} />
+                                        <Field label="Sitio" value={resident.sitio} />
+                                        <Field label="Purok" value={resident.purok} />
+                                        <Field label="Barangay" value={resident.barangay} />
+                                        <Field label="Municipality" value={resident.municipality} />
+                                        <Field label="Province" value={resident.province} />
+                                    </Section>
+
+                                    <Section icon={Phone} title="Contact Details">
+                                        <Field label="Contact Number" value={resident.contactNumber} />
+                                        <Field label="Email Address" value={resident.email} />
+                                    </Section>
+                                </div>
+                            )}
+
+                            {activeTab === "socio" && (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                    <Section icon={Briefcase} title="Socio-Economic Info">
+                                        <Field label="Occupation" value={resident.occupation} />
+                                        <Field label="Employer" value={resident.employer} />
+                                        <Field label="Employment Status" value={resident.employmentStatus} />
+                                        <Field label="Monthly Income" value={resident.monthlyIncome} />
+                                        <Field label="Educational Attainment" value={resident.educationalAttainment} />
+                                        {resident.degreeProgram && <Field label="Degree / Course" value={resident.degreeProgram} />}
+                                    </Section>
+
+                                    <Section icon={Shield} title="Government Identification">
+                                        <Field label="TIN" value={resident.tin} />
+                                        <Field label="SSS" value={resident.sss} />
+                                        <Field label="GSIS" value={resident.gsis} />
+                                        <Field label="PhilHealth" value={resident.philhealthNumber} />
+                                    </Section>
+
+                                    <Section icon={Heart} title="Social Sector Classifications">
+                                        <Field label="Senior Citizen" value={resident.isSenior} />
+                                        <Field label="PWD Status" value={resident.isPWD} />
+                                        <Field label="Solo Parent" value={resident.isSoloParent} />
+                                        <Field label="Indigenous Member" value={resident.isIndigenous} />
+                                        <Field label="4Ps Beneficiary" value={resident.is4Ps} />
+                                        <Field label="Other Category" value={resident.otherSector} />
+                                    </Section>
+
+                                    <Section icon={Shield} title="Verification & Consent">
+                                        <Field label="ID Type" value={resident.idType} />
+                                        <Field label="Registration Route" value={resident.registrationType} />
+                                        <Field label="Privacy Agreement" value={(resident as { dataPrivacyConsent?: boolean }).dataPrivacyConsent} />
+                                    </Section>
+                                </div>
+                            )}
+
+                            {activeTab === "family" && (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                    <Section icon={Users} title="Family Relationship Status">
+                                        <Field label="Is Family Head?" value={resident.isHead} />
+                                        {!resident.isHead ? (
+                                            <>
+                                                <Field label="Relationship to Head" value={resident.relationshipToHead || "Member"} />
+                                                <Field label="Family Head Name" value={resident.headName} />
+                                            </>
+                                        ) : (
+                                            <Field label="Family Members Count" value={resident.household?.members?.length || 0} />
+                                        )}
+                                    </Section>
+
+                                    <Section icon={Users} title="Parent Details">
+                                        <Field label="Mother's First Name" value={(resident as { motherFirstName?: string | null }).motherFirstName} />
+                                        <Field label="Mother's Last Name" value={(resident as { motherLastName?: string | null }).motherLastName} />
+                                        <Field label="Father's First Name" value={(resident as { fatherFirstName?: string | null }).fatherFirstName} />
+                                        <Field label="Father's Last Name" value={(resident as { fatherLastName?: string | null }).fatherLastName} />
+                                    </Section>
+
+                                    {((resident.household?.members && resident.household.members.length > 0) || (resident.familyMembers && resident.familyMembers.length > 0)) && (
+                                        <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 space-y-4 shadow-sm">
+                                            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
+                                                <Users className="w-4 h-4 text-slate-400" />
+                                                <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-500">Registered Family & Household Members</h4>
                                             </div>
-                                        ))
-                                    ) : (
-                                        resident.familyMembers?.map((member, idx) => (
-                                            <div key={member.id || idx} className="py-2.5 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-500 uppercase border border-slate-200 dark:border-slate-700">
-                                                        {member.fullName[0] || "F"}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{member.fullName}</p>
-                                                        <p className="text-[10px] font-semibold text-slate-400">{member.relationship}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-xs font-bold text-slate-600 dark:text-slate-400">{member.age ? `${member.age} yrs old` : "Age N/A"}</p>
-                                                </div>
+                                            <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+                                                {resident.household?.members && resident.household.members.length > 0 ? (
+                                                    resident.household.members.map((member, idx) => (
+                                                        <div key={member.id || idx} className="py-3.5 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-500 uppercase border border-slate-200 dark:border-slate-700">
+                                                                    {(member.firstName && member.firstName[0]) || ""}{(member.lastName && member.lastName[0]) || ""}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                                                        {member.firstName} {member.lastName} {member.id === resident.id && <span className="text-[9px] font-bold text-primary dark:text-blue-400 uppercase tracking-wider ml-1">(Current)</span>}
+                                                                    </p>
+                                                                    <p className="text-[10px] font-semibold text-slate-400">
+                                                                        {member.isHead ? "Family Head" : (member.relationshipToHead || "Member")}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-xs font-bold text-slate-600 dark:text-slate-400">{member.gender}</p>
+                                                                <p className="text-[9px] font-bold text-slate-400">{member.age ? `${member.age} yrs old` : "Age N/A"}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    resident.familyMembers?.map((member, idx) => (
+                                                        <div key={member.id || idx} className="py-3.5 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-500 uppercase border border-slate-200 dark:border-slate-700">
+                                                                    {member.fullName[0] || "F"}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{member.fullName}</p>
+                                                                    <p className="text-[10px] font-semibold text-slate-400">{member.relationship}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-xs font-bold text-slate-600 dark:text-slate-400">{member.age ? `${member.age} yrs old` : "Age N/A"}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
                                             </div>
-                                        ))
+                                        </div>
                                     )}
                                 </div>
-                            </div>
-                        )}
-                    </Section>
+                            )}
+                        </div>
+                    </div>
 
-                    <Section icon={MapPin} title="Address">
-                        <Field label="House No." value={resident.houseNumber} />
-                        <Field label="Street" value={resident.street} />
-                        <Field label="Sitio" value={resident.sitio} />
-                        <Field label="Purok" value={resident.purok} />
-                        <Field label="Barangay" value={resident.barangay} />
-                        <Field label="Municipality" value={resident.municipality} />
-                        <Field label="Province" value={resident.province} />
-                    </Section>
-
-                    <Section icon={Phone} title="Contact Information">
-                        <Field label="Contact Number" value={resident.contactNumber} />
-                        <Field label="Email Address" value={resident.email} />
-                    </Section>
-
-                    <Section icon={Briefcase} title="Socio-Economic">
-                        <Field label="Occupation" value={resident.occupation} />
-                        <Field label="Employer" value={resident.employer} />
-                        <Field label="Employment Status" value={resident.employmentStatus} />
-                        <Field label="Monthly Income" value={resident.monthlyIncome} />
-                        <Field label="Educational Attainment" value={resident.educationalAttainment} />
-                        {resident.degreeProgram && <Field label="Degree / Course" value={resident.degreeProgram} />}
-                        <Field label="TIN" value={resident.tin} />
-                        <Field label="SSS" value={resident.sss} />
-                        <Field label="GSIS" value={resident.gsis} />
-                        <Field label="Philhealth" value={resident.philhealthNumber} />
-                    </Section>
-
-                    <Section icon={Heart} title="Sectors">
-                        <Field label="Senior Citizen" value={resident.isSenior} />
-                        <Field label="PWD" value={resident.isPWD} />
-                        <Field label="Solo Parent" value={resident.isSoloParent} />
-                        <Field label="Indigenous" value={resident.isIndigenous} />
-                        <Field label="4Ps Beneficiary" value={resident.is4Ps} />
-                        <Field label="Other Sector" value={resident.otherSector} />
-                    </Section>
-
-                    <Section icon={Users} title="Family Background">
-                        <Field label="Mother's First Name" value={(resident as { motherFirstName?: string | null }).motherFirstName} />
-                        <Field label="Mother's Last Name" value={(resident as { motherLastName?: string | null }).motherLastName} />
-                        <Field label="Father's First Name" value={(resident as { fatherFirstName?: string | null }).fatherFirstName} />
-                        <Field label="Father's Last Name" value={(resident as { fatherLastName?: string | null }).fatherLastName} />
-                    </Section>
-
-                    <Section icon={Shield} title="Identity Verification">
-                        <Field label="ID Type" value={resident.idType} />
-                        <Field label="Registration Type" value={resident.registrationType} />
-                        <Field label="Privacy Consent" value={(resident as { dataPrivacyConsent?: boolean }).dataPrivacyConsent} />
-                    </Section>
-
-                    {resident.idFrontUrl && (
+                    {/* Right Panel: Profile and ID Documents */}
+                    <div className="w-full lg:w-96 bg-slate-50/50 dark:bg-slate-900/20 border-t lg:border-t-0 lg:border-l border-slate-100 dark:border-[#2a3040] p-6 overflow-y-auto flex flex-col gap-6 flex-shrink-0 custom-scrollbar">
                         <div className="space-y-3">
-                            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
-                                <BadgeCheck className="w-4 h-4 text-slate-400" />
-                                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">ID Documents</h4>
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-2">Profile Picture</h4>
+                            <div className="flex justify-center">
+                                <button 
+                                    type="button"
+                                    className={`group relative w-44 h-44 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 transition-all duration-300 hover:scale-105 hover:shadow-md ${(resident.livenessUrl || resident.imageUrl) ? "cursor-zoom-in" : "cursor-default"}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const url = resident.livenessUrl || resident.imageUrl;
+                                        if (url) {
+                                            openLightbox(url, "Profile Photo");
+                                        }
+                                    }}
+                                    disabled={!(resident.livenessUrl || resident.imageUrl)}
+                                    title={(resident.livenessUrl || resident.imageUrl) ? "Click to view full photo" : ""}
+                                >
+                                    {(resident.livenessUrl || resident.imageUrl) ? (
+                                        <Image 
+                                            src={(resident.livenessUrl || resident.imageUrl) || ""} 
+                                            alt="Profile" 
+                                            fill 
+                                            className="object-cover transition-transform duration-300 group-hover:scale-110" 
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center font-black text-3xl text-slate-400 uppercase">
+                                            {(resident.firstName && resident.firstName[0]) || ""}{(resident.lastName && resident.lastName[0]) || ""}
+                                        </div>
+                                    )}
+                                </button>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                {resident.idFrontUrl && (
-                                    <div>
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">ID Front (Click to view)</p>
+                        </div>
+
+                        <div className="space-y-3">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-2">ID Verification Documents</h4>
+                            <div className="grid grid-cols-1 gap-4">
+                                <div>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">ID Front</p>
+                                    {resident.idFrontUrl ? (
                                         <button 
                                             type="button"
                                             className="group relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 cursor-zoom-in transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
@@ -332,11 +396,17 @@ export function ResidentReviewModal({ resident, isOpen, onClose }: ResidentRevie
                                         >
                                             <Image src={resident.idFrontUrl} alt="ID Front" fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
                                         </button>
-                                    </div>
-                                )}
-                                {resident.idBackUrl && (
-                                    <div>
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">ID Back (Click to view)</p>
+                                    ) : (
+                                        <div className="w-full h-32 rounded-xl border-2 border-dashed border-slate-200/80 dark:border-slate-800 bg-[#fbfcfd] dark:bg-slate-900/10 flex flex-col items-center justify-center p-4 shadow-inner text-slate-400 hover:text-slate-500 transition-colors">
+                                            <AlertTriangle className="w-6 h-6 text-amber-500/80 mb-2 animate-pulse" />
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-650 text-center">No Front ID File</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">ID Back</p>
+                                    {resident.idBackUrl ? (
                                         <button 
                                             type="button"
                                             className="group relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 cursor-zoom-in transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
@@ -350,13 +420,16 @@ export function ResidentReviewModal({ resident, isOpen, onClose }: ResidentRevie
                                         >
                                             <Image src={resident.idBackUrl} alt="ID Back" fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
                                         </button>
-                                    </div>
-                                )}
+                                    ) : (
+                                        <div className="w-full h-32 rounded-xl border-2 border-dashed border-slate-200/80 dark:border-slate-800 bg-[#fbfcfd] dark:bg-slate-900/10 flex flex-col items-center justify-center p-4 shadow-inner text-slate-400 hover:text-slate-500 transition-colors">
+                                            <AlertTriangle className="w-6 h-6 text-amber-500/80 mb-2 animate-pulse" />
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-650 text-center">No Back ID File</span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    )}
-
-
+                    </div>
                 </div>
 
                 {/* Footer with guidance notice (Approve/Reject actions moved strictly to Resident Approvals module) */}

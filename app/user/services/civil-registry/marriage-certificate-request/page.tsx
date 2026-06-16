@@ -4,17 +4,14 @@ import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    User,
     Loader2,
     Check,
     AlertCircle,
     Sparkles,
     Heart,
     ArrowRight,
-    CreditCard,
-    Info,
     Upload,
-    Search,
+    FileText,
     CheckCircle2,
     Home
 } from "lucide-react";
@@ -52,7 +49,6 @@ import {
     getTransactionById
 } from "@/app/admin/transactions/actions";
 import { toast } from "sonner";
-import { compressImage } from "@/lib/image-compression";
 import { useRouter } from "next/navigation";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 
@@ -84,11 +80,12 @@ async function uploadFileClientSide(file: File, fieldName: string, userId: strin
 
 // --- TYPES ---
 
-type Step = "IDENTITY" | "DETAILS" | "CONFIRM";
+type Step = "STATUS" | "IDENTITY" | "DETAILS" | "CONFIRM";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
-    { id: "IDENTITY", label: "Requester Details", icon: User },
-    { id: "DETAILS", label: "Marriage Details", icon: Search },
+    { id: "STATUS", label: "Status", icon: Home },
+    { id: "IDENTITY", label: "Requester Details", icon: Heart },
+    { id: "DETAILS", label: "Marriage Details", icon: FileText },
     { id: "CONFIRM", label: "Review & Submit", icon: CheckCircle2 },
 ];
 
@@ -133,7 +130,7 @@ export default function MarriageCertificateRequestPage() {
     const [submitting, setSubmitting] = useState(false);
     const [showErrors, setShowErrors] = useState(false);
     const [availableTypes, setAvailableTypes] = useState<any[]>([]);
-    const [themeColor, setThemeColor] = useState("#ec4899"); // default rose color for marriage
+    const [themeColor, setThemeColor] = useState("var(--primary-theme)"); // default rose color for marriage
 
     // Place of marriage dropdown and text states
     const [placeCountry, setPlaceCountry] = useState("PHILIPPINES");
@@ -201,8 +198,16 @@ export default function MarriageCertificateRequestPage() {
 
     const renderIdCard = (label: string, fileKey: string) => {
         const file = form.files[fileKey] || null;
-        const defaultUrl = fileKey === "validIdFront" ? resident?.idFrontUrl : resident?.idBackUrl;
-        const preview = form.previews[fileKey] || defaultUrl || null;
+        const rawUrl = fileKey === "validIdFront" ? resident?.idFrontUrl : resident?.idBackUrl;
+        const isRawUrlValid = rawUrl && typeof rawUrl === "string" && rawUrl.startsWith("http") && !rawUrl.includes("placeholder") && rawUrl.trim() !== "";
+        const defaultUrl = isRawUrlValid ? rawUrl : null;
+        
+        // Match previews object from state
+        const statePreview = form.previews[fileKey];
+        const isStatePreviewValid = statePreview && typeof statePreview === "string" && statePreview.startsWith("http") && !statePreview.includes("placeholder") && statePreview.trim() !== "";
+        
+        // Final value sent to component must be undefined if not valid to prevent card extension
+        const finalPreviewUrl = isStatePreviewValid ? statePreview : (isRawUrlValid ? defaultUrl : undefined);
 
         return (
             <PremiumDocumentUpload
@@ -210,25 +215,15 @@ export default function MarriageCertificateRequestPage() {
                 label={label}
                 required
                 file={file}
-                previewUrl={preview}
-                error={showErrors && !file && !preview}
+                previewUrl={finalPreviewUrl}
+                error={showErrors && !file && !finalPreviewUrl}
                 onFileSelect={async (newFile) => {
                     if (newFile.size > 5 * 1024 * 1024) {
                         toast.error("File size exceeds 5MB limit.");
                         return;
                     }
 
-                    let fileToProcess = newFile;
-                    if (newFile.type.startsWith("image/")) {
-                        try {
-                            toast.loading("Compressing and optimizing document...", { id: `file-compress-${fileKey}` });
-                            fileToProcess = await compressImage(newFile);
-                            toast.success("Image optimized successfully!", { id: `file-compress-${fileKey}` });
-                        } catch (err) {
-                            console.error("Compression error:", err);
-                            toast.dismiss(`file-compress-${fileKey}`);
-                        }
-                    }
+                    const fileToProcess = newFile;
 
                     try {
                         toast.loading("Uploading and preparing document preview...", { id: `file-upload-${fileKey}` });
@@ -267,7 +262,7 @@ export default function MarriageCertificateRequestPage() {
                     });
                     toast.success("File removed successfully.");
                 }}
-                onView={() => handleViewFile(file, preview, label)}
+                onView={() => handleViewFile(file, finalPreviewUrl || null, label)}
             />
         );
     };
@@ -442,10 +437,15 @@ export default function MarriageCertificateRequestPage() {
                                 setPlaceCity(mapandanObj.name.toUpperCase());
                             }
                         }
+                    } else {
+                        setCitiesList(LOCAL_FALLBACK_CITIES.map(n => ({ code: n, name: n })));
                     }
+                } else {
+                    setCitiesList(LOCAL_FALLBACK_CITIES.map(n => ({ code: n, name: n })));
                 }
-            } catch (e) {
-                console.error("Failed to fetch cities", e);
+            } catch {
+                console.warn("[MarriageCertRequest] Cities API unavailable, using local fallback.");
+                setCitiesList(LOCAL_FALLBACK_CITIES.map(n => ({ code: n, name: n })));
             } finally {
                 setCitiesLoading(false);
             }
@@ -476,7 +476,7 @@ export default function MarriageCertificateRequestPage() {
                 const [resResult, typesResult, themeResult] = await Promise.all([
                     getCurrentUserResident(),
                     getTransactionTypes(),
-                    getSystemSettingAction("theme_color", "#ec4899")
+                    getSystemSettingAction("theme_color", "var(--primary-theme)")
                 ]);
 
                 if (themeResult.success && themeResult.data) {
@@ -568,14 +568,16 @@ export default function MarriageCertificateRequestPage() {
                     }
                 }
 
-                // Load countries and provinces via public APIs
+                // Load countries and provinces via public APIs with local fallbacks
                 setCountriesLoading(true);
                 setProvincesLoading(true);
 
-                Promise.all([
-                    fetch("https://restcountries.com/v3.1/all?fields=name,cca2")
-                        .then(r => r.ok ? r.json() : [])
-                        .then(data => {
+                // Countries
+                (async () => {
+                    try {
+                        const res = await fetch("https://restcountries.com/v3.1/all?fields=name,cca2");
+                        if (res.ok) {
+                            const data = await res.json();
                             if (Array.isArray(data) && data.length > 0) {
                                 const list = data.map((c: any) => ({
                                     code: c.cca2,
@@ -583,21 +585,38 @@ export default function MarriageCertificateRequestPage() {
                                 })).sort((a: any, b: any) => a.name.localeCompare(b.name));
                                 setCountriesList(list);
                             }
-                        })
-                        .catch(err => console.error("Failed to load countries:", err))
-                        .finally(() => setCountriesLoading(false)),
+                        }
+                    } catch {
+                        // Network unavailable — countries list stays empty, user can type manually
+                        console.warn("[MarriageCertRequest] Countries API unavailable, using manual input.");
+                    } finally {
+                        setCountriesLoading(false);
+                    }
+                })();
 
-                    fetch("https://psgc.gitlab.io/api/provinces/")
-                        .then(r => r.ok ? r.json() : [])
-                        .then(data => {
+                // Provinces
+                (async () => {
+                    try {
+                        const res = await fetch("https://psgc.gitlab.io/api/provinces/");
+                        if (res.ok) {
+                            const data = await res.json();
                             if (Array.isArray(data) && data.length > 0) {
                                 const sorted = data.sort((a: any, b: any) => a.name.localeCompare(b.name));
                                 setProvincesList(sorted);
+                            } else {
+                                // Fallback to local list
+                                setProvincesList(LOCAL_FALLBACK_PROVINCES.map(n => ({ code: n, name: n })));
                             }
-                        })
-                        .catch(err => console.error("Failed to load provinces:", err))
-                        .finally(() => setProvincesLoading(false))
-                ]);
+                        } else {
+                            setProvincesList(LOCAL_FALLBACK_PROVINCES.map(n => ({ code: n, name: n })));
+                        }
+                    } catch {
+                        console.warn("[MarriageCertRequest] Provinces API unavailable, using local fallback.");
+                        setProvincesList(LOCAL_FALLBACK_PROVINCES.map(n => ({ code: n, name: n })));
+                    } finally {
+                        setProvincesLoading(false);
+                    }
+                })();
                 if (typesResult.success && typesResult.data) {
                     const lcrTypes = typesResult.data.filter((t: any) => t.category === "Civil Registry");
                     setAvailableTypes(lcrTypes);
@@ -629,6 +648,48 @@ export default function MarriageCertificateRequestPage() {
 
     const handleAcceptPolicy = () => { setPolicyOpen(false); setPolicyAccepted(true); };
     const dbType = availableTypes.find(t => t.code === "LCR_MARRIAGE");
+
+    // --- STEP VALIDATION ---
+    const validateStep = (stepId: Step): boolean => {
+        if (stepId === "STATUS" || stepId === "IDENTITY") {
+            const missingIdentity: string[] = [];
+            if (!form.relationship) missingIdentity.push("Relationship to Document Owners");
+            if (!form.contactNumber) missingIdentity.push("Contact Number");
+            if (missingIdentity.length > 0) {
+                setShowErrors(true);
+                toast.error(`Please fill in: ${missingIdentity.join(", ")}`);
+                // Scroll to card
+                setTimeout(() => {
+                    const card = document.querySelector("[data-step-card]");
+                    if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+                }, 50);
+                return false;
+            }
+        }
+        if (stepId === "DETAILS") {
+            const isCustomCountryEmpty = placeCountry === "OTHER" && !customCountry.trim();
+            const isCustomProvinceEmpty = placeProvince === "OTHER" && !customProvince.trim();
+            const isCustomCityEmpty = placeCity === "OTHER" && !customCity.trim();
+            const missingDetails: string[] = [];
+            if (!form.certFirstName) missingDetails.push("Husband First Name");
+            if (!form.certLastName) missingDetails.push("Husband Last Name");
+            if (!form.spouseName) missingDetails.push("Wife's Maiden Name");
+            if (!form.dateOfEvent) missingDetails.push("Date of Marriage");
+            if (isCustomCountryEmpty) missingDetails.push("Country");
+            if (isCustomProvinceEmpty) missingDetails.push("Province");
+            if (isCustomCityEmpty) missingDetails.push("City / Municipality");
+            if (missingDetails.length > 0) {
+                setShowErrors(true);
+                toast.error(`Please fill in: ${missingDetails.join(", ")}`);
+                setTimeout(() => {
+                    const card = document.querySelector("[data-step-card]");
+                    if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+                }, 50);
+                return false;
+            }
+        }
+        return true;
+    };
 
     const handleSubmit = async () => {
         if (submitting) return;
@@ -759,7 +820,7 @@ export default function MarriageCertificateRequestPage() {
     if (loading) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
-                <Loader2 className="w-10 h-10 animate-spin text-rose-500 mb-4" />
+                <Loader2 className="w-10 h-10 animate-spin mb-4" style={{ color: "var(--primary-theme)" }} />
                 <p className="text-sm font-black uppercase tracking-widest text-slate-400 italic">Syncing Registry Matrix...</p>
             </div>
         );
@@ -768,10 +829,11 @@ export default function MarriageCertificateRequestPage() {
     return (
         <div
             className="container max-w-4xl mx-auto px-4 pt-0 pb-0 space-y-8"
-            style={{ "--primary-theme": themeColor } as React.CSSProperties}
+            style={themeColor !== "var(--primary-theme)" ? { "--primary-theme": themeColor } as React.CSSProperties : {}}
         >
             <style dangerouslySetInnerHTML={{
                 __html: `
+                ${themeColor !== "var(--primary-theme)" ? `
                 :root, * {
                     --color-blue-500: ${themeColor} !important;
                     --color-blue-600: ${themeColor} !important;
@@ -779,6 +841,7 @@ export default function MarriageCertificateRequestPage() {
                     --primary-theme: ${themeColor} !important;
                     --color-primary: ${themeColor} !important;
                 }
+                ` : ""}
                 .text-rose-500, [class*="text-rose-500"] {
                     color: ${themeColor} !important;
                 }
@@ -801,32 +864,32 @@ export default function MarriageCertificateRequestPage() {
                     border-color: ${themeColor} !important;
                 }
                 .bg-rose-500\\/10, [class*="bg-rose-500/10"] {
-                    background-color: ${themeColor}1a !important;
+                    background-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 10%, transparent)" : `${themeColor}1a`} !important;
                 }
                 .bg-rose-500\\/5, [class*="bg-rose-500/5"] {
-                    background-color: ${themeColor}0d !important;
+                    background-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 5%, transparent)" : `${themeColor}0d`} !important;
                 }
                 .border-rose-500\\/10, [class*="border-rose-500/10"] {
-                    border-color: ${themeColor}1a !important;
+                    border-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 10%, transparent)" : `${themeColor}1a`} !important;
                 }
                 .shadow-rose-500\\/20, [class*="shadow-rose-500/20"] {
-                    --tw-shadow-color: ${themeColor}33 !important;
+                    --tw-shadow-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33`} !important;
                 }
                 .hover\\:bg-rose-700:hover, [class*="hover:bg-rose-700"]:hover {
                     background-color: ${themeColor} !important;
                     filter: brightness(0.9);
                 }
                 .hover\\:border-rose-500\\/50:hover, [class*="hover:border-rose-500/50"]:hover {
-                    border-color: ${themeColor}80 !important;
+                    border-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 50%, transparent)" : `${themeColor}80`} !important;
                 }
                 .focus\\:ring-rose-500:focus, [class*="focus:ring-rose-500"]:focus {
                     --tw-ring-color: ${themeColor} !important;
                 }
                 .bg-rose-50\\/50, [class*="bg-rose-50/50"] {
-                    background-color: ${themeColor}0d !important;
+                    background-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 5%, transparent)" : `${themeColor}0d`} !important;
                 }
                 .border-rose-500\\/50, [class*="border-rose-500/50"] {
-                    border-color: ${themeColor}80 !important;
+                    border-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 50%, transparent)" : `${themeColor}80`} !important;
                 }
                 .border-l-rose-500, [class*="border-l-rose-500"] {
                     border-left-color: ${themeColor} !important;
@@ -935,50 +998,83 @@ export default function MarriageCertificateRequestPage() {
             </div>
 
             {/* Progress Stepper */}
-            <div className="relative px-2 py-4">
-                <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-200 dark:bg-white/5 -translate-y-1/2" />
-                <motion.div
-                    className="absolute top-1/2 left-0 h-0.5 bg-rose-600 -translate-y-1/2 z-0"
-                    initial={{ width: 0 }}
-                    animate={{
-                        width: `${(STEPS.findIndex(s => s.id === currentStep) / (STEPS.length - 1)) * 100}%`
-                    }}
-                />
+            <div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2 py-2">
+                {STEPS.map((step, idx) => {
+                    const isActive = currentStep === step.id;
+                    const stepIdx = STEPS.findIndex(s => s.id === currentStep);
+                    const isCompleted = stepIdx > idx;
+                    const Icon = step.icon;
 
-                <div className="flex justify-between items-center relative z-10">
-                    {STEPS.map((step, idx) => {
-                        const isActive = currentStep === step.id;
-                        const stepIdx = STEPS.findIndex(s => s.id === currentStep);
-                        const isCompleted = stepIdx > idx;
-                        const Icon = step.icon;
+                    return (
+                        <div
+                            key={idx}
+                            className="flex flex-col items-center gap-1 md:gap-2 relative z-10 font-black group cursor-pointer"
+                            onClick={() => {
+                                if (step.id === "STATUS") {
+                                    router.push("/user/services/civil-registry");
+                                    return;
+                                }
+                                const targetIdx = STEPS.findIndex(s => s.id === step.id);
+                                const currentIdx = STEPS.findIndex(s => s.id === currentStep);
 
-                        return (
+                                if (targetIdx <= currentIdx) {
+                                    // Going back — always allowed
+                                    setShowErrors(false);
+                                    setCurrentStep(step.id);
+                                    setTimeout(() => {
+                                        const card = document.querySelector("[data-step-card]");
+                                        if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+                                    }, 50);
+                                } else {
+                                    // Going forward — validate each step in between
+                                    for (let i = currentIdx; i < targetIdx; i++) {
+                                        const stepToValidate = STEPS[i].id;
+                                        if (!validateStep(stepToValidate)) {
+                                            return; // Stop at first failing step
+                                        }
+                                    }
+                                    setShowErrors(false);
+                                    setCurrentStep(step.id);
+                                    setTimeout(() => {
+                                        const card = document.querySelector("[data-step-card]");
+                                        if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+                                    }, 50);
+                                }
+                            }}
+                        >
                             <div
-                                key={idx}
-                                className="flex flex-col items-center gap-2 transition-all duration-300"
+                                className={cn(
+                                    "w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
+                                    isActive ? "text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
+                                        isCompleted ? "border-transparent" :
+                                            "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-slate-500/30"
+                                )}
+                                style={
+                                    isActive
+                                        ? { backgroundColor: themeColor, borderColor: themeColor }
+                                        : isCompleted
+                                            ? { backgroundColor: themeColor + "1a", color: themeColor, borderColor: themeColor + "33" }
+                                            : {}
+                                }
                             >
-                                <div className={cn(
-                                    "w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-500 border-2 bg-white dark:bg-[#08090d]",
-                                    isActive ? "border-rose-600 text-rose-600 shadow-lg shadow-rose-500/20 scale-110" :
-                                        isCompleted ? "bg-rose-600 border-rose-600 text-white" :
-                                            "border-slate-200 dark:border-white/10 text-slate-400"
-                                )}>
-                                    {isCompleted ? (
-                                        <Check className="w-5 h-5" />
-                                    ) : (
-                                        <Icon className="w-5 h-5" />
-                                    )}
-                                </div>
-                                <span className={cn(
-                                    "text-[9px] font-black uppercase tracking-widest italic hidden md:block",
-                                    isActive ? "text-rose-600" : "text-slate-400"
-                                )}>
-                                    {step.label}
-                                </span>
+                                <Icon className="w-4 h-4 md:w-6 md:h-6" />
                             </div>
-                        );
-                    })}
-                </div>
+                            <span
+                                className={cn(
+                                    "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
+                                    (isActive || isCompleted) ? "opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity text-slate-400"
+                                )}
+                                style={
+                                    (isActive || isCompleted)
+                                        ? { color: themeColor }
+                                        : {}
+                                }
+                            >
+                                {step.label}
+                            </span>
+                        </div>
+                    );
+                })}
             </div>
 
             {mounted && typeof document !== "undefined" && createPortal(
@@ -986,7 +1082,8 @@ export default function MarriageCertificateRequestPage() {
                     <div className="w-full max-w-5xl flex items-center justify-center gap-4">
                         <div className="h-1.5 flex-1 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
                             <motion.div
-                                className="h-full bg-rose-600"
+                                className="h-full"
+                                style={{ backgroundColor: themeColor }}
                                 initial={{ width: 0 }}
                                 animate={{ width: `${((STEPS.findIndex(s => s.id === currentStep) + 1) / STEPS.length) * 100}%` }}
                             />
@@ -1000,7 +1097,7 @@ export default function MarriageCertificateRequestPage() {
             )}
 
             {/* Step Selection */}
-            <Card className="p-8 rounded-[2.5rem] border-slate-200/50 dark:border-white/5 bg-white dark:bg-[#0f1117] shadow-xl dark:shadow-2xl min-h-[400px]">
+            <Card data-step-card className="p-8 rounded-[2.5rem] border-slate-200/50 dark:border-white/5 bg-white dark:bg-[#0f1117] shadow-xl dark:shadow-2xl min-h-[400px]">
                 <AnimatePresence mode="wait">
                     {currentStep === "IDENTITY" && (
                         <motion.div
@@ -1011,7 +1108,7 @@ export default function MarriageCertificateRequestPage() {
                             className="space-y-6 md:space-y-8"
                         >
                             <div className="space-y-1">
-                                <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight">Identity <span className="text-rose-500 italic">Confirmation</span></h2>
+                                <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight">Requester <span style={{ color: themeColor }}>Identity</span></h2>
                                 <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">Verify your details before making the marriage record request.</p>
                             </div>
 
@@ -1027,64 +1124,21 @@ export default function MarriageCertificateRequestPage() {
                                 </div>
                             )}
 
-                            <div className="space-y-4 md:space-y-6">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">First Name</Label>
-                                        <Input
-                                            value={resident?.firstName?.toUpperCase() || ""}
-                                            readOnly
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 text-xs md:text-sm uppercase font-bold"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Middle Name</Label>
-                                        <Input
-                                            value={resident?.middleName?.toUpperCase() || ""}
-                                            readOnly
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 text-xs md:text-sm uppercase font-bold"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Last Name</Label>
-                                        <Input
-                                            value={resident?.lastName?.toUpperCase() || ""}
-                                            readOnly
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 text-xs md:text-sm uppercase font-bold"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Suffix</Label>
-                                        <Input
-                                            value={resident?.suffix?.toUpperCase() || ""}
-                                            readOnly
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 text-xs md:text-sm uppercase font-bold"
-                                        />
-                                    </div>
-                                </div>
-
-                                <Separator className="opacity-50" />
-
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 items-end">
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Contact Number <span className="text-red-500">*</span></Label>
-                                        <Input
-                                            value={form.contactNumber}
-                                            onChange={(e) => setForm(p => ({ ...p, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
-                                            className="h-10 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs md:text-sm"
-                                            placeholder="09xx xxx xxxx"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5 col-span-2 md:col-span-2">
-                                        <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-rose-500/70 ml-1">Relationship to Document Owners <span className="text-red-500">*</span></Label>
+                            <div className="space-y-6">
+                                {/* Relationship to Owner — at the top */}
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+                                    <div className="col-span-1 md:col-span-2 space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Relationship to Document Owners <span className="text-red-500">*</span></Label>
                                         <Select
                                             value={form.relationship}
                                             onValueChange={(value) => setForm({ ...form, relationship: value })}
                                         >
-                                            <SelectTrigger className={cn(
-                                                "h-10 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all",
-                                                (showErrors && !form.relationship) && "border-2 border-red-500"
-                                            )}>
+                                            <SelectTrigger 
+                                                className={cn(
+                                                    "h-10 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold uppercase",
+                                                    (showErrors && !form.relationship) && "border-2 border-red-500"
+                                                )}
+                                            >
                                                 <SelectValue placeholder="Select relationship" />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-xl border-slate-200 dark:border-white/10">
@@ -1099,19 +1153,116 @@ export default function MarriageCertificateRequestPage() {
                                     </div>
                                 </div>
 
-                                <div className="space-y-1.5">
-                                    <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Informant Address</Label>
-                                    <Input
-                                        value={form.informantAddress || ""}
-                                        readOnly
-                                        className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 text-xs md:text-sm uppercase font-bold"
-                                    />
+                                {/* Name Fields */}
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">First Name</Label>
+                                        <Input
+                                            value={resident?.firstName?.toUpperCase() || ""}
+                                            readOnly
+                                            className="h-10 rounded-xl uppercase font-bold text-xs md:text-sm bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                            placeholder="First name"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Middle Name</Label>
+                                        <Input
+                                            value={resident?.middleName?.toUpperCase() || ""}
+                                            readOnly
+                                            className="h-10 rounded-xl uppercase font-bold text-xs md:text-sm bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                            placeholder="Middle name"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Last Name</Label>
+                                        <Input
+                                            value={resident?.lastName?.toUpperCase() || ""}
+                                            readOnly
+                                            className="h-10 rounded-xl uppercase font-bold text-xs md:text-sm bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                            placeholder="Last name"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Suffix</Label>
+                                        <Input
+                                            value={resident?.suffix?.toUpperCase() || ""}
+                                            readOnly
+                                            className="h-10 rounded-xl uppercase font-bold text-xs md:text-sm bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                            placeholder="Suffix"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Personal Details */}
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Birth Date</Label>
+                                        <Input
+                                            value={resident?.dateOfBirth ? new Date(resident.dateOfBirth).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : ""}
+                                            readOnly
+                                            className="h-10 rounded-xl uppercase font-bold text-xs md:text-sm bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                            placeholder="MM/DD/YYYY"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Age</Label>
+                                        <Input
+                                            value={resident?.age != null ? String(resident.age) : ""}
+                                            readOnly
+                                            className="h-10 rounded-xl uppercase font-bold text-xs md:text-sm bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                            placeholder="Age"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Civil Status</Label>
+                                        <Input
+                                            value={(resident?.civilStatus || "").toUpperCase()}
+                                            readOnly
+                                            className="h-10 rounded-xl uppercase font-bold text-xs md:text-sm bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                            placeholder="Civil Status"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Citizenship</Label>
+                                        <Input
+                                            value={resident?.citizenship || "FILIPINO"}
+                                            readOnly
+                                            className="h-10 rounded-xl uppercase font-bold text-xs md:text-sm bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                            placeholder="Citizenship"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Occupation & Contact */}
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div className="col-span-1 md:col-span-2 space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Occupation</Label>
+                                        <Input
+                                            value={(resident?.occupation || "N/A").toUpperCase()}
+                                            readOnly
+                                            className="h-10 rounded-xl uppercase font-bold text-xs md:text-sm bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                            placeholder="Occupation"
+                                        />
+                                    </div>
+                                    <div className="col-span-1 md:col-span-2 space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Contact Number <span className="text-red-500">*</span></Label>
+                                        <Input
+                                            value={form.contactNumber}
+                                            onChange={(e) => setForm(p => ({ ...p, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
+                                            className={cn("h-10 rounded-xl text-xs md:text-sm font-bold", (showErrors && !form.contactNumber) && "border-2 border-red-500")}
+                                            placeholder="e.g. 09123456789"
+                                            maxLength={11}
+                                        />
+                                        <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider ml-1 animate-pulse">
+                                            * Note: Please use your active contact number.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="bg-rose-500/5 border border-rose-500/10 p-3 md:p-4 rounded-2xl md:rounded-3xl flex items-center gap-2 md:gap-3">
-                                <Sparkles className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                                <p className="text-[8px] md:text-[10px] text-rose-500 font-black italic leading-tight uppercase tracking-widest">
+                            <div className="bg-slate-500/5 border border-slate-500/10 p-4 rounded-3xl flex items-center gap-3">
+                                <Sparkles className="w-4 h-4 shrink-0" style={{ color: themeColor }} />
+                                <p className="text-[10px] font-black italic leading-tight uppercase tracking-widest" style={{ color: themeColor }}>
                                     Verified Profile Data. Immediate family or authorized representatives can request marriage records.
                                 </p>
                             </div>
@@ -1127,15 +1278,20 @@ export default function MarriageCertificateRequestPage() {
                                 </Button>
                                 <Button
                                     onClick={() => {
-                                        if (!form.relationship) {
+                                        const missing = [];
+                                        if (!form.relationship) missing.push("Relationship");
+                                        if (!form.contactNumber) missing.push("Contact Number");
+
+                                        if (missing.length > 0) {
                                             setShowErrors(true);
-                                            toast.error("Please select your relationship to the document owners.");
+                                            toast.error(`Please fill in all required fields: ${missing.join(", ")}`);
                                             return;
                                         }
                                         setShowErrors(false);
                                         setCurrentStep("DETAILS");
                                     }}
-                                    className="rounded-full px-12 bg-rose-600 hover:bg-rose-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-rose-500/20"
+                                    className="rounded-full px-12 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl transition-all duration-300"
+                                    style={{ backgroundColor: themeColor, boxShadow: `0 10px 20px ${themeColor}33` }}
                                 >
                                     Proceed to Marriage Details
                                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -1157,62 +1313,58 @@ export default function MarriageCertificateRequestPage() {
                                 <p className="text-xs text-slate-500 font-medium italic">Certified Copy specifications</p>
                             </div>
 
-                            <div className="space-y-4">
-                                <div className="space-y-4 p-8 rounded-[2.5rem] bg-slate-50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5">
-                                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-rose-500 italic mb-4">Contracting Parties</h3>
-
-                                    <div className="space-y-6">
-                                        {/* Husband Details */}
-                                        <div className="space-y-3">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Husband&apos;s Full Name <span className="text-red-500">*</span></Label>
-                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                                <div className="md:col-span-2 space-y-2">
-                                                    <Label className="text-[9px] font-black uppercase text-slate-500 italic">First Name</Label>
-                                                    <Input
-                                                        className={cn("rounded-xl h-10 transition-all uppercase font-medium", (showErrors && !form.certFirstName) && "border-2 border-red-500")}
-                                                        placeholder="First Name"
-                                                        value={form.certFirstName}
-                                                        onChange={(e) => setForm({ ...form, certFirstName: e.target.value.toUpperCase() })}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label className="text-[9px] font-black uppercase text-slate-500 italic">Middle Name</Label>
-                                                    <Input
-                                                        className="rounded-xl h-10 transition-all uppercase font-medium"
-                                                        placeholder="Middle Name"
-                                                        value={form.certMiddleName}
-                                                        onChange={(e) => setForm({ ...form, certMiddleName: e.target.value.toUpperCase() })}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label className="text-[9px] font-black uppercase text-slate-500 italic">Last Name</Label>
-                                                    <Input
-                                                        className={cn("rounded-xl h-10 transition-all uppercase font-medium", (showErrors && !form.certLastName) && "border-2 border-red-500")}
-                                                        placeholder="Last Name"
-                                                        value={form.certLastName}
-                                                        onChange={(e) => setForm({ ...form, certLastName: e.target.value.toUpperCase() })}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Wife Details */}
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Wife&apos;s Maiden Full Name <span className="text-red-500">*</span></Label>
+                            <div className="space-y-6">
+                                {/* Husband Details */}
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Husband&apos;s Full Name <span className="text-red-500">*</span></Label>
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <div className="md:col-span-2 space-y-2">
+                                            <Label className="text-[9px] font-black uppercase text-slate-500 italic">First Name</Label>
                                             <Input
-                                                className={cn(
-                                                    "rounded-xl h-10 transition-all uppercase font-medium",
-                                                    (showErrors && !form.spouseName) && "border-2 border-red-500"
-                                                )}
-                                                placeholder="Complete Maiden Name (First, Middle, Last)"
-                                                value={form.spouseName}
-                                                onChange={(e) => setForm({ ...form, spouseName: e.target.value.toUpperCase() })}
+                                                className={cn("rounded-xl h-10 transition-all uppercase font-medium", (showErrors && !form.certFirstName) && "border-2 border-red-500")}
+                                                placeholder="First Name"
+                                                value={form.certFirstName}
+                                                onChange={(e) => setForm({ ...form, certFirstName: e.target.value.toUpperCase() })}
                                             />
                                         </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-[9px] font-black uppercase text-slate-500 italic">Middle Name</Label>
+                                            <Input
+                                                className="rounded-xl h-10 transition-all uppercase font-medium"
+                                                placeholder="Middle Name"
+                                                value={form.certMiddleName}
+                                                onChange={(e) => setForm({ ...form, certMiddleName: e.target.value.toUpperCase() })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-[9px] font-black uppercase text-slate-500 italic">Last Name</Label>
+                                            <Input
+                                                className={cn("rounded-xl h-10 transition-all uppercase font-medium", (showErrors && !form.certLastName) && "border-2 border-red-500")}
+                                                placeholder="Last Name"
+                                                value={form.certLastName}
+                                                onChange={(e) => setForm({ ...form, certLastName: e.target.value.toUpperCase() })}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
 
-                                        <Separator />
+                                {/* Wife Details */}
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Wife&apos;s Maiden Full Name <span className="text-red-500">*</span></Label>
+                                    <Input
+                                        className={cn(
+                                            "rounded-xl h-10 transition-all uppercase font-medium",
+                                            (showErrors && !form.spouseName) && "border-2 border-red-500"
+                                        )}
+                                        placeholder="Complete Maiden Name (First, Middle, Last)"
+                                        value={form.spouseName}
+                                        onChange={(e) => setForm({ ...form, spouseName: e.target.value.toUpperCase() })}
+                                    />
+                                </div>
 
-                                        {/* Event Specifics */}
+                                <Separator />
+
+                                {/* Event Specifics */}
                                         <div className="space-y-2">
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Date of Marriage <span className="text-red-500">*</span></Label>
                                             <Input
@@ -1392,8 +1544,6 @@ export default function MarriageCertificateRequestPage() {
                                             </div>
                                         )}
                                     </div>
-                                </div>
-                            </div>
 
                             <div className="flex justify-end gap-3 pt-6">
                                 <Button
@@ -1420,7 +1570,8 @@ export default function MarriageCertificateRequestPage() {
                                         setForm(prev => ({ ...prev, fullName: husbandFull }));
                                         setCurrentStep("CONFIRM");
                                     }}
-                                    className="rounded-full px-12 bg-rose-600 hover:bg-rose-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-rose-500/20"
+                                    className="rounded-full px-12 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl transition-all duration-300"
+                                    style={{ backgroundColor: themeColor, boxShadow: `0 10px 20px ${themeColor}33` }}
                                 >
                                     Proceed to Review & Upload
                                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -1441,9 +1592,8 @@ export default function MarriageCertificateRequestPage() {
                                 <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Review & Submit Request</h2>
                                 <p className="text-xs text-slate-500 font-medium italic">Upload verification document and sign off</p>
                             </div>
-
-                            <Card className="bg-slate-50 dark:bg-white/5 border-none p-6 rounded-[2rem] space-y-4">
-                                <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-2 gap-6 pb-6">
                                     <div className="space-y-1">
                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Registry Type</span>
                                         <p className="font-black text-slate-900 dark:text-white italic">Marriage Certificate Request</p>
@@ -1460,9 +1610,9 @@ export default function MarriageCertificateRequestPage() {
                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Relationship</span>
                                         <p className="font-black text-slate-900 dark:text-white italic uppercase">{form.relationship}</p>
                                     </div>
-                                    <div className="space-y-1 col-span-2">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Informant Address</span>
-                                        <p className="font-black text-slate-900 dark:text-white italic uppercase">{form.informantAddress || "N/A"}</p>
+                                    <div className="space-y-1">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Citizenship</span>
+                                        <p className="font-black text-slate-900 dark:text-white italic uppercase">{resident?.citizenship || "FILIPINO"}</p>
                                     </div>
                                     <div className="space-y-1">
                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Date of Marriage</span>
@@ -1489,7 +1639,7 @@ export default function MarriageCertificateRequestPage() {
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-1.5 md:col-span-2">
-                                            <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-rose-500/70 ml-1">Select ID Type <span className="text-red-500">*</span></Label>
+                                            <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Select ID Type <span className="text-red-500">*</span></Label>
                                             <Select
                                                 value={form.idTypeOverride || resident?.idType || ""}
                                                 onValueChange={(value) => setForm(prev => ({
@@ -1497,12 +1647,10 @@ export default function MarriageCertificateRequestPage() {
                                                     idTypeOverride: value
                                                 }))}
                                             >
-                                                <SelectTrigger className="h-10 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold">
-                                                    <SelectValue>
-                                                        {form.idTypeOverride || resident?.idType || "Select type of government ID"}
-                                                    </SelectValue>
+                                                <SelectTrigger className="h-10 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold uppercase">
+                                                    <SelectValue placeholder="SELECT GOVERNMENT ID TYPE" />
                                                 </SelectTrigger>
-                                                <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
+                                                <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 font-bold uppercase">
                                                     <SelectItem value="UMID">Unified Multi-Purpose ID (UMID)</SelectItem>
                                                     <SelectItem value="DRIVERS_LICENSE">Driver&apos;s License</SelectItem>
                                                     <SelectItem value="PASSPORT">Passport</SelectItem>
@@ -1520,7 +1668,7 @@ export default function MarriageCertificateRequestPage() {
                                         {renderIdCard("Valid Government ID (Back)", "validIdBack")}
                                     </div>
                                 </div>
-                            </Card>
+                            </div>
 
                             <div className="space-y-4">
                                 <div className={cn(
@@ -1569,19 +1717,19 @@ export default function MarriageCertificateRequestPage() {
                                         disabled={
                                             submitting ||
                                             (!form.idTypeOverride && !resident?.idType) ||
-                                            (!form.files["validIdFront"] && !resident?.idFrontUrl) ||
-                                            (!form.files["validIdBack"] && !resident?.idBackUrl)
+                                            (!form.files["validIdFront"] && !resident?.idFrontUrl && !form.previews["validIdFront"]) ||
+                                            (!form.files["validIdBack"] && !resident?.idBackUrl && !form.previews["validIdBack"])
                                         }
                                         className={cn(
                                             "md:col-span-3 h-14 rounded-full font-black uppercase tracking-widest italic text-[11px] transition-all duration-300",
-                                            (!form.idTypeOverride && !resident?.idType) || (!form.files["validIdFront"] && !resident?.idFrontUrl) || (!form.files["validIdBack"] && !resident?.idBackUrl)
+                                            (!form.idTypeOverride && !resident?.idType) || (!form.files["validIdFront"] && !resident?.idFrontUrl && !form.previews["validIdFront"]) || (!form.files["validIdBack"] && !resident?.idBackUrl && !form.previews["validIdBack"])
                                                 ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                                                 : "bg-rose-600 hover:bg-rose-700 text-white shadow-xl shadow-rose-500/20"
                                         )}
                                     >
                                         {submitting ? (
                                             <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                                        ) : (!form.idTypeOverride && !resident?.idType) || (!form.files["validIdFront"] && !resident?.idFrontUrl) || (!form.files["validIdBack"] && !resident?.idBackUrl) ? (
+                                        ) : (!form.idTypeOverride && !resident?.idType) || (!form.files["validIdFront"] && !resident?.idFrontUrl && !form.previews["validIdFront"]) || (!form.files["validIdBack"] && !resident?.idBackUrl && !form.previews["validIdBack"]) ? (
                                             <>
                                                 Upload Identification to Submit
                                                 <AlertCircle className="w-5 h-5 ml-2" />
@@ -1600,27 +1748,7 @@ export default function MarriageCertificateRequestPage() {
                 </AnimatePresence>
             </Card>
 
-            {/* Info Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="p-6 rounded-[2rem] border-slate-200/50 dark:border-white/5 bg-rose-500/5 border-l-4 border-l-rose-500">
-                    <div className="flex gap-4">
-                        <Info className="w-5 h-5 text-rose-500 shrink-0" />
-                        <div className="space-y-1">
-                            <h4 className="text-[10px] font-black uppercase tracking-widest text-rose-500 italic">Requirements</h4>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 font-medium italic">Certified true copies of marriage certificates require a valid government ID of the spouse or immediate family member.</p>
-                        </div>
-                    </div>
-                </Card>
-                <Card className="p-6 rounded-[2rem] border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-white/5">
-                    <div className="flex gap-4">
-                        <CreditCard className="w-5 h-5 text-slate-400 shrink-0" />
-                        <div className="space-y-1">
-                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Standard Fee</h4>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 font-medium italic">PHP 150.00 per certified copy. Processing takes 2-3 working days.</p>
-                        </div>
-                    </div>
-                </Card>
-            </div>
+
         </div>
     );
 }

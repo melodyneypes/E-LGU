@@ -662,6 +662,9 @@ model Transaction {
   marriageRegistration MarriageRegistration? // One-to-one link for marriage registrations
   marriageLicenseApplication MarriageLicenseApplication? // One-to-one link for marriage license applications
   marriageCertificateRequest MarriageCertificateRequest? // One-to-one link to the marriage certificate request
+  marriagePsaEndorsementRequest MarriagePsaEndorsementRequest? // One-to-one link to the marriage psa endorsement request
+  birthPsaEndorsementRequest BirthPsaEndorsementRequest? // One-to-one link to the birth psa endorsement request
+  deathPsaEndorsementRequest DeathPsaEndorsementRequest? // One-to-one link to the death psa endorsement request
   
   isCancelled       Boolean           @default(false)
   createdAt         DateTime          @default(now())
@@ -887,6 +890,130 @@ model MarriageCertificateRequest {
   
   documentUrl     String?     // Link to official generated E-Copy PDF
   issuedBy        String      // LCR Officer Name
+  verificationId  String      @unique @default(cuid()) // Secure hash for verification QR Code
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model MarriagePsaEndorsementRequest {
+  id              String      @id @default(cuid())
+  transactionId   String      @unique
+  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  registryNumber  String?     @unique // Book/Page number or Registry ID
+  dateIssued      DateTime    @default(now())
+
+  // Contracting Couple details
+  husbandFullName String      // Husband's Full Name
+  wifeFullName    String      // Wife's Maiden Full Name
+  dateOfMarriage  DateTime    // Date of Marriage
+  placeOfMarriage String      // Location of the Marriage
+
+  // Informant / Requester Details
+  relationship         String
+  contactNumber        String
+  email                String?
+  informantFirstName   String
+  informantMiddleName  String?
+  informantLastName    String
+  informantSuffix      String?
+  informantBirthDate   DateTime?
+  informantAge         Int?
+  informantCivilStatus String?
+  informantCitizenship String?
+  informantOccupation  String?
+  informantAddress     String?
+
+  // Required documents
+  psaNegativeCert String      // PSA Negative Certification URL
+  form3a          String      // Form 3A URL
+
+  documentUrl     String?     // Link to official generated E-Copy PDF / proof of endorsement
+  issuedBy        String?     // LCR Officer Name
+  verificationId  String      @unique @default(cuid()) // Secure hash for verification QR Code
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model BirthPsaEndorsementRequest {
+  id              String      @id @default(cuid())
+  transactionId   String      @unique
+  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  registryNumber  String?     @unique // Book/Page number or Registry ID
+  dateIssued      DateTime    @default(now())
+
+  // Subject (Child) details
+  subjectFullName    String      // Full name of the child
+  subjectDateOfBirth DateTime?   // Date of birth
+  mothersMaidenName  String?     // Mother's maiden name
+
+  // Informant / Requester Details
+  relationship         String
+  contactNumber        String
+  email                String?
+  informantFirstName   String
+  informantMiddleName  String?
+  informantLastName    String
+  informantSuffix      String?
+  informantBirthDate   DateTime?
+  informantAge         Int?
+  informantCivilStatus String?
+  informantCitizenship String?
+  informantOccupation  String?
+  informantAddress     String?
+
+  // Required documents
+  psaNegativeCert String      // PSA Negative Certification URL
+  form1a          String      // Form 1A URL
+
+  documentUrl     String?     // Link to official generated E-Copy PDF / proof of endorsement
+  issuedBy        String?     // LCR Officer Name
+  verificationId  String      @unique @default(cuid()) // Secure hash for verification QR Code
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model DeathPsaEndorsementRequest {
+  id              String      @id @default(cuid())
+  transactionId   String      @unique
+  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  registryNumber  String?     @unique // Book/Page number or Registry ID
+  dateIssued      DateTime    @default(now())
+
+  // Subject (Deceased) details
+  subjectFullName    String      // Full name of the deceased
+  subjectDateOfDeath DateTime?   // Date of death
+  mothersMaidenName  String?     // Mother's maiden name
+  fathersName        String?     // Father's name
+  placeOfDeath       String?     // Place of death
+  causeOfDeath       String?     // Cause of death
+
+  // Informant / Requester Details
+  relationship         String
+  contactNumber        String
+  email                String?
+  informantFirstName   String
+  informantMiddleName  String?
+  informantLastName    String
+  informantSuffix      String?
+  informantBirthDate   DateTime?
+  informantAge         Int?
+  informantCivilStatus String?
+  informantCitizenship String?
+  informantOccupation  String?
+  informantAddress     String?
+
+  // Required documents
+  psaNegativeCert String      // PSA Negative Certification URL
+  form2a          String      // Form 2A URL
+
+  documentUrl     String?     // Link to official generated E-Copy PDF / proof of endorsement
+  issuedBy        String?     // LCR Officer Name
   verificationId  String      @unique @default(cuid()) // Secure hash for verification QR Code
 
   createdAt       DateTime    @default(now())

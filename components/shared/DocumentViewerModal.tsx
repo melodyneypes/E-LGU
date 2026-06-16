@@ -63,6 +63,7 @@ export default function DocumentViewerModal({
 
     const [fetchedType, setFetchedType] = React.useState<string | null>(null);
     const [currentIndex, setCurrentIndex] = React.useState(0);
+    const [pdfDataUrl, setPdfDataUrl] = React.useState<string | null>(null);
 
     const docxContainerRef = React.useRef<HTMLDivElement>(null);
     const [docxRendering, setDocxRendering] = React.useState(false);
@@ -81,6 +82,7 @@ export default function DocumentViewerModal({
             setScale(1);
             setRotation(0);
             setPosition({ x: 0, y: 0 });
+            setPdfDataUrl(null);
 
             if (documents && documents.length > 0) {
                 if (typeof initialIndex === "number" && initialIndex >= 0 && initialIndex < documents.length) {
@@ -93,7 +95,8 @@ export default function DocumentViewerModal({
                 setCurrentIndex(0);
             }
         }
-    }, [isOpen, initialIndex, documents, fileUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen]);
 
     const currentDoc = React.useMemo(() => {
         if (documents && documents.length > 0 && currentIndex >= 0 && currentIndex < documents.length) {
@@ -103,13 +106,14 @@ export default function DocumentViewerModal({
     }, [documents, currentIndex]);
 
     const activeUrl = React.useMemo(() => {
-        if (fileUrl && /^https?:\/\//i.test(fileUrl)) {
-            return fileUrl;
-        }
+        // Prefer local File blob URL when available (avoids iframe embedding issues with remote storage)
         if (file) {
             return URL.createObjectURL(file);
         }
-        return currentDoc ? currentDoc.url : fileUrl;
+        if (currentDoc) {
+            return currentDoc.url || null;
+        }
+        return fileUrl;
     }, [file, currentDoc, fileUrl]);
 
     const activeTitle = currentDoc ? currentDoc.label : title;
@@ -210,6 +214,54 @@ export default function DocumentViewerModal({
         return false;
     }, [file, activeUrl, fetchedType, activeTitle]);
 
+    // Convert local/blob PDFs to Base64 data URLs to bypass Chrome's block on blob URLs inside PDF iframes.
+    // Remote PDFs are kept as remote URLs because they embed directly.
+    React.useEffect(() => {
+        if (!isOpen || !isPdf) {
+            setPdfDataUrl(null);
+            return;
+        }
+
+        let active = true;
+
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (active && typeof reader.result === "string") {
+                    setPdfDataUrl(reader.result);
+                }
+            };
+            reader.readAsDataURL(file);
+            return () => {
+                active = false;
+            };
+        }
+
+        if (activeUrl && activeUrl.startsWith("blob:")) {
+            fetch(activeUrl)
+                .then(res => res.blob())
+                .then(blob => {
+                    if (active) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            if (active && typeof reader.result === "string") {
+                                setPdfDataUrl(reader.result);
+                            }
+                        };
+                        reader.readAsDataURL(blob);
+                    }
+                })
+                .catch(err => {
+                    console.error("Failed to read blob for PDF viewer:", err);
+                });
+            return () => {
+                active = false;
+            };
+        }
+
+        setPdfDataUrl(null);
+    }, [isOpen, isPdf, file, activeUrl]);
+
     const isDocument = React.useMemo(() => {
         if (isPdf) return true;
         if (file) {
@@ -291,7 +343,7 @@ export default function DocumentViewerModal({
     return (
         <AnimatePresence>
             {isOpen && activeUrl && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 md:p-6 overflow-y-auto">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 md:p-6 overflow-y-auto pointer-events-auto">
                     {/* Backdrop Overlay */}
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -438,7 +490,7 @@ export default function DocumentViewerModal({
 
                             {isPdf ? (
                                 <iframe
-                                    src={`${activeUrl}#toolbar=0&navpanes=0`}
+                                    src={`${pdfDataUrl || activeUrl}#toolbar=0&navpanes=0`}
                                     className="w-full h-full rounded-2xl border-0 bg-white"
                                     title="PDF Document Viewer"
                                 />
@@ -561,10 +613,10 @@ export default function DocumentViewerModal({
                                                     handleReset();
                                                 }}
                                                 className={`relative w-24 h-16 rounded-xl overflow-hidden shrink-0 transition-all active:scale-95 border-2 ${isActive
-                                                        ? "scale-105 shadow-md"
-                                                        : hasDoc
-                                                            ? "border-transparent opacity-60 hover:opacity-100 hover:scale-102"
-                                                            : "opacity-20 cursor-not-allowed border-transparent"
+                                                    ? "scale-105 shadow-md"
+                                                    : hasDoc
+                                                        ? "border-transparent opacity-60 hover:opacity-100 hover:scale-102"
+                                                        : "opacity-20 cursor-not-allowed border-transparent"
                                                     }`}
                                                 style={isActive ? { borderColor: themeColor, boxShadow: `0 0 12px ${themeColor}40` } : undefined}
                                                 title={doc.label}

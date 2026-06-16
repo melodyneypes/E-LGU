@@ -16,7 +16,9 @@ import {
     ArrowRight,
     Upload,
     CheckCircle2,
-    FileText
+    FileText,
+    Sparkles,
+    X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,7 +55,6 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
-import { compressImage } from "@/lib/image-compression";
 import { supabase } from "@/lib/supabase";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 
@@ -82,15 +83,16 @@ async function uploadFileClientSide(file: File, fieldName: string, userId: strin
     return publicUrl;
 }
 
-
 const STORAGE_KEY = "lcr_death_psa_endorsement_draft";
 
-type Step = "INFORMANT" | "SUBJECT" | "REVIEW";
+type Step = "STATUS" | "INFORMANT" | "SUBJECT" | "UPLOAD" | "REVIEW";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
-    { id: "INFORMANT", label: "Informant Info", icon: User },
-    { id: "SUBJECT", label: "Deceased & Documents", icon: FileText },
-    { id: "REVIEW", label: "Review & Submit", icon: CheckCircle2 },
+    { id: "STATUS", label: "Status", icon: Sparkles },
+    { id: "INFORMANT", label: "Identity", icon: User },
+    { id: "SUBJECT", label: "Details", icon: FileText },
+    { id: "UPLOAD", label: "Documents", icon: Upload },
+    { id: "REVIEW", label: "Submit", icon: CheckCircle2 },
 ];
 
 export default function DeathPsaEndorsementPage() {
@@ -98,7 +100,7 @@ export default function DeathPsaEndorsementPage() {
     const [currentStep, setCurrentStep] = useState<Step>("INFORMANT");
     const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [themeColor, setThemeColor] = useState("theme_color");
+    const [themeColor, setThemeColor] = useState("var(--primary-theme)");
 
     useEffect(() => {
         getSystemSettingAction("theme_color").then((res) => {
@@ -134,6 +136,7 @@ export default function DeathPsaEndorsementPage() {
     // Form State
     const [formData, setFormData] = useState({
         relationship: "",
+        relationshipOther: "",
         email: "",
         contactNumber: "",
         informantFirstName: "",
@@ -266,7 +269,8 @@ export default function DeathPsaEndorsementPage() {
 
                         setFormData(prev => ({
                             ...prev,
-                            relationship: addData.relationship || prev.relationship,
+                            relationship: addData.relationship && addData.relationship.startsWith("OTHER:") ? "OTHER" : (addData.relationship || prev.relationship),
+                            relationshipOther: addData.relationship && addData.relationship.startsWith("OTHER:") ? addData.relationship.replace(/^OTHER:\s*/i, "") : "",
                             email: addData.email || resSnapshot.email || prev.email,
                             contactNumber: addData.contactNumber || resSnapshot.contactNumber || prev.contactNumber,
                             informantFirstName: addData.informantFirstName || resSnapshot.firstName || prev.informantFirstName,
@@ -403,14 +407,14 @@ export default function DeathPsaEndorsementPage() {
                 }
             })();
             toast.promise(promise, {
-                loading: "Checking for your latest issued Form 2A in transactions...",
-                success: "Form 2A status checked.",
-                error: "Failed to check or fetch Form 2A document."
+                loading: "Searching for your latest Form 2A record...",
+                success: "Form 2A check complete.",
+                error: "Error checking latest Form 2A."
             });
         }
     };
 
-    const renderDocCard = (label: string, fileKey: string, required: boolean = true) => {
+    const renderDocCard = (label: string, fileKey: string, required = true) => {
         const file = files[fileKey] || null;
         const preview = previews[fileKey] || null;
 
@@ -428,17 +432,11 @@ export default function DeathPsaEndorsementPage() {
                         return;
                     }
 
-                    let fileToProcess = newFile;
-                    if (newFile.type.startsWith("image/")) {
-                        try {
-                            toast.loading("Compressing and optimizing document...", { id: `file-compress-${fileKey}` });
-                            fileToProcess = await compressImage(newFile);
-                            toast.success("Image optimized successfully!", { id: `file-compress-${fileKey}` });
-                        } catch (err) {
-                            console.error("Compression error:", err);
-                            toast.dismiss(`file-compress-${fileKey}`);
-                        }
-                    }
+                    const fileToProcess = newFile;
+
+                    saveDraftFile(STORAGE_KEY, fileKey, fileToProcess).catch(err => {
+                        console.error("Failed to save draft file to IndexedDB:", err);
+                    });
 
                     try {
                         toast.loading("Uploading and preparing document preview...", { id: `file-upload-${fileKey}` });
@@ -448,7 +446,6 @@ export default function DeathPsaEndorsementPage() {
 
                         setFiles(prev => ({ ...prev, [fileKey]: fileToProcess }));
                         setPreviews(prev => ({ ...prev, [fileKey]: publicUrl }));
-                        await saveDraftFile(STORAGE_KEY, fileKey, fileToProcess);
                         toast.success("Document uploaded & preview ready!", { id: `file-upload-${fileKey}` });
                     } catch (uploadErr) {
                         console.error(`[ClientUpload] Failed to upload ${fileKey} on-the-fly:`, uploadErr);
@@ -456,7 +453,6 @@ export default function DeathPsaEndorsementPage() {
 
                         setFiles(prev => ({ ...prev, [fileKey]: fileToProcess }));
                         setPreviews(prev => ({ ...prev, [fileKey]: fileToProcess.type.startsWith("image/") ? URL.createObjectURL(fileToProcess) : null }));
-                        await saveDraftFile(STORAGE_KEY, fileKey, fileToProcess);
                     }
                 }}
                 onClear={async () => {
@@ -470,23 +466,72 @@ export default function DeathPsaEndorsementPage() {
         );
     };
 
+    const validateStep = (step: Step): boolean => {
+        if (step === "INFORMANT") {
+            const isSpecifyEmpty = formData.relationship === "OTHER" && !formData.relationshipOther?.trim();
+            if (!formData.relationship || !formData.contactNumber || isSpecifyEmpty) {
+                setShowErrors(true);
+                toast.error("Please complete highlighted required fields.");
+                setTimeout(() => {
+                    const firstInvalid = document.querySelector(".border-red-500, [class*='border-red-500']");
+                    if (firstInvalid) {
+                        firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }
+                }, 100);
+                return false;
+            }
+        }
+        if (step === "SUBJECT") {
+            if (!formData.subjectFullName || !formData.subjectDateOfDeath || !formData.mothersMaidenName) {
+                setShowErrors(true);
+                toast.error("Please fill in all required deceased details.");
+                setTimeout(() => {
+                    const firstInvalid = document.querySelector(".border-red-500, [class*='border-red-500']");
+                    if (firstInvalid) {
+                        firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }
+                }, 100);
+                return false;
+            }
+        }
+        if (step === "UPLOAD") {
+            if (!files.psaNegativeCert && !previews.psaNegativeCert) {
+                setShowErrors(true);
+                toast.error("Please upload PSA Negative Certification.");
+                setTimeout(() => {
+                    const firstInvalid = document.querySelector(".border-red-500, [class*='border-red-500']");
+                    if (firstInvalid) {
+                        firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }
+                }, 100);
+                return false;
+            }
+            if (!files.form2a && !previews.form2a) {
+                setShowErrors(true);
+                toast.error("Please upload Form 2A (Local Registry Copy).");
+                setTimeout(() => {
+                    const firstInvalid = document.querySelector(".border-red-500, [class*='border-red-500']");
+                    if (firstInvalid) {
+                        firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }
+                }, 100);
+                return false;
+            }
+        }
+        return true;
+    };
+
     const handleSubmit = async () => {
         if (submitting) return;
+
         if (!policyAccepted) {
             setShowErrors(true);
             toast.error("Please review and accept the Privacy Policy & Terms before submitting.");
             return;
         }
+
         if (!typeId) {
             toast.error("Service type not initialized. Please try again later.");
-            return;
-        }
-        if (!files.psaNegativeCert && !previews.psaNegativeCert) {
-            toast.error("Please upload PSA Negative Certification");
-            return;
-        }
-        if (!files.form2a && !previews.form2a) {
-            toast.error("Please upload Form 2A (Local Registry Copy)");
             return;
         }
 
@@ -509,11 +554,30 @@ export default function DeathPsaEndorsementPage() {
                 residentId: resident?.residentId || "",
                 address: resident ? `Brgy. ${resident.barangay}, Mapandan` : ""
             };
+
             data.append("residentSnapshot", JSON.stringify(residentSnapshot));
+
+            const finalRelationship = formData.relationship === "OTHER"
+                ? `OTHER: ${formData.relationshipOther.toUpperCase()}`
+                : formData.relationship;
+
+            const additionalData = {
+                relationship: finalRelationship,
+                contactNumber: formData.contactNumber,
+                email: formData.email,
+                subjectFullName: formData.subjectFullName,
+                subjectDateOfDeath: formData.subjectDateOfDeath,
+                mothersMaidenName: formData.mothersMaidenName,
+                fathersName: formData.fathersName,
+                placeOfDeath: formData.placeOfDeath,
+                causeOfDeath: formData.causeOfDeath,
+                miscFee: 200,
+            };
+            data.append("additionalData", JSON.stringify(additionalData));
 
             const fileUrls: Record<string, string> = {};
 
-            // First, copy any existing public URLs from previews
+            // Re-use existing URLs
             Object.entries(previews || {}).forEach(([key, url]) => {
                 if (url && typeof url === "string" && url.startsWith("http")) {
                     fileUrls[key] = url;
@@ -524,34 +588,30 @@ export default function DeathPsaEndorsementPage() {
             for (let i = 0; i < fileEntries.length; i++) {
                 const [key, file] = fileEntries[i];
                 if (!file) continue;
+                if (fileUrls[key]) continue;
+
                 const sanitizedKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
 
-                if (fileUrls[key]) {
-                    console.log(`[ClientUpload] Reusing existing public URL for ${key}:`, fileUrls[key]);
-                    continue;
-                }
-
                 try {
-                    toast.loading(`Uploading document ${i + 1}/${fileEntries.length}...`, { id: "upload-toast" });
+                    toast.loading(`Uploading document ${i + 1}/${fileEntries.length}...`, { id: "endorsement-upload-toast" });
                     const userId = resident?.id || "anonymous";
                     const url = await uploadFileClientSide(file, sanitizedKey, userId);
                     fileUrls[key] = url;
                 } catch (uploadErr) {
                     console.error(`[ClientUpload] Failed to upload ${key}:`, uploadErr);
-                    toast.error(`Failed to upload document: ${key}. Please try again.`, { id: "upload-toast" });
+                    toast.error(`Failed to upload document: ${key}. Please try again.`, { id: "endorsement-upload-toast" });
                     setSubmitting(false);
                     return;
                 }
             }
-            toast.dismiss("upload-toast");
+            toast.dismiss("endorsement-upload-toast");
 
-            const additionalData = {
-                ...formData,
-                subjectName: formData.subjectFullName,
-                psaEndorsementFee: 200,
+            const updatedAdditionalData = {
+                ...additionalData,
                 ...fileUrls
             };
-            data.append("additionalData", JSON.stringify(additionalData));
+            data.delete("additionalData");
+            data.append("additionalData", JSON.stringify(updatedAdditionalData));
 
             const res = await submitCivilRegistryTransaction(data);
 
@@ -575,7 +635,7 @@ export default function DeathPsaEndorsementPage() {
     if (loading) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
-                <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mb-4" />
+                <Loader2 className="w-10 h-10 animate-spin mb-4" style={{ color: "var(--primary-theme)" }} />
                 <p className="font-black uppercase tracking-widest text-[10px] text-slate-400 italic">Initializing Endorsement Form...</p>
             </div>
         );
@@ -585,9 +645,11 @@ export default function DeathPsaEndorsementPage() {
         <>
             <style dangerouslySetInnerHTML={{
                 __html: `
+                ${themeColor !== "var(--primary-theme)" ? `
                 :root, * {
                     --primary-theme: ${themeColor} !important;
                 }
+                ` : ""}
                 .text-emerald-500, [class*="text-emerald-500"]:not(input):not(select):not(textarea) {
                     color: ${themeColor} !important;
                 }
@@ -597,35 +659,35 @@ export default function DeathPsaEndorsementPage() {
                 .bg-emerald-500, [class*="bg-emerald-500"] {
                     background-color: ${themeColor} !important;
                 }
-                .bg-emerald-600, [class*="bg-emerald-600"] {
+                .bg-slate-600, [class*="bg-slate-600"] {
                     background-color: ${themeColor} !important;
                 }
-                .border-emerald-500, [class*="border-emerald-500"] {
+                .border-slate-500, [class*="border-slate-500"] {
                     border-color: ${themeColor} !important;
                 }
-                .border-emerald-600, [class*="border-emerald-600"] {
+                .border-slate-600, [class*="border-slate-600"] {
                     border-color: ${themeColor} !important;
                 }
                 .bg-emerald-500\\/10, [class*="bg-emerald-500/10"] {
-                    background-color: ${themeColor}1a !important;
+                    background-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 10%, transparent)" : `${themeColor}1a`} !important;
                 }
                 .bg-emerald-500\\/20, [class*="bg-emerald-500/20"] {
-                    background-color: ${themeColor}33 !important;
+                    background-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33`} !important;
                 }
                 .bg-emerald-500\\/5, [class*="bg-emerald-500/5"] {
-                    background-color: ${themeColor}0d !important;
+                    background-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 5%, transparent)" : `${themeColor}0d`} !important;
                 }
                 .shadow-emerald-500\\/20, [class*="shadow-emerald-500/20"] {
-                    --tw-shadow-color: ${themeColor}33 !important;
+                    --tw-shadow-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33`} !important;
                 }
-                .hover\\:bg-emerald-600:hover, [class*="hover:bg-emerald-600"]:hover {
+                .hover\\:bg-slate-600:hover, [class*="hover:bg-slate-600"]:hover {
                     background-color: ${themeColor} !important;
                     filter: brightness(0.9);
                 }
                 .hover\\:border-emerald-500\\/50:hover, [class*="hover:border-emerald-500/50"]:hover {
-                    border-color: ${themeColor}80 !important;
+                    border-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 50%, transparent)" : `${themeColor}80`} !important;
                 }
-                input:not([type="button"]):not([type="submit"]), select, textarea {
+                input:not([type="button"]):not([type="submit"]), select, textarea, button[role="combobox"], [class*="SelectTrigger"] {
                     color: #0f172a !important;
                 }
                 input:not([type="button"]):not([type="submit"]):disabled, select:disabled, textarea:disabled,
@@ -634,7 +696,7 @@ export default function DeathPsaEndorsementPage() {
                     -webkit-text-fill-color: #1e293b !important;
                     opacity: 0.9 !important;
                 }
-                .dark input:not([type="button"]):not([type="submit"]), .dark select, .dark textarea {
+                .dark input:not([type="button"]):not([type="submit"]), .dark select, .dark textarea, .dark button[role="combobox"], .dark [class*="SelectTrigger"] {
                     color: #f8fafc !important;
                 }
                 .dark input:not([type="button"]):not([type="submit"]):disabled, .dark select:disabled, .dark textarea:disabled,
@@ -662,40 +724,40 @@ export default function DeathPsaEndorsementPage() {
                 themeColor="var(--primary-theme)"
             />
             <div className="container max-w-5xl mx-auto px-4 pt-0 pb-0 space-y-8">
-            <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
-                <Breadcrumb>
-                    <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
-                        <BreadcrumbItem>
-                            <BreadcrumbLink asChild>
-                                <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
-                                    <Home className="w-3.5 h-3.5 mb-0.5" />
-                                    Home
-                                </Link>
-                            </BreadcrumbLink>
-                        </BreadcrumbItem>
-                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
-                        <BreadcrumbItem>
-                            <BreadcrumbLink asChild>
-                                <Link href="/user/services" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
-                                    Services
-                                </Link>
-                            </BreadcrumbLink>
-                        </BreadcrumbItem>
-                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
-                        <BreadcrumbItem>
-                            <BreadcrumbLink asChild>
-                                <Link href="/user/services/civil-registry" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
-                                    Civil Registry
-                                </Link>
-                            </BreadcrumbLink>
-                        </BreadcrumbItem>
-                        <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
-                        <BreadcrumbItem>
-                            <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic text-emerald-700 dark:text-emerald-400">Death PSA Endorsement</BreadcrumbPage>
-                        </BreadcrumbItem>
-                    </BreadcrumbList>
-                </Breadcrumb>
-            </div>
+                <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
+                    <Breadcrumb>
+                        <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+                            <BreadcrumbItem>
+                                <BreadcrumbLink asChild>
+                                    <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                        <Home className="w-3.5 h-3.5 mb-0.5" />
+                                        Home
+                                    </Link>
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+                            <BreadcrumbItem>
+                                <BreadcrumbLink asChild>
+                                    <Link href="/user/services" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                        Services
+                                    </Link>
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+                            <BreadcrumbItem>
+                                <BreadcrumbLink asChild>
+                                    <Link href="/user/services/civil-registry" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                        Civil Registry
+                                    </Link>
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+                            <BreadcrumbItem>
+                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic text-emerald-700 dark:text-emerald-400">Death PSA Endorsement</BreadcrumbPage>
+                            </BreadcrumbItem>
+                        </BreadcrumbList>
+                    </Breadcrumb>
+                </div>
 
                 <div className="space-y-6">
                     {/* Premium Header/Banner with Ambient Gradient Backdrop */}
@@ -732,42 +794,60 @@ export default function DeathPsaEndorsementPage() {
                     </div>
 
                     {/* Progress Stepper */}
-                    <div className="relative px-2 py-4">
-                        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 dark:bg-white/5 -translate-y-1/2 rounded-full overflow-hidden">
-                            <motion.div
-                                className="h-full bg-emerald-500"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${(STEPS.findIndex(s => s.id === currentStep) / (STEPS.length - 1)) * 100}%` }}
-                            />
-                        </div>
+                    <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2 py-4">
+                        {STEPS.map((step, idx) => {
+                            const isActive = currentStep === step.id;
+                            const stepIdx = STEPS.findIndex(s => s.id === currentStep);
+                            const isCompleted = stepIdx > idx;
+                            const Icon = step.icon;
 
-                        <div className="flex justify-between items-center relative z-10">
-                            {STEPS.map((step, idx) => {
-                                const isActive = currentStep === step.id;
-                                const stepIdx = STEPS.findIndex(s => s.id === currentStep);
-                                const isCompleted = stepIdx > idx;
-                                const Icon = step.icon;
-
-                                return (
-                                    <div key={idx} className="flex flex-col items-center gap-2 transition-all duration-300">
-                                        <div className={cn(
-                                            "w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-500 border-2 bg-white dark:bg-[#08090d]",
-                                            isActive ? "border-emerald-500 text-emerald-600 shadow-lg shadow-emerald-500/20 scale-110" :
-                                                isCompleted ? "bg-emerald-500 border-emerald-500 text-white" :
-                                                    "border-slate-200 dark:border-white/10 text-slate-400"
-                                        )}>
-                                            {isCompleted ? <Check className="w-5 h-5" /> : <Icon className="w-4 h-4 md:w-5 md:h-5" />}
-                                        </div>
-                                        <span className={cn(
-                                            "text-[8px] md:text-[10px] font-black uppercase tracking-wider italic hidden md:block",
-                                            isActive ? "text-emerald-600" : "text-slate-400"
-                                        )}>
-                                            {step.label}
-                                        </span>
+                            return (
+                                <div
+                                    key={idx}
+                                    className="flex flex-col items-center gap-2 md:gap-3 relative z-10 font-black group cursor-pointer"
+                                    onClick={() => {
+                                        if (step.id === "STATUS") {
+                                            router.push("/user/services/civil-registry");
+                                            return;
+                                        }
+                                        const targetIdx = STEPS.findIndex(s => s.id === step.id);
+                                        const currentIdx = STEPS.findIndex(s => s.id === currentStep);
+                                        if (targetIdx <= currentIdx) {
+                                            setCurrentStep(step.id);
+                                        } else {
+                                            for (let i = currentIdx; i < targetIdx; i++) {
+                                                const stepToValidate = STEPS[i].id;
+                                                if (stepToValidate !== "STATUS" && !validateStep(stepToValidate)) {
+                                                    return;
+                                                }
+                                            }
+                                            setCurrentStep(step.id);
+                                        }
+                                    }}
+                                >
+                                    <div 
+                                        className={cn(
+                                            "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
+                                            isActive ? "text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
+                                                isCompleted ? "bg-slate-500/10 text-slate-500 border-slate-500/30" :
+                                                    "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-slate-500/30"
+                                        )}
+                                        style={isActive ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
+                                    >
+                                        <Icon className="w-4 h-4 md:w-7 md:h-7" />
                                     </div>
-                                );
-                            })}
-                        </div>
+                                    <span 
+                                        className={cn(
+                                            "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
+                                            isActive ? "opacity-100 font-black text-slate-500" : "opacity-40 group-hover:opacity-100 transition-opacity text-slate-400"
+                                        )}
+                                        style={isActive ? { color: themeColor } : {}}
+                                    >
+                                        {step.label}
+                                    </span>
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {mounted && typeof document !== "undefined" && createPortal(
@@ -775,7 +855,7 @@ export default function DeathPsaEndorsementPage() {
                             <div className="w-full max-w-5xl flex items-center justify-center gap-4">
                                 <div className="h-1.5 flex-1 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
                                     <motion.div
-                                        className="h-full bg-emerald-500"
+                                        className="h-full bg-slate-600"
                                         initial={{ width: 0 }}
                                         animate={{ width: `${((STEPS.findIndex(s => s.id === currentStep) + 1) / STEPS.length) * 100}%` }}
                                     />
@@ -799,9 +879,13 @@ export default function DeathPsaEndorsementPage() {
                                     exit={{ opacity: 0, scale: 1.05 }}
                                     className="space-y-6"
                                 >
-                                    <div className="space-y-2">
-                                        <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Informant Information</h2>
-                                        <p className="text-xs text-slate-500 font-medium italic">Your details as the requesting informant</p>
+                                    <div className="space-y-1">
+                                        <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight text-slate-900 dark:text-white">
+                                            Requester <span style={{ color: themeColor }}>Identity</span>
+                                        </h2>
+                                        <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">
+                                            Your details as the requesting informant
+                                        </p>
                                     </div>
 
                                     {revisionTx && (
@@ -819,22 +903,43 @@ export default function DeathPsaEndorsementPage() {
                                     <div className="space-y-6">
                                         <div className="space-y-2">
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Relationship to Deceased <span className="text-red-500">*</span></Label>
-                                            <Select
-                                                value={formData.relationship}
-                                                onValueChange={(v) => handleSelectChange("relationship", v)}
-                                            >
-                                                <SelectTrigger className={cn("h-12 rounded-xl focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold", (showErrors && !formData.relationship) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10")}>
-                                                    <SelectValue placeholder="SELECT RELATIONSHIP" />
-                                                </SelectTrigger>
-                                                <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
-                                                    <SelectItem value="SPOUSE">SPOUSE</SelectItem>
-                                                    <SelectItem value="CHILD">CHILD</SelectItem>
-                                                    <SelectItem value="PARENT">PARENT</SelectItem>
-                                                    <SelectItem value="SIBLING">SIBLING</SelectItem>
-                                                    <SelectItem value="RELATIVE">OTHER RELATIVE</SelectItem>
-                                                    <SelectItem value="REPRESENTATIVE">AUTHORIZED REPRESENTATIVE</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                            {formData.relationship === "OTHER" ? (
+                                                <div className="relative flex items-center">
+                                                    <Input
+                                                        value={formData.relationshipOther || ""}
+                                                        onChange={(e) => setFormData(p => ({ ...p, relationshipOther: e.target.value }))}
+                                                        className={cn("h-12 rounded-xl text-xs md:text-sm font-bold uppercase pr-10 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10", (showErrors && !formData.relationshipOther) && "!border-2 !border-red-500")}
+                                                        placeholder="Specify relationship (e.g. Nephew, Friend)"
+                                                        autoFocus
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormData(p => ({ ...p, relationship: "", relationshipOther: "" }))}
+                                                        className="absolute right-3 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+                                                        title="Back to options"
+                                                    >
+                                                        <X className="w-4.5 h-4.5" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <Select
+                                                    value={formData.relationship}
+                                                    onValueChange={(v) => handleSelectChange("relationship", v)}
+                                                >
+                                                    <SelectTrigger style={{ height: '3rem' }} className={cn("!h-12 rounded-xl focus:ring-slate-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold border border-slate-200 dark:border-white/10", (showErrors && !formData.relationship) ? "!border-2 !border-red-500" : "")}>
+                                                        <SelectValue placeholder="SELECT RELATIONSHIP" />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
+                                                        <SelectItem value="SPOUSE">SPOUSE</SelectItem>
+                                                        <SelectItem value="CHILD">CHILD</SelectItem>
+                                                        <SelectItem value="PARENT">PARENT</SelectItem>
+                                                        <SelectItem value="SIBLING">SIBLING</SelectItem>
+                                                        <SelectItem value="RELATIVE">OTHER RELATIVE</SelectItem>
+                                                        <SelectItem value="REPRESENTATIVE">AUTHORIZED REPRESENTATIVE</SelectItem>
+                                                        <SelectItem value="OTHER">OTHER</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
                                             {(showErrors && !formData.relationship) && (
                                                 <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                             )}
@@ -844,85 +949,90 @@ export default function DeathPsaEndorsementPage() {
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                             <div className="md:col-span-1 space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">First Name</Label>
-                                                <Input readOnly value={formData.informantFirstName} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantFirstName} className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
                                             <div className="md:col-span-1 space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Middle Name</Label>
-                                                <Input readOnly value={formData.informantMiddleName} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantMiddleName} className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
                                             <div className="md:col-span-1 space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Last Name</Label>
-                                                <Input readOnly value={formData.informantLastName} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantLastName} className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
                                             <div className="md:col-span-1 space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Suffix</Label>
-                                                <Input readOnly value={formData.informantSuffix} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantSuffix} className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Birth Date</Label>
-                                                <Input readOnly value={formData.informantBirthDate} type="date" className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantBirthDate} type="date" className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Age</Label>
-                                                <Input readOnly value={formData.informantAge} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantAge} className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Civil Status</Label>
-                                                <Input readOnly value={formData.informantCivilStatus} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantCivilStatus} className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Citizenship</Label>
-                                                <Input readOnly value={formData.informantCitizenship} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantCitizenship} className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Informant Address</Label>
-                                            <Input
-                                                readOnly
-                                                className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 transition-all font-bold italic text-slate-600 uppercase"
-                                                value={formData.informantAddress}
-                                            />
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Occupation</Label>
-                                                <Input readOnly className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" value={formData.informantOccupation} />
+                                                <Input readOnly className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" value={formData.informantOccupation} />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Contact Number <span className="text-red-500">*</span></Label>
                                                 <Input
                                                     className={cn(
-                                                        "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all font-bold italic",
-                                                        (showErrors && !formData.contactNumber) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10"
+                                                        "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all font-bold uppercase border border-slate-200 dark:border-white/10",
+                                                        (showErrors && !formData.contactNumber) ? "!border-2 !border-red-500" : ""
                                                     )}
                                                     placeholder="e.g. 0917XXXXXXX"
                                                     value={formData.contactNumber}
+                                                    maxLength={11}
                                                     onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
                                                 />
+                                                <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider ml-1 animate-pulse">
+                                                    * Note: Please use your active contact number. This will be used to contact you regarding your transaction.
+                                                </p>
                                                 {(showErrors && !formData.contactNumber) && (
                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                                 )}
                                             </div>
+                                        </div>
+                                        
+                                        <div 
+                                            className="p-3 md:p-4 rounded-2xl md:rounded-3xl flex items-center gap-2 md:gap-3 border animate-in fade-in duration-300"
+                                            style={{ 
+                                                backgroundColor: `${themeColor}0d`, 
+                                                borderColor: `${themeColor}26` 
+                                            }}
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5 shrink-0" style={{ color: themeColor }} />
+                                            <p className="text-[8px] md:text-[10px] font-black italic leading-tight uppercase tracking-widest" style={{ color: themeColor }}>
+                                                Note: Changes will update your Resident Profile upon submission.
+                                            </p>
                                         </div>
                                     </div>
 
                                     <div className="flex justify-end pt-6">
                                         <Button
                                             onClick={() => {
-                                                if (!formData.relationship || !formData.contactNumber) {
-                                                    setShowErrors(true);
-                                                    toast.error("Please fill in all required informant details.");
-                                                    return;
+                                                if (validateStep("INFORMANT")) {
+                                                    setShowErrors(false);
+                                                    setCurrentStep("SUBJECT");
                                                 }
-                                                setShowErrors(false);
-                                                setCurrentStep("SUBJECT");
                                             }}
-                                            className="rounded-full px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-emerald-500/20"
+                                            className="rounded-full px-12 bg-slate-500 hover:bg-slate-600 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-slate-500/20"
                                         >
                                             Next Step
                                             <ArrowRight className="w-4 h-4 ml-2" />
@@ -931,7 +1041,7 @@ export default function DeathPsaEndorsementPage() {
                                 </motion.div>
                             )}
 
-                            {/* ===== STEP 2: DECEASED INFO & DOCUMENTS ===== */}
+                            {/* ===== STEP 2: DECEASED DETAILS ===== */}
                             {currentStep === "SUBJECT" && (
                                 <motion.div
                                     key="subject-step"
@@ -940,11 +1050,11 @@ export default function DeathPsaEndorsementPage() {
                                     exit={{ opacity: 0, scale: 1.05 }}
                                     className="space-y-6"
                                 >
-                                    <div className="space-y-2">
-                                        <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight flex items-center gap-2">
-                                            Deceased Information & Documents
+                                    <div className="space-y-1">
+                                        <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight text-slate-900 dark:text-white">
+                                            Deceased <span style={{ color: themeColor }}>Details</span>
                                         </h2>
-                                        <p className="text-xs text-slate-500 font-medium italic">Provide the details of the deceased person whose record needs PSA endorsement</p>
+                                        <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">Provide the details of the deceased person whose record needs PSA endorsement</p>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -956,8 +1066,8 @@ export default function DeathPsaEndorsementPage() {
                                                 value={formData.subjectFullName}
                                                 onChange={handleInputChange}
                                                 className={cn(
-                                                    "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                    (showErrors && !formData.subjectFullName) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10"
+                                                    "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium border border-slate-200 dark:border-white/10",
+                                                    (showErrors && !formData.subjectFullName) && "!border-2 !border-red-500"
                                                 )}
                                             />
                                             {(showErrors && !formData.subjectFullName) && (
@@ -973,8 +1083,8 @@ export default function DeathPsaEndorsementPage() {
                                                 value={formData.subjectDateOfDeath}
                                                 onChange={handleInputChange}
                                                 className={cn(
-                                                    "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all font-medium",
-                                                    (showErrors && !formData.subjectDateOfDeath) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10"
+                                                    "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all font-medium border border-slate-200 dark:border-white/10",
+                                                    (showErrors && !formData.subjectDateOfDeath) && "!border-2 !border-red-500"
                                                 )}
                                             />
                                             {(showErrors && !formData.subjectDateOfDeath) && (
@@ -990,8 +1100,8 @@ export default function DeathPsaEndorsementPage() {
                                                 value={formData.mothersMaidenName}
                                                 onChange={handleInputChange}
                                                 className={cn(
-                                                    "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                    (showErrors && !formData.mothersMaidenName) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10"
+                                                    "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium border border-slate-200 dark:border-white/10",
+                                                    (showErrors && !formData.mothersMaidenName) && "!border-2 !border-red-500"
                                                 )}
                                             />
                                             {(showErrors && !formData.mothersMaidenName) && (
@@ -1006,7 +1116,7 @@ export default function DeathPsaEndorsementPage() {
                                                 placeholder="ENTER FATHER'S FULL NAME"
                                                 value={formData.fathersName}
                                                 onChange={handleInputChange}
-                                                className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
+                                                className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
                                             />
                                         </div>
 
@@ -1017,33 +1127,66 @@ export default function DeathPsaEndorsementPage() {
                                                 placeholder="ENTER PLACE OF DEATH"
                                                 value={formData.placeOfDeath}
                                                 onChange={handleInputChange}
-                                                className="rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
+                                                className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
                                             />
                                         </div>
                                     </div>
 
-                                    {/* Documents Section */}
-                                    <div className="space-y-4 pt-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="p-1.5 bg-emerald-500/10 rounded-lg">
-                                                <Upload className="w-3.5 h-3.5 text-emerald-500" />
-                                            </div>
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Required Documents</span>
-                                        </div>
+                                    <div className="flex justify-end gap-3 pt-6">
+                                        <Button
+                                            variant="ghost"
+                                            onClick={() => setCurrentStep("INFORMANT")}
+                                            className="rounded-full px-8 border border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[10px] h-12 text-slate-500 dark:text-slate-400"
+                                        >
+                                            <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
+                                            Back
+                                        </Button>
+                                        <Button
+                                            onClick={() => {
+                                                if (validateStep("SUBJECT")) {
+                                                    setShowErrors(false);
+                                                    setCurrentStep("UPLOAD");
+                                                }
+                                            }}
+                                            className="rounded-full px-12 bg-slate-500 hover:bg-slate-600 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-slate-500/20"
+                                        >
+                                            Next Step
+                                            <ArrowRight className="w-4 h-4 ml-2" />
+                                        </Button>
+                                    </div>
+                                </motion.div>
+                            )}
 
-                                        <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200/60 dark:border-amber-500/20">
+                            {/* ===== STEP 3: REQUIRED DOCUMENTS ===== */}
+                            {currentStep === "UPLOAD" && (
+                                <motion.div
+                                    key="upload-step"
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 1.05 }}
+                                    className="space-y-6"
+                                >
+                                    <div className="space-y-1">
+                                        <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight text-slate-900 dark:text-white">
+                                            Required <span style={{ color: themeColor }}>Documents</span>
+                                        </h2>
+                                        <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">Upload the necessary supporting registry certificates.</p>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200/60 dark:border-amber-500/20 animate-pulse">
                                             <div className="flex items-start gap-3">
                                                 <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                                                 <div>
                                                     <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">PSA Negative Certification Required</p>
-                                                    <p className="text-[9px] text-amber-600/80 dark:text-amber-400/80 italic mt-1">
+                                                    <p className="text-[9px] text-amber-600/80 dark:text-amber-400/80 italic mt-1 leading-relaxed">
                                                         This is strictly required as proof that the record is not available in the national database. Obtain this from any PSA Serbilis outlet.
                                                     </p>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                             {renderDocCard("PSA Negative Certification", "psaNegativeCert", true)}
                                             {renderDocCard("Form 2A (Local Registry Copy)", "form2a", true)}
                                         </div>
@@ -1052,33 +1195,20 @@ export default function DeathPsaEndorsementPage() {
                                     <div className="flex justify-end gap-3 pt-6">
                                         <Button
                                             variant="ghost"
-                                            onClick={() => setCurrentStep("INFORMANT")}
-                                            className="rounded-full px-8 border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[10px] h-12"
+                                            onClick={() => setCurrentStep("SUBJECT")}
+                                            className="rounded-full px-8 border border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[10px] h-12 text-slate-500 dark:text-slate-400"
                                         >
                                             <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
                                             Back
                                         </Button>
                                         <Button
                                             onClick={() => {
-                                                if (!formData.subjectFullName || !formData.subjectDateOfDeath || !formData.mothersMaidenName) {
-                                                    setShowErrors(true);
-                                                    toast.error("Please fill in all required deceased details.");
-                                                    return;
+                                                if (validateStep("UPLOAD")) {
+                                                    setShowErrors(false);
+                                                    setCurrentStep("REVIEW");
                                                 }
-                                                if (!files.psaNegativeCert && !previews.psaNegativeCert) {
-                                                    setShowErrors(true);
-                                                    toast.error("Please upload PSA Negative Certification.");
-                                                    return;
-                                                }
-                                                if (!files.form2a && !previews.form2a) {
-                                                    setShowErrors(true);
-                                                    toast.error("Please upload Form 2A (Local Registry Copy).");
-                                                    return;
-                                                }
-                                                setShowErrors(false);
-                                                setCurrentStep("REVIEW");
                                             }}
-                                            className="rounded-full px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-emerald-500/20"
+                                            className="rounded-full px-12 bg-slate-500 hover:bg-slate-600 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-slate-500/20"
                                         >
                                             Proceed to Review
                                             <ArrowRight className="w-4 h-4 ml-2" />
@@ -1087,7 +1217,7 @@ export default function DeathPsaEndorsementPage() {
                                 </motion.div>
                             )}
 
-                            {/* ===== STEP 3: REVIEW & SUBMIT ===== */}
+                            {/* ===== STEP 5: REVIEW & SUBMIT ===== */}
                             {currentStep === "REVIEW" && (
                                 <motion.div
                                     key="review-step"
@@ -1098,27 +1228,27 @@ export default function DeathPsaEndorsementPage() {
                                 >
                                     <div className="flex items-center gap-4 mb-4">
                                         <div>
-                                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Endorsement Review</h2>
+                                            <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight text-slate-900 dark:text-white">
+                                                Endorsement <span style={{ color: themeColor }}>Review</span>
+                                            </h2>
                                             <p className="text-xs text-slate-500 font-medium italic">Verify information before submission</p>
                                         </div>
                                     </div>
 
-                                    <Card className="bg-slate-50 dark:bg-white/5 border-none p-6 rounded-[2rem] space-y-4">
+                                    <div className="space-y-6 pt-4">
                                         <div className="grid grid-cols-2 gap-6">
                                             <div className="space-y-1">
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Informant</span>
-                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{resident?.firstName} {resident?.lastName} ({formData.relationship})</p>
+                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">
+                                                    {resident?.firstName} {resident?.lastName} {formData.relationship === "OTHER" ? `(OTHER: ${formData.relationshipOther})` : `(${formData.relationship})`}
+                                                </p>
                                             </div>
                                             <div className="space-y-1">
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Contact</span>
                                                 <p className="font-black text-slate-900 dark:text-white italic">{formData.contactNumber}</p>
                                             </div>
-                                            <div className="space-y-1 col-span-2">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Informant Address</span>
-                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.informantAddress || "N/A"}</p>
-                                            </div>
                                             <div className="col-span-2 border-t border-slate-200 dark:border-white/5 pt-4 space-y-1">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500 italic">Deceased Name (To Endorse)</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 italic">Deceased Name (To Endorse)</span>
                                                 <p className="font-black text-slate-900 dark:text-white italic uppercase text-lg">{formData.subjectFullName}</p>
                                             </div>
                                             <div className="space-y-1">
@@ -1126,9 +1256,23 @@ export default function DeathPsaEndorsementPage() {
                                                 <p className="font-black text-slate-900 dark:text-white italic">{formData.subjectDateOfDeath}</p>
                                             </div>
                                             <div className="space-y-1">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Place of Death</span>
+                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.placeOfDeath || "N/A"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Father&apos;s Name</span>
+                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.fathersName || "N/A"}</p>
+                                            </div>
+                                            <div className="space-y-1">
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Mother&apos;s Maiden Name</span>
                                                 <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.mothersMaidenName}</p>
                                             </div>
+                                            {formData.causeOfDeath && (
+                                                <div className="col-span-2 space-y-1">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Cause of Death</span>
+                                                    <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.causeOfDeath}</p>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Documents Summary */}
@@ -1137,9 +1281,9 @@ export default function DeathPsaEndorsementPage() {
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                 <div className={cn(
                                                     "flex items-center gap-3 p-3 rounded-xl border",
-                                                    (files.psaNegativeCert || previews.psaNegativeCert) ? "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/20" : "bg-red-50/30 border-red-200/50"
+                                                    (files.psaNegativeCert || previews.psaNegativeCert) ? "bg-slate-500/5 border-slate-500/10" : "bg-red-50/30 border-red-200/50"
                                                 )}>
-                                                    {(files.psaNegativeCert || previews.psaNegativeCert) ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
+                                                    {(files.psaNegativeCert || previews.psaNegativeCert) ? <Check className="w-4 h-4 text-slate-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
                                                     <div>
                                                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">PSA Negative Certification</p>
                                                         <p className="text-[8px] text-slate-400 italic">{files.psaNegativeCert ? files.psaNegativeCert.name : previews.psaNegativeCert ? "Attached from previous draft" : "Not uploaded"}</p>
@@ -1147,9 +1291,9 @@ export default function DeathPsaEndorsementPage() {
                                                 </div>
                                                 <div className={cn(
                                                     "flex items-center gap-3 p-3 rounded-xl border",
-                                                    (files.form2a || previews.form2a) ? "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/20" : "bg-red-50/30 border-red-200/50"
+                                                    (files.form2a || previews.form2a) ? "bg-slate-500/5 border-slate-500/10" : "bg-red-50/30 border-red-200/50"
                                                 )}>
-                                                    {(files.form2a || previews.form2a) ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
+                                                    {(files.form2a || previews.form2a) ? <Check className="w-4 h-4 text-slate-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
                                                     <div>
                                                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Form 2A</p>
                                                         <p className="text-[8px] text-slate-400 italic">{files.form2a ? files.form2a.name : previews.form2a ? "Attached from previous draft" : "Not uploaded"}</p>
@@ -1159,16 +1303,16 @@ export default function DeathPsaEndorsementPage() {
                                         </div>
 
                                         {/* Fee Display */}
-                                        <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20">
+                                        <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-slate-500/10 border border-slate-500/20">
                                             <div>
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">PSA Endorsement Fee</span>
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">PSA Endorsement Fee</span>
                                                 <p className="text-[9px] text-slate-400 italic mt-0.5">Standard processing fee for PSA endorsement</p>
                                             </div>
                                             <div className="text-right">
-                                                <span className="text-lg font-black text-emerald-600 tracking-tight">₱200.00</span>
+                                                <span className="text-lg font-black text-slate-200 tracking-tight">₱200.00</span>
                                             </div>
                                         </div>
-                                    </Card>
+                                    </div>
 
                                     <div className="space-y-4">
                                         <div
@@ -1182,10 +1326,10 @@ export default function DeathPsaEndorsementPage() {
                                             className={cn(
                                                 "p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-4 select-none",
                                                 policyAccepted
-                                                    ? "bg-emerald-50/20 border-emerald-500/30"
+                                                    ? "bg-slate-500/5 border-slate-500/20"
                                                     : showErrors
                                                         ? "border-2 border-red-500"
-                                                        : "border-slate-200/40 bg-white/30 dark:bg-white/5 hover:border-emerald-500/20"
+                                                        : "border-slate-200/40 bg-white/30 dark:bg-white/5 hover:border-slate-500/20"
                                             )}
                                         >
                                             <button
@@ -1201,7 +1345,7 @@ export default function DeathPsaEndorsementPage() {
                                                 className={cn(
                                                     "w-5 h-5 rounded-full border flex items-center justify-center transition-all shrink-0 mt-0.5",
                                                     policyAccepted
-                                                        ? "bg-emerald-500 border-emerald-500 text-white"
+                                                        ? "bg-slate-500 border-slate-500 text-white"
                                                         : showErrors
                                                             ? "border-2 border-red-500"
                                                             : "border-slate-300"
@@ -1211,7 +1355,7 @@ export default function DeathPsaEndorsementPage() {
                                             </button>
                                             <div className="flex-1 text-xs text-left cursor-pointer select-none">
                                                 <div className="font-black uppercase text-[11px] tracking-wider text-slate-900 dark:text-white">DATA PRIVACY AND TERMS AGREEMENT</div>
-                                                <div className="text-[10px] text-slate-500 italic mt-1">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
+                                                <div className="text-[10px] text-slate-500 italic mt-1 font-bold">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
                                                 {(showErrors && !policyAccepted) && (
                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest mt-1 animate-pulse">Agreement required before submitting</p>
                                                 )}
@@ -1222,7 +1366,7 @@ export default function DeathPsaEndorsementPage() {
                                                     e.stopPropagation();
                                                     setPolicyOpen(true);
                                                 }}
-                                                className="text-[10px] font-black italic text-emerald-600 hover:text-emerald-700 shrink-0"
+                                                className="text-[10px] font-black italic text-slate-500 hover:text-slate-600 shrink-0"
                                             >
                                                 Review
                                             </button>
@@ -1231,33 +1375,26 @@ export default function DeathPsaEndorsementPage() {
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                                             <Button
                                                 variant="ghost"
-                                                onClick={() => setCurrentStep("SUBJECT")}
-                                                className="h-14 rounded-full border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[11px]"
+                                                onClick={() => setCurrentStep("UPLOAD")}
+                                                className="h-14 rounded-full border border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[11px]"
                                             >
                                                 <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
                                                 Modify Details
                                             </Button>
                                             <Button
                                                 onClick={handleSubmit}
-                                                disabled={submitting || (!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form2a && !previews.form2a)}
-                                                className={cn(
-                                                    "md:col-span-3 h-14 rounded-full font-black uppercase tracking-widest italic text-[11px] transition-all duration-300",
-                                                    ((!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form2a && !previews.form2a))
-                                                        ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                                                        : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-500/20"
-                                                )}
+                                                disabled={submitting}
+                                                className="col-span-1 md:col-span-3 h-14 rounded-full bg-slate-500 hover:bg-slate-600 text-white font-black uppercase tracking-[0.2em] italic text-[11px] shadow-xl shadow-slate-500/20 flex items-center justify-center gap-2"
                                             >
                                                 {submitting ? (
-                                                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                                                ) : ((!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form2a && !previews.form2a)) ? (
                                                     <>
-                                                        Upload Required Documents
-                                                        <AlertCircle className="w-5 h-5 ml-2" />
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                        Submitting Endorsement...
                                                     </>
                                                 ) : (
                                                     <>
-                                                        Submit Death PSA Endorsement Application
-                                                        <CheckCircle2 className="w-5 h-5 ml-2" />
+                                                        Submit Endorsement Request
+                                                        <ArrowRight className="w-4 h-4" />
                                                     </>
                                                 )}
                                             </Button>

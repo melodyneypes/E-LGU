@@ -7,9 +7,11 @@ import { Loader2 } from "lucide-react";
 interface LocationPickerProps {
     initialLat?: number;
     initialLng?: number;
+    value?: { lat: number; lng: number } | null;
     onSelect: (lat: number, lng: number) => void;
-    onClose: () => void;
+    onClose?: () => void;
     title?: string;
+    compact?: boolean;
 }
 
 function MapLoading() {

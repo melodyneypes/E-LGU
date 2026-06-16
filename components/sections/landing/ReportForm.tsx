@@ -1,19 +1,18 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { 
     Send, 
     Image as ImageIcon, 
-    MapPin, 
     X, 
     AlertCircle, 
     Loader2, 
     CheckCircle2, 
     LogIn,
-    Map,
-    Plus
+    Plus,
+    FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,12 +32,15 @@ import { cn } from "@/lib/utils";
 export function ReportForm() {
     const { data: session, status } = useSession();
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [showMap, setShowMap] = useState(false);
     const [images, setImages] = useState<File[]>([]);
     const [location, setLocation] = useState<{ lat: number; lng: number; address: string } | null>(null);
     const [previews, setPreviews] = useState<string[]>([]);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleLocationSelect = useCallback((lat: number, lng: number) => {
+        setLocation({ lat, lng, address: `Pinned at ${lat.toFixed(4)}, ${lng.toFixed(4)}` });
+    }, []);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
@@ -96,7 +98,6 @@ export function ReportForm() {
                 setImages([]);
                 setPreviews([]);
                 setLocation(null);
-                setShowMap(false);
                 setSelectedCategory("");
             } else {
                 toast.error(res.error || "Failed to submit report");
@@ -152,38 +153,61 @@ export function ReportForm() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1 opacity-50">Issue Category</label>
-                        <Select name="category" required onValueChange={setSelectedCategory} value={selectedCategory}>
-                            <SelectTrigger className="h-14 bg-white/5 border-white/10 rounded-2xl font-bold transition-all focus:ring-primary text-white italic">
-                                <SelectValue placeholder="Select Category" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-slate-900 border-white/10 text-white rounded-2xl">
-                                <SelectItem value="Road Repair" className="font-bold italic py-3 cursor-pointer">Road Repair</SelectItem>
-                                <SelectItem value="Waste Management" className="font-bold italic py-3 cursor-pointer">Waste Management</SelectItem>
-                                <SelectItem value="Street Lights" className="font-bold italic py-3 cursor-pointer">Street Lights</SelectItem>
-                                <SelectItem value="Drainage Issue" className="font-bold italic py-3 cursor-pointer">Drainage Issue</SelectItem>
-                                <SelectItem value="Public Safety" className="font-bold italic py-3 cursor-pointer">Public Safety</SelectItem>
-                                <SelectItem value="Others" className="font-bold italic py-3 cursor-pointer">Others</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <AnimatePresence mode="wait">
+                            {selectedCategory !== "Others" ? (
+                                <motion.div
+                                    key="dropdown"
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 10 }}
+                                    transition={{ duration: 0.2 }}
+                                >
+                                    <Select name="category" required onValueChange={setSelectedCategory} value={selectedCategory}>
+                                        <SelectTrigger className="h-14 bg-white/5 border-white/10 rounded-2xl font-bold transition-all focus:ring-primary text-white italic">
+                                            <SelectValue placeholder="Select Category" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-slate-900 border-white/10 text-white rounded-2xl">
+                                            <SelectItem value="Road Repair" className="font-bold italic py-3 cursor-pointer">Road Repair</SelectItem>
+                                            <SelectItem value="Waste Management" className="font-bold italic py-3 cursor-pointer">Waste Management</SelectItem>
+                                            <SelectItem value="Street Lights" className="font-bold italic py-3 cursor-pointer">Street Lights</SelectItem>
+                                            <SelectItem value="Drainage Issue" className="font-bold italic py-3 cursor-pointer">Drainage Issue</SelectItem>
+                                            <SelectItem value="Public Safety" className="font-bold italic py-3 cursor-pointer">Public Safety</SelectItem>
+                                            <SelectItem value="Others" className="font-bold italic py-3 cursor-pointer">Others</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    key="custom-input"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="flex items-center gap-2"
+                                >
+                                    <div className="relative flex-1">
+                                        <input
+                                            name="customCategory"
+                                            required
+                                            autoFocus
+                                            placeholder="Please specify the issue category..."
+                                            className="w-full h-14 bg-primary/10 border border-primary/20 rounded-2xl px-5 font-bold text-white italic text-sm placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                        <input type="hidden" name="category" value="Others" />
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setSelectedCategory("")}
+                                        className="h-14 w-14 rounded-2xl border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 p-0"
+                                        title="Back to categories"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </Button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
-
-                    <AnimatePresence>
-                        {selectedCategory === "Others" && (
-                            <motion.div 
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                className="space-y-2 overflow-hidden"
-                            >
-                                <input 
-                                    name="customCategory"
-                                    required
-                                    placeholder="Please specify the issue..."
-                                    className="w-full h-12 bg-primary/10 border border-primary/20 rounded-2xl px-4 font-bold text-white italic text-xs placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
-                                />
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
 
                     <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1 opacity-50">Detail Description</label>
@@ -199,9 +223,9 @@ export function ReportForm() {
                         {/* Compact Photo Attachment Area */}
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1 opacity-50">Attach Photos</label>
+                            
                             <div 
-                                onClick={() => fileInputRef.current?.click()}
-                                className="relative aspect-video rounded-2xl border border-dashed border-white/10 bg-white/5 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-white/10 transition-all group overflow-hidden"
+                                className="relative h-[150px] w-full rounded-2xl border border-white/10 bg-white/5 overflow-hidden group/upload"
                             >
                                 <input 
                                     type="file" 
@@ -211,89 +235,89 @@ export function ReportForm() {
                                     className="hidden" 
                                     onChange={handleImageChange}
                                 />
-                                {previews.length > 0 ? (
-                                    <div className="absolute inset-0 grid grid-cols-2 gap-0.5 p-1 bg-slate-950/80">
-                                        {previews.slice(0, 4).map((preview, i) => (
-                                            <div key={i} className="relative h-full w-full rounded-md overflow-hidden bg-slate-800">
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img src={preview} alt="p" className="w-full h-full object-cover" />
-                                                <button 
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        removeImage(i);
-                                                    }}
-                                                    className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white z-20"
-                                                >
-                                                    <X className="w-2.5 h-2.5" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                        {previews.length > 4 && (
-                                            <div className="absolute inset-0 flex items-center justify-center bg-black/60 pointer-events-none">
-                                                <span className="text-[10px] font-black text-white">+{previews.length - 4} MORE</span>
-                                            </div>
-                                        )}
+                                
+                                {previews.length === 0 ? (
+                                    <div 
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="w-full h-full border border-dashed border-white/10 hover:border-primary/50 hover:bg-white/5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all duration-300 group"
+                                    >
+                                        <div className="p-3 bg-white/5 rounded-full group-hover:scale-110 transition-transform duration-300">
+                                            <ImageIcon className="w-5 h-5 text-slate-400 group-hover:text-primary transition-colors" />
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-[11px] font-black uppercase tracking-widest text-white">Upload Photos</p>
+                                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Click to browse files</p>
+                                        </div>
                                     </div>
                                 ) : (
-                                    <>
-                                        <ImageIcon className="w-5 h-5 text-slate-500 group-hover:text-primary transition-colors" />
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover:text-slate-300">Add Photos</span>
-                                    </>
+                                    <div className="absolute inset-0">
+                                        <div className={cn(
+                                            "grid w-full h-full gap-0.5",
+                                            previews.length === 1 && "grid-cols-1",
+                                            previews.length === 2 && "grid-cols-2",
+                                            previews.length === 3 && "grid-cols-3",
+                                            previews.length >= 4 && "grid-cols-2 grid-rows-2"
+                                        )}>
+                                            {previews.slice(0, 4).map((preview, i) => {
+                                                const isLastCell = i === 3;
+                                                const hasMore = previews.length > 4;
+                                                return (
+                                                    <div key={preview} className="relative w-full h-full overflow-hidden bg-slate-900 group/item">
+                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                        <img src={preview} alt="preview" className="w-full h-full object-cover" />
+                                                        {isLastCell && hasMore && (
+                                                            <div className="absolute inset-0 bg-black/70 flex items-center justify-center pointer-events-none">
+                                                                <span className="text-xs font-black text-white">+{previews.length - 3}</span>
+                                                            </div>
+                                                        )}
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center justify-center">
+                                                            <button 
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    removeImage(i);
+                                                                }}
+                                                                className="w-7 h-7 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                                                            >
+                                                                <X className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        
+                                        {/* Floating Plus Button to Add More Photos - styled with bg-primary */}
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                fileInputRef.current?.click();
+                                            }}
+                                            className="absolute bottom-2 right-2 w-8 h-8 bg-primary hover:opacity-90 text-white rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 z-30"
+                                            title="Add more photos"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </div>
 
-                        {/* Compact Location Picker Trigger */}
+                        {/* Pinned Map Location Section */}
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1 opacity-50">Pin Location</label>
-                            <div 
-                                onClick={() => setShowMap(!showMap)}
-                                className={cn(
-                                    "aspect-video rounded-2xl border flex flex-col items-center justify-center gap-2 cursor-pointer transition-all group",
-                                    location ? "bg-primary/5 border-primary text-primary" : "bg-white/5 border-white/10 text-slate-500 hover:bg-white/10"
-                                )}
-                            >
-                                {location ? (
-                                    <>
-                                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
-                                            <MapPin className="w-4 h-4 shadow-3xl shadow-primary/50" />
-                                        </div>
-                                        <span className="text-[8px] font-black uppercase tracking-widest">Ready to go!</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Map className="w-5 h-5 group-hover:text-primary transition-colors" />
-                                        <span className="text-[9px] font-black uppercase tracking-widest group-hover:text-slate-300 italic">{showMap ? "Close Map" : "Open Map"}</span>
-                                    </>
-                                )}
+                            <div className="relative h-[150px] w-full rounded-2xl border border-white/10 overflow-hidden bg-slate-950">
+                                <LocationPicker 
+                                    value={location}
+                                    onSelect={handleLocationSelect}
+                                    compact={true}
+                                />
                             </div>
                         </div>
                     </div>
 
-                    {/* Inline Map Expansion */}
-                    <AnimatePresence>
-                        {showMap && (
-                            <motion.div 
-                                initial={{ height: 0, opacity: 0, marginTop: 0 }}
-                                animate={{ height: "auto", opacity: 1, marginTop: 16 }}
-                                exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                                className="overflow-hidden bg-slate-900 rounded-3xl border border-white/10 p-2"
-                            >
-                                <LocationPicker 
-                                    onSelect={(lat, lng) => {
-                                        setLocation({ lat, lng, address: `Pinned at ${lat.toFixed(4)}, ${lng.toFixed(4)}` });
-                                        setShowMap(false);
-                                        toast.success("Location pinned!");
-                                    }}
-                                    onClose={() => setShowMap(false)}
-                                    title="Move marker to adjust"
-                                />
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-
-                    <div className="pt-2 flex flex-col gap-4">
+                    <div className="pt-2 flex flex-col gap-3">
                         <Button 
                             type="submit"
                             disabled={isSubmitting}
@@ -303,17 +327,16 @@ export function ReportForm() {
                             {isSubmitting ? "Submitting Report..." : "Submit Report"}
                         </Button>
 
-                        <div className="flex items-center gap-4 py-2 opacity-50 hover:opacity-100 transition-opacity">
-                            <div className="h-[1px] grow bg-white/10" />
-                            <Link 
-                                href="/user/reports" 
-                                className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors flex items-center gap-2 group italic"
-                            >
-                                <span>View My Reports</span>
-                                <Plus className="w-3 h-3 group-hover:rotate-90 transition-transform" />
+                        <Button
+                            asChild
+                            variant="outline"
+                            className="w-full py-4 h-auto border-white/10 bg-white/5 hover:bg-white/10 hover:text-white text-slate-300 rounded-2xl font-black uppercase tracking-widest text-[10px] italic transition-all active:scale-95 flex items-center justify-center gap-3"
+                        >
+                            <Link href="/user/reports">
+                                <FileText className="w-4 h-4" />
+                                View My Reports
                             </Link>
-                            <div className="h-[1px] grow bg-white/10" />
-                        </div>
+                        </Button>
                     </div>
                 </form>
             </div>

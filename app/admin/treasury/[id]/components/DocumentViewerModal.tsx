@@ -62,6 +62,7 @@ export default function DocumentViewerModal({
  
     const [fetchedType, setFetchedType] = React.useState<string | null>(null);
     const [currentIndex, setCurrentIndex] = React.useState(0);
+    const [pdfDataUrl, setPdfDataUrl] = React.useState<string | null>(null);
  
     // Image Manipulation States
     const [scale, setScale] = React.useState(1);
@@ -76,6 +77,7 @@ export default function DocumentViewerModal({
             setScale(1);
             setRotation(0);
             setPosition({ x: 0, y: 0 });
+            setPdfDataUrl(null);
  
             if (documents && documents.length > 0) {
                 if (typeof initialIndex === "number" && initialIndex >= 0 && initialIndex < documents.length) {
@@ -116,7 +118,7 @@ export default function DocumentViewerModal({
             setFetchedType(null);
         }
     }, [activeUrl]);
- 
+
     const isPdf = React.useMemo(() => {
         if (file) {
             return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
@@ -134,6 +136,54 @@ export default function DocumentViewerModal({
         }
         return false;
     }, [file, activeUrl, fetchedType, activeTitle]);
+
+    // Convert local/blob PDFs to Base64 data URLs to bypass Chrome's block on blob URLs inside PDF iframes.
+    // Remote PDFs are kept as remote URLs because they embed directly.
+    React.useEffect(() => {
+        if (!isOpen || !isPdf) {
+            setPdfDataUrl(null);
+            return;
+        }
+
+        let active = true;
+
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (active && typeof reader.result === "string") {
+                    setPdfDataUrl(reader.result);
+                }
+            };
+            reader.readAsDataURL(file);
+            return () => {
+                active = false;
+            };
+        }
+
+        if (activeUrl && activeUrl.startsWith("blob:")) {
+            fetch(activeUrl)
+                .then(res => res.blob())
+                .then(blob => {
+                    if (active) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            if (active && typeof reader.result === "string") {
+                                setPdfDataUrl(reader.result);
+                            }
+                        };
+                        reader.readAsDataURL(blob);
+                    }
+                })
+                .catch(err => {
+                    console.error("Failed to read blob for PDF viewer:", err);
+                });
+            return () => {
+                active = false;
+            };
+        }
+
+        setPdfDataUrl(null);
+    }, [isOpen, isPdf, file, activeUrl]);
  
     const fileExtension = React.useMemo(() => {
         if (file?.name) return getFileExtension(file.name);
@@ -369,7 +419,7 @@ export default function DocumentViewerModal({
 
                             {isPdf ? (
                                 <iframe
-                                    src={`${activeUrl}#toolbar=0&navpanes=0`}
+                                    src={`${pdfDataUrl || activeUrl}#toolbar=0&navpanes=0`}
                                     className="w-full h-full rounded-2xl border-0 bg-white"
                                     title="PDF Document Viewer"
                                 />

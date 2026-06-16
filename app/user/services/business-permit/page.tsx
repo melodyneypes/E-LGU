@@ -39,7 +39,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { useDraft } from "@/hooks/useDraft";
-import { getCurrentUserResident, getTransactionTypes, submitBusinessPermitTransaction, getBarangaysList, getTransactionById, getAllSuccessfulBusinessPermits, getUserTransactions } from "@/app/admin/transactions/actions";
+import { getCurrentUserResident, getTransactionTypes, submitBusinessPermitTransaction, getBarangaysList, getTransactionById, getAllSuccessfulBusinessPermits, getUserTransactions, getSystemSettingAction } from "@/app/admin/transactions/actions";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
@@ -273,6 +273,8 @@ export default function BusinessPermitWizardPage() {
     const [dtiGuideTab, setDtiGuideTab] = useState<"SOLE" | "CORP">("SOLE");
     const [revisionId, setRevisionId] = useState<string | null>(null);
     const [revisionTx, setRevisionTx] = useState<any>(null);
+    const [showValidationErrors, setShowValidationErrors] = useState(false);
+    const [themeColor, setThemeColor] = useState("var(--primary-theme)");
 
     const [previousPermits, setPreviousPermits] = useState<any[]>([]);
     const [selectedPermitIndex, setSelectedPermitIndex] = useState<number>(0);
@@ -335,6 +337,19 @@ export default function BusinessPermitWizardPage() {
             window.scrollTo({ top: 0, behavior: "smooth" });
         }
     }, [currentStep]);
+
+    // Reset validation errors on step change
+    useEffect(() => {
+        setShowValidationErrors(false);
+    }, [currentStep]);
+
+    useEffect(() => {
+        getSystemSettingAction("theme_color").then((res) => {
+            if (res.success && res.data) {
+                setThemeColor(res.data);
+            }
+        });
+    }, []);
 
     // --- INITIALIZATION & DRAFT HYDRATION ---
     useEffect(() => {
@@ -770,6 +785,7 @@ export default function BusinessPermitWizardPage() {
             }
         }
         if (!isStepValid(currentStep)) {
+            setShowValidationErrors(true);
             if (currentStep === "USER_IDENTITY") {
                 toast.error("Municipal profile record not loaded. Please contact administration.");
                 const r = formData.residentData;
@@ -993,7 +1009,7 @@ export default function BusinessPermitWizardPage() {
     const onSubmit = async () => {
         setSubmitting(true);
         try {
-            toast.loading(<span style={{ color: "var(--primary-theme)" }} className="font-black uppercase tracking-widest text-[10px]">Submitting application...</span>, { id: "bp-upload-toast" });
+            toast.loading(<span style={{ color: themeColor }} className="font-black uppercase tracking-widest text-[10px]">Submitting application...</span>, { id: "bp-upload-toast" });
 
             // Process residentSnapshot base64 files if present (e.g. webcam selfie or scanned IDs)
             const updatedResidentData = { ...formData.residentData };
@@ -1354,7 +1370,10 @@ export default function BusinessPermitWizardPage() {
                                                     id="resident-firstName"
                                                     value={formData.residentData?.firstName || ""}
                                                     readOnly={true}
-                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                    className={cn(
+                                                        "h-10 rounded-xl border-slate-200 shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400",
+                                                        showValidationErrors && !formData.residentData?.firstName && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                    )}
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
@@ -1362,7 +1381,7 @@ export default function BusinessPermitWizardPage() {
                                                 <Input
                                                     value={formData.residentData?.middleName || ""}
                                                     readOnly={true}
-                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                    className="h-10 rounded-xl border-slate-200 shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
@@ -1371,7 +1390,10 @@ export default function BusinessPermitWizardPage() {
                                                     id="resident-lastName"
                                                     value={formData.residentData?.lastName || ""}
                                                     readOnly={true}
-                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                    className={cn(
+                                                        "h-10 rounded-xl border-slate-200 shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400",
+                                                        showValidationErrors && !formData.residentData?.lastName && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                    )}
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
@@ -1379,7 +1401,7 @@ export default function BusinessPermitWizardPage() {
                                                 <Input
                                                     value={formData.residentData?.suffix || ""}
                                                     readOnly={true}
-                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                    className="h-10 rounded-xl border-slate-200 shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
                                                 />
                                             </div>
                                         </div>
@@ -1395,7 +1417,10 @@ export default function BusinessPermitWizardPage() {
                                                     type="date"
                                                     value={formData.residentData?.dateOfBirth ? new Date(formData.residentData.dateOfBirth).toISOString().split('T')[0] : ""}
                                                     readOnly={true}
-                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                    className={cn(
+                                                        "h-10 rounded-xl border-slate-200 shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400",
+                                                        showValidationErrors && !formData.residentData?.dateOfBirth && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                    )}
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
@@ -1427,7 +1452,7 @@ export default function BusinessPermitWizardPage() {
                                                 <Input
                                                     value={formData.residentData?.citizenship || ""}
                                                     readOnly={true}
-                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                    className="h-10 rounded-xl border-slate-200 shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
                                                 />
                                             </div>
                                         </div>
@@ -1441,7 +1466,10 @@ export default function BusinessPermitWizardPage() {
                                                         id="resident-occupation"
                                                         value={formData.residentData?.occupation || ""}
                                                         readOnly={true}
-                                                        className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400"
+                                                        className={cn(
+                                                            "h-10 rounded-xl border-slate-200 shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400",
+                                                            showValidationErrors && !formData.residentData?.occupation && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                        )}
                                                     />
                                                 </div>
                                             </div>
@@ -1461,7 +1489,10 @@ export default function BusinessPermitWizardPage() {
                                                             }
                                                         }));
                                                     }}
-                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm"
+                                                    className={cn(
+                                                        "h-10 rounded-xl border-slate-200 shadow-sm text-xs md:text-sm",
+                                                        showValidationErrors && !formData.residentData?.contactNumber && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                    )}
                                                     placeholder="09xx xxx xxxx"
                                                 />
                                                 <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider ml-1 animate-pulse">
@@ -1517,7 +1548,8 @@ export default function BusinessPermitWizardPage() {
                                                     placeholder="e.g. Mapandan Express Café Inc."
                                                     readOnly={isAutofilledFromPrevious}
                                                     className={cn(
-                                                        "rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 transition-all duration-200",
+                                                        "rounded-xl h-12 border-slate-200 transition-all duration-200",
+                                                        showValidationErrors && !formData.businessName && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50",
                                                         isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 focus-visible:ring-primary/10 cursor-not-allowed select-none"
                                                     )}
                                                 />
@@ -1534,7 +1566,7 @@ export default function BusinessPermitWizardPage() {
                                                     placeholder="e.g. Mapandan Express Café"
                                                     readOnly={isAutofilledFromPrevious}
                                                     className={cn(
-                                                        "rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 transition-all duration-200",
+                                                        "rounded-xl h-12 border-slate-200 transition-all duration-200",
                                                         isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 focus-visible:ring-primary/10 cursor-not-allowed select-none"
                                                     )}
                                                 />
@@ -1550,8 +1582,9 @@ export default function BusinessPermitWizardPage() {
                                                     onChange={e => handleInputChange("orgType", e.target.value)}
                                                     disabled={isAutofilledFromPrevious}
                                                     className={cn(
-                                                        "w-full appearance-none rounded-xl h-12 border border-slate-200 dark:border-white bg-white dark:bg-[#0c0d12]/50 px-4 pr-10 text-xs md:text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer shadow-sm hover:border-slate-300 dark:hover:border-white/20",
-                                                        isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 focus:ring-primary/10 cursor-not-allowed select-none"
+                                                        "w-full appearance-none rounded-xl h-12 border border-slate-200 dark:border-white bg-white dark:bg-[#0c0d12]/50 px-4 pr-10 text-xs md:text-sm font-bold text-slate-900 dark:text-white focus:outline-none transition-all cursor-pointer shadow-sm hover:border-slate-300 dark:hover:border-white/20",
+                                                        showValidationErrors && !formData.orgType && "border-red-500 ring-2 ring-red-500/20 dark:border-red-500/50",
+                                                        isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                     )}
                                                 >
                                                     <option value="SOLE_PROPRIETORSHIP" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Sole Proprietorship</option>
@@ -1573,8 +1606,9 @@ export default function BusinessPermitWizardPage() {
                                                     onChange={e => handleInputChange("barangay", e.target.value)}
                                                     disabled={isAutofilledFromPrevious}
                                                     className={cn(
-                                                        "w-full appearance-none rounded-xl h-12 border border-slate-200 dark:border-white bg-white dark:bg-[#0c0d12]/50 px-4 pr-10 text-xs md:text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer shadow-sm hover:border-slate-300 dark:hover:border-white/20",
-                                                        isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 focus:ring-primary/10 cursor-not-allowed select-none"
+                                                        "w-full appearance-none rounded-xl h-12 border border-slate-200 dark:border-white bg-white dark:bg-[#0c0d12]/50 px-4 pr-10 text-xs md:text-sm font-bold text-slate-900 dark:text-white focus:outline-none transition-all cursor-pointer shadow-sm hover:border-slate-300 dark:hover:border-white/20",
+                                                        showValidationErrors && !formData.barangay && "border-red-500 ring-2 ring-red-500/20 dark:border-red-500/50",
+                                                        isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                     )}
                                                 >
                                                     <option value="" disabled className="dark:bg-[#0c0d12] text-slate-400">Select Barangay...</option>
@@ -1598,8 +1632,8 @@ export default function BusinessPermitWizardPage() {
                                                     placeholder="e.g. Bldg 4A, Green Meadows (Optional)"
                                                     readOnly={isAutofilledFromPrevious}
                                                     className={cn(
-                                                        "rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 transition-all duration-200",
-                                                        isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 focus-visible:ring-primary/10 cursor-not-allowed select-none"
+                                                        "rounded-xl h-12 border-slate-200 transition-all duration-200",
+                                                        isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                     )}
                                                 />
                                             </div>
@@ -1615,8 +1649,8 @@ export default function BusinessPermitWizardPage() {
                                                     placeholder="e.g. Rizal Avenue (Optional)"
                                                     readOnly={isAutofilledFromPrevious}
                                                     className={cn(
-                                                        "rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 transition-all duration-200",
-                                                        isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 focus-visible:ring-primary/10 cursor-not-allowed select-none"
+                                                        "rounded-xl h-12 border-slate-200 transition-all duration-200",
+                                                        isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                     )}
                                                 />
                                             </div>
@@ -1630,7 +1664,7 @@ export default function BusinessPermitWizardPage() {
                                                         type="text"
                                                         value={formData.lineOfBusiness}
                                                         readOnly
-                                                        className="rounded-xl h-12 border-slate-200 bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 focus-visible:ring-primary/10 cursor-not-allowed select-none font-bold text-xs md:text-sm"
+                                                        className="rounded-xl h-12 border-slate-200 bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none font-bold text-xs md:text-sm"
                                                     />
                                                 </div>
                                             ) : !isOtherLine ? (
@@ -1639,7 +1673,10 @@ export default function BusinessPermitWizardPage() {
                                                         id="profile-lineOfBusiness-select"
                                                         value={formData.lineOfBusiness || ""}
                                                         onChange={e => handleLineOfBusinessSelect(e.target.value)}
-                                                        className="w-full appearance-none rounded-xl h-12 border border-slate-200 dark:border-white bg-white dark:bg-[#0c0d12]/50 px-4 pr-10 text-xs md:text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer shadow-sm hover:border-slate-300 dark:hover:border-white/20"
+                                                        className={cn(
+                                                            "w-full appearance-none rounded-xl h-12 border border-slate-200 dark:border-white bg-white dark:bg-[#0c0d12]/50 px-4 pr-10 text-xs md:text-sm font-bold text-slate-900 dark:text-white focus:outline-none transition-all cursor-pointer shadow-sm hover:border-slate-300 dark:hover:border-white/20",
+                                                            showValidationErrors && !formData.lineOfBusiness && "border-red-500 ring-2 ring-red-500/20 dark:border-red-500/50"
+                                                        )}
                                                     >
                                                         <option value="" disabled className="dark:bg-[#0c0d12] text-slate-400">Select Line of Business...</option>
                                                         {LINE_OF_BUSINESS_OPTIONS.map((opt) => (
@@ -1659,7 +1696,10 @@ export default function BusinessPermitWizardPage() {
                                                         value={formData.lineOfBusiness}
                                                         onChange={e => handleInputChange("lineOfBusiness", e.target.value)}
                                                         placeholder="Enter your custom line of business..."
-                                                        className="rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 pr-10 font-bold"
+                                                        className={cn(
+                                                             "rounded-xl h-12 border-slate-200 pr-10 font-bold",
+                                                             showValidationErrors && !formData.lineOfBusiness && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                         )}
                                                     />
                                                     <button
                                                         type="button"
@@ -1686,8 +1726,8 @@ export default function BusinessPermitWizardPage() {
                                                     min="0"
                                                     readOnly={isAutofilledFromPrevious}
                                                     className={cn(
-                                                        "rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 transition-all duration-200",
-                                                        isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 focus-visible:ring-primary/10 cursor-not-allowed select-none"
+                                                        "rounded-xl h-12 border-slate-200 transition-all duration-200",
+                                                        isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                     )}
                                                 />
                                             </div>
@@ -1703,8 +1743,8 @@ export default function BusinessPermitWizardPage() {
                                                     placeholder="e.g. 120"
                                                     readOnly={isAutofilledFromPrevious}
                                                     className={cn(
-                                                        "rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 transition-all duration-200",
-                                                        isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 focus-visible:ring-primary/10 cursor-not-allowed select-none"
+                                                        "rounded-xl h-12 border-slate-200 transition-all duration-200",
+                                                        isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                     )}
                                                 />
                                             </div>
@@ -1722,7 +1762,10 @@ export default function BusinessPermitWizardPage() {
                                                         handleInputChange("capitalInvestment", cleanVal);
                                                     }}
                                                     placeholder="e.g. 250,000"
-                                                    className="rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 pr-12 font-mono font-bold"
+                                                    className={cn(
+                                                        "rounded-xl h-12 border-slate-200 pr-12 font-mono font-bold",
+                                                        showValidationErrors && !formData.capitalInvestment && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                    )}
                                                 />
                                             </div>
                                         ) : (
@@ -1737,7 +1780,10 @@ export default function BusinessPermitWizardPage() {
                                                         handleInputChange("grossSales", cleanVal);
                                                     }}
                                                     placeholder="e.g. 1,200,000"
-                                                    className="rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 pr-12 font-mono font-bold"
+                                                    className={cn(
+                                                        "rounded-xl h-12 border-slate-200 pr-12 font-mono font-bold",
+                                                        showValidationErrors && !formData.grossSales && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                    )}
                                                 />
                                             </div>
                                         )}
@@ -1751,8 +1797,9 @@ export default function BusinessPermitWizardPage() {
                                                     onChange={e => handleInputChange("businessBranch", e.target.value)}
                                                     disabled={isAutofilledFromPrevious}
                                                     className={cn(
-                                                        "w-full appearance-none rounded-xl h-12 border border-slate-200 dark:border-white bg-white dark:bg-[#0c0d12]/50 px-4 pr-10 text-xs md:text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer shadow-sm hover:border-slate-300 dark:hover:border-white/20",
-                                                        isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 focus:ring-primary/10 cursor-not-allowed select-none"
+                                                        "w-full appearance-none rounded-xl h-12 border border-slate-200 dark:border-white bg-white dark:bg-[#0c0d12]/50 px-4 pr-10 text-xs md:text-sm font-bold text-slate-900 dark:text-white focus:outline-none transition-all cursor-pointer shadow-sm hover:border-slate-300 dark:hover:border-white/20",
+                                                        showValidationErrors && !formData.businessBranch && "border-red-500 ring-2 ring-red-500/20 dark:border-red-500/50",
+                                                        isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                     )}
                                                 >
                                                     <option value="MAIN" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Main</option>
@@ -1774,8 +1821,9 @@ export default function BusinessPermitWizardPage() {
                                                 placeholder="e.g. 123-456-789-000"
                                                 readOnly={isAutofilledFromPrevious}
                                                 className={cn(
-                                                    "rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 font-bold",
-                                                    isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 focus-visible:ring-primary/10 cursor-not-allowed select-none"
+                                                    "rounded-xl h-12 border-slate-200 font-bold",
+                                                    showValidationErrors && !formData.tinNumber && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50",
+                                                    isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                 )}
                                             />
                                         </div>
@@ -1789,8 +1837,8 @@ export default function BusinessPermitWizardPage() {
                                                 placeholder="e.g. 12-345678901-2"
                                                 readOnly={isAutofilledFromPrevious}
                                                 className={cn(
-                                                    "rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 font-bold",
-                                                    isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 focus-visible:ring-primary/10 cursor-not-allowed select-none"
+                                                    "rounded-xl h-12 border-slate-200 font-bold",
+                                                    isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                 )}
                                             />
                                         </div>
@@ -1804,8 +1852,8 @@ export default function BusinessPermitWizardPage() {
                                                 placeholder="e.g. 1234-5678-9012"
                                                 readOnly={isAutofilledFromPrevious}
                                                 className={cn(
-                                                    "rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 font-bold",
-                                                    isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 focus-visible:ring-primary/10 cursor-not-allowed select-none"
+                                                    "rounded-xl h-12 border-slate-200 font-bold",
+                                                    isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                 )}
                                             />
                                         </div>
@@ -1819,8 +1867,8 @@ export default function BusinessPermitWizardPage() {
                                                 placeholder="e.g. 12-3456789-0"
                                                 readOnly={isAutofilledFromPrevious}
                                                 className={cn(
-                                                    "rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 font-bold",
-                                                    isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 focus-visible:ring-primary/10 cursor-not-allowed select-none"
+                                                    "rounded-xl h-12 border-slate-200 font-bold",
+                                                    isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                 )}
                                             />
                                         </div>
@@ -1834,7 +1882,10 @@ export default function BusinessPermitWizardPage() {
                                                         <select
                                                             value={formData.registrationType}
                                                             onChange={e => handleInputChange("registrationType", e.target.value)}
-                                                            className="w-full appearance-none rounded-xl h-12 border border-slate-200 dark:border-white bg-white dark:bg-[#0c0d12]/50 px-4 pr-10 text-xs md:text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer shadow-sm hover:border-slate-300 dark:hover:border-white/20"
+                                                            className={cn(
+                                                             "w-full appearance-none rounded-xl h-12 border border-slate-200 dark:border-white bg-white dark:bg-[#0c0d12]/50 px-4 pr-10 text-xs md:text-sm font-bold text-slate-900 dark:text-white focus:outline-none transition-all cursor-pointer shadow-sm hover:border-slate-300 dark:hover:border-white/20",
+                                                             showValidationErrors && !formData.registrationType && "border-red-500 ring-2 ring-red-500/20 dark:border-red-500/50"
+                                                         )}
                                                         >
                                                             <option value="DTI" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">DTI</option>
                                                             <option value="SEC" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">SEC</option>
@@ -1864,7 +1915,10 @@ export default function BusinessPermitWizardPage() {
                                                         value={formData.dtiSecNumber}
                                                         onChange={e => handleInputChange("dtiSecNumber", e.target.value)}
                                                         placeholder={`e.g. ${formData.registrationType === "DTI" ? "DTI-123456789" : formData.registrationType === "SEC" ? "SEC-CS202012345" : "COA-987654"}`}
-                                                        className="rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 font-bold"
+                                                        className={cn(
+                                                         "rounded-xl h-12 border-slate-200 font-bold",
+                                                         showValidationErrors && !formData.dtiSecNumber && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                     )}
                                                     />
                                                 </div>
 
@@ -1875,7 +1929,10 @@ export default function BusinessPermitWizardPage() {
                                                         type="date"
                                                         value={formData.dtiSecDate}
                                                         onChange={e => handleInputChange("dtiSecDate", e.target.value)}
-                                                        className="rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 font-bold"
+                                                        className={cn(
+                                                         "rounded-xl h-12 border-slate-200 font-bold",
+                                                         showValidationErrors && !formData.dtiSecDate && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                     )}
                                                     />
                                                 </div>
                                             </div>
@@ -1891,8 +1948,9 @@ export default function BusinessPermitWizardPage() {
                                                         placeholder="e.g. MP-2025-0816"
                                                         readOnly={isAutofilledFromPrevious}
                                                         className={cn(
-                                                            "rounded-xl h-12 border-slate-200 focus-visible:ring-primary/20 font-bold transition-all duration-200",
-                                                            isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 focus-visible:ring-primary/10 cursor-not-allowed select-none"
+                                                            "rounded-xl h-12 border-slate-200 font-bold transition-all duration-200",
+                                                            showValidationErrors && !formData.permitNumber && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50",
+                                                            isAutofilledFromPrevious && "bg-primary/[0.03] dark:bg-primary/[0.02] border-primary/25 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none"
                                                         )}
                                                     />
                                                 </div>

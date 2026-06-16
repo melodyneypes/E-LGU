@@ -759,9 +759,11 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                 <div className="flex gap-2 w-full">
                                     <Dialog open={isRequestingRevision} onOpenChange={(open) => { setIsRequestingRevision(open); if (!open) setRemarks(""); }}>
                                         <DialogTrigger asChild>
-                                            <Button onClick={() => { setIsRequestingRevision(true); setRemarks(""); }} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95">
-                                                Request Revision
-                                            </Button>
+                                            {(transaction.revisionCount || 0) < 3 && (
+                                                <Button onClick={() => { setIsRequestingRevision(true); setRemarks(""); }} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95">
+                                                                                                Request Revision
+                                                                                            </Button>
+                                            )}
                                         </DialogTrigger>
                                         <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
                                             <DialogHeader className="space-y-3">

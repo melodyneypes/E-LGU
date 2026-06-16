@@ -97,53 +97,43 @@ export default function UserReportsPage() {
             </div>
 
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-8">
-                <div className="space-y-2 md:space-y-4">
-                    <div className="space-y-0.5 md:space-y-1">
-                        <h1 className="text-3xl md:text-6xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none">Citizen <span className="text-primary">Reports</span></h1>
-                        <p className="text-[8px] md:text-[10px] font-black text-primary uppercase tracking-[0.4em] ml-1 opacity-70">LGU Tracking Hub • Real-time Status</p>
+                <div className="space-y-1 md:space-y-2">
+                    <div className="space-y-0.5">
+                        <h1 className="text-2xl md:text-4xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none">Citizen <span className="text-primary">Reports</span></h1>
+                        <p className="text-[7px] md:text-[8px] font-black text-primary uppercase tracking-[0.4em] ml-0.5 opacity-70">LGU Tracking Hub • Real-time Status</p>
                     </div>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium italic max-w-2xl text-xs md:text-xl leading-relaxed">
+                    <p className="text-slate-500 dark:text-slate-400 font-medium italic max-w-xl text-[10px] md:text-xs leading-relaxed">
                         Track the progress of your submitted concerns and reports in real-time.
                     </p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 md:gap-6">
+            <div className="grid grid-cols-1 gap-2 md:gap-4">
                 {reports.length > 0 ? reports.map((report: Report) => {
                     const style = getStatusStyle(report.status);
-                    const StatusIcon = style.icon;
 
                     return (
                         <div
                             key={report.id}
                             onClick={() => router.push(`/user/reports/${report.id}`)}
-                            className="bg-white dark:bg-[#0d0f14] rounded-2xl md:rounded-[2.5rem] border border-slate-200 dark:border-white/5 p-3 md:p-8 hover:border-primary/40 group transition-all cursor-pointer select-none active:scale-[0.98] relative overflow-hidden"
+                            className="bg-white dark:bg-[#0d0f14] rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/5 p-3 md:p-5 hover:border-primary/40 group transition-all cursor-pointer select-none active:scale-[0.99] relative overflow-hidden"
                         >
-                            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-700 pointer-events-none">
-                                <StatusIcon className="w-24 h-24" />
-                            </div>
-
-                            <div className="flex items-center gap-3 md:gap-8 justify-between relative z-10">
-                                <div className="flex items-center gap-3 md:gap-8 flex-1 min-w-0">
-                                    <div className={cn("w-10 h-10 md:w-20 md:h-20 rounded-xl md:rounded-[1.5rem] flex items-center justify-center shrink-0 shadow-2xl transition-transform group-hover:scale-105", style.bg, "border border-white/10")}>
-                                        <StatusIcon className={cn("w-5 h-5 md:w-10 md:h-10", style.color)} />
-                                    </div>
-                                    <div className="space-y-0.5 md:space-y-1.5 min-w-0">
+                            <div className="flex items-center gap-3 md:gap-6 justify-between relative z-10">
+                                <div className="flex items-center gap-3 md:gap-6 flex-1 min-w-0">
+                                    <div className="space-y-0.5 md:space-y-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <h3 className="text-sm md:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white italic truncate leading-tight group-hover:text-primary transition-colors">{report.category}</h3>
-                                            <Badge variant="outline" className={cn("md:hidden font-black uppercase tracking-widest text-[7px] italic px-2 py-0.5 rounded-md border-opacity-30", style.color, style.bg, style.border)}>
+                                            <h3 className="text-xs md:text-base font-black uppercase tracking-tight text-slate-900 dark:text-white italic truncate leading-tight group-hover:text-primary transition-colors">{report.category}</h3>
+                                            <Badge variant="outline" className={cn("md:hidden font-black uppercase tracking-widest text-[6px] italic px-1.5 py-0.5 rounded border-opacity-30", style.color, style.bg, style.border)}>
                                                 {report.status.replace(/_/g, " ")}
                                             </Badge>
                                         </div>
-                                        <div className="flex items-center gap-2 md:gap-4">
-                                            <span className="text-[8px] md:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic">{format(new Date(report.createdAt), "MMM d, yyyy")}</span>
-                                            <div className="h-1 w-1 rounded-full bg-slate-200 dark:bg-white/10" />
-                                            <span className="text-[8px] md:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic">ID: #{report.id.slice(-6)}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[7px] md:text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic">{format(new Date(report.createdAt), "MMM d, yyyy")}</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4 md:gap-10 shrink-0">
-                                    <Badge variant="outline" className={cn("hidden md:flex font-black uppercase tracking-widest text-[10px] italic px-6 py-2.5 rounded-full border border-opacity-30 shadow-xl", style.color, style.bg, style.border)}>
+                                <div className="flex items-center gap-2 md:gap-6 shrink-0">
+                                    <Badge variant="outline" className={cn("hidden md:flex font-black uppercase tracking-widest text-[8px] italic px-4 py-1.5 rounded-full border border-opacity-30 shadow-md", style.color, style.bg, style.border)}>
                                         {report.status.replace(/_/g, " ")}
                                     </Badge>
                                 </div>
