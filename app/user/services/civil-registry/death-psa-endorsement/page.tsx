@@ -55,33 +55,34 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
-import { supabase } from "@/lib/supabase";
+import { getSecureUploadUrlAction } from "@/app/auth/actions";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 
-// --- UPLOAD FILE CLIENT-SIDE TO SUPABASE STORAGE ---
-async function uploadFileClientSide(file: File, fieldName: string, userId: string): Promise<string> {
+
+// --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
+async function uploadFileClientSide(file: File, fieldName: string): Promise<string> {
     const fileExt = file.name.split('.').pop() || 'bin';
-    const fileName = `${userId}/${fieldName}_${Date.now()}.${fileExt}`;
-    const filePath = `services/lcr/death_psa_endorsement/${fileName}`;
-
-    const { error } = await supabase.storage
-        .from("system-assets")
-        .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: true
-        });
-
-    if (error) {
-        console.error(`[ClientUpload] Upload error for ${fieldName}:`, error);
-        throw new Error(`Failed to upload ${file.name}: ${error.message}`);
+    
+    const res = await getSecureUploadUrlAction(fieldName, "lcr/death_psa_endorsement", fileExt);
+    if (!res.success || !res.signedUrl || !res.publicUrl) {
+        throw new Error(res.error || "Failed to generate secure upload destination");
     }
 
-    const { data: { publicUrl } } = supabase.storage
-        .from("system-assets")
-        .getPublicUrl(filePath);
+    const uploadRes = await fetch(res.signedUrl, {
+        method: "PUT",
+        headers: {
+            "Content-Type": file.type
+        },
+        body: file
+    });
 
-    return publicUrl;
+    if (!uploadRes.ok) {
+        throw new Error(`Upload direct to storage failed: ${uploadRes.statusText}`);
+    }
+
+    return res.publicUrl;
 }
+
 
 const STORAGE_KEY = "lcr_death_psa_endorsement_draft";
 
@@ -250,7 +251,7 @@ export default function DeathPsaEndorsementPage() {
                         r.purok && `Purok ${r.purok}`,
                         r.sitio && `Sitio ${r.sitio}`,
                         r.barangay && `Brgy. ${r.barangay}`,
-                        r.municipality || "Mapandan",
+                        r.municipality || "",
                         r.province || "Pangasinan"
                     ].filter(Boolean);
                     const constructedAddr = parts.join(", ").toUpperCase();
@@ -440,9 +441,8 @@ export default function DeathPsaEndorsementPage() {
 
                     try {
                         toast.loading("Uploading and preparing document preview...", { id: `file-upload-${fileKey}` });
-                        const userId = resident?.id || "anonymous";
                         const sanitizedKey = fileKey.replace(/[^a-zA-Z0-9_-]/g, '_');
-                        const publicUrl = await uploadFileClientSide(fileToProcess, sanitizedKey, userId);
+                        const publicUrl = await uploadFileClientSide(fileToProcess, sanitizedKey);
 
                         setFiles(prev => ({ ...prev, [fileKey]: fileToProcess }));
                         setPreviews(prev => ({ ...prev, [fileKey]: publicUrl }));
@@ -552,7 +552,7 @@ export default function DeathPsaEndorsementPage() {
                 contactNumber: resident?.contactNumber || "",
                 email: resident?.user?.email || "",
                 residentId: resident?.residentId || "",
-                address: resident ? `Brgy. ${resident.barangay}, Mapandan` : ""
+                address: resident ? `Brgy. ${resident.barangay}, ${resident?.municipality || ""}` : ""
             };
 
             data.append("residentSnapshot", JSON.stringify(residentSnapshot));
@@ -594,8 +594,7 @@ export default function DeathPsaEndorsementPage() {
 
                 try {
                     toast.loading(`Uploading document ${i + 1}/${fileEntries.length}...`, { id: "endorsement-upload-toast" });
-                    const userId = resident?.id || "anonymous";
-                    const url = await uploadFileClientSide(file, sanitizedKey, userId);
+                    const url = await uploadFileClientSide(file, sanitizedKey);
                     fileUrls[key] = url;
                 } catch (uploadErr) {
                     console.error(`[ClientUpload] Failed to upload ${key}:`, uploadErr);
@@ -825,7 +824,7 @@ export default function DeathPsaEndorsementPage() {
                                         }
                                     }}
                                 >
-                                    <div 
+                                    <div
                                         className={cn(
                                             "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
                                             isActive ? "text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
@@ -836,7 +835,7 @@ export default function DeathPsaEndorsementPage() {
                                     >
                                         <Icon className="w-4 h-4 md:w-7 md:h-7" />
                                     </div>
-                                    <span 
+                                    <span
                                         className={cn(
                                             "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
                                             isActive ? "opacity-100 font-black text-slate-500" : "opacity-40 group-hover:opacity-100 transition-opacity text-slate-400"
@@ -1009,12 +1008,12 @@ export default function DeathPsaEndorsementPage() {
                                                 )}
                                             </div>
                                         </div>
-                                        
-                                        <div 
+
+                                        <div
                                             className="p-3 md:p-4 rounded-2xl md:rounded-3xl flex items-center gap-2 md:gap-3 border animate-in fade-in duration-300"
-                                            style={{ 
-                                                backgroundColor: `${themeColor}0d`, 
-                                                borderColor: `${themeColor}26` 
+                                            style={{
+                                                backgroundColor: `${themeColor}0d`,
+                                                borderColor: `${themeColor}26`
                                             }}
                                         >
                                             <Sparkles className="w-3.5 h-3.5 shrink-0" style={{ color: themeColor }} />

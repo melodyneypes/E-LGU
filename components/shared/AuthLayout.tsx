@@ -34,7 +34,7 @@ export const AuthLayout = ({
     slides = [],
     logoSrc,
     brandWord1 = "E",
-    brandWord2 = "Mapandan",
+    brandWord2 = "",
     themeColor = "#2563eb" // Default blue-600
 }: AuthLayoutProps) => {
     const [currentIndex, setCurrentIndex] = React.useState(0);
@@ -60,7 +60,7 @@ export const AuthLayout = ({
     // Fallback data if no slides exist
     const currentSlide = hasSlides ? slides[currentIndex] : {
         imageUrl: "/images/umbrella-rocks.png",
-        title: "Mapandan's represent the timeless beauty of our coastal heritage.",
+        title: "Representing the timeless beauty of our coastal heritage.",
         subtitle: "LOCAL TOURISM OFFICE"
     };
 

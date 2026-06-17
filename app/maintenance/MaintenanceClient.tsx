@@ -2,20 +2,22 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { Hammer, Shield, HardHat, Clock } from "lucide-react";
+import { Hammer, Shield, HardHat, Clock, ArrowRight } from "lucide-react";
 
 interface MaintenanceClientProps {
     brandWord1: string;
     brandWord2: string;
     themeColor: string;
     logoUrl?: string;
+    maintenanceUpdatedAt: string;
 }
 
 export function MaintenanceClient({ 
     brandWord1, 
     brandWord2, 
     themeColor, 
-    logoUrl 
+    logoUrl,
+    maintenanceUpdatedAt
 }: MaintenanceClientProps) {
     return (
         <main 
@@ -42,14 +44,14 @@ export function MaintenanceClient({
                     className="flex flex-col items-center gap-8"
                 >
                     <div 
-                        className="w-28 h-28 rounded-[2.5rem] flex items-center justify-center shadow-3xl rotate-12 relative overflow-hidden group"
+                        className="w-28 h-28 rounded-[2.5rem] flex items-center justify-center shadow-3xl relative overflow-hidden group"
                         style={{ backgroundColor: themeColor, boxShadow: `0 35px 60px -15px ${themeColor}66` }}
                     >
                         {logoUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={logoUrl} alt="Logo" className="w-full h-full object-cover p-3 -rotate-12 transition-transform group-hover:scale-110" />
+                            <img src={logoUrl} alt="Logo" className="w-full h-full object-cover p-3 transition-transform group-hover:scale-110" />
                         ) : (
-                            <Shield className="w-14 h-14 text-white -rotate-12" />
+                            <Shield className="w-14 h-14 text-white" />
                         )}
                         <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
@@ -99,6 +101,31 @@ export function MaintenanceClient({
                         </motion.div>
                     ))}
                 </div>
+
+                {/* Premium Interactive Action Section */}
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.9 }}
+                    className="flex items-center justify-center pt-12 max-w-md mx-auto relative z-20"
+                >
+                    <button
+                        onClick={() => {
+                            document.cookie = `bypass_maintenance=${maintenanceUpdatedAt}; path=/; max-age=1800`;
+                            window.location.href = "/";
+                        }}
+                        className="w-full sm:w-auto px-10 py-4 rounded-full font-black text-xs uppercase tracking-widest transition-all duration-300 border flex items-center justify-center gap-2 hover:scale-105 active:scale-[0.98]"
+                        style={{
+                            backgroundColor: themeColor,
+                            borderColor: themeColor,
+                            color: "#ffffff",
+                            boxShadow: `0 10px 25px -5px ${themeColor}66`
+                        }}
+                    >
+                        Go to Landing Page
+                        <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                </motion.div>
 
                 <div className="pt-20 text-[10px] font-black uppercase tracking-[0.6em] text-slate-600">
                     © {new Date().getFullYear()} {brandWord1}{brandWord2} • Digital Infrastructure

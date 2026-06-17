@@ -3,7 +3,7 @@
 import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { uploadFile } from "@/lib/storage";
+import { uploadFile, validatePayloadFiles } from "@/lib/storage";
 import { revalidatePath } from "next/cache";
 
 export async function submitBuildingPermit(formData: FormData) {
@@ -80,6 +80,12 @@ export async function submitBuildingPermit(formData: FormData) {
     const resident = await prisma.resident.findFirst({
       where: { userId: userId }
     });
+
+    // Validate magic numbers of all uploaded files in additionalData
+    const fileCheck = await validatePayloadFiles(additionalData);
+    if (!fileCheck.success) {
+      return { success: false, error: fileCheck.error || "File validation failed." };
+    }
 
     // Create the transaction (FOR_REQUESTING)
     const transaction = await prisma.transaction.create({
@@ -235,6 +241,12 @@ export async function resubmitBuildingPermit(transactionId: string, formData: Fo
       }
     }
 
+    // Validate magic numbers of all uploaded files in additionalData
+    const fileCheck = await validatePayloadFiles(additionalData);
+    if (!fileCheck.success) {
+      return { success: false, error: fileCheck.error || "File validation failed." };
+    }
+
     // Get current resident data for snapshot update
     const resident = await prisma.resident.findFirst({
       where: { userId: userId }
@@ -279,13 +291,18 @@ export async function submitBuildingPermitPaymentProof(transactionId: string, fo
     }
 
     const gcashRefNo = formData.get("gcashReferenceNo") as string;
-
     const timestamp = Date.now();
     const path = `building-permits/${userId}/payments/${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     const paymentProofUrl = await uploadFile(file, path);
 
     if (!paymentProofUrl) {
       return { success: false, error: "Failed to upload payment proof" };
+    }
+
+    // Validate magic numbers of the payment proof file
+    const fileCheck = await validatePayloadFiles({ paymentProofUrl });
+    if (!fileCheck.success) {
+      return { success: false, error: fileCheck.error || "File validation failed." };
     }
 
     const currentAdditionalData = (transaction.additionalData as any) || {};

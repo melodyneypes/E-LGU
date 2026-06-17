@@ -25,7 +25,7 @@ export default async function LoginPage() {
             brandWord2={settings.brand_word_2}
             themeColor={settings.theme_color}
         >
-            <LoginForm themeColor={settings.theme_color} />
+            <LoginForm themeColor={settings.theme_color} isMaintenanceActive={settings.maintenance_mode === "true"} />
         </AuthLayout>
     );
 }

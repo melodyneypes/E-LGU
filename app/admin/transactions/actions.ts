@@ -8,7 +8,7 @@ import { calculateCedula } from "@/lib/cedula";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 
 import { sendEmail } from "@/lib/mail";
-import { uploadFile } from "@/lib/storage";
+import { uploadFile, validatePayloadFiles } from "@/lib/storage";
 import { sanitizeString, sanitizeObject, sanitizeUrl } from "@/lib/validation";
 import { updateDeceasedResidentStatus } from "./death-regis-actions";
 
@@ -599,6 +599,12 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
         };
         console.log("[submitCivilRegistryTransaction] updatedAdditionalData:", updatedAdditionalData);
 
+        // Validate magic numbers of all uploaded files
+        const fileCheck = await validatePayloadFiles(updatedAdditionalData);
+        if (!fileCheck.success) {
+            return { success: false, error: fileCheck.error || "File validation failed." };
+        }
+
         const transaction = await prisma.$transaction(async (tx: any) => {
             const t = revisionId
                 ? await tx.transaction.update({
@@ -862,6 +868,12 @@ export async function submitBusinessPermitTransaction(formData: FormData) {
             birCorUrl,
             previousPermitUrl
         };
+
+        // Validate magic numbers of all uploaded files
+        const fileCheck = await validatePayloadFiles(updatedAdditionalData);
+        if (!fileCheck.success) {
+            return { success: false, error: fileCheck.error || "File validation failed." };
+        }
 
         const txData = {
             userId: user.id,

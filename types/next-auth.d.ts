@@ -8,6 +8,7 @@ declare module "next-auth" {
       isPasswordChanged: boolean;
       managedBarangay?: string | null;
       department?: string | null;
+      accessiblePages?: string[];
     } & DefaultSession["user"]
   }
 
@@ -17,6 +18,7 @@ declare module "next-auth" {
     isPasswordChanged: boolean;
     managedBarangay?: string | null;
     department?: string | null;
+    accessiblePages?: string[];
   }
 }
 
@@ -27,5 +29,6 @@ declare module "next-auth/jwt" {
     isPasswordChanged: boolean;
     managedBarangay?: string | null;
     department?: string | null;
+    accessiblePages?: string[];
   }
 }

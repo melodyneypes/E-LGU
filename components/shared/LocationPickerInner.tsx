@@ -93,7 +93,7 @@ export default function LocationPickerInner({
 
     if (compact) {
         return (
-            <div className="relative w-full h-full rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+            <div className="relative w-full h-full rounded-2xl overflow-hidden border border-white/10 shadow-2xl [&_.leaflet-control-zoom]:max-md:hidden">
                 <MapContainer
                     center={position || [initialLat, initialLng]}
                     zoom={15}
@@ -135,8 +135,8 @@ export default function LocationPickerInner({
                     </div>
                 </div>
 
-                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[1000] w-full px-4 text-center">
-                    <div className="bg-primary/95 backdrop-blur-md text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest inline-flex items-center gap-1 border border-white/20 select-none">
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[1000] w-full px-4 text-center hidden md:block">
+                    <div className="bg-primary/95 backdrop-blur-md text-white px-2 py-0.5 rounded-full text-[7px] md:text-[8px] font-black uppercase tracking-widest inline-flex items-center gap-1 border border-white/20 select-none">
                         <MapPin className="w-2 h-2 animate-pulse" /> Click map to pin
                     </div>
                 </div>
@@ -155,7 +155,7 @@ export default function LocationPickerInner({
                 )}
             </div>
 
-            <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+            <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl [&_.leaflet-control-zoom]:max-md:hidden">
                 <MapContainer
                     center={position || [initialLat, initialLng]}
                     zoom={15}
@@ -197,8 +197,8 @@ export default function LocationPickerInner({
                     </div>
                 </div>
 
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-full px-8">
-                    <div className="bg-primary/90 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 border border-white/20">
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-full px-8 hidden sm:block">
+                    <div className="bg-primary/90 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-[7px] sm:text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 border border-white/20">
                         <MapPin className="w-3 h-3" /> Click anywhere on map to reposition pin
                     </div>
                 </div>

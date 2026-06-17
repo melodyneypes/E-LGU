@@ -29,7 +29,7 @@ import LocationPicker from "@/components/shared/LocationPicker";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export function ReportForm() {
+export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActive?: boolean }) {
     const { data: session, status } = useSession();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [images, setImages] = useState<File[]>([]);
@@ -109,9 +109,27 @@ export function ReportForm() {
         }
     }
 
+    if (isMaintenanceActive) {
+        return (
+            <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex flex-col items-center justify-center p-10 bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-white/10 text-center gap-6"
+            >
+                <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center">
+                    <AlertCircle className="w-8 h-8 text-amber-500" />
+                </div>
+                <div className="space-y-2">
+                    <h4 className="text-xl font-black uppercase italic tracking-tighter text-white">Reporting Offline</h4>
+                    <p className="text-slate-400 text-sm font-medium italic max-w-xs">Online concern reporting is temporarily disabled for scheduled maintenance. For immediate emergencies, please call the hotlines.</p>
+                </div>
+            </motion.div>
+        );
+    }
+
     if (status === "loading") {
         return (
-            <div className="flex flex-col items-center justify-center p-12 bg-white/5 rounded-[2.5rem] border border-white/10">
+            <div className="flex flex-col items-center justify-center p-12 bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-white/10">
                 <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
                 <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] italic">Setting up...</p>
             </div>
@@ -123,7 +141,7 @@ export function ReportForm() {
             <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center justify-center p-10 bg-white/5 rounded-[2.5rem] border border-white/10 text-center gap-6"
+                className="flex flex-col items-center justify-center p-10 bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-white/10 text-center gap-6"
             >
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
                     <AlertCircle className="w-8 h-8 text-primary" />
@@ -143,7 +161,7 @@ export function ReportForm() {
     }
 
     return (
-        <div className="bg-white/5 rounded-[2.5rem] border border-white/10 p-8 shadow-2xl backdrop-blur-sm overflow-hidden transition-all duration-500">
+        <div className="bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-white/10 p-8 shadow-2xl backdrop-blur-sm overflow-hidden transition-all duration-500">
             <div className="space-y-6">
                 <div className="space-y-2">
                     <h3 className="text-3xl font-black uppercase italic tracking-tighter text-white">Report <span className="text-primary">an Issue</span></h3>

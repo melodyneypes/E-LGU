@@ -93,7 +93,7 @@ export function EventsCalendarSection({ events }: EventsCalendarSectionProps) {
                 
                 {/* Left Side: Calendar */}
                 <div className="flex-1">
-                    <div className="sticky md:static top-[70px] md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-white dark:bg-slate-950 md:bg-transparent md:dark:bg-transparent backdrop-blur-none space-y-2 border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-0">
+                    <div className="sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-white dark:bg-slate-950 md:bg-transparent md:dark:bg-transparent backdrop-blur-none space-y-2 border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-0">
                         <div className="flex items-center gap-3 text-primary">
                             <CalendarIcon className="w-5 h-5" />
                             <span className="text-[10px] font-black uppercase tracking-[0.3em]">Town Calendar</span>
@@ -134,7 +134,7 @@ export function EventsCalendarSection({ events }: EventsCalendarSectionProps) {
 
                 {/* Right Side: Event Details */}
                 <div className="w-full lg:flex-1">
-                    <div className="sticky md:static top-[70px] md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-white dark:bg-slate-950 md:bg-transparent md:dark:bg-transparent backdrop-blur-none flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-4 md:mb-0">
+                    <div className="sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-white dark:bg-slate-950 md:bg-transparent md:dark:bg-transparent backdrop-blur-none flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-4 md:mb-0">
                         <div className="space-y-1">
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Selected Date</p>
                             <h3 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">

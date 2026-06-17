@@ -77,7 +77,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
-import { supabase } from "@/lib/supabase";
+import { getSecureUploadUrlAction } from "@/app/auth/actions";
 
 const STEPS = [
   { id: "GUIDE", label: "Guide", icon: ClipboardList },
@@ -1036,31 +1036,29 @@ export default function BuildingPermitPage() {
     }
   };
 
-  const uploadFileClientSide = async (file: File | null, folder: string, keyName: string) => {
+  const uploadFileClientSide = async (file: File | null, folder: string, keyName: string): Promise<string | null> => {
     if (!file) return null;
     try {
-      const userId = (selectedApplication?.residentSnapshot || residentData)?.id || "anonymous";
-      const timestamp = Date.now();
-      const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const filePath = `building-permits/${userId}/${folder}/${timestamp}-${cleanFileName}`;
-
-      const { error } = await supabase.storage
-        .from("system-assets")
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true
-        });
-
-      if (error) {
-        console.error(`Upload error for ${keyName}:`, error);
-        throw error;
+      const fileExt = file.name.split('.').pop() || 'bin';
+      const secureFieldName = `${folder}_${keyName}`;
+      const res = await getSecureUploadUrlAction(secureFieldName, "building_permits", fileExt);
+      if (!res.success || !res.signedUrl || !res.publicUrl) {
+        throw new Error(res.error || "Failed to generate secure upload destination");
       }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from("system-assets")
-        .getPublicUrl(filePath);
+      const uploadRes = await fetch(res.signedUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type
+        },
+        body: file
+      });
 
-      return publicUrl;
+      if (!uploadRes.ok) {
+        throw new Error(`Upload direct to storage failed: ${uploadRes.statusText}`);
+      }
+
+      return res.publicUrl;
     } catch (err) {
       console.error(`Failed uploading ${keyName}:`, err);
       throw new Error(`Failed to upload ${file.name}`);

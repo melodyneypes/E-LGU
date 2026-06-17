@@ -49,7 +49,10 @@ export function AdminShell({
     let isRestricted = false;
     let isRedirecting = false;
 
-    console.log("DEBUG AdminShell:", { pathname, role, deptUpper });
+    // Guard: USER role is never allowed in admin
+    if (role === "USER") {
+        isRestricted = true;
+    }
 
     // Special Rule: ONLY ADMIN with department LGU can access the admin dashboard
     if (pathname === "/admin/dashboard" || pathname === "/admin") {
@@ -103,6 +106,12 @@ export function AdminShell({
     // Trigger client-side redirection immediately for specialized admins
     React.useEffect(() => {
         if (!pathname) return;
+        if (role === "USER") {
+            const timer = setTimeout(() => {
+                router.push("/");
+            }, 100);
+            return () => clearTimeout(timer);
+        }
         if (pathname === "/admin/dashboard" || pathname === "/admin") {
             if (role !== "ADMIN" || deptUpper !== "LGU") {
                 const timer = setTimeout(() => {
@@ -110,7 +119,7 @@ export function AdminShell({
                         if (deptUpper === "TREASURY") {
                             router.push("/admin/treasury?category=CEDULA");
                         } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
-                            router.push("/admin/registrar");
+                            router.push("/admin/registrar?category=Birth Registration");
                         } else if (deptUpper === "BPLO") {
                             router.push("/admin/bplo");
                         }

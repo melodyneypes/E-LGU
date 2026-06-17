@@ -49,33 +49,34 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
-import { supabase } from "@/lib/supabase";
+import { getSecureUploadUrlAction } from "@/app/auth/actions";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 
-// --- UPLOAD FILE CLIENT-SIDE TO SUPABASE STORAGE ---
-async function uploadFileClientSide(file: File, fieldName: string, userId: string): Promise<string> {
+
+// --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
+async function uploadFileClientSide(file: File, fieldName: string): Promise<string> {
     const fileExt = file.name.split('.').pop() || 'bin';
-    const fileName = `${userId}/${fieldName}_${Date.now()}.${fileExt}`;
-    const filePath = `services/lcr/marriage_psa_endorsement/${fileName}`;
-
-    const { error } = await supabase.storage
-        .from("system-assets")
-        .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: true
-        });
-
-    if (error) {
-        console.error(`[ClientUpload] Upload error for ${fieldName}:`, error);
-        throw new Error(`Failed to upload ${file.name}: ${error.message}`);
+    
+    const res = await getSecureUploadUrlAction(fieldName, "lcr/marriage_psa_endorsement", fileExt);
+    if (!res.success || !res.signedUrl || !res.publicUrl) {
+        throw new Error(res.error || "Failed to generate secure upload destination");
     }
 
-    const { data: { publicUrl } } = supabase.storage
-        .from("system-assets")
-        .getPublicUrl(filePath);
+    const uploadRes = await fetch(res.signedUrl, {
+        method: "PUT",
+        headers: {
+            "Content-Type": file.type
+        },
+        body: file
+    });
 
-    return publicUrl;
+    if (!uploadRes.ok) {
+        throw new Error(`Upload direct to storage failed: ${uploadRes.statusText}`);
+    }
+
+    return res.publicUrl;
 }
+
 
 
 const STORAGE_KEY = "lcr_marriage_psa_endorsement_draft";
@@ -100,7 +101,7 @@ export default function MarriagePsaEndorsementPage() {
             if (!formData.relationship || !formData.contactNumber) {
                 setShowErrors(true);
                 toast.error("Please fill in all required informant details.");
-                
+
                 setTimeout(() => {
                     let firstErrorId = "";
                     if (!formData.relationship) firstErrorId = "relationship";
@@ -117,7 +118,7 @@ export default function MarriagePsaEndorsementPage() {
                         }
                     }
                 }, 100);
-                
+
                 return false;
             }
         }
@@ -310,7 +311,7 @@ export default function MarriagePsaEndorsementPage() {
                         r.purok && `Purok ${r.purok}`,
                         r.sitio && `Sitio ${r.sitio}`,
                         r.barangay && `Brgy. ${r.barangay}`,
-                        r.municipality || "Mapandan",
+                        r.municipality || "",
                         r.province || "Pangasinan"
                     ].filter(Boolean);
                     const constructedAddr = parts.join(", ").toUpperCase();
@@ -489,9 +490,8 @@ export default function MarriagePsaEndorsementPage() {
 
                     try {
                         toast.loading("Uploading and preparing document preview...", { id: `file-upload-${fileKey}` });
-                        const userId = resident?.id || "anonymous";
                         const sanitizedKey = fileKey.replace(/[^a-zA-Z0-9_-]/g, '_');
-                        const publicUrl = await uploadFileClientSide(fileToProcess, sanitizedKey, userId);
+                        const publicUrl = await uploadFileClientSide(fileToProcess, sanitizedKey);
 
                         setFiles(prev => ({ ...prev, [fileKey]: fileToProcess }));
                         setPreviews(prev => ({ ...prev, [fileKey]: publicUrl }));
@@ -554,7 +554,7 @@ export default function MarriagePsaEndorsementPage() {
                 contactNumber: resident?.contactNumber || "",
                 email: resident?.user?.email || "",
                 residentId: resident?.residentId || "",
-                address: resident ? `Brgy. ${resident.barangay}, Mapandan` : ""
+                address: resident ? `Brgy. ${resident.barangay}, ${resident?.municipality || ""}` : ""
             };
             data.append("residentSnapshot", JSON.stringify(residentSnapshot));
 
@@ -580,8 +580,7 @@ export default function MarriagePsaEndorsementPage() {
 
                 try {
                     toast.loading(`Uploading document ${i + 1}/${fileEntries.length}...`, { id: "upload-toast" });
-                    const userId = resident?.id || "anonymous";
-                    const url = await uploadFileClientSide(file, sanitizedKey, userId);
+                    const url = await uploadFileClientSide(file, sanitizedKey);
                     fileUrls[key] = url;
                 } catch (uploadErr) {
                     console.error(`[ClientUpload] Failed to upload ${key}:`, uploadErr);
@@ -786,8 +785,8 @@ export default function MarriagePsaEndorsementPage() {
                             </p>
                         </div>
 
-                        <div className="flex flex-col items-end gap-2 relative z-10 shrink-0">
-                            <div className="hidden md:block w-28 h-28 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 backdrop-blur-md flex flex-col items-center justify-center text-center p-4 shadow-sm dark:shadow-2xl relative overflow-hidden group hover:scale-105 transition-transform duration-500 mb-2">
+                        <div className="hidden md:block relative z-10 shrink-0">
+                            <div className="w-28 h-28 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 backdrop-blur-md flex flex-col items-center justify-center text-center p-4 shadow-sm dark:shadow-2xl relative overflow-hidden group hover:scale-105 transition-transform duration-500">
                                 <div className="absolute inset-0 bg-gradient-to-tr opacity-0 group-hover:opacity-10 transition-opacity" style={{ backgroundImage: `linear-gradient(to top right, ${themeColor}, transparent)` }} />
                                 <CheckCircle2 className="w-8 h-8 mb-1.5 opacity-80" style={{ color: themeColor }} />
                                 <p className="text-[7px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 leading-tight">Secure Filing</p>
@@ -815,7 +814,7 @@ export default function MarriagePsaEndorsementPage() {
                                         }
                                         const targetIdx = STEPS.findIndex(s => s.id === step.id);
                                         const currentIdx = STEPS.findIndex(s => s.id === currentStep);
-                                        
+
                                         if (targetIdx <= currentIdx) {
                                             setCurrentStep(step.id);
                                         } else {
@@ -854,7 +853,7 @@ export default function MarriagePsaEndorsementPage() {
                                             isCompleted ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" :
                                                 "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
                                     )}
-                                    style={isActive ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
+                                        style={isActive ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
                                     >
                                         <Icon className="w-4 h-4 md:w-7 md:h-7" />
                                     </div>
@@ -862,7 +861,7 @@ export default function MarriagePsaEndorsementPage() {
                                         "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
                                         isActive ? "opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
                                     )}
-                                    style={isActive ? { color: themeColor } : {}}
+                                        style={isActive ? { color: themeColor } : {}}
                                     >
                                         {step.label}
                                     </span>

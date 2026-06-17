@@ -28,6 +28,7 @@ async function main() {
   console.log("⚙️ Seeding default System Settings...");
   const settings = [
     { key: "maintenance_mode", value: "false", description: "Toggle landing page maintenance mode" },
+    { key: "kiosk_maintenance_mode", value: "false", description: "Toggle kiosk maintenance mode" },
     { key: "brand_word_1", value: "E", description: "First part of the system brand name" },
     { key: "brand_word_2", value: "Mapandan", description: "Second part of the system brand name" },
     { key: "theme_color", value: "#2563eb", description: "Primary branding theme color (Hex)" },
@@ -45,6 +46,12 @@ async function main() {
     { key: "section_emergency", value: "true", description: "Toggle Emergency Hotlines section" },
     { key: "section_church", value: "true", description: "Toggle Parish Corner section" },
     { key: "section_map", value: "true", description: "Toggle Interactive Municipality Map section" },
+    { key: "section_app_download", value: "true", description: "Toggle App Download Section" },
+
+    // Mobile App Links
+    { key: "app_google_play_url", value: "", description: "Google Play Store Link for Mobile App" },
+    { key: "app_app_store_url", value: "", description: "Apple App Store Link for Mobile App" },
+    { key: "app_apk_download_url", value: "", description: "Direct APK Link for Mobile App" },
 
     // Treasury Details
     { key: "gcash_account_name", value: "MUNICIPALITY OF MAPANDAN", description: "Official GCash receiver name" },

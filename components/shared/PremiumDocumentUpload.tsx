@@ -49,6 +49,31 @@ export default function PremiumDocumentUpload({
                 return;
             }
 
+            // Browser-side magic numbers check to prevent MIME sniffing/Polyglot attacks
+            try {
+                const headerBuffer = await selectedFile.slice(0, 8).arrayBuffer();
+                const arr = new Uint8Array(headerBuffer);
+                let hex = "";
+                for (let i = 0; i < arr.length; i++) {
+                    hex += arr[i].toString(16).padStart(2, "0").toUpperCase();
+                }
+
+                const isPdf = hex.startsWith("25504446"); // %PDF-
+                const isPng = hex.startsWith("89504E470D0A1A0A"); // \x89PNG\r\n\x1a\n
+                const isJpg = hex.startsWith("FFD8FF"); // JPEG
+
+                if (!isPdf && !isPng && !isJpg) {
+                    toast.error("The file content format is invalid or corrupted. Please upload a standard PDF or Image.");
+                    e.target.value = "";
+                    return;
+                }
+            } catch (err) {
+                console.error("File header check error:", err);
+                toast.error("Failed to read the file header.");
+                e.target.value = "";
+                return;
+            }
+
             let fileToProcess = selectedFile;
             if (selectedFile.type.startsWith("image/")) {
                 try {

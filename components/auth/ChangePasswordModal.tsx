@@ -158,7 +158,7 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
     const handleFinalize = async (data: SetupValues) => {
         setIsLoading(true);
         try {
-            const result = await finalizePasswordChange(email, data.password);
+            const result = await finalizePasswordChange(email, data.otp, data.password);
             if (result.success) {
                 toast.success("Account setup complete!");
                 onSuccess();

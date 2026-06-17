@@ -43,7 +43,7 @@ import { getCurrentUserResident, getTransactionTypes, submitBusinessPermitTransa
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
-import { supabase } from "@/lib/supabase";
+import { getSecureUploadUrlAction } from "@/app/auth/actions";
 import { compressImage } from "@/lib/image-compression";
 
 // --- TYPES ---
@@ -376,7 +376,7 @@ export default function BusinessPermitWizardPage() {
                         barangay: resident.barangay || "",
                         deliveryPhone: resident.contactNumber || "",
                         deliveryAddress: resident.houseNumber
-                            ? `${resident.houseNumber} ${resident.street || ""}, Brgy. ${resident.barangay || ""}, Mapandan`
+                            ? `${resident.houseNumber} ${resident.street || ""}, Brgy. ${resident.barangay || ""}, ${resident?.municipality || ""}`
                             : ""
                     }));
                 }
@@ -954,31 +954,28 @@ export default function BusinessPermitWizardPage() {
     };
 
     // --- UPLOAD FILE CLIENT-SIDE HELPER ---
-    const uploadFileClientSide = async (file: File | null, fieldName: string) => {
+    const uploadFileClientSide = async (file: File | null, fieldName: string): Promise<string | null> => {
         if (!file) return null;
         try {
-            const userId = formData.residentData?.id || "anonymous";
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${userId}/${fieldName}_${Date.now()}.${fileExt}`;
-            const filePath = `business-permits/${fileName}`;
-
-            const { error } = await supabase.storage
-                .from("system-assets")
-                .upload(filePath, file, {
-                    cacheControl: '3600',
-                    upsert: true
-                });
-
-            if (error) {
-                console.error(`Upload error for ${fieldName}:`, error);
-                throw error;
+            const fileExt = file.name.split('.').pop() || 'bin';
+            const res = await getSecureUploadUrlAction(fieldName, "business_permits", fileExt);
+            if (!res.success || !res.signedUrl || !res.publicUrl) {
+                throw new Error(res.error || "Failed to generate secure upload destination");
             }
 
-            const { data: { publicUrl } } = supabase.storage
-                .from("system-assets")
-                .getPublicUrl(filePath);
+            const uploadRes = await fetch(res.signedUrl, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": file.type
+                },
+                body: file
+            });
 
-            return publicUrl;
+            if (!uploadRes.ok) {
+                throw new Error(`Upload direct to storage failed: ${uploadRes.statusText}`);
+            }
+
+            return res.publicUrl;
         } catch (err) {
             console.error(`Failed uploading ${fieldName}:`, err);
             throw new Error(`Failed to upload ${file.name}`);

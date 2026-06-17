@@ -18,8 +18,9 @@ import {
 import Link from "next/link";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
-import { supabase } from "@/lib/supabase";
+import { getSecureUploadUrlAction } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -53,30 +54,30 @@ import { useRouter } from "next/navigation";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 
 
-// --- UPLOAD FILE CLIENT-SIDE TO SUPABASE STORAGE ---
-async function uploadFileClientSide(file: File, fieldName: string, userId: string): Promise<string> {
+// --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
+async function uploadFileClientSide(file: File, fieldName: string): Promise<string> {
     const fileExt = file.name.split('.').pop() || 'bin';
-    const fileName = `${userId}/${fieldName}_${Date.now()}.${fileExt}`;
-    const filePath = `services/lcr/marriage_certificate_request/${fileName}`;
-
-    const { error } = await supabase.storage
-        .from("system-assets")
-        .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: true
-        });
-
-    if (error) {
-        console.error(`[ClientUpload] Upload error for ${fieldName}:`, error);
-        throw new Error(`Failed to upload ${file.name}: ${error.message}`);
+    
+    const res = await getSecureUploadUrlAction(fieldName, "lcr/marriage_certificate_request", fileExt);
+    if (!res.success || !res.signedUrl || !res.publicUrl) {
+        throw new Error(res.error || "Failed to generate secure upload destination");
     }
 
-    const { data: { publicUrl } } = supabase.storage
-        .from("system-assets")
-        .getPublicUrl(filePath);
+    const uploadRes = await fetch(res.signedUrl, {
+        method: "PUT",
+        headers: {
+            "Content-Type": file.type
+        },
+        body: file
+    });
 
-    return publicUrl;
+    if (!uploadRes.ok) {
+        throw new Error(`Upload direct to storage failed: ${uploadRes.statusText}`);
+    }
+
+    return res.publicUrl;
 }
+
 
 // --- TYPES ---
 
@@ -201,11 +202,11 @@ export default function MarriageCertificateRequestPage() {
         const rawUrl = fileKey === "validIdFront" ? resident?.idFrontUrl : resident?.idBackUrl;
         const isRawUrlValid = rawUrl && typeof rawUrl === "string" && rawUrl.startsWith("http") && !rawUrl.includes("placeholder") && rawUrl.trim() !== "";
         const defaultUrl = isRawUrlValid ? rawUrl : null;
-        
+
         // Match previews object from state
         const statePreview = form.previews[fileKey];
         const isStatePreviewValid = statePreview && typeof statePreview === "string" && statePreview.startsWith("http") && !statePreview.includes("placeholder") && statePreview.trim() !== "";
-        
+
         // Final value sent to component must be undefined if not valid to prevent card extension
         const finalPreviewUrl = isStatePreviewValid ? statePreview : (isRawUrlValid ? defaultUrl : undefined);
 
@@ -227,9 +228,8 @@ export default function MarriageCertificateRequestPage() {
 
                     try {
                         toast.loading("Uploading and preparing document preview...", { id: `file-upload-${fileKey}` });
-                        const userId = resident?.id || "anonymous";
                         const sanitizedKey = fileKey.replace(/[^a-zA-Z0-9_-]/g, '_');
-                        const publicUrl = await uploadFileClientSide(fileToProcess, sanitizedKey, userId);
+                        const publicUrl = await uploadFileClientSide(fileToProcess, sanitizedKey);
 
                         setForm(prev => ({
                             ...prev,
@@ -457,7 +457,7 @@ export default function MarriageCertificateRequestPage() {
         async function init() {
             try {
                 await ensureCivilRegistryTransactionTypes();
-                
+
                 const urlParams = new URLSearchParams(window.location.search);
                 const revId = urlParams.get("revisionId");
 
@@ -493,11 +493,11 @@ export default function MarriageCertificateRequestPage() {
                         r.purok && `Purok ${r.purok}`,
                         r.sitio && `Sitio ${r.sitio}`,
                         r.barangay && `Brgy. ${r.barangay}`,
-                        r.municipality || "Mapandan",
+                        r.municipality || "",
                         r.province || "Pangasinan"
                     ].filter(Boolean);
                     const constructedAddr = parts.join(", ").toUpperCase();
-                    
+
                     if (txData) {
                         const addData = txData.additionalData as any || {};
                         const resSnapshot = txData.residentSnapshot as any || r || {};
@@ -761,8 +761,7 @@ export default function MarriageCertificateRequestPage() {
 
                 try {
                     toast.loading(`Uploading document ${i + 1}/${fileEntries.length}...`, { id: "req-upload-toast" });
-                    const userId = resident?.id || "anonymous";
-                    const url = await uploadFileClientSide(file, sanitizedKey, userId);
+                    const url = await uploadFileClientSide(file, sanitizedKey);
                     fileUrls[key] = url;
                 } catch (uploadErr) {
                     console.error(`[ClientUpload] Failed to upload ${key}:`, uploadErr);
@@ -1133,7 +1132,7 @@ export default function MarriageCertificateRequestPage() {
                                             value={form.relationship}
                                             onValueChange={(value) => setForm({ ...form, relationship: value })}
                                         >
-                                            <SelectTrigger 
+                                            <SelectTrigger
                                                 className={cn(
                                                     "h-10 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold uppercase",
                                                     (showErrors && !form.relationship) && "border-2 border-red-500"
@@ -1365,185 +1364,185 @@ export default function MarriageCertificateRequestPage() {
                                 <Separator />
 
                                 {/* Event Specifics */}
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Date of Marriage <span className="text-red-500">*</span></Label>
+                                    <Input
+                                        type="date"
+                                        className={cn("rounded-xl h-10 transition-all", (showErrors && !form.dateOfEvent) && "border-2 border-red-500")}
+                                        value={form.dateOfEvent}
+                                        onChange={(e) => setForm({ ...form, dateOfEvent: e.target.value })}
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Country <span className="text-red-500">*</span></Label>
+                                        <Select value={placeCountry} onValueChange={(val) => {
+                                            setPlaceCountry(val);
+                                            if (val !== "PHILIPPINES") {
+                                                setPlaceProvince("OTHER");
+                                                setPlaceCity("OTHER");
+                                            } else {
+                                                setPlaceProvince("PANGASINAN");
+                                                setPlaceCity("MAPANDAN");
+                                            }
+                                        }}>
+                                            <SelectTrigger className="h-10 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs bg-white dark:bg-slate-900 font-bold animate-in fade-in duration-200">
+                                                <div className="flex items-center gap-1.5 truncate">
+                                                    {countriesLoading && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 text-slate-400" />}
+                                                    <SelectValue placeholder="Select Country" />
+                                                </div>
+                                            </SelectTrigger>
+                                            <SelectContent className="max-h-[250px] overflow-y-auto">
+                                                <SelectItem value="PHILIPPINES">PHILIPPINES</SelectItem>
+                                                {countriesList.filter(c => c.name !== "PHILIPPINES").map((country) => (
+                                                    <SelectItem key={country.code} value={country.name}>{country.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {placeCountry === "PHILIPPINES" && (
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Date of Marriage <span className="text-red-500">*</span></Label>
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Province <span className="text-red-500">*</span></Label>
+                                            <Select value={placeProvince} onValueChange={(val) => {
+                                                setPlaceProvince(val);
+                                                if (val === "PANGASINAN") {
+                                                    setPlaceCity("MAPANDAN");
+                                                } else {
+                                                    setPlaceCity("OTHER");
+                                                }
+                                            }}>
+                                                <SelectTrigger className="h-10 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs bg-white dark:bg-slate-900 font-bold animate-in fade-in duration-200">
+                                                    <div className="flex items-center gap-1.5 truncate">
+                                                        {provincesLoading && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 text-slate-400" />}
+                                                        <SelectValue placeholder="Select Province" />
+                                                    </div>
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-[250px] overflow-y-auto">
+                                                    {provincesList.length > 0 ? (
+                                                        <>
+                                                            {provincesList.map((p) => (
+                                                                <SelectItem key={p.code} value={p.name.toUpperCase()}>{p.name.toUpperCase()}</SelectItem>
+                                                            ))}
+                                                            <SelectItem value="OTHER">OTHER PROVINCE...</SelectItem>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            {LOCAL_FALLBACK_PROVINCES.map((p) => (
+                                                                <SelectItem key={p} value={p}>{p}</SelectItem>
+                                                            ))}
+                                                            <SelectItem value="OTHER">OTHER PROVINCE...</SelectItem>
+                                                        </>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
+                                    {placeCountry === "PHILIPPINES" && placeProvince !== "OTHER" && (
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">City / Municipality <span className="text-red-500">*</span></Label>
+                                            <Select value={placeCity} onValueChange={setPlaceCity}>
+                                                <SelectTrigger className="h-10 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs bg-white dark:bg-slate-900 font-bold animate-in fade-in duration-200">
+                                                    <div className="flex items-center gap-1.5 truncate">
+                                                        {citiesLoading && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 text-slate-400" />}
+                                                        <SelectValue placeholder="Select City/Municipality" />
+                                                    </div>
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-[250px] overflow-y-auto">
+                                                    {citiesList.length > 0 ? (
+                                                        <>
+                                                            {citiesList.map((c) => (
+                                                                <SelectItem key={c.code} value={c.name.toUpperCase()}>{c.name.toUpperCase()}</SelectItem>
+                                                            ))}
+                                                            <SelectItem value="OTHER">OTHER CITY/MUNICIPALITY...</SelectItem>
+                                                        </>
+                                                    ) : (
+                                                        placeProvince.toUpperCase() === "PANGASINAN" ? (
+                                                            <>
+                                                                {LOCAL_FALLBACK_CITIES.map((c) => (
+                                                                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                                                                ))}
+                                                                <SelectItem value="OTHER">OTHER CITY/MUNICIPALITY...</SelectItem>
+                                                            </>
+                                                        ) : (
+                                                            <SelectItem value="OTHER">OTHER CITY/MUNICIPALITY...</SelectItem>
+                                                        )
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {placeCountry === "OTHER" && (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify Country <span className="text-red-500">*</span></Label>
                                             <Input
-                                                type="date"
-                                                className={cn("rounded-xl h-10 transition-all", (showErrors && !form.dateOfEvent) && "border-2 border-red-500")}
-                                                value={form.dateOfEvent}
-                                                onChange={(e) => setForm({ ...form, dateOfEvent: e.target.value })}
+                                                className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCountry.trim()) && "border-2 border-red-500")}
+                                                placeholder="e.g. UNITED STATES"
+                                                value={customCountry}
+                                                onChange={(e) => setCustomCountry(e.target.value.toUpperCase())}
                                             />
                                         </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Country <span className="text-red-500">*</span></Label>
-                                                <Select value={placeCountry} onValueChange={(val) => {
-                                                    setPlaceCountry(val);
-                                                    if (val !== "PHILIPPINES") {
-                                                        setPlaceProvince("OTHER");
-                                                        setPlaceCity("OTHER");
-                                                    } else {
-                                                        setPlaceProvince("PANGASINAN");
-                                                        setPlaceCity("MAPANDAN");
-                                                    }
-                                                }}>
-                                                    <SelectTrigger className="h-10 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs bg-white dark:bg-slate-900 font-bold animate-in fade-in duration-200">
-                                                        <div className="flex items-center gap-1.5 truncate">
-                                                            {countriesLoading && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 text-slate-400" />}
-                                                            <SelectValue placeholder="Select Country" />
-                                                        </div>
-                                                    </SelectTrigger>
-                                                    <SelectContent className="max-h-[250px] overflow-y-auto">
-                                                        <SelectItem value="PHILIPPINES">PHILIPPINES</SelectItem>
-                                                        {countriesList.filter(c => c.name !== "PHILIPPINES").map((country) => (
-                                                            <SelectItem key={country.code} value={country.name}>{country.name}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-
-                                            {placeCountry === "PHILIPPINES" && (
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Province <span className="text-red-500">*</span></Label>
-                                                    <Select value={placeProvince} onValueChange={(val) => {
-                                                        setPlaceProvince(val);
-                                                        if (val === "PANGASINAN") {
-                                                            setPlaceCity("MAPANDAN");
-                                                        } else {
-                                                            setPlaceCity("OTHER");
-                                                        }
-                                                    }}>
-                                                        <SelectTrigger className="h-10 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs bg-white dark:bg-slate-900 font-bold animate-in fade-in duration-200">
-                                                            <div className="flex items-center gap-1.5 truncate">
-                                                                {provincesLoading && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 text-slate-400" />}
-                                                                <SelectValue placeholder="Select Province" />
-                                                            </div>
-                                                        </SelectTrigger>
-                                                        <SelectContent className="max-h-[250px] overflow-y-auto">
-                                                            {provincesList.length > 0 ? (
-                                                                <>
-                                                                    {provincesList.map((p) => (
-                                                                        <SelectItem key={p.code} value={p.name.toUpperCase()}>{p.name.toUpperCase()}</SelectItem>
-                                                                    ))}
-                                                                    <SelectItem value="OTHER">OTHER PROVINCE...</SelectItem>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    {LOCAL_FALLBACK_PROVINCES.map((p) => (
-                                                                        <SelectItem key={p} value={p}>{p}</SelectItem>
-                                                                    ))}
-                                                                    <SelectItem value="OTHER">OTHER PROVINCE...</SelectItem>
-                                                                </>
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                            )}
-
-                                            {placeCountry === "PHILIPPINES" && placeProvince !== "OTHER" && (
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">City / Municipality <span className="text-red-500">*</span></Label>
-                                                    <Select value={placeCity} onValueChange={setPlaceCity}>
-                                                        <SelectTrigger className="h-10 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs bg-white dark:bg-slate-900 font-bold animate-in fade-in duration-200">
-                                                            <div className="flex items-center gap-1.5 truncate">
-                                                                {citiesLoading && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 text-slate-400" />}
-                                                                <SelectValue placeholder="Select City/Municipality" />
-                                                            </div>
-                                                        </SelectTrigger>
-                                                        <SelectContent className="max-h-[250px] overflow-y-auto">
-                                                            {citiesList.length > 0 ? (
-                                                                <>
-                                                                    {citiesList.map((c) => (
-                                                                        <SelectItem key={c.code} value={c.name.toUpperCase()}>{c.name.toUpperCase()}</SelectItem>
-                                                                    ))}
-                                                                    <SelectItem value="OTHER">OTHER CITY/MUNICIPALITY...</SelectItem>
-                                                                </>
-                                                            ) : (
-                                                                placeProvince.toUpperCase() === "PANGASINAN" ? (
-                                                                    <>
-                                                                        {LOCAL_FALLBACK_CITIES.map((c) => (
-                                                                            <SelectItem key={c} value={c}>{c}</SelectItem>
-                                                                        ))}
-                                                                        <SelectItem value="OTHER">OTHER CITY/MUNICIPALITY...</SelectItem>
-                                                                    </>
-                                                                ) : (
-                                                                    <SelectItem value="OTHER">OTHER CITY/MUNICIPALITY...</SelectItem>
-                                                                )
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                            )}
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify State / Province <span className="text-red-500">*</span></Label>
+                                            <Input
+                                                className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customProvince.trim()) && "border-2 border-red-500")}
+                                                placeholder="e.g. CALIFORNIA"
+                                                value={customProvince}
+                                                onChange={(e) => setCustomProvince(e.target.value.toUpperCase())}
+                                            />
                                         </div>
-
-                                        {placeCountry === "OTHER" && (
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify Country <span className="text-red-500">*</span></Label>
-                                                    <Input
-                                                        className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCountry.trim()) && "border-2 border-red-500")}
-                                                        placeholder="e.g. UNITED STATES"
-                                                        value={customCountry}
-                                                        onChange={(e) => setCustomCountry(e.target.value.toUpperCase())}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify State / Province <span className="text-red-500">*</span></Label>
-                                                    <Input
-                                                        className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customProvince.trim()) && "border-2 border-red-500")}
-                                                        placeholder="e.g. CALIFORNIA"
-                                                        value={customProvince}
-                                                        onChange={(e) => setCustomProvince(e.target.value.toUpperCase())}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify City / Town <span className="text-red-500">*</span></Label>
-                                                    <Input
-                                                        className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCity.trim()) && "border-2 border-red-500")}
-                                                        placeholder="e.g. LOS ANGELES"
-                                                        value={customCity}
-                                                        onChange={(e) => setCustomCity(e.target.value.toUpperCase())}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {placeCountry === "PHILIPPINES" && placeProvince === "OTHER" && (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify Province <span className="text-red-500">*</span></Label>
-                                                    <Input
-                                                        className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customProvince.trim()) && "border-2 border-red-500")}
-                                                        placeholder="e.g. CEBU"
-                                                        value={customProvince}
-                                                        onChange={(e) => setCustomProvince(e.target.value.toUpperCase())}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify City / Municipality <span className="text-red-500">*</span></Label>
-                                                    <Input
-                                                        className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCity.trim()) && "border-2 border-red-500")}
-                                                        placeholder="e.g. CEBU CITY"
-                                                        value={customCity}
-                                                        onChange={(e) => setCustomCity(e.target.value.toUpperCase())}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {placeCountry === "PHILIPPINES" && placeProvince !== "OTHER" && placeCity === "OTHER" && (
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify City / Municipality <span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCity.trim()) && "border-2 border-red-500")}
-                                                    placeholder="e.g. SAN JACINTO"
-                                                    value={customCity}
-                                                    onChange={(e) => setCustomCity(e.target.value.toUpperCase())}
-                                                />
-                                            </div>
-                                        )}
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify City / Town <span className="text-red-500">*</span></Label>
+                                            <Input
+                                                className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCity.trim()) && "border-2 border-red-500")}
+                                                placeholder="e.g. LOS ANGELES"
+                                                value={customCity}
+                                                onChange={(e) => setCustomCity(e.target.value.toUpperCase())}
+                                            />
+                                        </div>
                                     </div>
+                                )}
+
+                                {placeCountry === "PHILIPPINES" && placeProvince === "OTHER" && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify Province <span className="text-red-500">*</span></Label>
+                                            <Input
+                                                className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customProvince.trim()) && "border-2 border-red-500")}
+                                                placeholder="e.g. CEBU"
+                                                value={customProvince}
+                                                onChange={(e) => setCustomProvince(e.target.value.toUpperCase())}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify City / Municipality <span className="text-red-500">*</span></Label>
+                                            <Input
+                                                className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCity.trim()) && "border-2 border-red-500")}
+                                                placeholder="e.g. CEBU CITY"
+                                                value={customCity}
+                                                onChange={(e) => setCustomCity(e.target.value.toUpperCase())}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {placeCountry === "PHILIPPINES" && placeProvince !== "OTHER" && placeCity === "OTHER" && (
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Specify City / Municipality <span className="text-red-500">*</span></Label>
+                                        <Input
+                                            className={cn("rounded-xl h-10 transition-all uppercase font-bold", (showErrors && !customCity.trim()) && "border-2 border-red-500")}
+                                            placeholder="e.g. SAN JACINTO"
+                                            value={customCity}
+                                            onChange={(e) => setCustomCity(e.target.value.toUpperCase())}
+                                        />
+                                    </div>
+                                )}
+                            </div>
 
                             <div className="flex justify-end gap-3 pt-6">
                                 <Button

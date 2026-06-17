@@ -60,31 +60,30 @@ import {
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
-import { supabase } from "@/lib/supabase";
+import { getSecureUploadUrlAction } from "@/app/auth/actions";
 
-// --- UPLOAD FILE CLIENT-SIDE TO SUPABASE STORAGE ---
-async function uploadFileClientSide(file: File, fieldName: string, userId: string): Promise<string> {
+// --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
+async function uploadFileClientSide(file: File, fieldName: string): Promise<string> {
     const fileExt = file.name.split('.').pop() || 'bin';
-    const fileName = `${userId}/${fieldName}_${Date.now()}.${fileExt}`;
-    const filePath = `services/lcr/birth_certificate_request/${fileName}`;
-
-    const { error } = await supabase.storage
-        .from("system-assets")
-        .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: true
-        });
-
-    if (error) {
-        console.error(`[ClientUpload] Upload error for ${fieldName}:`, error);
-        throw new Error(`Failed to upload ${file.name}: ${error.message}`);
+    
+    const res = await getSecureUploadUrlAction(fieldName, "lcr/birth_certificate_request", fileExt);
+    if (!res.success || !res.signedUrl || !res.publicUrl) {
+        throw new Error(res.error || "Failed to generate secure upload destination");
     }
 
-    const { data: { publicUrl } } = supabase.storage
-        .from("system-assets")
-        .getPublicUrl(filePath);
+    const uploadRes = await fetch(res.signedUrl, {
+        method: "PUT",
+        headers: {
+            "Content-Type": file.type
+        },
+        body: file
+    });
 
-    return publicUrl;
+    if (!uploadRes.ok) {
+        throw new Error(`Upload direct to storage failed: ${uploadRes.statusText}`);
+    }
+
+    return res.publicUrl;
 }
 
 type Step = "STATUS" | "IDENTITY" | "DETAILS" | "PARENTS" | "CONFIRM";
@@ -397,7 +396,7 @@ export default function CivilRegistryPage() {
         async function init() {
             try {
                 await ensureCivilRegistryTransactionTypes();
-                
+
                 const urlParams = new URLSearchParams(window.location.search);
                 const revId = urlParams.get("revisionId");
 
@@ -433,7 +432,7 @@ export default function CivilRegistryPage() {
                         r.purok && `Purok ${r.purok}`,
                         r.sitio && `Sitio ${r.sitio}`,
                         r.barangay && `Brgy. ${r.barangay}`,
-                        r.municipality || "Mapandan",
+                        r.municipality || "",
                         r.province || "Pangasinan"
                     ].filter(Boolean);
                     const constructedAddr = parts.join(", ").toUpperCase();
@@ -662,8 +661,7 @@ export default function CivilRegistryPage() {
 
                 try {
                     toast.loading(`Uploading document ${i + 1}/${fileEntries.length}...`, { id: "req-upload-toast" });
-                    const userId = resident?.id || "anonymous";
-                    const url = await uploadFileClientSide(file, sanitizedKey, userId);
+                    const url = await uploadFileClientSide(file, sanitizedKey);
                     fileUrls[key] = url;
                 } catch (uploadErr) {
                     console.error(`[ClientUpload] Failed to upload ${key}:`, uploadErr);
@@ -867,6 +865,14 @@ export default function CivilRegistryPage() {
                         <p className="text-slate-600 dark:text-slate-300 font-medium text-xs leading-relaxed max-w-xl italic">
                             Request a certified true copy of your Birth Certificate. Complete the form and upload required identifications to verify your request.
                         </p>
+                    </div>
+
+                    <div className="hidden md:block relative z-10 shrink-0">
+                        <div className="w-28 h-28 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 backdrop-blur-md flex flex-col items-center justify-center text-center p-4 shadow-sm dark:shadow-2xl relative overflow-hidden group hover:scale-105 transition-transform duration-500">
+                            <div className="absolute inset-0 bg-gradient-to-tr opacity-0 group-hover:opacity-10 transition-opacity" style={{ backgroundImage: `linear-gradient(to top right, ${themeColor}, transparent)` }} />
+                            <CheckCircle2 className="w-8 h-8 mb-1.5 opacity-80" style={{ color: themeColor }} />
+                            <p className="text-[7px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 leading-tight">Secure Filing</p>
+                        </div>
                     </div>
                 </div>
 
@@ -1135,23 +1141,23 @@ export default function CivilRegistryPage() {
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                                             <div className="col-span-2 md:col-span-1 space-y-1.5">
                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Relationship <span className="text-red-500">*</span></Label>
-                                                 <Select
-                                                     value={form.relationship}
-                                                     onValueChange={(value) => {
-                                                         const updatedFiles = { ...form.files };
-                                                         const updatedPreviews = { ...form.previews };
-                                                         if (value === "SELF") {
-                                                             delete updatedFiles.authorizationLetter;
-                                                             delete updatedPreviews.authorizationLetter;
-                                                         }
-                                                         setForm({ 
-                                                             ...form, 
-                                                             relationship: value,
-                                                             files: updatedFiles,
-                                                             previews: updatedPreviews
-                                                         });
-                                                     }}
-                                                 >
+                                                <Select
+                                                    value={form.relationship}
+                                                    onValueChange={(value) => {
+                                                        const updatedFiles = { ...form.files };
+                                                        const updatedPreviews = { ...form.previews };
+                                                        if (value === "SELF") {
+                                                            delete updatedFiles.authorizationLetter;
+                                                            delete updatedPreviews.authorizationLetter;
+                                                        }
+                                                        setForm({
+                                                            ...form,
+                                                            relationship: value,
+                                                            files: updatedFiles,
+                                                            previews: updatedPreviews
+                                                        });
+                                                    }}
+                                                >
                                                     <SelectTrigger className={cn(
                                                         "h-10 w-full rounded-xl border-slate-950 dark:border-white focus:ring-blue-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold",
                                                         (showErrors && !form.relationship) && "!border-2 !border-red-500"
@@ -1782,26 +1788,26 @@ export default function CivilRegistryPage() {
                                                 }
                                                 className={cn(
                                                     "md:col-span-3 h-14 rounded-full font-black uppercase tracking-widest italic text-[11px] transition-all duration-300",
-                                                    (!form.idTypeOverride && !resident?.idType) || 
-                                                    (!form.files["validIdFront"] && !resident?.idFrontUrl) || 
-                                                    (!form.files["validIdBack"] && !resident?.idBackUrl) ||
-                                                    (form.relationship !== "SELF" && !form.files["authorizationLetter"] && !revisionTx?.additionalData?.authorizationLetter && !form.previews["authorizationLetter"])
+                                                    (!form.idTypeOverride && !resident?.idType) ||
+                                                        (!form.files["validIdFront"] && !resident?.idFrontUrl) ||
+                                                        (!form.files["validIdBack"] && !resident?.idBackUrl) ||
+                                                        (form.relationship !== "SELF" && !form.files["authorizationLetter"] && !revisionTx?.additionalData?.authorizationLetter && !form.previews["authorizationLetter"])
                                                         ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                                                         : "bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/20"
                                                 )}
                                                 style={
-                                                    (!form.idTypeOverride && !resident?.idType) || 
-                                                    (!form.files["validIdFront"] && !resident?.idFrontUrl) || 
-                                                    (!form.files["validIdBack"] && !resident?.idBackUrl) ||
-                                                    (form.relationship !== "SELF" && !form.files["authorizationLetter"] && !revisionTx?.additionalData?.authorizationLetter && !form.previews["authorizationLetter"])
-                                                        ? {} 
+                                                    (!form.idTypeOverride && !resident?.idType) ||
+                                                        (!form.files["validIdFront"] && !resident?.idFrontUrl) ||
+                                                        (!form.files["validIdBack"] && !resident?.idBackUrl) ||
+                                                        (form.relationship !== "SELF" && !form.files["authorizationLetter"] && !revisionTx?.additionalData?.authorizationLetter && !form.previews["authorizationLetter"])
+                                                        ? {}
                                                         : { backgroundColor: themeColor }
                                                 }
                                             >
                                                 {submitting ? (
                                                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                                                ) : (!form.idTypeOverride && !resident?.idType) || 
-                                                    (!form.files["validIdFront"] && !resident?.idFrontUrl) || 
+                                                ) : (!form.idTypeOverride && !resident?.idType) ||
+                                                    (!form.files["validIdFront"] && !resident?.idFrontUrl) ||
                                                     (!form.files["validIdBack"] && !resident?.idBackUrl) ||
                                                     (form.relationship !== "SELF" && !form.files["authorizationLetter"] && !revisionTx?.additionalData?.authorizationLetter && !form.previews["authorizationLetter"]) ? (
                                                     <>

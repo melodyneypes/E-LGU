@@ -28,6 +28,8 @@ interface TopNavProps {
             email?: string | null;
             role?: string;
             managedBarangay?: string | null;
+            accessiblePages?: string[];
+            department?: string | null;
         };
     };
     themeColor?: string;
@@ -72,7 +74,7 @@ function formatSegment(seg: string): string {
     return SEGMENT_LABELS[seg] ?? seg.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", brandWord2 = "Mapandan", logoUrl }: TopNavProps) {
+export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", brandWord2 = "", logoUrl }: TopNavProps) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const { theme, setTheme } = useTheme();
@@ -166,14 +168,48 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
                 isLast: i === filteredSegments.length - 1,
             }));
 
-            // Always show 'Dashboard' as the first breadcrumb. Exclude 'admin' and 'dashboard' from the tail.
+            const accessiblePages = session?.user?.accessiblePages;
+            let dashboardHref = "/admin/dashboard";
+
+            if (accessiblePages && accessiblePages.length > 0) {
+                const hasDashboardAccess = accessiblePages.some(page => {
+                    const [pagePath] = page.split("?");
+                    return pagePath === "/admin/dashboard" || pagePath === "/admin";
+                });
+                if (!hasDashboardAccess) {
+                    dashboardHref = accessiblePages[0];
+                }
+            } else {
+                const role = session?.user?.role || "ADMIN";
+                const department = session?.user?.department || "";
+                const deptUpper = department.toUpperCase();
+
+                if (role !== "ADMIN" || deptUpper !== "LGU") {
+                    if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
+                        dashboardHref = "/admin/registrar";
+                    } else if (role === "TREASURY_STAFF" || deptUpper === "TREASURY") {
+                        dashboardHref = "/admin/treasury?category=CEDULA";
+                    } else if (role === "ADMIN_AIDE" || deptUpper === "BPLO") {
+                        dashboardHref = "/admin/bplo";
+                    } else if (role === "ENGINEER" || deptUpper === "ENGINEER") {
+                        dashboardHref = "/admin/engineer";
+                    } else {
+                        dashboardHref = "";
+                    }
+                }
+            }
+
+            // Exclude 'admin' and 'dashboard' from the tail.
             const nonAdminSegments = filteredSegments.filter((s) => s !== "admin");
             const tailCrumbs = origCrumbs.filter((c) => c.seg !== "admin" && c.seg !== "dashboard");
-            const dashboardIsLast = nonAdminSegments.length === 1 && nonAdminSegments[0] === "dashboard";
-            crumbsToRender = [
-                { seg: "dashboard", label: formatSegment("dashboard"), href: "/admin/dashboard", isLast: dashboardIsLast },
-                ...tailCrumbs,
-            ];
+            
+            if (nonAdminSegments.length === 1 && nonAdminSegments[0] === "dashboard") {
+                crumbsToRender = [
+                    { seg: "dashboard", label: formatSegment("dashboard"), href: dashboardHref, isLast: true }
+                ];
+            } else {
+                crumbsToRender = tailCrumbs;
+            }
         }
     }
 
@@ -252,7 +288,7 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
                     {crumbsToRender.map((crumb, idx) => (
                         <React.Fragment key={`${crumb.seg}-${idx}`}>
                             <ChevronRight size={13} className="text-slate-300 dark:text-slate-600 shrink-0" />
-                            {crumb.isLast ? (
+                            {crumb.isLast || !crumb.href ? (
                                 <span className="font-semibold text-slate-700 dark:text-slate-200 truncate">
                                     {crumb.label}
                                 </span>

@@ -41,9 +41,10 @@ const DEFAULT_STATE: LockoutState = {
 interface LoginFormProps {
     onSuccess?: () => void;
     themeColor?: string;
+    isMaintenanceActive?: boolean;
 }
 
-export function LoginForm({ themeColor = "#2563eb" }: LoginFormProps) {
+export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false }: LoginFormProps) {
     const { triggerLeave } = React.useContext(AuthTransitionContext);
     const [showPassword, setShowPassword] = React.useState(false);
     const [showChangeModal, setShowChangeModal] = React.useState(false);
@@ -73,7 +74,13 @@ export function LoginForm({ themeColor = "#2563eb" }: LoginFormProps) {
                 const role = (session.user as any).role;
                 const dept = (session.user as any).department ? (session.user as any).department.toUpperCase() : "";
                 if (role === "USER") {
-                    router.push("/");
+                    if (isMaintenanceActive) {
+                        signOut({ redirect: false });
+                        document.cookie = "bypass_maintenance=true; path=/; max-age=1800";
+                        router.push("/");
+                    } else {
+                        router.push("/");
+                    }
                 } else if (role === "TREASURY_STAFF" || (role === "ADMIN" && dept === "TREASURY")) {
                     router.push("/admin/treasury?category=CEDULA");
                 } else if (role === "ADMIN_AIDE" || (role === "ADMIN" && dept === "BPLO")) {
@@ -87,7 +94,7 @@ export function LoginForm({ themeColor = "#2563eb" }: LoginFormProps) {
                 }
             }
         }
-    }, [session, status, router]);
+    }, [session, status, router, isMaintenanceActive]);
 
     const [lockout, setLockout] = React.useState<LockoutState>(DEFAULT_STATE);
     const [timeLeft, setTimeLeft] = React.useState<number>(0); // remaining seconds
@@ -307,6 +314,14 @@ export function LoginForm({ themeColor = "#2563eb" }: LoginFormProps) {
                 handleSuccessAttempt(normalizedEmail);
                 const { role, isPasswordChanged } = session.user;
 
+                if (isMaintenanceActive && role === "USER") {
+                    await signOut({ redirect: false });
+                    document.cookie = "bypass_maintenance=true; path=/; max-age=1800";
+                    toast.error("The portal is currently under maintenance. Citizens are not allowed to sign in at this time.");
+                    router.push("/");
+                    return;
+                }
+
                 // Check if user needs to change password
                 if (isPasswordChanged === false) {
                     setUserEmail(data.email);
@@ -323,11 +338,17 @@ export function LoginForm({ themeColor = "#2563eb" }: LoginFormProps) {
                         // Auto-set admin portal cookie so page.tsx won't redirect to landing
                         document.cookie = `active_portal=admin; path=/; max-age=86400; SameSite=Lax`;
                         toast.success("Logged in successfully");
-                        const dept = session.user?.department;
-                        if (dept && (dept.toUpperCase() === "REGISTRAR" || dept.toUpperCase() === "CIVIL_REGISTRY")) {
-                            router.push("/admin/registrar");
+                        
+                        const pages = session.user?.accessiblePages;
+                        if (pages && pages.length > 0) {
+                            router.push(pages[0]);
                         } else {
-                            router.push("/admin/dashboard");
+                            const dept = session.user?.department;
+                            if (dept && (dept.toUpperCase() === "REGISTRAR" || dept.toUpperCase() === "CIVIL_REGISTRY")) {
+                                router.push("/admin/registrar");
+                            } else {
+                                router.push("/admin/dashboard");
+                            }
                         }
                     }
                 };
@@ -350,7 +371,7 @@ export function LoginForm({ themeColor = "#2563eb" }: LoginFormProps) {
             toast.error("An unexpected error occurred");
             console.error("Login error:", error);
         }
-    }, [lockout, handleFailedAttempt, handleSuccessAttempt, router, triggerLeave]);
+    }, [lockout, handleFailedAttempt, handleSuccessAttempt, router, triggerLeave, isMaintenanceActive]);
 
     const handlePasswordChangeSuccess = () => {
         setShowChangeModal(false);

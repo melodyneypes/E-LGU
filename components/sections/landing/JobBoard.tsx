@@ -18,7 +18,7 @@ interface Job {
     createdAt: Date | string;
 }
 
-export function JobBoard({ jobs = [] }: { jobs: Job[] }) {
+export function JobBoard({ jobs = [], isMaintenanceActive = false }: { jobs: Job[]; isMaintenanceActive?: boolean }) {
     const hasJobs = jobs.length > 0;
     const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
 
@@ -51,7 +51,7 @@ export function JobBoard({ jobs = [] }: { jobs: Job[] }) {
     return (
         <section id="careers" className="pt-0 md:pt-24 pb-12 md:pb-24 px-6 bg-slate-50 dark:bg-white/5 border-y border-slate-100 dark:border-white/5">
             <div className="max-w-7xl mx-auto space-y-6 md:space-y-8">
-                <div className="text-center space-y-2 md:space-y-4 sticky md:static top-[70px] md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-slate-50/95 dark:bg-slate-950/95 md:bg-transparent md:dark:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-0">
+                <div className="text-center space-y-2 md:space-y-4 sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-slate-50/95 dark:bg-slate-950/95 md:bg-transparent md:dark:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-0">
                     <h2 className="text-2xl md:text-5xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">
                         Serve the Community
                     </h2>
@@ -62,28 +62,30 @@ export function JobBoard({ jobs = [] }: { jobs: Job[] }) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 mt-6 md:mt-0">
                     {limitedJobs.map((job: Job, idx: number) => (
-                        <JobCard key={job.id} job={job} idx={idx} isMobile={isMobile} />
+                        <JobCard key={job.id} job={job} idx={idx} isMobile={isMobile} isMaintenanceActive={isMaintenanceActive} />
                     ))}
                 </div>
 
-                <div className="text-center pt-2">
-                    <Button asChild className="px-8 py-3.5 md:px-12 md:py-5 h-auto bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[9px] md:text-[10px] rounded-[2rem] transition-all shadow-xl shadow-primary/25 active:scale-95 flex items-center justify-center gap-2 md:gap-3 mx-auto w-full md:w-auto">
-                        <Link href="/user/jobs">
-                            <Briefcase className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                            View All Open Positions
-                        </Link>
-                    </Button>
-                </div>
+                {!isMaintenanceActive && (
+                    <div className="text-center pt-2">
+                        <Button asChild className="px-8 py-3.5 md:px-12 md:py-5 h-auto bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[9px] md:text-[10px] rounded-[2rem] transition-all shadow-xl shadow-primary/25 active:scale-95 flex items-center justify-center gap-2 md:gap-3 mx-auto w-full md:w-auto">
+                            <Link href="/user/jobs">
+                                <Briefcase className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                View All Open Positions
+                            </Link>
+                        </Button>
+                    </div>
+                )}
             </div>
         </section>
     );
 }
 
-function JobCard({ job, idx, isMobile }: { job: Job; idx: number; isMobile: boolean }) {
+function JobCard({ job, idx, isMobile, isMaintenanceActive }: { job: Job; idx: number; isMobile: boolean; isMaintenanceActive?: boolean }) {
     const cardContent = (
         <Link
-            href={`/user/jobs/${job.id}`}
-            className="bg-white dark:bg-[#0f1117] p-4 md:p-10 rounded-3xl md:rounded-[3rem] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none hover:border-primary/40 transition-all group flex flex-col justify-between min-h-[240px] md:h-[420px] relative overflow-hidden active:scale-[0.98] block"
+            href={isMaintenanceActive ? "#" : `/user/jobs/${job.id}`}
+            className={`${isMaintenanceActive ? "opacity-60 pointer-events-none" : "hover:border-primary/40 active:scale-[0.98]"} bg-white dark:bg-[#0f1117] p-4 md:p-10 rounded-3xl md:rounded-[3rem] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all group flex flex-col justify-between min-h-[240px] md:h-[420px] relative overflow-hidden block`}
         >
             <div className="space-y-3 md:space-y-6">
                 <div className="flex justify-between items-start">
@@ -99,9 +101,15 @@ function JobCard({ job, idx, isMobile }: { job: Job; idx: number; isMobile: bool
                             <span>Posted {format(new Date(job.createdAt), "MMM d, yyyy")}</span>
                         </div>
                     </div>
-                    <span className="px-2.5 md:px-4 py-1 md:py-1.5 bg-emerald-500/10 text-emerald-600 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">
-                        {job.employmentType}
-                    </span>
+                    {isMaintenanceActive ? (
+                        <span className="px-2.5 md:px-4 py-1 md:py-1.5 bg-amber-500/10 text-amber-600 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest border border-amber-500/20">
+                            Offline
+                        </span>
+                    ) : (
+                        <span className="px-2.5 md:px-4 py-1 md:py-1.5 bg-emerald-500/10 text-emerald-600 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">
+                            {job.employmentType}
+                        </span>
+                    )}
                 </div>
 
                 <div className="space-y-1.5 md:space-y-4">
@@ -119,14 +127,16 @@ function JobCard({ job, idx, isMobile }: { job: Job; idx: number; isMobile: bool
                 </p>
             </div>
 
-            <div className="pt-3 md:pt-6 relative z-20">
-                <Button asChild className="w-full py-2.5 md:py-4 h-auto bg-primary hover:bg-primary/90 text-white rounded-[2rem] font-black uppercase tracking-widest text-[9px] md:text-[10px] transition-all shadow-xl shadow-primary/25 pointer-events-none">
-                    <div className="flex items-center gap-1.5 md:gap-3">
-                        <Briefcase className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                        Learn More
-                    </div>
-                </Button>
-            </div>
+            {!isMaintenanceActive && (
+                <div className="pt-3 md:pt-6 relative z-20">
+                    <Button asChild className="w-full py-2.5 md:py-4 h-auto bg-primary hover:bg-primary/90 text-white rounded-[2rem] font-black uppercase tracking-widest text-[9px] md:text-[10px] transition-all shadow-xl shadow-primary/25 pointer-events-none">
+                        <div className="flex items-center gap-1.5 md:gap-3">
+                            <Briefcase className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                            Learn More
+                        </div>
+                    </Button>
+                </div>
+            )}
         </Link>
     );
 

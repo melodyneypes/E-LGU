@@ -12,7 +12,8 @@ import fs from "fs";
 import { unlink } from "fs/promises";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { uploadFile, deleteFileByUrl } from "@/lib/storage";
+import { uploadFile, deleteFileByUrl, validatePayloadFiles } from "@/lib/storage";
+import { isRateLimited, getClientIp } from "@/lib/rate-limit";
 
 async function getSessionBarangay(): Promise<string | null> {
     const session = await getServerSession(authOptions);
@@ -203,15 +204,35 @@ export async function searchHeads(query: string, page: number = 1, limit: number
 
 export async function searchResidents(query: string, page: number = 1, limit: number = 10) {
     try {
-        const managedBarangay = await getSessionBarangay();
-        const where: any = {};
-
-        if (query && query.trim()) {
-            where.OR = [
-                { firstName: { contains: query, mode: 'insensitive' } },
-                { lastName: { contains: query, mode: 'insensitive' } },
-            ];
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return { success: false, error: "Unauthorized" };
         }
+
+        const cleanQuery = query ? query.trim() : "";
+        if (cleanQuery.length < 2) {
+            return { success: true, data: [] };
+        }
+
+        const userRole = (session.user as any).role;
+        const isAdmin = userRole === "ADMIN" || userRole === "BARANGAY_ADMIN" || userRole === "TREASURY_STAFF" || userRole === "REGISTRAR" || userRole === "ENGINEER" || userRole === "ADMIN_AIDE";
+
+        if (!isAdmin) {
+            const ip = await getClientIp();
+            const rateLimitKey = `search:residents:${session.user.id}:${ip}`;
+            const limitCheck = await isRateLimited(rateLimitKey, 30, 60000); // Max 30 searches per minute
+            if (!limitCheck.success) {
+                return { success: false, error: "Too many search requests. Please wait a moment." };
+            }
+        }
+
+        const managedBarangay = await getSessionBarangay();
+        const where: any = {
+            OR: [
+                { firstName: { contains: cleanQuery, mode: 'insensitive' } },
+                { lastName: { contains: cleanQuery, mode: 'insensitive' } },
+            ]
+        };
 
         if (managedBarangay) {
             where.barangay = managedBarangay;
@@ -238,6 +259,23 @@ export async function searchResidents(query: string, page: number = 1, limit: nu
 
 export async function getResidentDataById(id: string) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const userRole = (session.user as any).role;
+        const isAdmin = userRole === "ADMIN" || userRole === "BARANGAY_ADMIN" || userRole === "TREASURY_STAFF" || userRole === "REGISTRAR" || userRole === "ENGINEER" || userRole === "ADMIN_AIDE";
+
+        if (!isAdmin) {
+            const ip = await getClientIp();
+            const rateLimitKey = `get-resident:${session.user.id}:${ip}`;
+            const limitCheck = await isRateLimited(rateLimitKey, 30, 60000); // Max 30 requests per minute
+            if (!limitCheck.success) {
+                return { success: false, error: "Too many lookup requests. Please wait a moment." };
+            }
+        }
+
         const resident = await (prisma as any).resident.findUnique({
             where: { id }
         });
@@ -2237,6 +2275,12 @@ export async function addCommunityReport(formData: FormData) {
 
         const images = await processMultipleImages(formData, "images");
 
+        // Verify images integrity and perform static malware scanning
+        const fileCheck = await validatePayloadFiles(images);
+        if (!fileCheck.success) {
+            return { success: false, error: fileCheck.error || "File security check failed." };
+        }
+
         const latRaw = formData.get("latitude");
         const lngRaw = formData.get("longitude");
 
@@ -2537,6 +2581,7 @@ export async function createUser(formData: FormData) {
         const role = formData.get("role") as any;
         const managedBarangay = formData.get("managedBarangay") as string;
         const department = formData.get("department") as string;
+        const accessiblePages = formData.getAll("accessiblePages") as string[];
 
         if (!name || !email || !password || !role) {
             return { success: false, error: "Missing required fields" };
@@ -2557,6 +2602,7 @@ export async function createUser(formData: FormData) {
                 role,
                 managedBarangay: role === "BARANGAY_ADMIN" ? managedBarangay : null,
                 department: department || null,
+                accessiblePages: accessiblePages || [],
                 isEmailVerified: true,
                 isPasswordChanged: true, // Admin set, bypass forced change
                 emailVerified: new Date(),
@@ -2582,6 +2628,7 @@ export async function updateUser(userId: string, formData: FormData) {
         const role = formData.get("role") as any;
         const managedBarangay = formData.get("managedBarangay") as string;
         const department = formData.get("department") as string;
+        const accessiblePages = formData.getAll("accessiblePages") as string[];
 
         if (!name || !email || !role) {
             return { success: false, error: "Missing required fields" };
@@ -2599,6 +2646,7 @@ export async function updateUser(userId: string, formData: FormData) {
             role,
             managedBarangay: role === "BARANGAY_ADMIN" ? managedBarangay : null,
             department: department || null,
+            accessiblePages: accessiblePages || [],
         };
 
         if (password && password.trim() !== "") {

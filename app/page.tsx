@@ -4,6 +4,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { HashScrollHandler } from "@/components/shared/HashScrollHandler";
 import { ClientOnly } from "@/components/shared/ClientOnly";
+import { cn } from "@/lib/utils";
 import { HeroSkeleton } from "@/components/sections/landing/skeletons/HeroSkeleton";
 import { GovernmentSkeleton } from "@/components/sections/landing/skeletons/GovernmentSkeleton";
 import { DiningLodgingSkeleton } from "@/components/sections/landing/skeletons/DiningLodgingSkeleton";
@@ -28,6 +29,7 @@ const Government = nextDynamic(() => import("@/components/sections/landing/Gover
 const Services = nextDynamic(() => import("@/components/sections/landing/Services").then(m => m.Services), { loading: () => <ServicesSkeleton /> });
 const EmergencyReport = nextDynamic(() => import("@/components/sections/landing/EmergencyReport").then(m => m.EmergencyReport), { loading: () => <EmergencyReportSkeleton /> });
 const ParishCorner = nextDynamic(() => import("../components/sections/landing/ParishCorner"), { loading: () => <ParishCornerSkeleton /> });
+const AppDownloadSection = nextDynamic(() => import("@/components/sections/landing/AppDownloadSection").then(m => m.AppDownloadSection));
 import prisma from "@/lib/db/prisma";
 import { getMultipleSystemSettings } from "@/lib/settings";
 import { redirect } from "next/navigation";
@@ -70,12 +72,13 @@ export default async function Home({
 
     const cookieStore = await cookies();
     const activePortal = cookieStore.get("active_portal")?.value;
+    const bypassMaintenanceCookieValue = cookieStore.get("bypass_maintenance")?.value;
 
     // Completely block any Admin/Content Admin from the landing page unless they chose Citizen view
     if (session && role && role !== "USER" && activePortal !== "citizen") {
         const department = (session.user as any)?.department;
         if (department && (department.toUpperCase() === "REGISTRAR" || department.toUpperCase() === "CIVIL_REGISTRY")) {
-            redirect("/admin/registrar");
+            redirect("/admin/registrar?category=Birth Registration");
         } else {
             redirect("/admin/dashboard");
         }
@@ -85,9 +88,9 @@ export default async function Home({
     // 0. Cinematic Delay - specifically for seeing the full animation as requested
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // 1. Fetch all needed system settings first in one query
     const settings = await getMultipleSystemSettings([
         "maintenance_mode",
+        "maintenance_mode_updated_at",
         "site_logo",
         "brand_word_1",
         "brand_word_2",
@@ -102,18 +105,25 @@ export default async function Home({
         "section_services",
         "section_emergency",
         "section_church",
-        "section_map"
+        "section_map",
+        "section_app_download",
+        "app_google_play_url",
+        "app_app_store_url",
+        "app_apk_download_url"
     ]);
 
     // Check Maintenance Mode
     const maintenance = settings.get("maintenance_mode") === "true";
-    if (maintenance) {
-        redirect("/maintenance");
+    const maintenanceUpdatedAt = settings.get("maintenance_mode_updated_at") || "0";
+    const bypassMaintenance = bypassMaintenanceCookieValue === maintenanceUpdatedAt;
+
+    if (maintenance && !bypassMaintenance) {
+      redirect("/maintenance");
     }
 
     const logoUrl = settings.get("site_logo") || "";
     const brandWord1 = settings.get("brand_word_1") || "E";
-    const brandWord2 = settings.get("brand_word_2") || "Mapandan";
+    const brandWord2 = settings.get("brand_word_2") || "";
     const themeColor = settings.get("theme_color") || "#2563eb";
 
     // Section visibility settings (default to true if not set)
@@ -128,6 +138,11 @@ export default async function Home({
     const showEmergency = settings.get("section_emergency") !== "false";
     const showChurch = settings.get("section_church") !== "false";
     const showMap = settings.get("section_map") !== "false";
+    const showAppDownload = settings.get("section_app_download") !== "false";
+
+    const googlePlayUrl = settings.get("app_google_play_url") || "";
+    const appStoreUrl = settings.get("app_app_store_url") || "";
+    const apkDownloadUrl = settings.get("app_apk_download_url") || "";
 
     const slides = await 
         prisma.heroSlide.findMany({
@@ -318,7 +333,10 @@ export default async function Home({
 
     return (
         <main
-            className="min-h-screen bg-white dark:bg-slate-950 font-sans selection:bg-primary/30"
+            className={cn(
+                "min-h-screen bg-white dark:bg-slate-950 font-sans selection:bg-primary/30",
+                maintenance && "pt-10 sm:pt-12 md:pt-14"
+            )}
             style={{ "--primary-theme": themeColor } as React.CSSProperties}
         >
             <HashScrollHandler />
@@ -328,11 +346,31 @@ export default async function Home({
                 brandWord2={brandWord2}
                 themeColor={themeColor}
                 barangays={barangays}
+                isMaintenanceActive={maintenance}
             />
 
+            {maintenance && (
+                <div className="bg-amber-500 text-slate-950 font-bold text-center px-4 h-10 sm:h-12 md:h-14 z-[110] fixed top-0 left-0 right-0 shadow-lg flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
+                    <span className="animate-pulse inline-block w-2.5 h-2.5 rounded-full bg-red-600 mr-1" />
+                    <strong>Maintenance Mode Active:</strong> Some online transactional features and forms are temporarily disabled.
+                </div>
+            )}
+
             <ClientOnly delay={1000} fallback={<HeroSkeleton />}>
-                <Hero slides={slides} themeColor={themeColor} />
+                <Hero slides={slides} themeColor={themeColor} isMaintenanceActive={maintenance} />
             </ClientOnly>
+
+            {showAppDownload && (
+                <ClientOnly delay={1000}>
+                    <AppDownloadSection
+                        themeColor={themeColor}
+                        googlePlayUrl={googlePlayUrl}
+                        appStoreUrl={appStoreUrl}
+                        apkDownloadUrl={apkDownloadUrl}
+                        isLoggedIn={!!session}
+                    />
+                </ClientOnly>
+            )}
 
             <div className="space-y-4 pb-6 md:pb-0">
                 {showDiningLodging && (
@@ -369,7 +407,7 @@ export default async function Home({
 
                 {showJobs && (
                     <ClientOnly delay={1000} fallback={<JobBoardSkeleton />}>
-                        <JobBoard jobs={jobs} />
+                        <JobBoard jobs={jobs} isMaintenanceActive={maintenance} />
                     </ClientOnly>
                 )}
                 {showGovernment && (
@@ -379,7 +417,7 @@ export default async function Home({
                 )}
                 {showServices && (
                     <ClientOnly delay={1000} fallback={<ServicesSkeleton />}>
-                        <Services services={services} themeColor={themeColor} />
+                        <Services services={services} themeColor={themeColor} isMaintenanceActive={maintenance} />
                     </ClientOnly>
                 )}
             </div>
@@ -395,7 +433,7 @@ export default async function Home({
             )}
             {showEmergency && (
                 <ClientOnly delay={1000} fallback={<EmergencyReportSkeleton />}>
-                    <EmergencyReport initialHotlines={hotlines} showMap={showMap} />
+                    <EmergencyReport initialHotlines={hotlines} showMap={showMap} isMaintenanceActive={maintenance} />
                 </ClientOnly>
             )}
             <Footer

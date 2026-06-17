@@ -77,6 +77,7 @@ export const authOptions: NextAuthOptions = {
                     isPasswordChanged: user.isPasswordChanged,
                     managedBarangay: user.managedBarangay,
                     department: user.department,
+                    accessiblePages: user.accessiblePages || [],
                 };
             },
         }),
@@ -98,6 +99,7 @@ export const authOptions: NextAuthOptions = {
 
                 token.managedBarangay = (user as any).managedBarangay;
                 token.department = (user as any).department;
+                token.accessiblePages = (user as any).accessiblePages || [];
             }
 
             // Sync Database dynamically with Session to Auto-Logout rejected/pending/deceased users!
@@ -128,6 +130,23 @@ export const authOptions: NextAuthOptions = {
                 }
             }
 
+            // Sync Database dynamically with Session for admins/staff too!
+            if (token.id && token.role !== "USER") {
+                const dbUser = await prisma.user.findUnique({
+                    where: { id: token.id as string },
+                    select: {
+                        accessiblePages: true
+                    }
+                });
+
+                if (dbUser) {
+                    token.accessiblePages = dbUser.accessiblePages || [];
+                } else {
+                    token.exp = 1;
+                    token.deactivated = true;
+                }
+            }
+
             return token;
         },
         async session({ session, token }) {
@@ -144,6 +163,7 @@ export const authOptions: NextAuthOptions = {
 
                 (session.user as any).managedBarangay = token.managedBarangay;
                 (session.user as any).department = token.department || null;
+                (session.user as any).accessiblePages = (token as any).accessiblePages || [];
             }
             return session;
         },

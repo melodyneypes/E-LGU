@@ -57,6 +57,7 @@ type UserWithProfile = {
   rejectionCount?: number;
   department?: string | null;
   createdAt: Date;
+  accessiblePages: string[];
   residentProfile: {
     id: string;
     registrationStatus: string;

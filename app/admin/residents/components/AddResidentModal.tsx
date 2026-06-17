@@ -227,7 +227,7 @@ export function AddResidentModal() {
 
     return (
         <Dialog open={isAddModalOpen} onOpenChange={(open) => !open && closeModal()}>
-            <DialogContent className="max-w-[95vw] w-[95vw] p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl">
+            <DialogContent className="max-w-[95vw] sm:max-w-6xl w-full p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl">
                 <div className="flex flex-col lg:flex-row h-[90vh]">
                     
                     {/* Left Sidebar: Steps Progress */}

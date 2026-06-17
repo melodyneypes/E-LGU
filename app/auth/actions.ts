@@ -1,7 +1,9 @@
 "use server";
 
 import prisma from "@/lib/db/prisma";
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseAdmin } from "@/lib/supabase";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
@@ -18,9 +20,9 @@ export async function sendOTP(email: string) {
 
         if (!limitCheck.success) {
             const minutesLeft = Math.ceil(((limitCheck.resetTime?.getTime() || 0) - Date.now()) / 60000);
-            return { 
-                success: false, 
-                error: `Too many OTP requests. Please try again after ${minutesLeft} minute(s).` 
+            return {
+                success: false,
+                error: `Too many OTP requests. Please try again after ${minutesLeft} minute(s).`
             };
         }
 
@@ -53,9 +55,9 @@ export async function verifyOTPOnly(email: string, otp: string) {
 
         if (!limitCheck.success) {
             const minutesLeft = Math.ceil(((limitCheck.resetTime?.getTime() || 0) - Date.now()) / 60000);
-            return { 
-                success: false, 
-                error: `Too many verification attempts. Try again after ${minutesLeft} minute(s).` 
+            return {
+                success: false,
+                error: `Too many verification attempts. Try again after ${minutesLeft} minute(s).`
             };
         }
 
@@ -88,8 +90,14 @@ export async function verifyOTPOnly(email: string, otp: string) {
     }
 }
 
-export async function finalizePasswordChange(email: string, newPassword: string) {
+export async function finalizePasswordChange(email: string, otp: string, newPassword: string) {
     try {
+        // Verify OTP first before executing the password change
+        const verifyResult = await verifyOTPOnly(email, otp);
+        if (!verifyResult.success) {
+            return { success: false, error: verifyResult.error || "Invalid or expired OTP" };
+        }
+
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
         await prisma.user.update({
@@ -254,4 +262,52 @@ export async function resetPassword(token: string, newPassword: string) {
         return { success: false, error: "Failed to reset password. Please try again." };
     }
 }
+
+export async function getSecureUploadUrlAction(
+    fieldName: string,
+    serviceType: string,
+    fileExt: string
+) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const sanitizedFieldName = fieldName.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const sanitizedServiceType = serviceType.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const sanitizedExt = fileExt.replace(/[^a-zA-Z0-9]/g, '');
+
+        // Secure server-side path generation
+        const fileName = `${sanitizedFieldName}_${Date.now()}.${sanitizedExt}`;
+        const filePath = `services/${sanitizedServiceType}/${session.user.id}/${fileName}`;
+
+        if (!supabaseAdmin) {
+            return { success: false, error: "Supabase Admin client not initialized" };
+        }
+
+        const { data, error } = await supabaseAdmin.storage
+            .from("system-assets")
+            .createSignedUploadUrl(filePath);
+
+        if (error || !data?.signedUrl) {
+            console.error("[Storage] Failed to generate signed upload URL:", error);
+            return { success: false, error: "Failed to allocate storage destination" };
+        }
+
+        const { data: { publicUrl } } = supabaseAdmin.storage
+            .from("system-assets")
+            .getPublicUrl(filePath);
+
+        return {
+            success: true,
+            signedUrl: data.signedUrl,
+            publicUrl
+        };
+    } catch (error: any) {
+        console.error("getSecureUploadUrlAction Error:", error);
+        return { success: false, error: error.message || "Internal server error" };
+    }
+}
+
 

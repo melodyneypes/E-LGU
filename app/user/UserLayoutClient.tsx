@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import * as React from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 
 interface UserLayoutClientProps {
     children: React.ReactNode;
@@ -17,16 +18,27 @@ export default function UserLayoutClient({
     children,
     logoUrl,
     brandWord1 = "E",
-    brandWord2 = "Mapandan",
+    brandWord2 = "",
     themeColor = "#2563eb"
 }: UserLayoutClientProps) {
     const { status } = useSession();
+    const pathname = usePathname();
+
+    const isPublicPath = 
+        pathname.startsWith("/user/dining") ||
+        pathname.startsWith("/user/accommodation") ||
+        pathname.startsWith("/user/tourism") ||
+        pathname.startsWith("/user/news") ||
+        pathname.startsWith("/user/events") ||
+        pathname.startsWith("/user/projects") ||
+        pathname.startsWith("/user/officials") ||
+        pathname.startsWith("/user/hotlines");
 
     React.useEffect(() => {
-        if (status === "unauthenticated") {
+        if (status === "unauthenticated" && !isPublicPath) {
             window.location.href = "/auth/login";
         }
-    }, [status]);
+    }, [status, isPublicPath]);
 
     return (
         <div

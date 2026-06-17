@@ -50,17 +50,20 @@ export async function generateMetadata(): Promise<Metadata> {
 import { Providers } from "@/components/shared/Providers";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const settings = await getMultipleSystemSettings(["maintenance_mode"]);
+  const isMaintenanceActive = settings.get("maintenance_mode") === "true";
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers>
+        <Providers isMaintenanceActive={isMaintenanceActive}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             {children}
           </ThemeProvider>

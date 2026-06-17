@@ -18,7 +18,7 @@ interface InitialHotline {
     address: string | null;
 }
 
-export function EmergencyReport({ initialHotlines = [], showMap = true }: { initialHotlines?: InitialHotline[], showMap?: boolean }) {
+export function EmergencyReport({ initialHotlines = [], showMap = true, isMaintenanceActive = false }: { initialHotlines?: InitialHotline[], showMap?: boolean, isMaintenanceActive?: boolean }) {
     const [copied, setCopied] = React.useState<string | null>(null);
     const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
 
@@ -57,7 +57,7 @@ export function EmergencyReport({ initialHotlines = [], showMap = true }: { init
             {/* Disaster Monitoring (Side by Side Maps) */}
             {showMap && (
                 <div className="max-w-7xl mx-auto mb-16 md:mb-24 relative z-10">
-                    <div className="sticky md:static top-[70px] md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-slate-950/95 md:bg-transparent backdrop-blur-xl md:backdrop-blur-none flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 border-b border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-12">
+                    <div className="sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-slate-950/95 md:bg-transparent backdrop-blur-xl md:backdrop-blur-none flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 border-b border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-12">
                         <div className="space-y-4">
                             <div className="flex items-center gap-3">
                                 <CloudLightning className="w-8 h-8 text-blue-500 animate-pulse" />
@@ -124,7 +124,7 @@ export function EmergencyReport({ initialHotlines = [], showMap = true }: { init
             {/* Emergency Hotlines Container */}
             <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 relative z-10">
                 <div className="space-y-12">
-                    <div className="space-y-4 sticky md:static top-[70px] md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-slate-950/95 md:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-b border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-0">
+                    <div className="space-y-4 sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-slate-950/95 md:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-b border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-0">
                         <div className="flex items-center gap-3">
                             <Siren className="w-6 h-6 md:w-8 md:h-8 text-red-500 animate-pulse" />
                             <h2 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-white">Emergency Hotlines</h2>
@@ -234,7 +234,7 @@ export function EmergencyReport({ initialHotlines = [], showMap = true }: { init
                 {/* Report Form Component */}
                 {isMobile ? (
                     <div className="relative">
-                        <ReportForm />
+                        <ReportForm isMaintenanceActive={isMaintenanceActive} />
                     </div>
                 ) : (
                     <motion.div
@@ -243,7 +243,7 @@ export function EmergencyReport({ initialHotlines = [], showMap = true }: { init
                         viewport={{ once: true }}
                         className="relative"
                     >
-                        <ReportForm />
+                        <ReportForm isMaintenanceActive={isMaintenanceActive} />
                     </motion.div>
                 )}
             </div>

@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { getSystemSetting } from "./settings";
 
 
 interface SendEmailProps {
@@ -13,7 +14,7 @@ interface SendEmailProps {
 }
 
 /**
- * Centered Email Utility for LGU Mapandan
+ * Centered Email Utility for LGU ${municipalityName}
  * Reuses existing Gmail SMTP configuration from .env
  */
 export async function sendEmail({ type, to, name, remarks, transactionId, amount, resetLink, serviceName }: SendEmailProps) {
@@ -27,7 +28,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
 
     console.log(`[MAIL] Sending email of type: ${type} to: ${to}`);
 
-    const municipalityName = "Mapandan"; // Updated to Mapandan as per project context
+    const municipalityName = await getSystemSetting("brand_word_2", "");
     let subject = "Municipal Notification"; // Default fallback subject
     let htmlBody = "";
 
@@ -54,7 +55,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                     <p style="color: #166534; font-size: 13px; margin: 8px 0 0 0; opacity: 0.8;">You can now access all digital resident services through the portal.</p>
                 </div>
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Resident Services Portal • Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Resident Services Portal • Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "REJECTED") {
@@ -79,7 +80,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                     </div>` : ""}
                     <p style="color: #64748b; font-size: 13px;">Please re-submit your application with the corrected information to proceed.</p>
                     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                    <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Resident Services Portal • Automated Notification</p>
+                    <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Resident Services Portal • Automated Notification</p>
                 </div>
             </div>`;
         } else {
@@ -102,7 +103,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                     </div>` : ""}
                     <p style="color: #64748b; font-size: 13px;">Please re-submit your application with the corrected information to proceed.</p>
                     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                    <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Resident Services Portal • Automated Notification</p>
+                    <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Resident Services Portal • Automated Notification</p>
                 </div>
             </div>`;
         }
@@ -128,7 +129,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>` : ""}
                 <p style="color: #64748b; font-size: 13px;">Please log in to your account, go to "My Requests", and resubmit the required corrections. <strong>This does not count as a rejection strike.</strong></p>
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Treasury Department • Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department • Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "FOR_PAYMENT") {
@@ -165,7 +166,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Treasury Department • Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department • Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "FOR_CLAIM") {
@@ -189,7 +190,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                     <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
                         <tr>
                             <td style="color: #64748b; padding: 4px 0;">Location:</td>
-                            <td style="color: #1e293b; font-weight: 700; padding: 4px 0;">Municipal Treasury Office, Mapandan</td>
+                            <td style="color: #1e293b; font-weight: 700; padding: 4px 0;">Municipal Treasury Office, ${municipalityName}</td>
                         </tr>
                         <tr>
                             <td style="color: #64748b; padding: 4px 0;">Schedule:</td>
@@ -211,7 +212,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Treasury Department • Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department • Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "RELEASED") {
@@ -235,7 +236,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                     <p style="color: #166534; font-size: 18px; font-weight: 900; margin: 0; letter-spacing: 0.1em;">REF: ${transactionId || "N/A"}</p>
                 </div>
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Treasury Department • Official Release Notice</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department • Official Release Notice</p>
             </div>
         </div>`;
     } else if (type === "DEACTIVATED") {
@@ -260,7 +261,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 <p style="color: #64748b; font-size: 13px;">Please bring a valid Government ID for authentication. Access to all digital services is suspended until further notice.</p>
                 
                 <hr style="border: none; border-top: 1px solid #fecaca; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Security Protocol • Security Alert</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Security Protocol • Security Alert</p>
             </div>
         </div>`;
     } else if (type === "IN_ROUTE") {
@@ -300,7 +301,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Municipal Logistics • Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Municipal Logistics • Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "NEW_PICKUP_ALERT") {
@@ -340,7 +341,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Municipal Logistics • Fleet Dispatch System</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Municipal Logistics • Fleet Dispatch System</p>
             </div>
         </div>`;
     } else if (type === "DISPUTE_APPROVED") {
@@ -370,7 +371,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>` : ""}
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Treasury Department • Official Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department • Official Notification</p>
             </div>
         </div>`;
     } else if (type === "PASSWORD_RESET") {
@@ -405,7 +406,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Resident Services Portal • Security Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Resident Services Portal • Security Notification</p>
             </div>
         </div>`;
     } else if (type === "DISPUTE_REJECTED") {
@@ -431,7 +432,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 <p style="color: #64748b; font-size: 13px;">The original transaction record remains final. If you have further questions, please visit the Municipal Treasury Office personally.</p>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Treasury Department • Official Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department • Official Notification</p>
             </div>
         </div>`;
     } else if (type === "PROCESSING") {
@@ -447,7 +448,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Request in Process</h1>
                 </div>
                 <p style="color: #475569; font-size: 15px; line-height: 1.6;">Dear <strong>${name}</strong>,</p>
-                <p style="color: #475569; font-size: 15px; line-height: 1.6;">We would like to inform you that your request for **${serviceName || "Service"}** (Ref ID: <strong style="font-family: monospace;">${transactionId || "N/A"}</strong>) is now being officially processed by LGU Mapandan.</p>
+                <p style="color: #475569; font-size: 15px; line-height: 1.6;">We would like to inform you that your request for **${serviceName || "Service"}** (Ref ID: <strong style="font-family: monospace;">${transactionId || "N/A"}</strong>) is now being officially processed by LGU ${municipalityName}.</p>
                 
                 <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 16px; padding: 24px; margin: 32px 0; text-align: center;">
                     <p style="color: #1e40af; font-size: 14px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">Current Status: Processing</p>
@@ -461,7 +462,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>` : ""}
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan • Official Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} • Official Notification</p>
             </div>
         </div>`;
     } else if (type === "FOR_REINSPECTION" && serviceName?.toLowerCase().includes("business")) {
@@ -477,7 +478,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                     <p style="color: ${primaryGreen}; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 8px;">Treasury Verification Complete</p>
                 </div>
                 <p style="color: #475569; font-size: 15px; line-height: 1.6;">Dear <strong>${name}</strong>,</p>
-                <p style="color: #475569; font-size: 15px; line-height: 1.6;">This is to officially confirm that the Municipal Treasury Office of Mapandan has received your payment for the **${serviceName}** application (Ref ID: <strong style="font-family: monospace;">${transactionId || "N/A"}</strong>).</p>
+                <p style="color: #475569; font-size: 15px; line-height: 1.6;">This is to officially confirm that the Municipal Treasury Office of ${municipalityName} has received your payment for the **${serviceName}** application (Ref ID: <strong style="font-family: monospace;">${transactionId || "N/A"}</strong>).</p>
                 
                 <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 24px; margin: 32px 0;">
                     <p style="color: #166534; font-size: 14px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">Status: BPLO Verification</p>
@@ -485,7 +486,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
                 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Treasury Department • Official Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department • Official Notification</p>
             </div>
         </div>`;
     } else if (type === "FOR_INSPECTION" || type === "FOR_REINSPECTION") {
@@ -516,7 +517,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>` : ""}
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Engineering Office • Official Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Engineering Office • Official Notification</p>
             </div>
         </div>`;
     } else if (type === "EVALUATED") {
@@ -546,7 +547,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>` : ""}
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Engineering Office • Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Engineering Office • Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "UNPAID") {
@@ -576,7 +577,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Treasury Department • Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department • Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "PAID") {
@@ -600,7 +601,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan Treasury Department • Official Receipt Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department • Official Receipt Notification</p>
             </div>
         </div>`;
     } else if (type === "FOR_PICKING") {
@@ -623,7 +624,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">Mapandan • Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} • Automated Notification</p>
             </div>
         </div>`;
     }

@@ -25,6 +25,7 @@ interface SidebarProps {
             role?: string;
             managedBarangay?: string | null;
             department?: string | null;
+            accessiblePages?: string[];
         };
     };
     logoUrl?: string;
@@ -40,7 +41,7 @@ export function Sidebar({
     session,
     logoUrl,
     brandWord1 = "E",
-    brandWord2 = "Mapandan",
+    brandWord2 = "",
     themeColor = "#2563eb",
     pendingReportsCount = 0,
     pendingResidentsCount = 0,
@@ -57,7 +58,8 @@ export function Sidebar({
     const [isAboutOpen, setIsAboutOpen] = React.useState(pathname.startsWith("/admin/about"));
     const [isBarangaysOpen, setIsBarangaysOpen] = React.useState(pathname.startsWith("/admin/barangays"));
     const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings"));
-    const [isRegistrarOpen, setIsRegistrarOpen] = React.useState(pathname.startsWith("/admin/registrar"));
+    const [isRegistrarOpen, setIsRegistrarOpen] = React.useState(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger"));
+    const [isLedgerOpen, setIsLedgerOpen] = React.useState(pathname.startsWith("/admin/registrar/ledger"));
     const [searchQuery, setSearchQuery] = React.useState("");
     const [isEntranceComplete, setIsEntranceComplete] = React.useState(false);
     const [mounted, setMounted] = React.useState(false);
@@ -71,7 +73,8 @@ export function Sidebar({
         setIsAboutOpen(pathname.startsWith("/admin/about"));
         setIsBarangaysOpen(pathname.startsWith("/admin/barangays"));
         setIsTreasuryOpen(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings"));
-        setIsRegistrarOpen(pathname.startsWith("/admin/registrar"));
+        setIsRegistrarOpen(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger"));
+        setIsLedgerOpen(pathname.startsWith("/admin/registrar/ledger"));
     }, [pathname]);
 
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
@@ -111,7 +114,7 @@ export function Sidebar({
         return () => {
             timers.forEach(clearTimeout);
         };
-    }, [pathname, mounted, isSettingsOpen, isAboutOpen, isBarangaysOpen, isTreasuryOpen, scrollToActive]);
+    }, [pathname, mounted, isSettingsOpen, isAboutOpen, isBarangaysOpen, isTreasuryOpen, isLedgerOpen, scrollToActive]);
 
     const allMenuItems = [
         { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -198,6 +201,26 @@ export function Sidebar({
             ]
         },
         {
+            label: "Transaction Ledger",
+            icon: FileText,
+            category: "Registrar",
+            isDropdown: true,
+            isOpen: isLedgerOpen,
+            onToggle: () => {
+                if (isLedgerOpen) {
+                    setIsLedgerOpen(false);
+                } else {
+                    setIsLedgerOpen(true);
+                    router.push("/admin/registrar/ledger?type=BIRTH");
+                }
+            },
+            subItems: [
+                { href: "/admin/registrar/ledger?type=BIRTH", label: "Birth Registration" },
+                { href: "/admin/registrar/ledger?type=DEATH", label: "Death Registration" },
+                { href: "/admin/registrar/ledger?type=MARRIAGE", label: "Marriage Registration" },
+            ]
+        },
+        {
             label: "Treasury Hub",
             icon: LayoutDashboard,
             category: "Treasury",
@@ -258,47 +281,86 @@ export function Sidebar({
         "Household Map"
     ];
 
+    const accessiblePages = session?.user?.accessiblePages;
+    const hasCustomPages = accessiblePages && accessiblePages.length > 0;
+
     let menuItems = allMenuItems;
 
-    if (role === "ADMIN") {
-        if (department) {
-            const deptUpper = department.toUpperCase();
-            if (deptUpper === "BPLO") {
-                menuItems = [
-                    { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "Treasury" }
-                ];
-            } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
-                const registrarHubItem = allMenuItems.find(item => item.label === "Registrar Hub");
-                menuItems = [
-                    ...(registrarHubItem ? [registrarHubItem] : [])
-                ];
-            } else if (deptUpper === "TREASURY") {
-                menuItems = allMenuItems.filter(item => 
-                    ["Treasury Hub", "Payments Ledger", "Payment Settings"].includes(item.label)
-                );
-            } else if (deptUpper === "LGU") {
-                menuItems = allMenuItems.filter(item => 
-                    !["Registrar Hub", "Treasury Hub", "Payments Ledger", "BPLO Permits", "Payment Settings"].includes(item.label)
-                );
+    if (!hasCustomPages) {
+        if (role === "ADMIN") {
+            if (department) {
+                const deptUpper = department.toUpperCase();
+                if (deptUpper === "BPLO") {
+                    menuItems = [
+                        { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "Treasury" }
+                    ];
+                } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
+                    menuItems = allMenuItems.filter(item =>
+                        ["Registrar Hub", "Transaction Ledger"].includes(item.label)
+                    );
+                } else if (deptUpper === "TREASURY") {
+                    menuItems = allMenuItems.filter(item => 
+                        ["Treasury Hub", "Payments Ledger", "Payment Settings"].includes(item.label)
+                    );
+                } else if (deptUpper === "LGU") {
+                    menuItems = allMenuItems.filter(item => 
+                        !["Registrar Hub", "Transaction Ledger", "Treasury Hub", "Payments Ledger", "BPLO Permits", "Payment Settings"].includes(item.label)
+                    );
+                } else {
+                    menuItems = [
+                        { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard }
+                    ];
+                }
             } else {
-                menuItems = [
-                    { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard }
-                ];
+                // ADMIN without department gets allMenuItems
+                menuItems = allMenuItems;
             }
-        } else {
-            // ADMIN without department gets allMenuItems
-            menuItems = allMenuItems;
+        } else if (role === "CONTENT_ADMIN") {
+            menuItems = allMenuItems.filter(item => contentAdminAllowed.includes(item.label));
+        } else if (role === "BARANGAY_ADMIN") {
+            menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
+        } else if (role === "TREASURY_STAFF") {
+            menuItems = allMenuItems.filter(item => ["Treasury Hub", "Payments Ledger", "Payment Settings"].includes(item.label));
+        } else if (role === "ADMIN_AIDE") {
+            menuItems = allMenuItems.filter(item => ["BPLO Permits"].includes(item.label));
+        } else if (role === "ENGINEER") {
+            menuItems = [{ href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" }];
         }
-    } else if (role === "CONTENT_ADMIN") {
-        menuItems = allMenuItems.filter(item => contentAdminAllowed.includes(item.label));
-    } else if (role === "BARANGAY_ADMIN") {
-        menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
-    } else if (role === "TREASURY_STAFF") {
-        menuItems = allMenuItems.filter(item => ["Treasury Hub", "Payments Ledger", "Payment Settings"].includes(item.label));
-    } else if (role === "ADMIN_AIDE") {
-        menuItems = allMenuItems.filter(item => ["BPLO Permits"].includes(item.label));
-    } else if (role === "ENGINEER") {
-        menuItems = [{ href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" }];
+    }
+
+    // Filter menuItems dynamically based on accessiblePages if assigned
+    if (accessiblePages && accessiblePages.length > 0) {
+        const isPageAccessible = (href: string) => {
+            return accessiblePages.some(page => {
+                if (page === href) return true;
+                if (page.includes("?") && href.includes("?")) {
+                    const [pagePath, pageQuery] = page.split("?");
+                    const [hrefPath, hrefQuery] = href.split("?");
+                    return pagePath === hrefPath && hrefQuery.includes(pageQuery);
+                }
+                if (!page.includes("?")) {
+                    const [hrefPath] = href.split("?");
+                    return page === hrefPath;
+                }
+                return false;
+            });
+        };
+
+        menuItems = menuItems.map(item => {
+            if (item.isDropdown) {
+                const filteredSubItems = item.subItems?.filter(sub => isPageAccessible(sub.href)) || [];
+                return {
+                    ...item,
+                    subItems: filteredSubItems
+                };
+            }
+            return item;
+        }).filter(item => {
+            if (item.isDropdown) {
+                return item.subItems && item.subItems.length > 0;
+            }
+            return item.href ? isPageAccessible(item.href) : false;
+        });
     }
 
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -425,18 +487,21 @@ export function Sidebar({
                                                     {(normalizedQuery && !parentMatches ? subMatches : item.subItems)?.map((sub) => {
                                                         const currentCategory = searchParams.get("category") || "ALL";
                                                         const currentTab = searchParams.get("tab") || "general";
+                                                        const currentType = searchParams.get("type") || "BIRTH";
 
                                                         const urlObj = new URL(sub.href, "http://localhost");
                                                         const subCategory = urlObj.searchParams.get("category");
                                                         const subTab = urlObj.searchParams.get("tab");
+                                                        const subType = urlObj.searchParams.get("type");
 
                                                         const isSubActive = (
                                                             pathname === urlObj.pathname ||
                                                             (pathname.startsWith("/admin/treasury/") && !pathname.includes("/payment-settings") && !pathname.includes("/payments") && urlObj.pathname === "/admin/treasury") ||
-                                                            (pathname.startsWith("/admin/registrar/") && urlObj.pathname === "/admin/registrar")
+                                                            (pathname.startsWith("/admin/registrar/") && !pathname.startsWith("/admin/registrar/ledger") && urlObj.pathname === "/admin/registrar")
                                                         ) &&
                                                             (subCategory ? currentCategory === subCategory : true) &&
-                                                            (subTab ? currentTab === subTab : true);
+                                                            (subTab ? currentTab === subTab : true) &&
+                                                            (subType ? currentType === subType : true);
                                                         return (
                                                             <Link
                                                                 key={sub.href}

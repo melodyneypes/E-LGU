@@ -14,7 +14,7 @@ import {
     DialogDescription,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { updateSystemSetting, createHeroSlide, deleteHeroSlide, updateHeroSlide, updateLogoSetting } from "./actions";
+import { updateSystemSetting, createHeroSlide, deleteHeroSlide, updateHeroSlide, updateLogoSetting, updateMultipleSystemSettings } from "./actions";
 import { Plus, Trash2, Save, Globe, Layout, ShieldAlert, Image as ImageIcon, Send, X, Loader2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -33,12 +33,16 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
     const isAdmin = role === "ADMIN";
 
     const [maintenanceMode, setMaintenanceMode] = useState(settings.maintenance_mode === "true");
+    const [kioskMaintenanceMode, setKioskMaintenanceMode] = useState(settings.kiosk_maintenance_mode === "true");
     const [logoUrl, setLogoUrl] = useState(settings.site_logo || "");
     const [portalName, setPortalName] = useState(settings.portal_name || "Municipality of Mapandan");
     const [emergencyPhone, setEmergencyPhone] = useState(settings.emergency_phone || "911");
     const [brandWord1, setBrandWord1] = useState(settings.brand_word_1 || "E");
-    const [brandWord2, setBrandWord2] = useState(settings.brand_word_2 || "Mapandan");
+    const [brandWord2, setBrandWord2] = useState(settings.brand_word_2 || "");
     const [themeColor, setThemeColor] = useState(settings.theme_color || "#2563eb");
+    const [googlePlayUrl, setGooglePlayUrl] = useState(settings.app_google_play_url || "");
+    const [appStoreUrl, setAppStoreUrl] = useState(settings.app_app_store_url || "");
+    const [apkDownloadUrl, setApkDownloadUrl] = useState(settings.app_apk_download_url || "");
     const [isSaving, setIsSaving] = useState(false);
     const [logoFile, setLogoFile] = useState<File | null>(null);
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -70,9 +74,42 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
     const handleSaveSettings = async () => {
         setIsSaving(true);
         try {
-            await updateSystemSetting("maintenance_mode", maintenanceMode.toString());
+            const settingsToUpdate: { key: string; value: string }[] = [];
 
-            // Handle logo
+            // Detect changes (dirty tracking) compared to initial props
+            if (maintenanceMode !== (settings.maintenance_mode === "true")) {
+                settingsToUpdate.push({ key: "maintenance_mode", value: maintenanceMode.toString() });
+            }
+            if (kioskMaintenanceMode !== (settings.kiosk_maintenance_mode === "true")) {
+                settingsToUpdate.push({ key: "kiosk_maintenance_mode", value: kioskMaintenanceMode.toString() });
+            }
+            if (portalName !== (settings.portal_name || "")) {
+                settingsToUpdate.push({ key: "portal_name", value: portalName });
+            }
+            if (emergencyPhone !== (settings.emergency_phone || "")) {
+                settingsToUpdate.push({ key: "emergency_phone", value: emergencyPhone });
+            }
+            if (brandWord1 !== (settings.brand_word_1 || "")) {
+                settingsToUpdate.push({ key: "brand_word_1", value: brandWord1 });
+            }
+            if (brandWord2 !== (settings.brand_word_2 || "")) {
+                settingsToUpdate.push({ key: "brand_word_2", value: brandWord2 });
+            }
+            if (themeColor !== (settings.theme_color || "")) {
+                settingsToUpdate.push({ key: "theme_color", value: themeColor });
+            }
+            if (googlePlayUrl !== (settings.app_google_play_url || "")) {
+                settingsToUpdate.push({ key: "app_google_play_url", value: googlePlayUrl });
+            }
+            if (appStoreUrl !== (settings.app_app_store_url || "")) {
+                settingsToUpdate.push({ key: "app_app_store_url", value: appStoreUrl });
+            }
+            if (apkDownloadUrl !== (settings.app_apk_download_url || "")) {
+                settingsToUpdate.push({ key: "app_apk_download_url", value: apkDownloadUrl });
+            }
+
+            let logoUpdated = false;
+            // Handle logo separately if uploaded
             if (logoFile) {
                 const formData = new FormData();
                 formData.append("logo", logoFile);
@@ -82,19 +119,29 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                     setLogoUrl(result.imageUrl);
                     setLogoFile(null);
                     setLogoPreview(null);
+                    logoUpdated = true;
                 }
-            } else {
-                await updateSystemSetting("site_logo", logoUrl);
+            } else if (logoUrl !== (settings.site_logo || "")) {
+                settingsToUpdate.push({ key: "site_logo", value: logoUrl });
             }
 
-            await updateSystemSetting("portal_name", portalName);
-            await updateSystemSetting("emergency_phone", emergencyPhone);
-            await updateSystemSetting("brand_word_1", brandWord1);
-            await updateSystemSetting("brand_word_2", brandWord2);
-            await updateSystemSetting("theme_color", themeColor);
-            toast.success("Settings updated successfully!");
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            // Only run transaction if there is something to update
+            if (settingsToUpdate.length > 0) {
+                const result = await updateMultipleSystemSettings(settingsToUpdate);
+                if (result.success) {
+                    toast.success("Settings updated successfully!");
+                    router.refresh();
+                } else {
+                    toast.error(result.error || "Failed to save settings");
+                }
+            } else if (logoUpdated) {
+                toast.success("Settings updated successfully!");
+                router.refresh();
+            } else {
+                toast.info("No changes detected.");
+            }
         } catch (error) {
+            console.error("Error saving settings:", error);
             toast.error("Failed to save settings");
         } finally {
             setIsSaving(false);
@@ -169,8 +216,46 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                                         </div>
                                         <Switch
                                             checked={maintenanceMode}
-                                            onCheckedChange={setMaintenanceMode}
+                                            onCheckedChange={async (checked) => {
+                                                setMaintenanceMode(checked);
+                                                try {
+                                                    await updateSystemSetting("maintenance_mode", checked.toString());
+                                                    toast.success(`Maintenance mode turned ${checked ? "ON" : "OFF"}`);
+                                                    router.refresh();
+                                                } catch {
+                                                    toast.error("Failed to update maintenance mode");
+                                                    setMaintenanceMode(!checked);
+                                                }
+                                            }}
                                             className="data-[state=checked]:bg-amber-600"
+                                        />
+                                    </div>
+
+                                    {/* Kiosk Maintenance Mode */}
+                                    <div className="flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-950/20 rounded-2xl border border-orange-200 dark:border-orange-900/50">
+                                        <div className="space-y-1">
+                                            <Label className="text-base font-bold text-orange-900 dark:text-orange-400 flex items-center gap-2">
+                                                <ShieldAlert className="w-4 h-4" />
+                                                Kiosk Maintenance Mode
+                                            </Label>
+                                            <p className="text-sm text-orange-700 dark:text-orange-500/80 italic">
+                                                Puts all local physical kiosk terminals into maintenance mode.
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            checked={kioskMaintenanceMode}
+                                            onCheckedChange={async (checked) => {
+                                                setKioskMaintenanceMode(checked);
+                                                try {
+                                                    await updateSystemSetting("kiosk_maintenance_mode", checked.toString());
+                                                    toast.success(`Kiosk maintenance mode turned ${checked ? "ON" : "OFF"}`);
+                                                    router.refresh();
+                                                } catch {
+                                                    toast.error("Failed to update kiosk maintenance mode");
+                                                    setKioskMaintenanceMode(!checked);
+                                                }
+                                            }}
+                                            className="data-[state=checked]:bg-orange-600"
                                         />
                                     </div>
 
@@ -289,6 +374,47 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                                                         className="h-1 w-24 mt-2 rounded-full"
                                                         style={{ background: `linear-gradient(to right, ${themeColor}, transparent)` }}
                                                     />
+                                                </div>
+                                            </div>
+
+                                            {/* Mobile App Downloads Configuration */}
+                                            <div className="pt-8 border-t border-slate-100 dark:border-slate-800 space-y-6">
+                                                <div className="space-y-1">
+                                                    <Label className="text-sm font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                                        <Save className="w-4 h-4" />
+                                                        Mobile Applications Settings
+                                                    </Label>
+                                                    <p className="text-xs text-slate-400 italic">Configure the official links for citizens to download municipal apps.</p>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[10px] font-black uppercase text-slate-400">Google Play Store URL</Label>
+                                                        <Input
+                                                            value={googlePlayUrl}
+                                                            onChange={(e) => setGooglePlayUrl(e.target.value)}
+                                                            placeholder="https://play.google.com/store/apps/details?id=..."
+                                                            className="rounded-xl font-mono text-xs"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[10px] font-black uppercase text-slate-400">Apple App Store URL</Label>
+                                                        <Input
+                                                            value={appStoreUrl}
+                                                            onChange={(e) => setAppStoreUrl(e.target.value)}
+                                                            placeholder="https://apps.apple.com/app/id..."
+                                                            className="rounded-xl font-mono text-xs"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[10px] font-black uppercase text-slate-400">Direct APK Download URL</Label>
+                                                        <Input
+                                                            value={apkDownloadUrl}
+                                                            onChange={(e) => setApkDownloadUrl(e.target.value)}
+                                                            placeholder="/downloads/emapandan.apk"
+                                                            className="rounded-xl font-mono text-xs"
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -453,6 +579,7 @@ function SectionVisibilityManager({ settings }: { settings: Record<string, strin
         section_emergency: settings.section_emergency !== "false",
         section_church: settings.section_church !== "false",
         section_map: settings.section_map !== "false",
+        section_app_download: settings.section_app_download !== "false",
     });
     const [isSaving, setIsSaving] = useState(false);
 
@@ -468,6 +595,7 @@ function SectionVisibilityManager({ settings }: { settings: Record<string, strin
         { key: "section_emergency", label: "Emergency Hotlines", description: "Emergency contact information" },
         { key: "section_church", label: "Parish Corner", description: "Church schedules and collections" },
         { key: "section_map", label: "Municipality Monitoring", description: "Interactive map and monitoring" },
+        { key: "section_app_download", label: "Mobile App Downloads", description: "Google Play, App Store, and APK download links" },
     ];
 
     const handleToggle = (key: string) => {

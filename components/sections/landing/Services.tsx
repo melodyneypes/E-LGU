@@ -17,9 +17,10 @@ interface Service {
 interface ServicesProps {
     services: Service[];
     themeColor?: string;
+    isMaintenanceActive?: boolean;
 }
 
-export function Services({ services = [], themeColor }: ServicesProps) {
+export function Services({ services = [], themeColor, isMaintenanceActive = false }: ServicesProps) {
     const displayServices = services.length > 0 ? services : [];
     const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
 
@@ -34,7 +35,7 @@ export function Services({ services = [], themeColor }: ServicesProps) {
 
     return (
         <section id="services" className="pt-8 md:pt-8 pb-6 md:pb-12 px-6 max-w-7xl mx-auto">
-            <div className="sticky md:static top-[70px] md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-white dark:bg-slate-950 md:bg-transparent md:dark:bg-transparent backdrop-blur-none flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-8 border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-0">
+            <div className="sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-white dark:bg-slate-950 md:bg-transparent md:dark:bg-transparent backdrop-blur-none flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-8 border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-0">
                 <div className="space-y-4">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-0.5 rounded-full" style={{ backgroundColor: themeColor || "var(--primary-theme)" }} />
@@ -56,7 +57,7 @@ export function Services({ services = [], themeColor }: ServicesProps) {
                 isMobile ? (
                     <div className={gridClass}>
                         {displayServices.map((service) => (
-                            <ServiceCard key={service.id} service={service} themeColor={themeColor} isMobile={isMobile} />
+                            <ServiceCard key={service.id} service={service} themeColor={themeColor} isMobile={isMobile} isMaintenanceActive={isMaintenanceActive} />
                         ))}
                     </div>
                 ) : (
@@ -71,46 +72,50 @@ export function Services({ services = [], themeColor }: ServicesProps) {
                         className={gridClass}
                     >
                         {displayServices.map((service) => (
-                            <ServiceCard key={service.id} service={service} themeColor={themeColor} isMobile={isMobile} />
+                            <ServiceCard key={service.id} service={service} themeColor={themeColor} isMobile={isMobile} isMaintenanceActive={isMaintenanceActive} />
                         ))}
                     </motion.div>
                 )
             )}
 
             <div className="flex justify-center mt-8 md:mt-12">
-                <Link href="/user/services" className="w-full md:w-auto">
-                    <Button 
-                        style={{ 
-                            backgroundColor: themeColor || "var(--primary-theme)",
-                            borderColor: themeColor || "var(--primary-theme)",
-                            color: "white"
-                        }}
-                        className="rounded-[2rem] px-8 py-3.5 md:px-12 md:py-5 font-black uppercase tracking-widest text-[9px] md:text-[10px] h-auto gap-2 md:gap-3 border-2 transition-all hover:opacity-90 shadow-xl shadow-primary/20 w-full md:w-[400px] flex items-center justify-center"
-                    >
-                        Access All Services
-                        <ArrowUpRight className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                    </Button>
-                </Link>
+                {!isMaintenanceActive && (
+                    <Link href="/user/services" className="w-full md:w-auto">
+                        <Button 
+                            style={{ 
+                                backgroundColor: themeColor || "var(--primary-theme)",
+                                borderColor: themeColor || "var(--primary-theme)",
+                                color: "white"
+                            }}
+                            className="rounded-[2rem] px-8 py-3.5 md:px-12 md:py-5 font-black uppercase tracking-widest text-[9px] md:text-[10px] h-auto gap-2 md:gap-3 border-2 transition-all hover:opacity-90 shadow-xl shadow-primary/20 w-full md:w-[400px] flex items-center justify-center"
+                        >
+                            Access All Services
+                            <ArrowUpRight className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                        </Button>
+                    </Link>
+                )}
             </div>
         </section>
     );
 }
 
-function ServiceCard({ service, themeColor, isMobile }: { service: Service; themeColor?: string; isMobile: boolean }) {
-    const cardClasses = "group bg-white dark:bg-[#0f1117] rounded-2xl md:rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/40 dark:shadow-none hover:border-blue-500 hover:-translate-y-2 transition-all overflow-hidden relative";
+function ServiceCard({ service, themeColor, isMobile, isMaintenanceActive }: { service: Service; themeColor?: string; isMobile: boolean; isMaintenanceActive?: boolean }) {
+    const cardClasses = `${isMaintenanceActive ? "opacity-60 pointer-events-none" : "group hover:border-blue-500 hover:-translate-y-2"} bg-white dark:bg-[#0f1117] rounded-2xl md:rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/40 dark:shadow-none transition-all overflow-hidden relative`;
     
     const content = (
         <Link 
             href={
-                service.code.startsWith("CEDULA") 
-                    ? "/user/services/cedula" 
-                    : service.code.startsWith("BUSINESS_PERMIT")
-                        ? "/user/services/business-permit"
-                        : service.code === "CIVIL_REGISTRY"
-                            ? "/user/services/civil-registry"
-                            : service.code === "BUILDING_PERMIT"
-                                ? "/user/services/building-permit"
-                                : `/user/services/${service.id}`
+                isMaintenanceActive
+                    ? "#"
+                    : service.code.startsWith("CEDULA") 
+                        ? "/user/services/cedula" 
+                        : service.code.startsWith("BUSINESS_PERMIT")
+                            ? "/user/services/business-permit"
+                            : service.code === "CIVIL_REGISTRY"
+                                ? "/user/services/civil-registry"
+                                : service.code === "BUILDING_PERMIT"
+                                    ? "/user/services/building-permit"
+                                    : `/user/services/${service.id}`
             } 
             className="block p-5 md:p-8 h-full"
         >
@@ -121,12 +126,19 @@ function ServiceCard({ service, themeColor, isMobile }: { service: Service; them
             
             <div className="relative z-10">
                 <div className="space-y-1.5 md:space-y-2">
-                    <h3 
-                        className="text-lg md:text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter italic leading-tight transition-colors"
-                        style={{ "--hover-color": themeColor || "var(--primary-theme)" } as any}
-                    >
-                        {service.name === "Community Tax Certificate - Individual" ? "Community Tax Certificate" : service.name}
-                    </h3>
+                    <div className="flex items-center justify-between gap-2">
+                        <h3 
+                            className="text-lg md:text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter italic leading-tight transition-colors"
+                            style={{ "--hover-color": themeColor || "var(--primary-theme)" } as any}
+                        >
+                            {service.name === "Community Tax Certificate - Individual" ? "Community Tax Certificate" : service.name}
+                        </h3>
+                        {isMaintenanceActive && (
+                            <span className="px-2 py-0.5 bg-amber-500/10 text-amber-500 rounded-full text-[8px] font-black uppercase tracking-widest border border-amber-500/20 shrink-0">
+                                Offline
+                            </span>
+                        )}
+                    </div>
                     <p className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 italic line-clamp-2">
                         {service.description}
                     </p>

@@ -11,9 +11,10 @@ import Link from "next/link";
 interface HeroProps {
     slides: HeroSlide[];
     themeColor?: string;
+    isMaintenanceActive?: boolean;
 }
 
-export function Hero({ slides, themeColor = "#2563eb" }: HeroProps) {
+export function Hero({ slides, themeColor = "#2563eb", isMaintenanceActive = false }: HeroProps) {
     const [current, setCurrent] = React.useState(0);
 
 
@@ -91,9 +92,8 @@ export function Hero({ slides, themeColor = "#2563eb" }: HeroProps) {
 
 
 
- 
                          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-                             {activeSlide.primaryBtnText && (
+                             {activeSlide.primaryBtnText && !isMaintenanceActive && (
                                  <Link href={activeSlide.primaryBtnLink || "#"}>
                                      <Button 
                                          className="px-6 py-3 md:px-10 md:py-5 h-auto text-white rounded-[2rem] font-black uppercase tracking-widest text-[8px] md:text-[10px] transition-all shadow-xl active:scale-95 flex items-center gap-2 md:gap-3 border-none hover:opacity-90"

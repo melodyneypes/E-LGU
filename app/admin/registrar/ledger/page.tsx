@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-
 import {
     getTreasuryTransactions
 } from "@/app/admin/transactions/cedula-actions";
@@ -61,29 +60,19 @@ function isRegistrarLcrRequest(tx: any) {
 const getStatusClassName = (status: string, isCancelled?: boolean) => {
     if (isCancelled) return "text-red-600";
     const statusMap: Record<string, string> = {
-        "FOR_REQUESTING": "text-amber-600",
-        "FOR_INSPECTION": "text-blue-600",
-        "FOR_REVISION": "text-amber-600",
-        "EVALUATED": "text-blue-600",
-        "FOR_CLAIM": "text-indigo-600",
-        "FOR_PICKING": "text-pink-600",
-        "IN_ROUTE": "text-orange-600",
         "DELIVERED": "text-teal-600",
-        "FOR_PROCESSING": "text-sky-600",
-        "PAID": "text-emerald-600",
         "RELEASED": "text-slate-600",
-        "REJECTED": "text-red-600",
-        "RETURN_REQUESTED": "text-orange-500",
-        "REFUND_REQUESTED": "text-orange-500",
-        "RETURNED": "text-slate-500",
-        "REFUNDED": "text-slate-500",
-        "DISPUTE_REJECTED": "text-red-700",
     };
     return statusMap[status] || "text-slate-500";
 };
 
-export default function RegistrarPage() {
+export default function RegistrarLedgerPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+
+    // Get selected type from search params: BIRTH, DEATH, or MARRIAGE. Defaults to BIRTH.
+    const queryType = searchParams.get("type");
+    const selectedType = (queryType === "DEATH" || queryType === "MARRIAGE") ? queryType : "BIRTH";
 
     // --- Unified Transactions States ---
     const [transactions, setTransactions] = useState<any[]>([]);
@@ -93,9 +82,6 @@ export default function RegistrarPage() {
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [sortBy, setSortBy] = useState<"date" | "service" | "status">("date");
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-    const searchParams = useSearchParams();
-    const categoryParam = searchParams.get("category");
-    const hasSelectedCategory = Boolean(categoryParam && categoryParam !== "ALL");
 
     // Fetch all requests for Civil Registry
     const fetchTransactions = useCallback(async () => {
@@ -103,13 +89,16 @@ export default function RegistrarPage() {
         try {
             const res = await getTreasuryTransactions("ALL");
             if (res.success && res.data) {
-                const lcrTxs = res.data.filter(isRegistrarLcrRequest);
-                setTransactions(lcrTxs);
+                // Filter only completed and successful transactions (DELIVERED and RELEASED)
+                const completedLcrTxs = res.data
+                    .filter(isRegistrarLcrRequest)
+                    .filter((tx: any) => (tx.status === "RELEASED" || tx.status === "DELIVERED") && !tx.isCancelled);
+                setTransactions(completedLcrTxs);
             } else {
                 toast.error(res.error || "Failed to load transactions");
             }
         } catch (err) {
-            console.error("Failed to load registrar transactions:", err);
+            console.error("Failed to load registrar ledger transactions:", err);
             toast.error("Failed to load transactions");
         } finally {
             setLoading(false);
@@ -121,15 +110,13 @@ export default function RegistrarPage() {
         fetchTransactions();
     }, [fetchTransactions]);
 
-    // Reset page numbers when search / layout changes
+    // Reset page numbers when search / type changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [search, itemsPerPage]);
+    }, [search, selectedType, itemsPerPage]);
 
     // --- List Filtering and Sorting ---
     const filteredTransactions = useMemo(() => {
-        if (!hasSelectedCategory) return [];
-
         return transactions.filter(tx => {
             const rs = getResidentSnapshot(tx);
             const name = `${rs.firstName || ''} ${rs.lastName || ''}`.trim().toLowerCase();
@@ -140,28 +127,18 @@ export default function RegistrarPage() {
                 tx.id.toLowerCase().includes(search.toLowerCase()) ||
                 refId.includes(searchUpper);
 
-            let matchesCategory = false;
-            if (categoryParam === "Birth Registration") {
-                matchesCategory = tx.type?.code === "LCR_BIRTH_REG";
-            } else if (categoryParam === "Birth Certificate") {
-                matchesCategory = tx.type?.code === "LCR_BIRTH";
-            } else if (categoryParam === "Death Registration") {
-                matchesCategory = tx.type?.code === "LCR_DEATH_REG" && tx.status !== "FOR_REQUESTING";
-            } else if (categoryParam === "Death Certificate") {
-                matchesCategory = tx.type?.code === "LCR_DEATH";
-            } else if (categoryParam === "Marriage License") {
-                matchesCategory = tx.type?.code === "LCR_MARRIAGE_LICENSE" && tx.status !== "FOR_REQUESTING";
-            } else if (categoryParam === "Marriage Registration") {
-                matchesCategory = tx.type?.code === "LCR_MARRIAGE_REG";
-            } else if (categoryParam === "Marriage Certificate") {
-                matchesCategory = tx.type?.code === "LCR_MARRIAGE";
-            } else if (categoryParam === "PSA Endorsement") {
-                matchesCategory = tx.type?.code === "LCR_PSA_ENDORSEMENT" || (tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" && tx.status !== "FOR_REQUESTING") || tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT";
+            let matchesType = false;
+            if (selectedType === "BIRTH") {
+                matchesType = tx.type?.code === "LCR_BIRTH_REG" || tx.type?.code === "LCR_BIRTH";
+            } else if (selectedType === "DEATH") {
+                matchesType = tx.type?.code === "LCR_DEATH_REG" || tx.type?.code === "LCR_DEATH";
+            } else if (selectedType === "MARRIAGE") {
+                matchesType = tx.type?.code === "LCR_MARRIAGE_REG" || tx.type?.code === "LCR_MARRIAGE" || tx.type?.code === "LCR_MARRIAGE_LICENSE";
             }
 
-            return matchesSearch && matchesCategory;
+            return matchesSearch && matchesType;
         });
-    }, [transactions, search, categoryParam, hasSelectedCategory]);
+    }, [transactions, search, selectedType]);
 
     const sortedTransactions = useMemo(() => {
         return [...filteredTransactions].sort((a, b) => {
@@ -221,6 +198,12 @@ export default function RegistrarPage() {
         }
     };
 
+    const getTitleLabel = () => {
+        if (selectedType === "DEATH") return "Death Registration Ledger";
+        if (selectedType === "MARRIAGE") return "Marriage Registration Ledger";
+        return "Birth Registration Ledger";
+    };
+
     return (
         <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header section with layout overview */}
@@ -229,27 +212,16 @@ export default function RegistrarPage() {
                     <div className="flex items-center gap-3 mb-1">
                         <div className="w-2 h-8 bg-primary rounded-full" />
                         <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">
-                            {hasSelectedCategory ? categoryParam : "Registrar Hub"}
+                            {getTitleLabel()}
                         </h1>
                     </div>
                     <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                        Manage validation evaluations, billing verification, and release document workflows in a single queue.
+                        View and search all completed and successful transactions.
                     </p>
                 </div>
             </div>
 
-            {!hasSelectedCategory ? (
-                <div className="min-h-[420px] flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 dark:border-[#2a3040] bg-white/60 dark:bg-[#151b2b]/60 px-6 text-center animate-in fade-in duration-500">
-                    <Archive className="w-16 h-16 mb-5 text-slate-300 dark:text-slate-600" />
-                    <h2 className="text-2xl font-black text-slate-800 dark:text-slate-200">
-                        Select a request type
-                    </h2>
-                    <p className="mt-2 max-w-md text-slate-500 dark:text-slate-400">
-                        Choose a category from the Registrar Hub sidebar to view and manage its requests.
-                    </p>
-                </div>
-            ) : (
-            /* Consolidated Dynamic List Queue */
+            {/* Consolidated Dynamic List Queue */}
             <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-2xl shadow-blue-500/5 overflow-hidden ring-1 ring-slate-200 dark:ring-white/5 animate-in fade-in duration-500">
                 {/* Filters Row */}
                 <div className="flex flex-col border-b border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#151b2b]">
@@ -410,7 +382,7 @@ export default function RegistrarPage() {
                                                 "text-[10px] font-black uppercase italic tracking-wider px-2 py-1 rounded bg-slate-50 dark:bg-black/30 border border-current w-fit block",
                                                 getStatusClassName(tx.status, tx.isCancelled)
                                             )}>
-                                                {tx.isCancelled ? "CANCELLED" : tx.status?.replace(/_/g, " ")}
+                                                {tx.status?.replace(/_/g, " ")}
                                             </span>
                                         </TableCell>
                                         <TableCell>
@@ -489,9 +461,6 @@ export default function RegistrarPage() {
                     </div>
                 </div>
             </div>
-            )}
         </div>
     );
 }
-
-

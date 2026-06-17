@@ -229,7 +229,7 @@ export function ParishCorner({ info, schedules, collections }: ParishCornerProps
 
             <div className="max-w-7xl mx-auto">
                 {/* Header Area */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-8 relative z-30 sticky md:static top-[70px] md:top-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-white dark:bg-slate-950 md:bg-transparent md:dark:bg-transparent backdrop-blur-none border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-16">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-8 relative z-30 sticky md:static top-16 sm:top-20 md:top-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-white dark:bg-slate-950 md:bg-transparent md:dark:bg-transparent backdrop-blur-none border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-6 md:mb-16">
                     <div className="space-y-2 md:space-y-4 w-full">
                         <div className="flex items-center gap-3">
                             <div className="p-2 md:p-3 rounded-2xl shadow-lg" style={{ backgroundColor: info.themeColor || '#2563eb', boxShadow: `0 10px 15px -3px ${info.themeColor}33` }}>

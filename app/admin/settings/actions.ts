@@ -123,11 +123,26 @@ export async function processFileUpload(formData: FormData, fieldName: string): 
 
 export async function updateSystemSetting(key: string, value: string) {
     try {
-        await prisma.systemSetting.upsert({
-            where: { key },
-            update: { value },
-            create: { key, value }
-        });
+        if (key === "maintenance_mode") {
+            await prisma.$transaction([
+                prisma.systemSetting.upsert({
+                    where: { key },
+                    update: { value },
+                    create: { key, value }
+                }),
+                prisma.systemSetting.upsert({
+                    where: { key: "maintenance_mode_updated_at" },
+                    update: { value: Date.now().toString() },
+                    create: { key: "maintenance_mode_updated_at", value: Date.now().toString() }
+                })
+            ]);
+        } else {
+            await prisma.systemSetting.upsert({
+                where: { key },
+                update: { value },
+                create: { key, value }
+            });
+        }
         revalidatePath("/");
         revalidatePath("/admin/settings");
         return { success: true };
@@ -350,6 +365,35 @@ export async function updateTransactionBaseFees(fees: { id: string, baseFee: num
     } catch (error: any) {
         console.error("Error updating transaction base fees:", error);
         return { success: false, error: error.message };
+    }
+}
+export async function updateMultipleSystemSettings(settings: { key: string, value: string }[]) {
+    try {
+        const hasMaintenance = settings.some(s => s.key === "maintenance_mode");
+        const updates = settings.map(s => 
+            prisma.systemSetting.upsert({
+                where: { key: s.key },
+                update: { value: s.value },
+                create: { key: s.key, value: s.value }
+            })
+        );
+        if (hasMaintenance) {
+            updates.push(
+                prisma.systemSetting.upsert({
+                    where: { key: "maintenance_mode_updated_at" },
+                    update: { value: Date.now().toString() },
+                    create: { key: "maintenance_mode_updated_at", value: Date.now().toString() }
+                })
+            );
+        }
+        await prisma.$transaction(updates);
+
+        revalidatePath("/");
+        revalidatePath("/admin/settings");
+        return { success: true };
+    } catch (error) {
+        console.error("Error updating multiple system settings:", error);
+        return { success: false, error: "Failed to update settings" };
     }
 }
 

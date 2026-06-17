@@ -55,7 +55,7 @@ export function AnnouncementsNews({ announcements, news }: AnnouncementsNewsProp
             
             {/* Left Column: Public Announcements */}
             <div className="flex flex-col h-full">
-                <div className="sticky md:static top-[70px] md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-white dark:bg-slate-950 md:bg-transparent md:dark:bg-transparent backdrop-blur-none flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-4 md:mb-0">
+                <div className="sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-white dark:bg-slate-950 md:bg-transparent md:dark:bg-transparent backdrop-blur-none flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-4 md:mb-0">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 dark:bg-primary/20 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg shadow-primary/10 shrink-0">
                             <Megaphone className="w-5 h-5 md:w-6 h-6 text-primary" />
@@ -89,7 +89,7 @@ export function AnnouncementsNews({ announcements, news }: AnnouncementsNewsProp
 
             {/* Right Column: Latest News */}
             <div className="flex flex-col h-full mt-8 lg:mt-0">
-                <div className="sticky md:static top-[70px] md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-white dark:bg-slate-950 md:bg-transparent md:dark:bg-transparent backdrop-blur-none flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-4 md:mb-0">
+                <div className="sticky md:static top-16 sm:top-20 md:top-auto z-40 md:z-auto pb-4 pt-6 -mx-6 px-6 md:mx-0 md:px-0 bg-white dark:bg-slate-950 md:bg-transparent md:dark:bg-transparent backdrop-blur-none flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 md:border-none shadow-sm md:shadow-none mb-4 md:mb-0">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 dark:bg-primary/20 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg shadow-primary/10 shrink-0">
                             <Newspaper className="w-5 h-5 md:w-6 h-6 text-primary" />
