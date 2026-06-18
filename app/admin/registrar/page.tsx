@@ -24,6 +24,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import RegistrarDashboard from "./[id]/dashboard";
+
 // Helper: format exact date & time
 function formatDateTime(date: string | Date): { date: string; time: string } {
     const d = new Date(date);
@@ -156,7 +158,11 @@ export default function RegistrarPage() {
             } else if (categoryParam === "Marriage Certificate") {
                 matchesCategory = tx.type?.code === "LCR_MARRIAGE";
             } else if (categoryParam === "PSA Endorsement") {
-                matchesCategory = tx.type?.code === "LCR_PSA_ENDORSEMENT" || (tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" && tx.status !== "FOR_REQUESTING") || tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT";
+                matchesCategory = (
+                    tx.type?.code === "LCR_PSA_ENDORSEMENT" ||
+                    (tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" && tx.status !== "FOR_REQUESTING") ||
+                    tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT"
+                ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
             }
 
             return matchesSearch && matchesCategory;
@@ -239,15 +245,7 @@ export default function RegistrarPage() {
             </div>
 
             {!hasSelectedCategory ? (
-                <div className="min-h-[420px] flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 dark:border-[#2a3040] bg-white/60 dark:bg-[#151b2b]/60 px-6 text-center animate-in fade-in duration-500">
-                    <Archive className="w-16 h-16 mb-5 text-slate-300 dark:text-slate-600" />
-                    <h2 className="text-2xl font-black text-slate-800 dark:text-slate-200">
-                        Select a request type
-                    </h2>
-                    <p className="mt-2 max-w-md text-slate-500 dark:text-slate-400">
-                        Choose a category from the Registrar Hub sidebar to view and manage its requests.
-                    </p>
-                </div>
+                <RegistrarDashboard />
             ) : (
             /* Consolidated Dynamic List Queue */
             <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-2xl shadow-blue-500/5 overflow-hidden ring-1 ring-slate-200 dark:ring-white/5 animate-in fade-in duration-500">

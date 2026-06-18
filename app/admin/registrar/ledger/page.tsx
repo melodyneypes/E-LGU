@@ -70,9 +70,9 @@ export default function RegistrarLedgerPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
-    // Get selected type from search params: BIRTH, DEATH, or MARRIAGE. Defaults to BIRTH.
+    // Get selected type from search params: BIRTH, DEATH, MARRIAGE, or PSA. Defaults to BIRTH.
     const queryType = searchParams.get("type");
-    const selectedType = (queryType === "DEATH" || queryType === "MARRIAGE") ? queryType : "BIRTH";
+    const selectedType = (queryType === "DEATH" || queryType === "MARRIAGE" || queryType === "PSA") ? queryType : "BIRTH";
 
     // --- Unified Transactions States ---
     const [transactions, setTransactions] = useState<any[]>([]);
@@ -134,6 +134,8 @@ export default function RegistrarLedgerPage() {
                 matchesType = tx.type?.code === "LCR_DEATH_REG" || tx.type?.code === "LCR_DEATH";
             } else if (selectedType === "MARRIAGE") {
                 matchesType = tx.type?.code === "LCR_MARRIAGE_REG" || tx.type?.code === "LCR_MARRIAGE" || tx.type?.code === "LCR_MARRIAGE_LICENSE";
+            } else if (selectedType === "PSA") {
+                matchesType = tx.type?.code === "LCR_PSA_ENDORSEMENT" || tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" || tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT";
             }
 
             return matchesSearch && matchesType;
@@ -201,6 +203,7 @@ export default function RegistrarLedgerPage() {
     const getTitleLabel = () => {
         if (selectedType === "DEATH") return "Death Registration Ledger";
         if (selectedType === "MARRIAGE") return "Marriage Registration Ledger";
+        if (selectedType === "PSA") return "PSA Endorsement Ledger";
         return "Birth Registration Ledger";
     };
 

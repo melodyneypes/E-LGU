@@ -24,7 +24,7 @@ export async function updateResidentProfileImage(imageUrl: string) {
 
         await prisma.resident.update({
             where: { id: resident.id },
-            data: { imageUrl }
+            data: { livenessUrl: imageUrl }
         });
 
         revalidatePath("/user/resident-profile");

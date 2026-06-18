@@ -119,7 +119,7 @@ export function AdminShell({
                         if (deptUpper === "TREASURY") {
                             router.push("/admin/treasury?category=CEDULA");
                         } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
-                            router.push("/admin/registrar?category=Birth Registration");
+                            router.push("/admin/registrar");
                         } else if (deptUpper === "BPLO") {
                             router.push("/admin/bplo");
                         }

@@ -4360,3 +4360,100 @@ export async function getLatestForm3AForCurrentUser() {
     }
 }
 
+/**
+ * Fetch counts of all active and total registrar transactions grouped by their transaction type code.
+ */
+export async function getRegistrarActiveCounts() {
+    try {
+        const session = await getSession();
+        const user = session?.user as any;
+        if (!user || (user.role !== "ADMIN" && user.role !== "REGISTRAR" && user.department?.toUpperCase() !== "REGISTRAR" && user.department?.toUpperCase() !== "CIVIL_REGISTRY")) {
+            return { success: false, error: "Forbidden" };
+        }
+
+        const terminalStatuses = ["RELEASED", "REJECTED", "CANCELLED", "RETURNED", "REFUNDED", "DISPUTE_REJECTED"];
+
+        // Query all registrar transactions to extract both active and total counts
+        const allTransactions = await prisma.transaction.findMany({
+            where: {
+                type: {
+                    OR: [
+                        { category: "Civil Registry" },
+                        { code: { startsWith: "LCR_" } },
+                        { code: { startsWith: "CIVIL_REGISTRY" } }
+                    ]
+                }
+            },
+            include: {
+                type: true
+            }
+        });
+
+        // Map and filter active transactions based on their type code and status rules
+        const activeCounts: Record<string, number> = {
+            LCR_BIRTH: 0,
+            LCR_BIRTH_REG: 0,
+            LCR_PSA_ENDORSEMENT: 0,
+            LCR_DEATH_REG: 0,
+            LCR_DEATH: 0,
+            LCR_DEATH_PSA_ENDORSEMENT: 0,
+            LCR_MARRIAGE_LICENSE: 0,
+            LCR_MARRIAGE_REG: 0,
+            LCR_MARRIAGE: 0,
+            LCR_MARRIAGE_PSA_ENDORSEMENT: 0,
+        };
+
+        const totalCounts: Record<string, number> = {
+            LCR_BIRTH: 0,
+            LCR_BIRTH_REG: 0,
+            LCR_PSA_ENDORSEMENT: 0,
+            LCR_DEATH_REG: 0,
+            LCR_DEATH: 0,
+            LCR_DEATH_PSA_ENDORSEMENT: 0,
+            LCR_MARRIAGE_LICENSE: 0,
+            LCR_MARRIAGE_REG: 0,
+            LCR_MARRIAGE: 0,
+            LCR_MARRIAGE_PSA_ENDORSEMENT: 0,
+        };
+
+        for (const tx of allTransactions) {
+            const code = tx.type?.code;
+            if (!code) continue;
+
+            // Apply special category-specific filters
+            if (code === "LCR_DEATH_REG" && tx.status === "FOR_REQUESTING") {
+                continue;
+            }
+            if (code === "LCR_MARRIAGE_LICENSE" && tx.status === "FOR_REQUESTING") {
+                continue;
+            }
+            if (code === "LCR_DEATH_PSA_ENDORSEMENT" && tx.status === "FOR_REQUESTING") {
+                continue;
+            }
+
+            // Increment total counts
+            if (totalCounts[code] !== undefined) {
+                totalCounts[code]++;
+            }
+
+            // Increment active counts if non-terminal and not cancelled
+            const isActive = !tx.isCancelled && !terminalStatuses.includes(tx.status);
+            if (isActive && activeCounts[code] !== undefined) {
+                activeCounts[code]++;
+            }
+        }
+
+        return { 
+            success: true, 
+            data: { 
+                activeCounts, 
+                totalCounts 
+            } 
+        };
+    } catch (error) {
+        console.error("Get registrar counts error:", error);
+        return { success: false, error: "Failed to get active transaction counts" };
+    }
+}
+
+

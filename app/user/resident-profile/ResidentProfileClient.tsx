@@ -5,7 +5,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     User, MapPin, Phone, Briefcase, Shield,
-    Users, FileText, Printer, Camera,
+    Users, FileText, Printer, Edit,
     X, ZoomIn, ZoomOut, RotateCw, RefreshCw,
     Activity, Clock, XCircle
 } from "lucide-react";
@@ -28,7 +28,7 @@ export default function ResidentProfileClient({ resident, themeColor = "#2563eb"
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-    const [profileImage, setProfileImage] = useState(resident?.imageUrl || resident?.livenessUrl || "");
+    const [profileImage, setProfileImage] = useState(resident?.livenessUrl || resident?.imageUrl || "");
 
     // Crop state variables
     const [cropModalOpen, setCropModalOpen] = useState(false);
@@ -44,7 +44,7 @@ export default function ResidentProfileClient({ resident, themeColor = "#2563eb"
 
     useEffect(() => {
         if (resident) {
-            setProfileImage(resident.imageUrl || resident.livenessUrl || "");
+            setProfileImage(resident.livenessUrl || resident.imageUrl || "");
         }
     }, [resident]);
 
@@ -370,26 +370,27 @@ export default function ResidentProfileClient({ resident, themeColor = "#2563eb"
                                     />
                                     {/* Hover Overlay */}
                                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center text-white gap-1 z-10">
-                                        <Camera className="w-5 h-5" />
-                                        <span className="text-[9px] font-black uppercase tracking-widest">Change Photo</span>
+                                        <Edit className="w-5 h-5" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest">Edit Photo</span>
                                     </div>
                                 </>
                             ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
-                                    <Camera className="w-12 h-12 stroke-[1.5]" />
+                                    <Edit className="w-12 h-12 stroke-[1.5]" />
                                     <span className="text-[10px] font-black uppercase tracking-widest mt-2">UPLOAD PHOTO</span>
                                 </div>
                             )}
                         </button>
 
-                        {/* Camera Upload Button */}
+                        {/* Edit Profile Photo Button */}
                         <button 
                             type="button"
                             onClick={() => document.getElementById("profile-photo-input")?.click()}
-                            className="absolute -bottom-1 -right-1 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 p-2.5 rounded-full shadow-lg border border-slate-200 dark:border-slate-800 cursor-pointer z-20 transition-all hover:scale-110 active:scale-95 flex items-center justify-center" 
-                            title="Change Profile Photo"
+                            className="absolute -bottom-1 -right-1 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800 cursor-pointer z-20 transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider" 
+                            title="Edit Profile Photo"
                         >
-                            <Camera className="w-4 h-4" />
+                            <Edit className="w-3.5 h-3.5" />
+                            Edit
                         </button>
 
                         {/* Zoom Button on top-right */}

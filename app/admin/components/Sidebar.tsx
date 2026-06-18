@@ -14,7 +14,7 @@ import { signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface SidebarProps {
     session: {
@@ -186,10 +186,11 @@ export function Sidebar({
                     setIsRegistrarOpen(false);
                 } else {
                     setIsRegistrarOpen(true);
-                    router.push("/admin/registrar?category=Birth Registration");
+                    router.push("/admin/registrar");
                 }
             },
             subItems: [
+                { href: "/admin/registrar", label: "Dashboard" },
                 { href: "/admin/registrar?category=Birth Registration", label: "Birth Registration" },
                 { href: "/admin/registrar?category=Birth Certificate", label: "Birth Certificate" },
                 { href: "/admin/registrar?category=PSA Endorsement", label: "PSA Endorsement" },
@@ -218,6 +219,7 @@ export function Sidebar({
                 { href: "/admin/registrar/ledger?type=BIRTH", label: "Birth Registration" },
                 { href: "/admin/registrar/ledger?type=DEATH", label: "Death Registration" },
                 { href: "/admin/registrar/ledger?type=MARRIAGE", label: "Marriage Registration" },
+                { href: "/admin/registrar/ledger?type=PSA", label: "PSA Endorsement" },
             ]
         },
         {
@@ -482,48 +484,74 @@ export function Sidebar({
                                                 {item.isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                                             </button>
 
-                                            {showDropdown && (
-                                                <div className="mt-1 ml-4 pl-4 border-l border-slate-200 dark:border-[#2a3040] space-y-1">
-                                                    {(normalizedQuery && !parentMatches ? subMatches : item.subItems)?.map((sub) => {
-                                                        const currentCategory = searchParams.get("category") || "ALL";
-                                                        const currentTab = searchParams.get("tab") || "general";
-                                                        const currentType = searchParams.get("type") || "BIRTH";
+                                            <AnimatePresence initial={false}>
+                                                {showDropdown && (
+                                                    <motion.div
+                                                        initial={{ height: 0, opacity: 0 }}
+                                                        animate={{ height: "auto", opacity: 1 }}
+                                                        exit={{ height: 0, opacity: 0 }}
+                                                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                                                        className="overflow-hidden mt-1 ml-4 pl-4 border-l border-slate-200 dark:border-[#2a3040] space-y-1"
+                                                    >
+                                                        {(normalizedQuery && !parentMatches ? subMatches : item.subItems)?.map((sub) => {
+                                                            const currentCategory = searchParams.get("category") || "ALL";
+                                                            const currentTab = searchParams.get("tab") || "general";
+                                                            const currentType = searchParams.get("type") || "BIRTH";
 
-                                                        const urlObj = new URL(sub.href, "http://localhost");
-                                                        const subCategory = urlObj.searchParams.get("category");
-                                                        const subTab = urlObj.searchParams.get("tab");
-                                                        const subType = urlObj.searchParams.get("type");
+                                                            const urlObj = new URL(sub.href, "http://localhost");
+                                                            const subCategory = urlObj.searchParams.get("category");
+                                                            const subTab = urlObj.searchParams.get("tab");
+                                                            const subType = urlObj.searchParams.get("type");
 
-                                                        const isSubActive = (
-                                                            pathname === urlObj.pathname ||
-                                                            (pathname.startsWith("/admin/treasury/") && !pathname.includes("/payment-settings") && !pathname.includes("/payments") && urlObj.pathname === "/admin/treasury") ||
-                                                            (pathname.startsWith("/admin/registrar/") && !pathname.startsWith("/admin/registrar/ledger") && urlObj.pathname === "/admin/registrar")
-                                                        ) &&
-                                                            (subCategory ? currentCategory === subCategory : true) &&
-                                                            (subTab ? currentTab === subTab : true) &&
-                                                            (subType ? currentType === subType : true);
-                                                        return (
-                                                            <Link
-                                                                key={sub.href}
-                                                                id={isSubActive ? "active-sidebar-link" : undefined}
-                                                                href={sub.href}
-                                                                className={cn(
-                                                                    "block px-3 py-2 text-xs font-medium rounded-lg transition-all",
-                                                                    isSubActive
-                                                                        ? "font-bold"
-                                                                        : "text-slate-500 dark:text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5"
-                                                                )}
-                                                                style={{
-                                                                    color: isSubActive ? themeColor : undefined,
-                                                                    backgroundColor: isSubActive ? `${themeColor}15` : undefined
-                                                                }}
-                                                            >
-                                                                {sub.label}
-                                                            </Link>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
+                                                            const isSubActive = (
+                                                                pathname === urlObj.pathname ||
+                                                                (pathname.startsWith("/admin/treasury/") && !pathname.includes("/payment-settings") && !pathname.includes("/payments") && urlObj.pathname === "/admin/treasury") ||
+                                                                (pathname.startsWith("/admin/registrar/") && !pathname.startsWith("/admin/registrar/ledger") && urlObj.pathname === "/admin/registrar")
+                                                            ) &&
+                                                                (urlObj.searchParams.has("category") 
+                                                                    ? currentCategory === subCategory 
+                                                                    : !searchParams.has("category") || searchParams.get("category") === "ALL"
+                                                                ) &&
+                                                                (subTab ? currentTab === subTab : true) &&
+                                                                (subType ? currentType === subType : true);
+                                                            const isDashboard = sub.label === "Dashboard";
+                                                            return (
+                                                                <React.Fragment key={sub.href}>
+                                                                    <Link
+                                                                        id={isSubActive ? "active-sidebar-link" : undefined}
+                                                                        href={sub.href}
+                                                                        className={cn(
+                                                                            "flex items-center gap-2 px-3 py-2 text-xs rounded-lg transition-all",
+                                                                            isSubActive
+                                                                                ? "font-bold text-slate-900 dark:text-white"
+                                                                                : "text-slate-500 dark:text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5",
+                                                                            isDashboard ? "font-semibold text-slate-700 dark:text-slate-400" : "font-medium"
+                                                                        )}
+                                                                        style={{
+                                                                            color: isSubActive ? themeColor : undefined,
+                                                                            backgroundColor: isSubActive ? `${themeColor}15` : undefined
+                                                                        }}
+                                                                    >
+                                                                        {isDashboard && (
+                                                                            <LayoutDashboard 
+                                                                                size={13} 
+                                                                                className={cn(
+                                                                                    "transition-colors",
+                                                                                    isSubActive ? "text-current" : "text-slate-400 dark:text-slate-500"
+                                                                                )} 
+                                                                            />
+                                                                        )}
+                                                                        <span>{sub.label}</span>
+                                                                    </Link>
+                                                                    {isDashboard && (
+                                                                        <div className="h-px bg-slate-100 dark:bg-[#2a3040]/50 my-1 mx-2" />
+                                                                    )}
+                                                                </React.Fragment>
+                                                            );
+                                                        })}
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                         </div>
                                     );
                                 }
