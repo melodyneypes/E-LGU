@@ -15,7 +15,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { updateSystemSetting, createHeroSlide, deleteHeroSlide, updateHeroSlide, updateLogoSetting, updateMultipleSystemSettings } from "./actions";
-import { Plus, Trash2, Save, Globe, Layout, ShieldAlert, Image as ImageIcon, Send, X, Loader2, Users } from "lucide-react";
+import { Plus, Trash2, Save, Globe, Layout, ShieldAlert, Image as ImageIcon, Send, X, Loader2, Users, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
 
@@ -43,6 +43,12 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
     const [googlePlayUrl, setGooglePlayUrl] = useState(settings.app_google_play_url || "");
     const [appStoreUrl, setAppStoreUrl] = useState(settings.app_app_store_url || "");
     const [apkDownloadUrl, setApkDownloadUrl] = useState(settings.app_apk_download_url || "");
+    const [facebookUrl, setFacebookUrl] = useState(settings.social_facebook || "#");
+    const [twitterUrl, setTwitterUrl] = useState(settings.social_twitter || "#");
+    const [instagramUrl, setInstagramUrl] = useState(settings.social_instagram || "#");
+    const [contactAddress, setContactAddress] = useState(settings.contact_address || "Municipal Hall, Poblacion");
+    const [contactEmail, setContactEmail] = useState(settings.contact_email || "info@portal.gov.ph");
+    const [contactPhone, setContactPhone] = useState(settings.contact_phone || "(075) 000-0000");
     const [isSaving, setIsSaving] = useState(false);
     const [logoFile, setLogoFile] = useState<File | null>(null);
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -106,6 +112,24 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
             }
             if (apkDownloadUrl !== (settings.app_apk_download_url || "")) {
                 settingsToUpdate.push({ key: "app_apk_download_url", value: apkDownloadUrl });
+            }
+            if (facebookUrl !== (settings.social_facebook || "#")) {
+                settingsToUpdate.push({ key: "social_facebook", value: facebookUrl });
+            }
+            if (twitterUrl !== (settings.social_twitter || "#")) {
+                settingsToUpdate.push({ key: "social_twitter", value: twitterUrl });
+            }
+            if (instagramUrl !== (settings.social_instagram || "#")) {
+                settingsToUpdate.push({ key: "social_instagram", value: instagramUrl });
+            }
+            if (contactAddress !== (settings.contact_address || "Municipal Hall, Poblacion")) {
+                settingsToUpdate.push({ key: "contact_address", value: contactAddress });
+            }
+            if (contactEmail !== (settings.contact_email || "info@portal.gov.ph")) {
+                settingsToUpdate.push({ key: "contact_email", value: contactEmail });
+            }
+            if (contactPhone !== (settings.contact_phone || "(075) 000-0000")) {
+                settingsToUpdate.push({ key: "contact_phone", value: contactPhone });
             }
 
             let logoUpdated = false;
@@ -417,21 +441,103 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        <div className="pt-4">
-                                            <Button
-                                                onClick={handleSaveSettings}
-                                                disabled={isSaving}
-                                                className="w-full h-14 bg-slate-900 dark:bg-white dark:text-slate-950 text-white hover:opacity-90 rounded-2xl font-black uppercase tracking-widest shadow-xl transition-all active:scale-[0.98]"
-                                            >
-                                                {isSaving ? "Applying Changes..." : "Save Global Identity"}
-                                            </Button>
+                                            {/* Social Media Links Configuration */}
+                                            <div className="pt-8 border-t border-slate-100 dark:border-slate-800 space-y-6">
+                                                <div className="space-y-1">
+                                                    <Label className="text-sm font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                                        <Globe className="w-4 h-4" />
+                                                        Social Media Links
+                                                    </Label>
+                                                    <p className="text-xs text-slate-400 italic">Configure the official social media URLs for the portal footer.</p>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[10px] font-black uppercase text-slate-400">Facebook Page URL</Label>
+                                                        <Input
+                                                            value={facebookUrl}
+                                                            onChange={(e) => setFacebookUrl(e.target.value)}
+                                                            placeholder="https://facebook.com/..."
+                                                            className="rounded-xl font-mono text-xs"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[10px] font-black uppercase text-slate-400">Twitter / X URL</Label>
+                                                        <Input
+                                                            value={twitterUrl}
+                                                            onChange={(e) => setTwitterUrl(e.target.value)}
+                                                            placeholder="https://twitter.com/..."
+                                                            className="rounded-xl font-mono text-xs"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[10px] font-black uppercase text-slate-400">Instagram URL</Label>
+                                                        <Input
+                                                            value={instagramUrl}
+                                                            onChange={(e) => setInstagramUrl(e.target.value)}
+                                                            placeholder="https://instagram.com/..."
+                                                            className="rounded-xl font-mono text-xs"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Contact Information Configuration */}
+                                            <div className="pt-8 border-t border-slate-100 dark:border-slate-800 space-y-6">
+                                                <div className="space-y-1">
+                                                    <Label className="text-sm font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                                        <Mail className="w-4 h-4" />
+                                                        Contact Information
+                                                    </Label>
+                                                    <p className="text-xs text-slate-400 italic">Configure the official contact details for the portal footer.</p>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[10px] font-black uppercase text-slate-400">Office Address</Label>
+                                                        <Input
+                                                            value={contactAddress}
+                                                            onChange={(e) => setContactAddress(e.target.value)}
+                                                            placeholder="Municipal Hall, Poblacion"
+                                                            className="rounded-xl text-xs"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[10px] font-black uppercase text-slate-400">Official Email</Label>
+                                                        <Input
+                                                            value={contactEmail}
+                                                            onChange={(e) => setContactEmail(e.target.value)}
+                                                            placeholder="info@portal.gov.ph"
+                                                            className="rounded-xl text-xs"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[10px] font-black uppercase text-slate-400">Telephone / Contact No.</Label>
+                                                        <Input
+                                                            value={contactPhone}
+                                                            onChange={(e) => setContactPhone(e.target.value)}
+                                                            placeholder="(075) 000-0000"
+                                                            className="rounded-xl text-xs"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="pt-4">
+                                                <Button
+                                                    onClick={handleSaveSettings}
+                                                    disabled={isSaving}
+                                                    className="w-full h-14 bg-slate-900 dark:bg-white dark:text-slate-950 text-white hover:opacity-90 rounded-2xl font-black uppercase tracking-widest shadow-xl transition-all active:scale-[0.98]"
+                                                >
+                                                    {isSaving ? "Applying Changes..." : "Save Global Identity"}
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 </CardContent>
-                            </Card>
-                        </TabsContent>
+                                </Card>
+                            </TabsContent>
 
                         <TabsContent value="credentials" className="space-y-6">
                             <Card className="border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">

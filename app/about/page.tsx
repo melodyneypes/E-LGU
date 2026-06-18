@@ -16,12 +16,24 @@ export default async function AboutPage(props: { searchParams: Promise<{ baranga
         "brand_word_1",
         "brand_word_2",
         "theme_color",
-        "maintenance_mode"
+        "maintenance_mode",
+        "social_facebook",
+        "social_twitter",
+        "social_instagram",
+        "contact_address",
+        "contact_email",
+        "contact_phone"
     ]);
 
     const isMaintenance = settings.get("maintenance_mode") === "true";
 
     const themeColor = settings.get("theme_color") || "#2563eb";
+    const facebookUrl = settings.get("social_facebook") || "#";
+    const twitterUrl = settings.get("social_twitter") || "#";
+    const instagramUrl = settings.get("social_instagram") || "#";
+    const contactAddress = settings.get("contact_address") || "Municipal Hall, Poblacion";
+    const contactEmail = settings.get("contact_email") || "info@portal.gov.ph";
+    const contactPhone = settings.get("contact_phone") || "(075) 000-0000";
 
     let aboutData: any = null;
     let pastMayors: any[] = [];
@@ -94,6 +106,12 @@ export default async function AboutPage(props: { searchParams: Promise<{ baranga
                     brandWord1={settings.get("brand_word_1") || "LGU"} 
                     brandWord2={settings.get("brand_word_2") || ""} 
                     themeColor={themeColor} 
+                    facebookUrl={facebookUrl}
+                    twitterUrl={twitterUrl}
+                    instagramUrl={instagramUrl}
+                    contactAddress={contactAddress}
+                    contactEmail={contactEmail}
+                    contactPhone={contactPhone}
                 />
             </div>
         );
@@ -136,6 +154,12 @@ export default async function AboutPage(props: { searchParams: Promise<{ baranga
                 brandWord1={settings.get("brand_word_1") || "LGU"} 
                 brandWord2={settings.get("brand_word_2") || ""} 
                 themeColor={themeColor} 
+                facebookUrl={facebookUrl}
+                twitterUrl={twitterUrl}
+                instagramUrl={instagramUrl}
+                contactAddress={contactAddress}
+                contactEmail={contactEmail}
+                contactPhone={contactPhone}
             />
         </div>
     );

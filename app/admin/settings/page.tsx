@@ -42,6 +42,12 @@ export default async function SettingsPage() {
         section_government: "true",
         section_services: "true",
         section_emergency: "true",
+        social_facebook: "#",
+        social_twitter: "#",
+        social_instagram: "#",
+        contact_address: "Municipal Hall, Poblacion",
+        contact_email: "info@portal.gov.ph",
+        contact_phone: "(075) 000-0000",
     };
 
     // Merge with defaults for any missing settings

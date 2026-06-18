@@ -109,7 +109,13 @@ export default async function Home({
         "section_app_download",
         "app_google_play_url",
         "app_app_store_url",
-        "app_apk_download_url"
+        "app_apk_download_url",
+        "social_facebook",
+        "social_twitter",
+        "social_instagram",
+        "contact_address",
+        "contact_email",
+        "contact_phone"
     ]);
 
     // Check Maintenance Mode
@@ -125,6 +131,12 @@ export default async function Home({
     const brandWord1 = settings.get("brand_word_1") || "E";
     const brandWord2 = settings.get("brand_word_2") || "";
     const themeColor = settings.get("theme_color") || "#2563eb";
+    const facebookUrl = settings.get("social_facebook") || "#";
+    const twitterUrl = settings.get("social_twitter") || "#";
+    const instagramUrl = settings.get("social_instagram") || "#";
+    const contactAddress = settings.get("contact_address") || "Municipal Hall, Poblacion";
+    const contactEmail = settings.get("contact_email") || "info@portal.gov.ph";
+    const contactPhone = settings.get("contact_phone") || "(075) 000-0000";
 
     // Section visibility settings (default to true if not set)
     const showDiningLodging = settings.get("section_dining_lodging") !== "false";
@@ -441,6 +453,12 @@ export default async function Home({
                 brandWord1={brandWord1}
                 brandWord2={brandWord2}
                 themeColor={themeColor}
+                facebookUrl={facebookUrl}
+                twitterUrl={twitterUrl}
+                instagramUrl={instagramUrl}
+                contactAddress={contactAddress}
+                contactEmail={contactEmail}
+                contactPhone={contactPhone}
             />
         </main>
     );

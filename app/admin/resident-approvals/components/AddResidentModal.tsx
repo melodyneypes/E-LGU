@@ -293,6 +293,7 @@ export function AddResidentModal() {
                         <div className="flex-1 overflow-y-auto px-8 py-4 custom-scrollbar">
                             <form 
                                 id="residentForm" 
+                                noValidate
                                 onSubmit={(e) => {
                                     if (currentStep !== STEPS.length - 1) {
                                         e.preventDefault();
