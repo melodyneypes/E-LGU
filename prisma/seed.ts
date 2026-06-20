@@ -324,7 +324,8 @@ async function main() {
   console.log("👥 Creating administrative and user test accounts...");
 
   const saltRounds = 10;
-  const commonHashedPassword = await bcrypt.hash("password123", saltRounds);
+  const seedPassword = process.env.SEED_ADMIN_PASSWORD || "password123";
+  const commonHashedPassword = await bcrypt.hash(seedPassword, saltRounds);
 
   const mockUsers = [
     {

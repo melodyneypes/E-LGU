@@ -94,17 +94,20 @@ async function processImageUpload(formData: FormData, fieldName: string = "image
             const buffer = Buffer.from(await file.arrayBuffer());
             const publicUrl = await uploadFile(buffer, storagePath, undefined, file.type);
 
-            if (!publicUrl) throw new Error("Upload failed");
-
+            if (!publicUrl) {
+                throw new Error("Upload failed. Please ensure the file is not corrupted and its format is supported by the storage settings (like PNG, JPEG, PDF, or WebP).");
+            }
+            
             // Auto-delete old file if it exists and we have a new upload
             if (existingUrl) {
                 await deleteUploadedFile(existingUrl);
             }
 
             return publicUrl;
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error processing image upload to Supabase:", error);
-            return existingUrl;
+            // Propagate the error so that the operation stops and notifies the frontend
+            throw new Error(error.message || "Failed to upload file to storage.");
         }
     }
     return existingUrl;
@@ -254,6 +257,46 @@ export async function searchResidents(query: string, page: number = 1, limit: nu
     } catch (error) {
         console.error("Search resident error:", error);
         return { success: false, error: "Failed to search residents" };
+    }
+}
+
+export async function getHeadlessResidents(page: number = 1, limit: number = 5) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const managedBarangay = await getSessionBarangay();
+        const where: any = {
+            isHead: false,
+            familyHeadId: null,
+            isDead: false,
+        };
+
+        if (managedBarangay) {
+            where.barangay = managedBarangay;
+        }
+
+        const residents = await (prisma as any).resident.findMany({
+            where,
+            skip: (page - 1) * limit,
+            take: limit,
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                barangay: true,
+                age: true
+            },
+            orderBy: {
+                lastName: "asc"
+            }
+        });
+        return { success: true, data: residents };
+    } catch (error) {
+        console.error("Get headless residents error:", error);
+        return { success: false, error: "Failed to load unattached residents" };
     }
 }
 
@@ -1313,6 +1356,22 @@ export async function addHousehold(formData: FormData) {
             }
         });
 
+        // Link the head resident profile and all their family members to this household
+        if (headId) {
+            await (prisma as any).resident.update({
+                where: { id: headId },
+                data: {
+                    householdId: household.id,
+                    isHead: true
+                }
+            });
+
+            await (prisma as any).resident.updateMany({
+                where: { familyHeadId: headId },
+                data: { householdId: household.id }
+            });
+        }
+
         // Cascade coordinates to all associated residents (Head + Members)
         await (prisma as any).resident.updateMany({
             where: {
@@ -1355,6 +1414,12 @@ export async function updateHousehold(id: string, formData: FormData) {
         const lat = formData.get("latitude") ? parseFloat(formData.get("latitude") as string) : null;
         const lng = formData.get("longitude") ? parseFloat(formData.get("longitude") as string) : null;
 
+        // Find the old head of this household first to reset their head status
+        const oldHousehold = await (prisma as any).household.findUnique({
+            where: { id },
+            select: { headId: true }
+        });
+
         const household = await (prisma as any).household.update({
             where: { id },
             data: {
@@ -1371,6 +1436,30 @@ export async function updateHousehold(id: string, formData: FormData) {
                 head: true
             }
         });
+
+        // Reset old head's status if head changed
+        if (oldHousehold && oldHousehold.headId && oldHousehold.headId !== headId) {
+            await (prisma as any).resident.update({
+                where: { id: oldHousehold.headId },
+                data: { isHead: false }
+            });
+        }
+
+        // Link the new head resident profile and all their family members to this household
+        if (headId) {
+            await (prisma as any).resident.update({
+                where: { id: headId },
+                data: {
+                    householdId: household.id,
+                    isHead: true
+                }
+            });
+
+            await (prisma as any).resident.updateMany({
+                where: { familyHeadId: headId },
+                data: { householdId: household.id }
+            });
+        }
 
         // Cascade coordinates to all associated residents
         await (prisma as any).resident.updateMany({
@@ -1408,14 +1497,18 @@ export async function deleteHousehold(id: string) {
 // ==========================================
 
 export async function addResident(formData: FormData) {
+    let livenessUrl: string | null = null;
+    let idFrontUrl: string | null = null;
+    let idBackUrl: string | null = null;
+
     try {
         const session = await getServerSession(authOptions);
         const activeUserName = session?.user?.name || "System Admin";
         const activeUserRole = (session?.user as any)?.role || "ADMIN";
 
-        const livenessUrl = await processImageUpload(formData, "livenessUrl");
-        const idFrontUrl = await processImageUpload(formData, "idFrontUrl");
-        const idBackUrl = await processImageUpload(formData, "idBackUrl");
+        livenessUrl = await processImageUpload(formData, "livenessUrl");
+        idFrontUrl = await processImageUpload(formData, "idFrontUrl");
+        idBackUrl = await processImageUpload(formData, "idBackUrl");
 
         const familyMembersData = formData.get("familyMembers") as string;
         const familyMembers = familyMembersData ? JSON.parse(familyMembersData) : [];
@@ -1481,6 +1574,20 @@ export async function addResident(formData: FormData) {
                 householdId = newHousehold.id;
             }
 
+            // Sync coordinates from household
+            let lat = null;
+            let lng = null;
+            if (householdId) {
+                const hh = await tx.household.findUnique({
+                    where: { id: householdId },
+                    select: { latitude: true, longitude: true }
+                });
+                if (hh) {
+                    lat = hh.latitude;
+                    lng = hh.longitude;
+                }
+            }
+
             let barangayValue = formData.get("barangay") as string || await getSessionBarangay() || null;
             if (!barangayValue && categoryIds.length > 0) {
                 const categoryObj = await tx.residentCategory.findUnique({
@@ -1516,6 +1623,8 @@ export async function addResident(formData: FormData) {
                     purok: formData.get("purok") as string || null,
                     municipality: (formData.get("municipality") as string || "Mapandan").toUpperCase(),
                     province: (formData.get("province") as string || "Pangasinan").toUpperCase(),
+                    latitude: lat,
+                    longitude: lng,
                     contactNumber: formData.get("contactNumber") as string || null,
                     isHead: isHead,
                     relationshipToHead: formData.get("relationshipToHead") as string || null,
@@ -1627,13 +1736,32 @@ export async function addResident(formData: FormData) {
             } : resident;
 
             return mappedAdd;
-        });
+        }, { timeout: 25000 });
 
         revalidatePath("/admin/residents");
         revalidatePath("/admin/households");
         return { success: true, data: result };
     } catch (error) {
         console.error("Error adding resident:", error);
+        
+        // Clean up newly uploaded files to prevent orphaned files in Supabase Storage
+        try {
+            if (livenessUrl) {
+                console.log("[Cleanup] Deleting livenessUrl due to registration failure:", livenessUrl);
+                await deleteUploadedFile(livenessUrl);
+            }
+            if (idFrontUrl) {
+                console.log("[Cleanup] Deleting idFrontUrl due to registration failure:", idFrontUrl);
+                await deleteUploadedFile(idFrontUrl);
+            }
+            if (idBackUrl) {
+                console.log("[Cleanup] Deleting idBackUrl due to registration failure:", idBackUrl);
+                await deleteUploadedFile(idBackUrl);
+            }
+        } catch (cleanupError) {
+            console.error("[Cleanup] Failed to clean up files:", cleanupError);
+        }
+
         return { success: false, error: "Failed to add resident" };
     }
 }
@@ -1861,6 +1989,18 @@ export async function updateResident(id: string, formData: FormData) {
                 }
             }
 
+            // Sync coordinates from household to resident profile
+            if (householdId) {
+                const hh = await tx.household.findUnique({
+                    where: { id: householdId },
+                    select: { latitude: true, longitude: true }
+                });
+                if (hh) {
+                    dataToUpdate.latitude = hh.latitude;
+                    dataToUpdate.longitude = hh.longitude;
+                }
+            }
+
             const resident = await (tx as any).resident.update({
                 where: { id },
                 data: dataToUpdate as any
@@ -1948,7 +2088,7 @@ export async function updateResident(id: string, formData: FormData) {
             } : resident;
 
             return mappedUpdate;
-        });
+        }, { timeout: 25000 });
 
         revalidatePath("/admin/residents");
         revalidatePath("/admin/households");
@@ -1973,28 +2113,111 @@ export async function deleteResident(id: string) {
             }
         });
 
-        // Delete files
+        let canDeleteUser = true;
+
+        if (resident?.userId) {
+            // Find all transactions for this user
+            const transactions = await prisma.transaction.findMany({
+                where: { userId: resident.userId },
+                select: {
+                    id: true,
+                    status: true,
+                    eCopyUrl: true,
+                    orUrl: true,
+                    podUrl: true
+                }
+            });
+
+            // Group into Keep vs Delete
+            const transactionsToKeep = transactions.filter(
+                t => t.status === "DELIVERED" || t.status === "RELEASED"
+            );
+            const transactionsToDelete = transactions.filter(
+                t => t.status !== "DELIVERED" && t.status !== "RELEASED"
+            );
+
+            // Clean up files for deleted transactions from storage
+            for (const t of transactionsToDelete) {
+                if (t.eCopyUrl) await deleteUploadedFile(t.eCopyUrl);
+                if (t.orUrl) await deleteUploadedFile(t.orUrl);
+                if (t.podUrl) await deleteUploadedFile(t.podUrl);
+            }
+
+            // Delete non-completed transactions from db (cascades to child tables)
+            if (transactionsToDelete.length > 0) {
+                const deleteIds = transactionsToDelete.map(t => t.id);
+                await prisma.transaction.deleteMany({
+                    where: { id: { in: deleteIds } }
+                });
+            }
+
+            // Clean up report files from storage if we are going to delete the user
+            if (transactionsToKeep.length === 0) {
+                const reports = await (prisma as any).report.findMany({
+                    where: { userId: resident.userId },
+                    select: { images: true }
+                });
+
+                for (const r of reports) {
+                    if (r.images && r.images.length > 0) {
+                        for (const img of r.images) {
+                            await deleteUploadedFile(img);
+                        }
+                    }
+                }
+
+                // Delete reports
+                await (prisma as any).report.deleteMany({
+                    where: { userId: resident.userId }
+                });
+            } else {
+                canDeleteUser = false;
+            }
+        }
+
+        // Delete resident profile files from storage
         if (resident?.imageUrl) await deleteUploadedFile(resident.imageUrl);
         if (resident?.livenessUrl) await deleteUploadedFile(resident.livenessUrl);
         if (resident?.idFrontUrl) await deleteUploadedFile(resident.idFrontUrl);
         if (resident?.idBackUrl) await deleteUploadedFile(resident.idBackUrl);
 
-        // 1. Delete associated user if exists (important for cleanup)
-        if (resident?.userId) {
-            await prisma.user.delete({ where: { id: resident.userId } }).catch(err => {
-                console.warn("Could not delete associated user:", err);
-            });
-        }
-
-        // 2. Delete the resident
+        // Delete the resident profile record
         await (prisma as any).resident.delete({ where: { id } });
 
-        // 3. Update household size
+        // Update household size
         if (resident?.householdId) {
             await (prisma as any).household.update({
                 where: { id: resident.householdId },
                 data: { householdSize: { decrement: 1 } }
             });
+        }
+
+        // Delete or Deactivate the User account depending on completed transactions
+        if (resident?.userId) {
+            if (canDeleteUser) {
+                await prisma.user.delete({ where: { id: resident.userId } }).catch(err => {
+                    console.warn("Could not delete associated user:", err);
+                });
+            } else {
+                // Fetch the user's current email so we can rename/anonymize it and free up the original email
+                const dbUser = await prisma.user.findUnique({
+                    where: { id: resident.userId },
+                    select: { email: true }
+                });
+                const originalEmail = dbUser?.email || "";
+                const anonymizedEmail = originalEmail ? `deleted_${Date.now()}_${originalEmail}` : null;
+
+                await prisma.user.update({
+                    where: { id: resident.userId },
+                    data: {
+                        isEmailVerified: false,
+                        password: null, // Revoke credential access entirely
+                        email: anonymizedEmail,
+                    }
+                }).catch(err => {
+                    console.warn("Could not deactivate associated user:", err);
+                });
+            }
         }
 
         revalidatePath("/admin/residents");

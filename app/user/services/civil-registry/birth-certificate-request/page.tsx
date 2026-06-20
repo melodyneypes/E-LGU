@@ -16,6 +16,7 @@ import {
     Heart,
     Skull,
     ArrowRight,
+    ArrowLeft,
     Info,
     Upload,
     Search,
@@ -809,10 +810,10 @@ export default function CivilRegistryPage() {
                 title={viewerTitle}
                 themeColor="var(--primary-theme)"
             />
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-8 pb-0 space-y-12">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-0 pb-0 space-y-12">
                 <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                     <Breadcrumb>
-                        <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
                             <BreadcrumbItem>
                                 <BreadcrumbLink asChild>
                                     <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
@@ -944,18 +945,24 @@ export default function CivilRegistryPage() {
                                     <div className={cn(
                                         "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
                                         isActive ? "text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
-                                            isCompleted ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" :
+                                            isCompleted ? "border-transparent" :
                                                 "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
                                     )}
-                                        style={isActive ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
+                                        style={
+                                            isActive
+                                                ? { backgroundColor: themeColor, borderColor: themeColor }
+                                                : isCompleted
+                                                    ? { backgroundColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 10%, transparent)" : `${themeColor}1a`, color: themeColor, borderColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33` }
+                                                    : {}
+                                        }
                                     >
                                         <Icon className="w-4 h-4 md:w-7 md:h-7" />
                                     </div>
                                     <span className={cn(
                                         "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
-                                        isActive ? "opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
+                                        (isActive || isCompleted) ? "opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
                                     )}
-                                        style={isActive ? { color: themeColor } : {}}
+                                        style={(isActive || isCompleted) ? { color: themeColor } : {}}
                                     >
                                         {step.label}
                                     </span>
@@ -1183,8 +1190,8 @@ export default function CivilRegistryPage() {
                                     <div
                                         className="p-3 md:p-4 rounded-2xl md:rounded-3xl flex items-center gap-2 md:gap-3 border"
                                         style={{
-                                            backgroundColor: `${themeColor}0d`,
-                                            borderColor: `${themeColor}26`
+                                            backgroundColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 5%, transparent)" : `${themeColor}0d`,
+                                            borderColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 15%, transparent)" : `${themeColor}26`
                                         }}
                                     >
                                         <Sparkles className="w-3.5 h-3.5 shrink-0" style={{ color: themeColor }} />
@@ -1193,7 +1200,15 @@ export default function CivilRegistryPage() {
                                         </p>
                                     </div>
 
-                                    <div className="flex justify-end gap-3 pt-8">
+                                    <div className="flex justify-between gap-3 pt-8">
+                                        <Button
+                                            type="button"
+                                            onClick={() => router.push("/user/services/civil-registry")}
+                                            className="rounded-full px-12 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest italic text-[10px] h-12 bg-transparent hover:bg-slate-50 dark:hover:bg-white/5"
+                                        >
+                                            <ArrowLeft className="w-4 h-4 mr-2" />
+                                            Back
+                                        </Button>
                                         <Button
                                             onClick={() => {
                                                 if (!validateStep("IDENTITY")) return;
@@ -1374,6 +1389,14 @@ export default function CivilRegistryPage() {
 
                                     <div className="flex justify-end gap-3 pt-6">
                                         <Button
+                                            variant="ghost"
+                                            onClick={() => setCurrentStep("IDENTITY")}
+                                            className="rounded-full px-8 border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[10px] h-12"
+                                        >
+                                            <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
+                                            Back
+                                        </Button>
+                                        <Button
                                             onClick={() => {
                                                 if (!validateStep("DETAILS")) return;
                                                 // Auto-sync fullName for the API
@@ -1483,12 +1506,12 @@ export default function CivilRegistryPage() {
                                                         className={cn(
                                                             "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
                                                             (showErrors && !form.motherFirstName) && "border-2 border-red-500",
-                                                            form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                                            (form.relationship === "SELF" && !!resident?.motherFirstName) && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                                         )}
                                                         placeholder="EX. MARIA"
                                                         value={form.motherFirstName}
-                                                        onChange={(e) => form.relationship !== "SELF" && setForm({ ...form, motherFirstName: e.target.value.toUpperCase() })}
-                                                        readOnly={form.relationship === "SELF"}
+                                                        onChange={(e) => (form.relationship !== "SELF" || !resident?.motherFirstName) && setForm({ ...form, motherFirstName: e.target.value.toUpperCase() })}
+                                                        readOnly={form.relationship === "SELF" && !!resident?.motherFirstName}
                                                     />
                                                     {(showErrors && !form.motherFirstName) && (
                                                         <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required field</p>
@@ -1500,12 +1523,12 @@ export default function CivilRegistryPage() {
                                                     <Input
                                                         className={cn(
                                                             "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
-                                                            form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                                            (form.relationship === "SELF" && !!resident?.motherMiddleName) && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                                         )}
                                                         placeholder="EX. REYES"
                                                         value={form.motherMiddleName}
-                                                        onChange={(e) => form.relationship !== "SELF" && setForm({ ...form, motherMiddleName: e.target.value.toUpperCase() })}
-                                                        readOnly={form.relationship === "SELF"}
+                                                        onChange={(e) => (form.relationship !== "SELF" || !resident?.motherMiddleName) && setForm({ ...form, motherMiddleName: e.target.value.toUpperCase() })}
+                                                        readOnly={form.relationship === "SELF" && !!resident?.motherMiddleName}
                                                     />
                                                 </div>
 
@@ -1516,12 +1539,12 @@ export default function CivilRegistryPage() {
                                                         className={cn(
                                                             "rounded-xl border-slate-950 dark:border-white bg-white dark:bg-slate-900 transition-all uppercase font-medium h-12",
                                                             (showErrors && !form.motherLastName) && "border-2 border-red-500",
-                                                            form.relationship === "SELF" && "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                                            (form.relationship === "SELF" && !!resident?.motherLastName) && "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                                         )}
                                                         placeholder="EX. MERCADO"
                                                         value={form.motherLastName}
-                                                        onChange={(e) => form.relationship !== "SELF" && setForm({ ...form, motherLastName: e.target.value.toUpperCase() })}
-                                                        readOnly={form.relationship === "SELF"}
+                                                        onChange={(e) => (form.relationship !== "SELF" || !resident?.motherLastName) && setForm({ ...form, motherLastName: e.target.value.toUpperCase() })}
+                                                        readOnly={form.relationship === "SELF" && !!resident?.motherLastName}
                                                     />
                                                     {(showErrors && !form.motherLastName) && (
                                                         <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required field</p>
@@ -1533,7 +1556,7 @@ export default function CivilRegistryPage() {
 
                                     <div className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-2xl flex items-center gap-3">
                                         <Info className="w-4 h-4 text-blue-500 shrink-0" />
-                                        <p className="text-[10px] text-blue-500 font-bold italic uppercase tracking-widest">
+                                        <p className="text-[10px] text-slate-800 dark:text-white font-bold italic uppercase tracking-widest">
                                             Please provide the names as they appear on the original registry document to avoid discrepancies.
                                         </p>
                                     </div>
@@ -1758,7 +1781,7 @@ export default function CivilRegistryPage() {
                                             </button>
                                             <div className="flex-1 text-xs cursor-pointer select-none" onClick={() => setPolicyOpen(true)}>
                                                 <div className="font-black uppercase text-[11px] tracking-wider text-slate-800 dark:text-white">DATA PRIVACY & CERTIFICATION AGREEMENT</div>
-                                                <div className="text-[10px] text-slate-500 italic mt-1 leading-relaxed">
+                                                <div className="text-[10px] text-slate-500 italic mt-1 leading-relaxed line-clamp-2 md:line-clamp-none">
                                                     BY SUBMITTING, I CERTIFY THAT ALL INFORMATION PROVIDED IS TRUE AND CORRECT. I AM AWARE OF THE DATA PRIVACY POLICY OF MAPANDAN. CLICK TO REVIEW AGREEMENT.
                                                 </div>
                                                 {showErrors && !policyAccepted && (
@@ -1787,7 +1810,7 @@ export default function CivilRegistryPage() {
                                                     (form.relationship !== "SELF" && !form.files["authorizationLetter"] && !revisionTx?.additionalData?.authorizationLetter && !form.previews["authorizationLetter"])
                                                 }
                                                 className={cn(
-                                                    "md:col-span-3 h-14 rounded-full font-black uppercase tracking-widest italic text-[11px] transition-all duration-300",
+                                                    "md:col-span-3 h-14 rounded-full font-black uppercase tracking-wider md:tracking-widest italic text-[9px] sm:text-[10px] md:text-[11px] transition-all duration-300 px-4 sm:px-8",
                                                     (!form.idTypeOverride && !resident?.idType) ||
                                                         (!form.files["validIdFront"] && !resident?.idFrontUrl) ||
                                                         (!form.files["validIdBack"] && !resident?.idBackUrl) ||
@@ -1805,20 +1828,20 @@ export default function CivilRegistryPage() {
                                                 }
                                             >
                                                 {submitting ? (
-                                                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mr-2" />
                                                 ) : (!form.idTypeOverride && !resident?.idType) ||
                                                     (!form.files["validIdFront"] && !resident?.idFrontUrl) ||
                                                     (!form.files["validIdBack"] && !resident?.idBackUrl) ||
                                                     (form.relationship !== "SELF" && !form.files["authorizationLetter"] && !revisionTx?.additionalData?.authorizationLetter && !form.previews["authorizationLetter"]) ? (
-                                                    <>
+                                                    <span className="flex items-center justify-center gap-1 sm:gap-2">
                                                         Upload Required Documents to Submit
-                                                        <AlertCircle className="w-5 h-5 ml-2" />
-                                                    </>
+                                                        <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                                                    </span>
                                                 ) : (
-                                                    <>
+                                                    <span className="flex items-center justify-center gap-1 sm:gap-2">
                                                         Submit Civil Registry Request
-                                                        <CheckCircle2 className="w-5 h-5 ml-2" />
-                                                    </>
+                                                        <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                                                    </span>
                                                 )}
                                             </Button>
                                         </div>

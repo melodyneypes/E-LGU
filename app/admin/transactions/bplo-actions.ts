@@ -90,12 +90,13 @@ export async function evaluateBusinessPermitTransaction(
             totalAmount: 0
         };
 
-        if (sanitizedBpFeeLineItems && sanitizedBpFeeLineItems.length > 0) {
-            const itemsSum = sanitizedBpFeeLineItems.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
-            const deliveryFee = transaction.fulfillmentType === "DELIVERY"
+        if (bpFeeLineItems !== undefined) {
+            const itemsSum = sanitizedBpFeeLineItems ? sanitizedBpFeeLineItems.reduce((acc, curr) => acc + Number(curr.amount || 0), 0) : 0;
+            const hasItems = sanitizedBpFeeLineItems && sanitizedBpFeeLineItems.length > 0;
+            const deliveryFee = (hasItems && transaction.fulfillmentType === "DELIVERY")
                 ? (deliveryFeeOverride !== undefined ? deliveryFeeOverride : dynamicDeliveryFee || 0)
                 : 0;
-            const total = itemsSum + deliveryFee;
+            const total = hasItems ? (itemsSum + deliveryFee) : 0;
             result = {
                 basicTax: itemsSum,
                 additionalTax: 0,

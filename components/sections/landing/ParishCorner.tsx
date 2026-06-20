@@ -77,15 +77,15 @@ export function ParishCorner({ info, schedules, collections }: ParishCornerProps
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Schedule Highlights</span>
             </div>
 
-            <div className="space-y-4 md:space-y-6 max-h-[500px] overflow-y-auto pr-2 md:pr-4 custom-scrollbar">
+            <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2 md:pr-4 custom-scrollbar">
                 {groupedSchedules.length > 0 ? (
-                    <div className="space-y-4 md:space-y-6">
+                    <div className="space-y-8">
                         {groupedSchedules.map((group, idx) => (
-                            <div key={idx} className="md:bg-slate-50 md:dark:bg-white/5 md:rounded-[2rem] md:border border-slate-100 dark:border-white/5 overflow-hidden border-b md:border-b border-slate-100 dark:border-white/10 last:border-b-0 pb-4 md:pb-0">
-                                <div className="md:bg-slate-100 md:dark:bg-white/5 px-2 md:px-6 py-2 md:py-3 flex items-center justify-between md:border-b border-white/5">
+                            <div key={idx} className="border-b border-slate-100 dark:border-white/5 last:border-b-0 pb-6 last:pb-0">
+                                <div className="py-2 flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-2">
-                                        <CalendarDays className="w-3 h-3" style={group.isPriority ? { color: '#f59e0b' } : { color: info.themeColor || '#2563eb' }} />
-                                        <span className={`text-[10px] font-black uppercase italic tracking-widest ${group.isPriority ? 'text-amber-500' : 'text-slate-900 dark:text-white'}`}>
+                                        <CalendarDays className="w-3.5 h-3.5" style={group.isPriority ? { color: '#f59e0b' } : { color: info.themeColor || '#2563eb' }} />
+                                        <span className={`text-[11px] md:text-xs font-black uppercase italic tracking-widest ${group.isPriority ? 'text-amber-500' : 'text-slate-900 dark:text-white'}`}>
                                             {group.day} {group.isPriority ? '• Priority' : ''}
                                         </span>
                                         {(group.day === format(new Date(), "MMMM dd, yyyy") || group.day === format(new Date(), "EEEE")) ? (
@@ -94,10 +94,10 @@ export function ParishCorner({ info, schedules, collections }: ParishCornerProps
                                     </div>
                                     <span className="text-[9px] font-bold text-slate-400 italic"> GUIDE</span>
                                 </div>
-                                <div className="px-2 md:px-6 pt-3 pb-2 md:py-6 space-y-4 md:space-y-4">
+                                <div className="space-y-4 pl-1">
                                     {group.slots.map((s: any, sIdx: number) => (
-                                        <div key={sIdx} className="relative pl-5 md:pl-6 border-l-2 border-blue-600/20 last:border-0 pb-2">
-                                            <div className="absolute top-0 left-[-5px] w-2 h-2 rounded-full bg-blue-600" />
+                                        <div key={sIdx} className="relative pl-5 md:pl-6 border-l-2 border-slate-200 dark:border-white/10 last:border-0 pb-2">
+                                            <div className="absolute top-1.5 left-[-5px] w-2 h-2 rounded-full" style={{ backgroundColor: info.themeColor || '#2563eb' }} />
                                             <div className="flex flex-row items-center justify-between gap-4">
                                                 <div className="flex items-center gap-4">
                                                     <p className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">{s.time}</p>
@@ -139,42 +139,42 @@ export function ParishCorner({ info, schedules, collections }: ParishCornerProps
 
     const rightContent = (
         <div className="space-y-6 h-full">
-            {/* Main Collection Card */}
-            <div className="bg-primary rounded-[2rem] md:rounded-[3rem] p-6 md:p-10 text-white shadow-2xl shadow-primary/25 relative overflow-hidden group h-full">
+            {/* Main Collection Card - Neutral styling, no theme color */}
+            <div className="bg-white dark:bg-[#111827] rounded-[2rem] md:rounded-[3rem] border border-slate-200 dark:border-white/5 shadow-2xl p-6 md:p-10 relative overflow-hidden group h-full">
                 {/* Decorative patterns */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[80px] rounded-full -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 blur-[60px] rounded-full pointer-events-none" />
+                <div className="absolute top-0 right-0 w-64 h-64 bg-slate-100 dark:bg-white/5 blur-[80px] rounded-full -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-48 h-48 bg-slate-50 dark:bg-black/20 blur-[60px] rounded-full pointer-events-none" />
 
                 <div className="relative z-10 space-y-4 md:space-y-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-emerald-200" />
-                            <h3 className="text-lg md:text-xl font-black uppercase italic tracking-tighter text-white">Collection</h3>
+                            <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-emerald-500" />
+                            <h3 className="text-lg md:text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Collection</h3>
                         </div>
-                        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100 italic">Weekly Report</span>
+                        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Weekly Report</span>
                     </div>
 
                     {latest ? (
                         <div className="space-y-3 md:space-y-6">
                             <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-100 opacity-80">Week ending {format(new Date(latest.date), "MMMM dd, yyyy")}</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Week ending {format(new Date(latest.date), "MMMM dd, yyyy")}</p>
                                 <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
-                                    <span className="text-5xl md:text-6xl font-black tracking-tighter italic">₱{latest.totalAmount.toLocaleString()}</span>
-                                    <span className="text-emerald-100 font-bold italic opacity-60 uppercase text-[9px] md:text-[10px] tracking-widest">Total Amount</span>
+                                    <span className="text-5xl md:text-6xl font-black tracking-tighter italic text-slate-900 dark:text-white">₱{latest.totalAmount.toLocaleString()}</span>
+                                    <span className="text-slate-400 font-bold italic uppercase text-[9px] md:text-[10px] tracking-widest">Total Amount</span>
                                 </div>
                             </div>
 
                             {/* Sunday Mass Breakdown */}
                             <div className="space-y-2 md:space-y-3">
-                                <div className="flex items-center justify-between border-b border-white/20 pb-2">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-100 italic">Sunday Masses ({format(new Date(latest.date), "MMM dd")})</p>
-                                    <p className="text-xs font-black italic">₱{(latest.sundayMassJson as any[]).reduce((sum, item) => sum + Number(item.amount || 0), 0).toLocaleString()}</p>
+                                <div className="flex items-center justify-between border-b border-slate-150 dark:border-white/10 pb-2">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Sunday Masses ({format(new Date(latest.date), "MMM dd")})</p>
+                                    <p className="text-xs font-black italic text-slate-900 dark:text-white">₱{(latest.sundayMassJson as any[]).reduce((sum, item) => sum + Number(item.amount || 0), 0).toLocaleString()}</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2 md:gap-3">
                                     {(latest.sundayMassJson as any[]).map((m, idx) => (
-                                        <div key={idx} className="flex items-center justify-between text-[11px] font-bold italic opacity-80 bg-white/5 px-2 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl">
+                                        <div key={idx} className="flex items-center justify-between text-[11px] font-bold italic text-slate-700 dark:text-slate-350 bg-slate-50 dark:bg-white/5 px-2 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl border border-slate-100 dark:border-white/5">
                                             <span>{m.time}</span>
-                                            <span>₱{Number(m.amount).toLocaleString()}</span>
+                                            <span className="text-slate-900 dark:text-white font-extrabold">₱{Number(m.amount).toLocaleString()}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -182,36 +182,36 @@ export function ParishCorner({ info, schedules, collections }: ParishCornerProps
 
                             {/* Other Sources */}
                             <div className="grid grid-cols-2 gap-2 md:gap-4">
-                                <div className="p-3 md:p-4 bg-white/10 rounded-xl md:rounded-2xl backdrop-blur-sm border border-white/10">
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-emerald-100 mb-0.5 md:mb-1 italic">2nd Basket</p>
-                                    <p className="text-lg md:text-xl font-bold italic">₱{Number(latest.secondBasket).toLocaleString()}</p>
+                                <div className="p-3 md:p-4 bg-slate-50 dark:bg-white/5 rounded-xl md:rounded-2xl border border-slate-100 dark:border-white/5">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5 md:mb-1 italic">2nd Basket</p>
+                                    <p className="text-lg md:text-xl font-bold italic text-slate-900 dark:text-white">₱{Number(latest.secondBasket).toLocaleString()}</p>
                                 </div>
-                                <div className="p-3 md:p-4 bg-white/10 rounded-xl md:rounded-2xl backdrop-blur-sm border border-white/10">
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-emerald-100 mb-0.5 md:mb-1 italic">Envelopes</p>
-                                    <p className="text-lg md:text-xl font-bold italic">₱{Number(latest.envelopes).toLocaleString()}</p>
+                                <div className="p-3 md:p-4 bg-slate-50 dark:bg-white/5 rounded-xl md:rounded-2xl border border-slate-100 dark:border-white/5">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5 md:mb-1 italic">Envelopes</p>
+                                    <p className="text-lg md:text-xl font-bold italic text-slate-900 dark:text-white">₱{Number(latest.envelopes).toLocaleString()}</p>
                                 </div>
                             </div>
 
                             {/* Donation Summary if any */}
                             {(latest.donationsJson as any[]).length > 0 && (
-                                <div className="p-3 md:p-4 bg-white/10 rounded-xl md:rounded-2xl backdrop-blur-sm border border-white/10">
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-emerald-100 mb-0.5 md:mb-1 italic">Generous Donations</p>
-                                    <p className="text-lg md:text-xl font-bold italic">₱{(latest.donationsJson as any[]).reduce((sum, item) => sum + Number(item.amount || 0), 0).toLocaleString()}</p>
+                                <div className="p-3 md:p-4 bg-slate-50 dark:bg-white/5 rounded-xl md:rounded-2xl border border-slate-100 dark:border-white/5">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5 md:mb-1 italic">Generous Donations</p>
+                                    <p className="text-lg md:text-xl font-bold italic text-slate-900 dark:text-white">₱{(latest.donationsJson as any[]).reduce((sum, item) => sum + Number(item.amount || 0), 0).toLocaleString()}</p>
                                 </div>
                             )}
                         </div>
                     ) : (
-                        <div className="py-6 md:py-10 text-center border border-dashed border-white/20 rounded-2xl">
-                            <p className="text-emerald-100 font-bold italic text-xs md:text-base">No financial data available yet.</p>
+                        <div className="py-6 md:py-10 text-center border border-dashed border-slate-200 dark:border-white/10 rounded-2xl">
+                            <p className="text-slate-400 font-bold italic text-xs md:text-base">No financial data available yet.</p>
                         </div>
                     )}
 
-                    <div className="pt-3 md:pt-4 flex items-center justify-between border-t border-white/10">
-                        <div className="flex items-center gap-2 group cursor-pointer">
-                            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                                <Heart className="w-4 h-4 text-white fill-white" />
+                    <div className="pt-3 md:pt-4 flex items-center justify-between border-t border-slate-100 dark:border-white/5">
+                        <div className="flex items-center gap-2 group">
+                            <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center">
+                                <Heart className="w-4 h-4 text-emerald-500 fill-emerald-500" />
                             </div>
-                            <p className="text-[10px] font-black uppercase tracking-widest italic">God loves a cheerful giver.</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest italic text-slate-400">God loves a cheerful giver.</p>
                         </div>
                     </div>
                 </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Search, User, Loader2 } from "lucide-react";
-import { searchResidents } from "../../actions";
+import { searchResidents, getHeadlessResidents } from "../../actions";
 import { useResident } from "../providers/ResidentProvider";
 
 type SearchResult = {
@@ -16,9 +16,15 @@ interface ResidentSearchProps {
     onSelect: (resident: SearchResult) => void;
     placeholder?: string;
     excludeIds?: string[];
+    suggestEmpty?: boolean;
 }
 
-export function ResidentSearch({ onSelect, placeholder = "Search resident...", excludeIds = [] }: ResidentSearchProps) {
+export function ResidentSearch({ 
+    onSelect, 
+    placeholder = "Search resident...", 
+    excludeIds = [],
+    suggestEmpty = false
+}: ResidentSearchProps) {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<SearchResult[]>([]);
     const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -48,7 +54,9 @@ export function ResidentSearch({ onSelect, placeholder = "Search resident...", e
         if (loading) return;
         setLoading(true);
         try {
-            const res = await searchResidents(searchQuery, pageNum, 10);
+            const res = (searchQuery === "" && suggestEmpty)
+                ? await getHeadlessResidents(pageNum, 5)
+                : await searchResidents(searchQuery, pageNum, 5);
             if (res.success && res.data) {
                 const fetched = res.data as SearchResult[];
                 const filtered = fetched.filter(r => !excludeIds.includes(r.id));
@@ -61,7 +69,7 @@ export function ResidentSearch({ onSelect, placeholder = "Search resident...", e
                         return [...prev, ...uniqueFetched];
                     });
                 }
-                setHasMore(fetched.length === 10);
+                setHasMore(fetched.length === 5);
             } else {
                 if (isNewSearch) setResults([]);
                 setHasMore(false);

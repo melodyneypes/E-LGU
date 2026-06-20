@@ -1,6 +1,6 @@
 
 
-export const CIVIL_STATUSES = ["Single", "Married", "Widowed", "Separated", "Annulled", "Live-in", "Other"];
+export const CIVIL_STATUSES = ["Single", "Married", "Widowed", "Legally Separated", "Other"];
 
 export const GENDERS = ["Male", "Female", "Other"];
 

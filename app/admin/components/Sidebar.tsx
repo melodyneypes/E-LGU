@@ -15,6 +15,8 @@ import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/lib/supabase";
+import { getBploInspectionCount } from "@/app/admin/transactions/actions";
 
 interface SidebarProps {
     session: {
@@ -67,6 +69,52 @@ export function Sidebar({
     React.useEffect(() => {
         setMounted(true);
     }, []);
+
+    const [bploInspectionCount, setBploInspectionCount] = React.useState(0);
+
+    const fetchBploCount = React.useCallback(async () => {
+        try {
+            const res = await getBploInspectionCount();
+            if (res && res.success) {
+                setBploInspectionCount(res.count ?? 0);
+            }
+        } catch (err) {
+            console.error("Error fetching sidebar BPLO count:", err);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        if (role !== "ADMIN" && role !== "ADMIN_AIDE") return;
+
+        fetchBploCount();
+
+        if (!supabase) return;
+        let channel: any;
+        try {
+            channel = supabase
+                .channel("sidebar-bplo-realtime")
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "Transaction",
+                    },
+                    () => {
+                        fetchBploCount();
+                    }
+                )
+                .subscribe();
+        } catch (error) {
+            console.error("Failed to setup sidebar realtime:", error);
+        }
+
+        return () => {
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [fetchBploCount, role]);
 
     React.useEffect(() => {
         setIsSettingsOpen(pathname.startsWith("/admin/settings"));
@@ -244,7 +292,7 @@ export function Sidebar({
             ]
         },
         { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury" },
-        { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "Treasury" },
+        { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "Treasury", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
         { href: "/admin/treasury/payment-settings", label: "Payment Settings", icon: CreditCard, category: "Treasury" },
         { href: "/admin/users", label: "User Accounts", icon: UserCheck, category: "Security & Accounts" },
     ];
@@ -293,9 +341,7 @@ export function Sidebar({
             if (department) {
                 const deptUpper = department.toUpperCase();
                 if (deptUpper === "BPLO") {
-                    menuItems = [
-                        { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "Treasury" }
-                    ];
+                    menuItems = allMenuItems.filter(item => ["BPLO Permits"].includes(item.label));
                 } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
                     menuItems = allMenuItems.filter(item =>
                         ["Registrar Hub", "Transaction Ledger"].includes(item.label)

@@ -111,7 +111,12 @@ const SERVICES_META: ServiceMeta[] = [
     }
 ];
 
-export default function RegistrarDashboard() {
+interface RegistrarDashboardProps {
+    transactions?: any[];
+    currentUserId?: string;
+}
+
+export default function RegistrarDashboard({ transactions = [], currentUserId }: RegistrarDashboardProps = {}) {
     const router = useRouter();
     const [counts, setCounts] = useState<DashboardCounts | null>(null);
     const [loading, setLoading] = useState(true);
@@ -253,33 +258,72 @@ export default function RegistrarDashboard() {
                                 ? service.code.reduce((acc: number, code) => acc + (counts.totalCounts[code] || 0), 0)
                                 : counts.totalCounts[service.code] || 0
                         ) : 0;
+                        const hasUnviewedActive = (() => {
+                            if (!currentUserId || !transactions || transactions.length === 0) return false;
+                            const terminalStatuses = ["RELEASED", "DELIVERED", "REJECTED", "RETURNED", "REFUNDED"];
+                            return transactions.some(tx => {
+                                if (tx.status !== "FOR_REQUESTING") return false;
+                                const code = tx.type?.code;
+                                if (!code) return false;
+                                const matchesCode = Array.isArray(service.code) 
+                                    ? service.code.includes(code) 
+                                    : code === service.code;
+                                if (!matchesCode) return false;
+
+                                const isActive = !tx.isCancelled && !terminalStatuses.includes(tx.status);
+                                if (!isActive) return false;
+
+                                if (code === "LCR_DEATH_REG" && tx.status === "FOR_REQUESTING") return false;
+                                if (code === "LCR_MARRIAGE_LICENSE" && tx.status === "FOR_REQUESTING") return false;
+                                if (code === "LCR_DEATH_PSA_ENDORSEMENT" && tx.status === "FOR_REQUESTING") return false;
+
+                                const viewedMap = tx.viewedAt && typeof tx.viewedAt === 'object' && !Array.isArray(tx.viewedAt)
+                                    ? (tx.viewedAt as Record<string, string>)
+                                    : {};
+                                const userViewTime = viewedMap[currentUserId];
+                                if (!userViewTime) return true;
+                                return new Date(tx.updatedAt).getTime() > new Date(userViewTime).getTime();
+                            });
+                        })();
+
                         const Icon = service.icon;
                         
                         return (
                             <div
                                 key={Array.isArray(service.code) ? service.code.join("-") : service.code}
                                 onClick={() => router.push(`/admin/registrar?category=${encodeURIComponent(service.categoryParam)}`)}
-                                className="bg-white dark:bg-[#151b2b] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl cursor-pointer"
+                                className={cn(
+                                    "bg-white dark:bg-[#151b2b] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl cursor-pointer",
+                                    hasUnviewedActive && "ring-2 ring-emerald-500/30 border-emerald-500/30 dark:ring-emerald-500/20"
+                                )}
                             >
                                 <div className="absolute -top-4 -right-4 text-slate-100 dark:text-[#2a3040]/20 transition-transform group-hover:scale-110">
                                     <Icon size={120} strokeWidth={1} />
                                 </div>
 
                                 <div className="relative z-10 flex items-start justify-between mb-6">
-                                    <div className={cn(
-                                        "w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-105",
-                                        service.color === "blue" && "bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 shadow-blue-500/5",
-                                        service.color === "sky" && "bg-sky-500/10 text-sky-600 dark:bg-sky-500/20 shadow-sky-500/5",
-                                        service.color === "indigo" && "bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 shadow-indigo-500/5",
-                                        service.color === "slate" && "bg-slate-500/10 text-slate-600 dark:bg-slate-500/20 shadow-slate-500/5",
-                                        service.color === "zinc" && "bg-zinc-500/10 text-zinc-600 dark:bg-zinc-500/20 shadow-zinc-500/5",
-                                        service.color === "violet" && "bg-violet-500/10 text-violet-600 dark:bg-violet-500/20 shadow-violet-500/5",
-                                        service.color === "rose" && "bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 shadow-rose-500/5",
-                                        service.color === "pink" && "bg-pink-500/10 text-pink-600 dark:bg-pink-500/20 shadow-pink-500/5",
-                                        service.color === "emerald" && "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 shadow-emerald-500/5",
-                                        service.color === "teal" && "bg-teal-500/10 text-teal-600 dark:bg-teal-500/20 shadow-teal-500/5"
-                                    )}>
-                                        <Icon className="w-6 h-6" />
+                                    <div className="relative">
+                                        <div className={cn(
+                                            "w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-105",
+                                            service.color === "blue" && "bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 shadow-blue-500/5",
+                                            service.color === "sky" && "bg-sky-500/10 text-sky-600 dark:bg-sky-500/20 shadow-sky-500/5",
+                                            service.color === "indigo" && "bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 shadow-indigo-500/5",
+                                            service.color === "slate" && "bg-slate-500/10 text-slate-600 dark:bg-slate-500/20 shadow-slate-500/5",
+                                            service.color === "zinc" && "bg-zinc-500/10 text-zinc-600 dark:bg-zinc-500/20 shadow-zinc-500/5",
+                                            service.color === "violet" && "bg-violet-500/10 text-violet-600 dark:bg-violet-500/20 shadow-violet-500/5",
+                                            service.color === "rose" && "bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 shadow-rose-500/5",
+                                            service.color === "pink" && "bg-pink-500/10 text-pink-600 dark:bg-pink-500/20 shadow-pink-500/5",
+                                            service.color === "emerald" && "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 shadow-emerald-500/5",
+                                            service.color === "teal" && "bg-teal-500/10 text-teal-600 dark:bg-teal-500/20 shadow-teal-500/5"
+                                        )}>
+                                            <Icon className="w-6 h-6" />
+                                        </div>
+                                        {hasUnviewedActive && (
+                                            <span className="absolute -top-1 -right-1 flex h-3 w-3" title="New / Unviewed Requests">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="text-right">
                                         <span className="text-3xl font-black italic tracking-tighter text-slate-800 dark:text-slate-200">

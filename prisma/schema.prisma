@@ -667,6 +667,7 @@ model Transaction {
   deathPsaEndorsementRequest DeathPsaEndorsementRequest? // One-to-one link to the death psa endorsement request
   
   isCancelled       Boolean           @default(false)
+  viewedAt          Json              @default("{}")
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 

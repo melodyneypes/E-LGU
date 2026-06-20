@@ -11,12 +11,15 @@ import { toast } from "sonner";
 import { useState, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 
+import { useRouter } from "next/navigation";
+
 export function OfficialsTable() {
     const { 
-        officialsData, searchTerm, setEditingData, 
+        officialsData, setOfficialsData, searchTerm, setEditingData, 
         setIsAddModalOpen, selectedPosition, selectedCategory,
         selectedStatus, selectedBarangay, themeColor
     } = useOfficials();
+    const router = useRouter();
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -51,6 +54,8 @@ export function OfficialsTable() {
         setDeletingId(id);
         try {
             await deleteOfficial(id);
+            setOfficialsData(officialsData.filter(item => item.id !== id));
+            router.refresh();
             toast.success("Official profile deleted successfully!");
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (error) {
@@ -64,6 +69,8 @@ export function OfficialsTable() {
         setTogglingId(id);
         try {
             await toggleOfficialStatus(id, !currentStatus);
+            setOfficialsData(officialsData.map(item => item.id === id ? { ...item, isActive: !currentStatus } : item));
+            router.refresh();
             toast.success(`Official profile ${!currentStatus ? 'activated' : 'deactivated'} successfully!`);
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (error) {

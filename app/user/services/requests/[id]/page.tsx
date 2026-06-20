@@ -412,10 +412,10 @@ export default function RequestHubPage() {
                 )
                 .subscribe((status: string, err?: any) => {
                     if (err) {
-                        console.error("Supabase Realtime subscription error:", err);
+                        console.warn("Supabase Realtime subscription notice:", err);
                     }
                     if (status === "CHANNEL_ERROR") {
-                        console.error("Supabase Realtime channel error status caught");
+                        console.warn("Supabase Realtime channel reconnecting/idle");
                     }
                 });
         } catch (error) {
@@ -1400,11 +1400,10 @@ export default function RequestHubPage() {
                                         ) : (
                                             (localPayment === "E_PAYMENT" || localPayment === "BANK_TRANSFER") && (
                                                 <div className="space-y-6 animate-in fade-in slide-in-from-top-4">
-                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                                                         {[
                                                             { id: "gcash", label: "GCash Wallet", desc: "GCash E-Wallet", icon: Wallet },
-                                                            { id: "qrph", label: "QRPH Scan", desc: "Maya, BPI, GCash", icon: QrCode },
-                                                            { id: "dob", label: "Direct Banking", desc: "UnionBank / BPI", icon: Building2 }
+                                                            { id: "qrph", label: "QRPH Scan", desc: "Maya, BPI, GCash", icon: QrCode }
                                                         ].map(method => (
                                                             <button
                                                                 key={method.id}
@@ -1452,10 +1451,10 @@ export default function RequestHubPage() {
                         </div>
                     ) : (
                         <Tabs defaultValue="overview" className="space-y-8 md:space-y-12">
-                            <TabsList className="bg-slate-100/50 dark:bg-white/5 p-1.5 rounded-[1.25rem] md:rounded-[1.5rem] h-auto md:h-16 w-full md:w-fit border border-slate-200 dark:border-white/10 shadow-inner flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                                <TabsTrigger value="overview" className="flex-1 md:flex-none rounded-xl md:rounded-[1rem] px-5 md:px-10 py-3 md:py-0 h-full font-black text-[8px] md:text-[10px] uppercase tracking-widest italic data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md transition-all">Overview</TabsTrigger>
-                                <TabsTrigger value="records" className="flex-1 md:flex-none rounded-xl md:rounded-[1rem] px-5 md:px-10 py-3 md:py-0 h-full font-black text-[8px] md:text-[10px] uppercase tracking-widest italic data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md transition-all">Records</TabsTrigger>
-                                <TabsTrigger value="logistics" className="flex-1 md:flex-none rounded-xl md:rounded-[1rem] px-5 md:px-10 py-3 md:py-0 h-full font-black text-[8px] md:text-[10px] uppercase tracking-widest italic data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md transition-all">Logistics</TabsTrigger>
+                            <TabsList className="bg-slate-100/50 dark:bg-white/5 p-1.5 rounded-[1.25rem] md:rounded-[1.5rem] h-auto md:h-16 w-full md:w-fit border border-slate-200 dark:border-white/10 shadow-inner flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-nowrap">
+                                <TabsTrigger value="overview" className="flex-1 md:flex-none rounded-xl md:rounded-[1rem] px-4 md:px-10 py-3 md:py-0 h-full font-black text-[8px] md:text-[10px] uppercase tracking-widest italic data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap shrink-0">Status</TabsTrigger>
+                                <TabsTrigger value="records" className="flex-1 md:flex-none rounded-xl md:rounded-[1rem] px-4 md:px-10 py-3 md:py-0 h-full font-black text-[8px] md:text-[10px] uppercase tracking-widest italic data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap shrink-0">Filing Details</TabsTrigger>
+                                <TabsTrigger value="logistics" className="flex-1 md:flex-none rounded-xl md:rounded-[1rem] px-4 md:px-10 py-3 md:py-0 h-full font-black text-[8px] md:text-[10px] uppercase tracking-widest italic data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap shrink-0">Documents & Proof</TabsTrigger>
                             </TabsList>
 
                             <TabsContent value="overview" className="mt-0 space-y-3 md:space-y-4">

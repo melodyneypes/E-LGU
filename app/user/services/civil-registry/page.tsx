@@ -178,7 +178,7 @@ export default function CivilRegistryPage() {
             <div className="space-y-4 md:space-y-10">
                 <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                     <Breadcrumb>
-                        <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
                             <BreadcrumbItem>
                                 <BreadcrumbLink asChild>
                                     <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
@@ -290,16 +290,16 @@ export default function CivilRegistryPage() {
                                             
                                             const cardContent = (
                                                 <div className={cn(
-                                                    "p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] border-2 transition-all duration-300 text-left relative group select-none overflow-hidden flex flex-col justify-between min-h-[220px] cursor-pointer bg-white/40 dark:bg-white/5 backdrop-blur-md border-slate-200 dark:border-white/10 hover:border-primary/40 hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/5",
+                                                    "p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] border-2 transition-all duration-300 text-left relative group select-none overflow-hidden flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-0 justify-start md:justify-between min-h-[100px] md:min-h-[220px] cursor-pointer bg-white/40 dark:bg-white/5 backdrop-blur-md border-slate-200 dark:border-white/10 hover:border-primary/40 hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/5",
                                                     !type.available && "opacity-60 cursor-not-allowed"
                                                 )}>
-                                                    <div className="flex justify-between items-start w-full">
-                                                        <div className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 theme-icon-bg">
-                                                            <Icon className="w-5 h-5 stroke-[2.5] theme-icon-text" />
+                                                    <div className="flex justify-between items-start w-auto md:w-full shrink-0">
+                                                        <div className="w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 theme-icon-bg">
+                                                            <Icon className="w-4.5 h-4.5 md:w-5 md:h-5 stroke-[2.5] theme-icon-text" />
                                                         </div>
                                                     </div>
 
-                                                    <div className="space-y-1.5 mt-6">
+                                                    <div className="space-y-1.5 mt-0 md:mt-6">
                                                         <h4 className="text-base md:text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-tight">
                                                             {type.label}
                                                         </h4>

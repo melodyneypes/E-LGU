@@ -911,17 +911,17 @@ export default function BusinessPermitWizardPage() {
 
             // Validate file type (image, pdf, doc, docx)
             const allowedTypes = [
-                "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif",
+                "image/jpeg", "image/png", "image/gif",
                 "application/pdf",
                 "application/msword",
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             ];
 
             const fileExtension = file.name.split('.').pop()?.toLowerCase() || "";
-            const allowedExtensions = ["pdf", "jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "doc", "docx"];
+            const allowedExtensions = ["pdf", "jpg", "jpeg", "png", "gif", "doc", "docx"];
 
             if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
-                toast.error("Invalid file type! Only images (PNG, JPG, WEBP), PDFs, and Word documents (DOC/DOCX) are allowed.");
+                toast.error("Invalid file type! Only standard images (PNG, JPG, GIF), PDFs, and Word documents (DOC/DOCX) are allowed.");
                 e.target.value = ""; // clear file input
                 return;
             }
@@ -1161,12 +1161,12 @@ export default function BusinessPermitWizardPage() {
 
     return (
         <>
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-12 pb-32">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-0 pb-8 space-y-12 pb-32">
             {/* Header / Breadcrumb */}
             <div className="space-y-4 md:space-y-10">
                 <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                     <Breadcrumb>
-                        <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 md:px-6 py-2 md:py-2.5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 w-fit shadow-sm">
+                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 md:px-6 py-2 md:py-2.5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 w-fit shadow-sm">
                             <BreadcrumbItem>
                                 <BreadcrumbLink asChild>
                                     <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
@@ -2126,7 +2126,7 @@ export default function BusinessPermitWizardPage() {
                                                                 onChange={(e) => handleFileChange(e, item.field as keyof FormState)}
                                                                 className="hidden"
                                                                 id={`upload-${item.field}`}
-                                                                accept="image/*,application/pdf,.doc,.docx"
+                                                                accept="image/jpeg,image/png,image/gif,application/pdf,.doc,.docx"
                                                             />
                                                             {(file || (item.field === "ownerIdFile" && formData.residentData?.idFrontUrl) || revisionTx?.additionalData?.[`${item.field.replace("File", "Url")}`]) ? (
                                                                 <div className="flex gap-2 w-full">

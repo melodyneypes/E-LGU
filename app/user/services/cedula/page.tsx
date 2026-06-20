@@ -13,7 +13,8 @@ import {
     Home,
     Upload,
     Sparkles,
-    GraduationCap
+    GraduationCap,
+    ArrowLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -600,13 +601,13 @@ export default function CedulaApplicationPage() {
     }
 
     return (
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-8 pb-0 space-y-12">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-0 pb-0 space-y-12">
             {/* Header / Breadcrumb */}
             <div className="space-y-4 md:space-y-10">
                 {/* Header / Breadcrumb */}
                 <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                     <Breadcrumb>
-                        <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 md:px-6 py-2 md:py-2.5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 w-fit shadow-sm">
+                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 md:px-6 py-2 md:py-2.5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 w-fit shadow-sm">
                             <BreadcrumbItem>
                                 <BreadcrumbLink asChild>
                                     <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
@@ -770,38 +771,38 @@ export default function CedulaApplicationPage() {
                                                         }
                                                     }}
                                                     className={cn(
-                                                        "p-8 rounded-[2rem] border-2 text-left relative group select-none overflow-hidden transition-all duration-300 min-h-[260px] flex flex-col justify-between cursor-pointer",
+                                                        "p-6 md:p-8 rounded-[2rem] border-2 text-left relative group select-none overflow-hidden transition-all duration-300 min-h-[180px] md:min-h-[260px] flex flex-col justify-between cursor-pointer",
                                                         isSelected
-                                                            ? "border-primary bg-primary text-white shadow-xl scale-[1.02]"
+                                                            ? "border-primary bg-primary/[0.04] dark:bg-primary/[0.08] shadow-[0_8px_30px_rgba(var(--primary),0.06)] scale-[1.02]"
                                                             : "border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/5 backdrop-blur-sm hover:border-primary/30"
                                                     )}
                                                 >
                                                     {/* Top Row: Icon and Checkmark */}
                                                     <div className="flex items-center justify-between w-full">
                                                         <div className={cn(
-                                                            "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300",
-                                                            isSelected ? "bg-white/20 text-white" : "bg-primary/10 text-primary"
+                                                            "w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center transition-all duration-300",
+                                                            isSelected ? "bg-primary/20 text-primary" : "bg-primary/10 text-primary"
                                                         )}>
-                                                            <Icon className="w-5 h-5 stroke-[2.5]" />
+                                                            <Icon className="w-4 h-4 md:w-5 md:h-5 stroke-[2.5]" />
                                                         </div>
                                                         {isSelected && (
-                                                            <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-md animate-in zoom-in-50 duration-300">
-                                                                <Check className="w-3.5 h-3.5 text-primary stroke-[3]" />
+                                                            <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-primary flex items-center justify-center shadow-md animate-in zoom-in-50 duration-300">
+                                                                <Check className="w-3 h-3 md:w-3.5 md:h-3.5 text-white stroke-[3]" />
                                                             </div>
                                                         )}
                                                     </div>
 
                                                     {/* Bottom Row: Text content */}
-                                                    <div className="space-y-2 mt-8">
+                                                    <div className="space-y-2 mt-4 md:mt-8">
                                                         <h4 className={cn(
-                                                            "text-lg md:text-xl font-black uppercase italic tracking-wider leading-tight",
-                                                            isSelected ? "text-white" : "text-slate-800 dark:text-slate-200"
+                                                            "text-base md:text-xl font-black uppercase italic tracking-wider leading-tight",
+                                                            isSelected ? "text-slate-900 dark:text-white" : "text-slate-800 dark:text-slate-200"
                                                         )}>
                                                             {label.toUpperCase()}
                                                         </h4>
                                                         <p className={cn(
                                                             "text-[9px] md:text-[10px] font-bold uppercase tracking-wider leading-relaxed",
-                                                            isSelected ? "text-white/80" : "text-slate-400 dark:text-slate-500"
+                                                            isSelected ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"
                                                         )}>
                                                             {desc.toUpperCase()}
                                                         </p>
@@ -933,7 +934,10 @@ export default function CedulaApplicationPage() {
                                                 <Input
                                                     ref={contactInputRef}
                                                     value={formData.residentData?.contactNumber || ""}
-                                                    onChange={(e) => setFormData(p => ({ ...p, residentData: { ...p.residentData, contactNumber: e.target.value } }))}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value.replace(/[^\d+]/g, '');
+                                                        setFormData(p => ({ ...p, residentData: { ...p.residentData, contactNumber: val } }));
+                                                    }}
                                                     className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm"
                                                     placeholder="09xx xxx xxxx"
                                                 />
@@ -1450,7 +1454,25 @@ export default function CedulaApplicationPage() {
                 </div>
 
                 {/* Integrated Navigation Card Actions */}
-                <div className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-slate-200 dark:border-white/10 flex justify-end">
+                <div className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-slate-200 dark:border-white/10 flex justify-between items-center">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                            if (currentStep === "STATUS") {
+                                router.push("/user/services");
+                            } else {
+                                const stepIndex = STEPS.findIndex(s => s.id === currentStep);
+                                if (stepIndex > 0) {
+                                    setCurrentStep(STEPS[stepIndex - 1].id);
+                                }
+                            }
+                        }}
+                        className="rounded-full px-12 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest italic text-[10px] h-10 md:h-14 bg-transparent hover:bg-slate-50 dark:hover:bg-white/5"
+                    >
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back
+                    </Button>
                     <Button
                         onClick={currentStep === "CONFIRM" ? onSubmit : handleNext}
                         disabled={submitting || (currentStep !== "CONFIRM" && currentStep !== "STATUS" && !isStepValid(currentStep))}

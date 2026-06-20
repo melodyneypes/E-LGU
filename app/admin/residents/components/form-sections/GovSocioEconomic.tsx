@@ -5,6 +5,43 @@ import { EDUCATIONAL_ATTAINMENT, EMPLOYMENT_STATUS, INCOME_RANGES, OCCUPATIONS }
 import { useResident } from "../../providers/ResidentProvider";
 import { Search } from "lucide-react";
 
+const formatTIN = (val: string) => {
+  const clean = val.replace(/[^0-9]/g, "").slice(0, 12);
+  const parts = [];
+  if (clean.length > 0) parts.push(clean.slice(0, 3));
+  if (clean.length > 3) parts.push(clean.slice(3, 6));
+  if (clean.length > 6) parts.push(clean.slice(6, 9));
+  if (clean.length > 9) parts.push(clean.slice(9, 12));
+  return parts.join("-");
+};
+
+const formatGSIS = (val: string) => {
+  const clean = val.replace(/[^0-9]/g, "").slice(0, 11);
+  const parts = [];
+  if (clean.length > 0) parts.push(clean.slice(0, 2));
+  if (clean.length > 2) parts.push(clean.slice(2, 4));
+  if (clean.length > 4) parts.push(clean.slice(4, 11));
+  return parts.join("-");
+};
+
+const formatSSS = (val: string) => {
+  const clean = val.replace(/[^0-9]/g, "").slice(0, 10);
+  const parts = [];
+  if (clean.length > 0) parts.push(clean.slice(0, 2));
+  if (clean.length > 2) parts.push(clean.slice(2, 9));
+  if (clean.length > 9) parts.push(clean.slice(9, 10));
+  return parts.join("-");
+};
+
+const formatPhilhealth = (val: string) => {
+  const clean = val.replace(/[^0-9]/g, "").slice(0, 12);
+  const parts = [];
+  if (clean.length > 0) parts.push(clean.slice(0, 2));
+  if (clean.length > 2) parts.push(clean.slice(2, 11));
+  if (clean.length > 11) parts.push(clean.slice(11, 12));
+  return parts.join("-");
+};
+
 export function GovSocioEconomicSection({ data }: { data?: any }) {
   const { themeColor, formCategoryName } = useResident();
   const isNonResident = formCategoryName?.toUpperCase().replace("-", " ").includes("NON RESIDENT");
@@ -24,22 +61,10 @@ export function GovSocioEconomicSection({ data }: { data?: any }) {
   });
   const [occupationSearch, setOccupationSearch] = useState("");
 
-  const [tin, setTin] = useState(() => {
-    if (!data?.tin) return "";
-    return data.tin.replace(/[^0-9]/g, "");
-  });
-  const [gsis, setGsis] = useState(() => {
-    if (!data?.gsis) return "";
-    return data.gsis.replace(/[^0-9]/g, "");
-  });
-  const [sss, setSss] = useState(() => {
-    if (!data?.sss) return "";
-    return data.sss.replace(/[^0-9]/g, "");
-  });
-  const [philhealth, setPhilhealth] = useState(() => {
-    if (!data?.philhealthNumber) return "";
-    return data.philhealthNumber.replace(/[^0-9]/g, "");
-  });
+  const [tin, setTin] = useState(() => formatTIN(data?.tin || ""));
+  const [gsis, setGsis] = useState(() => formatGSIS(data?.gsis || ""));
+  const [sss, setSss] = useState(() => formatSSS(data?.sss || ""));
+  const [philhealth, setPhilhealth] = useState(() => formatPhilhealth(data?.philhealthNumber || ""));
 
   return (
     <div className="space-y-6">
@@ -49,9 +74,9 @@ export function GovSocioEconomicSection({ data }: { data?: any }) {
           <Input 
             name="tin" 
             value={tin} 
-            onChange={(e) => setTin(e.target.value.replace(/[^0-9]/g, "").slice(0, 12))} 
-            placeholder="12-digit number" 
-            maxLength={12}
+            onChange={(e) => setTin(formatTIN(e.target.value))} 
+            placeholder="000-000-000-000" 
+            maxLength={15}
             className="font-bold"
           />
         </div>
@@ -60,9 +85,9 @@ export function GovSocioEconomicSection({ data }: { data?: any }) {
           <Input 
             name="gsis" 
             value={gsis} 
-            onChange={(e) => setGsis(e.target.value.replace(/[^0-9]/g, "").slice(0, 11))} 
-            placeholder="11-digit number" 
-            maxLength={11}
+            onChange={(e) => setGsis(formatGSIS(e.target.value))} 
+            placeholder="00-00-0000000" 
+            maxLength={13}
             className="font-bold"
           />
         </div>
@@ -71,9 +96,9 @@ export function GovSocioEconomicSection({ data }: { data?: any }) {
           <Input 
             name="sss" 
             value={sss} 
-            onChange={(e) => setSss(e.target.value.replace(/[^0-9]/g, "").slice(0, 10))} 
-            placeholder="10-digit number" 
-            maxLength={10}
+            onChange={(e) => setSss(formatSSS(e.target.value))} 
+            placeholder="00-0000000-0" 
+            maxLength={12}
             className="font-bold"
           />
         </div>
@@ -82,9 +107,9 @@ export function GovSocioEconomicSection({ data }: { data?: any }) {
           <Input 
             name="philhealthNumber" 
             value={philhealth} 
-            onChange={(e) => setPhilhealth(e.target.value.replace(/[^0-9]/g, "").slice(0, 12))} 
-            placeholder="12-digit number" 
-            maxLength={12}
+            onChange={(e) => setPhilhealth(formatPhilhealth(e.target.value))} 
+            placeholder="00-000000000-0" 
+            maxLength={14}
             className="font-bold"
           />
         </div>

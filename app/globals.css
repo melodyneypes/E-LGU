@@ -159,6 +159,14 @@
     scrollbar-color: var(--sidebar-border) transparent;
   }
 
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   @keyframes shimmer {
     0% {
       transform: translateX(-100%);

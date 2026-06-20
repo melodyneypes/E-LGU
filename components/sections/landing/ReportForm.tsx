@@ -161,7 +161,7 @@ export function ReportForm({ isMaintenanceActive = false }: { isMaintenanceActiv
     }
 
     return (
-        <div className="bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-white/10 p-8 shadow-2xl backdrop-blur-sm overflow-hidden transition-all duration-500">
+        <div id="reports" className="bg-white/5 rounded-2xl md:rounded-[2.5rem] border border-white/10 p-8 shadow-2xl backdrop-blur-sm overflow-hidden transition-all duration-500">
             <div className="space-y-6">
                 <div className="space-y-2">
                     <h3 className="text-3xl font-black uppercase italic tracking-tighter text-white">Report <span className="text-primary">an Issue</span></h3>

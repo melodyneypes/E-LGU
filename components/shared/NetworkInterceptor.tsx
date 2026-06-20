@@ -30,7 +30,12 @@ export function NetworkInterceptor() {
                             toast.error(`Network Request Failed: ${msg}`);
                         } else {
                             const text = await clone.text();
-                            toast.error(`Error ${response.status}: ${text.slice(0, 100) || response.statusText}`);
+                            const isHtml = text.trim().startsWith("<") || text.trim().toLowerCase().startsWith("<!doctype");
+                            if (isHtml) {
+                                toast.error(`Error ${response.status}: An unexpected server error occurred. Please try again later.`);
+                            } else {
+                                toast.error(`Error ${response.status}: ${text.slice(0, 100) || response.statusText}`);
+                            }
                         }
                     } catch {
                         toast.error(`Request Failed: Server responded with status ${response.status}`);

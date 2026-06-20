@@ -134,6 +134,19 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         : null;
     const fiscal = (transaction.fiscalSnapshot as any) || null;
 
+    // Calculate sum of fee line items currently entered in the UI
+    const itemsSum = feeLineItems.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+    const isEvaluating = transaction.status === "FOR_REQUESTING";
+
+    const adjustedTotalAmount = isEvaluating
+        ? calcResult.totalAmount + itemsSum
+        : calcResult.totalAmount;
+
+    const adjustedDisplayTotal = isEvaluating
+        ? displayTotal + itemsSum
+        : displayTotal;
+
+
     return (
         <div
             className="min-h-screen bg-[#f8fafd] dark:bg-[#0c111d] text-[#0f172a] dark:text-[#f8fafc] pb-20 font-sans transition-colors duration-500"
@@ -259,11 +272,11 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                     </div>
                                     <div
                                         className="bg-[#f8fafd] dark:bg-white/5 p-4 rounded-2xl space-y-1 cursor-help"
-                                        title={`₱${calcResult.totalAmount.toLocaleString()}`}
+                                        title={`₱${adjustedTotalAmount.toLocaleString()}`}
                                     >
                                         <span className="text-[9px] font-black uppercase tracking-widest text-primary">Total Amount</span>
                                         <p className="text-xl font-black italic tracking-tighter text-primary truncate">
-                                            ₱{calcResult.totalAmount.toLocaleString()}
+                                            ₱{adjustedTotalAmount.toLocaleString()}
                                         </p>
                                     </div>
                                 </div>
@@ -429,7 +442,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         <div className="border-t border-dotted border-slate-300 dark:border-white/10 pt-4 mt-4 flex justify-between items-center">
                                             <span className="text-base font-black uppercase italic tracking-widest text-slate-900 dark:text-white leading-none">Total Amount</span>
                                             <span className="text-3xl font-black italic tracking-tighter text-primary leading-none">
-                                                ₱{displayTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                ₱{adjustedDisplayTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                             </span>
                                         </div>
                                     </div>

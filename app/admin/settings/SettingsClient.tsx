@@ -768,7 +768,16 @@ function HeroSlideModal({ isOpen, onClose, slide, order, themeColor }: HeroSlide
     const [isSaving, setIsSaving] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<{
+        title: string;
+        subtitle: string;
+        tagline: string;
+        imageUrl: string;
+        primaryBtnText: string;
+        primaryBtnLink: string;
+        isActive: boolean;
+        order: number | "";
+    }>({
         title: "",
         subtitle: "",
         tagline: "",
@@ -823,7 +832,7 @@ function HeroSlideModal({ isOpen, onClose, slide, order, themeColor }: HeroSlide
         data.append("subtitle", formData.subtitle);
         data.append("tagline", formData.tagline);
         data.append("imageUrl", formData.imageUrl);
-        data.append("order", formData.order.toString());
+        data.append("order", (formData.order === "" ? 0 : formData.order).toString());
         data.append("isActive", formData.isActive.toString());
         data.append("primaryBtnText", formData.primaryBtnText);
         data.append("primaryBtnLink", formData.primaryBtnLink);
@@ -901,7 +910,13 @@ function HeroSlideModal({ isOpen, onClose, slide, order, themeColor }: HeroSlide
                                     <Input
                                         type="number"
                                         value={formData.order}
-                                        onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) })}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setFormData({
+                                                ...formData,
+                                                order: val === "" ? "" : parseInt(val)
+                                            });
+                                        }}
                                         className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-[#2a3040] font-black px-6 text-lg text-slate-900 dark:text-white text-center"
                                     />
                                 </div>

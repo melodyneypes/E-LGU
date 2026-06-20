@@ -72,7 +72,9 @@ export async function processImageUpload(formData: FormData, fieldName: string =
             const buffer = Buffer.from(await file.arrayBuffer());
             const publicUrl = await uploadFile(buffer, storagePath, undefined, file.type);
 
-            if (!publicUrl) throw new Error("Upload failed");
+            if (!publicUrl) {
+                throw new Error("Upload failed. Please ensure the file is not corrupted and its format is supported by the storage settings (like PNG, JPEG, PDF, or WebP).");
+            }
 
             // Delete old file if it exists (handles both local and supabase)
             if (existingUrl) {
@@ -80,9 +82,9 @@ export async function processImageUpload(formData: FormData, fieldName: string =
             }
 
             return publicUrl;
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error processing image upload to Supabase:", error);
-            return existingUrl; // Fallback to existing if upload fails
+            throw new Error(error.message || "Failed to upload file to storage.");
         }
     }
 
@@ -105,17 +107,18 @@ export async function processFileUpload(formData: FormData, fieldName: string): 
 
             const publicUrl = await uploadFile(buffer, storagePath, undefined, file.type);
 
-            if (publicUrl) {
-                // Auto-delete old file
-                if (existingUrl) {
-                    await deleteUploadedFile(existingUrl);
-                }
-                return publicUrl;
+            if (!publicUrl) {
+                throw new Error("Upload failed. Please ensure the file is not corrupted and its format is supported by the storage settings (like PNG, JPEG, PDF, or WebP).");
             }
-            return null;
-        } catch (error) {
+
+            // Auto-delete old file
+            if (existingUrl) {
+                await deleteUploadedFile(existingUrl);
+            }
+            return publicUrl;
+        } catch (error: any) {
             console.error("Error processing file upload to Supabase:", error);
-            return null;
+            throw new Error(error.message || "Failed to upload file to storage.");
         }
     }
     return existingUrl;

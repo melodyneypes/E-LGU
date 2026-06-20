@@ -233,7 +233,7 @@ export default function BploDetailPage({ params }: PageProps) {
                 transaction.id,
                 deliveryFee,
                 remarks || (isReinspection ? "Business Permit Re-inspection Approved" : "Business Permit Assessment"),
-                itemsToSend.length > 0 ? itemsToSend : undefined
+                itemsToSend
             );
             if (res.success) {
                 toast.success(isReinspection ? "Re-inspection approved! Transaction status is now FOR PROCESSING." : "Assessment details updated and submitted successfully!");

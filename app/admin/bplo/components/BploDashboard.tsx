@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
     getBploTransactions,
     getPendingBploCount,
@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { motion, AnimatePresence } from "framer-motion";
 
 const STATUS_TABS = [
     { value: "ALL", label: "All Status", color: "text-slate-600", activeColor: "bg-slate-900 text-white dark:bg-white dark:text-slate-900" },
@@ -70,12 +71,42 @@ export default function BploDashboard() {
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
     const [serviceFilter, setServiceFilter] = useState<string | null>(null);
     const [serviceSearch, setServiceSearch] = useState("");
+    const [statusSearch, setStatusSearch] = useState("");
+    const [newRequestAlert, setNewRequestAlert] = useState<{ id: string; businessName: string; applicantName: string } | null>(null);
+    const [showAlert, setShowAlert] = useState(false);
+    const alertTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const serviceSearchInputRef = useRef<HTMLInputElement>(null);
+    const statusSearchInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (serviceSearchInputRef.current) {
+                serviceSearchInputRef.current.focus();
+            }
+        }, 50);
+        return () => clearTimeout(timer);
+    }, [serviceSearch]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (statusSearchInputRef.current) {
+                statusSearchInputRef.current.focus();
+            }
+        }, 50);
+        return () => clearTimeout(timer);
+    }, [statusSearch]);
 
     const filteredServices = useMemo(() => {
         return allServices.filter(srv =>
             srv.toLowerCase().includes(serviceSearch.toLowerCase())
         );
     }, [allServices, serviceSearch]);
+
+    const filteredStatusTabs = useMemo(() => {
+        return STATUS_TABS.filter(tab =>
+            tab.label.toLowerCase().includes(statusSearch.toLowerCase())
+        );
+    }, [statusSearch]);
 
     useEffect(() => {
         async function fetchServices() {
@@ -132,32 +163,59 @@ export default function BploDashboard() {
                         table: "Transaction",
                     },
                     (payload: any) => {
-                        const newRow = payload.new;
-                        if (!newRow) return;
+                        // Re-fetch transactions to reflect the realtime update instantly!
+                        fetchTransactions();
 
-                        // Detect transitions into FOR_INSPECTION or FOR_REINSPECTION
-                        if (newRow.status === "FOR_INSPECTION" || newRow.status === "FOR_REINSPECTION") {
-                            // Check if it's a BPLO transaction (usually has businessName or starts with a business permit type)
-                            const isBplo = !!newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName);
-                            
-                            if (isBplo) {
-                                const refId = String(newRow.id).slice(-8).toUpperCase();
-                                const bizName = newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName) || "New Commercial Application";
-                                const statusText = newRow.status === "FOR_INSPECTION" ? "Inspection" : "Re-inspection";
+                        // If it's a new insert (new request), show a temporary 3-second slide-in alert
+                        if (payload.eventType === "INSERT") {
+                            const newRow = payload.new;
+                            if (newRow) {
+                                const isBplo = !!newRow.businessName || !!newRow.businessPermitId || (newRow.additionalData && (newRow.additionalData as any).businessName);
+                                if (isBplo) {
+                                    const refId = String(newRow.id).slice(-8).toUpperCase();
+                                    const bizName = newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName) || "New Permit Request";
+                                    const applicant = newRow.residentSnapshot 
+                                        ? `${(newRow.residentSnapshot as any).firstName} ${(newRow.residentSnapshot as any).lastName}`
+                                        : "Resident Applicant";
 
-                                toast.info(`Application ${refId} (${bizName}) is now pending ${statusText.toLowerCase()}.`, {
-                                    duration: 10000,
-                                    description: "The dashboard list has been updated in real-time.",
-                                    action: {
-                                        label: "Evaluate",
-                                        onClick: () => {
-                                            router.push(`/admin/bplo/${newRow.id}`);
-                                        }
+                                    setNewRequestAlert({
+                                        id: refId,
+                                        businessName: bizName,
+                                        applicantName: applicant
+                                    });
+                                    setShowAlert(true);
+
+                                    if (alertTimerRef.current) {
+                                        clearTimeout(alertTimerRef.current);
                                     }
-                                });
+                                    alertTimerRef.current = setTimeout(() => {
+                                        setShowAlert(false);
+                                    }, 3000);
+                                }
+                            }
+                        }
 
-                                // Re-fetch transactions to reflect the realtime update instantly!
-                                fetchTransactions();
+                        // Also detect transitions into FOR_INSPECTION or FOR_REINSPECTION for the toast alert
+                        if (payload.eventType === "UPDATE") {
+                            const newRow = payload.new;
+                            if (newRow && (newRow.status === "FOR_INSPECTION" || newRow.status === "FOR_REINSPECTION")) {
+                                const isBplo = !!newRow.businessName || !!newRow.businessPermitId || (newRow.additionalData && (newRow.additionalData as any).businessName);
+                                if (isBplo) {
+                                    const refId = String(newRow.id).slice(-8).toUpperCase();
+                                    const bizName = newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName) || "New Commercial Application";
+                                    const statusText = newRow.status === "FOR_INSPECTION" ? "Inspection" : "Re-inspection";
+
+                                    toast.info(`Application ${refId} (${bizName}) is now pending ${statusText.toLowerCase()}.`, {
+                                        duration: 10000,
+                                        // description: "The dashboard list has been updated in real-time.",
+                                        action: {
+                                            label: "Evaluate",
+                                            onClick: () => {
+                                                router.push(`/admin/bplo/${newRow.id}`);
+                                            }
+                                        }
+                                    });
+                                }
                             }
                         }
                     }
@@ -177,6 +235,9 @@ export default function BploDashboard() {
         return () => {
             if (channel) {
                 supabase.removeChannel(channel);
+            }
+            if (alertTimerRef.current) {
+                clearTimeout(alertTimerRef.current);
             }
         };
     }, [fetchTransactions, router]);
@@ -264,11 +325,12 @@ export default function BploDashboard() {
                                         <SelectTrigger className="h-11 w-48 rounded-xl border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117]">
                                             <SelectValue placeholder="Permit Class" />
                                         </SelectTrigger>
-                                        <SelectContent className="bg-white dark:bg-[#151b2b] min-w-[220px] max-h-80 overflow-y-auto">
+                                        <SelectContent position="popper" className="bg-white dark:bg-[#151b2b] min-w-[220px] max-h-80 overflow-y-auto">
                                             <div className="p-2 border-b border-slate-100 dark:border-[#2a3040] sticky top-0 bg-white dark:bg-[#151b2b] z-10">
                                                 <div className="relative">
                                                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
                                                     <Input
+                                                        ref={serviceSearchInputRef}
                                                         placeholder="Search permit class..."
                                                         value={serviceSearch}
                                                         onChange={(e) => setServiceSearch(e.target.value)}
@@ -286,12 +348,29 @@ export default function BploDashboard() {
                                 </div>
 
                                 <div className="hidden sm:block">
-                                    <Select value={status} onValueChange={(v) => setStatus(v)}>
+                                    <Select 
+                                        value={status} 
+                                        onValueChange={(v) => setStatus(v)}
+                                        onOpenChange={(open) => { if (!open) setStatusSearch(""); }}
+                                    >
                                         <SelectTrigger className="h-11 w-48 rounded-xl border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117]">
                                             <SelectValue placeholder="Permit Status" />
                                         </SelectTrigger>
-                                        <SelectContent className="bg-white dark:bg-[#151b2b]">
-                                            {STATUS_TABS.map(tab => (
+                                        <SelectContent position="popper" className="bg-white dark:bg-[#151b2b] min-w-[220px] max-h-80 overflow-y-auto">
+                                            <div className="p-2 border-b border-slate-100 dark:border-[#2a3040] sticky top-0 bg-white dark:bg-[#151b2b] z-10">
+                                                <div className="relative">
+                                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
+                                                    <Input
+                                                        ref={statusSearchInputRef}
+                                                        placeholder="Search status..."
+                                                        value={statusSearch}
+                                                        onChange={(e) => setStatusSearch(e.target.value)}
+                                                        className="pl-8 h-8 text-xs bg-slate-50 dark:bg-[#0f1117] border-slate-100 dark:border-[#2a3040] focus-visible:ring-primary rounded-lg w-full"
+                                                        onKeyDown={(e) => e.stopPropagation()}
+                                                    />
+                                                </div>
+                                            </div>
+                                            {filteredStatusTabs.map(tab => (
                                                 <SelectItem key={tab.value} value={tab.value} className="text-sm">
                                                     {tab.label}
                                                 </SelectItem>
@@ -323,6 +402,7 @@ export default function BploDashboard() {
                                         </TableHead>
                                         <TableHead className="font-bold text-slate-700 dark:text-slate-300">Fulfillment</TableHead>
                                         <TableHead className="font-bold text-slate-700 dark:text-slate-300">Permit Status</TableHead>
+                                        <TableHead className="font-bold text-slate-700 dark:text-slate-300">Processed By</TableHead>
                                         <TableHead
                                             className="font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-primary transition-colors py-5"
                                             onClick={handleDateHeaderClick}
@@ -343,7 +423,7 @@ export default function BploDashboard() {
                                     {loading ? (
                                         Array(5).fill(0).map((_, i) => (
                                             <TableRow key={i} className="animate-pulse">
-                                                <TableCell colSpan={6} className="h-20 text-center">
+                                                <TableCell colSpan={7} className="h-20 text-center">
                                                     <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded mx-8" />
                                                 </TableCell>
                                             </TableRow>
@@ -416,6 +496,11 @@ export default function BploDashboard() {
                                                     </span>
                                                 </TableCell>
                                                 <TableCell>
+                                                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                                        {tx.processorName || "Not Processed"}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell>
                                                     <div className="flex flex-col">
                                                         {(() => {
                                                             const f = formatDateTime(tx.updatedAt);
@@ -432,7 +517,7 @@ export default function BploDashboard() {
                                         ))
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="h-[400px] text-center">
+                                            <TableCell colSpan={7} className="h-[400px] text-center">
                                                 <div className="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
                                                     <Archive className="w-16 h-16 mb-4 text-slate-300 dark:text-slate-600" />
                                                     <p className="text-xl font-bold text-slate-700 dark:text-slate-300">No permit applications found</p>
@@ -490,6 +575,69 @@ export default function BploDashboard() {
                     </TabsContent>
                 </Tabs>
             </div>
+
+            {/* Slide-in Real-time New Request Alert Card (3 seconds duration) */}
+            <AnimatePresence>
+                {showAlert && newRequestAlert && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -50, scale: 0.9, x: 50 }}
+                        animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
+                        exit={{ opacity: 0, y: -20, scale: 0.95, transition: { duration: 0.2 } }}
+                        className="fixed top-6 right-6 z-50 max-w-sm w-full bg-white dark:bg-[#151b2c] border-2 border-primary/20 dark:border-primary/10 rounded-2xl shadow-2xl p-4 flex flex-col gap-3 overflow-hidden backdrop-blur-md"
+                        style={{
+                            boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(var(--primary-theme), 0.1)'
+                        }}
+                    >
+                        {/* Glow indicator */}
+                        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-yellow-500 via-primary to-emerald-500 animate-gradient-xy" />
+                        
+                        <div className="flex items-start gap-3 mt-1">
+                            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                <span className="relative flex h-3 w-3">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+                                </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black uppercase text-primary tracking-widest">
+                                        New Application
+                                    </span>
+                                    <span className="text-[10px] font-mono font-bold text-slate-400 dark:text-slate-500">
+                                        #{newRequestAlert.id}
+                                    </span>
+                                </div>
+                                <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 truncate mt-0.5 uppercase italic">
+                                    {newRequestAlert.businessName}
+                                </h4>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 truncate font-semibold">
+                                    By: {newRequestAlert.applicantName}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-[#2a3040]/60">
+                            <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-8 text-xs font-bold text-slate-500 hover:text-slate-900" 
+                                onClick={() => setShowAlert(false)}
+                            >
+                                Dismiss
+                            </Button>
+                            <Button 
+                                size="sm" 
+                                className="h-8 text-xs font-black bg-primary text-white hover:bg-primary/90 rounded-lg px-4" 
+                                onClick={() => {
+                                    setShowAlert(false);
+                                    router.push(`/admin/bplo?status=FOR_REQUESTING`);
+                                }}
+                            >
+                                View Queue
+                            </Button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

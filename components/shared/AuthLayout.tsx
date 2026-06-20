@@ -76,11 +76,11 @@ export const AuthLayout = ({
                 <motion.div
                     animate={{ x: isLeaving ? "-100%" : "0%" }}
                     transition={{ duration: 0.9, ease: [0.76, 0, 0.24, 1] }}
-                    className="flex w-full flex-col justify-center pt-48 lg:pt-32 px-8 lg:w-1/2 xl:px-24 relative z-10 bg-white dark:bg-slate-950 border-r border-slate-100 dark:border-white/5 min-h-screen"
+                    className="flex w-full flex-col justify-between min-h-screen py-10 md:py-12 lg:py-16 px-8 lg:w-1/2 xl:px-24 relative z-10 bg-white dark:bg-slate-950 border-r border-slate-100 dark:border-white/5"
                 >
                     {/* Branding Block - Now Centered specifically over the Form Side */}
-                    <div className="absolute top-10 md:top-14 lg:top-20 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 md:gap-4 lg:gap-6 pointer-events-none transition-all duration-500 w-full">
-                        <div className="flex flex-col md:flex-row items-center gap-3 md:gap-5 group pointer-events-auto">
+                    <div className="z-50 flex flex-col items-center gap-2 md:gap-4 lg:gap-6 transition-all duration-500 w-full mb-8">
+                        <div className="flex flex-col md:flex-row items-center gap-3 md:gap-5 group">
                             <div
                                 className="w-12 h-12 md:w-16 md:h-16 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-2xl transition-all duration-500 relative overflow-hidden group-hover:scale-110 group-hover:rotate-3"
                                 style={{ backgroundColor: themeColor, boxShadow: `0 20px 25px -5px ${themeColor}44` }}
@@ -110,13 +110,13 @@ export const AuthLayout = ({
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.5, ease: "easeOut" }}
-                        className="mx-auto w-full max-w-md"
+                        className="mx-auto w-full max-w-md my-auto"
                     >
                         {children}
                     </motion.div>
 
                     {/* Footer Credits */}
-                    <div className="absolute bottom-10 left-1/2 -translate-x-1/2 lg:left-14 lg:translate-x-0 w-full lg:w-auto text-center lg:text-left">
+                    <div className="w-full text-center lg:text-left mt-8">
                         <p className="text-[10px] uppercase font-black tracking-widest text-slate-300 dark:text-slate-600">
                             © {new Date().getFullYear()} {brandWord1}{brandWord2} Portal
                         </p>

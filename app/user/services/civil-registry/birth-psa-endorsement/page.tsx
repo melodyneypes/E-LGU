@@ -14,6 +14,7 @@ import {
     Home,
     Baby,
     ArrowRight,
+    ArrowLeft,
     Upload,
     CheckCircle2,
     FileText
@@ -644,7 +645,7 @@ export default function BirthPsaEndorsementPage() {
             <div className="container max-w-5xl mx-auto px-4 pt-0 pb-0 space-y-8">
                 <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                     <Breadcrumb>
-                        <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
                             <BreadcrumbItem>
                                 <BreadcrumbLink asChild>
                                     <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
@@ -715,7 +716,8 @@ export default function BirthPsaEndorsementPage() {
                     <div className="relative px-2 py-4">
                         <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 dark:bg-white/5 -translate-y-1/2 rounded-full overflow-hidden">
                             <motion.div
-                                className="h-full bg-emerald-500"
+                                className="h-full"
+                                style={{ backgroundColor: themeColor }}
                                 initial={{ width: 0 }}
                                 animate={{ width: `${(STEPS.findIndex(s => s.id === currentStep) / (STEPS.length - 1)) * 100}%` }}
                             />
@@ -735,10 +737,18 @@ export default function BirthPsaEndorsementPage() {
                                     >
                                         <div className={cn(
                                             "w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-500 border-2 bg-white dark:bg-[#08090d]",
-                                            isActive ? "border-emerald-500 text-emerald-600 shadow-lg shadow-emerald-500/20 scale-110" :
-                                                isCompleted ? "bg-emerald-500 border-emerald-500 text-white" :
+                                            isActive ? "shadow-lg scale-110" :
+                                                isCompleted ? "text-white" :
                                                     "border-slate-200 dark:border-white/10 text-slate-400"
-                                        )}>
+                                        )}
+                                        style={
+                                            isActive
+                                                ? { borderColor: themeColor, color: themeColor, boxShadow: `0 10px 15px -3px color-mix(in srgb, ${themeColor} 20%, transparent)` }
+                                                : isCompleted
+                                                    ? { backgroundColor: themeColor, borderColor: themeColor }
+                                                    : {}
+                                        }
+                                        >
                                             {isCompleted ? (
                                                 <Check className="w-5 h-5" />
                                             ) : (
@@ -747,8 +757,10 @@ export default function BirthPsaEndorsementPage() {
                                         </div>
                                         <span className={cn(
                                             "text-[8px] md:text-[10px] font-black uppercase tracking-wider italic hidden md:block",
-                                            isActive ? "text-emerald-600" : "text-slate-400"
-                                        )}>
+                                            (isActive || isCompleted) ? "opacity-100 font-black" : "text-slate-400 opacity-55"
+                                        )}
+                                        style={(isActive || isCompleted) ? { color: themeColor } : {}}
+                                        >
                                             {step.label}
                                         </span>
                                     </div>
@@ -902,7 +914,16 @@ export default function BirthPsaEndorsementPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex justify-end pt-6">
+                                    <div className="flex justify-between items-center pt-6">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            onClick={() => router.push("/user/services/civil-registry")}
+                                            className="rounded-full px-12 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest italic text-[10px] h-12 bg-transparent hover:bg-slate-50 dark:hover:bg-white/5"
+                                        >
+                                            <ArrowLeft className="w-4 h-4 mr-2" />
+                                            Back
+                                        </Button>
                                         <Button
                                             onClick={() => {
                                                 if (!formData.relationship || !formData.contactNumber) {
@@ -1179,7 +1200,7 @@ export default function BirthPsaEndorsementPage() {
                                             </button>
                                             <div className="flex-1 text-xs text-left cursor-pointer select-none" onClick={(e) => { e.stopPropagation(); setPolicyOpen(true); }}>
                                                 <div className="font-black uppercase text-[11px] tracking-wider text-slate-900 dark:text-white">DATA PRIVACY AND TERMS AGREEMENT</div>
-                                                <div className="text-[10px] text-slate-500 italic mt-1">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
+                                                <div className="text-[10px] text-slate-500 italic mt-1 line-clamp-2 md:line-clamp-none">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
                                                 {(showErrors && !policyAccepted) && (
                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest mt-1 animate-pulse">Agreement required before submitting</p>
                                                 )}
@@ -1209,24 +1230,24 @@ export default function BirthPsaEndorsementPage() {
                                                 onClick={handleSubmit}
                                                 disabled={submitting || (!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form1a && !previews.form1a)}
                                                 className={cn(
-                                                    "md:col-span-3 h-14 rounded-full font-black uppercase tracking-widest italic text-[11px] transition-all duration-300",
+                                                    "md:col-span-3 h-14 rounded-full font-black uppercase tracking-wider md:tracking-widest italic text-[9px] sm:text-[10px] md:text-[11px] transition-all duration-300 px-4 sm:px-8",
                                                     ((!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form1a && !previews.form1a))
                                                         ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                                                         : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-500/20"
                                                 )}
                                             >
                                                 {submitting ? (
-                                                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mr-2" />
                                                 ) : ((!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form1a && !previews.form1a)) ? (
-                                                    <>
+                                                    <span className="flex items-center justify-center gap-1 sm:gap-2">
                                                         Upload Required Documents
-                                                        <AlertCircle className="w-5 h-5 ml-2" />
-                                                    </>
+                                                        <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                                                    </span>
                                                 ) : (
-                                                    <>
+                                                    <span className="flex items-center justify-center gap-1 sm:gap-2">
                                                         Submit Birth PSA Endorsement Application
-                                                        <CheckCircle2 className="w-5 h-5 ml-2" />
-                                                    </>
+                                                        <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                                                    </span>
                                                 )}
                                             </Button>
                                         </div>

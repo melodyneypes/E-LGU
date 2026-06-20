@@ -9,7 +9,8 @@ import {
     ChevronDown, Briefcase, Sun, Moon,
     Newspaper, PhoneCall, Info,
     Compass, MapPin, Globe, Activity, Archive,
-    Building2, Hammer, CreditCard, FileText, User
+    Building2, Hammer, CreditCard, FileText, User,
+    AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -108,7 +109,7 @@ export function Navbar({
     React.useEffect(() => {
         if (pathname !== "/") return;
 
-        const sectionIds = ["services", "tourism", "news", "careers", "hotlines"];
+        const sectionIds = ["services", "tourism", "news", "careers", "hotlines", "reports"];
         const observers: IntersectionObserver[] = [];
         let retryTimer: ReturnType<typeof setTimeout>;
 
@@ -211,6 +212,7 @@ export function Navbar({
         { name: "Updates", href: "/#news", icon: Newspaper },
         { name: "Careers", href: "/#careers", icon: Briefcase },
         { name: "Safety", href: "/#hotlines", icon: PhoneCall },
+        { name: "Report", href: "/#reports", icon: AlertTriangle },
     ];
 
     const serviceCategories = [

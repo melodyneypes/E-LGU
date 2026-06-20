@@ -25,6 +25,12 @@ export default withAuth(
       return NextResponse.redirect(redirectUrl);
     }
 
+    // Guard: Force users who need password setup to go to /auth/verify-otp
+    if (token && token.isPasswordChanged === false) {
+      const redirectUrl = new URL("/auth/verify-otp", req.url);
+      return NextResponse.redirect(redirectUrl);
+    }
+
     // Guard: USER role is never allowed to access admin routes
     if (token?.role === "USER" && url.pathname.startsWith("/admin")) {
       const redirectUrl = new URL("/", req.url);

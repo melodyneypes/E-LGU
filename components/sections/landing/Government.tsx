@@ -27,7 +27,6 @@ export function Government({ officials = [], barangay = "All" }: { officials?: O
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    if (!officials || officials.length === 0) return null;
 
     const isFiltered = barangay !== "All";
 
@@ -41,14 +40,31 @@ export function Government({ officials = [], barangay = "All" }: { officials?: O
         ? (activeTab === "Barangay" ? barangayOfficials : skOfficials)
         : lguOfficials;
 
-    if (currentList.length === 0) return null;
-
     const leader = currentList[0];
     const members = currentList.slice(1);
 
-    if (!leader) return null;
+    const memberRows = React.useMemo(() => {
+        const rowSizes = [5, 4, 3, 2, 1];
+        const rows: Official[][] = [];
+        let currentIndex = 0;
+        
+        for (const size of rowSizes) {
+            if (currentIndex >= members.length) break;
+            const row = members.slice(currentIndex, currentIndex + size);
+            rows.push(row);
+            currentIndex += size;
+        }
+        
+        if (currentIndex < members.length) {
+            rows.push(members.slice(currentIndex));
+        }
+        
+        return rows;
+    }, [members]);
 
-    const membersWrapperClass = "flex flex-wrap justify-center gap-x-6 md:gap-x-10 gap-y-10 md:gap-y-12 w-full pt-4 md:pt-6";
+    if (!officials || officials.length === 0) return null;
+    if (currentList.length === 0) return null;
+    if (!leader) return null;
 
     return (
         <section id="leadership" className="pt-8 md:pt-24 pb-12 md:pb-8 px-6 max-w-7xl mx-auto">
@@ -92,7 +108,7 @@ export function Government({ officials = [], barangay = "All" }: { officials?: O
 
                 {/* Council Members */}
                 {isMobile ? (
-                    <div className={membersWrapperClass}>
+                    <div className="flex flex-wrap justify-center gap-x-6 md:gap-x-10 gap-y-10 md:gap-y-12 w-full pt-4 md:pt-6">
                         {members.map((member) => (
                             <MemberCard key={member.id} member={member} />
                         ))}
@@ -106,10 +122,14 @@ export function Government({ officials = [], barangay = "All" }: { officials?: O
                             hidden: { opacity: 0, y: 20 },
                             visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
                         }}
-                        className={membersWrapperClass}
+                        className="flex flex-col gap-y-10 md:gap-y-12 items-center w-full pt-4 md:pt-6"
                     >
-                        {members.map((member) => (
-                            <MemberCard key={member.id} member={member} />
+                        {memberRows.map((row, rowIndex) => (
+                            <div key={rowIndex} className="flex flex-wrap justify-center gap-x-6 md:gap-x-10 w-full">
+                                {row.map((member) => (
+                                    <MemberCard key={member.id} member={member} />
+                                ))}
+                            </div>
                         ))}
                     </motion.div>
                 )}

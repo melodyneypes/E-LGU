@@ -23,6 +23,8 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { supabase } from "@/lib/supabase";
 
 import RegistrarDashboard from "./[id]/dashboard";
 
@@ -86,6 +88,7 @@ const getStatusClassName = (status: string, isCancelled?: boolean) => {
 
 export default function RegistrarPage() {
     const router = useRouter();
+    const { data: session } = useSession();
 
     // --- Unified Transactions States ---
     const [transactions, setTransactions] = useState<any[]>([]);
@@ -100,27 +103,69 @@ export default function RegistrarPage() {
     const hasSelectedCategory = Boolean(categoryParam && categoryParam !== "ALL");
 
     // Fetch all requests for Civil Registry
-    const fetchTransactions = useCallback(async () => {
-        setLoading(true);
+    const fetchTransactions = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const res = await getTreasuryTransactions("ALL");
             if (res.success && res.data) {
                 const lcrTxs = res.data.filter(isRegistrarLcrRequest);
                 setTransactions(lcrTxs);
             } else {
-                toast.error(res.error || "Failed to load transactions");
+                if (!silent) toast.error(res.error || "Failed to load transactions");
             }
         } catch (err) {
             console.error("Failed to load registrar transactions:", err);
-            toast.error("Failed to load transactions");
+            if (!silent) toast.error("Failed to load transactions");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, []);
 
     // Load all transactions on mount
     useEffect(() => {
         fetchTransactions();
+    }, [fetchTransactions]);
+
+    // Realtime Supabase Subscription for transaction updates
+    useEffect(() => {
+        if (!supabase) return;
+
+        console.log("Subscribing to Supabase Realtime 'Transaction' table for registrar active queue...");
+        let channel: any;
+        try {
+            channel = supabase
+                .channel("realtime-registrar-transactions")
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "Transaction",
+                    },
+                    async (payload: any) => {
+                        console.log("Realtime change caught on Transaction table for registrar queue:", payload);
+                        // Reload transactions silently in the background
+                        fetchTransactions(true);
+                    }
+                )
+                .subscribe((status: string, err?: any) => {
+                    if (err) {
+                        console.error("Supabase Realtime subscription error:", err);
+                    }
+                    if (status === "CHANNEL_ERROR") {
+                        console.error("Supabase Realtime channel error status caught");
+                    }
+                });
+        } catch (error) {
+            console.error("Failed to initialize Supabase Realtime subscription:", error);
+        }
+
+        return () => {
+            console.log("Unsubscribing from Supabase Realtime 'Transaction' table...");
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
+        };
     }, [fetchTransactions]);
 
     // Reset page numbers when search / layout changes
@@ -245,248 +290,273 @@ export default function RegistrarPage() {
             </div>
 
             {!hasSelectedCategory ? (
-                <RegistrarDashboard />
+                <RegistrarDashboard transactions={transactions} currentUserId={session?.user?.id} />
             ) : (
-            /* Consolidated Dynamic List Queue */
-            <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-2xl shadow-blue-500/5 overflow-hidden ring-1 ring-slate-200 dark:ring-white/5 animate-in fade-in duration-500">
-                {/* Filters Row */}
-                <div className="flex flex-col border-b border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#151b2b]">
-                    <div className="p-4 flex flex-col lg:flex-row items-center justify-between gap-4">
-                        <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-                            <div className="relative w-full sm:w-[350px]">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                                <Input
-                                    placeholder="Search names or Reference ID..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="pl-10 h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] focus-visible:ring-blue-500 rounded-xl"
-                                />
+                /* Consolidated Dynamic List Queue */
+                <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-2xl shadow-blue-500/5 overflow-hidden ring-1 ring-slate-200 dark:ring-white/5 animate-in fade-in duration-500">
+                    {/* Filters Row */}
+                    <div className="flex flex-col border-b border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#151b2b]">
+                        <div className="p-4 flex flex-col lg:flex-row items-center justify-between gap-4">
+                            <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+                                <div className="relative w-full sm:w-[350px]">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                                    <Input
+                                        placeholder="Search names or Reference ID..."
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        className="pl-10 h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] focus-visible:ring-blue-500 rounded-xl"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                                <Button
+                                    onClick={() => fetchTransactions()}
+                                    variant="outline"
+                                    className="h-11 w-11 rounded-xl p-0 border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117]"
+                                    title="Refresh List"
+                                >
+                                    <RefreshCcw className={cn("w-4 h-4", loading && "animate-spin")} />
+                                </Button>
                             </div>
                         </div>
-
-                        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                            <Button
-                                onClick={fetchTransactions}
-                                variant="outline"
-                                className="h-11 w-11 rounded-xl p-0 border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117]"
-                                title="Refresh List"
-                            >
-                                <RefreshCcw className={cn("w-4 h-4", loading && "animate-spin")} />
-                            </Button>
-                        </div>
                     </div>
-                </div>
 
-                {/* Unified Table */}
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader className="bg-slate-50 border-b border-slate-200 dark:bg-[#1a1f2e] dark:border-[#2a3040]">
-                            <TableRow className="hover:bg-transparent">
-                                <TableHead className="font-bold text-slate-700 dark:text-slate-300 py-5 w-[60px]">#</TableHead>
-                                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Applicant</TableHead>
-                                <TableHead
-                                    className="font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-primary transition-colors py-5"
-                                    onClick={handleServiceHeaderClick}
-                                >
-                                    <div className="flex items-center gap-1.5 group">
-                                        <span>Service Requested</span>
-                                        <span className={cn(
-                                            "transition-colors duration-200 font-black text-[10px]",
-                                            sortBy === "service"
-                                                ? "text-blue-600 dark:text-blue-400 font-bold"
-                                                : "text-slate-300 dark:text-slate-600 group-hover:text-slate-400"
-                                        )}>
-                                            {sortBy === "service"
-                                                ? (sortDirection === "asc" ? "▲" : "▼")
-                                                : "⇅"
-                                            }
-                                        </span>
-                                    </div>
-                                </TableHead>
-                                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Method</TableHead>
-                                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Amount</TableHead>
-                                <TableHead
-                                    className="font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-primary transition-colors py-5"
-                                    onClick={handleStatusHeaderClick}
-                                >
-                                    <div className="flex items-center gap-1.5 group">
-                                        <span>Status</span>
-                                        <span className={cn(
-                                            "transition-colors duration-200 font-black text-[10px]",
-                                            sortBy === "status"
-                                                ? "text-blue-600 dark:text-blue-400 font-bold"
-                                                : "text-slate-300 dark:text-slate-600 group-hover:text-slate-400"
-                                        )}>
-                                            {sortBy === "status"
-                                                ? (sortDirection === "asc" ? "▲" : "▼")
-                                                : "⇅"
-                                            }
-                                        </span>
-                                    </div>
-                                </TableHead>
-                                <TableHead
-                                    className="font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-primary transition-colors py-5"
-                                    onClick={handleDateHeaderClick}
-                                >
-                                    <div className="flex items-center gap-1.5 group">
-                                        <span>Last Updated</span>
-                                        <span className={cn(
-                                            "transition-colors duration-200 font-black text-[10px]",
-                                            sortBy === "date"
-                                                ? "text-blue-600 dark:text-blue-400 font-bold"
-                                                : "text-slate-300 dark:text-slate-600 group-hover:text-slate-400"
-                                        )}>
-                                            {sortBy === "date"
-                                                ? (sortDirection === "asc" ? "▲" : "▼")
-                                                : "⇅"
-                                            }
-                                        </span>
-                                    </div>
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                Array(5).fill(0).map((_, i) => (
-                                    <TableRow key={i} className="animate-pulse">
-                                        <TableCell colSpan={7} className="h-20 text-center">
-                                            <div className="h-4 bg-slate-100 dark:bg-[#1a1f2e] rounded mx-8" />
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : paginatedTransactions.length > 0 ? (
-                                paginatedTransactions.map((tx, index) => (
-                                    <TableRow
-                                        key={tx.id}
-                                        onClick={() => router.push(`/admin/registrar/${tx.id}`)}
-                                        className="border-b border-slate-100 dark:border-[#2a3040]/50 hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e]/50 transition-colors cursor-pointer select-none animate-in fade-in duration-300"
+                    {/* Unified Table */}
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader className="bg-slate-50 border-b border-slate-200 dark:bg-[#1a1f2e] dark:border-[#2a3040]">
+                                <TableRow className="hover:bg-transparent">
+                                    <TableHead className="font-bold text-slate-700 dark:text-slate-300 py-5 w-[60px]">#</TableHead>
+                                    <TableHead className="font-bold text-slate-700 dark:text-slate-300">Applicant</TableHead>
+                                    <TableHead
+                                        className="font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-primary transition-colors py-5"
+                                        onClick={handleServiceHeaderClick}
                                     >
-                                        <TableCell className="py-4">
-                                            <span className="text-xs font-black font-mono tracking-widest text-primary">
-                                                {(currentPage - 1) * itemsPerPage + index + 1}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-col">
-                                                <span className="font-bold text-slate-900 dark:text-white uppercase leading-tight">
-                                                    {(() => {
-                                                        const rs = getResidentSnapshot(tx);
-                                                        return `${rs.firstName || 'Unknown'} ${rs.lastName || 'Applicant'}`;
-                                                    })()}
-                                                </span>
-                                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase italic mt-0.5">
-                                                    Registered Resident
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <span className="text-xs font-bold uppercase text-blue-600 dark:text-blue-400">
-                                                {tx.type?.name}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-col gap-0.5">
-                                                {tx.fulfillmentType && (
-                                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">
-                                                        {tx.fulfillmentType.replace(/_/g, " ")}
-                                                    </span>
-                                                )}
-                                                {tx.paymentType && (
-                                                    <span className="text-[10px] text-slate-500 font-bold uppercase leading-none">
-                                                        {tx.paymentType?.replace(/_/g, " ")}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <span className="font-bold text-slate-900 dark:text-white">
-                                                {tx.totalAmount > 0 ? `₱${tx.totalAmount.toLocaleString()}` : "–"}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>
+                                        <div className="flex items-center gap-1.5 group">
+                                            <span>Service Requested</span>
                                             <span className={cn(
-                                                "text-[10px] font-black uppercase italic tracking-wider px-2 py-1 rounded bg-slate-50 dark:bg-black/30 border border-current w-fit block",
-                                                getStatusClassName(tx.status, tx.isCancelled)
+                                                "transition-colors duration-200 font-black text-[10px]",
+                                                sortBy === "service"
+                                                    ? "text-blue-600 dark:text-blue-400 font-bold"
+                                                    : "text-slate-300 dark:text-slate-600 group-hover:text-slate-400"
                                             )}>
-                                                {tx.isCancelled ? "CANCELLED" : tx.status?.replace(/_/g, " ")}
+                                                {sortBy === "service"
+                                                    ? (sortDirection === "asc" ? "▲" : "▼")
+                                                    : "⇅"
+                                                }
                                             </span>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-col">
-                                                {(() => {
-                                                    const source = tx.updatedAt;
-                                                    const f = formatDateTime(source);
-                                                    return (
-                                                        <>
-                                                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{f.date}</span>
-                                                            <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                                                                <Clock className="w-2.5 h-2.5" />{f.time}
+                                        </div>
+                                    </TableHead>
+                                    <TableHead className="font-bold text-slate-700 dark:text-slate-300">Method</TableHead>
+                                    <TableHead className="font-bold text-slate-700 dark:text-slate-300">Amount</TableHead>
+                                    <TableHead
+                                        className="font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-primary transition-colors py-5"
+                                        onClick={handleStatusHeaderClick}
+                                    >
+                                        <div className="flex items-center gap-1.5 group">
+                                            <span>Status</span>
+                                            <span className={cn(
+                                                "transition-colors duration-200 font-black text-[10px]",
+                                                sortBy === "status"
+                                                    ? "text-blue-600 dark:text-blue-400 font-bold"
+                                                    : "text-slate-300 dark:text-slate-600 group-hover:text-slate-400"
+                                            )}>
+                                                {sortBy === "status"
+                                                    ? (sortDirection === "asc" ? "▲" : "▼")
+                                                    : "⇅"
+                                                }
+                                            </span>
+                                        </div>
+                                    </TableHead>
+                                    <TableHead
+                                        className="font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-primary transition-colors py-5"
+                                        onClick={handleDateHeaderClick}
+                                    >
+                                        <div className="flex items-center gap-1.5 group">
+                                            <span>Last Updated</span>
+                                            <span className={cn(
+                                                "transition-colors duration-200 font-black text-[10px]",
+                                                sortBy === "date"
+                                                    ? "text-blue-600 dark:text-blue-400 font-bold"
+                                                    : "text-slate-300 dark:text-slate-600 group-hover:text-slate-400"
+                                            )}>
+                                                {sortBy === "date"
+                                                    ? (sortDirection === "asc" ? "▲" : "▼")
+                                                    : "⇅"
+                                                }
+                                            </span>
+                                        </div>
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {loading ? (
+                                    Array(5).fill(0).map((_, i) => (
+                                        <TableRow key={i} className="animate-pulse">
+                                            <TableCell colSpan={7} className="h-20 text-center">
+                                                <div className="h-4 bg-slate-100 dark:bg-[#1a1f2e] rounded mx-8" />
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : paginatedTransactions.length > 0 ? (
+                                    paginatedTransactions.map((tx, index) => {
+                                        const isUnviewed = (() => {
+                                            if (tx.status !== "FOR_REQUESTING") return false;
+                                            const currentUserId = session?.user?.id;
+                                            if (!currentUserId) return false;
+                                            const viewedMap = tx.viewedAt && typeof tx.viewedAt === 'object' && !Array.isArray(tx.viewedAt)
+                                                ? (tx.viewedAt as Record<string, string>)
+                                                : {};
+                                            const userViewTime = viewedMap[currentUserId];
+                                            if (!userViewTime) return true;
+                                            return new Date(tx.updatedAt).getTime() > new Date(userViewTime).getTime();
+                                        })();
+
+                                        return (
+                                            <TableRow
+                                                key={tx.id}
+                                                onClick={() => router.push(`/admin/registrar/${tx.id}`)}
+                                                className={cn(
+                                                    "border-b border-slate-100 dark:border-[#2a3040]/50 hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e]/50 transition-colors cursor-pointer select-none animate-in fade-in duration-300",
+                                                    isUnviewed && "bg-emerald-50/20 dark:bg-emerald-950/10 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 border-l-4 border-l-emerald-500"
+                                                )}
+                                            >
+                                                <TableCell className="py-4">
+                                                    <span className="text-xs font-black font-mono tracking-widest text-primary">
+                                                        {(currentPage - 1) * itemsPerPage + index + 1}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        {isUnviewed && (
+                                                            <span className="relative flex h-2 w-2 shrink-0" title="Unviewed / New updates">
+                                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                                             </span>
-                                                        </>
-                                                    );
-                                                })()}
+                                                        )}
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold text-slate-900 dark:text-white uppercase leading-tight">
+                                                                {(() => {
+                                                                    const rs = getResidentSnapshot(tx);
+                                                                    return `${rs.firstName || 'Unknown'} ${rs.lastName || 'Applicant'}`;
+                                                                })()}
+                                                            </span>
+                                                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase italic mt-0.5">
+                                                                Registered Resident
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                            <TableCell>
+                                                <span className="text-xs font-bold uppercase text-blue-600 dark:text-blue-400">
+                                                    {tx.type?.name}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col gap-0.5">
+                                                    {tx.fulfillmentType && (
+                                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">
+                                                            {tx.fulfillmentType.replace(/_/g, " ")}
+                                                        </span>
+                                                    )}
+                                                    {tx.paymentType && (
+                                                        <span className="text-[10px] text-slate-500 font-bold uppercase leading-none">
+                                                            {tx.paymentType?.replace(/_/g, " ")}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className="font-bold text-slate-900 dark:text-white">
+                                                    {tx.totalAmount > 0 ? `₱${tx.totalAmount.toLocaleString()}` : "–"}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className={cn(
+                                                    "text-[10px] font-black uppercase italic tracking-wider px-2 py-1 rounded bg-slate-50 dark:bg-black/30 border border-current w-fit block",
+                                                    getStatusClassName(tx.status, tx.isCancelled)
+                                                )}>
+                                                    {tx.isCancelled ? "CANCELLED" : tx.status?.replace(/_/g, " ")}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col">
+                                                    {(() => {
+                                                        const source = tx.updatedAt;
+                                                        const f = formatDateTime(source);
+                                                        return (
+                                                            <>
+                                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{f.date}</span>
+                                                                <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                                                    <Clock className="w-2.5 h-2.5" />{f.time}
+                                                                </span>
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </div>
+                                        </TableCell>
+                                    </TableRow>
+                                    );
+                                })
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="h-[350px] text-center">
+                                            <div className="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
+                                                <Archive className="w-16 h-16 mb-4 text-slate-300 dark:text-slate-600" />
+                                                <p className="text-xl font-bold text-slate-700 dark:text-slate-300">No requests found</p>
+                                                <p className="mt-2">Try adjusting your filters or search term.</p>
                                             </div>
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="h-[350px] text-center">
-                                        <div className="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
-                                            <Archive className="w-16 h-16 mb-4 text-slate-300 dark:text-slate-600" />
-                                            <p className="text-xl font-bold text-slate-700 dark:text-slate-300">No requests found</p>
-                                            <p className="mt-2">Try adjusting your filters or search term.</p>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-
-                {/* Pagination Footer */}
-                <div className="p-6 border-t border-slate-200 dark:border-[#2a3040] flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-[#151b2b]/50">
-                    <div className="flex items-center space-x-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
-                        <span className="hidden sm:inline-block">Rows per page:</span>
-                        <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
-                            <SelectTrigger className="h-8 w-[70px] border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117] rounded-lg">
-                                <SelectValue placeholder={itemsPerPage} />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white dark:bg-[#151b2b]">
-                                <SelectItem value="10">10</SelectItem>
-                                <SelectItem value="20">20</SelectItem>
-                                <SelectItem value="30">30</SelectItem>
-                                <SelectItem value="50">50</SelectItem>
-                            </SelectContent>
-                        </Select>
+                                )}
+                            </TableBody>
+                        </Table>
                     </div>
-                    <div className="flex items-center space-x-4">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                            Showing {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
-                        </span>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                disabled={currentPage === 1}
-                                className="h-10 px-4 rounded-xl border-slate-200 dark:border-[#2a3040] font-bold"
-                            >
-                                Prev
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                disabled={currentPage === totalPages || totalPages === 0}
-                                className="h-10 px-4 rounded-xl border-slate-200 dark:border-[#2a3040] font-bold"
-                            >
-                                Next
-                            </Button>
+
+                    {/* Pagination Footer */}
+                    <div className="p-6 border-t border-slate-200 dark:border-[#2a3040] flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-[#151b2b]/50">
+                        <div className="flex items-center space-x-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                            <span className="hidden sm:inline-block">Rows per page:</span>
+                            <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                                <SelectTrigger className="h-8 w-[70px] border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117] rounded-lg">
+                                    <SelectValue placeholder={itemsPerPage} />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white dark:bg-[#151b2b]">
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="20">20</SelectItem>
+                                    <SelectItem value="30">30</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                                Showing {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPage === 1}
+                                    className="h-10 px-4 rounded-xl border-slate-200 dark:border-[#2a3040] font-bold"
+                                >
+                                    Prev
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    className="h-10 px-4 rounded-xl border-slate-200 dark:border-[#2a3040] font-bold"
+                                >
+                                    Next
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
             )}
         </div>
     );

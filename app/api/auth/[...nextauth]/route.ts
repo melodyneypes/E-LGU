@@ -9,8 +9,9 @@ async function customHandler(req: NextRequest, context: any): Promise<Response> 
     const protocol = req.headers.get("x-forwarded-proto") || "http";
     process.env.NEXTAUTH_URL = `${protocol}://${host}`;
 
+    const resolvedParams = await context.params;
     const handler = NextAuth(authOptions);
-    const res = await handler(req, context);
+    const res = await handler(req, { ...context, params: resolvedParams });
     
     // Check if this is a signout request
     if (req.nextUrl.pathname.endsWith("/signout")) {

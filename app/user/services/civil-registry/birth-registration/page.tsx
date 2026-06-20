@@ -13,6 +13,7 @@ import {
     Sparkles,
     Baby,
     ArrowRight,
+    ArrowLeft,
     Upload,
     Search,
     CheckCircle2,
@@ -1249,10 +1250,10 @@ export default function BirthRegistrationPage() {
                 title={viewerTitle}
                 themeColor="var(--primary-theme)"
             />
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-8 pb-0 space-y-12">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-0 pb-0 space-y-12">
             <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                 <Breadcrumb>
-                    <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+                    <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
                         <BreadcrumbItem>
                             <BreadcrumbLink asChild>
                                 <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
@@ -1386,18 +1387,24 @@ export default function BirthRegistrationPage() {
                                     <div className={cn(
                                         "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
                                         isActive ? "text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
-                                            isCompleted ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" :
+                                            isCompleted ? "border-transparent" :
                                                 "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
                                     )}
-                                    style={isActive ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
+                                    style={
+                                        isActive
+                                            ? { backgroundColor: themeColor, borderColor: themeColor }
+                                            : isCompleted
+                                                ? { backgroundColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 10%, transparent)" : `${themeColor}1a`, color: themeColor, borderColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33` }
+                                                : {}
+                                    }
                                     >
                                         <Icon className="w-4 h-4 md:w-7 md:h-7" />
                                     </div>
                                     <span className={cn(
                                         "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
-                                        isActive ? "opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
+                                        (isActive || isCompleted) ? "opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
                                     )}
-                                    style={isActive ? { color: themeColor } : {}}
+                                    style={(isActive || isCompleted) ? { color: themeColor } : {}}
                                     >
                                         {step.label}
                                     </span>
@@ -1587,8 +1594,8 @@ export default function BirthRegistrationPage() {
                                         <div 
                                             className="p-3 md:p-4 rounded-2xl md:rounded-3xl flex items-center gap-2 md:gap-3 border"
                                             style={{ 
-                                                backgroundColor: `${themeColor}0d`, 
-                                                borderColor: `${themeColor}26` 
+                                                backgroundColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 5%, transparent)" : `${themeColor}0d`, 
+                                                borderColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 15%, transparent)" : `${themeColor}26` 
                                             }}
                                         >
                                             <Sparkles className="w-3.5 h-3.5 shrink-0" style={{ color: themeColor }} />
@@ -1598,7 +1605,15 @@ export default function BirthRegistrationPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex justify-end pt-6">
+                                    <div className="flex justify-between pt-6">
+                                        <Button
+                                            type="button"
+                                            onClick={() => router.push("/user/services/civil-registry")}
+                                            className="rounded-full px-12 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest italic text-[10px] h-12 bg-transparent hover:bg-slate-50 dark:hover:bg-white/5"
+                                        >
+                                            <ArrowLeft className="w-4 h-4 mr-2" />
+                                            Back
+                                        </Button>
                                         <Button
                                             onClick={() => {
                                                 if (!validateStep("IDENTITY")) return;
@@ -1822,7 +1837,15 @@ export default function BirthRegistrationPage() {
                                          </div>
                                     </div>
 
-                                    <div className="flex justify-end pt-6">
+                                    <div className="flex justify-end gap-3 pt-6">
+                                        <Button
+                                            variant="ghost"
+                                            onClick={() => setCurrentStep("IDENTITY")}
+                                            className="rounded-full px-8 border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[10px] h-12"
+                                        >
+                                            <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
+                                            Back
+                                        </Button>
                                         <Button
                                             onClick={() => {
                                                 if (!validateStep("DETAILS")) return;
@@ -2276,7 +2299,7 @@ export default function BirthRegistrationPage() {
                                                     </button>
                                                     <div className="flex-1 cursor-pointer select-none" onClick={() => setPolicyOpen(true)}>
                                                         <div className="font-black uppercase text-xs tracking-wider text-slate-100 italic">DATA PRIVACY AND TERMS AGREEMENT</div>
-                                                        <div className="text-[8px] text-slate-400 font-bold uppercase tracking-widest italic mt-2 leading-relaxed">
+                                                        <div className="text-[8px] text-slate-400 font-bold uppercase tracking-widest italic mt-2 leading-relaxed line-clamp-2 md:line-clamp-none">
                                                             I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. I CONFIRM ALL INFO IS TRUE AND CORRECT. CLICK TO REVIEW AGREEMENT.
                                                         </div>
                                                         {errors.policyAccepted && (
@@ -2302,17 +2325,17 @@ export default function BirthRegistrationPage() {
                                                 onClick={handleSubmit}
                                                 disabled={submitting}
                                                 className={cn(
-                                                    "md:col-span-3 h-14 rounded-full font-black uppercase tracking-widest italic text-[11px] transition-all duration-300",
+                                                    "md:col-span-3 h-14 rounded-full font-black uppercase tracking-wider md:tracking-widest italic text-[9px] sm:text-[10px] md:text-[11px] transition-all duration-300 px-4 sm:px-8",
                                                     submitting ? "bg-slate-200 text-slate-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/20"
                                                 )}
                                             >
                                                 {submitting ? (
-                                                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mr-2" />
                                                 ) : (
-                                                    <>
+                                                    <span className="flex items-center justify-center gap-1 sm:gap-2">
                                                         Submit Birth Registration Application
-                                                        <CheckCircle2 className="w-5 h-5 ml-2" />
-                                                    </>
+                                                        <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                                                    </span>
                                                 )}
                                             </Button>
                                         </div>

@@ -124,8 +124,10 @@ export function AddResidentModal() {
                     targetToStyle.scrollIntoView({ behavior: "smooth", block: "center" });
                 }
                 targetToStyle.classList.add("ring-2", "ring-red-500", "border-red-500", "dark:border-red-500", "ring-offset-2");
+                targetToStyle.style.borderColor = "rgb(239, 68, 68)";
                 const cleanUp = () => {
                     targetToStyle.classList.remove("ring-2", "ring-red-500", "border-red-500", "dark:border-red-500", "ring-offset-2");
+                    targetToStyle.style.borderColor = "";
                     input.removeEventListener("input", cleanUp);
                     input.removeEventListener("change", cleanUp);
                     targetToStyle.removeEventListener("click", cleanUp);
@@ -191,6 +193,10 @@ export function AddResidentModal() {
             }
             if (formData.get("employmentStatus") === "Other" && !formData.get("otherEmploymentStatus")) {
                 addError("otherEmploymentStatus", "Please specify your Employment Status."); 
+            }
+            const eduAttainment = formData.get("educationalAttainment") as string;
+            if (["Vocational/Short Course", "College Level", "College Graduate", "Post Graduate Studies"].includes(eduAttainment) && !formData.get("degreeProgram")) {
+                addError("degreeProgram", "Degree or Course is required.");
             }
         }
 
@@ -364,7 +370,7 @@ export function AddResidentModal() {
                                         style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
                                         className="h-12 px-10 hover:opacity-90 text-white font-bold rounded-2xl transition-all duration-200"
                                     >
-                                        Next Component <ChevronRight className="w-4 h-4 ml-2" />
+                                        Next <ChevronRight className="w-4 h-4 ml-2" />
                                     </Button>
                                 ) : (
                                     <Button 

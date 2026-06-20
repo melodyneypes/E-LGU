@@ -2,6 +2,7 @@ import { Upload, Camera, ShieldCheck } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { CameraCapture } from "../CameraCapture";
 import { FacialVerification } from "../FacialVerification";
+import { ImageAlignmentModal } from "../ImageAlignmentModal";
 import { Resident } from "../../providers/ResidentProvider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,18 @@ export function IdentityVerificationSection({ data }: { data?: Partial<Resident>
   const [faceDescriptor, setFaceDescriptor] = useState<number[] | null>(
     data?.facialRecognition ? (data.facialRecognition as { descriptor?: number[] }).descriptor || null : null
   );
+
+  const [cropper, setCropper] = useState<{
+    isOpen: boolean;
+    imageSrc: string | null;
+    field: "idFront" | "idBack" | "livenessUrl" | null;
+    cropShape: "circle" | "rect";
+  }>({
+    isOpen: false,
+    imageSrc: null,
+    field: null,
+    cropShape: "circle"
+  });
 
   const idFrontInputRef = useRef<HTMLInputElement>(null);
   const idBackInputRef = useRef<HTMLInputElement>(null);
@@ -55,19 +68,45 @@ export function IdentityVerificationSection({ data }: { data?: Partial<Resident>
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const url = URL.createObjectURL(file);
-      setPreviews(prev => ({ ...prev, [field]: url }));
+      setCropper({
+        isOpen: true,
+        imageSrc: url,
+        field,
+        cropShape: field === "livenessUrl" ? "circle" : "rect"
+      });
     }
   };
 
   const handleCapture = (imageSrc: string) => {
     const field = camera.field;
     if (!field) return;
+    setCropper({
+      isOpen: true,
+      imageSrc: imageSrc,
+      field,
+      cropShape: field === "livenessUrl" ? "circle" : "rect"
+    });
+  };
 
-    // Convert base64 to File
-    fetch(imageSrc)
+  const openCropper = (field: "idFront" | "idBack" | "livenessUrl") => {
+    if (previews[field]) {
+      setCropper({
+        isOpen: true,
+        imageSrc: previews[field],
+        field,
+        cropShape: field === "livenessUrl" ? "circle" : "rect"
+      });
+    }
+  };
+
+  const handleCropSave = (croppedBase64: string) => {
+    const field = cropper.field;
+    if (!field) return;
+
+    fetch(croppedBase64)
       .then(res => res.blob())
       .then(blob => {
-        const file = new File([blob], `${field}_capture.jpg`, { type: "image/jpeg" });
+        const file = new File([blob], `${field}_cropped.jpg`, { type: "image/jpeg" });
         
         // Update the preview
         const url = URL.createObjectURL(file);
@@ -115,8 +154,18 @@ export function IdentityVerificationSection({ data }: { data?: Partial<Resident>
                 <div className="w-full h-full relative group">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={previews.livenessUrl} alt="Portrait" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Upload className="w-6 h-6 text-white" />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                        <button 
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                openCropper("livenessUrl");
+                            }}
+                            className="px-3 py-1.5 bg-white text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-100 shadow-lg cursor-pointer"
+                        >
+                            Adjust Alignment
+                        </button>
+                        <span className="text-[9px] text-white/70 font-semibold">or click below to upload new</span>
                     </div>
                 </div>
             ) : (
@@ -189,8 +238,18 @@ export function IdentityVerificationSection({ data }: { data?: Partial<Resident>
                 <div className="w-full h-full relative group">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={previews.idFront} alt="ID Front" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Upload className="w-8 h-8 text-white" />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                        <button 
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                openCropper("idFront");
+                            }}
+                            className="px-3 py-1.5 bg-white text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-100 shadow-lg cursor-pointer"
+                        >
+                            Adjust Alignment
+                        </button>
+                        <span className="text-[9px] text-white/70 font-semibold">or click to upload new</span>
                     </div>
                 </div>
             ) : (
@@ -229,8 +288,18 @@ export function IdentityVerificationSection({ data }: { data?: Partial<Resident>
                     <div className="w-full h-full relative group">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={previews.idBack} alt="ID Back" className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <Upload className="w-8 h-8 text-white" />
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                            <button 
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    openCropper("idBack");
+                                }}
+                                className="px-3 py-1.5 bg-white text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-100 shadow-lg cursor-pointer"
+                            >
+                                Adjust Alignment
+                            </button>
+                            <span className="text-[9px] text-white/70 font-semibold">or click to upload new</span>
                         </div>
                     </div>
                 ) : (
@@ -300,6 +369,15 @@ export function IdentityVerificationSection({ data }: { data?: Partial<Resident>
         isOpen={facialVerifyOpen}
         onClose={() => setFacialVerifyOpen(false)}
         onVerified={onFacialVerified}
+      />
+
+      <ImageAlignmentModal 
+        isOpen={cropper.isOpen}
+        imageSrc={cropper.imageSrc}
+        cropShape={cropper.cropShape}
+        onClose={() => setCropper({ isOpen: false, imageSrc: null, field: null, cropShape: "circle" })}
+        onSave={handleCropSave}
+        title={cropper.field === "livenessUrl" ? "Align Resident Portrait" : cropper.field === "idFront" ? "Align ID Front View" : "Align ID Back View"}
       />
 
       {/* Hidden input for biometric data */}

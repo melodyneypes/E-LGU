@@ -28,7 +28,7 @@ export default function ResidentProfileClient({ resident, themeColor = "#2563eb"
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-    const [profileImage, setProfileImage] = useState(resident?.livenessUrl || resident?.imageUrl || "");
+    const [profileImage, setProfileImage] = useState(resident?.imageUrl || "");
 
     // Crop state variables
     const [cropModalOpen, setCropModalOpen] = useState(false);
@@ -44,7 +44,7 @@ export default function ResidentProfileClient({ resident, themeColor = "#2563eb"
 
     useEffect(() => {
         if (resident) {
-            setProfileImage(resident.livenessUrl || resident.imageUrl || "");
+            setProfileImage(resident.imageUrl || "");
         }
     }, [resident]);
 
@@ -54,6 +54,12 @@ export default function ResidentProfileClient({ resident, themeColor = "#2563eb"
 
         if (!file.type.startsWith("image/")) {
             toast.error("Please upload an image file");
+            return;
+        }
+
+        const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+        if (file.size > MAX_SIZE) {
+            toast.error("Image size must be less than 5MB");
             return;
         }
 
@@ -220,15 +226,19 @@ export default function ResidentProfileClient({ resident, themeColor = "#2563eb"
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === "Escape") setZoomedImage(null);
         };
+        if (zoomedImage || cropModalOpen) {
+            document.body.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "unset";
+        }
         if (zoomedImage) {
             window.addEventListener("keydown", handleKeyDown);
-            document.body.style.overflow = "hidden";
         }
         return () => {
             window.removeEventListener("keydown", handleKeyDown);
             document.body.style.overflow = "unset";
         };
-    }, [zoomedImage]);
+    }, [zoomedImage, cropModalOpen]);
 
     if (!resident) {
         return (
@@ -920,6 +930,10 @@ export default function ResidentProfileClient({ resident, themeColor = "#2563eb"
                                 onTouchStart={handleTouchStartCrop}
                                 onTouchMove={handleTouchMoveCrop}
                                 onTouchEnd={handleMouseUpCrop}
+                                onWheel={(e) => {
+                                    const delta = e.deltaY < 0 ? 0.05 : -0.05;
+                                    setCropScale((prev) => Math.min(Math.max(prev + delta, 0.5), 3));
+                                }}
                             >
                                 {/* The Image */}
                                 {selectedImageSrc && (

@@ -632,10 +632,10 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 )
                 .subscribe((status: string, err?: any) => {
                     if (err) {
-                        console.error("Supabase Realtime subscription error:", err);
+                        console.warn("Supabase Realtime subscription notice:", err);
                     }
                     if (status === "CHANNEL_ERROR") {
-                        console.error("Supabase Realtime channel error status caught");
+                        console.warn("Supabase Realtime channel reconnecting/idle");
                     }
                 });
         } catch (error) {

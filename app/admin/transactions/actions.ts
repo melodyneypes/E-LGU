@@ -1435,7 +1435,7 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
             const hasAdditionalFees = sanitizedBpFeeLineItems && sanitizedBpFeeLineItems.length > 0;
             const isCertifiedCopy = ["LCR_BIRTH", "LCR_MARRIAGE"].includes(typeCode);
             if (isCertifiedCopy) {
-                newStatus = "EVALUATED";
+                newStatus = "FOR_REQUESTING";
             } else if (typeCode === "LCR_DEATH_REG" && (regType === "STANDARD" || !regType) && !hasAdditionalFees) {
                 newStatus = "EVALUATED";
             } else {
@@ -1802,7 +1802,23 @@ export async function getBploTransactions(status?: string) {
             orderBy: { createdAt: "desc" }
         });
 
-        return { success: true, data: transactions as any[] };
+        // Fetch staff users to map processedBy
+        const staff = await prisma.user.findMany({
+            select: {
+                id: true,
+                name: true,
+                email: true
+            }
+        });
+
+        const staffMap = new Map(staff.map(s => [s.id, s.name || s.email || "Unknown"]));
+
+        const mappedTransactions = transactions.map(tx => ({
+            ...tx,
+            processorName: tx.processedBy ? (staffMap.get(tx.processedBy) || "Unknown Staff") : "Not Processed"
+        }));
+
+        return { success: true, data: mappedTransactions as any[] };
     } catch (error) {
         console.error("Fetch BPLO transactions error:", error);
         return { success: false, error: "Failed to fetch BPLO transactions" };
@@ -1836,6 +1852,35 @@ export async function getPendingBploCount() {
         return { success: false, count: 0 };
     }
 }
+
+/**
+ * Get count of BPLO transactions in FOR_INSPECTION or FOR_REINSPECTION status
+ */
+export async function getBploInspectionCount() {
+    try {
+        const session = await getSession();
+        const user = session?.user as any;
+        if (!user || (user.role !== "ADMIN" && !isUserAdminAide(user))) {
+            return { success: false, count: 0 };
+        }
+
+        const count = await prisma.transaction.count({
+            where: {
+                type: {
+                    processorRole: "TREASURY_STAFF",
+                    code: { startsWith: "BUSINESS_PERMIT" }
+                },
+                status: { in: ["FOR_INSPECTION", "FOR_REINSPECTION"] as any },
+                isCancelled: false
+            }
+        });
+        return { success: true, count };
+    } catch (error) {
+        console.error("Fetch BPLO inspection count error:", error);
+        return { success: false, count: 0 };
+    }
+}
+
 
 /**
  * Fetch counts per status for BPLO transactions
@@ -1947,7 +1992,7 @@ export async function rejectTransaction(id: string, remarks: string) {
 
             let maxCategoryRejections;
             if (tx.type?.code === "BUILDING_PERMIT") {
-                maxCategoryRejections = activeRejectedTransactions.filter(rTx => rTx.type?.code === "BUILDING_PERMIT").length;
+                maxCategoryRejections = activeRejectedTransactions.filter((rTx: any) => rTx.type?.code === "BUILDING_PERMIT").length;
             } else {
                 // Group and find the maximum rejection count in any single category
                 const categoryCounts: Record<string, number> = {};
@@ -2060,7 +2105,7 @@ export async function sendForRevision(id: string, remarks: string) {
 
                 let maxCategoryRejections;
                 if (tx.type?.code === "BUILDING_PERMIT") {
-                    maxCategoryRejections = rejectedTransactions.filter(rTx => rTx.type?.code === "BUILDING_PERMIT").length;
+                    maxCategoryRejections = rejectedTransactions.filter((rTx: any) => rTx.type?.code === "BUILDING_PERMIT").length;
                 } else {
                     const categoryCounts: Record<string, number> = {};
                     for (const rTx of rejectedTransactions) {
@@ -4453,6 +4498,44 @@ export async function getRegistrarActiveCounts() {
     } catch (error) {
         console.error("Get registrar counts error:", error);
         return { success: false, error: "Failed to get active transaction counts" };
+    }
+}
+
+export async function markTransactionAsViewed(id: string) {
+    try {
+        const session = await getSession();
+        const userId = session?.user?.id;
+        if (!userId) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const tx = await prisma.transaction.findUnique({
+            where: { id },
+            select: { viewedAt: true }
+        });
+        if (!tx) {
+            return { success: false, error: "Transaction not found" };
+        }
+
+        let currentViewedAt: Record<string, string> = {};
+        if (tx.viewedAt && typeof tx.viewedAt === "object" && !Array.isArray(tx.viewedAt)) {
+            currentViewedAt = { ...tx.viewedAt } as Record<string, string>;
+        }
+
+        currentViewedAt[userId] = new Date().toISOString();
+
+        await prisma.transaction.update({
+            where: { id },
+            data: {
+                viewedAt: currentViewedAt
+            }
+        });
+
+        revalidatePath("/admin/registrar");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error marking transaction as viewed:", error);
+        return { success: false, error: error?.message || "Failed to mark transaction as viewed" };
     }
 }
 

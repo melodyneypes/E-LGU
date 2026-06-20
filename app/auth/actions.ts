@@ -34,8 +34,8 @@ export async function sendOTP(email: string) {
         });
 
         if (error) {
-            console.error("Supabase OTP Error:", error.message);
-            return { success: false, error: error.message };
+            console.error("Supabase OTP Error Details:", JSON.stringify(error, null, 2), error);
+            return { success: false, error: error.message || "Failed to send OTP" };
         }
 
         return { success: true };
@@ -83,19 +83,47 @@ export async function verifyOTPOnly(email: string, otp: string) {
             return { success: false, error: "Invalid or expired OTP" };
         }
 
-        return { success: true };
+        const secret = process.env.NEXTAUTH_SECRET || "default_secret_fallback_key_12345678";
+        const expiry = Date.now() + 15 * 60 * 1000; // 15 minutes
+        const message = `${emailClean}:${expiry}`;
+        const signature = crypto.createHmac("sha256", secret).update(message).digest("hex");
+        const token = `${message}:${signature}`;
+
+        return { success: true, token };
     } catch (error) {
         console.error("Verification Error:", error);
         return { success: false, error: "Failed to verify identity" };
     }
 }
 
-export async function finalizePasswordChange(email: string, otp: string, newPassword: string) {
+export async function finalizePasswordChange(email: string, tokenOrOtp: string, newPassword: string) {
     try {
-        // Verify OTP first before executing the password change
-        const verifyResult = await verifyOTPOnly(email, otp);
-        if (!verifyResult.success) {
-            return { success: false, error: verifyResult.error || "Invalid or expired OTP" };
+        const isSignedToken = tokenOrOtp.includes(":");
+        if (isSignedToken) {
+            const parts = tokenOrOtp.split(":");
+            if (parts.length !== 3) {
+                return { success: false, error: "Invalid verification proof" };
+            }
+            const [msgEmail, msgExpiry, signature] = parts;
+            if (msgEmail.trim().toLowerCase() !== email.trim().toLowerCase()) {
+                return { success: false, error: "Invalid verification proof" };
+            }
+            if (Date.now() > parseInt(msgExpiry, 10)) {
+                return { success: false, error: "Verification session expired" };
+            }
+            const secret = process.env.NEXTAUTH_SECRET || "default_secret_fallback_key_12345678";
+            const expectedSignature = crypto.createHmac("sha256", secret)
+                .update(`${msgEmail}:${msgExpiry}`)
+                .digest("hex");
+            if (signature !== expectedSignature) {
+                return { success: false, error: "Invalid verification proof" };
+            }
+        } else {
+            // Verify OTP first before executing the password change
+            const verifyResult = await verifyOTPOnly(email, tokenOrOtp);
+            if (!verifyResult.success) {
+                return { success: false, error: verifyResult.error || "Invalid or expired OTP" };
+            }
         }
 
         const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -156,8 +184,7 @@ export async function requestPasswordReset(email: string) {
         });
 
         if (!user || !user.email) {
-            // Do NOT reveal if the email doesn't exist
-            return { success: true };
+            return { success: false, error: "No account found with this email address." };
         }
 
         // Check if there is an active token created in the last 60 seconds

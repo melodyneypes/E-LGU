@@ -12,6 +12,7 @@ import {
     Home,
     Heart,
     ArrowRight,
+    ArrowLeft,
     Search,
     CheckCircle2,
     AlertCircle,
@@ -819,7 +820,7 @@ export default function MarriageRegistrationPage() {
             <div className="container max-w-5xl mx-auto px-4 pt-0 pb-0 space-y-8">
                 <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                     <Breadcrumb>
-                        <BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
                             <BreadcrumbItem>
                                 <BreadcrumbLink asChild>
                                     <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
@@ -929,7 +930,7 @@ export default function MarriageRegistrationPage() {
                                             isActive
                                                 ? { backgroundColor: themeColor, borderColor: themeColor }
                                                 : isCompleted
-                                                    ? { backgroundColor: themeColor + "1a", color: themeColor, borderColor: themeColor + "33" }
+                                                    ? { backgroundColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 10%, transparent)" : `${themeColor}1a`, color: themeColor, borderColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33` }
                                                     : {}
                                         }
                                     >
@@ -938,7 +939,7 @@ export default function MarriageRegistrationPage() {
                                     <span
                                         className={cn(
                                             "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
-                                            (isActive || isCompleted) ? "opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity text-slate-400"
+                                            (isActive || isCompleted) ? "opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
                                         )}
                                         style={
                                             (isActive || isCompleted)
@@ -1193,7 +1194,15 @@ export default function MarriageRegistrationPage() {
                                         </div>
                                     </Card>
 
-                                    <div className="flex justify-end pt-4">
+                                    <div className="flex justify-between pt-4">
+                                        <Button
+                                            type="button"
+                                            onClick={() => router.push("/user/services/civil-registry")}
+                                            className="h-14 px-10 rounded-2xl border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest italic text-[10px] bg-transparent hover:bg-slate-50 dark:hover:bg-white/5"
+                                        >
+                                            <ArrowLeft className="mr-2 w-5 h-5" />
+                                            Back
+                                        </Button>
                                         <Button
                                             onClick={nextStep}
                                             className="h-14 px-10 rounded-2xl text-white font-black uppercase italic tracking-widest hover:opacity-90 transition-opacity"
@@ -1346,7 +1355,7 @@ export default function MarriageRegistrationPage() {
                             {currentStep === "CONFIRM" && (
                                 <div className="space-y-8 animate-in fade-in duration-300">
                                     <Card className="p-8 rounded-[2rem] border-slate-200/50 dark:border-white/5 shadow-xl dark:shadow-2xl space-y-8">
-                                        <div className="p-6 rounded-3xl border flex items-start gap-4" style={{ backgroundColor: themeColor + "0d", borderColor: themeColor + "1a" }}>
+                                        <div className="p-6 rounded-3xl border flex items-start gap-4" style={{ backgroundColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 5%, transparent)" : `${themeColor}0d`, borderColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 10%, transparent)" : `${themeColor}1a` }}>
                                             <AlertCircle className="w-6 h-6 mt-1" style={{ color: themeColor }} />
                                             <div className="space-y-1">
                                                 <h4 className="text-sm font-black uppercase italic" style={{ color: themeColor }}>Final Verification</h4>
@@ -1460,7 +1469,7 @@ export default function MarriageRegistrationPage() {
                                                 </button>
                                                 <div className="flex-1 text-xs cursor-pointer select-none text-left" onClick={() => setPolicyOpen(true)}>
                                                     <div className="font-black uppercase text-[11px] tracking-wider text-slate-800 dark:text-white">DATA PRIVACY AND TERMS AGREEMENT</div>
-                                                    <div className="text-[10px] text-slate-500 italic mt-1 leading-relaxed">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
+                                                    <div className="text-[10px] text-slate-500 italic mt-1 leading-relaxed line-clamp-2 md:line-clamp-none">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
                                                     {(showConfirmErrors && !policyAccepted) && (
                                                         <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest mt-1 animate-pulse">Agreement required before submitting</p>
                                                     )}
@@ -1478,7 +1487,7 @@ export default function MarriageRegistrationPage() {
                                             onClick={handleSubmit}
                                             disabled={submitting}
                                             className="h-14 px-12 rounded-2xl text-white font-black uppercase italic tracking-widest shadow-xl"
-                                            style={{ backgroundColor: themeColor, boxShadow: `0 10px 20px ${themeColor}33` }}
+                                            style={{ backgroundColor: themeColor, boxShadow: themeColor === "var(--primary-theme)" ? "0 10px 20px color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `0 10px 20px ${themeColor}33` }}
                                         >
                                             {submitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
                                             Confirm & Submit

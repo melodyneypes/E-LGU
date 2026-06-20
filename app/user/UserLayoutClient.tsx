@@ -52,7 +52,7 @@ export default function UserLayoutClient({
                 themeColor={themeColor}
             />
 
-            <main className="flex-1 pt-28 md:pt-36 pb-20">
+            <main className="flex-1 pt-20 sm:pt-24 md:pt-28 pb-20">
                 <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}

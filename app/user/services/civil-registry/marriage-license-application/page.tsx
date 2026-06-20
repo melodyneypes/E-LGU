@@ -6,7 +6,7 @@ import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Home, User, Search, CheckCircle2, Check, Loader2, FileText, Heart, AlertCircle, Sparkles } from "lucide-react";
+import { Home, User, Search, CheckCircle2, Check, Loader2, FileText, Heart, AlertCircle, Sparkles, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
@@ -935,7 +935,7 @@ export default function MarriageLicenseApplicationPage() {
 			<div className="container max-w-4xl mx-auto px-4 pt-0 pb-0">
 				<div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0 mb-4">
 					<Breadcrumb>
-						<BreadcrumbList className="bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+						<BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
 							<BreadcrumbItem>
 								<BreadcrumbLink asChild>
 									<Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
@@ -1043,7 +1043,11 @@ export default function MarriageLicenseApplicationPage() {
 											isActive
 												? { backgroundColor: themeColor, borderColor: themeColor }
 												: isCompleted
-													? { backgroundColor: themeColor + "1a", color: themeColor, borderColor: themeColor + "33" }
+													? {
+															backgroundColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 10%, transparent)" : `${themeColor}1a`,
+															color: themeColor,
+															borderColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33`
+														}
 													: {}
 										}
 									>
@@ -1378,8 +1382,16 @@ export default function MarriageLicenseApplicationPage() {
 									</div>
 
 									{/* Step Nav */}
-									<div className="flex justify-end gap-4 pt-8">
-										<Button variant="outline" onClick={() => router.back()} className="h-14 px-8 rounded-2xl font-black uppercase italic tracking-widest">Cancel</Button>
+									<div className="flex justify-between items-center pt-8">
+										<Button
+											type="button"
+											variant="ghost"
+											onClick={() => router.push("/user/services/civil-registry")}
+											className="rounded-full px-12 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest italic text-[10px] h-12 bg-transparent hover:bg-slate-50 dark:hover:bg-white/5"
+										>
+											<ArrowLeft className="w-4 h-4 mr-2" />
+											Back
+										</Button>
 										<Button onClick={nextStep} style={{ backgroundColor: themeColor }} className="h-14 px-10 rounded-2xl text-white font-black uppercase italic tracking-widest hover:opacity-90 transition-all">Next</Button>
 									</div>
 								</motion.div>
@@ -1554,7 +1566,7 @@ export default function MarriageLicenseApplicationPage() {
 											</button>
 											<div className="flex-1 text-xs cursor-pointer select-none" onClick={() => setPolicyOpen(true)}>
 												<div className="font-black uppercase text-[11px] tracking-wider">DATA PRIVACY AND TERMS AGREEMENT</div>
-												<div className="text-[10px] text-slate-500 italic mt-1">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
+												<div className="text-[10px] text-slate-500 italic mt-1 line-clamp-2 md:line-clamp-none">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
 											</div>
 											<button type="button" onClick={() => setPolicyOpen(true)} className="text-[10px] font-black italic text-amber-600">Review</button>
 										</div>

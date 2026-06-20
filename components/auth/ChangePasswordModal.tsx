@@ -26,7 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { sendOTP, verifyOTPOnly, finalizePasswordChange } from "@/app/auth/actions";
+import { sendOTP, finalizePasswordChange, verifyOTPOnly } from "@/app/auth/actions";
 
 const setupSchema = z.object({
     otp: z.string().length(6, "OTP must be exactly 6 digits"),
@@ -81,15 +81,63 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
         { label: "At least one special symbol", met: /[^a-zA-Z0-9]/.test(passwordValue) },
     ];
 
+    // Restore state from sessionStorage on open
+    React.useEffect(() => {
+        if (isOpen) {
+            const storedEmail = sessionStorage.getItem("setup_email");
+            if (storedEmail === email) {
+                const storedStep = sessionStorage.getItem("setup_step") as Step | null;
+                const storedExpiry = sessionStorage.getItem("setup_timer_expiry");
+                const storedOtp = sessionStorage.getItem("setup_otp_value") || "";
+
+                if (storedStep) {
+                    if (storedStep === 'otp' && storedExpiry) {
+                        const remaining = Math.ceil((parseInt(storedExpiry, 10) - Date.now()) / 1000);
+                        if (remaining > 0) {
+                            setStep('otp');
+                            setTimeLeft(remaining);
+                            if (storedOtp) {
+                                form.setValue("otp", storedOtp);
+                            }
+                        } else {
+                            sessionStorage.removeItem("setup_step");
+                            sessionStorage.removeItem("setup_timer_expiry");
+                            sessionStorage.removeItem("setup_email");
+                            sessionStorage.removeItem("setup_otp_value");
+                        }
+                    } else if (storedStep === 'password') {
+                        setStep('password');
+                        if (storedOtp) {
+                            form.setValue("otp", storedOtp);
+                        }
+                    }
+                }
+            } else if (storedEmail) {
+                // Clear state from sessionStorage if email has changed to prevent leakage
+                sessionStorage.removeItem("setup_step");
+                sessionStorage.removeItem("setup_timer_expiry");
+                sessionStorage.removeItem("setup_email");
+                sessionStorage.removeItem("setup_otp_value");
+                setStep('identity');
+            }
+        }
+    }, [isOpen, email, form]);
+
     // Timer logic and Step back if timeout
     React.useEffect(() => {
         if (step === 'otp') {
             if (timeLeft > 0) {
-                const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+                const timer = setTimeout(() => {
+                    setTimeLeft(timeLeft - 1);
+                }, 1000);
                 return () => clearTimeout(timer);
             } else {
                 toast.error("Verification code expired. Please request a new one.");
                 setStep('identity');
+                sessionStorage.removeItem("setup_step");
+                sessionStorage.removeItem("setup_timer_expiry");
+                sessionStorage.removeItem("setup_email");
+                sessionStorage.removeItem("setup_otp_value");
             }
         }
     }, [step, timeLeft]);
@@ -104,6 +152,17 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
                 password: "",
                 confirmPassword: ""
             });
+            
+            // Check if timer has expired before clearing. If still active, preserve it so they can resume!
+            const storedExpiry = sessionStorage.getItem("setup_timer_expiry");
+            const isTimerActive = storedExpiry && parseInt(storedExpiry, 10) > Date.now();
+            
+            if (!isTimerActive) {
+                sessionStorage.removeItem("setup_step");
+                sessionStorage.removeItem("setup_timer_expiry");
+                sessionStorage.removeItem("setup_email");
+                sessionStorage.removeItem("setup_otp_value");
+            }
         }
     }, [isOpen, form]);
 
@@ -124,6 +183,11 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
                 toast.success(isResend ? "Code resent successfully" : "Verification code sent");
                 setStep('otp');
                 setTimeLeft(120);
+                
+                // Persist state in sessionStorage
+                sessionStorage.setItem("setup_email", email);
+                sessionStorage.setItem("setup_step", 'otp');
+                sessionStorage.setItem("setup_timer_expiry", (Date.now() + 120 * 1000).toString());
             } else {
                 toast.error(result.error || "Failed to send code.");
             }
@@ -143,13 +207,21 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
         setIsLoading(true);
         try {
             const result = await verifyOTPOnly(email, otp);
-            if (result.success) {
-                setStep('password');
+            if (result.success && result.token) {
+                // Clear state from sessionStorage
+                sessionStorage.removeItem("setup_step");
+                sessionStorage.removeItem("setup_timer_expiry");
+                sessionStorage.removeItem("setup_email");
+                sessionStorage.removeItem("setup_otp_value");
+                
+                // Redirect user to the new setup page
+                window.location.href = `/auth/setup-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(result.token)}`;
             } else {
-                toast.error(result.error || "Invalid code.");
+                form.setError("otp", { message: result.error || "Invalid OTP" });
+                toast.error(result.error || "Invalid OTP");
             }
         } catch {
-            toast.error("Verification failed");
+            toast.error("An error occurred during verification");
         } finally {
             setIsLoading(false);
         }
@@ -161,6 +233,13 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
             const result = await finalizePasswordChange(email, data.otp, data.password);
             if (result.success) {
                 toast.success("Account setup complete!");
+                
+                // Clear state from sessionStorage
+                sessionStorage.removeItem("setup_step");
+                sessionStorage.removeItem("setup_timer_expiry");
+                sessionStorage.removeItem("setup_email");
+                sessionStorage.removeItem("setup_otp_value");
+                
                 onSuccess();
 
                 // Fetch current session to determine role and auto-set portal cookie
@@ -184,7 +263,11 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-[380px] w-[calc(100%-2rem)] p-0 overflow-hidden bg-background dark:bg-[#0B0E14] border-none rounded-[32px] shadow-2xl ring-1 ring-black/5 dark:ring-white/10 z-[150]">
+            <DialogContent 
+                onPointerDownOutside={(e) => e.preventDefault()}
+                onEscapeKeyDown={(e) => e.preventDefault()}
+                className="max-w-[380px] w-[calc(100%-2rem)] p-0 overflow-hidden bg-background dark:bg-[#0B0E14] border-none rounded-[32px] shadow-2xl ring-1 ring-black/5 dark:ring-white/10 z-[150]"
+            >
 
                 <AnimatePresence mode="wait">
                     {step === 'identity' && (

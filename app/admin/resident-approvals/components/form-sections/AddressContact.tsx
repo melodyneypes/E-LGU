@@ -40,8 +40,15 @@ export function AddressContactSection({ data }: { data?: Partial<Resident> }) {
     const [selectedBarangay, setSelectedBarangay] = useState(defaultBrgy);
 
     useEffect(() => {
+        if (defaultBrgy && barangayList.length > 0) {
+            const matched = barangayList.find(b => b.toLowerCase() === defaultBrgy.toLowerCase());
+            if (matched) {
+                setSelectedBarangay(matched);
+                return;
+            }
+        }
         setSelectedBarangay(defaultBrgy);
-    }, [defaultBrgy]);
+    }, [defaultBrgy, barangayList]);
 
     const filteredBarangays = barangayList.filter(b => 
         b.toLowerCase().includes(searchQuery.toLowerCase()) || b === selectedBarangay
@@ -273,9 +280,9 @@ export function AddressContactSection({ data }: { data?: Partial<Resident> }) {
                                 }}
                                 placeholder="Search for a resident to add as family member..."
                                 excludeIds={data?.id ? [data.id] : []}
+                                suggestEmpty={true}
                             />
                         </div>
-
                         {familyMembers.length > 0 && (
                             <div className="bg-white dark:bg-black/20 rounded-xl border border-blue-100 dark:border-blue-900/30 overflow-hidden">
                                 <table className="w-full text-left text-xs">
