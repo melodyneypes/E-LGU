@@ -1,9 +1,11 @@
 import { getAdminReports } from "@/app/admin/actions";
 import { ReportsTable } from "./components/ReportsTable";
 import { AlertTriangle, BarChart3, Clock, CheckCircle2 } from "lucide-react";
+import { getSystemSetting } from "@/lib/settings";
 
 export default async function AdminReportsPage() {
     const { reports = [] } = await getAdminReports();
+    const themeColor = await getSystemSetting("theme_color", "#2563eb");
     
     const stats = {
         total: reports.length,
@@ -80,7 +82,7 @@ export default async function AdminReportsPage() {
                 style={{ boxShadow: '0 25px 50px -12px color-mix(in srgb, var(--primary-theme) 10%, transparent)' }}
                 className="bg-white dark:bg-[#151b2b] rounded-[2.5rem] border border-slate-200 dark:border-[#2a3040] p-6 shadow-sm overflow-hidden"
             >
-                <ReportsTable initialReports={reports} />
+                <ReportsTable initialReports={reports} themeColor={themeColor} />
             </div>
         </div>
     );

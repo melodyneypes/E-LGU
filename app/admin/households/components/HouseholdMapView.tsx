@@ -73,7 +73,7 @@ export function HouseholdMapView() {
     // Do not render map if in list view or if not mounted (SSR check)
     if (!mounted || !safeIcon || !riskIcon || viewMode === "list") return <MapLoading />;
 
-    // Filter logic
+    // Filter logic: Only include households with valid coordinates for map plotting
     const filteredHouseholds = households.filter((h) => {
         const headStr = h.headOfFamily || "";
         const barangayStr = h.barangay || "";
@@ -81,17 +81,54 @@ export function HouseholdMapView() {
             barangayStr.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesBarangay = selectedBarangay === "All" || h.barangay === selectedBarangay;
         const matchesRisk = selectedRiskLevel === "All" || h.riskLevel === selectedRiskLevel;
-        return matchesSearch && matchesBarangay && matchesRisk;
+        const hasCoords = h.latitude !== null && h.longitude !== null;
+        return matchesSearch && matchesBarangay && matchesRisk && hasCoords;
     });
-
+ 
     // Default center to Mapandan, Pangasinan if no data
-    const centerLat = filteredHouseholds.length > 0 ? filteredHouseholds[0].latitude : 16.0264;
-    const centerLng = filteredHouseholds.length > 0 ? filteredHouseholds[0].longitude : 120.4537;
+    const centerLat = filteredHouseholds.length > 0 && filteredHouseholds[0].latitude !== null ? filteredHouseholds[0].latitude : 16.0264;
+    const centerLng = filteredHouseholds.length > 0 && filteredHouseholds[0].longitude !== null ? filteredHouseholds[0].longitude : 120.4537;
 
     return (
         <div className="w-full bg-white dark:bg-[#151b2b] p-4 rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm relative z-0">
-            {/* Adding leaflet CSS dynamically */}
+            {/* Adding leaflet and marker cluster CSS dynamically */}
             <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+            <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+            <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+
+            {/* Custom styling override for marker clusters to match premium design system */}
+            <style>{`
+                .marker-cluster-small {
+                    background-color: rgba(37, 99, 235, 0.2) !important;
+                }
+                .marker-cluster-small div {
+                    background-color: rgba(37, 99, 235, 0.85) !important;
+                    color: white !important;
+                    font-weight: 800 !important;
+                }
+                .marker-cluster-medium {
+                    background-color: rgba(59, 130, 246, 0.2) !important;
+                }
+                .marker-cluster-medium div {
+                    background-color: rgba(59, 130, 246, 0.85) !important;
+                    color: white !important;
+                    font-weight: 800 !important;
+                }
+                .marker-cluster-large {
+                    background-color: rgba(29, 78, 216, 0.2) !important;
+                }
+                .marker-cluster-large div {
+                    background-color: rgba(29, 78, 216, 0.95) !important;
+                    color: white !important;
+                    font-weight: 800 !important;
+                }
+                .marker-cluster div {
+                    text-align: center;
+                    border-radius: 15px;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                    font-family: inherit !important;
+                }
+            `}</style>
 
             <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-[#2a3040]">
                 <MapContainer
@@ -124,7 +161,7 @@ export function HouseholdMapView() {
                             return (
                                 <Marker
                                     key={h.id}
-                                    position={[h.latitude, h.longitude]}
+                                    position={[h.latitude as number, h.longitude as number]}
                                     icon={iconToUse}
                                 >
                                     <Popup className="custom-popup">

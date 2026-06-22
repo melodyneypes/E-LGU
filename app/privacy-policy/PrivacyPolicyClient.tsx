@@ -149,7 +149,7 @@ export function PrivacyPolicyClient({ themeColor }: PrivacyPolicyClientProps) {
                         variants={itemVariants}
                         className="pt-6 border-t border-slate-100 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-400 gap-4"
                     >
-                        <span>Last Updated: June 2026</span>
+                        
                        
                     </motion.div>
                 </motion.div>

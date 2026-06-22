@@ -37,6 +37,43 @@ export default function PaymentSettingsClient({
         }, {} as Record<string, string>);
     });
 
+    // Birth Registration Sub-Fees (fetched from defaultFees JSON)
+    const [birthRegProcFee, setBirthRegProcFee] = useState<string>(() => {
+        const birthReg = transactionTypes.find(t => t.code === "LCR_BIRTH_REG");
+        if (birthReg?.defaultFees) {
+            const arr = typeof birthReg.defaultFees === "string" ? JSON.parse(birthReg.defaultFees) : birthReg.defaultFees;
+            return String(arr.find((f: any) => f.code === "PROCESSING_FEE")?.amount ?? 215);
+        }
+        return "215";
+    });
+
+    const [birthRegLate1, setBirthRegLate1] = useState<string>(() => {
+        const birthReg = transactionTypes.find(t => t.code === "LCR_BIRTH_REG");
+        if (birthReg?.defaultFees) {
+            const arr = typeof birthReg.defaultFees === "string" ? JSON.parse(birthReg.defaultFees) : birthReg.defaultFees;
+            return String(arr.find((f: any) => f.code === "LATE_FEE_1_10")?.amount ?? 315);
+        }
+        return "315";
+    });
+
+    const [birthRegLate10, setBirthRegLate10] = useState<string>(() => {
+        const birthReg = transactionTypes.find(t => t.code === "LCR_BIRTH_REG");
+        if (birthReg?.defaultFees) {
+            const arr = typeof birthReg.defaultFees === "string" ? JSON.parse(birthReg.defaultFees) : birthReg.defaultFees;
+            return String(arr.find((f: any) => f.code === "LATE_FEE_10_20")?.amount ?? 515);
+        }
+        return "515";
+    });
+
+    const [birthRegLate20, setBirthRegLate20] = useState<string>(() => {
+        const birthReg = transactionTypes.find(t => t.code === "LCR_BIRTH_REG");
+        if (birthReg?.defaultFees) {
+            const arr = typeof birthReg.defaultFees === "string" ? JSON.parse(birthReg.defaultFees) : birthReg.defaultFees;
+            return String(arr.find((f: any) => f.code === "LATE_FEE_20_UP")?.amount ?? 1015);
+        }
+        return "1015";
+    });
+
     const [isSavingFees, setIsSavingFees] = useState(false);
 
     // Sync state when props change (revalidation updates)
@@ -49,6 +86,15 @@ export default function PaymentSettingsClient({
             acc[type.id] = String(type.studentFee || 0);
             return acc;
         }, {} as Record<string, string>));
+
+        const birthReg = transactionTypes.find(t => t.code === "LCR_BIRTH_REG");
+        if (birthReg?.defaultFees) {
+            const arr = typeof birthReg.defaultFees === "string" ? JSON.parse(birthReg.defaultFees) : birthReg.defaultFees;
+            setBirthRegProcFee(String(arr.find((f: any) => f.code === "PROCESSING_FEE")?.amount ?? 215));
+            setBirthRegLate1(String(arr.find((f: any) => f.code === "LATE_FEE_1_10")?.amount ?? 315));
+            setBirthRegLate10(String(arr.find((f: any) => f.code === "LATE_FEE_10_20")?.amount ?? 515));
+            setBirthRegLate20(String(arr.find((f: any) => f.code === "LATE_FEE_20_UP")?.amount ?? 1015));
+        }
     }, [transactionTypes]);
 
     const handleFeeChange = (id: string, value: string) => {
@@ -71,10 +117,19 @@ export default function PaymentSettingsClient({
             const feesList = Object.entries(fees).map(([id, baseFee]) => {
                 const type = transactionTypes.find(t => t.id === id);
                 const isCedula = type?.code?.includes("CEDULA");
+                const isBirthReg = type?.code === "LCR_BIRTH_REG";
                 return {
                     id,
                     baseFee: Number(baseFee) || 0,
-                    ...(isCedula ? { studentFee: Number(studentFees[id]) || 0 } : {})
+                    ...(isCedula ? { studentFee: Number(studentFees[id]) || 0 } : {}),
+                    ...(isBirthReg ? {
+                        defaultFees: [
+                            { code: "PROCESSING_FEE", label: "Processing & E-Copy Fee", amount: Number(birthRegProcFee) || 0 },
+                            { code: "LATE_FEE_1_10", label: "Late Fee (1-10 Years)", amount: Number(birthRegLate1) || 0 },
+                            { code: "LATE_FEE_10_20", label: "Late Fee (10-20 Years)", amount: Number(birthRegLate10) || 0 },
+                            { code: "LATE_FEE_20_UP", label: "Late Fee (20+ Years)", amount: Number(birthRegLate20) || 0 }
+                        ]
+                    } : {})
                 };
             });
             const res = await updateTransactionBaseFees(feesList);
@@ -194,6 +249,62 @@ export default function PaymentSettingsClient({
                                                                         onChange={(e) => handleStudentFeeChange(type.id, e.target.value)}
                                                                         className="h-9 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
                                                                     />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {type.code === "LCR_BIRTH_REG" && (
+                                                            <div className="flex flex-col gap-2 mt-2 w-full max-w-[280px]">
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">Processing Fee:</span>
+                                                                    <div className="relative inline-flex items-center max-w-[130px]">
+                                                                        <span className="absolute left-3 text-slate-400 dark:text-slate-500 font-black text-sm">₱</span>
+                                                                        <Input 
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            value={birthRegProcFee}
+                                                                            onChange={(e) => setBirthRegProcFee(e.target.value)}
+                                                                            className="h-9 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">Late Fee (1-10y):</span>
+                                                                    <div className="relative inline-flex items-center max-w-[130px]">
+                                                                        <span className="absolute left-3 text-slate-400 dark:text-slate-500 font-black text-sm">₱</span>
+                                                                        <Input 
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            value={birthRegLate1}
+                                                                            onChange={(e) => setBirthRegLate1(e.target.value)}
+                                                                            className="h-9 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">Late Fee (10-20y):</span>
+                                                                    <div className="relative inline-flex items-center max-w-[130px]">
+                                                                        <span className="absolute left-3 text-slate-400 dark:text-slate-500 font-black text-sm">₱</span>
+                                                                        <Input 
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            value={birthRegLate10}
+                                                                            onChange={(e) => setBirthRegLate10(e.target.value)}
+                                                                            className="h-9 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">Late Fee (20y+):</span>
+                                                                    <div className="relative inline-flex items-center max-w-[130px]">
+                                                                        <span className="absolute left-3 text-slate-400 dark:text-slate-500 font-black text-sm">₱</span>
+                                                                        <Input 
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            value={birthRegLate20}
+                                                                            onChange={(e) => setBirthRegLate20(e.target.value)}
+                                                                            className="h-9 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
+                                                                        />
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         )}

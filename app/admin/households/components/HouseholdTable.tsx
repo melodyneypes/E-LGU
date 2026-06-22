@@ -133,8 +133,12 @@ export function HouseholdTable() {
                                     <TableCell>
                                         <div className="flex flex-col">
                                             <span className="font-semibold text-slate-800 dark:text-slate-200">{household.barangay}</span>
-                                            <span className="text-xs text-slate-500 font-mono mt-1">
-                                                {household.latitude.toFixed(5)}, {household.longitude.toFixed(5)}
+                                            <span className="text-xs font-semibold text-slate-500 mt-1">
+                                                {household.latitude !== null && household.longitude !== null ? (
+                                                    <span className="font-mono">{household.latitude.toFixed(5)}, {household.longitude.toFixed(5)}</span>
+                                                ) : (
+                                                    <span className="italic text-amber-600 dark:text-amber-400">Location Not Pinned</span>
+                                                )}
                                             </span>
                                         </div>
                                     </TableCell>

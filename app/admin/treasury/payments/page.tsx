@@ -29,8 +29,19 @@ export default async function PaymentsPage() {
     const initialPayments = await prisma.payment.findMany({
         include: {
             transaction: {
-                include: {
-                    type: true,
+                select: {
+                    id: true,
+                    status: true,
+                    totalAmount: true,
+                    paymentType: true,
+                    paymentReference: true,
+                    type: {
+                        select: {
+                            id: true,
+                            name: true,
+                            code: true
+                        }
+                    },
                     user: {
                         select: {
                             name: true,

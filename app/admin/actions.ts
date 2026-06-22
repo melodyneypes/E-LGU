@@ -14,6 +14,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { uploadFile, deleteFileByUrl, validatePayloadFiles } from "@/lib/storage";
 import { isRateLimited, getClientIp } from "@/lib/rate-limit";
+import { sendEmail } from "@/lib/mail";
+import { supabaseAdmin } from "@/lib/supabase";
 
 async function getSessionBarangay(): Promise<string | null> {
     const session = await getServerSession(authOptions);
@@ -1328,19 +1330,42 @@ export async function addHousehold(formData: FormData) {
         const lat = formData.get("latitude") ? parseFloat(formData.get("latitude") as string) : null;
         const lng = formData.get("longitude") ? parseFloat(formData.get("longitude") as string) : null;
 
+        const barangay = formData.get("barangay") as string || await getSessionBarangay();
+
         if (headId) {
             const existing = await (prisma as any).household.findUnique({
                 where: { headId }
             });
             if (existing) {
-                return {
-                    success: false,
-                    error: "This person is already a head of another household."
-                };
+                // If it already exists (e.g. registered via mobile), update it with coordinates and info instead of throwing error
+                const updatedHousehold = await (prisma as any).household.update({
+                    where: { id: existing.id },
+                    data: {
+                        barangay: barangay || null,
+                        latitude: lat,
+                        longitude: lng,
+                        householdSize: parseInt(formData.get("householdSize") as string || "1", 10),
+                        contactNumber: (formData.get("contactNumber") as string) || null,
+                    } as any,
+                    include: {
+                        head: true
+                    }
+                });
+
+                // Cascade coordinates to all associated residents (Head + Members)
+                await (prisma as any).resident.updateMany({
+                    where: {
+                        OR: [
+                            { id: headId },
+                            { householdId: existing.id }
+                        ]
+                    },
+                    data: { latitude: lat, longitude: lng }
+                });
+
+                return { success: true, household: updatedHousehold };
             }
         }
-
-        const barangay = formData.get("barangay") as string || await getSessionBarangay();
 
         const household = await (prisma as any).household.create({
             data: {
@@ -2506,6 +2531,7 @@ export async function addCommunityReport(formData: FormData) {
 
         const latRaw = formData.get("latitude");
         const lngRaw = formData.get("longitude");
+        const barangayId = formData.get("barangayId") as string || null;
 
         const report = await (prisma as any).report.create({
             data: {
@@ -2517,8 +2543,26 @@ export async function addCommunityReport(formData: FormData) {
                 longitude: lngRaw ? parseFloat(lngRaw as string) : null,
                 address: formData.get("address") as string || null,
                 status: "PENDING",
+                barangayId: barangayId || null,
             } as any
         });
+
+        // Fetch user email and name to send confirmation email
+        const user = await prisma.user.findUnique({
+            where: { id: (session.user as any).id },
+            select: { email: true, name: true }
+        });
+
+        if (user && user.email) {
+            sendEmail({
+                type: "COMMUNITY_REPORT_SUBMITTED",
+                to: user.email,
+                name: user.name || "Resident",
+                serviceName: report.category
+            }).catch(err => {
+                console.error("Failed to send community report confirmation email:", err);
+            });
+        }
 
         revalidatePath("/");
         revalidatePath("/user/reports");
@@ -2543,6 +2587,19 @@ export async function getBarangayList() {
     }
 }
 
+export async function getBarangayListWithIds() {
+    try {
+        const barangays = await prisma.barangayInfo.findMany({
+            select: { id: true, name: true },
+            orderBy: { name: 'asc' }
+        });
+        return { success: true, data: barangays };
+    } catch (error) {
+        console.error("Failed to fetch barangays with ids:", error);
+        return { success: false, error: "Failed to fetch barangay list" };
+    }
+}
+
 export async function getUserReports() {
     try {
         const session = await getServerSession(authOptions);
@@ -2550,6 +2607,7 @@ export async function getUserReports() {
 
         const reports = await (prisma as any).report.findMany({
             where: { userId: (session.user as any).id },
+            include: { barangay: true },
             orderBy: { createdAt: "desc" }
         });
 
@@ -2562,12 +2620,29 @@ export async function getUserReports() {
 export async function getAdminReports() {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user?.id || (session.user as any).role !== "ADMIN") {
+        const userRole = (session?.user as any)?.role;
+        if (!session?.user?.id || (userRole !== "ADMIN" && userRole !== "BARANGAY_ADMIN")) {
             return { success: false, error: "Unauthorized" };
         }
 
+        const managedBarangay = (session.user as any).managedBarangay;
+        const whereClause: any = {};
+
+        if (userRole === "BARANGAY_ADMIN") {
+            if (!managedBarangay) {
+                return { success: true, reports: [] };
+            }
+            whereClause.barangay = {
+                name: managedBarangay
+            };
+        }
+
         const reports = await (prisma as any).report.findMany({
-            include: { user: true },
+            where: whereClause,
+            include: { 
+                user: true,
+                barangay: true
+            },
             orderBy: { createdAt: "desc" }
         });
 
@@ -2580,8 +2655,22 @@ export async function getAdminReports() {
 export async function updateReportStatus(id: string, status: string, adminComment?: string) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user?.id || (session.user as any).role !== "ADMIN") {
+        const userRole = (session?.user as any)?.role;
+        if (!session?.user?.id || (userRole !== "ADMIN" && userRole !== "BARANGAY_ADMIN")) {
             return { success: false, error: "Unauthorized" };
+        }
+
+        const managedBarangay = (session.user as any).managedBarangay;
+
+        // If BARANGAY_ADMIN, verify report belongs to their barangay
+        if (userRole === "BARANGAY_ADMIN") {
+            const report = await (prisma as any).report.findUnique({
+                where: { id },
+                include: { barangay: true }
+            });
+            if (!report || report.barangay?.name !== managedBarangay) {
+                return { success: false, error: "Unauthorized to update this report." };
+            }
         }
 
         await (prisma as any).report.update({
@@ -2612,7 +2701,10 @@ export async function getReportById(id: string) {
 
         const report = await (prisma as any).report.findUnique({
             where: { id },
-            include: { user: true }
+            include: { 
+                user: true,
+                barangay: true
+            }
         });
 
         if (!report) {
@@ -2620,9 +2712,17 @@ export async function getReportById(id: string) {
             return { success: false, error: "Report not found" };
         }
 
-        // Ensure user can only see their own report unless admin
+        // Ensure user can only see their own report unless admin or barangay admin
         const userId = (session.user as any).id;
-        if ((session.user as any).role !== "ADMIN" && report.userId !== userId) {
+        const userRole = (session.user as any).role;
+        const managedBarangay = (session.user as any).managedBarangay;
+
+        if (userRole === "BARANGAY_ADMIN") {
+            if (report.barangay?.name !== managedBarangay) {
+                console.error(`[Reporting] Permission denied for Barangay Admin of ${managedBarangay} on Report ${id}`);
+                return { success: false, error: "Unauthorized" };
+            }
+        } else if (userRole !== "ADMIN" && report.userId !== userId) {
             console.error(`[Reporting] Permission denied for User ${userId} on Report ${id}`);
             return { success: false, error: "Unauthorized" };
         }
@@ -2744,6 +2844,13 @@ export async function deleteBarangay(id: string) {
 
 export async function createBarangayAdmin(formData: FormData) {
     try {
+        // Strict Authorization Guard
+        const session = await getServerSession(authOptions);
+        const currentUserRole = (session?.user as any)?.role;
+        if (!session?.user?.id || currentUserRole !== "ADMIN") {
+            return { success: false, error: "Unauthorized. Admin privileges required." };
+        }
+
         const name = formData.get("name") as string;
         const email = formData.get("email") as string;
         const password = formData.get("password") as string;
@@ -2755,10 +2862,24 @@ export async function createBarangayAdmin(formData: FormData) {
             return { success: false, error: "Email already exists in the system." };
         }
 
+        // 1. Create user in Supabase Auth
+        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true,
+            user_metadata: { name }
+        });
+
+        if (authError || !authUser.user) {
+            console.error("Failed to create admin in Supabase Auth:", authError);
+            return { success: false, error: authError?.message || "Failed to create authentication account." };
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const newAdmin = await prisma.user.create({
             data: {
+                id: authUser.user.id,
                 name,
                 email,
                 password: hashedPassword,
@@ -2766,6 +2887,7 @@ export async function createBarangayAdmin(formData: FormData) {
                 managedBarangay,
                 isEmailVerified: true, // Auto-verify for admins
                 emailVerified: new Date(),
+                isPasswordChanged: true,
             }
         });
 
@@ -2798,6 +2920,13 @@ export async function getBarangaysList() {
  */
 export async function createUser(formData: FormData) {
     try {
+        // Strict Authorization Guard
+        const session = await getServerSession(authOptions);
+        const currentUserRole = (session?.user as any)?.role;
+        if (!session?.user?.id || currentUserRole !== "ADMIN") {
+            return { success: false, error: "Unauthorized. Admin privileges required." };
+        }
+
         const name = formData.get("name") as string;
         const email = formData.get("email") as string;
         const password = formData.get("password") as string;
@@ -2815,10 +2944,24 @@ export async function createUser(formData: FormData) {
             return { success: false, error: "Email already exists" };
         }
 
+        // 1. Create user in Supabase Auth
+        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true,
+            user_metadata: { name }
+        });
+
+        if (authError || !authUser.user) {
+            console.error("Failed to create user in Supabase Auth:", authError);
+            return { success: false, error: authError?.message || "Failed to create authentication account." };
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const newUser = await prisma.user.create({
             data: {
+                id: authUser.user.id,
                 name,
                 email,
                 password: hashedPassword,
@@ -2845,6 +2988,13 @@ export async function createUser(formData: FormData) {
  */
 export async function updateUser(userId: string, formData: FormData) {
     try {
+        // Strict Authorization Guard
+        const session = await getServerSession(authOptions);
+        const currentUserRole = (session?.user as any)?.role;
+        if (!session?.user?.id || currentUserRole !== "ADMIN") {
+            return { success: false, error: "Unauthorized. Admin privileges required." };
+        }
+
         const name = formData.get("name") as string;
         const email = formData.get("email") as string;
         const password = formData.get("password") as string;
@@ -2863,6 +3013,22 @@ export async function updateUser(userId: string, formData: FormData) {
             return { success: false, error: "Email is already taken by another account" };
         }
 
+        // Sync updates to Supabase Auth if email changed and user ID is a valid UUID
+        const oldUser = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+        const isUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+        const isUserUuid = isUuid(userId);
+
+        if (oldUser && oldUser.email !== email && isUserUuid) {
+            const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+                email,
+                email_confirm: true
+            });
+            if (authError) {
+                console.error("Failed to update email in Supabase Auth:", authError);
+                return { success: false, error: "Failed to update authentication email: " + authError.message };
+            }
+        }
+
         const dataToUpdate: any = {
             name,
             email,
@@ -2873,6 +3039,16 @@ export async function updateUser(userId: string, formData: FormData) {
         };
 
         if (password && password.trim() !== "") {
+            if (isUserUuid) {
+                // Sync password to Supabase Auth
+                const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+                    password: password.trim()
+                });
+                if (authError) {
+                    console.error("Failed to update password in Supabase Auth:", authError);
+                    return { success: false, error: "Failed to update authentication password: " + authError.message };
+                }
+            }
             dataToUpdate.password = await bcrypt.hash(password, 10);
             dataToUpdate.isPasswordChanged = true;
         }
@@ -2895,10 +3071,22 @@ export async function updateUser(userId: string, formData: FormData) {
  */
 export async function deleteUser(userId: string) {
     try {
+        // Strict Authorization Guard
+        const session = await getServerSession(authOptions);
+        const currentUserRole = (session?.user as any)?.role;
+        if (!session?.user?.id || currentUserRole !== "ADMIN") {
+            return { success: false, error: "Unauthorized. Admin privileges required." };
+        }
+
         const existing = await prisma.user.findUnique({ where: { id: userId } });
         if (!existing) {
             return { success: false, error: "User account not found" };
         }
+
+        // Delete from Supabase Auth
+        await supabaseAdmin.auth.admin.deleteUser(userId).catch((err: any) => {
+            console.warn("Could not delete from Supabase Auth:", err);
+        });
 
         // Delete associated accounts
         await prisma.account.deleteMany({ where: { userId } }).catch((err: any) => {
@@ -3003,5 +3191,63 @@ export async function activateUser(userId: string) {
         return { success: false, error: error.message || "Failed to activate user account" };
     }
 }
+
+/**
+ * Assign RFID to a user account, ensuring it is unique across both User and Resident tables.
+ */
+export async function assignUserRFID(userId: string, rfid: string | null) {
+    try {
+        const session = await getServerSession(authOptions);
+        const currentUser = session?.user as any;
+        if (!currentUser || (currentUser.role !== "ADMIN" && currentUser.role !== "TREASURY_STAFF")) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        if (rfid && rfid.trim() !== "") {
+            const trimmedRfid = rfid.trim();
+
+            // Check if RFID exists in User table
+            const userWithRfid = await prisma.user.findFirst({
+                where: {
+                    rfid: trimmedRfid,
+                    NOT: { id: userId }
+                }
+            });
+            if (userWithRfid) {
+                return { success: false, error: "This RFID tag is already assigned to another User account." };
+            }
+
+            // Check if RFID exists in Resident table
+            const residentWithRfid = await prisma.resident.findFirst({
+                where: { rfid: trimmedRfid }
+            });
+            if (residentWithRfid) {
+                return { success: false, error: "This RFID tag is already assigned to a Resident profile." };
+            }
+
+            // Update user with the RFID
+            const updated = await prisma.user.update({
+                where: { id: userId },
+                data: { rfid: trimmedRfid }
+            });
+
+            revalidatePath("/admin/users");
+            return { success: true, user: updated };
+        } else {
+            // If empty/null, clear the RFID
+            const updated = await prisma.user.update({
+                where: { id: userId },
+                data: { rfid: null }
+            });
+
+            revalidatePath("/admin/users");
+            return { success: true, user: updated };
+        }
+    } catch (error: any) {
+        console.error("Failed to assign RFID to user:", error);
+        return { success: false, error: error.message || "Failed to assign RFID" };
+    }
+}
+
 
 

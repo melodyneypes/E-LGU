@@ -27,6 +27,22 @@ export function ResidentFilters() {
     const [mounted, setMounted] = useState(false);
     const [categories, setCategories] = useState<ResidentCategory[]>([]);
     const [barangayList, setBarangayList] = useState<string[]>([]);
+    const [localSearch, setLocalSearch] = useState(searchQuery);
+
+    // Keep local search input in sync if URL query changes
+    useEffect(() => {
+        setLocalSearch(searchQuery);
+    }, [searchQuery]);
+
+    // Debounce updates to the URL query parameter
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (localSearch !== searchQuery) {
+                setSearchQuery(localSearch);
+            }
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [localSearch, searchQuery, setSearchQuery]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -67,8 +83,8 @@ export function ResidentFilters() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                         <Input
                             placeholder="Search resident name..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            value={localSearch}
+                            onChange={(e) => setLocalSearch(e.target.value)}
                             className="pl-10 h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] focus-visible:ring-0 rounded-xl transition-all"
                         />
                     </div>

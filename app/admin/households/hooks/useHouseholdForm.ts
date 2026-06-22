@@ -7,7 +7,7 @@ import { useHousehold, Household } from "../providers/HouseholdProvider";
 
 export function useHouseholdForm() {
     const [loading, setLoading] = useState(false);
-    const { setHouseholds, setIsAddModalOpen, editingData, setEditingData } = useHousehold();
+    const { households, setHouseholds, setIsAddModalOpen, editingData, setEditingData } = useHousehold();
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -115,8 +115,9 @@ export function useHouseholdForm() {
                     updatedAt: new Date(h.updatedAt),
                 };
 
-                if (editingData) {
-                    setHouseholds(prev => prev.map(h => h.id === updatedHousehold.id ? updatedHousehold : h));
+                const exists = households.some(item => item.id === updatedHousehold.id);
+                if (exists) {
+                    setHouseholds(prev => prev.map(item => item.id === updatedHousehold.id ? updatedHousehold : item));
                     toast.success("Household updated successfully!");
                 } else {
                     setHouseholds(prev => [updatedHousehold, ...prev]);

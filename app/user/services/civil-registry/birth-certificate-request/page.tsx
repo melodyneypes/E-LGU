@@ -15,7 +15,6 @@ import {
     Baby,
     Heart,
     Skull,
-    ArrowRight,
     ArrowLeft,
     Info,
     Upload,
@@ -26,6 +25,8 @@ import {
 } from "lucide-react";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
+import { BackNextButton } from "../_components/back-next-button";
+
 
 
 import { Button } from "@/components/ui/button";
@@ -66,7 +67,7 @@ import { getSecureUploadUrlAction } from "@/app/auth/actions";
 // --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
 async function uploadFileClientSide(file: File, fieldName: string): Promise<string> {
     const fileExt = file.name.split('.').pop() || 'bin';
-    
+
     const res = await getSecureUploadUrlAction(fieldName, "lcr/birth_certificate_request", fileExt);
     if (!res.success || !res.signedUrl || !res.publicUrl) {
         throw new Error(res.error || "Failed to generate secure upload destination");
@@ -1200,27 +1201,14 @@ export default function CivilRegistryPage() {
                                         </p>
                                     </div>
 
-                                    <div className="flex justify-between gap-3 pt-8">
-                                        <Button
-                                            type="button"
-                                            onClick={() => router.push("/user/services/civil-registry")}
-                                            className="rounded-full px-12 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest italic text-[10px] h-12 bg-transparent hover:bg-slate-50 dark:hover:bg-white/5"
-                                        >
-                                            <ArrowLeft className="w-4 h-4 mr-2" />
-                                            Back
-                                        </Button>
-                                        <Button
-                                            onClick={() => {
-                                                if (!validateStep("IDENTITY")) return;
-                                                setCurrentStep("DETAILS");
-                                            }}
-                                            className="rounded-full px-12 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-blue-500/20"
-                                            style={{ backgroundColor: themeColor }}
-                                        >
-                                            Next Phase
-                                            <ArrowRight className="w-4 h-4 ml-2" />
-                                        </Button>
-                                    </div>
+                                    <BackNextButton
+                                        onBack={() => router.push("/user/services/civil-registry")}
+                                        onNext={() => {
+                                            if (!validateStep("IDENTITY")) return;
+                                            setCurrentStep("DETAILS");
+                                        }}
+                                        themeColor={themeColor}
+                                    />
                                 </motion.div>
                             )}
 
@@ -1387,37 +1375,24 @@ export default function CivilRegistryPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex justify-end gap-3 pt-6">
-                                        <Button
-                                            variant="ghost"
-                                            onClick={() => setCurrentStep("IDENTITY")}
-                                            className="rounded-full px-8 border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[10px] h-12"
-                                        >
-                                            <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
-                                            Back
-                                        </Button>
-                                        <Button
-                                            onClick={() => {
-                                                if (!validateStep("DETAILS")) return;
-                                                // Auto-sync fullName for the API
-                                                const full = `${form.certFirstName} ${form.certMiddleName} ${form.certLastName} ${form.certSuffix}`.replace(/\s+/g, ' ').trim();
-                                                setForm(prev => ({ ...prev, fullName: full }));
+                                    <BackNextButton
+                                        onBack={() => setCurrentStep("IDENTITY")}
+                                        onNext={() => {
+                                            if (!validateStep("DETAILS")) return;
+                                            // Auto-sync fullName for the API
+                                            const full = `${form.certFirstName} ${form.certMiddleName} ${form.certLastName} ${form.certSuffix}`.replace(/\s+/g, ' ').trim();
+                                            setForm(prev => ({ ...prev, fullName: full }));
 
-                                                const isMarriage = form.registryType === "MARRIAGE" || form.registryType === "MARRIAGE_LICENSE";
-                                                // Skip parents info for marriage requests as it's less standard for CTCs or handled elsewhere
-                                                if (isMarriage) {
-                                                    setCurrentStep("CONFIRM");
-                                                } else {
-                                                    setCurrentStep("PARENTS");
-                                                }
-                                            }}
-                                            className="rounded-full px-8 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-blue-500/20"
-                                            style={{ backgroundColor: themeColor }}
-                                        >
-                                            {form.registryType === "MARRIAGE" || form.registryType === "MARRIAGE_LICENSE" ? "Proceed to Review" : "Proceed to Parental Info"}
-                                            <ArrowRight className="w-4 h-4 ml-2" />
-                                        </Button>
-                                    </div>
+                                            const isMarriage = form.registryType === "MARRIAGE" || form.registryType === "MARRIAGE_LICENSE";
+                                            // Skip parents info for marriage requests as it's less standard for CTCs or handled elsewhere
+                                            if (isMarriage) {
+                                                setCurrentStep("CONFIRM");
+                                            } else {
+                                                setCurrentStep("PARENTS");
+                                            }
+                                        }}
+                                        themeColor={themeColor}
+                                    />
                                 </motion.div>
                             )}
 
@@ -1561,27 +1536,14 @@ export default function CivilRegistryPage() {
                                         </p>
                                     </div>
 
-                                    <div className="flex justify-end gap-3 pt-6">
-                                        <Button
-                                            variant="ghost"
-                                            onClick={() => setCurrentStep("DETAILS")}
-                                            className="rounded-full px-8 border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[10px] h-12"
-                                        >
-                                            <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
-                                            Back
-                                        </Button>
-                                        <Button
-                                            onClick={() => {
-                                                if (!validateStep("PARENTS")) return;
-                                                setCurrentStep("CONFIRM");
-                                            }}
-                                            className="rounded-full px-12 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-blue-500/20"
-                                            style={{ backgroundColor: themeColor }}
-                                        >
-                                            Proceed to Review
-                                            <ArrowRight className="w-4 h-4 ml-2" />
-                                        </Button>
-                                    </div>
+                                    <BackNextButton
+                                        onBack={() => setCurrentStep("DETAILS")}
+                                        onNext={() => {
+                                            if (!validateStep("PARENTS")) return;
+                                            setCurrentStep("CONFIRM");
+                                        }}
+                                        themeColor={themeColor}
+                                    />
                                 </motion.div>
                             )}
 
@@ -1791,16 +1753,17 @@ export default function CivilRegistryPage() {
                                             <button type="button" onClick={() => setPolicyOpen(true)} className="text-[10px] font-black italic text-blue-600 shrink-0">Review</button>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                                            <Button
-                                                variant="ghost"
+                                        <div className="flex justify-end items-center gap-6 pt-6 select-none">
+                                            <button
+                                                type="button"
                                                 onClick={() => setCurrentStep(form.registryType === "MARRIAGE" || form.registryType === "MARRIAGE_LICENSE" ? "DETAILS" : "PARENTS")}
-                                                className="h-14 rounded-full border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[11px]"
+                                                className="flex items-center gap-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors duration-200 uppercase font-black tracking-widest italic text-[11px] disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-0 outline-none cursor-pointer group"
                                             >
-                                                <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
-                                                Modify
-                                            </Button>
-                                            <Button
+                                                <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
+                                                BACK
+                                            </button>
+                                            <button
+                                                type="button"
                                                 onClick={handleSubmit}
                                                 disabled={
                                                     submitting ||
@@ -1809,41 +1772,32 @@ export default function CivilRegistryPage() {
                                                     (!form.files["validIdBack"] && !resident?.idBackUrl) ||
                                                     (form.relationship !== "SELF" && !form.files["authorizationLetter"] && !revisionTx?.additionalData?.authorizationLetter && !form.previews["authorizationLetter"])
                                                 }
-                                                className={cn(
-                                                    "md:col-span-3 h-14 rounded-full font-black uppercase tracking-wider md:tracking-widest italic text-[9px] sm:text-[10px] md:text-[11px] transition-all duration-300 px-4 sm:px-8",
-                                                    (!form.idTypeOverride && !resident?.idType) ||
-                                                        (!form.files["validIdFront"] && !resident?.idFrontUrl) ||
-                                                        (!form.files["validIdBack"] && !resident?.idBackUrl) ||
-                                                        (form.relationship !== "SELF" && !form.files["authorizationLetter"] && !revisionTx?.additionalData?.authorizationLetter && !form.previews["authorizationLetter"])
-                                                        ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                                                        : "bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/20"
-                                                )}
                                                 style={
                                                     (!form.idTypeOverride && !resident?.idType) ||
                                                         (!form.files["validIdFront"] && !resident?.idFrontUrl) ||
                                                         (!form.files["validIdBack"] && !resident?.idBackUrl) ||
                                                         (form.relationship !== "SELF" && !form.files["authorizationLetter"] && !revisionTx?.additionalData?.authorizationLetter && !form.previews["authorizationLetter"])
                                                         ? {}
-                                                        : { backgroundColor: themeColor }
+                                                        : themeColor
+                                                            ? {
+                                                                backgroundColor: themeColor,
+                                                                boxShadow: themeColor.startsWith("var")
+                                                                    ? `0 0 20px color-mix(in srgb, ${themeColor} 30%, transparent)`
+                                                                    : `0 0 20px ${themeColor}4d`
+                                                            }
+                                                            : {}
                                                 }
+                                                className="rounded-full px-6 py-3 font-black uppercase tracking-widest italic text-[11px] flex items-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 bg-[#e11d48] text-white hover:brightness-110 shadow-[0_0_20px_rgba(225,29,72,0.3)] group"
                                             >
                                                 {submitting ? (
-                                                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mr-2" />
-                                                ) : (!form.idTypeOverride && !resident?.idType) ||
-                                                    (!form.files["validIdFront"] && !resident?.idFrontUrl) ||
-                                                    (!form.files["validIdBack"] && !resident?.idBackUrl) ||
-                                                    (form.relationship !== "SELF" && !form.files["authorizationLetter"] && !revisionTx?.additionalData?.authorizationLetter && !form.previews["authorizationLetter"]) ? (
-                                                    <span className="flex items-center justify-center gap-1 sm:gap-2">
-                                                        Upload Required Documents to Submit
-                                                        <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-                                                    </span>
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                                 ) : (
-                                                    <span className="flex items-center justify-center gap-1 sm:gap-2">
-                                                        Submit Civil Registry Request
-                                                        <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-                                                    </span>
+                                                    <>
+                                                        SUBMIT
+                                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                                    </>
                                                 )}
-                                            </Button>
+                                            </button>
                                         </div>
                                     </div>
                                 </motion.div>

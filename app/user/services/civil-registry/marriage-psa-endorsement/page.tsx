@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
@@ -13,11 +14,10 @@ import {
     AlertCircle,
     Home,
     Heart,
-    ArrowRight,
-    ArrowLeft,
     CheckCircle2,
     Sparkles
 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,7 +57,7 @@ import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 // --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
 async function uploadFileClientSide(file: File, fieldName: string): Promise<string> {
     const fileExt = file.name.split('.').pop() || 'bin';
-    
+
     const res = await getSecureUploadUrlAction(fieldName, "lcr/marriage_psa_endorsement", fileExt);
     if (!res.success || !res.signedUrl || !res.publicUrl) {
         throw new Error(res.error || "Failed to generate secure upload destination");
@@ -1026,21 +1026,13 @@ export default function MarriagePsaEndorsementPage() {
                                         </div>
                                     </Card>
 
-                                    <div className="flex justify-between pt-4">
-                                        <Button
-                                            type="button"
-                                            onClick={() => router.push("/user/services/civil-registry")}
-                                            className="h-14 px-10 rounded-full border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest italic text-[10px] bg-transparent hover:bg-slate-50 dark:hover:bg-white/5"
-                                        >
-                                            <ArrowLeft className="mr-2 w-5 h-5" />
-                                            Back
-                                        </Button>
+                                    <div className="flex justify-end pt-4">
                                         <Button
                                             onClick={nextStep}
-                                            className="h-14 px-10 rounded-full text-white font-black uppercase italic tracking-widest shadow-lg shadow-emerald-500/10 hover:opacity-90 transition-opacity"
+                                            className="h-14 px-10 rounded-full text-white font-black uppercase italic tracking-widest shadow-lg hover:opacity-90 transition-opacity"
                                             style={{ backgroundColor: themeColor }}
                                         >
-                                            Next Step <ArrowRight className="ml-2 w-5 h-5" />
+                                            NEXT
                                         </Button>
                                     </div>
                                 </div>
@@ -1150,14 +1142,14 @@ export default function MarriagePsaEndorsementPage() {
 
                                     <div className="flex justify-end gap-4 pt-4">
                                         <Button variant="outline" onClick={prevStep} className="h-14 px-8 rounded-full font-black uppercase italic tracking-widest">
-                                            Back
+                                            BACK
                                         </Button>
                                         <Button
                                             onClick={nextStep}
-                                            className="h-14 px-10 rounded-full text-white font-black uppercase italic tracking-widest shadow-lg shadow-emerald-500/10 hover:opacity-90 transition-opacity"
+                                            className="h-14 px-10 rounded-full text-white font-black uppercase italic tracking-widest shadow-lg hover:opacity-90 transition-opacity"
                                             style={{ backgroundColor: themeColor }}
                                         >
-                                            Next Step <ArrowRight className="ml-2 w-5 h-5" />
+                                            NEXT
                                         </Button>
                                     </div>
                                 </div>
@@ -1294,41 +1286,32 @@ export default function MarriagePsaEndorsementPage() {
                                         </div>
                                     </Card>
 
-                                    <div className="flex justify-end gap-4 pt-4">
-                                        <Button variant="outline" onClick={prevStep} className="h-14 px-8 rounded-full font-black uppercase italic tracking-widest">
-                                            Back
+                                    <div className="flex gap-4 pt-4 w-full justify-end">
+                                        <Button variant="outline" onClick={prevStep} className="h-14 px-8 rounded-full font-black uppercase italic tracking-widest select-none">
+                                            BACK
                                         </Button>
                                         <Button
                                             onClick={handleSubmit}
                                             disabled={submitting || (!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form3a && !previews.form3a)}
                                             className={cn(
-                                                "h-14 px-12 rounded-full font-black uppercase italic tracking-widest shadow-xl transition-all duration-300",
+                                                "flex-1 h-14 rounded-full font-black uppercase italic tracking-widest shadow-xl transition-all duration-300 select-none",
                                                 ((!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form3a && !previews.form3a))
                                                     ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                                                    : "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/20"
+                                                    : "text-white"
                                             )}
+                                            style={((!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form3a && !previews.form3a)) ? {} : { backgroundColor: themeColor }}
                                         >
-                                            {submitting ? (
-                                                <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                                            ) : ((!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form3a && !previews.form3a)) ? (
-                                                <>
-                                                    Upload Required Documents
-                                                    <AlertCircle className="w-5 h-5 mr-2" />
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <CheckCircle2 className="w-5 h-5 mr-2" />
-                                                    Confirm & Submit
-                                                </>
-                                            )}
+                                            {submitting && <Loader2 className="w-5 h-5 animate-spin mr-2" />}
+                                            SUBMIT
                                         </Button>
                                     </div>
                                 </div>
-                            )}
-                        </motion.div>
-                    </AnimatePresence>
-                </div>
-            </div>
+                            )
+                            }
+                        </motion.div >
+                    </AnimatePresence >
+                </div >
+            </div >
         </>
     );
 }

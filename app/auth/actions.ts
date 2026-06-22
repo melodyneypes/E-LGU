@@ -18,7 +18,11 @@ export async function sendOTP(email: string) {
         const limitKey = `otp:send:${emailClean}:${ip}`;
         const limitCheck = await isRateLimited(limitKey, 3, 3600000); // 1 hour window
 
+        const attempts = 3 - limitCheck.remaining;
+        console.log(`[OTP DEBUG] Email: ${emailClean} | IP: ${ip} | Rate Limit Check: success=${limitCheck.success}, attempts=${attempts}/3, remaining=${limitCheck.remaining}`);
+
         if (!limitCheck.success) {
+            console.log(`[OTP DEBUG] Rate limit exceeded for ${emailClean}. Locked until ${limitCheck.resetTime?.toISOString()}`);
             const minutesLeft = Math.ceil(((limitCheck.resetTime?.getTime() || 0) - Date.now()) / 60000);
             return {
                 success: false,
@@ -35,9 +39,27 @@ export async function sendOTP(email: string) {
 
         if (error) {
             console.error("Supabase OTP Error Details:", JSON.stringify(error, null, 2), error);
+            // Refund the rate limit attempt on failure
+            try {
+                const record = await prisma.rateLimit.findUnique({ where: { key: limitKey } });
+                if (record && record.attempts > 0) {
+                    if (record.attempts === 1) {
+                        await prisma.rateLimit.delete({ where: { key: limitKey } });
+                    } else {
+                        await prisma.rateLimit.update({
+                            where: { key: limitKey },
+                            data: { attempts: record.attempts - 1 }
+                        });
+                    }
+                    console.log(`[OTP DEBUG] Refunded rate limit attempt for ${emailClean}. Key: ${limitKey}`);
+                }
+            } catch (refundError) {
+                console.error("[RateLimit] Failed to refund attempt:", refundError);
+            }
             return { success: false, error: error.message || "Failed to send OTP" };
         }
 
+        console.log(`[OTP DEBUG] OTP successfully sent to ${emailClean} via Supabase!`);
         return { success: true };
     } catch (error) {
         console.error("OTP Action Error:", error);

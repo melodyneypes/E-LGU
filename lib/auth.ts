@@ -75,6 +75,7 @@ export const authOptions: NextAuthOptions = {
                     name: user.name,
                     role: user.role,
                     isPasswordChanged: user.isPasswordChanged,
+                    isEmailVerified: user.isEmailVerified,
                     managedBarangay: user.managedBarangay,
                     department: user.department,
                     accessiblePages: user.accessiblePages || [],
@@ -96,6 +97,7 @@ export const authOptions: NextAuthOptions = {
                 token.id = user.id;
 
                 token.isPasswordChanged = (user as any).isPasswordChanged;
+                token.isEmailVerified = (user as any).isEmailVerified;
 
                 token.managedBarangay = (user as any).managedBarangay;
                 token.department = (user as any).department;
@@ -130,6 +132,7 @@ export const authOptions: NextAuthOptions = {
                     token.deactivated = true;
                 } else {
                     token.isPasswordChanged = dbUser.isPasswordChanged;
+                    token.isEmailVerified = dbUser.isEmailVerified;
                 }
             }
 
@@ -139,13 +142,15 @@ export const authOptions: NextAuthOptions = {
                     where: { id: token.id as string },
                     select: {
                         accessiblePages: true,
-                        isPasswordChanged: true
+                        isPasswordChanged: true,
+                        isEmailVerified: true
                     }
                 });
 
                 if (dbUser) {
                     token.accessiblePages = dbUser.accessiblePages || [];
                     token.isPasswordChanged = dbUser.isPasswordChanged;
+                    token.isEmailVerified = dbUser.isEmailVerified;
                 } else {
                     token.exp = 1;
                     token.deactivated = true;
@@ -156,7 +161,9 @@ export const authOptions: NextAuthOptions = {
         },
         async session({ session, token }) {
             if (token.deactivated || token.exp === 1) {
-                return null as any;
+                return {
+                    expires: new Date(0).toISOString(),
+                } as any;
             }
             if (session.user) {
 
@@ -165,6 +172,7 @@ export const authOptions: NextAuthOptions = {
                 (session.user as any).id = token.id;
 
                 (session.user as any).isPasswordChanged = token.isPasswordChanged;
+                (session.user as any).isEmailVerified = token.isEmailVerified;
 
                 (session.user as any).managedBarangay = token.managedBarangay;
                 (session.user as any).department = token.department || null;
@@ -178,6 +186,7 @@ export const authOptions: NextAuthOptions = {
     },
     session: {
         strategy: "jwt",
+        maxAge: 12 * 60 * 60, // 12 hours
     },
     cookies: {
         sessionToken: {

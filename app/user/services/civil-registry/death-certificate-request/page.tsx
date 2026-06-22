@@ -9,8 +9,6 @@ import {
     Loader2,
     Check,
     Sparkles,
-    ArrowRight,
-    ArrowLeft,
     Upload,
     Search,
     CheckCircle2,
@@ -22,9 +20,11 @@ import {
 import Link from "next/link";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
+import { BackNextButton } from "../_components/back-next-button";
 import { getSecureUploadUrlAction } from "@/app/auth/actions";
-import { Button } from "@/components/ui/button";
 
+
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -63,7 +63,7 @@ import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 // --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
 async function uploadFileClientSide(file: File, fieldName: string): Promise<string> {
     const fileExt = file.name.split('.').pop() || 'bin';
-    
+
     const res = await getSecureUploadUrlAction(fieldName, "lcr/death_certificate_request", fileExt);
     if (!res.success || !res.signedUrl || !res.publicUrl) {
         throw new Error(res.error || "Failed to generate secure upload destination");
@@ -371,7 +371,7 @@ export default function DeathCertificateRequestPage() {
         } else if (stepId === "DETAILS") {
             const missingDeceased = !form.deceasedFirstName || !form.deceasedLastName;
             const missingParents = !form.fatherFirstName || !form.fatherLastName || !form.motherFirstName || !form.motherLastName;
-            
+
             if (missingDeceased || missingParents) {
                 setShowErrors(true);
                 toast.error("Please fill in all required deceased and parent name fields.");
@@ -485,7 +485,7 @@ export default function DeathCertificateRequestPage() {
             try {
                 // Ensure civil registry transaction types are seeded in db
                 await ensureCivilRegistryTransactionTypes();
-                
+
                 const urlParams = new URLSearchParams(window.location.search);
                 const revId = urlParams.get("revisionId");
 
@@ -1019,7 +1019,7 @@ export default function DeathCertificateRequestPage() {
                                 }
                             }}
                         >
-                            <div 
+                            <div
                                 className={cn(
                                     "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
                                     isActive ? "text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
@@ -1036,7 +1036,7 @@ export default function DeathCertificateRequestPage() {
                             >
                                 <Icon className="w-4 h-4 md:w-7 md:h-7" />
                             </div>
-                            <span 
+                            <span
                                 className={cn(
                                     "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
                                     (isActive || isCompleted) ? "opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
@@ -1263,37 +1263,24 @@ export default function DeathCertificateRequestPage() {
                             </div>
 
                             {/* Step Nav */}
-                            <div className="flex justify-between items-center pt-8">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    onClick={() => router.push("/user/services/civil-registry")}
-                                    className="rounded-full px-12 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest italic text-[10px] h-12 bg-transparent hover:bg-slate-50 dark:hover:bg-white/5"
-                                >
-                                    <ArrowLeft className="w-4 h-4 mr-2" />
-                                    Back
-                                </Button>
-                                <Button
-                                    onClick={() => {
-                                        const missing = [];
-                                        if (!form.relationship) missing.push("Relationship");
-                                        if (form.relationship === "OTHER" && !form.relationshipOther) missing.push("Relationship Description");
-                                        if (!form.contactNumber) missing.push("Contact Number");
+                            <BackNextButton
+                                onBack={() => router.push("/user/services/civil-registry")}
+                                onNext={() => {
+                                    const missing = [];
+                                    if (!form.relationship) missing.push("Relationship");
+                                    if (form.relationship === "OTHER" && !form.relationshipOther) missing.push("Relationship Description");
+                                    if (!form.contactNumber) missing.push("Contact Number");
 
-                                        if (missing.length > 0) {
-                                            setShowErrors(true);
-                                            toast.error(`Please fill in all required requester fields: ${missing.join(", ")}`);
-                                            return;
-                                        }
-                                        setShowErrors(false);
-                                        setCurrentStep("DETAILS");
-                                    }}
-                                    className="rounded-full px-12 bg-slate-500 hover:bg-slate-600 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-slate-500/20 transition-all duration-300"
-                                >
-                                    Proceed to Deceased Details
-                                    <ArrowRight className="w-4 h-4 ml-2" />
-                                </Button>
-                            </div>
+                                    if (missing.length > 0) {
+                                        setShowErrors(true);
+                                        toast.error(`Please fill in all required requester fields: ${missing.join(", ")}`);
+                                        return;
+                                    }
+                                    setShowErrors(false);
+                                    setCurrentStep("DETAILS");
+                                }}
+                                themeColor={themeColor}
+                            />
                         </motion.div>
                     )}
 
@@ -1473,18 +1460,17 @@ export default function DeathCertificateRequestPage() {
                             {/* Step Nav */}
                             <div className="flex justify-end gap-3 pt-8">
                                 <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     onClick={() => setCurrentStep("IDENTITY")}
                                     className="rounded-full px-8 font-black uppercase tracking-widest italic text-[10px] h-12"
                                 >
-                                    <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
-                                    Back
+                                    BACK
                                 </Button>
                                 <Button
                                     onClick={() => {
                                         const missingDeceased = !form.deceasedFirstName || !form.deceasedLastName;
                                         const missingParents = !form.fatherFirstName || !form.fatherLastName || !form.motherFirstName || !form.motherLastName;
-                                        
+
                                         if (missingDeceased || missingParents) {
                                             setShowErrors(true);
                                             toast.error("Please fill in all required deceased and parent name fields.");
@@ -1493,10 +1479,10 @@ export default function DeathCertificateRequestPage() {
                                         setShowErrors(false);
                                         setCurrentStep("UPLOAD");
                                     }}
-                                    className="rounded-full px-12 bg-slate-500 hover:bg-slate-600 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-slate-500/20 transition-all duration-300"
+                                    className="rounded-full px-12 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl transition-all duration-300"
+                                    style={{ backgroundColor: themeColor }}
                                 >
-                                    Proceed to Verification
-                                    <ArrowRight className="w-4 h-4 ml-2" />
+                                    NEXT
                                 </Button>
                             </div>
                         </motion.div>
@@ -1622,12 +1608,11 @@ export default function DeathCertificateRequestPage() {
                             {/* Step Nav */}
                             <div className="flex justify-end gap-3 pt-8">
                                 <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     onClick={() => setCurrentStep("DETAILS")}
                                     className="rounded-full px-8 font-black uppercase tracking-widest italic text-[10px] h-12"
                                 >
-                                    <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
-                                    Back
+                                    BACK
                                 </Button>
                                 <Button
                                     onClick={() => {
@@ -1657,176 +1642,172 @@ export default function DeathCertificateRequestPage() {
                                         setShowErrors(false);
                                         setCurrentStep("CONFIRM");
                                     }}
-                                    className="rounded-full px-12 bg-slate-500 hover:bg-slate-600 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-slate-500/20 transition-all duration-300"
+                                    className="rounded-full px-12 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl transition-all duration-300"
+                                    style={{ backgroundColor: themeColor }}
                                 >
-                                    Proceed to Review & Confirm
-                                    <ArrowRight className="w-4 h-4 ml-2" />
+                                    NEXT
                                 </Button>
                             </div>
-                        </motion.div>
-                    )}
+                        </motion.div >
+                    )
+                    }
 
                     {/* STEP 6: REVIEW & CONFIRM */}
-                    {currentStep === "CONFIRM" && (
-                        <motion.div
-                            key="confirm-step"
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            className="space-y-6 md:space-y-8"
-                        >
-                            <div className="space-y-1">
-                                <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight">
-                                    Review & <span className="text-slate-500">Confirm</span>
-                                </h2>
-                                <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">
-                                    Review all parameters for this LCR request prior to filing.
-                                </p>
-                            </div>
+                    {
+                        currentStep === "CONFIRM" && (
+                            <motion.div
+                                key="confirm-step"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                className="space-y-6 md:space-y-8"
+                            >
+                                <div className="space-y-1">
+                                    <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight">
+                                        Review & <span className="text-slate-500">Confirm</span>
+                                    </h2>
+                                    <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">
+                                        Review all parameters for this LCR request prior to filing.
+                                    </p>
+                                </div>
 
-                            {/* Review panels */}
-                            <div className="space-y-6">
-                                {/* Summary columns */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+                                {/* Review panels */}
+                                <div className="space-y-6">
+                                    {/* Summary columns */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
 
-                                    {/* Requester Details */}
-                                    <div className="space-y-4">
-                                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 italic">Requester Details</h3>
-                                        <div className="space-y-2 text-xs">
-                                            <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
-                                                <span className="text-slate-400 font-bold italic uppercase text-[9px]">Full Name:</span>
-                                                <span className="font-black uppercase text-slate-900 dark:text-white">{`${form.firstName} ${form.middleName} ${form.lastName} ${form.suffix}`.trim()}</span>
-                                            </div>
-                                            <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
-                                                <span className="text-slate-400 font-bold italic uppercase text-[9px]">Civil Status / Sex:</span>
-                                                <span className="font-black uppercase text-slate-900 dark:text-white">{form.civilStatus} / {form.gender}</span>
-                                            </div>
-                                            <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
-                                                <span className="text-slate-400 font-bold italic uppercase text-[9px]">Relationship:</span>
-                                                <span className="font-black uppercase text-slate-900 dark:text-white">{form.relationship}</span>
-                                            </div>
-                                            <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
-                                                <span className="text-slate-400 font-bold italic uppercase text-[9px]">Contact:</span>
-                                                <span className="font-black text-slate-900 dark:text-white">{form.contactNumber}</span>
-                                            </div>
-                                            <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
-                                                <span className="text-slate-400 font-bold italic uppercase text-[9px]">Address:</span>
-                                                <span className="font-black uppercase text-slate-900 dark:text-white text-right max-w-[200px] truncate" title={form.informantAddress}>{form.informantAddress || "N/A"}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Deceased Details */}
-                                    <div className="space-y-4">
-                                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 italic">Deceased Details</h3>
-                                        <div className="space-y-2 text-xs">
-                                            <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
-                                                <span className="text-slate-400 font-bold italic uppercase text-[9px]">Deceased Individual:</span>
-                                                <span className="font-black uppercase text-slate-900 dark:text-white">{`${form.deceasedFirstName} ${form.deceasedMiddleName} ${form.deceasedLastName} ${form.deceasedSuffix}`.trim()}</span>
-                                            </div>
-                                            <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
-                                                <span className="text-slate-400 font-bold italic uppercase text-[9px]">Father:</span>
-                                                <span className="font-black uppercase text-slate-900 dark:text-white">{`${form.fatherFirstName} ${form.fatherMiddleName} ${form.fatherLastName}`.replace(/\s+/g, " ").trim()}</span>
-                                            </div>
-                                            <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
-                                                <span className="text-slate-400 font-bold italic uppercase text-[9px]">Mother (Maiden):</span>
-                                                <span className="font-black uppercase text-slate-900 dark:text-white">{`${form.motherFirstName} ${form.motherMiddleName} ${form.motherLastName}`.replace(/\s+/g, " ").trim()}</span>
-                                            </div>
-                                            <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
-                                                <span className="text-slate-400 font-bold italic uppercase text-[9px]">Date of Death:</span>
-                                                <span className="font-black text-slate-900 dark:text-white">{form.dateOfDeath}</span>
-                                            </div>
-                                            <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
-                                                <span className="text-slate-400 font-bold italic uppercase text-[9px]">Place of Death:</span>
-                                                <span className="font-black uppercase text-slate-900 dark:text-white">{form.placeOfDeath}</span>
-                                            </div>
-                                            {form.causeOfDeath && (
+                                        {/* Requester Details */}
+                                        <div className="space-y-4">
+                                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 italic">Requester Details</h3>
+                                            <div className="space-y-2 text-xs">
                                                 <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
-                                                    <span className="text-slate-400 font-bold italic uppercase text-[9px]">Cause of Death:</span>
-                                                    <span className="font-black uppercase text-slate-900 dark:text-white">{form.causeOfDeath}</span>
+                                                    <span className="text-slate-400 font-bold italic uppercase text-[9px]">Full Name:</span>
+                                                    <span className="font-black uppercase text-slate-900 dark:text-white">{`${form.firstName} ${form.middleName} ${form.lastName} ${form.suffix}`.trim()}</span>
                                                 </div>
-                                            )}
-                                            <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
-                                                <span className="text-slate-400 font-bold italic uppercase text-[9px]">Service Fee:</span>
-                                                <span className="font-black text-slate-900 dark:text-white">₱{(dbType?.baseFee || 150).toFixed(2)}</span>
+                                                <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
+                                                    <span className="text-slate-400 font-bold italic uppercase text-[9px]">Civil Status / Sex:</span>
+                                                    <span className="font-black uppercase text-slate-900 dark:text-white">{form.civilStatus} / {form.gender}</span>
+                                                </div>
+                                                <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
+                                                    <span className="text-slate-400 font-bold italic uppercase text-[9px]">Relationship:</span>
+                                                    <span className="font-black uppercase text-slate-900 dark:text-white">{form.relationship}</span>
+                                                </div>
+                                                <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
+                                                    <span className="text-slate-400 font-bold italic uppercase text-[9px]">Contact:</span>
+                                                    <span className="font-black text-slate-900 dark:text-white">{form.contactNumber}</span>
+                                                </div>
+                                                <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
+                                                    <span className="text-slate-400 font-bold italic uppercase text-[9px]">Address:</span>
+                                                    <span className="font-black uppercase text-slate-900 dark:text-white text-right max-w-[200px] truncate" title={form.informantAddress}>{form.informantAddress || "N/A"}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Deceased Details */}
+                                        <div className="space-y-4">
+                                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 italic">Deceased Details</h3>
+                                            <div className="space-y-2 text-xs">
+                                                <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
+                                                    <span className="text-slate-400 font-bold italic uppercase text-[9px]">Deceased Individual:</span>
+                                                    <span className="font-black uppercase text-slate-900 dark:text-white">{`${form.deceasedFirstName} ${form.deceasedMiddleName} ${form.deceasedLastName} ${form.deceasedSuffix}`.trim()}</span>
+                                                </div>
+                                                <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
+                                                    <span className="text-slate-400 font-bold italic uppercase text-[9px]">Father:</span>
+                                                    <span className="font-black uppercase text-slate-900 dark:text-white">{`${form.fatherFirstName} ${form.fatherMiddleName} ${form.fatherLastName}`.replace(/\s+/g, " ").trim()}</span>
+                                                </div>
+                                                <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
+                                                    <span className="text-slate-400 font-bold italic uppercase text-[9px]">Mother (Maiden):</span>
+                                                    <span className="font-black uppercase text-slate-900 dark:text-white">{`${form.motherFirstName} ${form.motherMiddleName} ${form.motherLastName}`.replace(/\s+/g, " ").trim()}</span>
+                                                </div>
+                                                <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
+                                                    <span className="text-slate-400 font-bold italic uppercase text-[9px]">Date of Death:</span>
+                                                    <span className="font-black text-slate-900 dark:text-white">{form.dateOfDeath}</span>
+                                                </div>
+                                                <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
+                                                    <span className="text-slate-400 font-bold italic uppercase text-[9px]">Place of Death:</span>
+                                                    <span className="font-black uppercase text-slate-900 dark:text-white">{form.placeOfDeath}</span>
+                                                </div>
+                                                {form.causeOfDeath && (
+                                                    <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
+                                                        <span className="text-slate-400 font-bold italic uppercase text-[9px]">Cause of Death:</span>
+                                                        <span className="font-black uppercase text-slate-900 dark:text-white">{form.causeOfDeath}</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
+                                                    <span className="text-slate-400 font-bold italic uppercase text-[9px]">Service Fee:</span>
+                                                    <span className="font-black text-slate-900 dark:text-white">₱{(dbType?.baseFee || 150).toFixed(2)}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* Data Privacy checkbox */}
-                                <div className={cn(
-                                    "p-4 rounded-3xl border flex flex-col gap-3 shadow-sm bg-slate-500/5 transition-all duration-300",
-                                    (showErrors && !policyAccepted) ? "border-2 border-red-500" : "border-slate-200/50 dark:border-white/5"
-                                )}>
-                                    <div className="flex items-start gap-4 w-full">
-                                        <button
-                                            type="button"
-                                            onClick={() => setPolicyOpen(true)}
-                                            className={cn(
-                                                "w-5 h-5 rounded-full border flex items-center justify-center mt-0.5 shrink-0 transition-colors",
-                                                policyAccepted ? "bg-slate-800 border-slate-800 dark:bg-white dark:border-white text-white dark:text-slate-900" :
-                                                (showErrors && !policyAccepted) ? "border-2 border-red-500" : "border-slate-300"
-                                            )}
-                                        >
-                                            {policyAccepted ? <Check className="w-3.5 h-3.5" /> : null}
-                                        </button>
-                                        <div className="flex-1 text-xs cursor-pointer select-none" onClick={() => setPolicyOpen(true)}>
-                                            <div className="font-black uppercase text-[10px] tracking-wider text-slate-800 dark:text-white">Data Privacy & Certification Agreement</div>
-                                            <div className="text-[9px] text-slate-500 italic mt-1 leading-relaxed">
-                                                I certify that all details submitted are true, correct, and matching public registry records. I agree to the Municipal Data Privacy compliance. Click to review.
+                                    {/* Data Privacy checkbox */}
+                                    <div className={cn(
+                                        "p-4 rounded-3xl border flex flex-col gap-3 shadow-sm bg-slate-500/5 transition-all duration-300",
+                                        (showErrors && !policyAccepted) ? "border-2 border-red-500" : "border-slate-200/50 dark:border-white/5"
+                                    )}>
+                                        <div className="flex items-start gap-4 w-full">
+                                            <button
+                                                type="button"
+                                                onClick={() => setPolicyOpen(true)}
+                                                className={cn(
+                                                    "w-5 h-5 rounded-full border flex items-center justify-center mt-0.5 shrink-0 transition-colors",
+                                                    policyAccepted ? "bg-slate-800 border-slate-800 dark:bg-white dark:border-white text-white dark:text-slate-900" :
+                                                        (showErrors && !policyAccepted) ? "border-2 border-red-500" : "border-slate-300"
+                                                )}
+                                            >
+                                                {policyAccepted ? <Check className="w-3.5 h-3.5" /> : null}
+                                            </button>
+                                            <div className="flex-1 text-xs cursor-pointer select-none" onClick={() => setPolicyOpen(true)}>
+                                                <div className="font-black uppercase text-[10px] tracking-wider text-slate-800 dark:text-white">Data Privacy & Certification Agreement</div>
+                                                <div className="text-[9px] text-slate-500 italic mt-1 leading-relaxed">
+                                                    I certify that all details submitted are true, correct, and matching public registry records. I agree to the Municipal Data Privacy compliance. Click to review.
+                                                </div>
                                             </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPolicyOpen(true)}
+                                                className="text-[10px] font-black italic text-slate-600 dark:text-slate-400 hover:underline shrink-0"
+                                            >
+                                                Review
+                                            </button>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setPolicyOpen(true)}
-                                            className="text-[10px] font-black italic text-slate-600 dark:text-slate-400 hover:underline shrink-0"
-                                        >
-                                            Review
-                                        </button>
+                                        {showErrors && !policyAccepted && (
+                                            <div className="text-red-500 font-bold text-[9px] uppercase tracking-widest pl-9 flex items-center gap-1.5 animate-pulse">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                                                Data privacy agreement is required to submit
+                                            </div>
+                                        )}
                                     </div>
-                                    {showErrors && !policyAccepted && (
-                                        <div className="text-red-500 font-bold text-[9px] uppercase tracking-widest pl-9 flex items-center gap-1.5 animate-pulse">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                                            Data privacy agreement is required to submit
-                                        </div>
-                                    )}
                                 </div>
-                            </div>
 
-                            {/* Step Nav */}
-                            <div className="flex justify-end gap-3 pt-8">
-                                <Button
-                                    variant="ghost"
-                                    onClick={() => setCurrentStep("UPLOAD")}
-                                    className="rounded-full px-8 font-black uppercase tracking-widest italic text-[10px] h-12"
-                                    disabled={submitting}
-                                >
-                                    <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
-                                    Back
-                                </Button>
-                                <Button
-                                    onClick={handleSubmit}
-                                    disabled={submitting}
-                                    className="rounded-full px-12 bg-slate-500 hover:bg-slate-600 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-slate-500/20 transition-all duration-300 flex items-center gap-2"
-                                >
-                                    {submitting ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 animate-spin text-white dark:text-slate-900" />
-                                            Filing Request...
-                                        </>
-                                    ) : (
-                                        <>
-                                            File Death Certificate Request
-                                            <Check className="w-4 h-4" />
-                                        </>
-                                    )}
-                                </Button>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </Card>
-        </div>
+                                {/* Step Nav */}
+                                <div className="flex gap-3 pt-8 w-full justify-end">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setCurrentStep("UPLOAD")}
+                                        className="h-14 rounded-full px-8 font-black uppercase tracking-widest italic text-[10px] select-none"
+                                        disabled={submitting}
+                                    >
+                                        BACK
+                                    </Button>
+                                    <Button
+                                        onClick={handleSubmit}
+                                        disabled={submitting}
+                                        className="flex-1 rounded-full px-12 text-white font-black uppercase tracking-widest italic text-[10px] h-14 shadow-xl transition-all duration-300 flex items-center justify-center gap-2 select-none"
+                                        style={{ backgroundColor: themeColor }}
+                                    >
+                                        {submitting ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : null}
+                                        SUBMIT
+                                    </Button>
+                                </div>
+                            </motion.div>
+                        )
+                    }
+                </AnimatePresence >
+            </Card >
+        </div >
     );
 }

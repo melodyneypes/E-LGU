@@ -7,11 +7,22 @@ import { headers } from "next/headers";
 export async function getClientIp(): Promise<string> {
     try {
         const headersList = await headers();
+        // 1. Vercel trusted header (secure and cannot be spoofed by client)
+        const xVercelForwardedFor = headersList.get("x-vercel-forwarded-for");
+        if (xVercelForwardedFor) {
+            return xVercelForwardedFor.split(",")[0].trim();
+        }
+        // 2. Real IP header
+        const xRealIp = headersList.get("x-real-ip");
+        if (xRealIp) {
+            return xRealIp.trim();
+        }
+        // 3. Fallback header
         const xForwardedFor = headersList.get("x-forwarded-for");
         if (xForwardedFor) {
             return xForwardedFor.split(",")[0].trim();
         }
-        return headersList.get("x-real-ip") || "127.0.0.1";
+        return "127.0.0.1";
     } catch {
         // Fallback for non-request environments
         return "127.0.0.1";

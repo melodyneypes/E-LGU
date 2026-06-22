@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Plus } from "lucide-react";
 import type { CSSProperties } from "react";
+import { useSession } from "next-auth/react";
 
 export function OfficialsFilters() {
+    const { data: session } = useSession();
     const { 
         searchTerm, setSearchTerm, setIsAddModalOpen, 
         selectedPosition, setSelectedPosition, 
@@ -16,6 +18,8 @@ export function OfficialsFilters() {
         selectedBarangay, setSelectedBarangay,
         barangays, officialsData, themeColor 
     } = useOfficials();
+
+    const isBarangayAdmin = (session?.user as any)?.role === "BARANGAY_ADMIN";
 
     // Get unique positions from current officials to populate the dropdown filter dynamically
     const positions = Array.from(new Set(officialsData.map(o => o.position))).filter(Boolean);
@@ -35,7 +39,7 @@ export function OfficialsFilters() {
                         />
                     </div>
 
-                    <Select value={selectedBarangay} onValueChange={setSelectedBarangay}>
+                    <Select disabled={isBarangayAdmin} value={selectedBarangay} onValueChange={setSelectedBarangay}>
                         <SelectTrigger className="w-full sm:w-[170px] h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl font-bold italic">
                             <SelectValue placeholder="Select Area" />
                         </SelectTrigger>

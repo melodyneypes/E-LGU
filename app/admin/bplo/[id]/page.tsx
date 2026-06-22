@@ -151,8 +151,8 @@ export default function BploDetailPage({ params }: PageProps) {
         ? ["PAID", "FOR_REQUESTING", "REJECTED", "EVALUATED", "UNPAID", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(transaction.status)
         : false;
 
-    const fetchTransaction = useCallback(async () => {
-        setLoading(true);
+    const fetchTransaction = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const res = await getTransactionById(id);
             if (res.success && res.data) {
@@ -202,7 +202,7 @@ export default function BploDetailPage({ params }: PageProps) {
                 logo: logo.data || ""
             });
         });
-    }, [fetchTransaction]);
+    }, [fetchTransaction, id]);
 
     const handleEvaluate = async () => {
         const isReinspection = transaction.status === "FOR_REINSPECTION";

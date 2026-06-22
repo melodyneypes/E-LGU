@@ -176,7 +176,7 @@ export default function RequestHubPage() {
     const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
     const [paymentProofPreview, setPaymentProofPreview] = useState<string | null>(null);
     const [gcashReferenceNo, setGcashReferenceNo] = useState("");
-    const [selectedPaymongoMethod, setSelectedPaymongoMethod] = useState<"gcash" | "qrph" | "dob">("gcash");
+    const [selectedPaymongoMethod, setSelectedPaymongoMethod] = useState<"gcash" | "qrph" | "dob">("qrph");
 
     // Delivery Address States
     const [address, setAddress] = useState({
@@ -1402,7 +1402,6 @@ export default function RequestHubPage() {
                                                 <div className="space-y-6 animate-in fade-in slide-in-from-top-4">
                                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                                                         {[
-                                                            { id: "gcash", label: "GCash Wallet", desc: "GCash E-Wallet", icon: Wallet },
                                                             { id: "qrph", label: "QRPH Scan", desc: "Maya, BPI, GCash", icon: QrCode }
                                                         ].map(method => (
                                                             <button
@@ -1695,14 +1694,14 @@ export default function RequestHubPage() {
                                         <div className="space-y-6 pb-8 border-b border-slate-100 dark:border-white/5">
                                             <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-primary italic border-l-4 border-primary pl-4">Business Information</h4>
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Official Business Name</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.businessName}</p></div>
-                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Trade Name</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.tradeName || "N/A"}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Official Business Name</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight break-words">{additionalData.businessName}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Trade Name</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight break-words">{additionalData.tradeName || "N/A"}</p></div>
                                                 {!isRenewal ? (
-                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">DTI / SEC ID</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.dtiSecNumber || "N/A"}</p></div>
+                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">DTI / SEC ID</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight break-words">{additionalData.dtiSecNumber || "N/A"}</p></div>
                                                 ) : (
-                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Existing Permit No.</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.permitNumber || "N/A"}</p></div>
+                                                    <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Existing Permit No.</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight break-words">{additionalData.permitNumber || "N/A"}</p></div>
                                                 )}
-                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Line of Business</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.lineOfBusiness}</p></div>
+                                                <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Line of Business</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight break-words">{additionalData.lineOfBusiness}</p></div>
                                                 <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Business Barangay</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.barangay}</p></div>
                                                 <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Employee Count</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.employeeCount ?? 0}</p></div>
                                                 <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 leading-none">Store Area (sqm)</p><p className="text-xs md:text-sm font-bold italic uppercase text-slate-900 dark:text-white leading-tight">{additionalData.businessArea ? `${additionalData.businessArea} sqm` : "N/A"}</p></div>
@@ -1860,42 +1859,42 @@ export default function RequestHubPage() {
                                                                         onClick={() => handleViewFile(doc.url, doc.label)}
                                                                         className="relative aspect-[16/9] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden group/doc hover:shadow-xl transition-all w-full flex flex-col items-center justify-center bg-slate-50 dark:bg-white/5 hover:border-red-500/50"
                                                                     >
-                                                            <FileText className="w-8 h-8 text-red-500 group-hover/doc:scale-110 transition-transform duration-300 animate-pulse" />
-                                                            <span className="text-[7px] font-black uppercase text-red-500/70 tracking-wider mt-1">View PDF Document</span>
-                                                            <div className="absolute bottom-2 left-2 right-2">
-                                                                <Badge className="text-[7px] bg-white/95 dark:bg-slate-950/95 text-slate-900 dark:text-white border-none font-black italic tracking-widest uppercase w-full block text-center py-0.5 truncate">{doc.label}</Badge>
+                                                                        <FileText className="w-8 h-8 text-red-500 group-hover/doc:scale-110 transition-transform duration-300 animate-pulse" />
+                                                                        <span className="text-[7px] font-black uppercase text-red-500/70 tracking-wider mt-1">View PDF Document</span>
+                                                                        <div className="absolute bottom-2 left-2 right-2">
+                                                                            <Badge className="text-[7px] bg-white/95 dark:bg-slate-950/95 text-slate-900 dark:text-white border-none font-black italic tracking-widest uppercase w-full block text-center py-0.5 truncate">{doc.label}</Badge>
+                                                                        </div>
+                                                                    </button>
+                                                                );
+                                                            }
+                                                            return (
+                                                                <button
+                                                                    key={i}
+                                                                    onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}
+                                                                    className="relative aspect-[16/9] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden group/doc hover:shadow-xl transition-all w-full text-left"
+                                                                >
+                                                                    <Image src={doc.url} alt={doc.label} fill className="object-cover transition-transform group-hover/doc:scale-110 duration-700" unoptimized />
+                                                                    <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover/doc:opacity-100 transition-all duration-300 flex items-center justify-center gap-2">
+                                                                        <div
+                                                                            style={{ backgroundColor: themeColor }}
+                                                                            className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] scale-75 group-hover/doc:scale-100 transition-transform duration-300"
+                                                                        >
+                                                                            <span>View</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="absolute bottom-2 left-2 right-2">
+                                                                        <Badge className="text-[7px] bg-white/95 dark:bg-slate-950/95 text-slate-900 dark:text-white border-none font-black italic tracking-widest uppercase w-full block text-center py-0.5 truncate">{doc.label}</Badge>
+                                                                    </div>
+                                                                </button>
+                                                            );
+                                                        }) : (
+                                                            <div className="col-span-1 sm:col-span-2 py-10 flex flex-col items-center justify-center text-slate-300 dark:text-white/20">
+                                                                <FileText className="w-8 h-8 mb-2 opacity-30" />
+                                                                <p className="text-[9px] font-black uppercase tracking-widest italic">No documents uploaded</p>
                                                             </div>
-                                                        </button>
-                                                    );
-                                                }
-                                                return (
-                                                    <button
-                                                        key={i}
-                                                        onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}
-                                                        className="relative aspect-[16/9] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden group/doc hover:shadow-xl transition-all w-full text-left"
-                                                    >
-                                                        <Image src={doc.url} alt={doc.label} fill className="object-cover transition-transform group-hover/doc:scale-110 duration-700" unoptimized />
-                                                        <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover/doc:opacity-100 transition-all duration-300 flex items-center justify-center gap-2">
-                                                            <div
-                                                                style={{ backgroundColor: themeColor }}
-                                                                className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] scale-75 group-hover/doc:scale-100 transition-transform duration-300"
-                                                            >
-                                                                <span>View</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="absolute bottom-2 left-2 right-2">
-                                                            <Badge className="text-[7px] bg-white/95 dark:bg-slate-950/95 text-slate-900 dark:text-white border-none font-black italic tracking-widest uppercase w-full block text-center py-0.5 truncate">{doc.label}</Badge>
-                                                        </div>
-                                                    </button>
-                                                );
-                                            }) : (
-                                                <div className="col-span-1 sm:col-span-2 py-10 flex flex-col items-center justify-center text-slate-300 dark:text-white/20">
-                                                    <FileText className="w-8 h-8 mb-2 opacity-30" />
-                                                    <p className="text-[9px] font-black uppercase tracking-widest italic">No documents uploaded</p>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            )}
-                                        </div>
-                                    </div>
 
                                                 {/* Supporting Documents Section */}
                                                 <div className="space-y-4">

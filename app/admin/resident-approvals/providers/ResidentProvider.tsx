@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { getSystemSettingAction } from "@/app/admin/transactions/actions";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 export type ResidentStatus = "PENDING" | "APPROVED" | "DRAFT" | "REJECTED";
 
@@ -150,32 +151,80 @@ type ResidentContextType = {
     formCategoryName: string | null;
     setFormCategoryName: (name: string | null) => void;
     themeColor: string;
+
+    // Pagination parameters
+    totalCount: number;
+    page: number;
+    limit: number;
+    statusCounts: Record<string, number>;
 };
 
 const ResidentContext = createContext<ResidentContextType | undefined>(undefined);
 
 export function ResidentProvider({
     children,
-    initialResidents
+    initialResidents,
+    totalCount,
+    page,
+    limit,
+    statusCounts
 }: {
     children: ReactNode;
-    initialResidents: Resident[]
+    initialResidents: Resident[];
+    totalCount: number;
+    page: number;
+    limit: number;
+    statusCounts: Record<string, number>;
 }) {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+
     const [residents, setResidents] = useState<Resident[]>(initialResidents);
-    const [searchQuery, setSearchQuery] = useState("");
-    const [selectedBarangay, setSelectedBarangay] = useState("All");
-    const [selectedGender, setSelectedGender] = useState("All");
-    const [selectedCategory, setSelectedCategory] = useState("All");
-    const [selectedStatus, setSelectedStatus] = useState("PENDING");
+
+    // Sync state with parent's initialResidents when server rerenders
+    useEffect(() => {
+        setResidents(initialResidents);
+    }, [initialResidents]);
+
+    // Read filters directly from URL
+    const searchQuery = searchParams.get("search") || "";
+    const selectedBarangay = searchParams.get("barangay") || "All";
+    const selectedGender = searchParams.get("gender") || "All";
+    const selectedCategory = searchParams.get("category") || "All";
+    const selectedStatus = searchParams.get("status") || "PENDING";
+
+    const updateQueryParam = (key: string, val: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (!val || val === "All" || val === "") {
+            params.delete(key);
+        } else {
+            params.set(key, val);
+        }
+        params.delete("page"); // Reset page to 1 on filter/search change
+        router.push(`${pathname}?${params.toString()}`);
+    };
+
+    const setSearchQuery = (query: string) => {
+        updateQueryParam("search", query);
+    };
+    const setSelectedBarangay = (barangay: string) => {
+        updateQueryParam("barangay", barangay);
+    };
+    const setSelectedGender = (gender: string) => {
+        updateQueryParam("gender", gender);
+    };
+    const setSelectedCategory = (category: string) => {
+        updateQueryParam("category", category);
+    };
+    const setSelectedStatus = (status: string) => {
+        updateQueryParam("status", status);
+    };
+
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingData, setEditingData] = useState<Resident | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>("table");
     const [currentFamilyMembers, setCurrentFamilyMembers] = useState<FamilyMember[]>([]);
-
-    // Sync state with server-side prop updates
-    useEffect(() => {
-        setResidents(initialResidents);
-    }, [initialResidents]);
 
     // Form Selection State
     const [formCategoryId, setFormCategoryId] = useState<string | null>(editingData?.categoryId || null);
@@ -228,7 +277,11 @@ export function ResidentProvider({
             setFormCategoryId,
             formCategoryName,
             setFormCategoryName,
-            themeColor
+            themeColor,
+            totalCount,
+            page,
+            limit,
+            statusCounts
         }}>
             {children}
         </ResidentContext.Provider>

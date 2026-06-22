@@ -43,7 +43,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         getMultipleSystemSettings(["theme_color"]),
         prisma.resident.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
         prisma.job.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
-        prisma.report.count({ where: { status: "PENDING" } }),
+        prisma.report.count({ where: { status: "PENDING", ...(selectedBarangay ? { barangay: { name: selectedBarangay } } : {}) } }),
         prisma.project.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
         isAdmin ? prisma.barangayInfo.findMany({ orderBy: { name: "asc" }, select: { name: true } }) : []
     ]);

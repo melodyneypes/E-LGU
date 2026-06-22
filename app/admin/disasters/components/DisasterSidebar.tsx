@@ -32,11 +32,12 @@ export function DisasterSidebar() {
 
     const activeZone = zones.find(z => z.id === activeZoneId);
 
-    // Calculate affected households for the active zone
     const affectedHouseholds = activeZone
-        ? households.filter(h =>
-            activeZone.shapes.some(shape => isPointInPolygon(h.latitude, h.longitude, shape))
-        )
+        ? households.filter(h => {
+            const { latitude, longitude } = h;
+            if (latitude === null || longitude === null) return false;
+            return activeZone.shapes.some(shape => isPointInPolygon(latitude, longitude, shape));
+        })
         : [];
 
     const handleAddNewZone = async () => {

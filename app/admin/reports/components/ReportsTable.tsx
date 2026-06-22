@@ -14,8 +14,16 @@ import {
     Calendar,
     UserCircle,
     Image as ImageIcon,
-    Loader2
+    Loader2,
+    Home,
+    Search,
+    Filter,
+    Mail,
+    FileText,
+    MessageSquare
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { useSession } from "next-auth/react";
 import {
     Table,
     TableBody,
@@ -33,7 +41,6 @@ import {
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
 import {
@@ -65,14 +72,44 @@ interface Report {
         name: string | null;
         email: string | null;
     };
+    barangay?: {
+        id: string;
+        name: string;
+    } | null;
 }
 
-export function ReportsTable({ initialReports }: { initialReports: Report[] }) {
+export function ReportsTable({ initialReports, themeColor = "#2563eb" }: { initialReports: Report[]; themeColor?: string }) {
+    const { data: session } = useSession();
+    const role = (session?.user as any)?.role;
+    const isBarangayAdmin = role === "BARANGAY_ADMIN";
+
     const [reports, setReports] = useState(initialReports);
     const [selectedReport, setSelectedReport] = useState<Report | null>(null);
     const [adminComment, setAdminComment] = useState("");
     const [isUpdating, setIsUpdating] = useState(false);
     const [currentStatus, setCurrentStatus] = useState("");
+
+    const [statusFilter, setStatusFilter] = useState("All");
+    const [barangayFilter, setBarangayFilter] = useState("All");
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const uniqueBarangays = Array.from(
+        new Set(reports.map(r => r.barangay?.name).filter(Boolean))
+    ) as string[];
+
+    const filteredReports = reports.filter(report => {
+        const matchesStatus = statusFilter === "All" || report.status === statusFilter;
+        const matchesBarangay = isBarangayAdmin 
+            ? true 
+            : (barangayFilter === "All" || report.barangay?.name === barangayFilter);
+
+        const reporterName = report.user.name?.toLowerCase() || "";
+        const category = report.category.toLowerCase() || "";
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = reporterName.includes(query) || category.includes(query);
+
+        return matchesStatus && matchesBarangay && matchesSearch;
+    });
 
     const [viewerOpen, setViewerOpen] = useState(false);
     const [viewerUrl, setViewerUrl] = useState<string | null>(null);
@@ -132,11 +169,56 @@ export function ReportsTable({ initialReports }: { initialReports: Report[] }) {
 
     return (
         <div className="space-y-4">
+            {/* Filters Row */}
+            <div className="flex flex-col sm:flex-row items-center gap-4 mb-4">
+                <div className="relative w-full sm:w-[300px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                    <Input
+                        placeholder="Search reporter or category..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] focus-visible:ring-0 rounded-xl"
+                    />
+                </div>
+
+                <div className="w-full sm:w-auto flex flex-wrap gap-2">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl min-w-[130px]">
+                            <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]">
+                            <SelectItem value="All">All Statuses</SelectItem>
+                            <SelectItem value="PENDING">PENDING</SelectItem>
+                            <SelectItem value="SEEN">SEEN</SelectItem>
+                            <SelectItem value="IN_PROGRESS">IN PROGRESS</SelectItem>
+                            <SelectItem value="COMPLETED">COMPLETED</SelectItem>
+                            <SelectItem value="REJECTED">REJECTED</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    {!isBarangayAdmin && (
+                        <Select value={barangayFilter} onValueChange={setBarangayFilter}>
+                            <SelectTrigger className="h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl min-w-[150px]">
+                                <Filter className="w-4 h-4 mr-2 text-slate-400" />
+                                <SelectValue placeholder="Barangay" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]">
+                                <SelectItem value="All">All Barangays</SelectItem>
+                                {uniqueBarangays.map(bg => (
+                                    <SelectItem key={bg} value={bg}>{bg}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                </div>
+            </div>
+
             <div className="rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden">
                 <Table>
                     <TableHeader className="bg-slate-50 dark:bg-white/5">
                         <TableRow className="hover:bg-transparent border-slate-200 dark:border-[#2a3040]">
                             <TableHead className="font-black uppercase tracking-widest text-[10px] italic py-5">Reporter</TableHead>
+                            <TableHead className="font-black uppercase tracking-widest text-[10px] italic py-5">Barangay</TableHead>
                             <TableHead className="font-black uppercase tracking-widest text-[10px] italic py-5">Category</TableHead>
                             <TableHead className="font-black uppercase tracking-widest text-[10px] italic py-5">Date</TableHead>
                             <TableHead className="font-black uppercase tracking-widest text-[10px] italic py-5">Status</TableHead>
@@ -144,7 +226,7 @@ export function ReportsTable({ initialReports }: { initialReports: Report[] }) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {reports.length > 0 ? reports.map((report) => (
+                        {filteredReports.length > 0 ? filteredReports.map((report) => (
                             <TableRow 
                                 key={report.id} 
                                 className="border-slate-100 dark:border-[#2a3040]/50 hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer"
@@ -160,6 +242,11 @@ export function ReportsTable({ initialReports }: { initialReports: Report[] }) {
                                             <p className="text-[10px] text-slate-500 uppercase tracking-widest">{report.user.email}</p>
                                         </div>
                                     </div>
+                                </TableCell>
+                                <TableCell className="py-5">
+                                    <span className="text-xs font-black uppercase tracking-widest text-primary italic bg-primary/10 px-2 py-1 rounded-lg">
+                                        {report.barangay?.name || "N/A"}
+                                    </span>
                                 </TableCell>
                                 <TableCell className="py-5">
                                     <span className="text-xs font-black uppercase tracking-widest text-slate-400 italic bg-slate-100 dark:bg-white/5 px-2 py-1 rounded-lg">{report.category}</span>
@@ -224,137 +311,225 @@ export function ReportsTable({ initialReports }: { initialReports: Report[] }) {
                     onInteractOutside={(e) => {
                         if (viewerOpen) e.preventDefault();
                     }}
-                    className="w-full sm:max-w-2xl bg-white dark:bg-[#0f1117] border-slate-200 dark:border-white/10 p-0 overflow-hidden rounded-[2.5rem] flex flex-col max-h-[90vh]"
+                    className="w-full sm:max-w-4xl bg-white dark:bg-[#0f1117] border-slate-200 dark:border-white/10 p-0 overflow-hidden rounded-[2rem] flex flex-col max-h-[92vh] shadow-2xl transition-all duration-300"
                 >
-                    <div className="p-8 pb-4 shrink-0">
-                        <DialogHeader>
-                            <div className="flex items-center gap-3 bg-primary/5 p-4 rounded-3xl border border-primary/10">
-                                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
-                                    <AlertTriangle className="w-6 h-6 text-primary" />
-                                </div>
-                                <div className="text-left">
-                                    <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Report <span className="text-primary">Summary</span></DialogTitle>
-                                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 italic mt-0.5">Reference: {selectedReport?.id}</p>
-                                </div>
-                            </div>
-                        </DialogHeader>
-                    </div>
+                    {/* Top Accent line using theme color */}
+                    <div className="h-1.5 w-full shrink-0" style={{ backgroundColor: themeColor }} />
 
                     {selectedReport && (
                         <>
-                            <div className="flex-1 overflow-y-auto custom-scrollbar px-8 pb-6 space-y-8">
-                                <div className="space-y-8 animate-in zoom-in-95 duration-300">
-                                    {/* Metadata Grid */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10">
-                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2"><UserCircle className="w-3 h-3" /> Submitted By</p>
-                                            <p className="text-sm font-black italic">{selectedReport.user.name}</p>
+                            {/* Modal Header */}
+                            <div className="px-6 py-5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between gap-4 shrink-0">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <Badge 
+                                            variant="outline" 
+                                            style={{ backgroundColor: `${themeColor}10`, borderColor: `${themeColor}20`, color: themeColor }}
+                                            className="font-bold text-xs uppercase tracking-wider px-2.5 py-0.5 rounded-full"
+                                        >
+                                            {selectedReport.category}
+                                        </Badge>
+                                        <span className="text-xs text-slate-400 dark:text-slate-500 font-mono">
+                                            #{selectedReport.id.slice(-8).toUpperCase()}
+                                        </span>
+                                    </div>
+                                    <DialogTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-white mt-1">
+                                        Report Summary
+                                    </DialogTitle>
+                                </div>
+                                <div className="shrink-0 flex items-center gap-2">
+                                    <span className="text-xs text-slate-400 font-medium mr-1 hidden sm:inline">Status:</span>
+                                    {getStatusBadge(selectedReport.status)}
+                                </div>
+                            </div>
+
+                            {/* Modal Scrollable Body */}
+                            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in-50 slide-in-from-bottom-4 duration-300">
+                                    
+                                    {/* Left Column: Reporter, Description, Action Center */}
+                                    <div className="lg:col-span-7 space-y-6">
+                                        
+                                        {/* Reporter & Details Card */}
+                                        <div className="p-5 bg-slate-50 dark:bg-white/[0.02] rounded-2xl border border-slate-100 dark:border-white/5 space-y-4">
+                                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                <UserCircle className="w-4 h-4 text-slate-400" /> Reporter Details
+                                            </h4>
+                                            
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center shrink-0">
+                                                    <UserCircle className="w-6 h-6 text-slate-500 dark:text-slate-400" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-sm font-semibold text-slate-950 dark:text-white truncate">{selectedReport.user.name}</p>
+                                                    <p className="text-xs text-slate-500 truncate flex items-center gap-1 mt-0.5">
+                                                        <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" /> {selectedReport.user.email}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-100 dark:border-white/5 text-xs">
+                                                <div className="space-y-1">
+                                                    <span className="text-slate-400 flex items-center gap-1.5"><Home className="w-3.5 h-3.5" /> Barangay Scope</span>
+                                                    <p className="font-semibold text-slate-800 dark:text-slate-200 uppercase">{selectedReport.barangay?.name || "N/A"}</p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <span className="text-slate-400 flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Filed Date</span>
+                                                    <p className="font-semibold text-slate-800 dark:text-slate-200">
+                                                        {format(new Date(selectedReport.createdAt), "LLL d, yyyy h:mm a")}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10">
-                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2"><Calendar className="w-3 h-3" /> Submitted On</p>
-                                            <p className="text-sm font-black italic">{format(new Date(selectedReport.createdAt), "LLL d, yyyy")}</p>
+
+                                        {/* Description Card */}
+                                        <div className="p-5 bg-slate-50 dark:bg-white/[0.02] rounded-2xl border border-slate-100 dark:border-white/5 space-y-3">
+                                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                <FileText className="w-4 h-4 text-slate-400" /> Issue Description
+                                            </h4>
+                                            <div 
+                                                className="text-[15px] text-slate-850 dark:text-slate-150 leading-relaxed font-normal pl-4 border-l-4 whitespace-pre-wrap" 
+                                                style={{ borderLeftColor: themeColor }}
+                                            >
+                                                {selectedReport.description}
+                                            </div>
+                                        </div>
+
+                                        {/* Action Center */}
+                                        <div className="p-5 bg-slate-50 dark:bg-white/[0.02] rounded-2xl border border-slate-100 dark:border-white/5 space-y-4">
+                                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                <MessageSquare className="w-4 h-4 text-slate-400" /> Action Center
+                                            </h4>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Update Report Status</label>
+                                                    <Select value={currentStatus} onValueChange={(val) => setCurrentStatus(val)}>
+                                                        <SelectTrigger 
+                                                            style={{ "--tw-ring-color": themeColor } as any}
+                                                            className="h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl font-medium text-sm focus:ring-1"
+                                                        >
+                                                            <SelectValue placeholder="Status" />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] rounded-xl shadow-xl">
+                                                            <SelectItem value="PENDING" className="font-semibold text-xs cursor-pointer py-2 hover:bg-slate-50 dark:hover:bg-white/5">PENDING</SelectItem>
+                                                            <SelectItem value="SEEN" className="font-semibold text-xs cursor-pointer py-2 hover:bg-slate-50 dark:hover:bg-white/5">SEEN</SelectItem>
+                                                            <SelectItem value="IN_PROGRESS" className="font-semibold text-xs cursor-pointer py-2 hover:bg-slate-50 dark:hover:bg-white/5">IN PROGRESS</SelectItem>
+                                                            <SelectItem value="COMPLETED" className="font-semibold text-xs cursor-pointer py-2 text-emerald-500 hover:bg-slate-50 dark:hover:bg-white/5">COMPLETED</SelectItem>
+                                                            <SelectItem value="REJECTED" className="font-semibold text-xs cursor-pointer py-2 text-red-500 hover:bg-slate-50 dark:hover:bg-white/5">REJECTED</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Official Remarks</label>
+                                                    <Textarea 
+                                                        placeholder="Provide status updates or resolution notes here..." 
+                                                        value={adminComment}
+                                                        onChange={(e) => setAdminComment(e.target.value)}
+                                                        style={{ "--tw-ring-color": themeColor } as any}
+                                                        className="min-h-[80px] rounded-xl bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] text-sm font-medium focus-visible:ring-1 leading-snug"
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* Content Section */}
-                                    <div className="space-y-4">
-                                        <div className="flex justify-between items-start">
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-primary italic">Category</p>
-                                                <p className="text-xl font-black tracking-tight">{selectedReport.category}</p>
-                                            </div>
-                                            <div className="space-y-1 text-right">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic mr-1">Current Status</p>
-                                                {getStatusBadge(selectedReport.status)}
-                                            </div>
+                                    {/* Right Column: Images & Location Map */}
+                                    <div className="lg:col-span-5 space-y-6">
+                                        
+                                        {/* Photos Section */}
+                                        <div className="p-5 bg-slate-50 dark:bg-white/[0.02] rounded-2xl border border-slate-100 dark:border-white/5 space-y-3">
+                                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                <ImageIcon className="w-4 h-4 text-slate-400" /> Attached Photos ({selectedReport.images.length})
+                                            </h4>
+                                            
+                                            {selectedReport.images.length > 0 ? (
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {selectedReport.images.map((img, i) => (
+                                                        <div 
+                                                            key={i} 
+                                                            className="aspect-square relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm group cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200" 
+                                                            onClick={() => handleViewImage(img, i)}
+                                                        >
+                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                            <img 
+                                                                src={img} 
+                                                                alt={`report-photo-${i}`} 
+                                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                                                <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="p-8 rounded-xl border border-dashed border-slate-200 dark:border-white/5 text-center text-xs text-slate-400 italic">
+                                                    No photos uploaded.
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="space-y-2">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic border-b border-slate-200 dark:border-white/10 pb-1">Detailed Description</p>
-                                            <p className="text-sm font-medium leading-relaxed italic text-slate-600 dark:text-slate-400">{selectedReport.description}</p>
-                                        </div>
-                                    </div>
 
-                                    {/* Images Section */}
-                                    {selectedReport.images.length > 0 && (
-                                        <div className="space-y-4">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic flex items-center gap-2"><ImageIcon className="w-3 h-3" /> Attached Photos</p>
-                                            <div className="grid grid-cols-4 gap-3">
-                                                {selectedReport.images.map((img, i) => (
-                                                    <div 
-                                                        key={i} 
-                                                        className="aspect-square relative rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-lg group cursor-pointer" 
-                                                        onClick={() => handleViewImage(img, i)}
-                                                    >
-                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                        <img src={img} alt={`report-${i}`} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Location Section */}
-                                    {selectedReport.latitude && (
-                                        <div className="space-y-4 bg-slate-900 rounded-3xl p-6 border border-white/10 shadow-3xl text-white">
+                                        {/* Location Card */}
+                                        <div className="p-5 bg-slate-50 dark:bg-white/[0.02] rounded-2xl border border-slate-100 dark:border-white/5 space-y-3">
                                             <div className="flex items-center justify-between">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-blue-400 italic flex items-center gap-2 font-black italic"><MapPin className="w-3 h-3 text-red-500" /> Precise Location Pin</p>
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="sm" 
-                                                    onClick={() => window.open(`https://www.google.com/maps?q=${selectedReport.latitude},${selectedReport.longitude}`, '_blank')}
-                                                    className="text-[9px] font-black uppercase tracking-widest h-auto p-0 hover:bg-transparent hover:text-primary italic"
-                                                >
-                                                    Open in Google Maps
-                                                </Button>
+                                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                    <MapPin className="w-4 h-4 text-slate-400" /> Location Pin
+                                                </h4>
+                                                {selectedReport.latitude !== null && selectedReport.longitude !== null && (
+                                                    <Button 
+                                                        variant="link" 
+                                                        size="sm" 
+                                                        onClick={() => window.open(`https://www.google.com/maps?q=${selectedReport.latitude},${selectedReport.longitude}`, '_blank')}
+                                                        className="text-xs h-auto p-0 font-semibold flex items-center gap-1 hover:no-underline"
+                                                        style={{ color: themeColor }}
+                                                    >
+                                                        Google Maps
+                                                    </Button>
+                                                )}
                                             </div>
-                                            <div className="space-y-1">
-                                                <p className="text-[11px] font-medium leading-relaxed italic text-slate-400">{selectedReport.address || "Location pinned on map by reporter."}</p>
-                                                <p className="text-[10px] font-mono text-slate-600 tracking-tighter">{selectedReport.latitude}, {selectedReport.longitude}</p>
-                                            </div>
-                                        </div>
-                                    )}
 
-                                    {/* Admin Action Management */}
-                                    <div className="space-y-6 border-t border-slate-200 dark:border-white/10 pt-8">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Update Report Status</label>
-                                                <Select value={currentStatus} onValueChange={(val) => setCurrentStatus(val)}>
-                                                    <SelectTrigger className="h-12 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl font-bold italic text-sm">
-                                                        <SelectValue placeholder="Status" />
-                                                    </SelectTrigger>
-                                                    <SelectContent className="bg-slate-900 border-white/10 text-white rounded-xl">
-                                                        <SelectItem value="PENDING" className="font-bold py-3 italic">PENDING</SelectItem>
-                                                        <SelectItem value="SEEN" className="font-bold py-3 italic">SEEN</SelectItem>
-                                                        <SelectItem value="IN_PROGRESS" className="font-bold py-3 italic">IN PROGRESS</SelectItem>
-                                                        <SelectItem value="COMPLETED" className="font-bold py-3 italic text-emerald-400">COMPLETED</SelectItem>
-                                                        <SelectItem value="REJECTED" className="font-bold py-3 italic text-red-400">REJECTED</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">LGU Official Remarks</label>
-                                                <Textarea 
-                                                    placeholder="Add updates for the resident..." 
-                                                    value={adminComment}
-                                                    onChange={(e) => setAdminComment(e.target.value)}
-                                                    className="min-h-[80px] rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 italic text-sm font-medium"
-                                                />
-                                            </div>
+                                            {selectedReport.latitude !== null && selectedReport.longitude !== null ? (
+                                                <div className="space-y-3">
+                                                    <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-snug line-clamp-2">
+                                                        {selectedReport.address || `${selectedReport.latitude.toFixed(6)}, ${selectedReport.longitude.toFixed(6)}`}
+                                                    </p>
+                                                    <div className="h-40 w-full rounded-xl overflow-hidden border border-slate-200 dark:border-white/5 relative">
+                                                        <iframe
+                                                            width="100%"
+                                                            height="100%"
+                                                            frameBorder="0"
+                                                            scrolling="no"
+                                                            marginHeight={0}
+                                                            marginWidth={0}
+                                                            src={`https://maps.google.com/maps?q=${selectedReport.latitude},${selectedReport.longitude}&hl=en&z=14&output=embed`}
+                                                            className="w-full h-full grayscale-[0.1]"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="p-8 rounded-xl border border-dashed border-slate-200 dark:border-white/5 text-center text-xs text-slate-450 italic">
+                                                    No location data available.
+                                                </div>
+                                            )}
                                         </div>
+
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Sticky Action Footer */}
-                            <div className="p-8 pt-4 border-t border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] shrink-0">
+                            {/* Modal Footer Actions */}
+                            <div className="p-6 border-t border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.01] flex justify-end shrink-0">
                                 <Button 
                                     disabled={isUpdating}
                                     onClick={() => handleUpdateStatus(selectedReport.id, currentStatus)}
-                                    className="w-full h-14 rounded-2xl bg-primary hover:opacity-90 text-white font-black uppercase tracking-widest text-xs italic shadow-xl shadow-primary/25 transition-all active:scale-95 flex items-center justify-center gap-3"
+                                    style={{ 
+                                        backgroundColor: themeColor, 
+                                        boxShadow: `0 8px 24px -6px ${themeColor}40` 
+                                    }}
+                                    className="w-full sm:w-auto px-8 h-12 rounded-xl hover:opacity-95 text-white font-bold text-sm tracking-wide transition-all active:scale-98 flex items-center justify-center gap-2 border-none"
                                 >
                                     {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                    {isUpdating ? "Applying Changes..." : "Apply Status & Send Feedback"}
+                                    {isUpdating ? "Saving changes..." : "Save Updates & Notify"}
                                 </Button>
                             </div>
                         </>

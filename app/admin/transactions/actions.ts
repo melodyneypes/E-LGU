@@ -312,7 +312,13 @@ export async function ensureCivilRegistryTransactionTypes() {
                     fields: ["fullName", "dateOfBirth", "placeOfBirth", "fathersName", "mothersName"]
                 },
                 requiresBusinessName: false,
-                supportsECopy: true
+                supportsECopy: true,
+                defaultFees: [
+                    { code: "PROCESSING_FEE", label: "Processing & E-Copy Fee", amount: 215.00 },
+                    { code: "LATE_FEE_1_10", label: "Late Fee (1-10 Years)", amount: 315.00 },
+                    { code: "LATE_FEE_10_20", label: "Late Fee (10-20 Years)", amount: 515.00 },
+                    { code: "LATE_FEE_20_UP", label: "Late Fee (20+ Years)", amount: 1015.00 }
+                ]
             },
             {
                 code: "LCR_MARRIAGE",
@@ -477,6 +483,9 @@ export async function ensureCivilRegistryTransactionTypes() {
         ];
 
         for (const t of types) {
+            const existing = await prisma.transactionType.findUnique({ where: { code: t.code } });
+            const hasDefaultFees = existing && Array.isArray(existing.defaultFees) && existing.defaultFees.length > 0;
+
             await prisma.transactionType.upsert({
                 where: { code: t.code },
                 update: {
@@ -484,7 +493,8 @@ export async function ensureCivilRegistryTransactionTypes() {
                     description: t.description,
                     requiredDocs: t.requiredDocs,
                     formSchema: t.formSchema,
-                    supportsECopy: t.supportsECopy
+                    supportsECopy: t.supportsECopy,
+                    ...(!hasDefaultFees && (t as any).defaultFees ? { defaultFees: (t as any).defaultFees } : {})
                 },
                 create: t as any
             });
@@ -1735,15 +1745,42 @@ export async function getTreasuryStatusCounts() {
 }
 
 /**
- * Fetch all transactions relevant to BPLO (Business Permits)
+ * Fetch all transactions relevant to BPLO (Business Permits) with pagination, search, and filters
  */
-export async function getBploTransactions(status?: string) {
+export async function getBploTransactions(params?: string | {
+    status?: string;
+    page?: number;
+    limit?: number;
+    search?: string;
+    serviceFilter?: string | null;
+}) {
     try {
         const session = await getSession();
         const user = session?.user as any;
         if (!user || (user.role !== "ADMIN" && !isUserAdminAide(user))) {
             return { success: false, error: "Forbidden" };
         }
+
+        // Backward compatibility: handle old string parameter and undefined
+        let page = 1;
+        let limit = 10;
+        let search = "";
+        let serviceFilter: string | null = null;
+        let status: string | undefined = undefined;
+
+        if (typeof params === "string") {
+            status = params;
+            // Disable page limit for backward compatibility (return all rows)
+            limit = 999999;
+        } else if (params && typeof params === "object") {
+            page = params.page || 1;
+            limit = params.limit || 10;
+            search = params.search || "";
+            serviceFilter = params.serviceFilter || null;
+            status = params.status;
+        }
+
+        const skip = limit === 999999 ? 0 : (page - 1) * limit;
 
         const where: any = {
             type: {
@@ -1791,16 +1828,77 @@ export async function getBploTransactions(status?: string) {
             where.isCancelled = false;
         }
 
-        const transactions = await prisma.transaction.findMany({
-            where,
-            include: {
-                user: true,
-                type: true,
-                cedula: true,
-                businessPermit: true
-            },
-            orderBy: { createdAt: "desc" }
-        });
+        // Service name filter (e.g. New or Renewal)
+        if (serviceFilter && serviceFilter !== "ALL") {
+            where.type = { ...where.type, name: serviceFilter };
+        }
+
+        // Search query
+        if (search) {
+            const cleanSearch = search.trim();
+            where.OR = [
+                { id: { contains: cleanSearch, mode: "insensitive" } },
+                { businessName: { contains: cleanSearch, mode: "insensitive" } },
+                {
+                    residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch
+                    }
+                }
+            ];
+        }
+
+        const [transactions, totalCount] = await Promise.all([
+            prisma.transaction.findMany({
+                where,
+                select: {
+                    id: true,
+                    status: true,
+                    fulfillmentType: true,
+                    paymentType: true,
+                    totalAmount: true,
+                    updatedAt: true,
+                    createdAt: true,
+                    isCancelled: true,
+                    businessName: true,
+                    isStudent: true,
+                    processedBy: true,
+                    residentSnapshot: true,
+                    additionalData: true,
+                    type: {
+                        select: {
+                            id: true,
+                            code: true,
+                            name: true,
+                            category: true,
+                            requiresBusinessName: true
+                        }
+                    },
+                    cedula: {
+                        select: {
+                            id: true,
+                            ctcNumber: true
+                        }
+                    },
+                    businessPermit: {
+                        select: {
+                            id: true,
+                            permitNumber: true
+                        }
+                    }
+                },
+                orderBy: { createdAt: "desc" },
+                take: limit,
+                skip: skip
+            }),
+            prisma.transaction.count({ where })
+        ]);
 
         // Fetch staff users to map processedBy
         const staff = await prisma.user.findMany({
@@ -1818,7 +1916,7 @@ export async function getBploTransactions(status?: string) {
             processorName: tx.processedBy ? (staffMap.get(tx.processedBy) || "Unknown Staff") : "Not Processed"
         }));
 
-        return { success: true, data: mappedTransactions as any[] };
+        return { success: true, data: mappedTransactions as any[], totalCount };
     } catch (error) {
         console.error("Fetch BPLO transactions error:", error);
         return { success: false, error: "Failed to fetch BPLO transactions" };
@@ -4501,7 +4599,11 @@ export async function getRegistrarActiveCounts() {
     }
 }
 
-export async function markTransactionAsViewed(id: string) {
+/**
+ * Fetch per-category unviewed LCR transaction counts for the current user.
+ * Uses the viewedAt JSON column to determine if the current user has viewed each transaction.
+ */
+export async function getUnviewedLcrCounts() {
     try {
         const session = await getSession();
         const userId = session?.user?.id;
@@ -4509,34 +4611,50 @@ export async function markTransactionAsViewed(id: string) {
             return { success: false, error: "Unauthorized" };
         }
 
-        const tx = await prisma.transaction.findUnique({
-            where: { id },
-            select: { viewedAt: true }
-        });
-        if (!tx) {
-            return { success: false, error: "Transaction not found" };
-        }
-
-        let currentViewedAt: Record<string, string> = {};
-        if (tx.viewedAt && typeof tx.viewedAt === "object" && !Array.isArray(tx.viewedAt)) {
-            currentViewedAt = { ...tx.viewedAt } as Record<string, string>;
-        }
-
-        currentViewedAt[userId] = new Date().toISOString();
-
-        await prisma.transaction.update({
-            where: { id },
-            data: {
-                viewedAt: currentViewedAt
+        const lcrTransactions = await prisma.transaction.findMany({
+            where: {
+                status: "FOR_INSPECTION",
+                isCancelled: false,
+                type: {
+                    OR: [
+                        { category: "Civil Registry" },
+                        { code: { startsWith: "LCR_" } },
+                        { code: { startsWith: "CIVIL_REGISTRY" } }
+                    ]
+                }
+            },
+            select: {
+                id: true,
+                updatedAt: true,
+                type: { select: { code: true } }
             }
         });
 
-        revalidatePath("/admin/registrar");
-        return { success: true };
+        const codeToCategory: Record<string, string> = {
+            LCR_BIRTH_REG: "Birth Registration",
+            LCR_BIRTH: "Birth Certificate",
+            LCR_PSA_ENDORSEMENT: "PSA Endorsement",
+            LCR_DEATH_PSA_ENDORSEMENT: "PSA Endorsement",
+            LCR_MARRIAGE_PSA_ENDORSEMENT: "PSA Endorsement",
+            LCR_DEATH_REG: "Death Registration",
+            LCR_DEATH: "Death Certificate",
+            LCR_MARRIAGE_LICENSE: "Marriage License",
+            LCR_MARRIAGE_REG: "Marriage Registration",
+            LCR_MARRIAGE: "Marriage Certificate",
+        };
+
+        const counts: Record<string, number> = {};
+        for (const tx of lcrTransactions) {
+            const code = tx.type?.code || "";
+            const category = codeToCategory[code];
+            if (category) {
+                counts[category] = (counts[category] || 0) + 1;
+            }
+        }
+
+        return { success: true, data: counts };
     } catch (error: any) {
-        console.error("Error marking transaction as viewed:", error);
-        return { success: false, error: error?.message || "Failed to mark transaction as viewed" };
+        console.error("Get unviewed LCR counts error:", error);
+        return { success: false, error: error?.message || "Failed to get unviewed counts" };
     }
 }
-
-

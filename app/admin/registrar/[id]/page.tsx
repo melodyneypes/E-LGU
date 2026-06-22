@@ -431,9 +431,9 @@ export default function RegistrarDetailPage({ params }: PageProps) {
 
     const isReadOnlyAide = userRole === "ADMIN_AIDE" && isBusinessPermit && !["FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM", "FOR_PICKING", "RETURN_REQUESTED", "REFUND_REQUESTED"].includes(transaction?.status || "");
 
-    const fetchTransaction = useCallback(async () => {
+    const fetchTransaction = useCallback(async (silent = false) => {
         if (!id) return;
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const res = await getTransactionById(id);
             if (res.success && res.data) {
@@ -536,7 +536,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                         filter: `id=eq.${id}`,
                     },
                     () => {
-                        fetchTransaction().catch(err => {
+                        fetchTransaction(true).catch(err => {
                             console.error("Realtime fetchTransaction failed:", err);
                         });
                     }
@@ -590,7 +590,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 logo: logo.data || ""
             });
         });
-    }, [fetchTransaction]);
+    }, [fetchTransaction, id]);
 
     useEffect(() => {
         if (!eCopyFile) {

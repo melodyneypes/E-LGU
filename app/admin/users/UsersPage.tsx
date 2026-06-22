@@ -27,11 +27,13 @@ import {
   User as UserIcon,
   UserPlus,
   XCircle,
+  CreditCard,
 } from "lucide-react";
 import { useState } from "react";
 import { AddUserModal } from "./AddUserModal";
 import { EditUserModal } from "./EditUserModal";
 import { ActivateUserModal } from "./ActivateUserModal";
+import { AssignRFIDModal } from "./AssignRFIDModal";
 
 import { Input } from "@/components/ui/input";
 import {
@@ -62,6 +64,7 @@ type UserWithProfile = {
     id: string;
     registrationStatus: string;
   } | null;
+  rfid?: string | null;
 };
 
 export function UsersPage({
@@ -82,9 +85,18 @@ export function UsersPage({
     useState<UserWithProfile | null>(null);
   const [isActivateModalOpen, setIsActivateModalOpen] = useState(false);
 
+  const [selectedUserToRFID, setSelectedUserToRFID] =
+    useState<UserWithProfile | null>(null);
+  const [isRFIDModalOpen, setIsRFIDModalOpen] = useState(false);
+
   const handleEditClick = (user: UserWithProfile) => {
     setSelectedUserToEdit(user);
     setIsEditModalOpen(true);
+  };
+
+  const handleRFIDClick = (user: UserWithProfile) => {
+    setSelectedUserToRFID(user);
+    setIsRFIDModalOpen(true);
   };
 
   const handleActivateClick = (user: UserWithProfile) => {
@@ -354,6 +366,7 @@ export function UsersPage({
               <TableHead className="font-bold py-5">User Details</TableHead>
               <TableHead className="font-bold">Verification Status</TableHead>
               <TableHead className="font-bold">Role & Departments</TableHead>
+              <TableHead className="font-bold">RFID Tag</TableHead>
               <TableHead className="font-bold">Resident Profile</TableHead>
               <TableHead
                 onClick={toggleSortOrder}
@@ -377,7 +390,7 @@ export function UsersPage({
             {paginatedUsers.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell
-                  colSpan={6}
+                  colSpan={7}
                   className="h-40 text-center text-slate-500 font-medium italic uppercase tracking-widest text-[10px]"
                 >
                   {users.length === 0
@@ -508,6 +521,15 @@ export function UsersPage({
                     </div>
                   </TableCell>
                   <TableCell>
+                    {user.rfid ? (
+                      <Badge className="bg-blue-500/10 text-blue-600 border-blue-200 font-bold uppercase text-[10px] w-fit italic tracking-tighter">
+                        🔑 {user.rfid}
+                      </Badge>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic">No RFID Tag</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     {user.residentProfile ? (
                       <Badge
                         variant="outline"
@@ -538,6 +560,16 @@ export function UsersPage({
                           title="Activate and Unlock User Account"
                         >
                           <Unlock className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {user.role !== "USER" && (
+                        <Button
+                          variant="outline"
+                          onClick={() => handleRFIDClick(user)}
+                          className="h-8 w-8 p-0 rounded-lg border-slate-200 dark:border-[#2a3040] hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:text-blue-500 transition-all shadow-sm bg-transparent"
+                          title="Assign RFID Card/Tag"
+                        >
+                          <CreditCard className="w-4 h-4" />
                         </Button>
                       )}
                       <Button
@@ -688,6 +720,15 @@ export function UsersPage({
           setSelectedUserToActivate(null);
         }}
         user={selectedUserToActivate}
+      />
+      <AssignRFIDModal
+        isOpen={isRFIDModalOpen}
+        onClose={() => {
+          setIsRFIDModalOpen(false);
+          setSelectedUserToRFID(null);
+        }}
+        user={selectedUserToRFID}
+        themeColor={themeColor}
       />
     </div>
   );

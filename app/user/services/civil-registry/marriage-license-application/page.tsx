@@ -6,10 +6,11 @@ import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Home, User, Search, CheckCircle2, Check, Loader2, FileText, Heart, AlertCircle, Sparkles, ArrowLeft } from "lucide-react";
+import { Home, User, Search, CheckCircle2, Check, Loader2, FileText, Heart, AlertCircle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
+import { BackNextButton } from "../_components/back-next-button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -1382,18 +1383,11 @@ export default function MarriageLicenseApplicationPage() {
 									</div>
 
 									{/* Step Nav */}
-									<div className="flex justify-between items-center pt-8">
-										<Button
-											type="button"
-											variant="ghost"
-											onClick={() => router.push("/user/services/civil-registry")}
-											className="rounded-full px-12 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest italic text-[10px] h-12 bg-transparent hover:bg-slate-50 dark:hover:bg-white/5"
-										>
-											<ArrowLeft className="w-4 h-4 mr-2" />
-											Back
-										</Button>
-										<Button onClick={nextStep} style={{ backgroundColor: themeColor }} className="h-14 px-10 rounded-2xl text-white font-black uppercase italic tracking-widest hover:opacity-90 transition-all">Next</Button>
-									</div>
+									<BackNextButton
+										onBack={() => router.push("/user/services/civil-registry")}
+										onNext={nextStep}
+										themeColor={themeColor}
+									/>
 								</motion.div>
 							)}
 
@@ -1481,10 +1475,11 @@ export default function MarriageLicenseApplicationPage() {
 										</div>
 
 										{/* Step Nav */}
-										<div className="flex justify-end gap-4 pt-8">
-											<Button variant="outline" onClick={prevStep} className="h-14 px-8 rounded-2xl font-black uppercase italic tracking-widest">Back</Button>
-											<Button onClick={nextStep} style={{ backgroundColor: themeColor }} className="h-14 px-10 rounded-2xl text-white font-black uppercase italic tracking-widest hover:opacity-90 transition-all">Next</Button>
-										</div>
+										<BackNextButton
+											onBack={prevStep}
+											onNext={nextStep}
+											themeColor={themeColor}
+										/>
 									</motion.div>
 								);
 							})()}
@@ -1573,13 +1568,14 @@ export default function MarriageLicenseApplicationPage() {
 									</div>
 
 									{/* Step Nav */}
-									<div className="flex justify-end gap-4 pt-8">
-										<Button variant="outline" onClick={prevStep} className="h-14 px-8 rounded-2xl font-black uppercase italic tracking-widest">Back</Button>
-										<Button onClick={handleSubmit} disabled={!policyAccepted || submitting} style={{ backgroundColor: themeColor }} className="h-14 px-10 rounded-2xl text-white font-black uppercase italic tracking-widest hover:opacity-90 transition-all disabled:opacity-50">
-											{submitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
-											Submit Application
-										</Button>
-									</div>
+									<BackNextButton
+										onBack={prevStep}
+										onNext={handleSubmit}
+										nextLabel="SUBMIT"
+										isSubmitting={submitting}
+										nextDisabled={!policyAccepted}
+										themeColor={themeColor}
+									/>
 								</motion.div>
 							)}
 						</AnimatePresence>

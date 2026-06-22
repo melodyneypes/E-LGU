@@ -341,6 +341,31 @@ function parseLocationString(loc: string) {
   return result;
 }
 
+const getEngineeringStatusLabel = (status: string) => {
+  switch (status) {
+    case "FOR_REQUESTING":
+      return "FOR EVALUATION";
+    case "FOR_REVISION":
+      return "NEEDS REVISION";
+    case "FOR_INSPECTION":
+      return "FOR INSPECTION";
+    case "FOR_REINSPECTION":
+      return "FOR REINSPECTION";
+    case "REJECTED":
+      return "REJECTED";
+    case "EVALUATED":
+    case "UNPAID":
+    case "PAID":
+    case "FOR_PROCESSING":
+    case "FOR_CLAIM":
+    case "FOR_PICKING":
+    case "RELEASED":
+    case "DELIVERED":
+      return "APPROVED";
+    default:
+      return status.replace(/_/g, ' ');
+  }
+};
 
 export default function BuildingPermitPage() {
   const router = useRouter();
@@ -1694,12 +1719,14 @@ export default function BuildingPermitPage() {
                     </div>
 
                     <div className="bg-white dark:bg-black/20 rounded-xl border border-slate-100 dark:border-white/5 p-6 relative overflow-hidden shadow-sm">
-                      <div className="absolute top-4 right-4 bg-emerald-500/10 text-emerald-600 font-bold text-[10px] uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> Imported from your registration
-                      </div>
-                      <div className="flex items-center gap-2 mb-4">
-                        <User className="w-5 h-5 text-slate-700 dark:text-slate-300" />
-                        <h4 className="font-black text-slate-900 dark:text-white uppercase tracking-tighter text-md italic">Personal Information</h4>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                        <div className="flex items-center gap-2">
+                          <User className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+                          <h4 className="font-black text-slate-900 dark:text-white uppercase tracking-tighter text-md italic">Personal Information</h4>
+                        </div>
+                        <div className="bg-emerald-500/10 text-emerald-600 font-bold text-[10px] uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1 w-fit">
+                          <CheckCircle2 className="w-3 h-3" /> Imported from your registration
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
@@ -3359,37 +3386,49 @@ export default function BuildingPermitPage() {
                 <div className="space-y-4">
                   <h3 className="font-bold text-slate-700 dark:text-slate-300">Engineering Department Review</h3>
                   <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col gap-4">
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0 mt-0.5">
                           <Clock className="w-5 h-5" />
                         </div>
-                        <div>
-                          <p className="font-bold text-slate-800 dark:text-white text-sm">
+                        <div className="space-y-1">
+                          <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">
                             {selectedApplication?.status === "FOR_INSPECTION"
                               ? "Scheduled for Site Inspection"
                               : selectedApplication?.status === "FOR_REINSPECTION"
                                 ? "Scheduled for Site Re-inspection"
-                                : "Documents Under Review"}
+                                : ["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
+                                  ? "Evaluation Approved"
+                                  : "Documents Under Review"}
                           </p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-slate-500 leading-normal">
                             {selectedApplication?.status === "FOR_INSPECTION"
                               ? "Your application is scheduled for an upcoming site inspection."
                               : selectedApplication?.status === "FOR_REINSPECTION"
                                 ? "Your application requires a site re-inspection. Please see the scheduled date below."
-                                : "Your documents are being reviewed by the Engineering Department"}
+                                : ["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
+                                  ? "Your application documents have been evaluated and approved by the Engineering Department."
+                                  : "Your documents are being reviewed by the Engineering Department"}
                           </p>
                         </div>
                       </div>
                       <span className={cn(
-                        "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0",
-                        selectedApplication?.isCancelled || selectedApplication?.status === "REJECTED"
+                        "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
+                        selectedApplication?.isCancelled
                           ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                          : selectedApplication?.status === "APPROVED" || selectedApplication?.status === "EVALUATED"
-                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
-                            : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                          : selectedApplication?.status === "REJECTED"
+                            ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
+                            : selectedApplication?.status === "FOR_REVISION"
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                              : ["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
+                                : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
                       )}>
-                        {selectedApplication?.isCancelled ? "Cancelled" : selectedApplication ? selectedApplication.status.replace(/_/g, ' ') : "Pending Review"}
+                        {selectedApplication?.isCancelled
+                          ? "Cancelled"
+                          : selectedApplication
+                            ? getEngineeringStatusLabel(selectedApplication.status)
+                            : "Pending Review"}
                       </span>
                     </div>
 
@@ -3464,10 +3503,10 @@ export default function BuildingPermitPage() {
 
                 <div className="space-y-4">
                   <h3 className="font-bold text-slate-700 dark:text-slate-300">Endorsement Status</h3>
-                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start gap-4">
                       <div className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
+                        "w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
                         selectedApplication?.status === "EVALUATED"
                           ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500"
                           : ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(selectedApplication?.status || "")
@@ -3480,9 +3519,9 @@ export default function BuildingPermitPage() {
                           <Clock className="w-5 h-5 text-amber-500" />
                         )}
                       </div>
-                      <div>
-                        <p className="font-bold text-slate-800 dark:text-white text-sm">Endorsement to Treasury</p>
-                        <p className="text-xs text-slate-500">
+                      <div className="space-y-1">
+                        <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">Endorsement to Treasury</p>
+                        <p className="text-xs text-slate-500 leading-normal">
                           {["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(selectedApplication?.status || "")
                             ? "Endorsed successfully to Treasury"
                             : "Awaiting Engineering approval"}
@@ -3490,7 +3529,7 @@ export default function BuildingPermitPage() {
                       </div>
                     </div>
                     <span className={cn(
-                      "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0",
+                      "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
                       selectedApplication?.isCancelled || selectedApplication?.status === "REJECTED"
                         ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
                         : selectedApplication?.status === "UNPAID"

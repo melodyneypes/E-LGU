@@ -495,8 +495,8 @@ export default function TreasuryDetailPage({ params }: PageProps) {
     // RETURN_REQUESTED and REFUND_REQUESTED are also excluded so BPLO Admin can action disputes on Business Permits
     const isReadOnlyAide = userRole === "ADMIN_AIDE" && isBusinessPermit && !["FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM", "FOR_PICKING", "RETURN_REQUESTED", "REFUND_REQUESTED"].includes(transaction?.status || "");
 
-    const fetchTransaction = useCallback(async () => {
-        setLoading(true);
+    const fetchTransaction = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const res = await getTransactionById(id);
             if (res.success && res.data) {
@@ -625,7 +625,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                         filter: `id=eq.${id}`,
                     },
                     () => {
-                        fetchTransaction().catch(err => {
+                        fetchTransaction(true).catch(err => {
                             console.error("Realtime fetchTransaction failed:", err);
                         });
                     }
@@ -690,7 +690,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 logo: logo.data || ""
             });
         });
-    }, [fetchTransaction]);
+    }, [fetchTransaction, id]);
 
     useEffect(() => {
         if (!eCopyFile) {

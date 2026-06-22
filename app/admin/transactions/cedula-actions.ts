@@ -523,15 +523,45 @@ export async function releaseCedula(id: string, ctcNumber: string, eCopyUrl?: st
 }
 
 /**
- * Fetch all transactions relevant to Treasury (category: 'Treasurer')
+ * Fetch all transactions relevant to Treasury (category: 'Treasurer') with pagination, sorting, search, and category filters
  */
-export async function getTreasuryTransactions(status?: string) {
+export async function getTreasuryTransactions(params?: string | {
+    status?: string;
+    page?: number;
+    limit?: number;
+    search?: string;
+    category?: string;
+    serviceFilter?: string | null;
+}) {
     try {
         const session = await getSession();
         const user = session?.user as any;
         if (!user || (user.role !== "TREASURY_STAFF" && user.role !== "ADMIN")) {
             return { success: false, error: "Forbidden" };
         }
+
+        // Backward compatibility: handle old string parameter and undefined
+        let page = 1;
+        let limit = 10;
+        let search = "";
+        let category = "";
+        let serviceFilter: string | null = null;
+        let status: string | undefined = undefined;
+
+        if (typeof params === "string") {
+            status = params;
+            // Disable page limit for backward compatibility (return all rows)
+            limit = 999999;
+        } else if (params && typeof params === "object") {
+            page = params.page || 1;
+            limit = params.limit || 10;
+            search = params.search || "";
+            category = params.category || "";
+            serviceFilter = params.serviceFilter || null;
+            status = params.status;
+        }
+
+        const skip = limit === 999999 ? 0 : (page - 1) * limit;
 
         const where: any = {
             type: { processorRole: "TREASURY_STAFF" }
@@ -558,16 +588,93 @@ export async function getTreasuryTransactions(status?: string) {
             }
         ];
 
-        const transactions = await prisma.transaction.findMany({
-            where,
-            include: {
-                user: true,
-                type: true,
-                cedula: true,
-                businessPermit: true
-            },
-            orderBy: { createdAt: "desc" }
-        });
+        // Category filter
+        if (category && category !== "ALL") {
+            where.type.category = category;
+        }
+
+        // Service filter
+        if (serviceFilter && serviceFilter !== "ALL") {
+            if (serviceFilter === "Student") {
+                where.isStudent = true;
+                where.type = {
+                    OR: [
+                        { code: "CEDULA_IND" },
+                        { code: "CEDULA_JUR" }
+                    ]
+                };
+            } else {
+                where.type = { ...where.type, name: serviceFilter };
+                where.isStudent = false;
+            }
+        }
+
+        // Search filter: ID, Business Name, or Resident Name inside JSON
+        if (search) {
+            const cleanSearch = search.trim();
+            where.OR = [
+                { id: { contains: cleanSearch, mode: "insensitive" } },
+                { businessName: { contains: cleanSearch, mode: "insensitive" } },
+                {
+                    residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch
+                    }
+                }
+            ];
+        }
+
+        const [transactions, totalCount] = await Promise.all([
+            prisma.transaction.findMany({
+                where,
+                select: {
+                    id: true,
+                    status: true,
+                    fulfillmentType: true,
+                    paymentType: true,
+                    totalAmount: true,
+                    updatedAt: true,
+                    createdAt: true,
+                    isCancelled: true,
+                    businessName: true,
+                    isStudent: true,
+                    processedBy: true,
+                    residentSnapshot: true,
+                    additionalData: true,
+                    type: {
+                        select: {
+                            id: true,
+                            code: true,
+                            name: true,
+                            category: true,
+                            requiresBusinessName: true
+                        }
+                    },
+                    cedula: {
+                        select: {
+                            id: true,
+                            ctcNumber: true
+                        }
+                    },
+                    businessPermit: {
+                        select: {
+                            id: true,
+                            permitNumber: true
+                        }
+                    }
+                },
+                orderBy: { createdAt: "desc" },
+                take: limit === 999999 ? undefined : limit,
+                skip: skip
+            }),
+            prisma.transaction.count({ where })
+        ]);
 
         const normalized = (transactions as any[]).map(tx => {
             try {
@@ -583,9 +690,9 @@ export async function getTreasuryTransactions(status?: string) {
             }
         });
 
-        return { success: true, data: normalized as any[] };
-    } catch (error) {
+        return { success: true, data: normalized as any[], totalCount };
+    } catch (error: any) {
         console.error("Fetch treasury transactions error:", error);
-        return { success: false, error: "Failed to fetch transactions" };
+        return { success: false, error: error?.message || "Failed to fetch transactions" };
     }
 }

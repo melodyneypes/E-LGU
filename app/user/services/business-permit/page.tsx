@@ -18,6 +18,7 @@ import {
     HelpCircle,
     X,
     ChevronDown,
+    ChevronLeft,
     Eye,
     AlertCircle
 } from "lucide-react";
@@ -883,6 +884,15 @@ export default function BusinessPermitWizardPage() {
         const idx = STEPS.findIndex(s => s.id === currentStep);
         if (idx < STEPS.length - 1) {
             setCurrentStep(STEPS[idx + 1].id);
+        }
+    };
+
+    const handleBack = () => {
+        const idx = STEPS.findIndex(s => s.id === currentStep);
+        if (idx > 0) {
+            const targetStep = STEPS[idx - 1].id;
+            if (targetStep === "PATHWAY" && revisionId) return;
+            setCurrentStep(targetStep);
         }
     };
 
@@ -2301,8 +2311,8 @@ export default function BusinessPermitWizardPage() {
                                                         <div className="space-y-3">
                                                             {defaultFees.map((fee: any, idx: number) => (
                                                                 <div key={idx} className="flex justify-between items-start text-xs font-bold text-slate-500 uppercase tracking-widest gap-4 border-b border-slate-200/50 dark:border-white/5 pb-2 last:border-0 last:pb-0">
-                                                                    <span className="text-slate-700 dark:text-slate-300">{fee.label}</span>
-                                                                    <span className="text-slate-900 dark:text-white font-mono text-right italic normal-case shrink-0">{fee.description}</span>
+                                                                    <span className="text-slate-700 dark:text-slate-300 shrink-0">{fee.label}</span>
+                                                                    <span className="text-slate-900 dark:text-white font-mono text-right italic normal-case flex-1 min-w-0 break-words">{fee.description}</span>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -2358,7 +2368,22 @@ export default function BusinessPermitWizardPage() {
                 </div>
 
                 {/* Integrated Navigation Card Actions */}
-                <div className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-slate-200 dark:border-white/10 flex justify-end items-center">
+                <div className={cn(
+                    "mt-8 md:mt-12 pt-6 md:pt-8 border-t border-slate-200 dark:border-white/10 flex items-center",
+                    (currentStep !== "PATHWAY" && !(revisionId && currentStep === "USER_IDENTITY")) ? "justify-between" : "justify-end"
+                )}>
+                    {(currentStep !== "PATHWAY" && !(revisionId && currentStep === "USER_IDENTITY")) && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleBack}
+                            disabled={submitting}
+                            className="border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 text-[10px] md:text-xs rounded-xl md:rounded-2xl px-8 md:px-12 h-10 md:h-14 group transition-all duration-300 active:scale-95 font-black uppercase tracking-widest italic flex items-center"
+                        >
+                            <ChevronLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                            Back
+                        </Button>
+                    )}
                     <Button
                         onClick={currentStep === "SUBMIT" ? onSubmit : handleNext}
                         disabled={submitting || (currentStep === "SUBMIT" && !isStepValid(currentStep))}

@@ -401,17 +401,7 @@ export default function RegistrarPage() {
                                     ))
                                 ) : paginatedTransactions.length > 0 ? (
                                     paginatedTransactions.map((tx, index) => {
-                                        const isUnviewed = (() => {
-                                            if (tx.status !== "FOR_REQUESTING") return false;
-                                            const currentUserId = session?.user?.id;
-                                            if (!currentUserId) return false;
-                                            const viewedMap = tx.viewedAt && typeof tx.viewedAt === 'object' && !Array.isArray(tx.viewedAt)
-                                                ? (tx.viewedAt as Record<string, string>)
-                                                : {};
-                                            const userViewTime = viewedMap[currentUserId];
-                                            if (!userViewTime) return true;
-                                            return new Date(tx.updatedAt).getTime() > new Date(userViewTime).getTime();
-                                        })();
+                                        const isUnviewed = tx.status === "FOR_INSPECTION";
 
                                         return (
                                             <TableRow

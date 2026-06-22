@@ -6,6 +6,7 @@ import { BarangayProvider } from "../providers/BarangayProvider";
 import { GlobalLoading } from "./GlobalLoading";
 import { NetworkInterceptor } from "./NetworkInterceptor";
 import { RealtimeSettingsListener } from "./RealtimeSettingsListener";
+import { AuthOTPGuard } from "../auth/AuthOTPGuard";
 
 export function Providers({ 
     children,
@@ -17,6 +18,7 @@ export function Providers({
     return (
         <SessionProvider refetchInterval={15}>
             <BarangayProvider>
+                <AuthOTPGuard />
                 <NetworkInterceptor />
                 <GlobalLoading />
                 <RealtimeSettingsListener isMaintenanceActive={isMaintenanceActive} />

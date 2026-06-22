@@ -1399,7 +1399,7 @@ export default function BirthRegistrationView(props: TreasuryViewProps) {
                                                 <Button
                                                     onClick={handleEvaluate}
                                                     disabled={actionLoading}
-                                                    className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center"
+                                                    className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-green-500/10"
                                                 >
                                                     {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
                                                     Approve Document
@@ -1470,7 +1470,7 @@ export default function BirthRegistrationView(props: TreasuryViewProps) {
                                                 <Button
                                                     onClick={handleEvaluate}
                                                     disabled={actionLoading}
-                                                    className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center"
+                                                    className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-green-500/10"
                                                 >
                                                     {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
                                                     Approve & Send Assessment

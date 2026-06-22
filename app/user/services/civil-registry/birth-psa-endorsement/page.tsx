@@ -13,15 +13,15 @@ import {
     AlertCircle,
     Home,
     Baby,
-    ArrowRight,
     ArrowLeft,
     Upload,
     CheckCircle2,
     FileText
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BackNextButton } from "../_components/back-next-button";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -59,7 +59,7 @@ import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 // --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
 async function uploadFileClientSide(file: File, fieldName: string): Promise<string> {
     const fileExt = file.name.split('.').pop() || 'bin';
-    
+
     const res = await getSecureUploadUrlAction(fieldName, "lcr/birth_psa_endorsement", fileExt);
     if (!res.success || !res.signedUrl || !res.publicUrl) {
         throw new Error(res.error || "Failed to generate secure upload destination");
@@ -219,7 +219,7 @@ export default function BirthPsaEndorsementPage() {
         async function init() {
             try {
                 await ensureCivilRegistryTransactionTypes();
-                
+
                 const urlParams = new URLSearchParams(window.location.search);
                 const revId = urlParams.get("revisionId");
 
@@ -741,13 +741,13 @@ export default function BirthPsaEndorsementPage() {
                                                 isCompleted ? "text-white" :
                                                     "border-slate-200 dark:border-white/10 text-slate-400"
                                         )}
-                                        style={
-                                            isActive
-                                                ? { borderColor: themeColor, color: themeColor, boxShadow: `0 10px 15px -3px color-mix(in srgb, ${themeColor} 20%, transparent)` }
-                                                : isCompleted
-                                                    ? { backgroundColor: themeColor, borderColor: themeColor }
-                                                    : {}
-                                        }
+                                            style={
+                                                isActive
+                                                    ? { borderColor: themeColor, color: themeColor, boxShadow: `0 10px 15px -3px color-mix(in srgb, ${themeColor} 20%, transparent)` }
+                                                    : isCompleted
+                                                        ? { backgroundColor: themeColor, borderColor: themeColor }
+                                                        : {}
+                                            }
                                         >
                                             {isCompleted ? (
                                                 <Check className="w-5 h-5" />
@@ -759,7 +759,7 @@ export default function BirthPsaEndorsementPage() {
                                             "text-[8px] md:text-[10px] font-black uppercase tracking-wider italic hidden md:block",
                                             (isActive || isCompleted) ? "opacity-100 font-black" : "text-slate-400 opacity-55"
                                         )}
-                                        style={(isActive || isCompleted) ? { color: themeColor } : {}}
+                                            style={(isActive || isCompleted) ? { color: themeColor } : {}}
                                         >
                                             {step.label}
                                         </span>
@@ -914,32 +914,19 @@ export default function BirthPsaEndorsementPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex justify-between items-center pt-6">
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            onClick={() => router.push("/user/services/civil-registry")}
-                                            className="rounded-full px-12 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest italic text-[10px] h-12 bg-transparent hover:bg-slate-50 dark:hover:bg-white/5"
-                                        >
-                                            <ArrowLeft className="w-4 h-4 mr-2" />
-                                            Back
-                                        </Button>
-                                        <Button
-                                            onClick={() => {
-                                                if (!formData.relationship || !formData.contactNumber) {
-                                                    setShowErrors(true);
-                                                    toast.error("Please fill in all required informant details.");
-                                                    return;
-                                                }
-                                                setShowErrors(false);
-                                                setCurrentStep("SUBJECT");
-                                            }}
-                                            className="rounded-full px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-emerald-500/20"
-                                        >
-                                            Next Step
-                                            <ArrowRight className="w-4 h-4 ml-2" />
-                                        </Button>
-                                    </div>
+                                    <BackNextButton
+                                        onBack={() => router.push("/user/services/civil-registry")}
+                                        onNext={() => {
+                                            if (!formData.relationship || !formData.contactNumber) {
+                                                setShowErrors(true);
+                                                toast.error("Please fill in all required informant details.");
+                                                return;
+                                            }
+                                            setShowErrors(false);
+                                            setCurrentStep("SUBJECT");
+                                        }}
+                                        themeColor={themeColor}
+                                    />
                                 </motion.div>
                             )}
 
@@ -1037,41 +1024,29 @@ export default function BirthPsaEndorsementPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex justify-end gap-3 pt-6">
-                                        <Button
-                                            variant="ghost"
-                                            onClick={() => setCurrentStep("INFORMANT")}
-                                            className="rounded-full px-8 border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[10px] h-12"
-                                        >
-                                            <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
-                                            Back
-                                        </Button>
-                                        <Button
-                                            onClick={() => {
-                                                if (!formData.subjectFullName || !formData.subjectDateOfBirth || !formData.mothersMaidenName) {
-                                                    setShowErrors(true);
-                                                    toast.error("Please fill in all subject details.");
-                                                    return;
-                                                }
-                                                if (!files.psaNegativeCert && !previews.psaNegativeCert) {
-                                                    setShowErrors(true);
-                                                    toast.error("Please upload PSA Negative Certification.");
-                                                    return;
-                                                }
-                                                if (!files.form1a && !previews.form1a) {
-                                                    setShowErrors(true);
-                                                    toast.error("Please upload Form 1A (Local Registry Copy).");
-                                                    return;
-                                                }
-                                                setShowErrors(false);
-                                                setCurrentStep("REVIEW");
-                                            }}
-                                            className="rounded-full px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl shadow-emerald-500/20"
-                                        >
-                                            Proceed to Review
-                                            <ArrowRight className="w-4 h-4 ml-2" />
-                                        </Button>
-                                    </div>
+                                    <BackNextButton
+                                        onBack={() => setCurrentStep("INFORMANT")}
+                                        onNext={() => {
+                                            if (!formData.subjectFullName || !formData.subjectDateOfBirth || !formData.mothersMaidenName) {
+                                                setShowErrors(true);
+                                                toast.error("Please fill in all subject details.");
+                                                return;
+                                            }
+                                            if (!files.psaNegativeCert && !previews.psaNegativeCert) {
+                                                setShowErrors(true);
+                                                toast.error("Please upload PSA Negative Certification.");
+                                                return;
+                                            }
+                                            if (!files.form1a && !previews.form1a) {
+                                                setShowErrors(true);
+                                                toast.error("Please upload Form 1A (Local Registry Copy).");
+                                                return;
+                                            }
+                                            setShowErrors(false);
+                                            setCurrentStep("REVIEW");
+                                        }}
+                                        themeColor={themeColor}
+                                    />
                                 </motion.div>
                             )}
 
@@ -1217,39 +1192,40 @@ export default function BirthPsaEndorsementPage() {
                                             </button>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                                            <Button
-                                                variant="ghost"
+                                        <div className="flex justify-end items-center gap-6 pt-6 select-none">
+                                            <button
+                                                type="button"
                                                 onClick={() => setCurrentStep("SUBJECT")}
-                                                className="h-14 rounded-full border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[11px]"
+                                                className="flex items-center gap-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors duration-200 uppercase font-black tracking-widest italic text-[11px] disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-0 outline-none cursor-pointer group"
                                             >
-                                                <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
-                                                Modify Details
-                                            </Button>
-                                            <Button
+                                                <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
+                                                BACK
+                                            </button>
+                                            <button
+                                                type="button"
                                                 onClick={handleSubmit}
                                                 disabled={submitting || (!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form1a && !previews.form1a)}
-                                                className={cn(
-                                                    "md:col-span-3 h-14 rounded-full font-black uppercase tracking-wider md:tracking-widest italic text-[9px] sm:text-[10px] md:text-[11px] transition-all duration-300 px-4 sm:px-8",
-                                                    ((!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form1a && !previews.form1a))
-                                                        ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                                                        : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-500/20"
-                                                )}
+                                                style={
+                                                    themeColor
+                                                        ? {
+                                                            backgroundColor: themeColor,
+                                                            boxShadow: themeColor.startsWith("var")
+                                                                ? `0 0 20px color-mix(in srgb, ${themeColor} 30%, transparent)`
+                                                                : `0 0 20px ${themeColor}4d`
+                                                        }
+                                                        : {}
+                                                }
+                                                className="rounded-full px-6 py-3 font-black uppercase tracking-widest italic text-[11px] flex items-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 bg-[#e11d48] text-white hover:brightness-110 shadow-[0_0_20px_rgba(225,29,72,0.3)] group"
                                             >
                                                 {submitting ? (
-                                                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mr-2" />
-                                                ) : ((!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form1a && !previews.form1a)) ? (
-                                                    <span className="flex items-center justify-center gap-1 sm:gap-2">
-                                                        Upload Required Documents
-                                                        <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-                                                    </span>
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                                 ) : (
-                                                    <span className="flex items-center justify-center gap-1 sm:gap-2">
-                                                        Submit Birth PSA Endorsement Application
-                                                        <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-                                                    </span>
+                                                    <>
+                                                        SUBMIT
+                                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                                    </>
                                                 )}
-                                            </Button>
+                                            </button>
                                         </div>
                                     </div>
                                 </motion.div>

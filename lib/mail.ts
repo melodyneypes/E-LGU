@@ -3,7 +3,7 @@ import { getSystemSetting } from "./settings";
 
 
 interface SendEmailProps {
-    type: "APPROVED" | "REJECTED" | "FOR_CLAIM" | "FOR_PAYMENT" | "RELEASED" | "DEACTIVATED" | "IN_ROUTE" | "NEW_PICKUP_ALERT" | "DISPUTE_APPROVED" | "DISPUTE_REJECTED" | "FOR_REVISION" | "PASSWORD_RESET" | "PROCESSING" | "FOR_PROCESSING" | "FOR_INSPECTION" | "FOR_REINSPECTION" | "EVALUATED" | "FOR_PICKING" | "UNPAID" | "PAID";
+    type: "APPROVED" | "REJECTED" | "FOR_CLAIM" | "FOR_PAYMENT" | "RELEASED" | "DEACTIVATED" | "IN_ROUTE" | "NEW_PICKUP_ALERT" | "DISPUTE_APPROVED" | "DISPUTE_REJECTED" | "FOR_REVISION" | "PASSWORD_RESET" | "PROCESSING" | "FOR_PROCESSING" | "FOR_INSPECTION" | "FOR_REINSPECTION" | "EVALUATED" | "FOR_PICKING" | "UNPAID" | "PAID" | "COMMUNITY_REPORT_SUBMITTED";
     to: string;
     name: string;
     remarks?: string | null;
@@ -626,6 +626,41 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
                 <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} • Automated Notification</p>
+            </div>
+        </div>`;
+    } else if (type === "COMMUNITY_REPORT_SUBMITTED") {
+        subject = `Community Report Filed Successfully - LGU ${municipalityName}`;
+        htmlBody = `
+        <div style="font-family: Inter, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8fafc; padding: 40px 20px;">
+            <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+                <div style="text-align: center; margin-bottom: 32px;">
+                    <div style="width: 64px; height: 64px; background: ${primaryBlue}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+                        <span style="color: white; font-size: 32px;">📋</span>
+                    </div>
+                    <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Report Received</h1>
+                    <p style="color: #3b82f6; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 8px;">Community Concern Submission</p>
+                </div>
+                <p style="color: #475569; font-size: 15px; line-height: 1.6;">Dear <strong>${name}</strong>,</p>
+                <p style="color: #475569; font-size: 15px; line-height: 1.6;">We have successfully received your community concern under the category <strong>${serviceName || "General Concern"}</strong>.</p>
+                
+                <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 16px; padding: 24px; margin: 32px 0;">
+                    <p style="color: #1e40af; font-size: 12px; font-weight: 800; text-transform: uppercase; margin: 0 0 12px 0; letter-spacing: 0.05em;">Timeline & Resolution Protocol</p>
+                    <p style="color: #1e293b; font-size: 14px; line-height: 1.6; margin: 0 0 16px 0;">
+                        Our barangay administration team will check your report. If the concern can be resolved within the resources and authority of our barangay staff, they will take direct action to address it. If the issue requires higher level authorization or additional resources, the report will be escalated to the municipal admin for resolution.
+                    </p>
+                    <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 12px; text-align: center;">
+                        <p style="color: #92400e; font-size: 13px; margin: 0; font-weight: 700;">
+                            Standard professional assessment and review concludes within 3-5 business days.
+                        </p>
+                    </div>
+                </div>
+
+                <p style="color: #64748b; font-size: 13px; line-height: 1.5;">
+                    You can track the live status updates of your report at any time by logging in to the Resident Portal dashboard.
+                </p>
+
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">LGU ${municipalityName} Community Services • Automated Notification</p>
             </div>
         </div>`;
     }

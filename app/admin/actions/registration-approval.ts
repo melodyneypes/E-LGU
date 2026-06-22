@@ -131,6 +131,11 @@ export async function rejectResident(residentId: string, remarks: string) {
 }
 
 export async function getPendingResidentsCount() {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as { role?: string })?.role !== "ADMIN") {
+        return 0;
+    }
+
     try {
         const count = await prisma.resident.count({
             where: { registrationStatus: "PENDING" }
@@ -142,6 +147,11 @@ export async function getPendingResidentsCount() {
 }
 
 export async function getResidentForReview(residentId: string) {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as { role?: string })?.role !== "ADMIN") {
+        return { success: false, error: "Unauthorized" };
+    }
+
     try {
         const resident = await prisma.resident.findUnique({
             where: { id: residentId },
@@ -155,3 +165,71 @@ export async function getResidentForReview(residentId: string) {
         return { success: false, error: "Failed to fetch resident." };
     }
 }
+
+export async function checkDuplicateResident(
+    firstName: string,
+    lastName: string,
+    middleName: string | null
+) {
+    try {
+        const duplicates = await prisma.resident.findMany({
+            where: {
+                firstName: { equals: firstName.trim(), mode: "insensitive" },
+                lastName: { equals: lastName.trim(), mode: "insensitive" },
+                middleName: middleName && middleName.trim() !== "" 
+                    ? { equals: middleName.trim(), mode: "insensitive" } 
+                    : null,
+                registrationStatus: "APPROVED"
+            },
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                middleName: true,
+                barangay: true,
+                email: true,
+                createdAt: true
+            }
+        });
+        return { success: true, duplicates };
+    } catch (error) {
+        console.error("Check duplicate resident error:", error);
+        return { success: false, error: "Failed to perform duplicate check." };
+    }
+}
+
+export async function checkDuplicateResidentName(firstName: string, lastName: string) {
+    try {
+        const duplicates = await prisma.resident.findMany({
+            where: {
+                firstName: { equals: firstName.trim(), mode: "insensitive" },
+                lastName: { equals: lastName.trim(), mode: "insensitive" }
+            },
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                barangay: true,
+                registrationStatus: true
+            }
+        });
+        return { success: true, duplicates };
+    } catch (error) {
+        console.error("Check duplicate resident name error:", error);
+        return { success: false, error: "Failed to perform duplicate name check." };
+    }
+}
+
+export async function checkEmailRegistered(email: string) {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { email: email.trim().toLowerCase() }
+        });
+        return { success: true, exists: !!user };
+    } catch (error) {
+        console.error("Check email registered error:", error);
+        return { success: false, error: "Failed to perform email check." };
+    }
+}
+
+

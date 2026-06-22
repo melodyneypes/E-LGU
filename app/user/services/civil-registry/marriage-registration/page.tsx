@@ -11,8 +11,6 @@ import {
     Check,
     Home,
     Heart,
-    ArrowRight,
-    ArrowLeft,
     Search,
     CheckCircle2,
     AlertCircle,
@@ -20,7 +18,7 @@ import {
     FileText
 } from "lucide-react";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
-import { Button } from "@/components/ui/button";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -47,6 +45,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
+import { BackNextButton } from "../_components/back-next-button";
 import { getSecureUploadUrlAction } from "@/app/auth/actions";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 
@@ -128,7 +127,7 @@ const STORAGE_KEY = "lcr_marriage_registration_draft";
 // --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
 async function uploadFileClientSide(file: File, fieldName: string): Promise<string> {
     const fileExt = file.name.split('.').pop() || 'bin';
-    
+
     const res = await getSecureUploadUrlAction(fieldName, "lcr/marriage_registration", fileExt);
     if (!res.success || !res.signedUrl || !res.publicUrl) {
         throw new Error(res.error || "Failed to generate secure upload destination");
@@ -1194,23 +1193,11 @@ export default function MarriageRegistrationPage() {
                                         </div>
                                     </Card>
 
-                                    <div className="flex justify-between pt-4">
-                                        <Button
-                                            type="button"
-                                            onClick={() => router.push("/user/services/civil-registry")}
-                                            className="h-14 px-10 rounded-2xl border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest italic text-[10px] bg-transparent hover:bg-slate-50 dark:hover:bg-white/5"
-                                        >
-                                            <ArrowLeft className="mr-2 w-5 h-5" />
-                                            Back
-                                        </Button>
-                                        <Button
-                                            onClick={nextStep}
-                                            className="h-14 px-10 rounded-2xl text-white font-black uppercase italic tracking-widest hover:opacity-90 transition-opacity"
-                                            style={{ backgroundColor: themeColor }}
-                                        >
-                                            Next Part <ArrowRight className="ml-2 w-5 h-5" />
-                                        </Button>
-                                    </div>
+                                    <BackNextButton
+                                        onBack={() => router.push("/user/services/civil-registry")}
+                                        onNext={nextStep}
+                                        themeColor={themeColor}
+                                    />
                                 </div>
                             )}
 
@@ -1337,18 +1324,11 @@ export default function MarriageRegistrationPage() {
                                         </div>
                                     </Card>
 
-                                    <div className="flex justify-end gap-4 pt-4">
-                                        <Button variant="outline" onClick={prevStep} className="h-14 px-8 rounded-2xl font-black uppercase italic tracking-widest">
-                                            Back
-                                        </Button>
-                                        <Button
-                                            onClick={nextStep}
-                                            className="h-14 px-10 rounded-2xl text-white font-black uppercase italic tracking-widest hover:opacity-90 transition-opacity"
-                                            style={{ backgroundColor: themeColor }}
-                                        >
-                                            Final Review <ArrowRight className="ml-2 w-5 h-5" />
-                                        </Button>
-                                    </div>
+                                    <BackNextButton
+                                        onBack={prevStep}
+                                        onNext={nextStep}
+                                        themeColor={themeColor}
+                                    />
                                 </div>
                             )}
 
@@ -1479,20 +1459,13 @@ export default function MarriageRegistrationPage() {
                                         </div>
                                     </Card>
 
-                                    <div className="flex justify-end gap-4 pt-4">
-                                        <Button variant="outline" onClick={prevStep} className="h-14 px-8 rounded-2xl font-black uppercase italic tracking-widest">
-                                            Back
-                                        </Button>
-                                        <Button
-                                            onClick={handleSubmit}
-                                            disabled={submitting}
-                                            className="h-14 px-12 rounded-2xl text-white font-black uppercase italic tracking-widest shadow-xl"
-                                            style={{ backgroundColor: themeColor, boxShadow: themeColor === "var(--primary-theme)" ? "0 10px 20px color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `0 10px 20px ${themeColor}33` }}
-                                        >
-                                            {submitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
-                                            Confirm & Submit
-                                        </Button>
-                                    </div>
+                                    <BackNextButton
+                                        onBack={prevStep}
+                                        onNext={handleSubmit}
+                                        nextLabel="SUBMIT"
+                                        isSubmitting={submitting}
+                                        themeColor={themeColor}
+                                    />
                                 </div>
                             )}
                         </motion.div>

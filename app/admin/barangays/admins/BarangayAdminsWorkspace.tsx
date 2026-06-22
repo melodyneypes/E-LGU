@@ -9,12 +9,12 @@ import { format } from "date-fns";
 import { AddBarangayAdminModal } from "./components/AddBarangayAdminModal";
 
 interface BarangayAdminsWorkspaceProps {
-     
     initialAdmins: any[];
     barangays: string[];
+    themeColor?: string;
 }
 
-export function BarangayAdminsWorkspace({ initialAdmins, barangays }: BarangayAdminsWorkspaceProps) {
+export function BarangayAdminsWorkspace({ initialAdmins, barangays, themeColor = "#2563eb" }: BarangayAdminsWorkspaceProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     return (
@@ -22,19 +22,13 @@ export function BarangayAdminsWorkspace({ initialAdmins, barangays }: BarangayAd
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <div className="flex items-center space-x-2 text-slate-500 dark:text-slate-400 text-xs mb-2 bg-slate-100 dark:bg-slate-800/50 w-fit px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700/50">
-                        <MapPin size={12} className="text-blue-500" />
-                        <span className="opacity-50">/</span>
-                        <span>Infrastructure</span>
-                        <span className="opacity-50">/</span>
-                        <span className="text-blue-600 dark:text-blue-400 font-bold">Barangay Admins</span>
-                    </div>
                     <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">Barangay Admin Accounts</h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">Register and manage admin accounts for each barangay.</p>
                 </div>
                 <Button
                     onClick={() => setIsModalOpen(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold uppercase tracking-wider text-xs px-6 py-6 rounded-2xl shadow-xl shadow-blue-500/20"
+                    style={{ backgroundColor: themeColor, boxShadow: `0 20px 25px -5px ${themeColor}33` }}
+                    className="hover:opacity-90 text-white font-bold uppercase tracking-wider text-xs px-6 py-6 rounded-2xl transition-all duration-200"
                 >
                     <Plus className="w-4 h-4 mr-2" />
                     Register Barangay Admin
@@ -114,6 +108,7 @@ export function BarangayAdminsWorkspace({ initialAdmins, barangays }: BarangayAd
                     isOpen={isModalOpen}
                     onClose={() => setIsModalOpen(false)}
                     barangays={barangays}
+                    themeColor={themeColor}
                 />
             )}
         </div>

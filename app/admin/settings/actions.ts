@@ -349,14 +349,15 @@ export async function updateTreasurySettings(formData: FormData) {
     }
 }
 
-export async function updateTransactionBaseFees(fees: { id: string, baseFee: number, studentFee?: number | null }[]) {
+export async function updateTransactionBaseFees(fees: { id: string, baseFee: number, studentFee?: number | null, defaultFees?: any }[]) {
     try {
         const updates = fees.map(fee =>
             prisma.transactionType.update({
                 where: { id: fee.id },
                 data: {
                     baseFee: fee.baseFee,
-                    ...(fee.studentFee !== undefined ? { studentFee: fee.studentFee } : {})
+                    ...(fee.studentFee !== undefined ? { studentFee: fee.studentFee } : {}),
+                    ...(fee.defaultFees !== undefined ? { defaultFees: fee.defaultFees } : {})
                 }
             })
         );

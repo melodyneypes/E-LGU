@@ -9,8 +9,6 @@ import {
     AlertCircle,
     Sparkles,
     Heart,
-    ArrowRight,
-    ArrowLeft,
     Upload,
     FileText,
     CheckCircle2,
@@ -19,9 +17,11 @@ import {
 import Link from "next/link";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
+import { BackNextButton } from "../_components/back-next-button";
 import { getSecureUploadUrlAction } from "@/app/auth/actions";
-import { Button } from "@/components/ui/button";
 
+
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -58,7 +58,7 @@ import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 // --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
 async function uploadFileClientSide(file: File, fieldName: string): Promise<string> {
     const fileExt = file.name.split('.').pop() || 'bin';
-    
+
     const res = await getSecureUploadUrlAction(fieldName, "lcr/marriage_certificate_request", fileExt);
     if (!res.success || !res.signedUrl || !res.publicUrl) {
         throw new Error(res.error || "Failed to generate secure upload destination");
@@ -1267,37 +1267,23 @@ export default function MarriageCertificateRequestPage() {
                                 </p>
                             </div>
 
-                            <div className="flex justify-between items-center pt-8">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    onClick={() => router.push("/user/services/civil-registry")}
-                                    className="rounded-full px-12 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest italic text-[10px] h-12 bg-transparent hover:bg-slate-50 dark:hover:bg-white/5"
-                                >
-                                    <ArrowLeft className="w-4 h-4 mr-2" />
-                                    Back
-                                </Button>
-                                <Button
-                                    onClick={() => {
-                                        const missing = [];
-                                        if (!form.relationship) missing.push("Relationship");
-                                        if (!form.contactNumber) missing.push("Contact Number");
+                            <BackNextButton
+                                onBack={() => router.push("/user/services/civil-registry")}
+                                onNext={() => {
+                                    const missing = [];
+                                    if (!form.relationship) missing.push("Relationship");
+                                    if (!form.contactNumber) missing.push("Contact Number");
 
-                                        if (missing.length > 0) {
-                                            setShowErrors(true);
-                                            toast.error(`Please fill in all required fields: ${missing.join(", ")}`);
-                                            return;
-                                        }
-                                        setShowErrors(false);
-                                        setCurrentStep("DETAILS");
-                                    }}
-                                    className="rounded-full px-12 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl transition-all duration-300"
-                                    style={{ backgroundColor: themeColor, boxShadow: themeColor === "var(--primary-theme)" ? "0 10px 20px color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `0 10px 20px ${themeColor}33` }}
-                                >
-                                    Proceed to Marriage Details
-                                    <ArrowRight className="w-4 h-4 ml-2" />
-                                </Button>
-                            </div>
+                                    if (missing.length > 0) {
+                                        setShowErrors(true);
+                                        toast.error(`Please fill in all required fields: ${missing.join(", ")}`);
+                                        return;
+                                    }
+                                    setShowErrors(false);
+                                    setCurrentStep("DETAILS");
+                                }}
+                                themeColor={themeColor}
+                            />
                         </motion.div>
                     )}
 
@@ -1548,12 +1534,11 @@ export default function MarriageCertificateRequestPage() {
 
                             <div className="flex justify-end gap-3 pt-6">
                                 <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     onClick={() => setCurrentStep("IDENTITY")}
-                                    className="rounded-full px-8 border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[10px] h-12"
+                                    className="rounded-full px-8 font-black uppercase tracking-widest italic text-[10px] h-12"
                                 >
-                                    <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
-                                    Back
+                                    BACK
                                 </Button>
                                 <Button
                                     onClick={() => {
@@ -1572,10 +1557,9 @@ export default function MarriageCertificateRequestPage() {
                                         setCurrentStep("CONFIRM");
                                     }}
                                     className="rounded-full px-12 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl transition-all duration-300"
-                                    style={{ backgroundColor: themeColor, boxShadow: themeColor === "var(--primary-theme)" ? "0 10px 20px color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `0 10px 20px ${themeColor}33` }}
+                                    style={{ backgroundColor: themeColor }}
                                 >
-                                    Proceed to Review & Upload
-                                    <ArrowRight className="w-4 h-4 ml-2" />
+                                    NEXT
                                 </Button>
                             </div>
                         </motion.div>
@@ -1704,14 +1688,13 @@ export default function MarriageCertificateRequestPage() {
                                     <button type="button" onClick={() => setPolicyOpen(true)} className="text-[10px] font-black italic text-rose-600 shrink-0">Review</button>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                <div className="flex gap-3 w-full justify-end">
                                     <Button
-                                        variant="ghost"
+                                        variant="outline"
                                         onClick={() => setCurrentStep("DETAILS")}
-                                        className="h-14 rounded-full border-slate-200 dark:border-white/10 font-black uppercase tracking-widest italic text-[11px]"
+                                        className="h-14 px-8 rounded-full font-black uppercase tracking-widest italic text-[11px] select-none"
                                     >
-                                        <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
-                                        Modify
+                                        BACK
                                     </Button>
                                     <Button
                                         onClick={handleSubmit}
@@ -1722,25 +1705,15 @@ export default function MarriageCertificateRequestPage() {
                                             (!form.files["validIdBack"] && !resident?.idBackUrl && !form.previews["validIdBack"])
                                         }
                                         className={cn(
-                                            "md:col-span-3 h-14 rounded-full font-black uppercase tracking-wider md:tracking-widest italic text-[9px] sm:text-[10px] md:text-[11px] transition-all duration-300 px-4 sm:px-8",
+                                            "flex-1 h-14 rounded-full font-black uppercase tracking-widest italic text-[11px] transition-all duration-300 select-none",
                                             (!form.idTypeOverride && !resident?.idType) || (!form.files["validIdFront"] && !resident?.idFrontUrl && !form.previews["validIdFront"]) || (!form.files["validIdBack"] && !resident?.idBackUrl && !form.previews["validIdBack"])
                                                 ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                                                : "bg-rose-600 hover:bg-rose-700 text-white shadow-xl shadow-rose-500/20"
+                                                : "text-white shadow-xl"
                                         )}
+                                        style={!((!form.idTypeOverride && !resident?.idType) || (!form.files["validIdFront"] && !resident?.idFrontUrl && !form.previews["validIdFront"]) || (!form.files["validIdBack"] && !resident?.idBackUrl && !form.previews["validIdBack"])) ? { backgroundColor: themeColor } : {}}
                                     >
-                                        {submitting ? (
-                                            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mr-2" />
-                                        ) : (!form.idTypeOverride && !resident?.idType) || (!form.files["validIdFront"] && !resident?.idFrontUrl && !form.previews["validIdFront"]) || (!form.files["validIdBack"] && !resident?.idBackUrl && !form.previews["validIdBack"]) ? (
-                                            <span className="flex items-center justify-center gap-1 sm:gap-2">
-                                                Upload Identification to Submit
-                                                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-                                            </span>
-                                        ) : (
-                                            <span className="flex items-center justify-center gap-1 sm:gap-2">
-                                                Submit Marriage Request
-                                                <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-                                            </span>
-                                        )}
+                                        {submitting && <Loader2 className="w-5 h-5 animate-spin mr-2" />}
+                                        SUBMIT
                                     </Button>
                                 </div>
                             </div>

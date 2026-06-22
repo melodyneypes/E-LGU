@@ -3,6 +3,7 @@
 import { useResident } from "../providers";
 import { Resident } from "../providers/ResidentProvider";
 import { deleteResident } from "../../actions";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Edit, Trash2, Search, Phone, BadgeCheck, MoreVertical, Skull, Radio, Eye } from "lucide-react";
@@ -29,53 +30,49 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 
 export function ResidentTable() {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+
     const {
         residents,
         setResidents,
-        searchQuery,
-        selectedBarangay,
-        selectedGender,
-        selectedCategory,
         setEditingData,
         setIsAddModalOpen,
         themeColor,
+        totalCount,
+        page,
+        limit
     } = useResident();
 
-    const filteredResidents = residents.filter((r) => {
-        const matchesSearch =
-            r.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            r.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            r.barangay.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesBarangay = selectedBarangay === "All" || r.barangay === selectedBarangay;
-        const matchesGender = selectedGender === "All" || r.gender === selectedGender;
-        const matchesCategory = selectedCategory === "All" || 
-            (r.category && (r.category.id === selectedCategory || r.category.name === selectedCategory));
-            
-        return matchesSearch && matchesBarangay && matchesGender && matchesCategory;
-    });
+    const filteredResidents = residents;
 
-    const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isRFIDModalOpen, setIsRFIDModalOpen] = useState(false);
     const [selectedResident, setSelectedResident] = useState<{id: string, name: string} | null>(null);
     const [reviewResident, setReviewResident] = useState<Resident | null>(null);
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
-    useEffect(() => {
-        if (currentPage !== 1) {
-            setCurrentPage(1);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchQuery, selectedBarangay, selectedGender, selectedCategory, itemsPerPage]);
+    const totalPages = Math.ceil(totalCount / limit);
+    const paginatedResidents = residents;
 
-    const totalPages = Math.ceil(filteredResidents.length / itemsPerPage);
-    const paginatedResidents = filteredResidents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const handlePageChange = (newPage: number) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("page", newPage.toString());
+        router.push(`${pathname}?${params.toString()}`);
+    };
+
+    const handleLimitChange = (newLimit: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("limit", newLimit);
+        params.delete("page"); // Reset to page 1
+        router.push(`${pathname}?${params.toString()}`);
+    };
 
     const handleDelete = async (id: string) => {
         try {
@@ -382,9 +379,9 @@ export function ResidentTable() {
             <div className="p-6 border-t border-slate-200 dark:border-[#2a3040] flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-[#151b2b]/50">
                 <div className="flex items-center space-x-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
                     <span className="hidden sm:inline-block">Rows per page:</span>
-                    <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                    <Select value={limit.toString()} onValueChange={handleLimitChange}>
                         <SelectTrigger className="h-8 w-[70px] border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117] rounded-lg">
-                            <SelectValue placeholder={itemsPerPage} />
+                            <SelectValue placeholder={limit} />
                         </SelectTrigger>
                         <SelectContent className="bg-white dark:bg-[#151b2b]">
                             <SelectItem value="10">10</SelectItem>
@@ -396,14 +393,14 @@ export function ResidentTable() {
                 </div>
                 <div className="flex items-center space-x-4">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                        Showing {Math.min(currentPage * itemsPerPage, filteredResidents.length)} of {filteredResidents.length}
+                        Showing {Math.min(page * limit, totalCount)} of {totalCount}
                     </span>
                     <div className="flex items-center gap-2">
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                            disabled={currentPage === 1}
+                            onClick={() => handlePageChange(Math.max(page - 1, 1))}
+                            disabled={page === 1}
                             className="h-10 px-4 rounded-xl border-slate-200 dark:border-[#2a3040] font-bold"
                         >
                             Prev
@@ -411,8 +408,8 @@ export function ResidentTable() {
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                            disabled={currentPage === totalPages || totalPages === 0}
+                            onClick={() => handlePageChange(Math.min(page + 1, totalPages))}
+                            disabled={page === totalPages || totalPages === 0}
                             className="h-10 px-4 rounded-xl border-slate-200 dark:border-[#2a3040] font-bold"
                         >
                             Next

@@ -4,7 +4,7 @@ import { useResident } from "../providers";
 import { useResidentForm } from "../hooks/useResidentForm";
 import { 
     User, MapPin, BadgeInfo, Users, ShieldCheck, 
-    ChevronRight, ChevronLeft, Save, X, Loader2, Camera, UserCheck 
+    ChevronRight, ChevronLeft, Save, X, Loader2, Camera, UserCheck, AlertTriangle 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -17,6 +17,7 @@ import { AccountSetupSection } from "./form-sections/AccountSetup";
 import { SectorsAndConsentSection } from "./form-sections/SectorsAndConsent";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { checkDuplicateResidentName, checkEmailRegistered } from "@/app/admin/actions/registration-approval";
 
 const STEPS = [
     { id: "personal", title: "Personal", icon: User, description: "Basic Info (A)" },
@@ -75,10 +76,71 @@ export function AddResidentModal() {
         setCurrentFamilyMembers([]);
     };
 
-    const nextStep = () => {
+    const [nameWarningModalOpen, setNameWarningModalOpen] = useState(false);
+    const [duplicateResidents, setDuplicateResidents] = useState<any[]>([]);
+    const [isCheckingAsync, setIsCheckingAsync] = useState(false);
+
+    const handleAsyncStepValidation = async (stepIndex: number): Promise<boolean> => {
+        const form = document.getElementById("residentForm") as HTMLFormElement;
+        if (!form) return true;
+        const formData = new FormData(form);
+
+        if (stepIndex === 0) { // Personal Step
+            const firstName = formData.get("firstName") as string;
+            const lastName = formData.get("lastName") as string;
+            if (!firstName || !lastName) return true;
+
+            setIsCheckingAsync(true);
+            try {
+                const res = await checkDuplicateResidentName(firstName, lastName);
+                if (res.success && res.duplicates && res.duplicates.length > 0) {
+                    const actualDuplicates = res.duplicates.filter((dup: any) => dup.id !== editingData?.id);
+                    if (actualDuplicates.length > 0) {
+                        setDuplicateResidents(actualDuplicates);
+                        setNameWarningModalOpen(true);
+                        setIsCheckingAsync(false);
+                        return false;
+                    }
+                }
+            } catch (err) {
+                console.error("Async name validation failed", err);
+            } finally {
+                setIsCheckingAsync(false);
+            }
+        }
+
+        if (stepIndex === 5) { // Account Step
+            const email = formData.get("email") as string;
+            if (!email || email.trim() === "") return true;
+
+            setIsCheckingAsync(true);
+            try {
+                const res = await checkEmailRegistered(email);
+                if (res.success && res.exists) {
+                    const isOwnEmail = editingData && editingData.email?.toLowerCase() === email.trim().toLowerCase();
+                    if (!isOwnEmail) {
+                        toast.error(`Warning: The email ${email} is already registered to a user account.`);
+                        setIsCheckingAsync(false);
+                        return false;
+                    }
+                }
+            } catch (err) {
+                console.error("Async email validation failed", err);
+            } finally {
+                setIsCheckingAsync(false);
+            }
+        }
+
+        return true;
+    };
+
+    const nextStep = async () => {
         if (currentStep < STEPS.length - 1) {
             if (validateStep(currentStep)) {
-                setCurrentStep(currentStep + 1);
+                const isAsyncValid = await handleAsyncStepValidation(currentStep);
+                if (isAsyncValid) {
+                    setCurrentStep(currentStep + 1);
+                }
             }
         }
     };
@@ -367,10 +429,15 @@ export function AddResidentModal() {
                                         key="next-btn"
                                         type="button" 
                                         onClick={nextStep}
+                                        disabled={isCheckingAsync}
                                         style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
                                         className="h-12 px-10 hover:opacity-90 text-white font-bold rounded-2xl transition-all duration-200"
                                     >
-                                        Next <ChevronRight className="w-4 h-4 ml-2" />
+                                        {isCheckingAsync ? (
+                                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</>
+                                        ) : (
+                                            <>Next <ChevronRight className="w-4 h-4 ml-2" /></>
+                                        )}
                                     </Button>
                                 ) : (
                                     <Button 
@@ -392,6 +459,70 @@ export function AddResidentModal() {
                     </div>
                 </div>
             </DialogContent>
+
+            {/* Duplicate Resident Name Warning Dialog */}
+            <Dialog open={nameWarningModalOpen} onOpenChange={setNameWarningModalOpen}>
+                <DialogContent className="max-w-md w-full bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-3xl p-6 z-[200]">
+                    <DialogHeader className="space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/30 flex items-center justify-center text-red-500">
+                            <AlertTriangle className="w-6 h-6 animate-pulse" />
+                        </div>
+                        <DialogTitle className="text-lg font-black uppercase tracking-tight text-red-650 dark:text-red-400">
+                            ⚠️ Duplicate Name Alert
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500">
+                            The system detected existing residents matching this name in the database.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="my-4 space-y-3">
+                        <p className="text-xs text-slate-650 dark:text-slate-400 font-medium">
+                            A resident with this name is already registered:
+                        </p>
+
+                        <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50/50 dark:bg-slate-900/10 max-h-[200px] overflow-y-auto custom-scrollbar">
+                            {duplicateResidents.map((dup) => (
+                                <div key={dup.id} className="py-2.5 first:pt-0 last:pb-0 flex flex-col gap-1">
+                                    <div className="flex justify-between items-center text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">
+                                        <span>{dup.lastName}, {dup.firstName}</span>
+                                        <span className={`text-[9px] px-2 py-0.5 rounded-full border ${
+                                            dup.registrationStatus === 'APPROVED' 
+                                            ? 'text-green-600 border-green-200 bg-green-50 dark:bg-green-950/20' 
+                                            : 'text-amber-600 border-amber-200 bg-amber-50 dark:bg-amber-950/20'
+                                        }`}>{dup.registrationStatus}</span>
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 font-semibold">
+                                        Barangay: <strong className="text-slate-750 dark:text-slate-350">{dup.barangay}</strong>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <p className="text-xs text-slate-650 dark:text-slate-400 font-semibold italic text-center leading-relaxed">
+                            Do you want to proceed with this new registration anyway?
+                        </p>
+                    </div>
+
+                    <DialogFooter className="flex items-center gap-3 pt-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setNameWarningModalOpen(false)}
+                            className="flex-1 rounded-2xl border-slate-200 dark:border-[#2a3040] font-bold py-6 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                setNameWarningModalOpen(false);
+                                setCurrentStep(1); // Advance to the next step
+                            }}
+                            className="flex-1 rounded-2xl bg-red-600 hover:bg-red-750 text-white font-bold py-6 shadow-lg shadow-red-650/20"
+                        >
+                            Yes, Proceed
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Dialog>
     );
 }

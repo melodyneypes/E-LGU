@@ -9,7 +9,7 @@ import {
     Clock, RotateCw, RefreshCw, ZoomIn, ZoomOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { approveResident, rejectResident } from "@/app/admin/actions/registration-approval";
+import { approveResident, rejectResident, checkDuplicateResident } from "@/app/admin/actions/registration-approval";
 import type { Resident } from "../providers/ResidentProvider";
 
 interface ResidentReviewModalProps {
@@ -54,6 +54,9 @@ export function ResidentReviewModal({ resident, isOpen, onClose, onStatusChange,
     const [isRejecting, setIsRejecting] = useState(false);
     const [remarks, setRemarks] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [showWarning, setShowWarning] = useState(false);
+    const [duplicateResidents, setDuplicateResidents] = useState<any[]>([]);
+
 
     // Zoom, Rotation, and Drag Lightbox state
     const [zoomedImage, setZoomedImage] = useState<{ src: string; label: string } | null>(null);
@@ -118,14 +121,36 @@ export function ResidentReviewModal({ resident, isOpen, onClose, onStatusChange,
         };
     }, [zoomedImage]);
 
-    // Reset modal state when opened or resident changes
+    // Reset modal state when opened or resident changes, and check duplicates immediately
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && resident) {
             setActiveTab("profile");
             setIsRejecting(false);
             setRemarks("");
+            setShowWarning(false);
+            setDuplicateResidents([]);
+
+            if (resident.registrationStatus === "PENDING") {
+                const fetchDuplicates = async () => {
+                    try {
+                        const res = await checkDuplicateResident(
+                            resident.firstName,
+                            resident.lastName,
+                            resident.middleName || null
+                        );
+                        if (res.success && res.duplicates && res.duplicates.length > 0) {
+                            setDuplicateResidents(res.duplicates);
+                            setShowWarning(true);
+                        }
+                    } catch (err) {
+                        console.error("Duplicate check failed", err);
+                    }
+                };
+                fetchDuplicates();
+            }
         }
-    }, [isOpen, resident?.id]);
+    }, [isOpen, resident]);
+
 
     if (!isOpen || !resident) return null;
 
@@ -220,6 +245,19 @@ export function ResidentReviewModal({ resident, isOpen, onClose, onStatusChange,
                 <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
                     {/* Left Panel: Resident Details (Tabbed) */}
                     <div className="flex-1 overflow-y-auto custom-scrollbar p-6 flex flex-col min-h-0">
+                        {/* Inline Warning Banner */}
+                        {duplicateResidents.length > 0 && (
+                            <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-2xl flex items-start gap-3 flex-shrink-0">
+                                <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <h5 className="text-xs font-black uppercase tracking-wider text-red-650 dark:text-red-400">Duplicate Record Alert</h5>
+                                    <p className="text-[11px] text-red-600 dark:text-red-500 font-semibold leading-relaxed mt-0.5">
+                                        There is already an approved resident with this name ({resident.firstName} {resident.lastName}) in Barangay {duplicateResidents[0].barangay}.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Modern Premium Tabs Selector */}
                         <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 dark:bg-slate-900/60 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 mb-6 flex-shrink-0">
                             {(["profile", "socio", "family"] as const).map((tab) => {
@@ -674,6 +712,71 @@ export function ResidentReviewModal({ resident, isOpen, onClose, onStatusChange,
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                             Scroll to Zoom • Drag to Pan {scale > 1 && "• Double-click to Reset"} • Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/10 text-white text-[9px]">ESC</kbd> to Close
                         </p>
+                    </div>
+                </div>
+            )}
+
+            {/* Duplicate Resident Warning Modal */}
+            {showWarning && duplicateResidents.length > 0 && (
+                <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#151b2b] rounded-3xl shadow-2xl border border-red-100 dark:border-red-950/50 w-full max-w-xl p-6 space-y-6 animate-in zoom-in-95 duration-200">
+                        {/* Header */}
+                        <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/30 flex items-center justify-center text-red-500">
+                                <AlertTriangle className="w-6 h-6 animate-pulse" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black uppercase tracking-tight text-red-650 dark:text-red-400">⚠️ Duplicate Resident Warning</h3>
+                                <p className="text-xs text-slate-500">System detected duplicate records in the database.</p>
+                            </div>
+                        </div>
+
+                        {/* Duplicates List */}
+                        <div className="space-y-3">
+                            <p className="text-xs text-slate-650 dark:text-slate-400 font-medium">
+                                A resident with the name <strong className="text-slate-850 dark:text-slate-200 uppercase">{resident.firstName} {resident.lastName}</strong> is already registered and approved:
+                            </p>
+
+                            <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50/50 dark:bg-slate-900/10">
+                                {duplicateResidents.map((dup) => (
+                                    <div key={dup.id} className="py-2.5 first:pt-0 last:pb-0 flex flex-col gap-1">
+                                        <div className="flex justify-between items-center text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">
+                                            <span>{dup.lastName}, {dup.firstName} {dup.middleName ? `${dup.middleName[0]}.` : ""}</span>
+                                            <span className="text-[10px] text-emerald-650 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-850">APPROVED</span>
+                                        </div>
+                                        <div className="flex justify-between text-[11px] text-slate-500 font-semibold">
+                                            <span>Barangay: <strong className="text-slate-700 dark:text-slate-350">{dup.barangay}</strong></span>
+                                            <span>Email: <strong className="text-slate-700 dark:text-slate-350">{dup.email || "N/A"}</strong></span>
+                                        </div>
+                                        <span className="text-[9px] text-slate-400">Approved Date: {new Date(dup.createdAt).toLocaleDateString()}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <p className="text-xs text-slate-650 dark:text-slate-450 font-semibold italic text-center leading-relaxed">
+                            &quot;A resident with this name is already registered/approved. Do you want to proceed with reviewing and approving this request anyway?&quot;
+                        </p>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-3 pt-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setShowWarning(false);
+                                    onClose(); // Kill both modals
+                                }}
+                                className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 font-bold py-6 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900"
+                            >
+                                No, Go Back
+                            </Button>
+                            <Button
+                                onClick={() => setShowWarning(false)} // Proceed and close warning modal only
+                                className="flex-1 rounded-xl bg-red-650 hover:bg-red-750 text-white font-bold py-6 shadow-lg shadow-red-650/20"
+                            >
+                                Yes, Proceed
+                            </Button>
+                        </div>
                     </div>
                 </div>
             )}

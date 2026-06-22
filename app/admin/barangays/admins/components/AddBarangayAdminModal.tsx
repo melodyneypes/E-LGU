@@ -11,11 +11,15 @@ interface AddBarangayAdminModalProps {
     isOpen: boolean;
     onClose: () => void;
     barangays: string[];
+    themeColor?: string;
 }
 
-export function AddBarangayAdminModal({ isOpen, onClose, barangays }: AddBarangayAdminModalProps) {
+export function AddBarangayAdminModal({ isOpen, onClose, barangays, themeColor = "#2563eb" }: AddBarangayAdminModalProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [selectedBarangay, setSelectedBarangay] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     if (!isOpen) return null;
 
@@ -56,6 +60,10 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays }: AddBaranga
         }
     }
 
+    const filteredBarangays = barangays.filter(b =>
+        b.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="bg-white dark:bg-[#151b2b] rounded-3xl w-full max-w-lg border border-slate-200 dark:border-[#2a3040] shadow-2xl relative flex flex-col max-h-[90vh]">
@@ -63,7 +71,7 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays }: AddBaranga
                 <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-[#2a3040] flex-shrink-0">
                     <div>
                         <h2 className="text-2xl font-black uppercase italic tracking-tight flex items-center gap-2">
-                            <Shield className="w-6 h-6 text-blue-500" />
+                            <Shield className="w-6 h-6" style={{ color: themeColor }} />
                             Register Barangay Admin
                         </h2>
                         <p className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-widest">
@@ -100,6 +108,7 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays }: AddBaranga
                                 name="email"
                                 type="email"
                                 required
+                                autoComplete="new-email"
                                 placeholder="admin@barangay.com"
                                 className="font-bold h-12 rounded-xl"
                             />
@@ -115,6 +124,7 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays }: AddBaranga
                                     name="password"
                                     type={showPassword ? "text" : "password"}
                                     required
+                                    autoComplete="new-password"
                                     placeholder="Min. 6 characters"
                                     className="font-bold h-12 rounded-xl pr-12"
                                 />
@@ -130,7 +140,7 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays }: AddBaranga
                         </div>
 
                         {/* Barangay Selector */}
-                        <div className="space-y-2">
+                        <div className="space-y-2 relative">
                             <label className="text-xs font-bold uppercase tracking-widest text-slate-500">
                                 Assign to Barangay <span className="text-red-500">*</span>
                             </label>
@@ -139,32 +149,68 @@ export function AddBarangayAdminModal({ isOpen, onClose, barangays }: AddBaranga
                                     No barangays found. Please add a barangay first in the &quot;Add/Edit Barangays&quot; section.
                                 </div>
                             ) : (
-                                <select
-                                    name="managedBarangay"
-                                    required
-                                    className="w-full h-12 rounded-xl border border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#1a1f2e] text-slate-900 dark:text-white font-bold px-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    defaultValue=""
-                                >
-                                    <option value="" disabled>Select a Barangay</option>
-                                    {barangays.map((b) => (
-                                        <option key={b} value={b}>{b}</option>
-                                    ))}
-                                </select>
+                                <div className="relative">
+                                    <input type="hidden" name="managedBarangay" value={selectedBarangay} required />
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                        className="w-full h-12 rounded-xl border border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#1a1f2e] text-slate-900 dark:text-white font-bold px-4 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <span>{selectedBarangay || "Select a Barangay"}</span>
+                                        <span className="text-xs text-slate-400">▼</span>
+                                    </button>
+
+                                    {isDropdownOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-[110]" onClick={() => setIsDropdownOpen(false)} />
+                                            <div className="absolute z-[120] bottom-full left-0 right-0 mb-2 p-3 bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-2xl shadow-xl flex flex-col gap-2 max-h-60 overflow-hidden">
+                                                <div className="relative flex-shrink-0">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search barangay..."
+                                                        value={searchQuery}
+                                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                                        className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-[#2a3040] bg-slate-50 dark:bg-[#0f1117] text-slate-900 dark:text-white font-bold text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                </div>
+
+                                                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-0.5 max-h-40">
+                                                    {filteredBarangays.length === 0 ? (
+                                                        <div className="p-3 text-center text-xs text-slate-400 italic">No barangays match search.</div>
+                                                    ) : (
+                                                        filteredBarangays.map((b) => (
+                                                            <button
+                                                                key={b}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSelectedBarangay(b);
+                                                                    setIsDropdownOpen(false);
+                                                                    setSearchQuery("");
+                                                                }}
+                                                                className="w-full text-left p-3 rounded-xl text-xs font-bold text-slate-750 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-[#0f1117] hover:text-slate-900 dark:hover:text-white transition-colors"
+                                                            >
+                                                                {b}
+                                                            </button>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </form>
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-100 dark:border-[#2a3040] bg-slate-50 dark:bg-[#1a1f2e] rounded-b-3xl flex-shrink-0">
-                    <Button type="button" variant="ghost" onClick={onClose} className="font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
-                        Cancel
-                    </Button>
+                <div className="flex items-center justify-end p-6 border-t border-slate-100 dark:border-[#2a3040] bg-slate-50 dark:bg-[#1a1f2e] rounded-b-3xl flex-shrink-0">
                     <Button
                         type="submit"
                         form="adminForm"
                         disabled={isSubmitting || barangays.length === 0}
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold uppercase tracking-widest text-xs px-8 py-6 rounded-2xl shadow-xl shadow-blue-500/20"
+                        style={{ backgroundColor: themeColor, boxShadow: `0 20px 25px -5px ${themeColor}33` }}
+                        className="hover:opacity-90 text-white font-bold uppercase tracking-widest text-xs px-8 py-6 rounded-2xl transition-all duration-200"
                     >
                         <Save className="w-4 h-4 mr-2" />
                         {isSubmitting ? "Creating..." : "Create Admin Account"}

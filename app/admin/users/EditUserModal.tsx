@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { UserRole } from "@prisma/client";
-import { Edit3, Loader2 } from "lucide-react";
+import { Edit3, Loader2, Eye, EyeOff } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getBarangaysList, updateUser } from "../actions";
@@ -51,6 +51,7 @@ export function EditUserModal({
     [],
   );
   const [role, setRole] = useState<UserRole>("USER");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -199,13 +200,26 @@ export function EditUserModal({
                   >
                     New Password (Optional)
                   </Label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    placeholder="Leave blank to keep current"
-                    className="!h-12 !w-full rounded-xl border-slate-200 dark:border-white/10 dark:bg-white/5 italic font-medium px-3 text-sm"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Leave blank to keep current"
+                      className="!h-12 !w-full rounded-xl border-slate-200 dark:border-white/10 dark:bg-white/5 italic font-medium pl-3 pr-10 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 

@@ -7,8 +7,8 @@ export type Household = {
     headId: string | null;
     headOfFamily?: string | null; // Virtual for display
     barangay: string;
-    latitude: number;
-    longitude: number;
+    latitude: number | null;
+    longitude: number | null;
     householdSize: number;
     contactNumber: string | null;
     riskLevel: string;

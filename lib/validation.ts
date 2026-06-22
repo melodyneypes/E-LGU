@@ -29,6 +29,10 @@ export function sanitizeObject<T>(obj: T): T {
     }
 
     if (typeof obj === "string") {
+        if (obj.startsWith("data:") && obj.includes(";base64,")) {
+            console.log(`[Base64 Guardrail] Intercepted and stripped base64 string starting with: "${obj.slice(0, 50)}..."`);
+            return "" as unknown as T; // Strip out heavy base64 data to prevent database bloat/egress issues
+        }
         return sanitizeString(obj) as unknown as T;
     }
 
@@ -40,6 +44,7 @@ export function sanitizeObject<T>(obj: T): T {
         const sanitizedObj: Record<string, any> = {};
         for (const key in obj) {
             if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                if (key === "facialRecognition") continue; // Exclude heavy face vectors from snapshots
                 sanitizedObj[key] = sanitizeObject((obj as Record<string, any>)[key]);
             }
         }

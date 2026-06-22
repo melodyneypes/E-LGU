@@ -227,6 +227,12 @@ async function main() {
       },
       slaDays: 3,
       processorRole: UserRole.TREASURY_STAFF,
+      defaultFees: [
+        { code: "PROCESSING_FEE", label: "Processing & E-Copy Fee", amount: 215.00 },
+        { code: "LATE_FEE_1_10", label: "Late Fee (1-10 Years)", amount: 315.00 },
+        { code: "LATE_FEE_10_20", label: "Late Fee (10-20 Years)", amount: 515.00 },
+        { code: "LATE_FEE_20_UP", label: "Late Fee (20+ Years)", amount: 1015.00 }
+      ]
     },
     {
       code: "LCR_MARRIAGE",

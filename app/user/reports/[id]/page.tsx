@@ -76,12 +76,20 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
                         
                         <div className="relative z-10 space-y-6 md:space-y-8">
                             <div className="space-y-3 md:space-y-4">
-                                <div className="flex items-center gap-2.5">
+                                <div className="flex items-center gap-2.5 flex-wrap">
                                     <Badge className="bg-primary text-white font-black uppercase tracking-widest px-2.5 py-0.5 rounded-md text-[7px] md:text-[8px] italic border-none shadow-sm">
                                         {report.status.replace(/_/g, " ")}
                                     </Badge>
                                     <div className="h-1 w-1 rounded-full bg-slate-300 dark:bg-white/10" />
                                     <span className="text-[7px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest italic">{format(new Date(report.createdAt), "MMMM d, yyyy")}</span>
+                                    {report.barangay && (
+                                        <>
+                                            <div className="h-1 w-1 rounded-full bg-slate-300 dark:bg-white/10" />
+                                            <Badge variant="outline" className="border-primary/30 text-primary bg-primary/5 font-black uppercase tracking-widest px-2.5 py-0.5 rounded-md text-[7px] md:text-[8px] italic">
+                                                {report.barangay.name}
+                                            </Badge>
+                                        </>
+                                    )}
                                 </div>
                                 <h1 className="text-xl md:text-3xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
                                     {report.category}

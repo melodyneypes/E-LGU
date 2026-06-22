@@ -25,6 +25,7 @@ interface AdminShellProps {
     pendingReportsCount?: number;
     pendingResidentsCount?: number;
     pendingTransactionsCount?: number;
+    unviewedLcrCounts?: Record<string, number>;
 }
 
 export function AdminShell({
@@ -37,6 +38,7 @@ export function AdminShell({
     pendingReportsCount,
     pendingResidentsCount,
     pendingTransactionsCount,
+    unviewedLcrCounts = {},
 }: AdminShellProps) {
     const router = useRouter();
     const pathname = usePathname();
@@ -54,9 +56,12 @@ export function AdminShell({
         isRestricted = true;
     }
 
-    // Special Rule: ONLY ADMIN with department LGU can access the admin dashboard
+    // Special Rule: ONLY ADMIN with department LGU OR BARANGAY_ADMIN can access the admin dashboard
     if (pathname === "/admin/dashboard" || pathname === "/admin") {
-        if (role !== "ADMIN" || deptUpper !== "LGU") {
+        const isLguAdmin = role === "ADMIN" && deptUpper === "LGU";
+        const isBrgyAdmin = role === "BARANGAY_ADMIN";
+
+        if (!isLguAdmin && !isBrgyAdmin) {
             if (
                 role === "TREASURY_STAFF" ||
                 role === "ADMIN_AIDE" ||
@@ -113,7 +118,10 @@ export function AdminShell({
             return () => clearTimeout(timer);
         }
         if (pathname === "/admin/dashboard" || pathname === "/admin") {
-            if (role !== "ADMIN" || deptUpper !== "LGU") {
+            const isLguAdmin = role === "ADMIN" && deptUpper === "LGU";
+            const isBrgyAdmin = role === "BARANGAY_ADMIN";
+
+            if (!isLguAdmin && !isBrgyAdmin) {
                 const timer = setTimeout(() => {
                     if (role === "ADMIN") {
                         if (deptUpper === "TREASURY") {
@@ -147,6 +155,7 @@ export function AdminShell({
                 pendingReportsCount={pendingReportsCount}
                 pendingResidentsCount={pendingResidentsCount}
                 pendingTransactionsCount={pendingTransactionsCount}
+                unviewedLcrCounts={unviewedLcrCounts}
             />
             <div className="flex-1 flex flex-col overflow-hidden">
                 <TopNav

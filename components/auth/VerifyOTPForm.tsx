@@ -301,6 +301,9 @@ export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormPr
 
     // Auto-send OTP when the page mounts (with React 18 Strict Mode Guard)
     React.useEffect(() => {
+        if (typeof window !== "undefined") {
+            sessionStorage.removeItem("logging_in_otp");
+        }
         if (hasSentRef.current) return;
 
         const storedEmail = sessionStorage.getItem("setup_email");

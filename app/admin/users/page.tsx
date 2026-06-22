@@ -6,8 +6,24 @@ export const dynamic = "force-dynamic";
 export default async function Page() {
     const [users, themeColorSetting] = await Promise.all([
         prisma.user.findMany({
-            include: {
-                residentProfile: true
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                emailVerified: true,
+                isEmailVerified: true,
+                role: true,
+                rejectionCount: true,
+                department: true,
+                createdAt: true,
+                accessiblePages: true,
+                rfid: true,
+                residentProfile: {
+                    select: {
+                        id: true,
+                        registrationStatus: true
+                    }
+                }
             },
             orderBy: {
                 createdAt: 'desc'

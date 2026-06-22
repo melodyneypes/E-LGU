@@ -58,13 +58,19 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
         const params = new URLSearchParams(window.location.search);
         const hasError = params.has("error");
 
-        if (status === "authenticated" && session) {
+        if (status === "authenticated" && session && session.user) {
             if (hasError) {
                 signOut({ redirect: false });
             } else {
-                // If user needs to change their password, redirect them to the verify-otp page
+                // If account is not verified, sign them out
+                if ((session.user as any).isEmailVerified === false) {
+                    signOut({ redirect: false });
+                    return;
+                }
+
+                // If user needs to change their password, but they loaded the login page directly (or backed out), sign them out to clear everything
                 if ((session.user as any).isPasswordChanged === false) {
-                    router.push("/auth/verify-otp");
+                    signOut({ redirect: false });
                     return;
                 }
 
@@ -427,7 +433,14 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
 
             if (session && session.user) {
                 handleSuccessAttempt(normalizedEmail);
-                const { role, isPasswordChanged } = session.user;
+                const { role, isPasswordChanged, isEmailVerified } = session.user;
+
+                if (isEmailVerified === false) {
+                    await signOut({ redirect: false });
+                    toast.error("Your email address is not verified yet. Please contact an administrator to verify your account.");
+                    setIsLoggingIn(false);
+                    return;
+                }
 
                 if (isMaintenanceActive && role === "USER") {
                     await signOut({ redirect: false });
@@ -440,9 +453,15 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
 
                 // Check if user needs to change password
                 if (isPasswordChanged === false) {
+                    if (typeof window !== "undefined") {
+                        sessionStorage.setItem("logging_in_otp", "true");
+                    }
                     // Try to send OTP first to verify if rate limits allow it
                     const otpResult = await sendOTP(normalizedEmail);
                     if (!otpResult.success) {
+                        if (typeof window !== "undefined") {
+                            sessionStorage.removeItem("logging_in_otp");
+                        }
                         toast.error(otpResult.error || "Failed to send verification code.");
                         
                         // Parse rate limit cooldown if exists and store it in client localStorage

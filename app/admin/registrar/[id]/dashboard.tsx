@@ -262,7 +262,7 @@ export default function RegistrarDashboard({ transactions = [], currentUserId }:
                             if (!currentUserId || !transactions || transactions.length === 0) return false;
                             const terminalStatuses = ["RELEASED", "DELIVERED", "REJECTED", "RETURNED", "REFUNDED"];
                             return transactions.some(tx => {
-                                if (tx.status !== "FOR_REQUESTING") return false;
+                                if (tx.status !== "FOR_INSPECTION") return false;
                                 const code = tx.type?.code;
                                 if (!code) return false;
                                 const matchesCode = Array.isArray(service.code) 
@@ -271,18 +271,7 @@ export default function RegistrarDashboard({ transactions = [], currentUserId }:
                                 if (!matchesCode) return false;
 
                                 const isActive = !tx.isCancelled && !terminalStatuses.includes(tx.status);
-                                if (!isActive) return false;
-
-                                if (code === "LCR_DEATH_REG" && tx.status === "FOR_REQUESTING") return false;
-                                if (code === "LCR_MARRIAGE_LICENSE" && tx.status === "FOR_REQUESTING") return false;
-                                if (code === "LCR_DEATH_PSA_ENDORSEMENT" && tx.status === "FOR_REQUESTING") return false;
-
-                                const viewedMap = tx.viewedAt && typeof tx.viewedAt === 'object' && !Array.isArray(tx.viewedAt)
-                                    ? (tx.viewedAt as Record<string, string>)
-                                    : {};
-                                const userViewTime = viewedMap[currentUserId];
-                                if (!userViewTime) return true;
-                                return new Date(tx.updatedAt).getTime() > new Date(userViewTime).getTime();
+                                return isActive;
                             });
                         })();
 
