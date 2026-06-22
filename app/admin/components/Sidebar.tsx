@@ -166,7 +166,7 @@ export function Sidebar({
         return () => {
             timers.forEach(clearTimeout);
         };
-    }, [pathname, mounted, isSettingsOpen, isAboutOpen, isBarangaysOpen, isTreasuryOpen, isLedgerOpen, scrollToActive]);
+    }, [pathname, mounted, scrollToActive]);
 
     const allMenuItems = [
         { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },

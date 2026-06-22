@@ -55,6 +55,10 @@ export async function getCurrentUserResident() {
             include: { user: true }
         });
 
+        if (resident) {
+            delete (resident as any).facialRecognition;
+        }
+
         return { success: true, data: resident };
     } catch (error) {
         console.error("Get current resident error:", error);
@@ -2412,10 +2416,30 @@ export async function getUserTransactions() {
 
         const transactions = await prisma.transaction.findMany({
             where: { userId: session.user.id },
-            include: {
-                type: true,
-                cedula: true,
-                businessPermit: true
+            select: {
+                id: true,
+                status: true,
+                createdAt: true,
+                isCancelled: true,
+                totalAmount: true,
+                type: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                        category: true
+                    }
+                },
+                cedula: {
+                    select: {
+                        id: true
+                    }
+                },
+                businessPermit: {
+                    select: {
+                        id: true
+                    }
+                }
             },
             orderBy: { createdAt: "desc" }
         });
@@ -2795,11 +2819,37 @@ export async function getEngineerTransactions(status?: string) {
 
         const transactions = await prisma.transaction.findMany({
             where,
-            include: {
-                user: true,
-                type: true,
-                buildingPermit: true
-            } as any,
+            select: {
+                id: true,
+                status: true,
+                createdAt: true,
+                updatedAt: true,
+                isCancelled: true,
+                totalAmount: true,
+                fulfillmentType: true,
+                paymentType: true,
+                residentSnapshot: true,
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true
+                    }
+                },
+                type: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true
+                    }
+                },
+                buildingPermit: {
+                    select: {
+                        id: true,
+                        documentUrl: true
+                    }
+                }
+            },
             orderBy: { createdAt: "desc" }
         });
 
@@ -4531,8 +4581,14 @@ export async function getRegistrarActiveCounts() {
                     ]
                 }
             },
-            include: {
-                type: true
+            select: {
+                status: true,
+                isCancelled: true,
+                type: {
+                    select: {
+                        code: true
+                    }
+                }
             }
         });
 
