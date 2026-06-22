@@ -203,6 +203,9 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     const [inspectionTime, setInspectionTime] = useState("");
     const [inspectorName, setInspectorName] = useState("");
     const [inspectionNotes, setInspectionNotes] = useState("");
+    const isRevisionStatus = transaction?.status === "FOR_REVISION";
+    const canScheduleInspection = transaction?.status === "FOR_REQUESTING";
+    const canRequestRevision = transaction?.status === "FOR_REQUESTING";
 
     const fetchTransaction = useCallback(async () => {
         setLoading(true);
@@ -706,7 +709,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                             <div className="space-y-3">
                                 <Dialog open={isSchedulingInspection} onOpenChange={setIsSchedulingInspection}>
                                     <DialogTrigger asChild>
-                                        <Button disabled={actionLoading} className="w-full h-16 rounded-2xl bg-[#006A2E] text-white font-black italic uppercase tracking-widest text-xs hover:bg-[#005224] transition-all shadow-xl shadow-green-900/20 active:scale-95">
+                                        <Button disabled={actionLoading || !canScheduleInspection} className="w-full h-16 rounded-2xl bg-[#006A2E] text-white font-black italic uppercase tracking-widest text-xs hover:bg-[#005224] transition-all shadow-xl shadow-green-900/20 active:scale-95">
                                             {actionLoading ? "Processing..." : "Schedule Inspection"}
                                         </Button>
                                     </DialogTrigger>
@@ -759,7 +762,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                 <div className="flex gap-2 w-full">
                                     <Dialog open={isRequestingRevision} onOpenChange={(open) => { setIsRequestingRevision(open); if (!open) setRemarks(""); }}>
                                         <DialogTrigger asChild>
-                                            {(transaction.revisionCount || 0) < 3 && (
+                                            {canRequestRevision && (transaction.revisionCount || 0) < 3 && (
                                                 <Button onClick={() => { setIsRequestingRevision(true); setRemarks(""); }} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95">
                                                                                                 Request Revision
                                                                                             </Button>

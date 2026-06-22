@@ -2892,6 +2892,10 @@ export async function scheduleBuildingInspection(id: string, details: any) {
             return { success: false, error: "Not a Building Permit transaction" };
         }
 
+        if (transaction.status !== "FOR_REQUESTING") {
+            return { success: false, error: "Inspection can only be scheduled after the resident resubmits and the application returns to evaluation." };
+        }
+
         const existingAdditionalData = (transaction.additionalData as any) || {};
 
         const updatedTransaction = await prisma.transaction.update({
