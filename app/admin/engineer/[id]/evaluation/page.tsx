@@ -203,7 +203,6 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     const [inspectionTime, setInspectionTime] = useState("");
     const [inspectorName, setInspectorName] = useState("");
     const [inspectionNotes, setInspectionNotes] = useState("");
-    const isRevisionStatus = transaction?.status === "FOR_REVISION";
     const canScheduleInspection = transaction?.status === "FOR_REQUESTING";
     const canRequestRevision = transaction?.status === "FOR_REQUESTING";
 
