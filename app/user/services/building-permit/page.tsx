@@ -408,7 +408,7 @@ export default function BuildingPermitPage() {
 
   const isEditable = !selectedApplication || isRevision;
 
-  const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [idChoice, setIdChoice] = useState<"PROFILE" | "UPLOAD">("PROFILE");
   const [activeDocTab, setActiveDocTab] = useState<"REQUIREMENTS" | "PERMITS">("REQUIREMENTS");
   const [uploadedRequirements, setUploadedRequirements] = useState<Record<number, File>>({});
@@ -646,7 +646,7 @@ export default function BuildingPermitPage() {
         otherOccupancyUse: parsedOccupancy.specify,
       });
       if (addData.signature) {
-        setSignatureData(addData.signature);
+        setSignatureUrl(addData.signature);
       }
       if (addData.documents?.newIdFile) {
         setIdChoice("UPLOAD");
@@ -1064,7 +1064,8 @@ export default function BuildingPermitPage() {
   const uploadFileClientSide = async (file: File | null, folder: string, keyName: string): Promise<string | null> => {
     if (!file) return null;
     try {
-      const fileExt = file.name.split('.').pop() || 'bin';
+      const fileToUpload = file.type.startsWith("image/") ? await compressImage(file) : file;
+      const fileExt = fileToUpload.name.split('.').pop() || 'bin';
       const secureFieldName = `${folder}_${keyName}`;
       const res = await getSecureUploadUrlAction(secureFieldName, "building_permits", fileExt);
       if (!res.success || !res.signedUrl || !res.publicUrl) {
@@ -1074,9 +1075,9 @@ export default function BuildingPermitPage() {
       const uploadRes = await fetch(res.signedUrl, {
         method: "PUT",
         headers: {
-          "Content-Type": file.type
+          "Content-Type": fileToUpload.type
         },
-        body: file
+        body: fileToUpload
       });
 
       if (!uploadRes.ok) {
@@ -1091,7 +1092,7 @@ export default function BuildingPermitPage() {
   };
 
   const handleSubmit = async () => {
-    if (requirementsProgress < requiredRequirementsCount || permitsProgress < requiredPermitsCount || !signatureData || !privacyAccepted) {
+    if (requirementsProgress < requiredRequirementsCount || permitsProgress < requiredPermitsCount || !signatureUrl || !privacyAccepted) {
       setShowValidationErrors(true);
       if (requirementsProgress < requiredRequirementsCount) {
         toast.warning(`Please ensure ALL ${requiredRequirementsCount} required documents are provided.`);
@@ -1099,7 +1100,7 @@ export default function BuildingPermitPage() {
       } else if (permitsProgress < requiredPermitsCount) {
         toast.warning(`Please ensure ALL ${requiredPermitsCount} required permits are provided.`);
         setActiveDocTab("PERMITS");
-      } else if (!signatureData) {
+      } else if (!signatureUrl) {
         toast.warning("Please provide your digital signature before submitting.");
       } else {
         toast.warning("Please accept the Data Privacy and Terms Agreement.");
@@ -1237,8 +1238,8 @@ export default function BuildingPermitPage() {
       }
 
       if (result.success) {
-        if (signatureData) {
-          await saveTransactionSignature(result.transactionId!, signatureData);
+        if (signatureUrl) {
+          await saveTransactionSignature(result.transactionId!, signatureUrl);
         }
         // Fetch the updated data so the application becomes read-only and back button works
         const permitsRes = await getExistingBuildingPermits();
@@ -1470,7 +1471,7 @@ export default function BuildingPermitPage() {
               <button
                 onClick={() => {
                   setSelectedApplication(null);
-                  setSignatureData(null);
+                  setSignatureUrl(null);
                   setFormData({
                     descriptionOfWork: "",
                     scopeNewConstruction: false,
@@ -3250,23 +3251,30 @@ export default function BuildingPermitPage() {
               ) : (
                 <>
                   <p className="text-sm text-slate-500 mb-6">Please sign to acknowledge that all information provided is true and correct.</p>
-                  {isRevision && signatureData && (
+                  {isRevision && signatureUrl && (
                     <div className="mb-4">
                       <p className="text-xs text-emerald-600 font-bold mb-2">Previous Signature (You can resign below to update):</p>
                       <div className="border border-slate-200 dark:border-white/10 rounded-xl p-4 bg-white max-w-md">
-                        <img src={signatureData} alt="Digital Signature" className="max-h-32 object-contain mx-auto" />
+                        <img src={signatureUrl} alt="Digital Signature" className="max-h-32 object-contain mx-auto" />
                       </div>
                     </div>
                   )}
-                  <div className={cn("rounded-xl overflow-hidden bg-white transition-all", showValidationErrors && !signatureData ? "border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border border-slate-200 dark:border-white/10")}>
-                    <SignaturePad
-                      onSave={(dataUrl) => {
-                        setSignatureData(dataUrl);
-                        toast.success("Signature captured successfully. Ready to submit!");
-                      }}
-                    />
+                  <div className={cn("rounded-xl overflow-hidden bg-white transition-all", showValidationErrors && !signatureUrl ? "border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border border-slate-200 dark:border-white/10")}>
+                  <SignaturePad
+                    onSave={async (file) => {
+                      if (!file) return;
+                      toast.loading("Uploading signature...", { id: "signature-upload-toast" });
+                      const url = await uploadFileClientSide(file, "signature", "signature");
+                      if (url) {
+                        setSignatureUrl(url);
+                        toast.success("Signature uploaded successfully. Ready to submit!", { id: "signature-upload-toast" });
+                      } else {
+                        toast.error("Failed to upload signature.", { id: "signature-upload-toast" });
+                      }
+                    }}
+                  />
                   </div>
-                  {signatureData && (
+                  {signatureUrl && (
                     <div className="mt-4 p-3 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-sm font-bold">
                       <CheckCircle className="w-4 h-4" /> Signature captured successfully. Ready to submit!
                     </div>
@@ -4138,7 +4146,7 @@ export default function BuildingPermitPage() {
   );
 }
 
-const SignaturePad = ({ onSave }: { onSave: (dataUrl: string) => void }) => {
+const SignaturePad = ({ onSave }: { onSave: (file: File | null) => void }) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isDrawing, setIsDrawing] = React.useState(false);
@@ -4215,8 +4223,10 @@ const SignaturePad = ({ onSave }: { onSave: (dataUrl: string) => void }) => {
     if (isUploadedSignature) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const dataUrl = canvas.toDataURL('image/png');
-    onSave(dataUrl);
+    canvas.toBlob((blob) => {
+      if (!blob) return onSave(null);
+      onSave(new File([blob], `signature-${Date.now()}.png`, { type: "image/png" }));
+    }, "image/png", 0.92);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -4240,8 +4250,11 @@ const SignaturePad = ({ onSave }: { onSave: (dataUrl: string) => void }) => {
         ctx.drawImage(img, 0, 0, img.width, img.height,
           centerShift_x, centerShift_y, img.width * ratio, img.height * ratio);
 
-        setIsUploadedSignature(true);
-        onSave(canvas.toDataURL('image/png'));
+        canvas.toBlob((blob) => {
+          if (!blob) return onSave(null);
+          setIsUploadedSignature(true);
+          onSave(new File([blob], `signature-${Date.now()}.png`, { type: "image/png" }));
+        }, "image/png", 0.92);
       }
       img.src = event.target?.result as string;
     };
