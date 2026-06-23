@@ -113,7 +113,7 @@ export default function BirthRegistrationView(props: TreasuryViewProps) {
     const isDeath = transaction.type?.code?.includes("DEATH") || transaction.type?.code?.startsWith("LCR_DEATH");
     const isMarriage = transaction.type?.code?.includes("MARRIAGE") || transaction.type?.code?.startsWith("LCR_MARRIAGE");
     const fiscal = additional.feeAssessment || null;
-    const isBirthRegistrationHiddenInTreasury = transaction.type?.code === "LCR_BIRTH_REG" && ["FOR_PROCESSING"].includes(transaction.status);
+    const isBirthRegistrationHiddenInTreasury = transaction.type?.code === "LCR_BIRTH_REG" && ["FOR_PROCESSING", "EVALUATED"].includes(transaction.status);
     const isTreasuryContext = backUrl?.includes("/admin/treasury") || rawUserRole === "TREASURY_STAFF";
 
     if (isBirthRegistrationHiddenInTreasury && isTreasuryContext) {

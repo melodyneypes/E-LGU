@@ -118,6 +118,7 @@ export default function DeathPsaEndorsementPage() {
     const [submitting, setSubmitting] = useState(false);
     const [resident, setResident] = useState<any>(null);
     const [typeId, setTypeId] = useState<string>("");
+    const [dbType, setDbType] = useState<any>(null);
     const [revisionId, setRevisionId] = useState<string | null>(null);
     const [revisionTx, setRevisionTx] = useState<any>(null);
     const [showErrors, setShowErrors] = useState(false);
@@ -316,6 +317,7 @@ export default function DeathPsaEndorsementPage() {
                     const psaType = typesResult.data.find((t: any) => t.code === "LCR_DEATH_PSA_ENDORSEMENT");
                     if (psaType) {
                         setTypeId(psaType.id);
+                        setDbType(psaType);
                     }
                 }
 
@@ -572,7 +574,7 @@ export default function DeathPsaEndorsementPage() {
                 fathersName: formData.fathersName,
                 placeOfDeath: formData.placeOfDeath,
                 causeOfDeath: formData.causeOfDeath,
-                miscFee: 200,
+                miscFee: dbType?.baseFee || 200.00,
             };
             data.append("additionalData", JSON.stringify(additionalData));
 
@@ -723,10 +725,10 @@ export default function DeathPsaEndorsementPage() {
                 title={viewerTitle}
                 themeColor="var(--primary-theme)"
             />
-            <div className="container max-w-5xl mx-auto px-4 pt-0 pb-0 space-y-8">
+            <div className="container max-w-5xl mx-auto px-4 pt-3 pb-0 space-y-5">
                 <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                     <Breadcrumb>
-                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-200/60 dark:border-white/5 w-full md:w-fit shadow-sm">
                             <BreadcrumbItem>
                                 <BreadcrumbLink asChild>
                                     <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
@@ -1030,20 +1032,16 @@ export default function DeathPsaEndorsementPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex justify-end pt-6">
-                                        <Button
-                                            onClick={() => {
-                                                if (validateStep("INFORMANT")) {
-                                                    setShowErrors(false);
-                                                    setCurrentStep("SUBJECT");
-                                                }
-                                            }}
-                                            className="rounded-full px-12 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl"
-                                            style={{ backgroundColor: themeColor }}
-                                        >
-                                            NEXT
-                                        </Button>
-                                    </div>
+                                    <BackNextButton
+                                        onBack={() => router.push("/user/services/civil-registry")}
+                                        onNext={() => {
+                                            if (validateStep("INFORMANT")) {
+                                                setShowErrors(false);
+                                                setCurrentStep("SUBJECT");
+                                            }
+                                        }}
+                                        themeColor={themeColor}
+                                    />
                                 </motion.div>
                             )}
 
@@ -1302,7 +1300,7 @@ export default function DeathPsaEndorsementPage() {
                                                 <p className="text-[9px] text-slate-400 italic mt-0.5">Standard processing fee for PSA endorsement</p>
                                             </div>
                                             <div className="text-right">
-                                                <span className="text-lg font-black text-slate-200 tracking-tight">₱200.00</span>
+                                                <span className="text-lg font-black text-slate-200 tracking-tight">₱{(dbType?.baseFee || 200.00).toFixed(2)}</span>
                                             </div>
                                         </div>
                                     </div>

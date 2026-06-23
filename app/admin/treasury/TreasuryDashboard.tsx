@@ -94,8 +94,12 @@ export default function TreasuryDashboard() {
             // BPLO Admin sees: inspection, reinspection, claiming, picking, return/refund/dispute resolution tabs
             return STATUS_TABS.filter(tab => ["ALL", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM", "FOR_PICKING", "RETURN_REQUESTED", "REFUND_REQUESTED", "RELEASED", "DELIVERED", "REJECTED"].includes(tab.value));
         }
-        if (categoryParam === "Civil Registry" || categoryParam === "Business Permit") {
-            // Civil Registry and Business Permit categories should only show evaluation, assessment, paid, and unpaid statuses
+        if (categoryParam === "Civil Registry") {
+            // Civil Registry category should only show evaluation, paid, and unpaid statuses (EVALUATED is hidden)
+            return STATUS_TABS.filter(tab => ["ALL", "FOR_REQUESTING", "PAID", "UNPAID"].includes(tab.value));
+        }
+        if (categoryParam === "Business Permit") {
+            // Business Permit category should show evaluation, assessment, paid, and unpaid statuses
             return STATUS_TABS.filter(tab => ["ALL", "FOR_REQUESTING", "EVALUATED", "PAID", "UNPAID"].includes(tab.value));
         }
         // Treasury Staff should see everything EXCEPT BPLO-exclusive inspection phases
@@ -246,14 +250,14 @@ export default function TreasuryDashboard() {
                 )
                 .subscribe((status: string, err?: any) => {
                     if (err) {
-                        console.error("Supabase Realtime subscription error:", err);
+                        console.warn("Supabase Realtime subscription error:", err);
                     }
                     if (status === "CHANNEL_ERROR") {
-                        console.error("Supabase Realtime channel error status caught");
+                        console.warn("Supabase Realtime channel error status caught");
                     }
                 });
         } catch (error) {
-            console.error("Failed to initialize Supabase Realtime subscription:", error);
+            console.warn("Failed to initialize Supabase Realtime subscription:", error);
         }
 
         return () => {
@@ -300,11 +304,12 @@ export default function TreasuryDashboard() {
         // For LCR Certified Copy / LCR Registration evaluation phases, only the Registrar department should see it
         const isLcrBirthCertifiedCopy = tx.type?.code === "LCR_BIRTH" || tx.type?.code === "LCR_DEATH" || tx.type?.code === "LCR_MARRIAGE" || (tx.type?.name && (tx.type.name.includes("Birth Certificate") || tx.type.name.includes("Death Certificate") || tx.type.name.includes("Marriage Certificate"))) || false;
         const isLcrBirthRegistration = tx.type?.code === "LCR_BIRTH_REG" || tx.type?.code === "LCR_DEATH_REG" || tx.type?.code === "LCR_MARRIAGE_REG" || tx.type?.code === "LCR_MARRIAGE_LICENSE" || (tx.type?.name && (tx.type.name.includes("Registration") || tx.type.name.includes("License"))) || false;
-        if ((isLcrBirthCertifiedCopy || isLcrBirthRegistration) && ["FOR_REQUESTING", "EVALUATED", "FOR_PROCESSING"].includes(tx.status)) {
+        const isCivilRegistry = tx.type?.category === "Civil Registry" || tx.type?.code?.startsWith("LCR_") || tx.type?.code?.startsWith("CIVIL_REGISTRY") || isLcrBirthCertifiedCopy || isLcrBirthRegistration;
+        if (isCivilRegistry && ["FOR_REQUESTING", "EVALUATED", "FOR_PROCESSING"].includes(tx.status)) {
             const isRegistrar = userRole === "REGISTRAR" || userDepartment?.toUpperCase() === "REGISTRAR";
             if (!isRegistrar) {
-                // If Civil Registry category is active, Treasury needs to see FOR_REQUESTING and EVALUATED
-                if (categoryParam === "Civil Registry" && ["FOR_REQUESTING", "EVALUATED"].includes(tx.status)) {
+                // If Civil Registry category is active, Treasury needs to see FOR_REQUESTING (but NOT EVALUATED)
+                if (categoryParam === "Civil Registry" && ["FOR_REQUESTING"].includes(tx.status)) {
                     // allow
                 } else {
                     return false;
@@ -334,8 +339,16 @@ export default function TreasuryDashboard() {
             }
         }
 
-        // For Civil Registry and Business Permit, Treasury only needs to see FOR_REQUESTING, EVALUATED, PAID, and UNPAID when they are active
-        if (categoryParam === "Civil Registry" || categoryParam === "Business Permit") {
+        // For Civil Registry, Treasury only needs to see FOR_REQUESTING, PAID, and UNPAID when active (EVALUATED is hidden)
+        if (categoryParam === "Civil Registry") {
+            const allowedStatuses = ["FOR_REQUESTING", "PAID", "UNPAID"];
+            if (!allowedStatuses.includes(tx.status)) {
+                return false;
+            }
+        }
+
+        // For Business Permit, Treasury only needs to see FOR_REQUESTING, EVALUATED, PAID, and UNPAID when they are active
+        if (categoryParam === "Business Permit") {
             const allowedStatuses = ["FOR_REQUESTING", "EVALUATED", "PAID", "UNPAID"];
             if (!allowedStatuses.includes(tx.status)) {
                 return false;

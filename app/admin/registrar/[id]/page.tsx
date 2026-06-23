@@ -376,6 +376,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             if (res.success) {
                 toast.success("Billing approved and sent to citizen successfully!");
                 router.push(backUrl);
+                router.refresh();
             } else {
                 toast.error(res.error || "Failed to approve billing");
             }
@@ -533,24 +534,28 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                         event: "*",
                         schema: "public",
                         table: "Transaction",
-                        filter: `id=eq.${id}`,
                     },
-                    () => {
-                        fetchTransaction(true).catch(err => {
-                            console.error("Realtime fetchTransaction failed:", err);
-                        });
+                    (payload: any) => {
+                        console.log(`[Realtime Registrar Detail] Change detected on Transaction table:`, payload);
+                        if (payload.new?.id === id || payload.old?.id === id) {
+                            console.log(`[Realtime Registrar Detail] Match found for transaction ${id}, refreshing...`);
+                            fetchTransaction(true).catch(err => {
+                                console.error("Realtime fetchTransaction failed:", err);
+                            });
+                        }
                     }
                 )
                 .subscribe((status: string, err?: any) => {
+                    console.log(`[Realtime Registrar Detail] Subscription status for ${id}:`, status);
                     if (err) {
-                        console.error("Supabase Realtime subscription error:", err);
+                        console.warn("Supabase Realtime subscription error:", err);
                     }
                     if (status === "CHANNEL_ERROR") {
-                        console.error("Supabase Realtime channel error status caught");
+                        console.warn("Supabase Realtime channel error status caught");
                     }
                 });
         } catch (error) {
-            console.error("Failed to initialize Supabase Realtime subscription:", error);
+            console.warn("Failed to initialize Supabase Realtime subscription:", error);
         }
 
         return () => {
@@ -559,6 +564,19 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 supabase.removeChannel(channel);
             }
         };
+    }, [id, fetchTransaction]);
+
+    useEffect(() => {
+        if (!id) return;
+        // Background polling fallback every 10 seconds to ensure updates are fetched
+        const interval = setInterval(() => {
+            console.log(`[Polling Registrar Detail] Fetching updates for ${id}...`);
+            fetchTransaction(true).catch(err => {
+                console.error("Polling fetchTransaction failed:", err);
+            });
+        }, 10000);
+
+        return () => clearInterval(interval);
     }, [id, fetchTransaction]);
 
     useEffect(() => {
@@ -621,6 +639,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 toast.success("Rejected");
                 setIsRejecting(false);
                 router.push(backUrl);
+                router.refresh();
             }
             else toast.error(res.error || "Failed");
         } finally { setActionLoading(false); }
@@ -635,6 +654,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 toast.success("Sent back for revision");
                 setIsRequestingRevision(false);
                 router.push(backUrl);
+                router.refresh();
             }
             else toast.error(res.error || "Failed");
         } finally { setActionLoading(false); }
@@ -742,6 +762,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 setOrFile(null);
                 setStickerNumber("");
                 router.push(backUrl);
+                router.refresh();
             }
             else toast.error(res.error || "Failed");
         } finally { setActionLoading(false); }
@@ -778,6 +799,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 toast.success(`Dispute ${disputeAction === 'APPROVE' ? 'Approved' : 'Rejected'}`);
                 setDisputeModalOpen(false);
                 router.push(backUrl);
+                router.refresh();
             } else {
                 toast.error(res.error || "Resolution failed");
             }
@@ -864,6 +886,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             if (res.success) {
                 toast.success("Evaluated Successfully");
                 router.push(backUrl);
+                router.refresh();
             }
             else toast.error(res.error || "Failed");
         } finally { setActionLoading(false); }
@@ -896,6 +919,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 if (rel.success) {
                     toast.success("Proceeding to Processing");
                     router.push(backUrl);
+                    router.refresh();
                 } else {
                     toast.error(rel.error || "Failed to proceed to processing");
                     fetchTransaction();
@@ -938,6 +962,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 if (rel.success) {
                     toast.success("Proceeding to Processing");
                     router.push(backUrl);
+                    router.refresh();
                 } else {
                     toast.error(rel.error || "Failed to proceed to processing");
                     fetchTransaction();
@@ -963,6 +988,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             if (res.success) {
                 toast.success("Request processed successfully!");
                 router.push(backUrl);
+                router.refresh();
             } else {
                 toast.error(res.error || "Failed to process request");
             }
@@ -989,6 +1015,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 setRemarks("");
                 setIsRequestingRevision(false);
                 router.push(backUrl);
+                router.refresh();
             } else {
                 toast.error(res.error || "Failed to decline payment proof");
             }

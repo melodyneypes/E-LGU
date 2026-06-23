@@ -102,7 +102,7 @@ export default function UserServiceRequestsPage() {
                     }
                 });
         } catch (error) {
-            console.error("Failed to initialize Supabase Realtime subscription:", error);
+            console.warn("Failed to initialize Supabase Realtime subscription:", error);
         }
 
         return () => {

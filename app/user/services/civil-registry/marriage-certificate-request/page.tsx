@@ -649,6 +649,14 @@ export default function MarriageCertificateRequestPage() {
 
     const handleAcceptPolicy = () => { setPolicyOpen(false); setPolicyAccepted(true); };
     const dbType = availableTypes.find(t => t.code === "LCR_MARRIAGE");
+    const baseFee = dbType?.baseFee || 150.00;
+    const defaultFees = dbType?.defaultFees
+        ? (typeof dbType.defaultFees === "string"
+            ? JSON.parse(dbType.defaultFees)
+            : dbType.defaultFees)
+        : [];
+    const processingFee = Number(defaultFees.find((f: any) => f.code === "PROCESSING_FEE")?.amount || 0);
+    const totalAmount = baseFee + processingFee;
 
     // --- STEP VALIDATION ---
     const validateStep = (stepId: Step): boolean => {
@@ -795,7 +803,7 @@ export default function MarriageCertificateRequestPage() {
                 idBackUrl: fileUrls["validIdBack"] || resident?.idBackUrl,
                 validIdFront: fileUrls["validIdFront"] || resident?.idFrontUrl,
                 validIdBack: fileUrls["validIdBack"] || resident?.idBackUrl,
-                totalAmount: dbType?.baseFee || 150
+                totalAmount: totalAmount
             };
 
             formData.append("additionalData", JSON.stringify(additionalData));
@@ -828,7 +836,7 @@ export default function MarriageCertificateRequestPage() {
 
     return (
         <div
-            className="container max-w-4xl mx-auto px-4 pt-0 pb-0 space-y-8"
+            className="container max-w-4xl mx-auto px-4 pt-3 pb-0 space-y-5"
             style={themeColor !== "var(--primary-theme)" ? { "--primary-theme": themeColor } as React.CSSProperties : {}}
         >
             <style dangerouslySetInnerHTML={{
@@ -931,7 +939,7 @@ export default function MarriageCertificateRequestPage() {
             {/* Header Section */}
             <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                 <Breadcrumb>
-                    <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+                    <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-200/60 dark:border-white/5 w-full md:w-fit shadow-sm">
                         <BreadcrumbItem>
                             <BreadcrumbLink asChild>
                                 <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
@@ -1607,10 +1615,6 @@ export default function MarriageCertificateRequestPage() {
                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Place of Marriage</span>
                                         <p className="font-black text-slate-900 dark:text-white italic uppercase">{form.placeOfEvent}</p>
                                     </div>
-                                    <div className="space-y-1 text-right col-span-2">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Assessed Request Fee</span>
-                                        <p className="text-2xl font-black text-rose-500 italic">₱{(dbType?.baseFee || 150).toLocaleString()}</p>
-                                    </div>
                                 </div>
 
                                 {/* ID Submission Section */}
@@ -1632,8 +1636,10 @@ export default function MarriageCertificateRequestPage() {
                                                     idTypeOverride: value
                                                 }))}
                                             >
-                                                <SelectTrigger className="h-10 rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold uppercase">
-                                                    <SelectValue placeholder="SELECT GOVERNMENT ID TYPE" />
+                                                <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 focus:ring-rose-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold uppercase">
+                                                    <SelectValue>
+                                                        {form.idTypeOverride || resident?.idType || "SELECT GOVERNMENT ID TYPE"}
+                                                    </SelectValue>
                                                 </SelectTrigger>
                                                 <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 font-bold uppercase">
                                                     <SelectItem value="UMID">Unified Multi-Purpose ID (UMID)</SelectItem>
@@ -1651,6 +1657,26 @@ export default function MarriageCertificateRequestPage() {
 
                                         {renderIdCard("Valid Government ID (Front)", "validIdFront")}
                                         {renderIdCard("Valid Government ID (Back)", "validIdBack")}
+                                    </div>
+                                </div>
+
+                                <div className="p-5 rounded-2xl border border-slate-200/20 bg-white/30 dark:bg-white/5 space-y-3">
+                                    <div className="flex justify-between items-center text-xs font-semibold italic text-slate-500">
+                                        <span>Registration Fee (Standard)</span>
+                                        <span className="font-extrabold text-slate-800 dark:text-slate-200">₱{baseFee.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs font-semibold italic text-slate-500 pb-2 border-b border-dashed border-slate-200/50">
+                                        <span>E-Copy & Hardcopy Fee</span>
+                                        <span className="font-extrabold text-slate-800 dark:text-slate-200">₱{processingFee.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Total Amount Due</div>
+                                            <div className="text-[9px] text-slate-400 italic">Payable upon municipal verification</div>
+                                        </div>
+                                        <div className="text-xl font-black" style={{ color: themeColor }}>
+                                            ₱{totalAmount.toFixed(2)}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

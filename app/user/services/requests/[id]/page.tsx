@@ -383,10 +383,13 @@ export default function RequestHubPage() {
                         event: "*",
                         schema: "public",
                         table: "Transaction",
-                        filter: `id=eq.${id}`,
                     },
                     async (payload: any) => {
                         console.log("Realtime update caught for request:", payload);
+                        if (payload.new?.id !== id && payload.old?.id !== id) {
+                            return;
+                        }
+                        console.log(`[Realtime Request Detail] Match found for transaction ${id}, refreshing...`);
                         // Re-fetch request details
                         try {
                             const res = await getTransactionById(id);
@@ -411,6 +414,7 @@ export default function RequestHubPage() {
                     }
                 )
                 .subscribe((status: string, err?: any) => {
+                    console.log(`[Realtime Request Detail] Subscription status for ${id}:`, status);
                     if (err) {
                         console.warn("Supabase Realtime subscription notice:", err);
                     }
@@ -419,7 +423,7 @@ export default function RequestHubPage() {
                     }
                 });
         } catch (error) {
-            console.error("Failed to initialize Supabase Realtime subscription:", error);
+            console.warn("Failed to initialize Supabase Realtime subscription:", error);
         }
 
         return () => {
@@ -428,6 +432,36 @@ export default function RequestHubPage() {
                 supabase.removeChannel(channel);
             }
         };
+    }, [id, router]);
+
+    useEffect(() => {
+        if (!id) return;
+        // Background polling fallback every 10 seconds to ensure updates are fetched
+        const interval = setInterval(async () => {
+            console.log(`[Polling Request Detail] Fetching updates for ${id}...`);
+            try {
+                const res = await getTransactionById(id);
+                if (res.success && res.data) {
+                    const newStatus = res.data.status;
+                    const oldStatus = statusRef.current;
+                    const newCancelled = res.data.isCancelled;
+                    const oldCancelled = isCancelledRef.current;
+
+                    if (oldStatus && (newStatus !== oldStatus || newCancelled !== oldCancelled)) {
+                        toast.info("Application status updated! Redirecting to requests...");
+                        setTimeout(() => {
+                            router.push("/user/services/requests");
+                        }, 1000);
+                    } else {
+                        setRequest(res.data);
+                    }
+                }
+            } catch (err) {
+                console.error("Polling fetch transaction failed:", err);
+            }
+        }, 10000);
+
+        return () => clearInterval(interval);
     }, [id, router]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

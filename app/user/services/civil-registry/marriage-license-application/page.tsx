@@ -308,6 +308,32 @@ export default function MarriageLicenseApplicationPage() {
 				if (residentRes.success && residentRes.data) {
 					activeResident = residentRes.data;
 					setResident(activeResident);
+
+					let isUserMinor = false;
+					if (activeResident.dateOfBirth) {
+						const birthDate = new Date(activeResident.dateOfBirth);
+						const today = new Date();
+						let age = today.getFullYear() - birthDate.getFullYear();
+						const m = today.getMonth() - birthDate.getMonth();
+						if (age >= 0) {
+							if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+								age--;
+							}
+							isUserMinor = age < 18;
+						}
+					} else if (activeResident.age !== undefined && activeResident.age !== null) {
+						isUserMinor = activeResident.age < 18;
+					}
+
+					if (isUserMinor) {
+						toast.error("Application Blocked: Applicants must be at least 18 years old to apply for a marriage license.", {
+							duration: 10000,
+							id: "minor-check-app1"
+						});
+						router.push('/user/services/civil-registry');
+						return;
+					}
+
 					if (activeResident.civilStatus && activeResident.civilStatus.toUpperCase() === "MARRIED") {
 						toast.error("Your civil status is registered as Married. You cannot apply for another marriage application.", {
 							duration: 10000,
@@ -593,6 +619,28 @@ export default function MarriageLicenseApplicationPage() {
 						firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
 					}
 				}, 100);
+				return false;
+			}
+
+			const getAge = (birthDateString: string) => {
+				const today = new Date();
+				const birthDate = new Date(birthDateString);
+				let age = today.getFullYear() - birthDate.getFullYear();
+				const m = today.getMonth() - birthDate.getMonth();
+				if (age >= 0) {
+					if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+						age--;
+					}
+					return age;
+				}
+				return 0;
+			};
+
+			const app1Age = getAge(form.app1BirthDate);
+			const app2Age = getAge(form.app2BirthDate);
+
+			if (app1Age < 18 || app2Age < 18) {
+				toast.error("Application Blocked: Both applicants must be at least 18 years old to apply.");
 				return false;
 			}
 
@@ -933,10 +981,10 @@ export default function MarriageLicenseApplicationPage() {
 				title={viewerTitle}
 				themeColor="var(--primary-theme)"
 			/>
-			<div className="container max-w-4xl mx-auto px-4 pt-0 pb-0">
+			<div className="container max-w-4xl mx-auto px-4 pt-3 pb-0">
 				<div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0 mb-4">
 					<Breadcrumb>
-						<BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+						<BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-200/60 dark:border-white/5 w-full md:w-fit shadow-sm">
 							<BreadcrumbItem>
 								<BreadcrumbLink asChild>
 									<Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">

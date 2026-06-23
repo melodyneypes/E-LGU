@@ -28,7 +28,7 @@ export default function ResidentProfileClient({ resident, themeColor = "#2563eb"
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-    const [profileImage, setProfileImage] = useState(resident?.imageUrl || "");
+    const [profileImage, setProfileImage] = useState(resident?.imageUrl || resident?.livenessUrl || "");
 
     // Crop state variables
     const [cropModalOpen, setCropModalOpen] = useState(false);
@@ -44,7 +44,7 @@ export default function ResidentProfileClient({ resident, themeColor = "#2563eb"
 
     useEffect(() => {
         if (resident) {
-            setProfileImage(resident.imageUrl || "");
+            setProfileImage(resident.imageUrl || resident.livenessUrl || "");
         }
     }, [resident]);
 

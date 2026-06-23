@@ -114,6 +114,7 @@ export default function BirthPsaEndorsementPage() {
     const [submitting, setSubmitting] = useState(false);
     const [resident, setResident] = useState<any>(null);
     const [typeId, setTypeId] = useState<string>("");
+    const [dbType, setDbType] = useState<any>(null);
     const [revisionId, setRevisionId] = useState<string | null>(null);
     const [revisionTx, setRevisionTx] = useState<any>(null);
     const [showErrors, setShowErrors] = useState(false);
@@ -310,6 +311,7 @@ export default function BirthPsaEndorsementPage() {
                     const psaType = typesResult.data.find((t: any) => t.code === "LCR_PSA_ENDORSEMENT");
                     if (psaType) {
                         setTypeId(psaType.id);
+                        setDbType(psaType);
                     }
                 }
             } catch (error) {
@@ -527,7 +529,7 @@ export default function BirthPsaEndorsementPage() {
             const additionalData = {
                 ...formData,
                 subjectName: formData.subjectFullName,
-                psaEndorsementFee: 200,
+                psaEndorsementFee: dbType?.baseFee || 200.00,
                 ...fileUrls
             };
             data.append("additionalData", JSON.stringify(additionalData));
@@ -642,10 +644,10 @@ export default function BirthPsaEndorsementPage() {
                 title={viewerTitle}
                 themeColor="var(--primary-theme)"
             />
-            <div className="container max-w-5xl mx-auto px-4 pt-0 pb-0 space-y-8">
+            <div className="container max-w-5xl mx-auto px-4 pt-3 pb-0 space-y-5">
                 <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                     <Breadcrumb>
-                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-200/60 dark:border-white/5 w-full md:w-fit shadow-sm">
                             <BreadcrumbItem>
                                 <BreadcrumbLink asChild>
                                     <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
@@ -1128,7 +1130,7 @@ export default function BirthPsaEndorsementPage() {
                                                 <p className="text-[9px] text-slate-400 italic mt-0.5">Standard processing fee for PSA endorsement</p>
                                             </div>
                                             <div className="text-right">
-                                                <span className="text-lg font-black text-emerald-600 tracking-tight">₱200.00</span>
+                                                <span className="text-lg font-black text-emerald-600 tracking-tight">₱{(dbType?.baseFee || 200.00).toFixed(2)}</span>
                                             </div>
                                         </div>
                                     </Card>

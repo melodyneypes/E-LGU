@@ -56,6 +56,7 @@ import Link from "next/link";
 import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
 import { getSecureUploadUrlAction } from "@/app/auth/actions";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
+import { BackNextButton } from "../_components/back-next-button";
 
 
 
@@ -182,6 +183,8 @@ export default function DeathRegistrationPage() {
     const [submitting, setSubmitting] = useState(false);
     const [resident, setResident] = useState<any>(null);
     const [typeId, setTypeId] = useState<string>("");
+    const [dbType, setDbType] = useState<any>(null);
+    const [revisionId, setRevisionId] = useState<string | null>(null);
     const [lateFee, setLateFee] = useState<number>(0);
     const [showErrors, setShowErrors] = useState(false);
     const [barangaysList, setBarangaysList] = useState<string[]>([]);
@@ -192,7 +195,6 @@ export default function DeathRegistrationPage() {
     const [viewerTitle, setViewerTitle] = useState("");
     const [previews, setPreviews] = useState<Record<string, string | null>>({});
 
-    const [revisionId, setRevisionId] = useState<string | null>(null);
     const [revisionTx, setRevisionTx] = useState<any>(null);
     const [existingUrls, setExistingUrls] = useState<Record<string, string | null>>({
         municipalForm103: null,
@@ -539,6 +541,7 @@ export default function DeathRegistrationPage() {
                     const deathRegType = typesResult.data.find((t: any) => t.code === "LCR_DEATH_REG");
                     if (deathRegType) {
                         setTypeId(deathRegType.id);
+                        setDbType(deathRegType);
                         setLateFee((deathRegType as any).lateFee || 0);
                     }
                 }
@@ -769,10 +772,12 @@ export default function DeathRegistrationPage() {
             data.append("residentSnapshot", JSON.stringify(residentSnapshot));
 
             const miscFee = formData.registrationType === "LATE" ? lateFee : 0;
+            const totalAmount = (dbType?.baseFee || 0) + miscFee;
             const additionalData = {
                 ...formData,
                 subjectName: formData.fullName,
                 miscFee,
+                totalAmount,
             };
             data.append("additionalData", JSON.stringify(additionalData));
 
@@ -929,10 +934,10 @@ export default function DeathRegistrationPage() {
                 title={viewerTitle}
                 themeColor="var(--primary-theme)"
             />
-            <div className="container max-w-5xl mx-auto px-4 pt-0 pb-0 space-y-8">
+            <div className="container max-w-5xl mx-auto px-4 pt-3 pb-0 space-y-5">
                 <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                     <Breadcrumb>
-                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-200/60 dark:border-white/5 w-full md:w-fit shadow-sm">
                             <BreadcrumbItem>
                                 <BreadcrumbLink asChild>
                                     <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
@@ -1276,18 +1281,14 @@ export default function DeathRegistrationPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex justify-end pt-6">
-                                        <Button
-                                            onClick={() => {
-                                                if (!validateStep("IDENTITY")) return;
-                                                setCurrentStep("DETAILS");
-                                            }}
-                                            className="rounded-full px-12 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl"
-                                            style={{ backgroundColor: themeColor }}
-                                        >
-                                            NEXT
-                                        </Button>
-                                    </div>
+                                    <BackNextButton
+                                        onBack={() => router.push("/user/services/civil-registry")}
+                                        onNext={() => {
+                                            if (!validateStep("IDENTITY")) return;
+                                            setCurrentStep("DETAILS");
+                                        }}
+                                        themeColor={themeColor}
+                                    />
                                 </motion.div>
                             )}
 
@@ -1792,20 +1793,27 @@ export default function DeathRegistrationPage() {
                                     </div>
 
                                     <div className="space-y-4">
-                                        {/* Miscellaneous Fee */}
-                                        <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20">
-                                            <div>
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Miscellaneous Fee</span>
-                                                <p className="text-[9px] text-slate-400 italic mt-0.5">
-                                                    {formData.registrationType === "STANDARD" ? "No additional fee for standard registration" : "Late registration surcharge"}
-                                                </p>
+                                        <div className="p-5 rounded-2xl border border-slate-200/20 bg-white/30 dark:bg-white/5 space-y-3">
+                                            <div className="flex justify-between items-center text-xs font-semibold italic text-slate-500">
+                                                <span>Registration Fee ({formData.registrationType === "STANDARD" ? "Standard" : "Late"})</span>
+                                                <span className="font-extrabold text-slate-800 dark:text-slate-200">
+                                                    {dbType?.baseFee && Number(dbType.baseFee) > 0 ? `₱${Number(dbType.baseFee).toFixed(2)}` : "FREE"}
+                                                </span>
                                             </div>
-                                            <div className="text-right">
-                                                {formData.registrationType === "STANDARD" ? (
-                                                    <span className="text-lg font-black text-emerald-600 tracking-tight">FREE</span>
-                                                ) : (
-                                                    <span className="text-lg font-black text-amber-600 tracking-tight">₱{lateFee.toFixed(2)}</span>
-                                                )}
+                                            {formData.registrationType === "LATE" && (
+                                                <div className="flex justify-between items-center text-xs font-semibold italic text-slate-500 pb-2 border-b border-dashed border-slate-200/50">
+                                                    <span>Late Registration Surcharge</span>
+                                                    <span className="font-extrabold text-amber-600 dark:text-amber-400">₱{lateFee.toFixed(2)}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Total Amount Due</div>
+                                                    <div className="text-[9px] text-slate-400 italic">Payable upon municipal verification</div>
+                                                </div>
+                                                <div className="text-xl font-black" style={{ color: themeColor }}>
+                                                    ₱{((dbType?.baseFee || 0) + (formData.registrationType === "LATE" ? lateFee : 0)).toFixed(2)}
+                                                </div>
                                             </div>
                                         </div>
 

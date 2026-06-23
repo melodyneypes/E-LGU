@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 import {
     getTreasuryTransactions
@@ -18,10 +18,18 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Search, RefreshCcw,
-    Archive, Clock
+    Archive, Clock, Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter
+} from "@/components/ui/dialog";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
@@ -102,6 +110,28 @@ export default function RegistrarPage() {
     const categoryParam = searchParams.get("category");
     const hasSelectedCategory = Boolean(categoryParam && categoryParam !== "ALL");
 
+    const lastActivityRef = useRef(Date.now());
+    const [showUpdateModal, setShowUpdateModal] = useState(false);
+    const [pendingUpdatesCount, setPendingUpdatesCount] = useState(0);
+
+    // Track user activity to determine idle state
+    useEffect(() => {
+        const handleActivity = () => {
+            lastActivityRef.current = Date.now();
+        };
+
+        const events = ["mousemove", "keydown", "mousedown", "scroll", "click", "touchstart"];
+        events.forEach(event => {
+            window.addEventListener(event, handleActivity);
+        });
+
+        return () => {
+            events.forEach(event => {
+                window.removeEventListener(event, handleActivity);
+            });
+        };
+    }, []);
+
     // Fetch all requests for Civil Registry
     const fetchTransactions = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
@@ -144,20 +174,31 @@ export default function RegistrarPage() {
                     },
                     async (payload: any) => {
                         console.log("Realtime change caught on Transaction table for registrar queue:", payload);
-                        // Reload transactions silently in the background
-                        fetchTransactions(true);
+                        
+                        const idleThreshold = 30000; // 30 seconds
+                        const isCurrentlyIdle = Date.now() - lastActivityRef.current > idleThreshold;
+
+                        if (isCurrentlyIdle) {
+                            console.log("[Registrar Queue] User is idle. Queueing update modal...");
+                            setPendingUpdatesCount(prev => prev + 1);
+                            setShowUpdateModal(true);
+                        } else {
+                            console.log("[Registrar Queue] User is active. Reloading silently...");
+                            fetchTransactions(true);
+                        }
                     }
                 )
                 .subscribe((status: string, err?: any) => {
+                    console.log("[Realtime Registrar Queue] Subscription status:", status);
                     if (err) {
-                        console.error("Supabase Realtime subscription error:", err);
+                        console.warn("Supabase Realtime subscription error:", err);
                     }
                     if (status === "CHANNEL_ERROR") {
-                        console.error("Supabase Realtime channel error status caught");
+                        console.warn("Supabase Realtime channel error status caught");
                     }
                 });
         } catch (error) {
-            console.error("Failed to initialize Supabase Realtime subscription:", error);
+            console.warn("Failed to initialize Supabase Realtime subscription:", error);
         }
 
         return () => {
@@ -166,6 +207,23 @@ export default function RegistrarPage() {
                 supabase.removeChannel(channel);
             }
         };
+    }, [fetchTransactions]);
+
+    useEffect(() => {
+        // Background polling fallback every 15 seconds to ensure queue updates
+        const interval = setInterval(() => {
+            const idleThreshold = 30000; // 30 seconds
+            const isCurrentlyIdle = Date.now() - lastActivityRef.current > idleThreshold;
+
+            if (isCurrentlyIdle) {
+                console.log("[Polling Registrar Queue] User is idle. Bypassing silent auto-refresh.");
+            } else {
+                console.log("[Polling Registrar Queue] Fetching queue updates silently...");
+                fetchTransactions(true);
+            }
+        }, 15000);
+
+        return () => clearInterval(interval);
     }, [fetchTransactions]);
 
     // Reset page numbers when search / layout changes
@@ -548,6 +606,44 @@ export default function RegistrarPage() {
                     </div>
                 </div>
             )}
+
+            <Dialog open={showUpdateModal} onOpenChange={setShowUpdateModal}>
+                <DialogContent className="max-w-md rounded-3xl p-6 border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#151b2b]">
+                    <DialogHeader className="space-y-3">
+                        <div className="w-12 h-12 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center animate-bounce">
+                            <Sparkles className="w-6 h-6" />
+                        </div>
+                        <DialogTitle className="text-xl font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
+                            New Queue Updates Available
+                        </DialogTitle>
+                        <DialogDescription className="text-xs font-medium text-slate-500 dark:text-slate-400 italic">
+                            There are <strong className="font-extrabold text-blue-600 dark:text-blue-400 not-italic">{pendingUpdatesCount}</strong> new or updated transaction requests in the civil registry queue.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-6 flex flex-col sm:flex-row gap-3">
+                        <Button
+                            variant="ghost"
+                            onClick={() => {
+                                setShowUpdateModal(false);
+                                setPendingUpdatesCount(0);
+                            }}
+                            className="rounded-xl font-bold text-xs uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5"
+                        >
+                            Ignore
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                fetchTransactions(true);
+                                setShowUpdateModal(false);
+                                setPendingUpdatesCount(0);
+                            }}
+                            className="rounded-xl font-black italic uppercase tracking-widest text-xs bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20"
+                        >
+                            Refresh Queue
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

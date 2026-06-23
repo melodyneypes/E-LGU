@@ -99,7 +99,7 @@ async function processImageUpload(formData: FormData, fieldName: string = "image
             if (!publicUrl) {
                 throw new Error("Upload failed. Please ensure the file is not corrupted and its format is supported by the storage settings (like PNG, JPEG, PDF, or WebP).");
             }
-            
+
             // Auto-delete old file if it exists and we have a new upload
             if (existingUrl) {
                 await deleteUploadedFile(existingUrl);
@@ -1686,6 +1686,7 @@ export async function addResident(formData: FormData) {
                     officialPosition: activeUserRole,
                     dateReceived: new Date(),
                     livenessUrl,
+                    imageUrl: livenessUrl,
                     registrationStatus: "APPROVED",
                     registrationType: "HEAD",
                     isDead: false,
@@ -1768,7 +1769,7 @@ export async function addResident(formData: FormData) {
         return { success: true, data: result };
     } catch (error) {
         console.error("Error adding resident:", error);
-        
+
         // Clean up newly uploaded files to prevent orphaned files in Supabase Storage
         try {
             if (livenessUrl) {
@@ -1939,8 +1940,14 @@ export async function updateResident(id: string, formData: FormData) {
 
             const oldResident = await (tx as any).resident.findUnique({ where: { id } });
 
+            const livenessFile = formData.get("livenessUrlFile") as File | null;
+            const hasNewLivenessFile = livenessFile && livenessFile.size > 0 && livenessFile.name !== "undefined";
+
             if (livenessUrl && oldResident?.livenessUrl && oldResident.livenessUrl !== livenessUrl) {
                 await deleteUploadedFile(oldResident.livenessUrl);
+            }
+            if (hasNewLivenessFile && livenessUrl && oldResident?.imageUrl && oldResident.imageUrl !== livenessUrl && oldResident.imageUrl !== oldResident.livenessUrl) {
+                await deleteUploadedFile(oldResident.imageUrl);
             }
             if (idFrontUrl && oldResident?.idFrontUrl && oldResident.idFrontUrl !== idFrontUrl) {
                 await deleteUploadedFile(oldResident.idFrontUrl);
@@ -1951,6 +1958,10 @@ export async function updateResident(id: string, formData: FormData) {
 
             if (livenessUrl) dataToUpdate.livenessUrl = livenessUrl;
             else dataToUpdate.livenessUrl = (formData.get("livenessUrl") as string) || null;
+
+            if ((hasNewLivenessFile && livenessUrl) || (!oldResident?.imageUrl && livenessUrl)) {
+                dataToUpdate.imageUrl = livenessUrl;
+            }
 
             if (idFrontUrl) dataToUpdate.idFrontUrl = idFrontUrl;
             else dataToUpdate.idFrontUrl = (formData.get("idFrontUrl") as string) || null;

@@ -19,7 +19,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { getSystemSettingAction } from "@/app/admin/transactions/actions";
+import { getSystemSettingAction, getCurrentUserResident } from "@/app/admin/transactions/actions";
  
 const REGISTRY_TYPES = [
     {
@@ -142,6 +142,7 @@ const REGISTRY_SECTIONS = [
 
 export default function CivilRegistryPage() {
     const [themeColor, setThemeColor] = React.useState("var(--primary-theme)");
+    const [resident, setResident] = React.useState<any>(null);
 
     React.useEffect(() => {
         getSystemSettingAction("theme_color").then((res) => {
@@ -149,7 +150,31 @@ export default function CivilRegistryPage() {
                 setThemeColor(res.data);
             }
         });
+        getCurrentUserResident().then((res) => {
+            if (res.success && res.data) {
+                setResident(res.data);
+            }
+        });
     }, []);
+
+    const isMinor = React.useMemo(() => {
+        if (!resident) return false;
+        if (resident.dateOfBirth) {
+            const birthDate = new Date(resident.dateOfBirth);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (age < 0) return false;
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            return age < 18;
+        }
+        if (resident.age !== undefined && resident.age !== null) {
+            return resident.age < 18;
+        }
+        return false;
+    }, [resident]);
 
     return (
         <div className="container max-w-5xl mx-auto px-4 pt-0 pb-32 space-y-12">
@@ -178,7 +203,7 @@ export default function CivilRegistryPage() {
             <div className="space-y-4 md:space-y-10">
                 <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                     <Breadcrumb>
-                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-200/60 dark:border-white/5 w-full md:w-fit shadow-sm">
                             <BreadcrumbItem>
                                 <BreadcrumbLink asChild>
                                     <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
@@ -287,16 +312,23 @@ export default function CivilRegistryPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         {sectionItems.map((type) => {
                                             const Icon = type.icon;
+                                            const isMarriageService = type.id === "MARRIAGE" || type.id === "MARRIAGE_LICENSE";
+                                            const isBlockedForMinor = isMinor && isMarriageService;
                                             
                                             const cardContent = (
                                                 <div className={cn(
                                                     "p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] border-2 transition-all duration-300 text-left relative group select-none overflow-hidden flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-0 justify-start md:justify-between min-h-[100px] md:min-h-[220px] cursor-pointer bg-white/40 dark:bg-white/5 backdrop-blur-md border-slate-200 dark:border-white/10 hover:border-primary/40 hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/5",
-                                                    !type.available && "opacity-60 cursor-not-allowed"
+                                                    (!type.available || isBlockedForMinor) && "opacity-60 cursor-not-allowed"
                                                 )}>
                                                     <div className="flex justify-between items-start w-auto md:w-full shrink-0">
                                                         <div className="w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 theme-icon-bg">
                                                             <Icon className="w-4.5 h-4.5 md:w-5 md:h-5 stroke-[2.5] theme-icon-text" />
                                                         </div>
+                                                        {isBlockedForMinor && (
+                                                            <span className="text-[7px] md:text-[9px] font-black uppercase tracking-wider bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-0.5 rounded-full italic animate-pulse">
+                                                                18+ Required
+                                                            </span>
+                                                        )}
                                                     </div>
 
                                                     <div className="space-y-1.5 mt-0 md:mt-6">
@@ -304,13 +336,13 @@ export default function CivilRegistryPage() {
                                                             {type.label}
                                                         </h4>
                                                         <p className="text-[9px] md:text-[10px] font-bold uppercase italic tracking-widest text-slate-400 dark:text-slate-500 leading-relaxed">
-                                                            {type.description}
+                                                            {isBlockedForMinor ? "Not available for minors. You must be at least 18 years old to apply." : type.description}
                                                         </p>
                                                     </div>
                                                 </div>
                                             );
 
-                                            if (type.available) {
+                                            if (type.available && !isBlockedForMinor) {
                                                 return (
                                                     <Link href={type.href} key={type.id} className="block h-full">
                                                         {cardContent}
@@ -322,7 +354,9 @@ export default function CivilRegistryPage() {
                                                 <div
                                                     key={type.id}
                                                     onClick={() => {
-                                                        if (type.id === "PSA_ENDORSEMENT") {
+                                                        if (isBlockedForMinor) {
+                                                            toast.error("Application Blocked: You must be at least 18 years old to apply for marriage services.");
+                                                        } else if (type.id === "PSA_ENDORSEMENT") {
                                                             toast.info("Birth PSA Endorsement can be requested from your completed Birth Certificate Request details page if the local record is found (Form 1A).");
                                                         } else {
                                                             toast.info(`${type.label} is currently under development.`);

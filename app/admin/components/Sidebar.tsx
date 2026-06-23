@@ -15,7 +15,7 @@ import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { getBploInspectionCount } from "@/app/admin/transactions/actions";
+import { getBploInspectionCount, getUnviewedLcrCounts } from "@/app/admin/transactions/actions";
 import { supabase } from "@/lib/supabase";
 
 interface SidebarProps {
@@ -67,8 +67,8 @@ export function Sidebar({
     const [searchQuery, setSearchQuery] = React.useState("");
     const [isEntranceComplete, setIsEntranceComplete] = React.useState(false);
     const [mounted, setMounted] = React.useState(false);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [liveLcrCounts, setLiveLcrCounts] = React.useState<Record<string, number>>(unviewedLcrCounts);
+    console.log("[LCR Sidebar] Render - unviewedLcrCounts prop:", unviewedLcrCounts, "liveLcrCounts state:", liveLcrCounts);
     const { theme, setTheme } = useTheme();
     React.useEffect(() => {
         setMounted(true);
@@ -104,13 +104,16 @@ export function Sidebar({
                         schema: "public",
                         table: "Transaction",
                     },
-                    () => {
+                    (payload: any) => {
+                        console.log("[BPLO Realtime] Received table change event:", payload);
                         fetchBploCount();
                     }
                 )
-                .subscribe();
+                .subscribe((status: string) => {
+                    console.log("[BPLO Realtime] Subscription status callback:", status);
+                });
         } catch (error) {
-            console.error("Failed to setup sidebar realtime:", error);
+            console.warn("Failed to setup sidebar realtime:", error);
         }
 
         return () => {
@@ -119,6 +122,76 @@ export function Sidebar({
             }
         };
     }, [fetchBploCount, role]);
+
+    const fetchLcrCounts = React.useCallback(async () => {
+        try {
+            console.log("[LCR Sidebar] Fetching counts via getUnviewedLcrCounts...");
+            const res = await getUnviewedLcrCounts();
+            console.log("[LCR Sidebar] getUnviewedLcrCounts response:", res);
+            if (res && res.success && res.data) {
+                setLiveLcrCounts(res.data);
+            }
+        } catch (err) {
+            console.error("[LCR Sidebar] Error fetching LCR count:", err);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        console.log("[LCR Sidebar] Pathname changed, running fetchLcrCounts...");
+        fetchLcrCounts();
+    }, [pathname, fetchLcrCounts]);
+
+    React.useEffect(() => {
+        console.log("[LCR Realtime] Setting up subscription...");
+        fetchLcrCounts();
+
+        if (!supabase) {
+            console.warn("[LCR Realtime] Supabase client is not available.");
+            return;
+        }
+        let channel: any;
+        try {
+            channel = supabase
+                .channel("sidebar-lcr-realtime")
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "Transaction",
+                    },
+                    (payload: any) => {
+                        console.log("[LCR Realtime] Received table change event:", payload);
+                        fetchLcrCounts();
+                    }
+                )
+                .subscribe((status: string) => {
+                    console.log("[LCR Realtime] Subscription status callback:", status);
+                });
+        } catch (error) {
+            console.warn("[LCR Realtime] Failed to setup subscription:", error);
+        }
+
+        return () => {
+            if (channel) {
+                console.log("[LCR Realtime] Unsubscribing channel...");
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [fetchLcrCounts]);
+
+    React.useEffect(() => {
+        // Background polling fallback every 20 seconds to keep counts in sync
+        const interval = setInterval(() => {
+            console.log("[Polling Sidebar] Fetching counts...");
+            if (role === "ADMIN" || role === "ADMIN_AIDE") {
+                fetchBploCount();
+            }
+            fetchLcrCounts();
+        }, 20000);
+
+        return () => clearInterval(interval);
+    }, [fetchBploCount, fetchLcrCounts, role]);
 
     React.useEffect(() => {
         setIsSettingsOpen(pathname.startsWith("/admin/settings"));

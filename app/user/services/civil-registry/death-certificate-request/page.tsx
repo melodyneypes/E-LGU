@@ -841,7 +841,7 @@ export default function DeathCertificateRequestPage() {
     }
 
     return (
-        <div className="container max-w-4xl mx-auto px-4 pt-0 pb-0 space-y-8">
+        <div className="container max-w-4xl mx-auto px-4 pt-3 pb-0 space-y-5">
             <style dangerouslySetInnerHTML={{
                 __html: `
                 ${themeColor !== "var(--primary-theme)" ? `
@@ -921,7 +921,7 @@ export default function DeathCertificateRequestPage() {
             {/* Breadcrumbs */}
             <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                 <Breadcrumb>
-                    <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+                    <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-200/60 dark:border-white/5 w-full md:w-fit shadow-sm">
                         <BreadcrumbItem>
                             <BreadcrumbLink asChild>
                                 <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
@@ -1577,7 +1577,9 @@ export default function DeathCertificateRequestPage() {
                                         }))}
                                     >
                                         <SelectTrigger className={cn("h-12 rounded-xl border-slate-200 focus:ring-slate-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold", (showErrors && !(form.idTypeOverride || resident?.idType)) && "border-2 border-red-500")}>
-                                            <SelectValue placeholder="Select type of government ID" />
+                                            <SelectValue>
+                                                {form.idTypeOverride || resident?.idType || "Select type of government ID"}
+                                            </SelectValue>
                                         </SelectTrigger>
                                         <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
                                             <SelectItem value="UMID">Unified Multi-Purpose ID (UMID)</SelectItem>
@@ -1733,10 +1735,22 @@ export default function DeathCertificateRequestPage() {
                                                         <span className="font-black uppercase text-slate-900 dark:text-white">{form.causeOfDeath}</span>
                                                     </div>
                                                 )}
-                                                <div className="flex justify-between py-1 border-b border-slate-200/30 dark:border-white/5">
-                                                    <span className="text-slate-400 font-bold italic uppercase text-[9px]">Service Fee:</span>
-                                                    <span className="font-black text-slate-900 dark:text-white">₱{(dbType?.baseFee || 150).toFixed(2)}</span>
-                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-5 rounded-2xl border border-slate-200/20 bg-white/30 dark:bg-white/5 space-y-3">
+                                        <div className="flex justify-between items-center text-xs font-semibold italic text-slate-500 pb-2 border-b border-dashed border-slate-200/50">
+                                            <span>Base Fee</span>
+                                            <span className="font-extrabold text-slate-800 dark:text-slate-200">₱{(dbType?.baseFee || 150.00).toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Total Amount Due</div>
+                                                <div className="text-[9px] text-slate-400 italic">Payable upon municipal verification</div>
+                                            </div>
+                                            <div className="text-xl font-black" style={{ color: themeColor }}>
+                                                ₱{(dbType?.baseFee || 150.00).toFixed(2)}
                                             </div>
                                         </div>
                                     </div>

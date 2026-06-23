@@ -622,15 +622,19 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                         event: "*",
                         schema: "public",
                         table: "Transaction",
-                        filter: `id=eq.${id}`,
                     },
-                    () => {
-                        fetchTransaction(true).catch(err => {
-                            console.error("Realtime fetchTransaction failed:", err);
-                        });
+                    (payload: any) => {
+                        console.log(`[Realtime Treasury Detail] Change detected on Transaction table:`, payload);
+                        if (payload.new?.id === id || payload.old?.id === id) {
+                            console.log(`[Realtime Treasury Detail] Match found for transaction ${id}, refreshing...`);
+                            fetchTransaction(true).catch(err => {
+                                console.error("Realtime fetchTransaction failed:", err);
+                            });
+                        }
                     }
                 )
                 .subscribe((status: string, err?: any) => {
+                    console.log(`[Realtime Treasury Detail] Subscription status for ${id}:`, status);
                     if (err) {
                         console.warn("Supabase Realtime subscription notice:", err);
                     }
@@ -639,7 +643,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                     }
                 });
         } catch (error) {
-            console.error("Failed to initialize Supabase Realtime subscription:", error);
+            console.warn("Failed to initialize Supabase Realtime subscription:", error);
         }
 
         return () => {
@@ -648,6 +652,19 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 supabase.removeChannel(channel);
             }
         };
+    }, [id, fetchTransaction]);
+
+    useEffect(() => {
+        if (!id) return;
+        // Background polling fallback every 10 seconds to ensure updates are fetched
+        const interval = setInterval(() => {
+            console.log(`[Polling Treasury Detail] Fetching updates for ${id}...`);
+            fetchTransaction(true).catch(err => {
+                console.error("Polling fetchTransaction failed:", err);
+            });
+        }, 10000);
+
+        return () => clearInterval(interval);
     }, [id, fetchTransaction]);
 
     useEffect(() => {

@@ -293,6 +293,31 @@ export default function MarriageRegistrationPage() {
                 if (resResult.success && resResult.data) {
                     activeResident = resResult.data;
                     setResident(activeResident);
+
+                    let isUserMinor = false;
+                    if (activeResident.dateOfBirth) {
+                        const birthDate = new Date(activeResident.dateOfBirth);
+                        const today = new Date();
+                        let age = today.getFullYear() - birthDate.getFullYear();
+                        const m = today.getMonth() - birthDate.getMonth();
+                        if (age >= 0) {
+                            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                                age--;
+                            }
+                            isUserMinor = age < 18;
+                        }
+                    } else if (activeResident.age !== undefined && activeResident.age !== null) {
+                        isUserMinor = activeResident.age < 18;
+                    }
+
+                    if (isUserMinor) {
+                        toast.error("Application Blocked: Applicants must be at least 18 years old to apply for marriage registration.", {
+                            duration: 10000,
+                            id: "minor-check-marriage-reg"
+                        });
+                        router.push('/user/services/civil-registry');
+                        return;
+                    }
                 }
 
                 if (txData) {
@@ -404,7 +429,7 @@ export default function MarriageRegistrationPage() {
             }
         }
         init();
-    }, []);
+    }, [router]);
 
     const handlePremiumFileSelect = async (file: File, key: string) => {
         saveDraftFile(STORAGE_KEY, key, file).catch(err => {
@@ -615,6 +640,29 @@ export default function MarriageRegistrationPage() {
                 }, 100);
                 return false;
             }
+
+            const getAge = (birthDateString: string) => {
+                const today = new Date();
+                const birthDate = new Date(birthDateString);
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const m = today.getMonth() - birthDate.getMonth();
+                if (age >= 0) {
+                    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                        age--;
+                    }
+                    return age;
+                }
+                return 0;
+            };
+
+            const app1Age = getAge(form.app1BirthDate);
+            const app2Age = getAge(form.app2BirthDate);
+
+            if (app1Age < 18 || app2Age < 18) {
+                toast.error("Application Blocked: Both applicants must be at least 18 years old to apply.");
+                return false;
+            }
+
             return true;
         } else if (step === "DETAILS") {
             const missingFields: string[] = [];
@@ -816,10 +864,10 @@ export default function MarriageRegistrationPage() {
                 title={viewerTitle}
                 themeColor="var(--primary-theme)"
             />
-            <div className="container max-w-5xl mx-auto px-4 pt-0 pb-0 space-y-8">
+            <div className="container max-w-5xl mx-auto px-4 pt-3 pb-0 space-y-5">
                 <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                     <Breadcrumb>
-                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200/60 dark:border-white/5 w-fit shadow-sm">
+                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-200/60 dark:border-white/5 w-full md:w-fit shadow-sm">
                             <BreadcrumbItem>
                                 <BreadcrumbLink asChild>
                                     <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
