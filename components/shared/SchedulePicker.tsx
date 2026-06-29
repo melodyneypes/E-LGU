@@ -96,11 +96,11 @@ export default function SchedulePicker({
         const dayOfWeek = date.getDay(); // 0 is Sunday, 6 is Saturday
 
         // Disable weekends if not active
-        if (!config.activeDays.includes(dayOfWeek)) return true;
+        if (!config || !config.activeDays || !config.activeDays.includes(dayOfWeek)) return true;
 
         // Disable blocked dates
         const formattedDate = formatDateString(date);
-        if (config.blockedDates.includes(formattedDate)) return true;
+        if (config && config.blockedDates && config.blockedDates.includes(formattedDate)) return true;
 
         // Disable past dates
         const today = new Date();

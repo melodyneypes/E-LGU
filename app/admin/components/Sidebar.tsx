@@ -385,6 +385,7 @@ export function Sidebar({
         { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "Treasury", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
         { href: "/admin/treasury/payment-settings", label: "Payment Settings", icon: CreditCard, category: "Treasury" },
         { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury" },
+        { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
         { href: "/admin/users", label: "User Accounts", icon: UserCheck, category: "Security & Accounts" },
     ];
 
@@ -510,7 +511,10 @@ export function Sidebar({
         } else if (role === "ADMIN_AIDE") {
             menuItems = allMenuItems.filter(item => ["BPLO Permits"].includes(item.label));
         } else if (role === "ENGINEER") {
-            menuItems = [{ href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" }];
+            menuItems = [
+                { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" },
+                { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" }
+            ];
         }
     }
 
