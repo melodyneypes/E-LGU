@@ -374,7 +374,7 @@ export async function updateTransactionBaseFees(fees: { id: string, baseFee: num
 export async function updateMultipleSystemSettings(settings: { key: string, value: string }[]) {
     try {
         const hasMaintenance = settings.some(s => s.key === "maintenance_mode");
-        const updates = settings.map(s => 
+        const updates = settings.map(s =>
             prisma.systemSetting.upsert({
                 where: { key: s.key },
                 update: { value: s.value },

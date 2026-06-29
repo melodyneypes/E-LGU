@@ -209,7 +209,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                             <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
                                                 <span>PSA Endorsement Fee</span>
                                                 <span className="dark:text-slate-200 font-black">
-                                                    ₱200.00
+                                                    ₱{(transaction.type?.baseFee || 200.00).toFixed(2)}
                                                 </span>
                                             </div>
 

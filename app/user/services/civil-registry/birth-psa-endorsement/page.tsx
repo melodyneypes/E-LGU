@@ -155,7 +155,6 @@ export default function BirthPsaEndorsementPage() {
 
     const [files, setFiles] = useState<Record<string, File | null>>({
         psaNegativeCert: null,
-        form1a: null,
     });
 
     // Privacy / Terms modal state
@@ -261,7 +260,7 @@ export default function BirthPsaEndorsementPage() {
                         const resSnapshot = txData.residentSnapshot as any || r || {};
 
                         const previews: Record<string, string | null> = {};
-                        const fileKeys = ["psaNegativeCert", "form1a"];
+                        const fileKeys = ["psaNegativeCert"];
                         fileKeys.forEach(k => {
                             if (addData[k] && typeof addData[k] === "string" && addData[k].startsWith("http")) {
                                 previews[k] = addData[k];
@@ -349,18 +348,11 @@ export default function BirthPsaEndorsementPage() {
             return next;
         });
 
-        if (name === "relationship" && value !== "SELF") {
-            setFiles(prev => ({ ...prev, form1a: null }));
-            saveDraftFile(STORAGE_KEY, "form1a", null).catch(err => {
-                console.error("Failed to delete draft Form 1A file from IndexedDB:", err);
-            });
-        }
-
         if (name === "relationship" && value === "SELF") {
             const promise = (async () => {
                 const res = await getLatestForm1AForCurrentUser();
                 if (res.success && res.data) {
-                    const { docUrl, subjectName, dateOfBirth, mothersMaidenName } = res.data;
+                    const { subjectName, dateOfBirth, mothersMaidenName } = res.data;
 
                     setFormData(prev => ({
                         ...prev,
@@ -368,35 +360,12 @@ export default function BirthPsaEndorsementPage() {
                         subjectDateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString().split('T')[0] : prev.subjectDateOfBirth,
                         mothersMaidenName: mothersMaidenName ? mothersMaidenName.toUpperCase() : prev.mothersMaidenName
                     }));
-
-                    if (docUrl) {
-                        try {
-                            const response = await fetch(docUrl);
-                            const blob = await response.blob();
-                            const filename = docUrl.split('/').pop() || "form_1a.pdf";
-                            const file = new File([blob], filename, { type: blob.type });
-
-                            setFiles(prev => ({
-                                ...prev,
-                                form1a: file
-                            }));
-                            setPreviews(prev => ({
-                                ...prev,
-                                form1a: docUrl
-                            }));
-
-                            await saveDraftFile(STORAGE_KEY, "form1a", file);
-                            toast.success("Latest Form 1A found and automatically attached from your transactions!");
-                        } catch (err) {
-                            console.error("Failed to download Form 1A file:", err);
-                        }
-                    }
                 }
             })();
             toast.promise(promise, {
                 loading: "Checking for your latest issued Form 1A in transactions...",
                 success: "Form 1A status checked.",
-                error: "Failed to check or fetch Form 1A document."
+                error: "Failed to check or fetch Form 1A details."
             });
         }
     };
@@ -466,10 +435,6 @@ export default function BirthPsaEndorsementPage() {
             toast.error("Please upload PSA Negative Certification");
             return;
         }
-        if (!files.form1a && !previews.form1a) {
-            toast.error("Please upload Form 1A (Local Registry Copy)");
-            return;
-        }
 
         setSubmitting(true);
         try {
@@ -529,7 +494,7 @@ export default function BirthPsaEndorsementPage() {
             const additionalData = {
                 ...formData,
                 subjectName: formData.subjectFullName,
-                psaEndorsementFee: dbType?.baseFee || 200.00,
+                psaEndorsementFee: dbType?.baseFee || 130.00,
                 ...fileUrls
             };
             data.append("additionalData", JSON.stringify(additionalData));
@@ -674,8 +639,8 @@ export default function BirthPsaEndorsementPage() {
                             </BreadcrumbItem>
                             <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                             <BreadcrumbItem>
-                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic text-emerald-700 dark:text-emerald-400">Birth PSA Endorsement</BreadcrumbPage>
-                                1                        </BreadcrumbItem>
+                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: themeColor }}>Birth PSA Endorsement</BreadcrumbPage>
+                            </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
                 </div>
@@ -1020,9 +985,8 @@ export default function BirthPsaEndorsementPage() {
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 gap-4">
                                             {renderDocCard("PSA Negative Certification", "psaNegativeCert", true)}
-                                            {renderDocCard("Form 1A (Local Registry Copy)", "form1a", true)}
                                         </div>
                                     </div>
 
@@ -1037,11 +1001,6 @@ export default function BirthPsaEndorsementPage() {
                                             if (!files.psaNegativeCert && !previews.psaNegativeCert) {
                                                 setShowErrors(true);
                                                 toast.error("Please upload PSA Negative Certification.");
-                                                return;
-                                            }
-                                            if (!files.form1a && !previews.form1a) {
-                                                setShowErrors(true);
-                                                toast.error("Please upload Form 1A (Local Registry Copy).");
                                                 return;
                                             }
                                             setShowErrors(false);
@@ -1099,25 +1058,15 @@ export default function BirthPsaEndorsementPage() {
                                         {/* Documents Summary */}
                                         <div className="pt-4 border-t border-slate-200 dark:border-white/5 space-y-3">
                                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Uploaded Documents</span>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 gap-3">
                                                 <div className={cn(
                                                     "flex items-center gap-3 p-3 rounded-xl border",
-                                                    files.psaNegativeCert ? "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/20" : "bg-red-50/30 border-red-200/50"
+                                                    (files.psaNegativeCert || previews.psaNegativeCert) ? "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/20" : "bg-red-50/30 border-red-200/50"
                                                 )}>
-                                                    {files.psaNegativeCert ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
+                                                    {(files.psaNegativeCert || previews.psaNegativeCert) ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
                                                     <div>
                                                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">PSA Negative Certification</p>
-                                                        <p className="text-[8px] text-slate-400 italic">{files.psaNegativeCert ? files.psaNegativeCert.name : "Not uploaded"}</p>
-                                                    </div>
-                                                </div>
-                                                <div className={cn(
-                                                    "flex items-center gap-3 p-3 rounded-xl border",
-                                                    (files.form1a || previews.form1a) ? "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/20" : "bg-red-50/30 border-red-200/50"
-                                                )}>
-                                                    {(files.form1a || previews.form1a) ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
-                                                    <div>
-                                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Form 1A</p>
-                                                        <p className="text-[8px] text-slate-400 italic">{files.form1a ? files.form1a.name : previews.form1a ? "Attached from previous draft" : "Not uploaded"}</p>
+                                                        <p className="text-[8px] text-slate-400 italic">{files.psaNegativeCert ? files.psaNegativeCert.name : previews.psaNegativeCert ? "Attached from previous draft" : "Not uploaded"}</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1130,7 +1079,7 @@ export default function BirthPsaEndorsementPage() {
                                                 <p className="text-[9px] text-slate-400 italic mt-0.5">Standard processing fee for PSA endorsement</p>
                                             </div>
                                             <div className="text-right">
-                                                <span className="text-lg font-black text-emerald-600 tracking-tight">₱{(dbType?.baseFee || 200.00).toFixed(2)}</span>
+                                                <span className="text-lg font-black text-emerald-600 tracking-tight">₱{(dbType?.baseFee || 130.00).toFixed(2)}</span>
                                             </div>
                                         </div>
                                     </Card>
@@ -1206,7 +1155,7 @@ export default function BirthPsaEndorsementPage() {
                                             <button
                                                 type="button"
                                                 onClick={handleSubmit}
-                                                disabled={submitting || (!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form1a && !previews.form1a)}
+                                                disabled={submitting || (!files.psaNegativeCert && !previews.psaNegativeCert)}
                                                 style={
                                                     themeColor
                                                         ? {

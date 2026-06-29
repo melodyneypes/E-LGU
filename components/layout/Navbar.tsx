@@ -18,6 +18,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import { useBarangay } from "@/components/providers/BarangayProvider";
 import { BarangaySelectionModal } from "@/components/shared/BarangaySelectionModal";
+import { getTransactionTypes } from "@/app/admin/transactions/actions";
 
 interface NavbarProps {
     logoUrl?: string;
@@ -46,6 +47,50 @@ export function Navbar({
     const { selectedBarangay } = useBarangay();
     const { scrollY } = useScroll();
     const isTransparentNavPage = pathname === "/";
+
+    const serviceCategories = React.useMemo(() => [
+        { name: "Civil Registry", href: "/user/services/civil-registry", desc: "Birth, Marriage, Death Certs & Endorsements", icon: FileText, color: "text-blue-500 bg-blue-500/10" },
+        { name: "Business Permit", href: "/user/services/business-permit", desc: "Apply for New Business & Renewal Permits", icon: Building2, color: "text-emerald-500 bg-emerald-500/10" },
+        { name: "Building Permit", href: "/user/services/building-permit", desc: "Construction, Electrical & Occupancy Permits", icon: Hammer, color: "text-amber-500 bg-amber-500/10" },
+        { name: "Cedula (CTC)", href: "/user/services/cedula", desc: "Community Tax Certificate Issuance", icon: CreditCard, color: "text-indigo-500 bg-indigo-500/10" },
+    ], []);
+
+    const [activeCategories, setActiveCategories] = React.useState<string[]>([
+        "Civil Registry",
+        "Business Permit",
+        "Building Permit",
+        "Cedula (CTC)"
+    ]);
+
+    React.useEffect(() => {
+        getTransactionTypes().then((res) => {
+            if (res.success && res.data) {
+                const activeCodes = res.data.map((t: any) => t.code as string);
+                const categoriesToShow: string[] = [];
+
+                if (activeCodes.some(code => code.startsWith("LCR_"))) {
+                    categoriesToShow.push("Civil Registry");
+                }
+                if (activeCodes.some(code => code.startsWith("BUSINESS_PERMIT"))) {
+                    categoriesToShow.push("Business Permit");
+                }
+                if (activeCodes.some(code => code.startsWith("BUILDING_PERMIT"))) {
+                    categoriesToShow.push("Building Permit");
+                }
+                if (activeCodes.some(code => code.startsWith("CEDULA"))) {
+                    categoriesToShow.push("Cedula (CTC)");
+                }
+
+                setActiveCategories(categoriesToShow);
+            }
+        }).catch((err) => {
+            console.error("Failed to load active categories for Navbar dropdown:", err);
+        });
+    }, []);
+
+    const displayedCategories = React.useMemo(() => {
+        return serviceCategories.filter(cat => activeCategories.includes(cat.name));
+    }, [activeCategories, serviceCategories]);
     const dropdownRef = React.useRef<HTMLDivElement>(null);
 
     const backgroundColor = useTransform(
@@ -223,13 +268,6 @@ export function Navbar({
         { name: "Report", href: "/#reports", icon: AlertTriangle },
     ];
 
-    const serviceCategories = [
-        { name: "Civil Registry", href: "/user/services/civil-registry", desc: "Birth, Marriage, Death Certs & Endorsements", icon: FileText, color: "text-blue-500 bg-blue-500/10" },
-        { name: "Business Permit", href: "/user/services/business-permit", desc: "Apply for New Business & Renewal Permits", icon: Building2, color: "text-emerald-500 bg-emerald-500/10" },
-        { name: "Building Permit", href: "/user/services/building-permit", desc: "Construction, Electrical & Occupancy Permits", icon: Hammer, color: "text-amber-500 bg-amber-500/10" },
-        { name: "Cedula (CTC)", href: "/user/services/cedula", desc: "Community Tax Certificate Issuance", icon: CreditCard, color: "text-indigo-500 bg-indigo-500/10" },
-    ];
-
     // Dropdown-specific links (only shown when authenticated)
     const userDropdownLinks = [
         { name: "My Profile", href: "/user/resident-profile", icon: User },
@@ -366,7 +404,7 @@ export function Navbar({
                                                     className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/10 rounded-[2rem] shadow-2xl overflow-hidden p-3 grid grid-cols-1 gap-1.5"
                                                     style={{ boxShadow: "0 30px 60px -15px rgba(0,0,0,0.15)" }}
                                                 >
-                                                    {serviceCategories.map((cat) => (
+                                                    {displayedCategories.map((cat) => (
                                                         <Link
                                                             key={cat.name}
                                                             href={cat.href}
@@ -800,7 +838,7 @@ export function Navbar({
                                                                     transition={{ duration: 0.25 }}
                                                                     className="overflow-hidden pl-4 pr-1 flex flex-col gap-1"
                                                                 >
-                                                                    {serviceCategories.map((cat) => (
+                                                                    {displayedCategories.map((cat) => (
                                                                         <Link
                                                                             key={cat.name}
                                                                             href={cat.href}

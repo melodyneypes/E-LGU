@@ -146,9 +146,11 @@ export default function PaymentSettingsClient({
     };
 
     const filteredTransactionTypes = transactionTypes.filter(type => 
-        type.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        type.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (type.category && type.category.toLowerCase().includes(searchQuery.toLowerCase()))
+        type.isActive !== false && (
+            type.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            type.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (type.category && type.category.toLowerCase().includes(searchQuery.toLowerCase()))
+        )
     );
 
     return (

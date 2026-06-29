@@ -178,16 +178,22 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
     const handleSendOTP = async (isResend: boolean = false) => {
         setIsLoading(true);
         try {
-            const result = await sendOTP(email);
+            const result = await sendOTP(email, isResend);
             if (result.success) {
-                toast.success(isResend ? "Code resent successfully" : "Verification code sent");
+                const isAlreadySent = (result as any).alreadySent;
+                const remaining = isAlreadySent ? (result as any).remainingSeconds : 120;
+
+                toast.success(isAlreadySent 
+                    ? "A verification code was already sent recently." 
+                    : (isResend ? "Code resent successfully" : "Verification code sent")
+                );
                 setStep('otp');
-                setTimeLeft(120);
+                setTimeLeft(remaining);
                 
                 // Persist state in sessionStorage
                 sessionStorage.setItem("setup_email", email);
                 sessionStorage.setItem("setup_step", 'otp');
-                sessionStorage.setItem("setup_timer_expiry", (Date.now() + 120 * 1000).toString());
+                sessionStorage.setItem("setup_timer_expiry", (Date.now() + remaining * 1000).toString());
             } else {
                 toast.error(result.error || "Failed to send code.");
             }

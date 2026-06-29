@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { uploadFile, validatePayloadFiles } from "@/lib/storage";
 import { revalidatePath } from "next/cache";
+import { sanitizeObject, sanitizeString } from "@/lib/validation";
 
 export async function submitBuildingPermit(formData: FormData) {
   try {
@@ -87,14 +88,22 @@ export async function submitBuildingPermit(formData: FormData) {
       return { success: false, error: fileCheck.error || "File validation failed." };
     }
 
+    // Sanitize input data to prevent XSS/injection attacks
+    const sanitizedAdditionalData = sanitizeObject(additionalData);
+    if (additionalData.signature) {
+      sanitizedAdditionalData.signature = additionalData.signature;
+    }
+
+    const sanitizedResidentSnapshot = resident ? sanitizeObject(resident) : {};
+
     // Create the transaction (FOR_REQUESTING)
     const transaction = await prisma.transaction.create({
       data: {
         userId: userId,
         typeId: type.id,
         status: "FOR_REQUESTING",
-        residentSnapshot: resident ? (resident as any) : {},
-        additionalData: additionalData,
+        residentSnapshot: sanitizedResidentSnapshot as any,
+        additionalData: sanitizedAdditionalData as any,
         totalAmount: 0,
       }
     });
@@ -252,13 +261,21 @@ export async function resubmitBuildingPermit(transactionId: string, formData: Fo
       where: { userId: userId }
     });
 
+    // Sanitize input data to prevent XSS/injection attacks
+    const sanitizedAdditionalData = sanitizeObject(additionalData);
+    if (additionalData.signature) {
+      sanitizedAdditionalData.signature = additionalData.signature;
+    }
+
+    const sanitizedResidentSnapshot = resident ? sanitizeObject(resident) : {};
+
     const updatedTransaction = await prisma.transaction.update({
       where: { id: transactionId },
       data: {
         status: "FOR_REQUESTING",
         rejectionRemarks: null,
-        residentSnapshot: resident ? (resident as any) : {},
-        additionalData: additionalData,
+        residentSnapshot: sanitizedResidentSnapshot as any,
+        additionalData: sanitizedAdditionalData as any,
       }
     });
 
@@ -307,16 +324,21 @@ export async function submitBuildingPermitPaymentProof(transactionId: string, fo
 
     const currentAdditionalData = (transaction.additionalData as any) || {};
 
+    const sanitizedAdditionalData = sanitizeObject({
+      ...currentAdditionalData,
+      gcashReferenceNo: gcashRefNo ? sanitizeString(gcashRefNo) : (currentAdditionalData.gcashReferenceNo || null)
+    });
+    if (currentAdditionalData.signature) {
+      sanitizedAdditionalData.signature = currentAdditionalData.signature;
+    }
+
     // Clear rejection remarks if any, set payment reference
     const updatedTransaction = await prisma.transaction.update({
       where: { id: transactionId },
       data: {
         paymentReference: paymentProofUrl,
         rejectionRemarks: null,
-        additionalData: {
-          ...currentAdditionalData,
-          gcashReferenceNo: gcashRefNo || currentAdditionalData.gcashReferenceNo || null
-        },
+        additionalData: sanitizedAdditionalData as any,
         updatedAt: new Date()
       }
     });

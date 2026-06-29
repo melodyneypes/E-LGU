@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { getRegistrarActiveCounts } from "@/app/admin/transactions/actions";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { getRegistrarActiveCounts, getTransactionTypes } from "@/app/admin/transactions/actions";
 import { useRouter } from "next/navigation";
 import { 
     RefreshCcw, 
@@ -121,17 +121,30 @@ export default function RegistrarDashboard({ transactions = [], currentUserId }:
     const [counts, setCounts] = useState<DashboardCounts | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [activeTypes, setActiveTypes] = useState<any[] | null>(null);
 
     const fetchCounts = useCallback(async (isRefresh = false) => {
         if (isRefresh) setRefreshing(true);
         else setLoading(true);
 
         try {
-            const res = await getRegistrarActiveCounts();
-            if (res.success && res.data) {
-                setCounts(res.data as unknown as DashboardCounts);
+            const [resCounts, resTypes] = await Promise.all([
+                getRegistrarActiveCounts(),
+                getTransactionTypes()
+            ]);
+
+            if (resCounts.success && resCounts.data) {
+                setCounts(resCounts.data as unknown as DashboardCounts);
             } else {
-                toast.error(res.error || "Failed to load active counts");
+                toast.error(resCounts.error || "Failed to load active counts");
+            }
+
+            if (resTypes.success && resTypes.data) {
+                console.log("[Dashboard] getTransactionTypes success:", resTypes.data.map((t: any) => `${t.code}:${t.isActive}`));
+                setActiveTypes(resTypes.data);
+            } else {
+                console.warn("[Dashboard] getTransactionTypes failed:", resTypes.error);
+                toast.error(resTypes.error || "Failed to load active services");
             }
         } catch (err) {
             console.error("Failed to fetch registrar counts:", err);
@@ -188,18 +201,41 @@ export default function RegistrarDashboard({ transactions = [], currentUserId }:
         };
     }, [fetchCounts]);
 
-    // Calculate total active count
-    const totalActive = counts?.activeCounts
-        ? Object.values(counts.activeCounts).reduce((acc: number, curr: number) => acc + curr, 0)
-        : 0;
+    // Calculate total active count of active services only
+    const totalActive = useMemo(() => {
+        if (!counts?.activeCounts) return 0;
+        if (!activeTypes) {
+            return Object.values(counts.activeCounts).reduce((acc: number, curr: number) => acc + curr, 0);
+        }
+        const activeCodes = new Set(activeTypes.map(t => t.code));
+        return Object.entries(counts.activeCounts).reduce((acc: number, [code, count]) => {
+            return activeCodes.has(code) ? acc + count : acc;
+        }, 0);
+    }, [counts, activeTypes]);
 
-    // Calculate total all-time count
-    const totalAll = counts?.totalCounts
-        ? Object.values(counts.totalCounts).reduce((acc: number, curr: number) => acc + curr, 0)
-        : 0;
+    // Calculate total all-time count of active services only
+    const totalAll = useMemo(() => {
+        if (!counts?.totalCounts) return 0;
+        if (!activeTypes) {
+            return Object.values(counts.totalCounts).reduce((acc: number, curr: number) => acc + curr, 0);
+        }
+        const activeCodes = new Set(activeTypes.map(t => t.code));
+        return Object.entries(counts.totalCounts).reduce((acc: number, [code, count]) => {
+            return activeCodes.has(code) ? acc + count : acc;
+        }, 0);
+    }, [counts, activeTypes]);
 
-    // Render all services on the dashboard
-    const servicesToRender = SERVICES_META;
+    // Render only active services on the dashboard
+    const servicesToRender = useMemo(() => {
+        if (!activeTypes) return SERVICES_META;
+        const activeCodes = new Set(activeTypes.map(t => t.code));
+        return SERVICES_META.filter(service => {
+            if (Array.isArray(service.code)) {
+                return service.code.some(code => activeCodes.has(code));
+            }
+            return activeCodes.has(service.code);
+        });
+    }, [activeTypes]);
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">

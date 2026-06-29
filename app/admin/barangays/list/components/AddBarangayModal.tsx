@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { addBarangay, updateBarangay, deleteBarangay } from "../../../actions";
 
  
-export function AddBarangayModal({ isOpen, onClose, editingItem }: { isOpen: boolean; onClose: () => void; editingItem?: any }) {
+export function AddBarangayModal({ isOpen, onClose, editingItem, themeColor = "#2563eb" }: { isOpen: boolean; onClose: () => void; editingItem?: any; themeColor?: string }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     if (!isOpen) return null;
@@ -59,7 +59,7 @@ export function AddBarangayModal({ isOpen, onClose, editingItem }: { isOpen: boo
                 <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-[#2a3040] flex-shrink-0">
                     <div>
                         <h2 className="text-2xl font-black uppercase italic tracking-tight flex items-center gap-2">
-                            <Building2 className="w-6 h-6 text-blue-500" />
+                            <Building2 className="w-6 h-6" style={{ color: themeColor }} />
                             {editingItem ? "Edit Barangay Hub" : "Register Barangay"}
                         </h2>
                         <p className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-widest">
@@ -90,12 +90,10 @@ export function AddBarangayModal({ isOpen, onClose, editingItem }: { isOpen: boo
                         )}
                     </div>
                     <div className="flex items-center space-x-3">
-                        <Button type="button" variant="ghost" onClick={onClose} className="font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
-                            Cancel
-                        </Button>
                         <Button 
                             type="submit" form="barangayForm" disabled={isSubmitting}
-                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold uppercase tracking-widest text-xs px-8 py-6 rounded-2xl shadow-xl shadow-blue-500/20"
+                            style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
+                            className="text-white font-bold uppercase tracking-widest text-xs px-8 py-6 rounded-2xl hover:opacity-90 transition-all"
                         >
                             <Save className="w-4 h-4 mr-2" />
                             {isSubmitting ? "Saving..." : editingItem ? "Save Changes" : "Register Barangay"}

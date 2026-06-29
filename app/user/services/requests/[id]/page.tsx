@@ -522,7 +522,7 @@ export default function RequestHubPage() {
     };
 
     const handleFinalize = async () => {
-        if (!isFreeDeathRegPickUp && (localPayment === "E_PAYMENT" || localPayment === "BANK_TRANSFER") && !paymentProofFile) {
+        if (!isFreeTransaction && !isFreeDeathRegPickUp && (localPayment === "E_PAYMENT" || localPayment === "BANK_TRANSFER") && !paymentProofFile) {
             toast.error("Please upload proof of payment.");
             return;
         }
@@ -941,6 +941,8 @@ export default function RequestHubPage() {
         ((additionalData.registrationType || "").toUpperCase() === "STANDARD" || !additionalData.registrationType) &&
         localFulfillment === "PICK_UP" &&
         (computation?.finalTotal ?? 0) === 0;
+
+    const isFreeTransaction = (computation?.finalTotal ?? 0) === 0;
 
     // Flat list of docs that have a URL — drives both the grid and the lightbox
     const documentList = useMemo(() => {

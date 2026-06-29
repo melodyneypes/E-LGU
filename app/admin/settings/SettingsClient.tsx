@@ -13,9 +13,11 @@ import {
     DialogContent,
     DialogDescription,
     DialogTitle,
+    DialogHeader,
+    DialogFooter,
 } from "@/components/ui/dialog";
 import { updateSystemSetting, createHeroSlide, deleteHeroSlide, updateHeroSlide, updateLogoSetting, updateMultipleSystemSettings } from "./actions";
-import { Plus, Trash2, Save, Globe, Layout, ShieldAlert, Image as ImageIcon, Send, X, Loader2, Users, Mail } from "lucide-react";
+import { Plus, Trash2, Save, Globe, Layout, ShieldAlert, Image as ImageIcon, Loader2, Users, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
 
@@ -192,23 +194,39 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                 <TabsList className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1.5 rounded-[1.2rem] h-auto mb-8 flex flex-wrap gap-1">
                     {isAdmin && (
                         <>
-                            <TabsTrigger value="general" className="rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-white dark:data-[state=active]:text-slate-950">
+                            <TabsTrigger 
+                                value="general" 
+                                style={activeTab === "general" ? { backgroundColor: themeColor, color: "white" } : undefined}
+                                className="rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-white dark:data-[state=active]:text-slate-950"
+                            >
                                 <Globe className="w-3.5 h-3.5 mr-2" />
                                 General
                             </TabsTrigger>
-                            <TabsTrigger value="credentials" className="rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-white dark:data-[state=active]:text-slate-950">
+                            <TabsTrigger 
+                                value="credentials" 
+                                style={activeTab === "credentials" ? { backgroundColor: themeColor, color: "white" } : undefined}
+                                className="rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-white dark:data-[state=active]:text-slate-950"
+                            >
                                 <ShieldAlert className="w-3.5 h-3.5 mr-2" />
                                 Credentials
                             </TabsTrigger>
                         </>
                     )}
-                    <TabsTrigger value="hero" className="rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-white dark:data-[state=active]:text-slate-950">
+                    <TabsTrigger 
+                        value="hero" 
+                        style={activeTab === "hero" ? { backgroundColor: themeColor, color: "white" } : undefined}
+                        className="rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-white dark:data-[state=active]:text-slate-950"
+                    >
                         <Layout className="w-3.5 h-3.5 mr-2" />
                         {isBarangayAdmin ? "Banners" : "Hero Sections"}
                     </TabsTrigger>
 
                     {isAdmin && (
-                        <TabsTrigger value="sections" className="rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-white dark:data-[state=active]:text-slate-950">
+                        <TabsTrigger 
+                            value="sections" 
+                            style={activeTab === "sections" ? { backgroundColor: themeColor, color: "white" } : undefined}
+                            className="rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white dark:data-[state=active]:bg-white dark:data-[state=active]:text-slate-950"
+                        >
                             <Users className="w-3.5 h-3.5 mr-2" />
                             Sections
                         </TabsTrigger>
@@ -543,7 +561,7 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                             <Card className="border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
                                 <CardHeader className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
                                     <CardTitle className="flex items-center gap-2">
-                                        <Save className="w-5 h-5 text-emerald-600" />
+                                        <Save className="w-5 h-5" style={{ color: themeColor }} />
                                         System Credentials & API
                                     </CardTitle>
                                     <CardDescription>Manage keys and identifiers used by the portal.</CardDescription>
@@ -562,9 +580,10 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
                                     <Button
                                         onClick={handleSaveSettings}
                                         disabled={isSaving}
-                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-6"
+                                        style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
+                                        className="w-full text-white rounded-xl py-6 hover:opacity-90 transition-opacity font-bold"
                                     >
-                                        Update System Credentials
+                                        {isSaving ? "Saving..." : "Update System Credentials"}
                                     </Button>
                                 </CardContent>
                             </Card>
@@ -582,7 +601,7 @@ export function SettingsClient({ settings, slides, role, managedBarangay }: Sett
 
                 {isAdmin && (
                     <TabsContent value="sections" className="space-y-6">
-                        <SectionVisibilityManager settings={settings} />
+                        <SectionVisibilityManager settings={settings} themeColor={themeColor} />
                     </TabsContent>
                 )}
             </Tabs>
@@ -635,7 +654,11 @@ function HeroSlidesManager({
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Active Slides</h3>
-                <Button onClick={handleAdd} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-6 gap-2 shadow-lg shadow-emerald-500/20">
+                <Button 
+                    onClick={handleAdd} 
+                    style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
+                    className="text-white rounded-full px-6 gap-2 hover:opacity-90 transition-opacity"
+                >
                     <Plus className="w-4 h-4" />
                     Add Slide
                 </Button>
@@ -643,7 +666,7 @@ function HeroSlidesManager({
 
             <div className="grid grid-cols-1 gap-6">
                 {slides.map((slide) => (
-                    <SlideEditor key={slide.id} slide={slide} onEdit={() => handleEdit(slide)} onDelete={handleDelete} />
+                    <SlideEditor key={slide.id} slide={slide} onEdit={() => handleEdit(slide)} onDelete={handleDelete} themeColor={themeColor} />
                 ))}
             </div>
 
@@ -672,7 +695,7 @@ interface HeroSlideModalProps {
 }
 
 // Section Visibility Manager Component
-function SectionVisibilityManager({ settings }: { settings: Record<string, string> }) {
+function SectionVisibilityManager({ settings, themeColor }: { settings: Record<string, string>; themeColor: string }) {
     const [sectionStates, setSectionStates] = useState({
         section_dining_lodging: settings.section_dining_lodging !== "false",
         section_places_to_visit: settings.section_places_to_visit !== "false",
@@ -748,14 +771,17 @@ function SectionVisibilityManager({ settings }: { settings: Record<string, strin
                         <Switch
                             checked={sectionStates[section.key as keyof typeof sectionStates]}
                             onCheckedChange={() => handleToggle(section.key)}
-                            className="data-[state=checked]:bg-emerald-600"
+                            style={{
+                                backgroundColor: sectionStates[section.key as keyof typeof sectionStates] ? themeColor : undefined
+                            }}
                         />
                     </div>
                 ))}
                 <Button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold mt-4"
+                    style={{ backgroundColor: themeColor }}
+                    className="w-full h-12 text-white rounded-xl font-bold mt-4 hover:opacity-90 transition-opacity"
                 >
                     {isSaving ? "Saving..." : "Save Section Settings"}
                 </Button>
@@ -865,179 +891,183 @@ function HeroSlideModal({ isOpen, onClose, slide, order, themeColor }: HeroSlide
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent
-                showCloseButton={false}
-                className="sm:max-w-6xl h-[90vh] overflow-hidden rounded-[2.5rem] bg-white dark:bg-[#0f1117] p-0 border-slate-200 dark:border-[#2a3040] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] flex flex-col gap-0"
+                className="sm:max-w-5xl p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-[2.5rem]"
             >
-                <div className="p-8 pb-6 border-b border-slate-100 dark:border-[#2a3040] bg-white/50 dark:bg-[#0f1117]/50 backdrop-blur-xl flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                            <ImageIcon className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                            <DialogTitle className="text-2xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">
-                                {slide ? "Edit Slide" : "New Slide"}
-                            </DialogTitle>
-                            <DialogDescription className="text-xs text-slate-500 font-bold uppercase tracking-widest opacity-70">
-                                {slide ? "Refining your visual message" : "Creating a New Visual Narrative"}
-                            </DialogDescription>
-                        </div>
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full h-12 w-12 hover:bg-slate-100 dark:hover:bg-slate-800">
-                        <X className="w-6 h-6 text-slate-400" />
-                    </Button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-10 custom-scrollbar space-y-12">
-                    {/* Section: Messaging */}
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="flex items-center gap-2 mb-2">
-                            <Layout className="w-4 h-4 text-blue-600" />
-                            <span className="text-[10px] font-black uppercase text-blue-600 tracking-[0.2em]">Messaging & Copy</span>
-                        </div>
-                        <div className="grid grid-cols-1 gap-5">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-                                <div className="md:col-span-3 space-y-2">
-                                    <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Headline</Label>
-                                    <Input
-                                        placeholder="e.g. Welcome to Mapandan"
-                                        value={formData.title}
-                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                        className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-[#2a3040] font-black px-6 text-lg text-slate-900 dark:text-white"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Display Order</Label>
-                                    <Input
-                                        type="number"
-                                        value={formData.order}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setFormData({
-                                                ...formData,
-                                                order: val === "" ? "" : parseInt(val)
-                                            });
-                                        }}
-                                        className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-[#2a3040] font-black px-6 text-lg text-slate-900 dark:text-white text-center"
-                                    />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-left">
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Tagline (Small Text)</Label>
-                                    <Input
-                                        placeholder="The Gateway to Paradise"
-                                        value={formData.tagline}
-                                        onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
-                                        className="h-12 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-[#2a3040] italic px-6 text-slate-900 dark:text-white"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Secondary Description</Label>
-                                    <Input
-                                        placeholder="A place of wonder and beauty"
-                                        value={formData.subtitle}
-                                        onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-                                        className="h-12 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-[#2a3040] px-6 text-slate-900 dark:text-white"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Section: Visual Assets & Preview */}
-                    <div className="space-y-6 pt-10 border-t border-slate-100 dark:border-[#2a3040]/50 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
-                        <div className="flex items-center gap-2 mb-2">
-                            <ImageIcon className="w-4 h-4 text-emerald-600" />
-                            <span className="text-[10px] font-black uppercase text-emerald-600 tracking-[0.2em]">Artistic Direction</span>
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                            {/* Preview Area */}
-                            <div className="lg:col-span-5 space-y-4">
-                                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block ml-1 text-left">Dynamic Preview</Label>
-                                <div className="aspect-[16/10] rounded-3xl bg-slate-200 dark:bg-slate-950 overflow-hidden relative border-4 border-white dark:border-[#0f1117] shadow-2xl group">
-                                    {previewUrl || formData.imageUrl ? (
-                                        <>
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={previewUrl || formData.imageUrl} alt="Preview" className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-6 flex flex-col justify-end text-left">
-                                                <p className="text-white font-black text-lg leading-tight truncate">{formData.title || "Headline Here"}</p>
-                                                <p className="text-white/60 text-[10px] italic truncate">{formData.tagline || "Tagline preview..."}</p>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="flex flex-col items-center justify-center h-full gap-4 opacity-20">
-                                            <ImageIcon className="w-12 h-12" />
-                                            <p className="text-[10px] font-black uppercase tracking-widest">Visual Required</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Upload Area */}
-                            <div className="lg:col-span-7 space-y-6 text-left">
-                                <div className="space-y-3">
-                                    <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Native File Upload</Label>
-                                    <Input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleFileChange}
-                                        className="h-14 rounded-2xl bg-white dark:bg-[#0b0e14] border-slate-200 dark:border-[#2a3040] file:border-none file:bg-emerald-600 file:text-white file:text-[10px] file:font-black file:uppercase file:mr-4 file:h-full file:px-6 cursor-pointer shadow-sm"
-                                    />
-                                </div>
-
-                                <div className="relative py-2 flex items-center">
-                                    <div className="flex-1 border-t border-slate-200 dark:border-[#2a3040]"></div>
-                                    <span className="mx-3 text-[9px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-tighter">OR REMOTE SOURCE</span>
-                                    <div className="flex-1 border-t border-slate-200 dark:border-[#2a3040]"></div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Direct URL (CDN)</Label>
-                                    <Input
-                                        placeholder="https://cdn.example.com/banners/hero.jpg"
-                                        value={formData.imageUrl}
-                                        onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                                        className="h-12 rounded-2xl bg-white dark:bg-[#0b0e14] border-slate-200 dark:border-[#2a3040] font-mono text-[10px] px-6"
-                                    />
-                                </div>
-
-                                <div className="pt-4 flex items-center justify-between p-4 bg-slate-50 dark:bg-[#151b2b] rounded-2xl border border-slate-100 dark:border-[#2a3040]">
-                                    <div className="space-y-1">
-                                        <Label className="text-sm font-bold text-slate-900 dark:text-white">Active Status</Label>
-                                        <p className="text-[10px] text-slate-500 uppercase font-black opacity-60 italic tracking-tighter">Toggle visibility on the landing page</p>
-                                    </div>
-                                    <Switch
-                                        checked={formData.isActive}
-                                        onCheckedChange={(val) => setFormData({ ...formData, isActive: val })}
-                                        className="data-[state=checked]:bg-emerald-600 shadow-lg shadow-emerald-500/20"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-
-                <div className="p-8 border-t border-slate-100 dark:border-[#2a3040] bg-white dark:bg-[#0f1117] flex items-center justify-end z-20">
-                    <Button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="rounded-2xl px-16 h-16 font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl transition-all active:scale-[0.98] group relative overflow-hidden"
-                        style={{ backgroundColor: themeColor }}
+                <style dangerouslySetInnerHTML={{ __html: `
+                    .dynamic-theme-file-input::file-selector-button {
+                        background-color: ${themeColor} !important;
+                    }
+                `}} />
+                <div className="flex flex-col h-[90vh] sm:max-h-[85vh]">
+                    <DialogHeader
+                        className="p-6 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040] relative overflow-hidden shrink-0 text-left"
+                        style={{ backgroundColor: `${themeColor}14` }}
                     >
-                        <span className="relative z-10 flex items-center gap-3">
+                        <div className="flex items-center space-x-3">
+                            <div 
+                                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg" 
+                                style={{ backgroundColor: themeColor, boxShadow: `0 12px 30px -12px ${themeColor}` }}
+                            >
+                                <ImageIcon className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-2xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">
+                                    {slide ? "Edit Slide" : "New Slide"}
+                                </DialogTitle>
+                                <DialogDescription className="text-slate-500 dark:text-slate-400 font-medium italic text-sm">
+                                    {slide ? "Refining your visual message" : "Creating a New Visual Narrative"}
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+
+                    <div className="flex-1 p-6 pb-20 overflow-y-auto custom-scrollbar space-y-12">
+                        {/* Section: Messaging */}
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Layout className="w-4 h-4" style={{ color: themeColor }} />
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: themeColor }}>Messaging & Copy</span>
+                            </div>
+                            <div className="grid grid-cols-1 gap-5">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                                    <div className="md:col-span-3 space-y-2">
+                                        <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Headline</Label>
+                                        <Input
+                                            placeholder="e.g. Welcome to Mapandan"
+                                            value={formData.title}
+                                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                            className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-[#2a3040] font-black px-6 text-lg text-slate-900 dark:text-white"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Display Order</Label>
+                                        <Input
+                                            type="number"
+                                            value={formData.order}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setFormData({
+                                                    ...formData,
+                                                    order: val === "" ? "" : parseInt(val)
+                                                });
+                                            }}
+                                            className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-[#2a3040] font-black px-6 text-lg text-slate-900 dark:text-white text-center"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-left">
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Tagline (Small Text)</Label>
+                                        <Input
+                                            placeholder="The Gateway to Paradise"
+                                            value={formData.tagline}
+                                            onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
+                                            className="h-12 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-[#2a3040] italic px-6 text-slate-900 dark:text-white"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Secondary Description</Label>
+                                        <Input
+                                            placeholder="A place of wonder and beauty"
+                                            value={formData.subtitle}
+                                            onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                                            className="h-12 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-[#2a3040] px-6 text-slate-900 dark:text-white"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Section: Visual Assets & Preview */}
+                        <div className="space-y-6 pt-10 border-t border-slate-100 dark:border-[#2a3040]/50 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
+                            <div className="flex items-center gap-2 mb-2">
+                                <ImageIcon className="w-4 h-4" style={{ color: themeColor }} />
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: themeColor }}>Artistic Direction</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                                {/* Preview Area */}
+                                <div className="lg:col-span-5 space-y-4">
+                                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block ml-1 text-left">Dynamic Preview</Label>
+                                    <div className="aspect-[16/10] rounded-3xl bg-slate-200 dark:bg-slate-950 overflow-hidden relative border-4 border-white dark:border-[#0f1117] shadow-2xl group">
+                                        {previewUrl || formData.imageUrl ? (
+                                            <>
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img src={previewUrl || formData.imageUrl} alt="Preview" className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-6 flex flex-col justify-end text-left">
+                                                    <p className="text-white font-black text-lg leading-tight truncate">{formData.title || "Headline Here"}</p>
+                                                    <p className="text-white/60 text-[10px] italic truncate">{formData.tagline || "Tagline preview..."}</p>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full gap-4 opacity-20">
+                                                <ImageIcon className="w-12 h-12" />
+                                                <p className="text-[10px] font-black uppercase tracking-widest">Visual Required</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Upload Area */}
+                                <div className="lg:col-span-7 space-y-6 text-left">
+                                    <div className="space-y-3">
+                                        <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Native File Upload</Label>
+                                        <Input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleFileChange}
+                                            className="dynamic-theme-file-input h-14 rounded-2xl bg-white dark:bg-[#0b0e14] border-slate-200 dark:border-[#2a3040] file:border-none file:text-white file:text-[10px] file:font-black file:uppercase file:mr-4 file:h-full file:px-6 cursor-pointer shadow-sm"
+                                        />
+                                    </div>
+
+                                    <div className="relative py-2 flex items-center">
+                                        <div className="flex-1 border-t border-slate-200 dark:border-[#2a3040]"></div>
+                                        <span className="mx-3 text-[9px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-tighter">OR REMOTE SOURCE</span>
+                                        <div className="flex-1 border-t border-slate-200 dark:border-[#2a3040]"></div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Direct URL (CDN)</Label>
+                                        <Input
+                                            placeholder="https://cdn.example.com/banners/hero.jpg"
+                                            value={formData.imageUrl}
+                                            onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                                            className="h-12 rounded-2xl bg-white dark:bg-[#0b0e14] border-slate-200 dark:border-[#2a3040] font-mono text-[10px] px-6"
+                                        />
+                                    </div>
+
+                                    <div className="pt-4 flex items-center justify-between p-4 bg-slate-50 dark:bg-[#151b2b] rounded-2xl border border-slate-100 dark:border-[#2a3040]">
+                                        <div className="space-y-1">
+                                            <Label className="text-sm font-bold text-slate-900 dark:text-white">Active Status</Label>
+                                            <p className="text-[10px] text-slate-500 uppercase font-black opacity-60 italic tracking-tighter">Toggle visibility on the landing page</p>
+                                        </div>
+                                        <Switch
+                                            checked={formData.isActive}
+                                            onCheckedChange={(val) => setFormData({ ...formData, isActive: val })}
+                                            style={{
+                                                backgroundColor: formData.isActive ? themeColor : undefined
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="p-6 pt-0 bg-white dark:bg-[#0f1117] border-none shrink-0">
+                        <Button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="w-full h-12 text-white font-black uppercase tracking-widest text-[10px] rounded-xl shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]"
+                            style={{ backgroundColor: themeColor, boxShadow: `0 14px 28px -14px ${themeColor}` }}
+                        >
                             {isSaving ? (
-                                <Loader2 className="w-5 h-5 animate-spin" />
+                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
                             ) : (
-                                <>
-                                    <Send className="w-5 h-5" />
-                                    {slide ? "Save Changes" : "Launch Slide"}
-                                </>
+                                slide ? "Apply Changes" : "Add Slide"
                             )}
-                        </span>
-                        <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-0 transition-transform duration-500"></div>
-                    </Button>
+                        </Button>
+                    </DialogFooter>
                 </div>
             </DialogContent>
         </Dialog>
@@ -1045,7 +1075,7 @@ function HeroSlideModal({ isOpen, onClose, slide, order, themeColor }: HeroSlide
 }
 
 
-function SlideEditor({ slide, onEdit, onDelete }: { slide: any, onEdit: () => void, onDelete: (id: string) => void }) {
+function SlideEditor({ slide, onEdit, onDelete, themeColor }: { slide: any, onEdit: () => void, onDelete: (id: string) => void, themeColor: string }) {
     return (
         <Card className="border-slate-200 dark:border-[#2a3040] shadow-sm overflow-hidden group hover:shadow-2xl hover:shadow-blue-500/5 transition-all duration-500 rounded-[2rem] bg-white dark:bg-[#0f1117]">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-0 min-h-[200px]">
@@ -1105,7 +1135,8 @@ function SlideEditor({ slide, onEdit, onDelete }: { slide: any, onEdit: () => vo
                     <div className="flex items-center gap-3 pt-6 border-t border-slate-100 dark:border-[#2a3040] mt-4">
                         <Button
                             onClick={onEdit}
-                            className="bg-slate-900 dark:bg-white dark:text-slate-950 text-white rounded-2xl px-8 h-11 font-black uppercase tracking-widest text-[10px] gap-2 transition-transform active:scale-[0.98]"
+                            style={{ backgroundColor: themeColor }}
+                            className="text-white rounded-2xl px-8 h-11 font-black uppercase tracking-widest text-[10px] gap-2 transition-transform active:scale-[0.98] hover:opacity-90 transition-opacity"
                         >
                             Edit Slide
                         </Button>

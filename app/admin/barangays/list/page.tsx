@@ -8,5 +8,12 @@ export default async function BarangaysPage() {
         orderBy: { name: 'asc' }
     });
 
-    return <BarangaysListWorkspace initialData={barangays} />;
+    const settingsList = await prisma.systemSetting.findMany();
+    const settings = settingsList.reduce((acc: any, curr: { key: string; value: string }) => {
+        acc[curr.key] = curr.value;
+        return acc;
+    }, {});
+    const themeColor = settings.theme_color || "#2563eb";
+
+    return <BarangaysListWorkspace initialData={barangays} themeColor={themeColor} />;
 }

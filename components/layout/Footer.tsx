@@ -18,10 +18,10 @@ interface FooterProps {
     contactPhone?: string;
 }
 
-export function Footer({ 
-    logoUrl, 
-    brandWord1 = "E", 
-    brandWord2 = "Mapandan", 
+export function Footer({
+    logoUrl,
+    brandWord1 = "E",
+    brandWord2 = "Mapandan",
     themeColor = "#2563eb",
     facebookUrl = "#",
     twitterUrl = "#",
@@ -46,7 +46,7 @@ export function Footer({
                 {/* Brand Column */}
                 <div className="space-y-6">
                     <Link href={selectedBarangay && selectedBarangay !== "All" ? `/?barangay=${selectedBarangay}` : "/"} className="flex items-center gap-3">
-                        <div 
+                        <div
                             className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg relative overflow-hidden"
                             style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
                         >
@@ -88,8 +88,8 @@ export function Footer({
                             { name: "Privacy Policy", href: "/privacy-policy" }
                         ].map((link) => (
                             <li key={link.name}>
-                                <Link 
-                                    href={link.href} 
+                                <Link
+                                    href={link.href}
                                     className="text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-none"
                                     onMouseEnter={(e) => e.currentTarget.style.color = themeColor}
                                     onMouseLeave={(e) => e.currentTarget.style.color = ""}
@@ -111,8 +111,8 @@ export function Footer({
                             { name: "Gallery", href: "/#tourism" }
                         ].map((link) => (
                             <li key={link.name}>
-                                <Link 
-                                    href={link.href} 
+                                <Link
+                                    href={link.href}
                                     className="text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-none"
                                     onMouseEnter={(e) => e.currentTarget.style.color = themeColor}
                                     onMouseLeave={(e) => e.currentTarget.style.color = ""}
@@ -147,7 +147,7 @@ export function Footer({
             <div className="pt-10 flex flex-col md:flex-row items-center justify-between gap-6 text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 text-center md:text-left">
                 <p className="flex items-center justify-center md:justify-start gap-2 flex-wrap">
                     <span>© {new Date().getFullYear()} {brandWord1}{brandWord2}. All rights reserved.</span>
-                    <span className="text-[7px] bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-full font-extrabold tracking-widest text-slate-500/80">v1.0.1</span>
+                    <span className="text-[7px] bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-full font-extrabold tracking-widest text-slate-500/80">v1.0.2</span>
                 </p>
                 <div className="flex items-center gap-8">
                     <Link href="/privacy-policy" className="hover:text-primary transition-colors">Privacy</Link>

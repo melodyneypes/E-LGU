@@ -477,6 +477,21 @@ export default function CedulaApplicationPage() {
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: "idFile" | "proofFile") => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
+
+            // Validate file type (only allow formats verified by our backend: PDF, PNG, JPG/JPEG)
+            const allowedTypes = [
+                "image/jpeg", "image/png",
+                "application/pdf"
+            ];
+            const fileExtension = file.name.split('.').pop()?.toLowerCase() || "";
+            const allowedExtensions = ["pdf", "jpg", "jpeg", "png"];
+
+            if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+                toast.error("Invalid file type! Only standard images (PNG, JPG, JPEG) and PDFs are allowed.");
+                e.target.value = ""; // clear file input
+                return;
+            }
+
             const maxBytes = 5 * 1024 * 1024; // 5MB limit
             if (file.size > maxBytes) {
                 toast.error(`The file "${file.name}" is too large! Maximum limit is 5MB`);
@@ -1302,7 +1317,7 @@ export default function CedulaApplicationPage() {
                                                 ) : null}
 
                                                 <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
-                                                    <input type="file" onChange={(e) => handleFileChange(e, "idFile")} className="hidden" id="id-upload" />
+                                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "idFile")} className="hidden" id="id-upload" />
                                                     {(formData.idFile || existingIdUrl) && (
                                                         <Button
                                                             type="button"
@@ -1388,7 +1403,7 @@ export default function CedulaApplicationPage() {
                                                 ) : null}
 
                                                 <div className="flex items-center justify-between w-full gap-2 md:gap-3 mt-1">
-                                                    <input type="file" onChange={(e) => handleFileChange(e, "proofFile")} className="hidden" id="proof-upload" />
+                                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileChange(e, "proofFile")} className="hidden" id="proof-upload" />
                                                     {(formData.proofFile || existingProofUrl) && (
                                                         <Button
                                                             type="button"

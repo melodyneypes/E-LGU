@@ -433,7 +433,7 @@ export async function ensureCivilRegistryTransactionTypes() {
                 description: "Request PSA Endorsement for Birth Certificate.",
                 level: 1,
                 category: "Civil Registry",
-                baseFee: 200.00,
+                baseFee: 130.00,
                 deliveryFee: 0.00,
                 isFixed: true,
                 requiredDocs: ["PSA Negative Certification"],
@@ -498,6 +498,7 @@ export async function ensureCivilRegistryTransactionTypes() {
                     requiredDocs: t.requiredDocs,
                     formSchema: t.formSchema,
                     supportsECopy: t.supportsECopy,
+                    baseFee: t.baseFee,
                     ...(!hasDefaultFees && (t as any).defaultFees ? { defaultFees: (t as any).defaultFees } : {})
                 },
                 create: t as any
@@ -1194,10 +1195,22 @@ export async function submitTransaction(formData: FormData) {
         const proofFile = formData.get("proofFile") as File;
         const existingIdUrl = sanitizeUrl(formData.get("existingIdUrl") as string);
 
-        let idUrl = await processFileUpload(idFile, "ids");
+        let idUrl = null;
+        if (idFile && idFile.size > 0 && idFile.name !== "undefined") {
+            idUrl = await processFileUpload(idFile, "ids");
+            if (!idUrl) {
+                return { success: false, error: "Failed to upload Valid ID. Please try again or check your connection." };
+            }
+        }
         if (!idUrl && existingIdUrl) idUrl = existingIdUrl;
 
-        const proofUrl = await processFileUpload(proofFile, "proofs");
+        let proofUrl = null;
+        if (proofFile && proofFile.size > 0 && proofFile.name !== "undefined") {
+            proofUrl = await processFileUpload(proofFile, "proofs");
+            if (!proofUrl) {
+                return { success: false, error: "Failed to upload Proof document. Please try again or check your connection." };
+            }
+        }
 
         // Merge file URLs into additionalData
         const updatedAdditionalData = {
@@ -1409,19 +1422,32 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
             const isBirthReg = typeCode === "LCR_BIRTH_REG";
             const isDeathReg = typeCode === "LCR_DEATH_REG";
 
-            const baseFee = isCertifiedCopy
+            // CHECK: Is it a free birth application resulting in Form 1B or Form 1C?
+            const verifiedBook = registryBookVerification || additional.registryBookVerification;
+            const isFreeBirthApp = (typeCode === "LCR_BIRTH" || typeCode === "LCR_BIRTH_REG") &&
+                                   (verifiedBook === "FORM_1B" || verifiedBook === "FORM_1C");
+
+            const baseFee = isFreeBirthApp
                 ? 0
-                : ((isMarriageReg && !isLate) || isBirthReg || isDeathReg)
+                : isCertifiedCopy
                     ? 0
-                    : Number(transaction.type?.baseFee || 0);
+                    : ((isMarriageReg && !isLate) || isBirthReg || isDeathReg)
+                        ? 0
+                        : Number(transaction.type?.baseFee || 0);
             const feeDelivery = Number(transaction.type?.deliveryFee || 0);
-            const deliveryFeeUsed = deliveryFeeOverride !== undefined ? deliveryFeeOverride : dynamicDeliveryFee || feeDelivery;
+            const deliveryFeeUsed = isFreeBirthApp
+                ? 0
+                : (deliveryFeeOverride !== undefined ? deliveryFeeOverride : dynamicDeliveryFee || feeDelivery);
 
-            const miscFee = sanitizedMiscFeeOverride !== undefined
-                ? sanitizedMiscFeeOverride
-                : (additional.miscFee !== undefined ? Number(additional.miscFee) : (isLate ? 300 : 0));
+            const miscFee = isFreeBirthApp
+                ? 0
+                : (sanitizedMiscFeeOverride !== undefined
+                    ? sanitizedMiscFeeOverride
+                    : (additional.miscFee !== undefined ? Number(additional.miscFee) : (isLate ? 300 : 0)));
 
-            const itemsSum = sanitizedBpFeeLineItems ? sanitizedBpFeeLineItems.reduce((acc, curr) => acc + Number(curr.amount || 0), 0) : 0;
+            const itemsSum = isFreeBirthApp
+                ? 0
+                : (sanitizedBpFeeLineItems ? sanitizedBpFeeLineItems.reduce((acc, curr) => acc + Number(curr.amount || 0), 0) : 0);
             const total = baseFee + (transaction.fulfillmentType === "DELIVERY" ? deliveryFeeUsed : 0) + miscFee + itemsSum;
 
             result = {
@@ -1595,6 +1621,16 @@ export async function finalizeTransactionFulfillment(formData: FormData) {
             }
 
             finalAmount += actualDeliveryFee;
+        }
+
+        // Force finalAmount = 0 for Form 1B/1C Birth certificate request / Birth Registration
+        const lcrAdditional = (transaction.additionalData as any) || {};
+        const lcrTypeCode = (transaction.type?.code || "").toUpperCase();
+        const verifiedBook = lcrAdditional.registryBookVerification;
+        const isFreeBirthApp = (lcrTypeCode === "LCR_BIRTH" || lcrTypeCode === "LCR_BIRTH_REG") &&
+                               (verifiedBook === "FORM_1B" || verifiedBook === "FORM_1C");
+        if (isFreeBirthApp) {
+            finalAmount = 0;
         }
 
         // Determine next status: 
@@ -4321,17 +4357,17 @@ export async function requestPsaEndorsement(formData: FormData) {
                 psaType = await prisma.transactionType.create({
                     data: {
                         code: "LCR_PSA_ENDORSEMENT",
-                        name: "PSA Endorsement",
+                        name: "Birth PSA Endorsement",
                         description: "Request PSA Endorsement for Birth Certificate.",
                         level: 1,
                         category: "Civil Registry",
-                        baseFee: 200.00,
+                        baseFee: 130.00,
                         deliveryFee: 0.00,
                         isFixed: true,
                         requiredDocs: ["PSA Negative Certification"],
                         formSchema: {
                             type: "CIVIL_REGISTRY",
-                            registryType: "PSA_ENDORSEMENT",
+                            registryType: "BIRTH_PSA_ENDORSEMENT",
                             fields: ["originalTransactionId", "psaNegCertUrl"]
                         },
                         requiresBusinessName: false,
@@ -4359,14 +4395,14 @@ export async function requestPsaEndorsement(formData: FormData) {
                     status: "FOR_REQUESTING",
                     fulfillmentType: transaction.fulfillmentType || "PICK_UP",
                     paymentType: null,
-                    totalAmount: 200.00,
+                    totalAmount: psaType!.baseFee,
                     residentSnapshot: transaction.residentSnapshot || {},
                     businessName: null,
                     additionalData: {
                         originalTransactionId: transactionId,
                         psaNegCertUrl,
                         psaEndorsementRequested: true,
-                        psaEndorsementFee: 200,
+                        psaEndorsementFee: psaType!.baseFee,
                         subjectName: transaction.businessName || originalAddData.subjectName || ""
                     }
                 }

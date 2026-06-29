@@ -173,18 +173,32 @@ export default async function Home({
         });
     const dining = await prisma.dining.findMany({
         where: {
-                isPublished: true,
-                ...(isFiltered ? { barangay: selectedBarangay } : {})
-            } as any,
-            take: 4
-        });
+            isPublished: true,
+            ...(isFiltered ? { barangay: selectedBarangay } : {})
+        } as any,
+        include: {
+            reviews: {
+                select: {
+                    rating: true
+                }
+            }
+        },
+        take: 4
+    });
     const lodging = await prisma.accommodation.findMany({
         where: {
-                isPublished: true,
-                ...(isFiltered ? { barangay: selectedBarangay } : {})
-            } as any,
-            take: 4
-        });
+            isPublished: true,
+            ...(isFiltered ? { barangay: selectedBarangay } : {})
+        } as any,
+        include: {
+            reviews: {
+                select: {
+                    rating: true
+                }
+            }
+        },
+        take: 4
+    });
     const announcements = await prisma.announcement.findMany({
         where: {
                 isActive: true,

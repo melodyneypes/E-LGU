@@ -36,7 +36,10 @@ function validateSetupToken(email: string | undefined, token: string | undefined
             return { valid: false, error: "Your setup session has expired. Please log in again to request a new verification code." };
         }
 
-        const secret = process.env.NEXTAUTH_SECRET || "default_secret_fallback_key_12345678";
+        const secret = process.env.NEXTAUTH_SECRET;
+        if (!secret) {
+            throw new Error("NEXTAUTH_SECRET is not configured in the environment variables.");
+        }
         const expectedSignature = crypto.createHmac("sha256", secret)
             .update(`${msgEmail}:${msgExpiry}`)
             .digest("hex");

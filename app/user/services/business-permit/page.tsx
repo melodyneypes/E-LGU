@@ -919,19 +919,17 @@ export default function BusinessPermitWizardPage() {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
 
-            // Validate file type (image, pdf, doc, docx)
+            // Validate file type (only allow formats verified by our backend: PDF, PNG, JPG/JPEG)
             const allowedTypes = [
-                "image/jpeg", "image/png", "image/gif",
-                "application/pdf",
-                "application/msword",
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                "image/jpeg", "image/png",
+                "application/pdf"
             ];
 
             const fileExtension = file.name.split('.').pop()?.toLowerCase() || "";
-            const allowedExtensions = ["pdf", "jpg", "jpeg", "png", "gif", "doc", "docx"];
+            const allowedExtensions = ["pdf", "jpg", "jpeg", "png"];
 
             if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
-                toast.error("Invalid file type! Only standard images (PNG, JPG, GIF), PDFs, and Word documents (DOC/DOCX) are allowed.");
+                toast.error("Invalid file type! Only standard images (PNG, JPG, JPEG) and PDFs are allowed.");
                 e.target.value = ""; // clear file input
                 return;
             }
@@ -2136,7 +2134,7 @@ export default function BusinessPermitWizardPage() {
                                                                 onChange={(e) => handleFileChange(e, item.field as keyof FormState)}
                                                                 className="hidden"
                                                                 id={`upload-${item.field}`}
-                                                                accept="image/jpeg,image/png,image/gif,application/pdf,.doc,.docx"
+                                                                accept=".pdf,.png,.jpg,.jpeg"
                                                             />
                                                             {(file || (item.field === "ownerIdFile" && formData.residentData?.idFrontUrl) || revisionTx?.additionalData?.[`${item.field.replace("File", "Url")}`]) ? (
                                                                 <div className="flex gap-2 w-full">

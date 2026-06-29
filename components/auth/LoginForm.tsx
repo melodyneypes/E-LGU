@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Eye, EyeOff, Mail, Lock, ShieldAlert, Timer } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthTransitionContext } from "@/components/shared/AuthLayout";
-import { checkEmailExists, sendOTP } from "@/app/auth/actions";
+import { sendOTP } from "@/app/auth/actions";
 
 const loginSchema = z.object({
     email: z.string().email("Invalid email address"),
@@ -100,11 +100,8 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
     }, [session, status, router, isMaintenanceActive, isLoggingIn]);
 
     const [lockout, setLockout] = React.useState<LockoutState>(DEFAULT_STATE);
-    const [timeLeft, setTimeLeft] = React.useState<number>(0); // remaining seconds
     const [otpLockout, setOtpLockout] = React.useState<LockoutState>(DEFAULT_STATE);
-    const [otpTimeLeft, setOtpTimeLeft] = React.useState<number>(0); // remaining OTP lockout seconds
-
-    const hasToastedRef = React.useRef<{ [key: string]: boolean }>({});
+    const [otpSendLockout, setOtpSendLockout] = React.useState<LockoutState>(DEFAULT_STATE);
 
     const form = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
@@ -128,15 +125,13 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
         const normalizedEmail = emailValue.trim().toLowerCase();
         if (!normalizedEmail) {
             setLockout(DEFAULT_STATE);
-            setTimeLeft(0);
             setOtpLockout(DEFAULT_STATE);
-            setOtpTimeLeft(0);
+            setOtpSendLockout(DEFAULT_STATE);
             return;
         }
 
         // 1. Sync Login Lockout
         let currentLockout = DEFAULT_STATE;
-        let loginRemaining = 0;
         const storedLogin = localStorage.getItem(STORAGE_KEY);
         if (storedLogin) {
             try {
@@ -147,7 +142,6 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                         const remaining = Math.ceil((emailLockout.cooldownUntil - Date.now()) / 1000);
                         if (remaining > 0) {
                             currentLockout = emailLockout;
-                            loginRemaining = remaining;
                         } else {
                             // Cooldown expired
                             const updated = { ...emailLockout, cooldownUntil: null };
@@ -164,11 +158,9 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
             }
         }
         setLockout(currentLockout);
-        setTimeLeft(loginRemaining);
 
         // 2. Sync OTP Lockout
         let currentOtpLockout = DEFAULT_STATE;
-        let otpRemaining = 0;
         const storedOtp = localStorage.getItem("emapandan_otp_lockout_by_email");
         if (storedOtp) {
             try {
@@ -179,7 +171,6 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                         const remaining = Math.ceil((emailOtpLockout.cooldownUntil - Date.now()) / 1000);
                         if (remaining > 0) {
                             currentOtpLockout = emailOtpLockout;
-                            otpRemaining = remaining;
                         } else {
                             // Cooldown expired
                             const updated = { ...emailOtpLockout, cooldownUntil: null };
@@ -196,104 +187,38 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
             }
         }
         setOtpLockout(currentOtpLockout);
-        setOtpTimeLeft(otpRemaining);
+
+        // 3. Sync OTP Send Lockout
+        let currentOtpSendLockout = DEFAULT_STATE;
+        const storedOtpSend = localStorage.getItem("emapandan_otp_send_lockout_by_email");
+        if (storedOtpSend) {
+            try {
+                const map = JSON.parse(storedOtpSend) as { [email: string]: LockoutState };
+                const emailOtpSendLockout = map[normalizedEmail];
+                if (emailOtpSendLockout) {
+                    if (emailOtpSendLockout.cooldownUntil) {
+                        const remaining = Math.ceil((emailOtpSendLockout.cooldownUntil - Date.now()) / 1000);
+                        if (remaining > 0) {
+                            currentOtpSendLockout = emailOtpSendLockout;
+                        } else {
+                            // Cooldown expired
+                            const updated = { ...emailOtpSendLockout, cooldownUntil: null };
+                            const newMap = { ...map, [normalizedEmail]: updated };
+                            localStorage.setItem("emapandan_otp_send_lockout_by_email", JSON.stringify(newMap));
+                            currentOtpSendLockout = updated;
+                        }
+                    } else {
+                        currentOtpSendLockout = emailOtpSendLockout;
+                    }
+                }
+            } catch (e) {
+                console.error("Error parsing OTP send lockout map:", e);
+            }
+        }
+        setOtpSendLockout(currentOtpSendLockout);
     }, [emailValue]);
 
-    // Timer countdown for active login lockout of the current email
-    React.useEffect(() => {
-        if (!lockout.cooldownUntil) {
-            setTimeLeft(0);
-            return;
-        }
 
-        const interval = setInterval(() => {
-            const remaining = Math.ceil((lockout.cooldownUntil! - Date.now()) / 1000);
-            const normalizedEmail = emailValue.trim().toLowerCase();
-
-            if (remaining <= 0) {
-                // Cooldown complete
-                const updated = {
-                    ...lockout,
-                    cooldownUntil: null,
-                };
-                setLockout(updated);
-                setTimeLeft(0);
-                
-                const toastKey = `login-complete-${normalizedEmail}-${lockout.cooldownUntil}`;
-                if (!hasToastedRef.current[toastKey]) {
-                    hasToastedRef.current[toastKey] = true;
-                    toast.success("Cooldown complete. You can now try to sign in again!");
-                }
-
-                // Update in localStorage map
-                if (normalizedEmail) {
-                    const stored = localStorage.getItem(STORAGE_KEY);
-                    let map: { [email: string]: LockoutState } = {};
-                    if (stored) {
-                        try {
-                            map = JSON.parse(stored) || {};
-                        } catch { }
-                    }
-                    map[normalizedEmail] = updated;
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-                }
-
-                clearInterval(interval);
-            } else {
-                setTimeLeft(remaining);
-            }
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [lockout.cooldownUntil, lockout, emailValue]);
-
-    // Timer countdown for active OTP lockout
-    React.useEffect(() => {
-        if (!otpLockout.cooldownUntil) {
-            setOtpTimeLeft(0);
-            return;
-        }
-
-        const interval = setInterval(() => {
-            const remaining = Math.ceil((otpLockout.cooldownUntil! - Date.now()) / 1000);
-            const normalizedEmail = emailValue.trim().toLowerCase();
-
-            if (remaining <= 0) {
-                // Cooldown complete
-                const updated = {
-                    ...otpLockout,
-                    cooldownUntil: null,
-                };
-                setOtpLockout(updated);
-                setOtpTimeLeft(0);
-                
-                const toastKey = `otp-complete-${normalizedEmail}-${otpLockout.cooldownUntil}`;
-                if (!hasToastedRef.current[toastKey]) {
-                    hasToastedRef.current[toastKey] = true;
-                    toast.success("OTP Cooldown complete. You can now try to sign in again!");
-                }
-
-                // Update in localStorage map
-                if (normalizedEmail) {
-                    const stored = localStorage.getItem("emapandan_otp_lockout_by_email");
-                    let map: { [email: string]: LockoutState } = {};
-                    if (stored) {
-                        try {
-                            map = JSON.parse(stored) || {};
-                        } catch { }
-                    }
-                    map[normalizedEmail] = updated;
-                    localStorage.setItem("emapandan_otp_lockout_by_email", JSON.stringify(map));
-                }
-
-                clearInterval(interval);
-            } else {
-                setOtpTimeLeft(remaining);
-            }
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [otpLockout.cooldownUntil, otpLockout, emailValue]);
 
     const handleFailedAttempt = React.useCallback((email: string) => {
         if (!email) return;
@@ -366,12 +291,44 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
         const normalizedEmail = data.email.trim().toLowerCase();
 
         if (lockout.cooldownUntil && Date.now() < lockout.cooldownUntil) {
-            toast.error("Security cooldown active. Please wait.");
+            const minutesLeft = Math.ceil((lockout.cooldownUntil - Date.now()) / 60000);
+            toast.error(`Security lockout is active. Please try again after ${minutesLeft} minute(s).`);
+            setIsLoggingIn(false);
+            return;
+        }
+
+        // Check OTP Lockout directly from localStorage to prevent stale state / autofill bypasses
+        const storedOtp = localStorage.getItem("emapandan_otp_lockout_by_email");
+        if (storedOtp) {
+            try {
+                const map = JSON.parse(storedOtp) as { [email: string]: LockoutState };
+                const emailOtpLockout = map[normalizedEmail];
+                if (emailOtpLockout && emailOtpLockout.cooldownUntil) {
+                    const remaining = emailOtpLockout.cooldownUntil - Date.now();
+                    if (remaining > 0) {
+                        const minutesLeft = Math.ceil(remaining / 60000);
+                        toast.error(`Too many failed attempts! OTP verification is locked for ${minutesLeft} minute(s).`);
+                        setIsLoggingIn(false);
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.error("Error parsing OTP lockout map:", e);
+            }
+        }
+
+        if (otpSendLockout.cooldownUntil && Date.now() < otpSendLockout.cooldownUntil) {
+            const minutesLeft = Math.ceil((otpSendLockout.cooldownUntil - Date.now()) / 60000);
+            toast.error(`Cooldown is active. Please wait ${minutesLeft} minute(s) before trying again.`);
             setIsLoggingIn(false);
             return;
         }
 
         try {
+            if (typeof window !== "undefined") {
+                sessionStorage.setItem("logging_in_otp", "true");
+            }
+
             const result = await signIn("credentials", {
                 email: data.email,
                 password: data.password,
@@ -379,7 +336,10 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
             });
 
             if (result?.error) {
-                const errorMessage = result.error;
+                if (typeof window !== "undefined") {
+                    sessionStorage.removeItem("logging_in_otp");
+                }
+                const errorMessage = result.error.toLowerCase();
                 if (
                     errorMessage.includes("approved") ||
                     errorMessage.includes("deactivated") ||
@@ -410,19 +370,13 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                         };
                         map[normalizedEmail] = newState;
                         localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-                        setTimeLeft(minutes * 60);
                     }
                     
                     setIsLoggingIn(false);
                     return;
                 }
 
-                const emailCheck = await checkEmailExists(normalizedEmail);
-                if (emailCheck.success && emailCheck.exists) {
-                    handleFailedAttempt(normalizedEmail);
-                } else {
-                    toast.error("Email does not exist.");
-                }
+                handleFailedAttempt(normalizedEmail);
                 setIsLoggingIn(false);
                 return;
             }
@@ -436,6 +390,9 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                 const { role, isPasswordChanged, isEmailVerified } = session.user;
 
                 if (isEmailVerified === false) {
+                    if (typeof window !== "undefined") {
+                        sessionStorage.removeItem("logging_in_otp");
+                    }
                     await signOut({ redirect: false });
                     toast.error("Your email address is not verified yet. Please contact an administrator to verify your account.");
                     setIsLoggingIn(false);
@@ -443,6 +400,9 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                 }
 
                 if (isMaintenanceActive && role === "USER") {
+                    if (typeof window !== "undefined") {
+                        sessionStorage.removeItem("logging_in_otp");
+                    }
                     await signOut({ redirect: false });
                     document.cookie = "bypass_maintenance=true; path=/; max-age=1800";
                     toast.error("The portal is currently under maintenance. Citizens are not allowed to sign in at this time.");
@@ -456,20 +416,84 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                     if (typeof window !== "undefined") {
                         sessionStorage.setItem("logging_in_otp", "true");
                     }
+                    
+                    // Check if we already have a valid OTP sent to this email that hasn't expired yet
+                    let hasActiveOTP = false;
+                    if (typeof window !== "undefined") {
+                        const storedEmail = sessionStorage.getItem("setup_email");
+                        const storedExpiry = sessionStorage.getItem("setup_timer_expiry");
+                        if (storedEmail && storedEmail.trim().toLowerCase() === normalizedEmail && storedExpiry) {
+                            const remaining = Math.ceil((parseInt(storedExpiry, 10) - Date.now()) / 1000);
+                            if (remaining > 0) {
+                                hasActiveOTP = true;
+                            }
+                        }
+                    }
+
+                    if (hasActiveOTP) {
+                        // Skip sending new OTP since they already have one active
+                        if (typeof window !== "undefined") {
+                            sessionStorage.setItem("otp_already_sent_warning", "true");
+                        }
+                        
+                        const performRedirect = () => {
+                            window.location.href = "/auth/verify-otp";
+                        };
+
+                        if (triggerLeave) {
+                            triggerLeave(performRedirect);
+                        } else {
+                            performRedirect();
+                        }
+                        return;
+                    }
+
                     // Try to send OTP first to verify if rate limits allow it
                     const otpResult = await sendOTP(normalizedEmail);
                     if (!otpResult.success) {
                         if (typeof window !== "undefined") {
                             sessionStorage.removeItem("logging_in_otp");
                         }
-                        toast.error(otpResult.error || "Failed to send verification code.");
-                        
-                        // Parse rate limit cooldown if exists and store it in client localStorage
-                        if (otpResult.error && otpResult.error.includes("Too many OTP requests")) {
-                            const match = otpResult.error.match(/after (\d+) minute/);
-                            const minutes = match ? parseInt(match[1], 10) : 45;
-                            
+
+                        if (otpResult.code === "otp_lockout") {
+                            const minutesLeft = (otpResult as any).minutesLeft || 3;
                             const stored = localStorage.getItem("emapandan_otp_lockout_by_email");
+                            let map: { [email: string]: LockoutState } = {};
+                            if (stored) {
+                                try {
+                                    map = JSON.parse(stored) || {};
+                                } catch {}
+                            }
+                            const existing = map[normalizedEmail] || DEFAULT_STATE;
+                            const newState: LockoutState = {
+                                ...existing,
+                                cooldownUntil: Date.now() + minutesLeft * 60 * 1000,
+                            };
+                            map[normalizedEmail] = newState;
+                            localStorage.setItem("emapandan_otp_lockout_by_email", JSON.stringify(map));
+
+                            toast.error(otpResult.error || `Too many failed attempts! OTP verification is locked for ${minutesLeft} minute(s).`);
+                            await signOut({ redirect: false });
+                            setIsLoggingIn(false);
+                            return;
+                        }
+
+                        const otpErrorLower = otpResult.error?.toLowerCase() || "";
+                        const isSupabaseRateLimit = 
+                            (otpResult as any).code === "over_email_send_rate_limit" || 
+                            (otpResult.error && (
+                                otpErrorLower.includes("security purposes") || 
+                                otpErrorLower.includes("rate limit")
+                            ));
+
+                        if (isSupabaseRateLimit) {
+                            // Extract seconds from error string if possible, default to 120s
+                            const match = otpResult.error.match(/after (\d+) second/i);
+                            const seconds = match ? parseInt(match[1], 10) : 120;
+                            const minutes = Math.ceil(seconds / 60);
+
+                            // Store OTP lockout in client localStorage to temporarily block login attempts
+                            const stored = localStorage.getItem("emapandan_otp_send_lockout_by_email");
                             let map: { [email: string]: LockoutState } = {};
                             if (stored) {
                                 try {
@@ -482,8 +506,48 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                                 cooldownUntil: Date.now() + minutes * 60 * 1000,
                             };
                             map[normalizedEmail] = newState;
-                            localStorage.setItem("emapandan_otp_lockout_by_email", JSON.stringify(map));
-                            setOtpTimeLeft(minutes * 60);
+                            localStorage.setItem("emapandan_otp_send_lockout_by_email", JSON.stringify(map));
+
+                            // Redirect anyway with warning so they can enter the code already in their email
+                            if (typeof window !== "undefined") {
+                                sessionStorage.setItem("otp_already_sent_warning", "true");
+                                sessionStorage.setItem("setup_email", normalizedEmail);
+                                sessionStorage.setItem("setup_timer_expiry", (Date.now() + seconds * 1000).toString());
+                            }
+
+                            const performRedirect = () => {
+                                window.location.href = "/auth/verify-otp";
+                            };
+
+                            if (triggerLeave) {
+                                triggerLeave(performRedirect);
+                            } else {
+                                performRedirect();
+                            }
+                            return;
+                        } else {
+                            toast.error(otpResult.error || "Failed to send verification code.");
+
+                            // Parse rate limit cooldown if exists and store it in client localStorage
+                            if (otpResult.error && otpResult.error.toLowerCase().includes("too many otp requests")) {
+                                const match = otpResult.error.match(/after (\d+) minute/i);
+                                const minutes = match ? parseInt(match[1], 10) : 45;
+                                
+                                const stored = localStorage.getItem("emapandan_otp_send_lockout_by_email");
+                                let map: { [email: string]: LockoutState } = {};
+                                if (stored) {
+                                    try {
+                                        map = JSON.parse(stored) || {};
+                                    } catch {}
+                                }
+                                const existing = map[normalizedEmail] || DEFAULT_STATE;
+                                const newState: LockoutState = {
+                                    ...existing,
+                                    cooldownUntil: Date.now() + minutes * 60 * 1000,
+                                };
+                                map[normalizedEmail] = newState;
+                                localStorage.setItem("emapandan_otp_send_lockout_by_email", JSON.stringify(map));
+                            }
                         }
                         
                         // Sign out the session so they stay on login page
@@ -493,15 +557,27 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                     }
                     
                     // Persist state in sessionStorage so verify-otp doesn't double-send on mount
-                    sessionStorage.setItem("setup_email", normalizedEmail);
-                    sessionStorage.setItem("setup_timer_expiry", (Date.now() + 120 * 1000).toString());
+                    const remaining = (otpResult as any).alreadySent 
+                        ? (otpResult as any).remainingSeconds 
+                        : 120;
+
+                    if (typeof window !== "undefined") {
+                        sessionStorage.setItem("setup_email", normalizedEmail);
+                        sessionStorage.setItem("setup_timer_expiry", (Date.now() + remaining * 1000).toString());
+                        if ((otpResult as any).alreadySent) {
+                            sessionStorage.setItem("otp_already_sent_warning", "true");
+                        }
+                    }
                     
-                    router.push("/auth/verify-otp");
+                    window.location.href = "/auth/verify-otp";
                     return;
                 }
 
                 // Normal redirect based on role
                 const performRedirect = () => {
+                    if (typeof window !== "undefined") {
+                        sessionStorage.removeItem("logging_in_otp");
+                    }
                     if (role === "USER") {
                         router.push("/");
                         toast.success("Logged in successfully");
@@ -532,6 +608,9 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                     performRedirect();
                 }
             } else {
+                if (typeof window !== "undefined") {
+                    sessionStorage.removeItem("logging_in_otp");
+                }
                 if (triggerLeave) {
                     triggerLeave(() => router.push("/"));
                 } else {
@@ -539,16 +618,23 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                 }
             }
         } catch (error) {
+            if (typeof window !== "undefined") {
+                sessionStorage.removeItem("logging_in_otp");
+            }
             toast.error("An unexpected error occurred");
             console.error("Login error:", error);
             setIsLoggingIn(false);
         }
-    }, [lockout, handleFailedAttempt, handleSuccessAttempt, router, triggerLeave, isMaintenanceActive]);
+    }, [lockout, otpSendLockout, handleFailedAttempt, handleSuccessAttempt, router, triggerLeave, isMaintenanceActive]);
 
 
 
     const [isEmailFocused, setIsEmailFocused] = React.useState(false);
     const [isPasswordFocused, setIsPasswordFocused] = React.useState(false);
+
+    const isLocked = !!lockout.cooldownUntil;
+    const isOtpLocked = !!otpLockout.cooldownUntil;
+    const isOtpSendLocked = !!otpSendLockout.cooldownUntil;
 
     return (
         <>
@@ -560,35 +646,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                     </p>
                 </div>
 
-                {timeLeft > 0 && (
-                    <div className="p-4 bg-red-500/10 dark:bg-red-500/5 border border-red-500/20 rounded-2xl flex items-start gap-3 animate-pulse">
-                        <div className="p-2 bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg">
-                            <ShieldAlert className="h-5 w-5 animate-bounce" />
-                        </div>
-                        <div className="space-y-1">
-                            <h4 className="text-sm font-black uppercase tracking-wider text-red-600 dark:text-red-400 leading-none">Security Lockout Active</h4>
-                            <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 leading-normal mt-1">
-                                Too many failed attempts. To prevent spam, please wait <span className="font-extrabold text-red-600 dark:text-red-400">{Math.floor(timeLeft / 60)}m {timeLeft % 60}s</span> before trying again.
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-                {otpTimeLeft > 0 && (
-                    <div className="p-4 bg-red-500/10 dark:bg-red-500/5 border border-red-500/20 rounded-2xl flex items-start gap-3 animate-pulse">
-                        <div className="p-2 bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg">
-                            <ShieldAlert className="h-5 w-5 animate-bounce" />
-                        </div>
-                        <div className="space-y-1 flex-1 text-left">
-                            <h4 className="text-sm font-black uppercase tracking-wider text-red-600 dark:text-red-400 leading-none">OTP Lockout Active</h4>
-                            <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 leading-normal mt-1">
-                                Too many failed OTP attempts. To prevent spam, please wait <span className="font-extrabold text-red-600 dark:text-red-400">{Math.floor(otpTimeLeft / 60)}m {otpTimeLeft % 60}s</span> before trying again.
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-                {timeLeft === 0 && otpTimeLeft === 0 && lockout.attemptsLeft < (lockout.phase === 1 ? 3 : lockout.phase === 2 ? 2 : 1) && (
+                {!isLocked && !isOtpLocked && !isOtpSendLocked && lockout.attemptsLeft < (lockout.phase === 1 ? 3 : lockout.phase === 2 ? 2 : 1) && (
                     <div className="p-4 bg-amber-500/10 dark:bg-amber-500/5 border border-amber-500/20 rounded-2xl flex items-start gap-3">
                         <div className="p-2 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg">
                             <ShieldAlert className="h-5 w-5" />
@@ -623,7 +681,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                                 {...form.register("email", {
                                     onBlur: () => setIsEmailFocused(false)
                                 })}
-                                disabled={timeLeft > 0 || otpTimeLeft > 0 || form.formState.isSubmitting}
+                                disabled={form.formState.isSubmitting}
                             />
                         </div>
                         {form.formState.errors.email && (
@@ -662,14 +720,13 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                                 {...form.register("password", {
                                     onBlur: () => setIsPasswordFocused(false)
                                 })}
-                                disabled={timeLeft > 0 || otpTimeLeft > 0 || form.formState.isSubmitting}
+                                disabled={form.formState.isSubmitting}
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
                                 className="absolute right-3 top-4 opacity-40 hover:opacity-100 focus:outline-none transition-colors"
                                 style={{ color: isPasswordFocused || showPassword ? themeColor : undefined, opacity: isPasswordFocused || showPassword ? 1 : undefined }}
-                                disabled={timeLeft > 0 || otpTimeLeft > 0}
                             >
                                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
@@ -685,14 +742,9 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                         type="submit"
                         className="w-full text-white h-14 rounded-2xl font-black uppercase tracking-tighter italic text-xl shadow-2xl active:scale-[0.97] transition-all duration-300 flex items-center justify-center gap-2"
                         style={{ backgroundColor: themeColor, boxShadow: `0 25px 50px -12px ${themeColor}33` }}
-                        disabled={timeLeft > 0 || otpTimeLeft > 0 || form.formState.isSubmitting}
+                        disabled={form.formState.isSubmitting}
                     >
-                        {timeLeft > 0 || otpTimeLeft > 0 ? (
-                            <>
-                                <Timer className="h-5 w-5 animate-spin" />
-                                Locked ({Math.floor(Math.max(timeLeft, otpTimeLeft) / 60)}m {Math.max(timeLeft, otpTimeLeft) % 60}s)
-                            </>
-                        ) : form.formState.isSubmitting ? (
+                        {form.formState.isSubmitting ? (
                             "Authenticating..."
                         ) : (
                             "Sign in"

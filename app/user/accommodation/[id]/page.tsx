@@ -2,14 +2,19 @@ import prisma from "@/lib/db/prisma";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { MapPin, Phone, Globe, Navigation, Bed, Home, ArrowRight } from "lucide-react";
+import { MapPin, Phone, Globe, Navigation, Bed, Home, ArrowRight, Star } from "lucide-react";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { ContactButtons } from "./ContactButtons";
+import { ReviewSection } from "./ReviewSection";
 
 export default async function AccommodationDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
+    const session = await getServerSession(authOptions);
+
     const item = await prisma.accommodation.findUnique({
         where: { id }
     });
@@ -17,6 +22,26 @@ export default async function AccommodationDetailPage({ params }: { params: Prom
     if (!item || !item.isPublished) {
         notFound();
     }
+
+    const reviews = await prisma.review.findMany({
+        where: { accommodationId: id },
+        include: {
+            user: {
+                select: {
+                    name: true,
+                    email: true
+                }
+            }
+        },
+        orderBy: {
+            createdAt: "desc"
+        }
+    });
+
+    const reviewsCount = reviews.length;
+    const averageRating = reviewsCount > 0
+        ? parseFloat((reviews.reduce((sum, r) => sum + r.rating, 0) / reviewsCount).toFixed(1))
+        : 0;
 
     const amenities = item.amenities ? item.amenities.split(',').map(a => a.trim()) : [];
 
@@ -107,13 +132,22 @@ export default async function AccommodationDetailPage({ params }: { params: Prom
                         <h1 className="text-3xl md:text-6xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none">
                             {item.name}
                         </h1>
-                        <div className="flex items-center gap-2 text-slate-400 group">
-                            <div className="p-1.5 bg-primary/10 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors">
-                                <MapPin className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                        <div className="flex flex-wrap items-center gap-4">
+                            <div className="flex items-center gap-2 text-slate-400 group">
+                                <div className="p-1.5 bg-primary/10 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors">
+                                    <MapPin className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                </div>
+                                <span className="text-[10px] md:text-sm font-bold uppercase tracking-widest italic group-hover:text-primary transition-colors">
+                                    {item.address} {item.barangay && `• Barangay ${item.barangay}`}
+                                </span>
                             </div>
-                            <span className="text-[10px] md:text-sm font-bold uppercase tracking-widest italic group-hover:text-primary transition-colors">
-                                {item.address} {item.barangay && `• Barangay ${item.barangay}`}
-                            </span>
+
+                            {reviewsCount > 0 && (
+                                <div className="flex items-center gap-1.5 text-amber-500 font-black text-xs uppercase tracking-wider italic bg-amber-500/10 px-3 py-1.5 rounded-full shadow-sm">
+                                    <Star className="w-3.5 h-3.5 fill-current" />
+                                    <span>{averageRating} ({reviewsCount} {reviewsCount === 1 ? "review" : "reviews"})</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -181,6 +215,17 @@ export default async function AccommodationDetailPage({ params }: { params: Prom
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Review Section */}
+            <div className="px-4 md:px-0">
+                <ReviewSection
+                    targetId={item.id}
+                    targetType="accommodation"
+                    initialReviews={reviews as any}
+                    currentUserName={session?.user?.name}
+                    currentUserEmail={session?.user?.email}
+                />
             </div>
         </div>
     );

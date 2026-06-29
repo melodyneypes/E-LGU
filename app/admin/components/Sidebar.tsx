@@ -15,7 +15,7 @@ import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { getBploInspectionCount, getUnviewedLcrCounts } from "@/app/admin/transactions/actions";
+import { getBploInspectionCount, getUnviewedLcrCounts, getTransactionTypes } from "@/app/admin/transactions/actions";
 import { supabase } from "@/lib/supabase";
 
 interface SidebarProps {
@@ -72,6 +72,19 @@ export function Sidebar({
     const { theme, setTheme } = useTheme();
     React.useEffect(() => {
         setMounted(true);
+    }, []);
+
+    const [activeTypes, setActiveTypes] = React.useState<any[] | null>(null);
+
+    React.useEffect(() => {
+        getTransactionTypes().then(res => {
+            console.log("[Sidebar] getTransactionTypes response:", res);
+            if (res.success && res.data) {
+                setActiveTypes(res.data);
+            }
+        }).catch(err => {
+            console.error("[Sidebar] Error fetching active transaction types:", err);
+        });
     }, []);
 
     const [bploInspectionCount, setBploInspectionCount] = React.useState(0);
@@ -241,7 +254,7 @@ export function Sidebar({
         };
     }, [pathname, mounted, scrollToActive]);
 
-    const allMenuItems = [
+    const baseMenuItems = [
         { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
         {
             label: "Website Settings",
@@ -411,6 +424,52 @@ export function Sidebar({
 
     const accessiblePages = session?.user?.accessiblePages;
     const hasCustomPages = accessiblePages && accessiblePages.length > 0;
+
+    const activeCodes = activeTypes ? new Set(activeTypes.map(t => t.code)) : null;
+
+    const allMenuItems = activeCodes ? baseMenuItems.map(item => {
+        if (item.label === "Registrar Hub" && item.subItems) {
+            const filteredSub = item.subItems.filter(sub => {
+                if (sub.label === "Dashboard") return true;
+
+                let code: string | string[] | undefined;
+                if (sub.label === "Birth Registration") code = "LCR_BIRTH_REG";
+                else if (sub.label === "Birth Certificate") code = "LCR_BIRTH";
+                else if (sub.label === "PSA Endorsement") code = ["LCR_PSA_ENDORSEMENT", "LCR_DEATH_PSA_ENDORSEMENT", "LCR_MARRIAGE_PSA_ENDORSEMENT"];
+                else if (sub.label === "Death Registration") code = "LCR_DEATH_REG";
+                else if (sub.label === "Death Certificate") code = "LCR_DEATH";
+                else if (sub.label === "Marriage License") code = "LCR_MARRIAGE_LICENSE";
+                else if (sub.label === "Marriage Registration") code = "LCR_MARRIAGE_REG";
+                else if (sub.label === "Marriage Certificate") code = "LCR_MARRIAGE";
+
+                if (!code) return true;
+                if (Array.isArray(code)) {
+                    return code.some(c => activeCodes.has(c));
+                }
+                return activeCodes.has(code);
+            });
+            return { ...item, subItems: filteredSub };
+        }
+
+        if (item.label === "Transaction Ledger" && item.subItems) {
+            const filteredSub = item.subItems.filter(sub => {
+                let code: string | string[] | undefined;
+                if (sub.label === "Birth Registration") code = ["LCR_BIRTH_REG", "LCR_BIRTH"];
+                else if (sub.label === "Death Registration") code = ["LCR_DEATH_REG", "LCR_DEATH"];
+                else if (sub.label === "Marriage Registration") code = ["LCR_MARRIAGE_REG", "LCR_MARRIAGE", "LCR_MARRIAGE_LICENSE"];
+                else if (sub.label === "PSA Endorsement") code = ["LCR_PSA_ENDORSEMENT", "LCR_DEATH_PSA_ENDORSEMENT", "LCR_MARRIAGE_PSA_ENDORSEMENT"];
+
+                if (!code) return true;
+                if (Array.isArray(code)) {
+                    return code.some(c => activeCodes.has(c));
+                }
+                return activeCodes.has(code);
+            });
+            return { ...item, subItems: filteredSub };
+        }
+
+        return item;
+    }) : baseMenuItems;
 
     let menuItems = allMenuItems;
 

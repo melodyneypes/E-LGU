@@ -2,13 +2,18 @@ import prisma from "@/lib/db/prisma";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Clock, Utensils, Navigation, Home } from "lucide-react";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { MapPin, Clock, Utensils, Navigation, Home, Star } from "lucide-react";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { ContactButtons } from "./ContactButtons";
+import { ReviewSection } from "./ReviewSection";
 
 export default async function DiningDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
+    const session = await getServerSession(authOptions);
+
     const item = await prisma.dining.findUnique({
         where: { id }
     });
@@ -16,6 +21,26 @@ export default async function DiningDetailPage({ params }: { params: Promise<{ i
     if (!item || !item.isPublished) {
         notFound();
     }
+
+    const reviews = await prisma.review.findMany({
+        where: { diningId: id },
+        include: {
+            user: {
+                select: {
+                    name: true,
+                    email: true
+                }
+            }
+        },
+        orderBy: {
+            createdAt: "desc"
+        }
+    });
+
+    const reviewsCount = reviews.length;
+    const averageRating = reviewsCount > 0
+        ? parseFloat((reviews.reduce((sum, r) => sum + r.rating, 0) / reviewsCount).toFixed(1))
+        : 0;
 
     // Map implementation without API key
     const mapQuery = item.latitude && item.longitude
@@ -88,9 +113,18 @@ export default async function DiningDetailPage({ params }: { params: Promise<{ i
                         <h1 className="text-2xl md:text-5xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none">
                             {item.name}
                         </h1>
-                        <div className="flex items-center gap-2 text-primary">
-                            <MapPin className="w-3.5 h-3.5 md:w-4 md:h-4 shrink-0" />
-                            <span className="text-[10px] md:text-xs font-black uppercase tracking-widest italic">{item.address}</span>
+                        <div className="flex flex-wrap items-center gap-4">
+                            <div className="flex items-center gap-2 text-primary">
+                                <MapPin className="w-3.5 h-3.5 md:w-4 md:h-4 shrink-0" />
+                                <span className="text-[10px] md:text-xs font-black uppercase tracking-widest italic">{item.address}</span>
+                            </div>
+
+                            {reviewsCount > 0 && (
+                                <div className="flex items-center gap-1.5 text-amber-500 font-black text-xs uppercase tracking-wider italic bg-amber-500/10 px-3 py-1.5 rounded-full shadow-sm">
+                                    <Star className="w-3.5 h-3.5 fill-current" />
+                                    <span>{averageRating} ({reviewsCount} {reviewsCount === 1 ? "review" : "reviews"})</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -158,6 +192,15 @@ export default async function DiningDetailPage({ params }: { params: Promise<{ i
                     </div>
                 </div>
             </div>
+
+            {/* Review Section */}
+            <ReviewSection
+                targetId={item.id}
+                targetType="dining"
+                initialReviews={reviews as any}
+                currentUserName={session?.user?.name}
+                currentUserEmail={session?.user?.email}
+            />
         </div>
     );
 }

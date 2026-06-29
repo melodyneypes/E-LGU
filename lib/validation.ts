@@ -20,6 +20,42 @@ export function sanitizeString(input: string): string {
 }
 
 /**
+ * Prunes a resident object/snapshot to only include lightweight essential fields.
+ * Strips out heavy fields like facialRecognition, binary data, and irrelevant meta.
+ */
+export function pruneResidentSnapshot(resident: any): any {
+    if (!resident || typeof resident !== "object") return resident;
+    return {
+        // id: resident.id,
+        firstName: resident.firstName,
+        lastName: resident.lastName,
+        middleName: resident.middleName,
+        suffix: resident.suffix,
+        gender: resident.gender,
+        dateOfBirth: resident.dateOfBirth,
+        placeOfBirth: resident.placeOfBirth,
+        civilStatus: resident.civilStatus,
+        citizenship: resident.citizenship,
+        contactNumber: resident.contactNumber,
+        email: resident.email,
+        houseNumber: resident.houseNumber,
+        street: resident.street,
+        sitio: resident.sitio,
+        purok: resident.purok,
+        barangay: resident.barangay,
+        municipality: resident.municipality,
+        province: resident.province,
+        // height: resident.height,
+        // weight: resident.weight,
+        occupation: resident.occupation,
+        tin: resident.tin,
+        idType: resident.idType,
+        idFrontUrl: resident.idFrontUrl,
+        idBackUrl: resident.idBackUrl,
+    };
+}
+
+/**
  * Recursively sanitizes every string property within an object or array.
  * Highly useful for nested resident snapshot or additional data structures.
  */
@@ -41,6 +77,17 @@ export function sanitizeObject<T>(obj: T): T {
     }
 
     if (typeof obj === "object") {
+        // If this object represents a resident profile snapshot, prune it to clean up heavy fields globally
+        if (obj && typeof (obj as any).firstName === "string" && typeof (obj as any).lastName === "string") {
+            const pruned = pruneResidentSnapshot(obj);
+            // Run standard string sanitization on the pruned fields
+            const sanitizedPruned: Record<string, any> = {};
+            for (const key in pruned) {
+                sanitizedPruned[key] = sanitizeObject(pruned[key]);
+            }
+            return sanitizedPruned as unknown as T;
+        }
+
         const sanitizedObj: Record<string, any> = {};
         for (const key in obj) {
             if (Object.prototype.hasOwnProperty.call(obj, key)) {

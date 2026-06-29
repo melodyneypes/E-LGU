@@ -185,6 +185,7 @@ export default function BirthRegistrationPage() {
     const [currentStep, setCurrentStep] = useState<Step>("IDENTITY");
     const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [isServiceActive, setIsServiceActive] = useState<boolean>(true);
 
     const [themeColor, setThemeColor] = useState("var(--primary-theme)");
 
@@ -504,6 +505,8 @@ export default function BirthRegistrationPage() {
                     setBarangaysList(brgyResult.data);
                 }
 
+                let serviceActive = false;
+
                 if (resResult.success && resResult.data) {
                     const r = resResult.data;
                     setResident(r);
@@ -623,6 +626,7 @@ export default function BirthRegistrationPage() {
 
                     const currentDbType = lcrTypes.find((t: any) => t.code === "LCR_BIRTH_REG");
                     if (currentDbType) {
+                        serviceActive = true;
                         setForm(prev => ({
                             ...prev,
                             typeId: prev.typeId || currentDbType.id
@@ -643,6 +647,7 @@ export default function BirthRegistrationPage() {
                         }
                     }
                 }
+                setIsServiceActive(serviceActive);
             } catch (err) {
                 console.error(err);
                 toast.error("Initialization Failed");
@@ -1210,6 +1215,29 @@ export default function BirthRegistrationPage() {
         );
     }
 
+    if (!isServiceActive) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
+                <div className="max-w-md w-full bg-white dark:bg-[#0c1017] p-8 rounded-3xl border border-slate-200 dark:border-white/5 shadow-2xl text-center space-y-6">
+                    <div className="w-16 h-16 bg-red-500/10 dark:bg-red-500/5 rounded-2xl flex items-center justify-center mx-auto text-red-500">
+                        <AlertCircle className="w-8 h-8 stroke-[2.5]" />
+                    </div>
+                    <div className="space-y-2">
+                        <h1 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Service Unavailable</h1>
+                        <p className="text-slate-500 dark:text-slate-400 font-medium text-xs italic leading-relaxed">This birth registration service has been deactivated by the administrator and is currently unavailable.</p>
+                    </div>
+                    <Link
+                        href="/user/services/civil-registry"
+                        className="inline-flex items-center justify-center h-10 px-5 text-white rounded-xl text-[9px] font-black uppercase tracking-widest italic transition-all active:scale-95 shadow-md bg-primary hover:bg-primary/95"
+                        style={{ backgroundColor: themeColor }}
+                    >
+                        Back to Civil Registry
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <>
             <style dangerouslySetInnerHTML={{
@@ -1319,7 +1347,7 @@ export default function BirthRegistrationPage() {
                             </BreadcrumbItem>
                             <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                             <BreadcrumbItem>
-                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic text-emerald-700 dark:text-emerald-400">Birth Registration</BreadcrumbPage>
+                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: themeColor }}>Birth Registration</BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>

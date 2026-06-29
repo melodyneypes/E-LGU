@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { MapPin, Utensils, Bed, Loader2 } from "lucide-react";
+import { MapPin, Utensils, Bed, Loader2, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -16,6 +16,7 @@ interface CombinedItem {
     itemType: "kainan" | "tuluyan";
     type?: string; // for Accommodation
     cuisineType?: string; // for Dining
+    reviews?: { rating: number }[];
 }
 
 interface DiningLodgingProps {
@@ -131,6 +132,18 @@ function DiningCard({ item }: { item: CombinedItem }) {
                                 </span>
                             )}
                         </div>
+
+                        {item.reviews && item.reviews.length > 0 && (
+                            <div className="absolute top-2 right-2 md:top-4 md:right-4 z-20">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-black/60 dark:bg-slate-900/80 backdrop-blur-md text-amber-400 rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-wider shadow-lg border border-white/10 dark:border-white/5">
+                                    <Star className="w-2.5 h-2.5 md:w-3 md:h-3 fill-amber-400 text-amber-450 drop-shadow-[0_0_4px_rgba(251,191,36,0.5)]" />
+                                    <span>
+                                        {(item.reviews.reduce((sum, r) => sum + r.rating, 0) / item.reviews.length).toFixed(1)}
+                                    </span>
+                                    <span className="text-slate-400 font-bold">({item.reviews.length})</span>
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="space-y-1 md:space-y-2 px-1">

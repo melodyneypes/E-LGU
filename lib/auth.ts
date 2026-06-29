@@ -34,12 +34,12 @@ export const authOptions: NextAuthOptions = {
                 }
 
                 const user = await prisma.user.findUnique({
-                    where: { email: credentials.email },
+                    where: { email: emailClean },
                     include: { residentProfile: true }
                 });
 
                 if (!user || !user.password) {
-                    throw new Error("No user found with this email");
+                    throw new Error("Invalid email or password");
                 }
 
                 if (user.residentProfile?.isDead) {
@@ -54,7 +54,7 @@ export const authOptions: NextAuthOptions = {
                 if (!isPasswordCorrect) {
                     // Increment failed login attempt
                     await isRateLimited(limitKey, 5, 900000); // 15 mins window
-                    throw new Error("Invalid password");
+                    throw new Error("Invalid email or password");
                 }
 
                 // Clean/Reset failed attempts upon successful login
@@ -119,13 +119,18 @@ export const authOptions: NextAuthOptions = {
                     }
                 });
 
-                // If user is deactivated OR has hit the rejection limit OR is deceased OR email was changed/cleared, expire the session
+                const isEmailMismatch = 
+                    !dbUser ||
+                    !dbUser.email || 
+                    !token.email || 
+                    dbUser.email.trim().toLowerCase() !== (token.email as string).trim().toLowerCase();
+
                 if (
                     !dbUser || 
                     !dbUser.isEmailVerified || 
                     (dbUser as any).rejectionCount >= 3 || 
                     dbUser.residentProfile?.isDead ||
-                    dbUser.email !== token.email
+                    isEmailMismatch
                 ) {
                     // Force the session to expire immediately (triggering auto-logout)
                     token.exp = 1; // Set to very small number to trigger expiration

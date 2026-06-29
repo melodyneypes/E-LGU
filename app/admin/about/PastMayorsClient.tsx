@@ -405,20 +405,12 @@ function MayorEditorModal({
                         </div>
                     </form>
 
-                    <DialogFooter className="p-6 bg-white dark:bg-[#151b2b] sticky bottom-0 z-50 border-t border-slate-200 dark:border-[#2a3040] flex justify-end gap-3 rounded-b-2xl">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={onClose}
-                            className="h-12 px-8 font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
-                        >
-                            Cancel
-                        </Button>
+                    <DialogFooter className="p-6 pt-0 bg-white dark:bg-[#0f1117] border-none shrink-0">
                         <Button
                             type="submit"
                             form="mayorForm"
                             disabled={isSaving}
-                            className="h-12 px-10 text-white font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] border-none"
+                            className="w-full h-12 text-white font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] border-none"
                             style={{ 
                                 backgroundColor: themeColor,
                                 boxShadow: `0 10px 20px -5px ${themeColor}40`

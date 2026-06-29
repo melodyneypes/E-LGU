@@ -34,6 +34,7 @@ model User {
   driverTransactions Transaction[] @relation("DriverTransactions")
   isSynced          Boolean   @default(false)
   rfid              String?   @unique
+  reviews           Review[]
 }
 
 model Account {
@@ -87,6 +88,7 @@ model Dining {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   barangay      String?
+  reviews       Review[]
 }
 
 model Accommodation {
@@ -107,6 +109,7 @@ model Accommodation {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   barangay      String?
+  reviews       Review[]
 }
 
 model TourismSpot {
@@ -1135,3 +1138,26 @@ model PasswordResetToken {
   @@index([email])
   @@index([expiresAt])
 }
+
+model Review {
+  id              String         @id @default(cuid())
+  rating          Int            // Rating from 1 to 5
+  comment         String?
+  mediaUrl        String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  accommodationId String?
+  accommodation   Accommodation? @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
+
+  diningId        String?
+  dining          Dining?        @relation(fields: [diningId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([accommodationId])
+  @@index([diningId])
+}
+

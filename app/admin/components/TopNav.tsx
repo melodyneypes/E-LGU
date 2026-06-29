@@ -161,12 +161,18 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
             // Filter out dynamic ID segments so the breadcrumbs remain clean and readable
             const filteredSegments = segments.filter(s => !isId(s));
 
-            const origCrumbs = filteredSegments.map((seg, i) => ({
-                seg,
-                label: formatSegment(seg),
-                href: "/" + filteredSegments.slice(0, i + 1).join("/"),
-                isLast: i === filteredSegments.length - 1,
-            }));
+            const origCrumbs = filteredSegments.map((seg, i) => {
+                let href = "/" + filteredSegments.slice(0, i + 1).join("/");
+                if (seg === "barangays") {
+                    href = "/admin/barangays/list";
+                }
+                return {
+                    seg,
+                    label: formatSegment(seg),
+                    href,
+                    isLast: i === filteredSegments.length - 1,
+                };
+            });
 
             const accessiblePages = session?.user?.accessiblePages;
             let dashboardHref = "/admin/dashboard";
@@ -285,7 +291,7 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
                             </div>
                         </div>
                     )}
-                    {crumbsToRender.map((crumb, idx) => (
+                    {!["/admin/barangays/list", "/admin/barangays/admins"].includes(pathname) && crumbsToRender.map((crumb, idx) => (
                         <React.Fragment key={`${crumb.seg}-${idx}`}>
                             <ChevronRight size={13} className="text-slate-300 dark:text-slate-600 shrink-0" />
                             {crumb.isLast || !crumb.href ? (

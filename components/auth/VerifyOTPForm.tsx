@@ -62,7 +62,7 @@ export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormPr
                 if (emailLockout) {
                     if (emailLockout.cooldownUntil) {
                         const remaining = Math.ceil((emailLockout.cooldownUntil - Date.now()) / 1000);
-                        if (remaining > 0) {
+                        if (remaining > 5) {
                             setLockout(emailLockout);
                             setLockoutTimeLeft(remaining);
                             
@@ -223,20 +223,45 @@ export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormPr
     const handleSendOTP = React.useCallback(async (isResend: boolean = false) => {
         setIsLoading(true);
         try {
-            const result = await sendOTP(email);
+            const result = await sendOTP(email, isResend);
             if (result.success) {
-                toast.success(isResend ? "Code resent successfully" : "Verification code sent to your email");
-                setTimeLeft(120);
+                const isAlreadySent = (result as any).alreadySent;
+                const remaining = isAlreadySent ? (result as any).remainingSeconds : 120;
+                // Add a 3-second safety buffer to prevent client-server clock drift
+                const bufferedRemaining = remaining + 3;
+
+                toast.success(isAlreadySent 
+                    ? "A verification code was already sent recently." 
+                    : (isResend ? "Code resent successfully" : "Verification code sent to your email")
+                );
+                setTimeLeft(bufferedRemaining);
                 
                 // Persist state in sessionStorage
                 sessionStorage.setItem("setup_email", email);
-                sessionStorage.setItem("setup_timer_expiry", (Date.now() + 120 * 1000).toString());
+                sessionStorage.setItem("setup_timer_expiry", (Date.now() + bufferedRemaining * 1000).toString());
             } else {
                 toast.error(result.error || "Failed to send code.");
                 
-                if (result.error && result.error.includes("Too many OTP requests")) {
+                const errorLower = result.error?.toLowerCase() || "";
+                const isSupabaseRateLimit = 
+                    result.error && (
+                        errorLower.includes("security purposes") || 
+                        errorLower.includes("rate limit")
+                    );
+
+                if (isSupabaseRateLimit) {
+                    const match = result.error.match(/after (\d+) second/i);
+                    const seconds = match ? parseInt(match[1], 10) : 60;
+                    
+                    // Reset the timer so that resend cooldown is exactly 'seconds'
+                    setTimeLeft(seconds);
+                    
+                    // Persist state in sessionStorage
+                    sessionStorage.setItem("setup_email", email);
+                    sessionStorage.setItem("setup_timer_expiry", (Date.now() + seconds * 1000).toString());
+                } else if (result.error && errorLower.includes("too many otp requests")) {
                     // Extract minutes remaining from error string: "Too many OTP requests. Please try again after 47 minute(s)."
-                    const match = result.error.match(/after (\d+) minute/);
+                    const match = result.error.match(/after (\d+) minute/i);
                     const minutes = match ? parseInt(match[1], 10) : 45; // Default fallback to 45 mins
                     
                     const normalizedEmail = email.trim().toLowerCase();
@@ -290,14 +315,6 @@ export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormPr
         }
     }, [timeLeft]);
 
-    const formatTimer = (seconds: number) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return {
-            mins: mins.toString().padStart(2, '0'),
-            secs: secs.toString().padStart(2, '0')
-        };
-    };
 
     // Auto-send OTP when the page mounts (with React 18 Strict Mode Guard)
     React.useEffect(() => {
@@ -309,11 +326,24 @@ export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormPr
         const storedEmail = sessionStorage.getItem("setup_email");
         const storedExpiry = sessionStorage.getItem("setup_timer_expiry");
 
-        if (storedEmail === email && storedExpiry) {
+        console.log("[VerifyOTP DEBUG] Mount Check:", {
+            storedEmail,
+            propEmail: email,
+            storedExpiry,
+            hasSentRef: hasSentRef.current
+        });
+
+        if (storedEmail && email && storedEmail.trim().toLowerCase() === email.trim().toLowerCase() && storedExpiry) {
             const remaining = Math.ceil((parseInt(storedExpiry, 10) - Date.now()) / 1000);
             if (remaining > 0) {
                 setTimeLeft(remaining);
                 hasSentRef.current = true;
+                
+                // Show the toast warning if we skipped sending a new OTP during login
+                if (typeof window !== "undefined" && sessionStorage.getItem("otp_already_sent_warning") === "true") {
+                    toast.error("A OTP was already sent. Please check your email (including spam) or try again in a few minutes.");
+                    sessionStorage.removeItem("otp_already_sent_warning");
+                }
                 return;
             }
         }
@@ -346,6 +376,33 @@ export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormPr
                 // Redirect user to the new setup page
                 window.location.href = `/auth/setup-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(result.token)}`;
             } else {
+                if ((result as any).code === "otp_lockout") {
+                    const minutesLeft = (result as any).minutesLeft || 3;
+                    const normalizedEmail = email.trim().toLowerCase();
+                    const stored = localStorage.getItem(STORAGE_KEY);
+                    let map: { [email: string]: LockoutState } = {};
+                    if (stored) {
+                        try {
+                            map = JSON.parse(stored) || {};
+                        } catch {}
+                    }
+                    const existing = map[normalizedEmail] || DEFAULT_STATE;
+                    const newState: LockoutState = {
+                        ...existing,
+                        cooldownUntil: Date.now() + minutesLeft * 60 * 1000,
+                    };
+                    map[normalizedEmail] = newState;
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+
+                    toast.error(result.error || "Too many failed attempts! OTP verification is locked.");
+                    sessionStorage.removeItem("setup_email");
+                    sessionStorage.removeItem("setup_timer_expiry");
+                    await signOut({ redirect: false });
+                    setTimeout(() => {
+                        window.location.href = "/auth/login";
+                    }, 1500);
+                    return;
+                }
                 handleFailedAttempt();
                 form.setError("otp", { message: result.error || "Invalid OTP" });
             }
@@ -404,32 +461,16 @@ export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormPr
                 </Button>
 
                 <div className="flex flex-col items-center gap-6 pt-2">
-                    <div className="flex gap-4">
-                        <div className="text-center group">
-                            <div className="bg-slate-100 dark:bg-slate-900/50 w-14 sm:w-16 h-10 sm:h-12 rounded-xl flex items-center justify-center font-bold text-xl sm:text-2xl group-hover:bg-slate-200 dark:group-hover:bg-slate-800 transition-colors shadow-sm" style={{ color: themeColor }}>
-                                {formatTimer(timeLeft).mins}
-                            </div>
-                            <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 block">Minutes</span>
-                        </div>
-                        <span className="font-bold text-2xl sm:text-3xl self-start mt-1 sm:mt-1.5" style={{ color: themeColor }}>:</span>
-                        <div className="text-center group">
-                            <div className="bg-slate-100 dark:bg-slate-900/50 w-14 sm:w-16 h-10 sm:h-12 rounded-xl flex items-center justify-center font-bold text-xl sm:text-2xl group-hover:bg-slate-200 dark:group-hover:bg-slate-800 transition-colors shadow-sm" style={{ color: themeColor }}>
-                                {formatTimer(timeLeft).secs}
-                            </div>
-                            <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 block">Seconds</span>
-                        </div>
-                    </div>
-
                     <p className="text-xs sm:text-sm font-semibold text-slate-400 text-center">
                         Didn&apos;t receive code?{" "}
                         <button
                             type="button"
                             onClick={() => handleSendOTP(true)}
-                            disabled={isLoading || timeLeft > 60 || lockoutTimeLeft > 0}
+                            disabled={isLoading || timeLeft > 0 || lockoutTimeLeft > 0}
                             className="font-bold hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                             style={{ color: themeColor }}
                         >
-                            Resend code {timeLeft > 60 && `(${timeLeft - 60}s)`}
+                            Resend code {timeLeft > 0 && `(${timeLeft}s)`}
                         </button>
                     </p>
                 </div>
