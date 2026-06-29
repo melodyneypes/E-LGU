@@ -65,6 +65,25 @@ export default async function CedulaAppointmentPage() {
         }
     });
 
+    // Check for ongoing active Individual and Juridical Cedula transactions
+    const activeIndividual = await prisma.transaction.findFirst({
+        where: {
+            userId: session.user.id,
+            type: { code: "CEDULA_IND" },
+            status: { notIn: ["RELEASED", "DELIVERED", "REJECTED"] },
+            isCancelled: false
+        }
+    });
+
+    const activeJuridical = await prisma.transaction.findFirst({
+        where: {
+            userId: session.user.id,
+            type: { code: "CEDULA_JUR" },
+            status: { notIn: ["RELEASED", "DELIVERED", "REJECTED"] },
+            isCancelled: false
+        }
+    });
+
     return (
         <CedulaAppointmentClient
             resident={userWithResident?.residentProfile || null}
@@ -73,6 +92,8 @@ export default async function CedulaAppointmentPage() {
             branding={branding}
             config={treasuryConfig as any}
             bookedSlots={bookedSlots as any[]}
+            hasActiveIndividual={!!activeIndividual}
+            hasActiveJuridical={!!activeJuridical}
         />
     );
 }

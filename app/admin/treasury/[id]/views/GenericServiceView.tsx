@@ -122,9 +122,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         handleOnsitePayment
     } = props;
 
-    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = React.useState(false);
-    const [paymentMethod, setPaymentMethod] = React.useState<'CASH' | 'QR' | 'LANDBANK'>('CASH');
-    const [amountTendered, setAmountTendered] = React.useState('');
+    const [paymentMethod, setPaymentMethod] = React.useState<'CASH' | 'GCASH' | 'LANDBANK'>('CASH');
+    const [paymentReference, setPaymentReference] = React.useState('');
 
     const isCedula = transaction.type?.code?.includes("CEDULA");
     const isJuridical = transaction.type?.code?.includes("JURIDICAL") || transaction.additionalData?.applicantType === "JURIDICAL";
@@ -682,54 +681,147 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                     )}
 
                     {/* ACTION BUTTONS — below the card, no card wrapper */}
-                    {canApprove && (
+                    {((transaction.status === "FOR_REQUESTING" || transaction.status === "EVALUATED" || transaction.status === "UNPAID") && (userRole === "TREASURY_STAFF" || userRole === "ADMIN") && !isReadOnlyAide) && (
                         <div className="space-y-3">
-                            {/* APPROVE — full width */}
-                            {transaction.status !== "PAID" && (() => {
+                            {/* If status is FOR_REQUESTING: Show Evaluation stage (Approve, Request Revision, Decline) */}
+                            {transaction.status === "FOR_REQUESTING" && (
+                                <div className="space-y-4">
+                                    <Button
+                                        onClick={handleEvaluate}
+                                        disabled={actionLoading}
+                                        className="w-full h-14 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all"
+                                    >
+                                        {actionLoading ? "Processing..." : "Approve"}
+                                    </Button>
+
+                                    {/* REVISION + REJECT — side by side */}
+                                    <div className="flex gap-3">
+                                        {transaction.revisionCount < 3 && (
+                                            <Button
+                                                onClick={() => {
+                                                    setRemarks("");
+                                                    setIsRequestingRevision(true);
+                                                }}
+                                                disabled={actionLoading}
+                                                className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-amber-500/10 active:scale-95 transition-all"
+                                            >
+                                                {transaction.status === "PAID" ? "Decline Payment Proof" : "Request Revision"}
+                                            </Button>
+                                        )}
+                                        <Button
+                                            onClick={() => { setRemarks(""); setIsRejecting(true); }}
+                                            disabled={actionLoading}
+                                            className="flex-1 h-12 bg-red-600 hover:bg-red-700 text-white font-black italic uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-red-600/10 active:scale-95 transition-all"
+                                        >
+                                            Decline
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* If status is EVALUATED / UNPAID: Show Payment & Release stage */}
+                            {(transaction.status === "EVALUATED" || transaction.status === "UNPAID") && (() => {
                                 const hasInvalidFees = feeLineItems.some(item => {
                                     const labelEmpty = item.label.trim() === "";
                                     const amountEmpty = item.amount.trim() === "" || item.amount === "0";
                                     return (labelEmpty && !amountEmpty) || (!labelEmpty && amountEmpty);
                                 });
                                 return (
-                                    <Button
-                                        onClick={transaction.status === "PAID" ? handleConfirmPayment : () => setIsPaymentDialogOpen(true)}
-                                        disabled={actionLoading || hasInvalidFees}
-                                        title={hasInvalidFees ? "Please complete all fee descriptions and amounts before approving." : undefined}
-                                        className="w-full h-14 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-                                    >
-                                        {actionLoading ? "Processing..." : transaction.status === "PAID" ? "Approve Payment & Start Processing" : "Approve & Proceed to Payment"}
-                                    </Button>
+                                    <div className="space-y-4">
+                                        {/* Inline Payment Selector */}
+                                        <div className="space-y-4 bg-slate-50 dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-white/5">
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Payment Method</Label>
+                                                <div className="grid grid-cols-3 gap-3">
+                                                    {(["CASH", "GCASH", "LANDBANK"] as const).map((method) => (
+                                                        <button
+                                                            key={method}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setPaymentMethod(method);
+                                                            }}
+                                                            className={cn(
+                                                                "h-12 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all active:scale-95",
+                                                                paymentMethod === method
+                                                                    ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
+                                                                    : "bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-white/10"
+                                                            )}
+                                                        >
+                                                            {method}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* OR Number Input */}
+                                            <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-white/5">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">OR Number (Official Receipt)</Label>
+                                                <Input
+                                                    type="text"
+                                                    placeholder="Enter OR Series Number..."
+                                                    value={orSeriesNumber || ""}
+                                                    onChange={(e) => setOrSeriesNumber && setOrSeriesNumber(e.target.value)}
+                                                    className="h-12 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm font-bold"
+                                                />
+                                            </div>
+
+                                            {isCedula && (
+                                                <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-white/5">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">CTC Number (Community Tax Certificate)</Label>
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Enter CTC Booklet Number..."
+                                                        value={ctcNumber || ""}
+                                                        onChange={(e) => setCtcNumber && setCtcNumber(e.target.value)}
+                                                        className="h-12 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm font-bold"
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {paymentMethod !== "CASH" && (
+                                                <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-white/5">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{paymentMethod} Reference Number</Label>
+                                                    <Input
+                                                        type="text"
+                                                        placeholder={`Enter ${paymentMethod} Transaction Reference...`}
+                                                        value={paymentReference}
+                                                        onChange={(e) => setPaymentReference(e.target.value)}
+                                                        className="h-12 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm font-bold"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <Button
+                                            onClick={async () => {
+                                                if (handleOnsitePayment) {
+                                                    await handleOnsitePayment(paymentMethod, undefined, paymentMethod !== "CASH" ? paymentReference : undefined);
+                                                }
+                                            }}
+                                            disabled={actionLoading || hasInvalidFees || !orSeriesNumber?.trim() || (isCedula && !ctcNumber?.trim()) || (paymentMethod !== "CASH" && !paymentReference.trim())}
+                                            title={hasInvalidFees ? "Please complete all fee descriptions and amounts before approving." : (!orSeriesNumber?.trim() ? "Official Receipt (OR) Number is required." : (isCedula && !ctcNumber?.trim() ? "CTC booklet number is required for Cedula." : (paymentMethod !== "CASH" && !paymentReference.trim() ? `${paymentMethod} reference number is required.` : undefined)))}
+                                            className="w-full h-14 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                                        >
+                                            {actionLoading ? "Processing..." : "Mark as Paid & Released"}
+                                        </Button>
+                                    </div>
                                 );
                             })()}
 
-                            {/* REVISION + REJECT — side by side */}
-                            <div className="flex gap-3">
-                                {transaction.revisionCount < 3 && (
-                                    <Button
-                                        onClick={() => {
-                                            setRemarks("");
-                                            setIsRequestingRevision(true);
-                                        }}
-                                        disabled={actionLoading}
-                                        className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-amber-500/10 active:scale-95 transition-all"
-                                    >
-                                        {transaction.status === "PAID" ? "Decline Payment Proof" : "Request Revision"}
-                                    </Button>
-                                )}
+                            {transaction.status === "PAID" && (
                                 <Button
-                                    onClick={() => { setRemarks(""); setIsRejecting(true); }}
+                                    onClick={handleConfirmPayment}
                                     disabled={actionLoading}
-                                    className="flex-1 h-12 bg-red-600 hover:bg-red-700 text-white font-black italic uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-red-600/10 active:scale-95 transition-all"
+                                    className="w-full h-14 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
                                 >
-                                    Decline
+                                    {actionLoading ? "Processing..." : "Approve Payment & Start Processing"}
                                 </Button>
-                            </div>
+                            )}
                         </div>
                     )}
 
                     {/* PENDING PAYMENT NOTE — shown when status is EVALUATED */}
-                    {transaction.status === "EVALUATED" && (
+                    {transaction.status === "EVALUATED" && (userRole !== "TREASURY_STAFF" && userRole !== "ADMIN") && (
                         <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
                             <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1028,118 +1120,6 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                 handleReject={handleReject}
                 handleRequestRevision={transaction.status === "PAID" ? handleDeclinePaymentProof : handleRequestRevision}
             />
-
-            <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-                <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
-                    <DialogHeader className="space-y-3">
-                        <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
-                            Onsite <span className="text-primary">Payment</span>
-                        </DialogTitle>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Select payment method & record cash tendered</p>
-                    </DialogHeader>
-
-                    <div className="space-y-6 py-6">
-                        {/* Payment Method Selector */}
-                        <div className="space-y-3">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Payment Method</Label>
-                            <div className="grid grid-cols-3 gap-3">
-                                {(["CASH", "QR", "LANDBANK"] as const).map((method) => (
-                                    <button
-                                        key={method}
-                                        type="button"
-                                        onClick={() => {
-                                            setPaymentMethod(method);
-                                            if (method !== "CASH") setAmountTendered("");
-                                        }}
-                                        className={cn(
-                                            "h-12 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all active:scale-95",
-                                            paymentMethod === method
-                                                ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
-                                                : "bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-white/10"
-                                        )}
-                                    >
-                                        {method}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Cash Details */}
-                        {paymentMethod === "CASH" && (
-                            <div className="space-y-4 bg-slate-50 dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-white/5">
-                                <div className="flex justify-between items-center text-xs font-bold text-slate-500 italic">
-                                    <span>Total Due:</span>
-                                    <span className="text-base font-black text-slate-900 dark:text-white">
-                                        ₱{adjustedDisplayTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                    </span>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount Tendered</Label>
-                                    <div className="relative flex items-center bg-white dark:bg-slate-900 border border-slate-150 dark:border-white/10 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20">
-                                        <span className="text-sm font-black text-slate-400 select-none mr-1">₱</span>
-                                        <input
-                                            type="number"
-                                            placeholder="Enter cash given..."
-                                            value={amountTendered}
-                                            onChange={(e) => setAmountTendered(e.target.value)}
-                                            className="w-full bg-transparent text-sm font-black text-slate-800 dark:text-white focus:outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                        />
-                                    </div>
-                                </div>
-
-                                {(() => {
-                                    const tendered = parseFloat(amountTendered) || 0;
-                                    const change = tendered - adjustedDisplayTotal;
-                                    if (amountTendered.trim() !== "") {
-                                        if (change < 0) {
-                                            return (
-                                                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center">
-                                                    <p className="text-[10px] font-black uppercase text-red-650 dark:text-red-400 italic">
-                                                        Kulang: ₱{Math.abs(change).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                    </p>
-                                                </div>
-                                            );
-                                        }
-                                        return (
-                                            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center">
-                                                <p className="text-[10px] font-black uppercase text-emerald-650 dark:text-emerald-400 italic">
-                                                    Sukli: ₱{change.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                </p>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                })()}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex gap-3">
-                        <Button
-                            variant="ghost"
-                            onClick={() => setIsPaymentDialogOpen(false)}
-                            className="flex-1 h-12 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-350 font-black italic uppercase tracking-widest text-[10px] rounded-2xl transition-all"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={async () => {
-                                const tenderedVal = parseFloat(amountTendered) || 0;
-                                if (handleOnsitePayment) {
-                                    setIsPaymentDialogOpen(false);
-                                    await handleOnsitePayment(paymentMethod, paymentMethod === "CASH" ? tenderedVal : undefined);
-                                }
-                            }}
-                            disabled={actionLoading || (paymentMethod === "CASH" && (parseFloat(amountTendered) || 0) < adjustedDisplayTotal)}
-                            style={{ backgroundColor: themeColor }}
-                            className="flex-1 h-12 text-white font-black italic uppercase tracking-widest text-[10px] rounded-2xl shadow-xl hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
-                        >
-                            {actionLoading ? "Processing..." : "Confirm Payment"}
-                        </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }

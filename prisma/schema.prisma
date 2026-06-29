@@ -649,6 +649,7 @@ model Transaction {
   eCopyUrl          String?           // Link to generated digital file
   orUrl             String?           // Link to Official Receipt file
   isStudent         Boolean           @default(false)
+  isPaid            Boolean           @default(false)
 
   // Audit & Workflow
   processedBy       String?           // User ID of the Treasury Staff who handled it
@@ -1122,6 +1123,7 @@ model Payment {
   method        PaymentType   @default(CASH)
   status        PaymentStatus @default(PENDING)
   reference     String?
+  orNumber      String?
   meta          Json?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt

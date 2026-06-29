@@ -269,6 +269,7 @@ export async function POST(request: Request) {
       const txUpdate: any = { additionalData: updatedAdditional, updatedAt: new Date(), paymentType: mappedPrismaMethod };
       if (paymentStatus === "PAID") {
         txUpdate.status = "PAID";
+        txUpdate.isPaid = true;
         txUpdate.paymentReference = paymentId;
       }
 
@@ -392,6 +393,7 @@ export async function POST(request: Request) {
         const txUpdate: any = { additionalData: updatedAdditional, updatedAt: new Date(), paymentType: mappedPrismaMethod };
         if (paymentStatus === "PAID") {
           txUpdate.status = "PAID";
+          txUpdate.isPaid = true;
           txUpdate.paymentReference = paymentId;
         }
 
@@ -476,6 +478,7 @@ export async function POST(request: Request) {
       const txUpdate: any = { additionalData: updatedAdditional, updatedAt: new Date(), paymentType: mappedPrismaMethod };
       if (status === "PAID") {
         txUpdate.status = "PAID";
+        txUpdate.isPaid = true;
         txUpdate.paymentReference = paymentId;
       }
 

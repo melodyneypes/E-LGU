@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
+import SchedulePicker from "@/components/shared/SchedulePicker";
 import { compressImage } from "@/lib/image-compression";
 import { calculateCedula, CedulaResult, getCedulaPenaltyRate } from "@/lib/cedula";
 import { toast } from "sonner";
@@ -49,7 +50,6 @@ type Step = "STATUS" | "RESIDENT" | "TAX_DECLARATION" | "DECLARATION" | "CONFIRM
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "STATUS", label: "Status", icon: Sparkles },
-    { id: "RESIDENT", label: "Identity", icon: User },
     { id: "TAX_DECLARATION", label: "Tax Declaration", icon: Calculator },
     { id: "DECLARATION", label: "Schedule", icon: Calendar },
     { id: "CONFIRM", label: "Submit", icon: CheckCircle2 },
@@ -72,6 +72,8 @@ interface CedulaAppointmentClientProps {
         activeDays: number[];
     };
     bookedSlots: { appointmentDate: Date; appointmentSlot: string }[];
+    hasActiveIndividual: boolean;
+    hasActiveJuridical: boolean;
 }
 
 export function CedulaAppointmentClient({
@@ -80,7 +82,9 @@ export function CedulaAppointmentClient({
     themeColor,
     branding,
     config,
-    bookedSlots
+    bookedSlots,
+    hasActiveIndividual,
+    hasActiveJuridical
 }: CedulaAppointmentClientProps) {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<Step>("STATUS");
@@ -119,43 +123,19 @@ export function CedulaAppointmentClient({
         purpose: ""
     });
 
+    useEffect(() => {
+        if (applicantType === "JURIDICAL" && formState.incomeSource === "PROFESSION") {
+            setFormState(prev => ({ ...prev, incomeSource: "BUSINESS" }));
+        }
+    }, [applicantType, formState.incomeSource]);
+
     // Appointment Schedule State
     const [selectedDate, setSelectedDate] = useState<string>("");
     const [selectedSlot, setSelectedSlot] = useState<string>("");
 
 
-    const [currentMonth, setCurrentMonth] = useState<Date>(() => {
-        const today = new Date();
-        return new Date(today.getFullYear(), today.getMonth(), 1);
-    });
-
-    const changeMonth = (offset: number) => {
-        setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
-    };
-
-    const getDaysInMonth = (date: Date) => {
-        const year = date.getFullYear();
-        const month = date.getMonth();
-        const daysCount = new Date(year, month + 1, 0).getDate();
-        const firstDayIndex = new Date(year, month, 1).getDay();
-
-        const days = [];
-        for (let i = 0; i < firstDayIndex; i++) {
-            days.push(null);
-        }
-        for (let day = 1; day <= daysCount; day++) {
-            days.push(new Date(year, month, day));
-        }
-        return days;
-    };
-
-    const SLOTS = [
-        "08:00 AM - 11:00 AM",
-        "01:00 PM - 04:00 PM"
-    ];
-
-    const contactInputRef = useRef<HTMLInputElement>(null);
     const incomeInputRef = useRef<HTMLInputElement>(null);
+    const businessNameInputRef = useRef<HTMLInputElement>(null);
 
     const [idFile, setIdFile] = useState<File | null>(null);
     const [proofFile, setProofFile] = useState<File | null>(null);
@@ -163,6 +143,7 @@ export function CedulaAppointmentClient({
     const [existingProofUrl] = useState<string | null>(null);
     const [showValidationErrors, setShowValidationErrors] = useState(false);
     const [incomeError, setIncomeError] = useState(false);
+    const [businessNameError, setBusinessNameError] = useState(false);
 
     // Refs for sections (smooth scrolling)
     const idSectionRef = useRef<HTMLDivElement>(null);
@@ -191,17 +172,53 @@ export function CedulaAppointmentClient({
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
 
-            // Validate file type
+            // 1. Validate file extension and MIME type
             const allowedTypes = [
-                "image/jpeg", "image/png",
+                "image/jpeg", "image/png", "image/gif", "image/webp",
                 "application/pdf"
             ];
             const fileExtension = file.name.split('.').pop()?.toLowerCase() || "";
-            const allowedExtensions = ["pdf", "jpg", "jpeg", "png"];
+            const allowedExtensions = ["pdf", "jpg", "jpeg", "png", "gif", "webp"];
 
             if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
-                toast.error("Invalid file type! Only standard images (PNG, JPG, JPEG) and PDFs are allowed.");
+                toast.error("Invalid file type! Only standard images (PNG, JPG, GIF, WEBP) and PDFs are allowed.");
                 e.target.value = ""; // clear file input
+                return;
+            }
+
+            // 2. Validate magic bytes (headers) on the client-side
+            try {
+                const headBuffer = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+                let hex = "";
+                for (let i = 0; i < headBuffer.length; i++) {
+                    hex += headBuffer[i].toString(16).padStart(2, "0");
+                }
+                hex = hex.toUpperCase();
+
+                let isMagicValid = false;
+                const mime = file.type.toLowerCase();
+
+                if (hex.startsWith("FFD8FF") && mime === "image/jpeg") {
+                    isMagicValid = true;
+                } else if (hex.startsWith("89504E470D0A1A0A") && mime === "image/png") {
+                    isMagicValid = true;
+                } else if ((hex.startsWith("474946383761") || hex.startsWith("474946383961")) && mime === "image/gif") {
+                    isMagicValid = true;
+                } else if (hex.startsWith("25504446") && mime === "application/pdf") {
+                    isMagicValid = true;
+                } else if (hex.startsWith("52494646") && hex.substring(16, 24) === "57454250" && mime === "image/webp") {
+                    isMagicValid = true;
+                }
+
+                if (!isMagicValid) {
+                    toast.error("Security alert: File header mismatch! The actual file content does not match its extension.");
+                    e.target.value = "";
+                    return;
+                }
+            } catch (err) {
+                console.error("Client-side file headers verification error:", err);
+                toast.error("Failed to verify file security headers.");
+                e.target.value = "";
                 return;
             }
 
@@ -283,63 +300,7 @@ export function CedulaAppointmentClient({
         setCalcResult(result);
     }, [formState.income, formState.propertyValue, applicantType, activeType]);
 
-    // Check if slot count exceeds config limit
-    const getSlotAvailability = (dateStr: string, slot: string) => {
-        if (!dateStr) return true;
-        const targetDate = new Date(dateStr);
-        const count = bookedSlots.filter(b => {
-            const bDate = new Date(b.appointmentDate);
-            return (
-                bDate.getUTCFullYear() === targetDate.getUTCFullYear() &&
-                bDate.getUTCMonth() === targetDate.getUTCMonth() &&
-                bDate.getUTCDate() === targetDate.getUTCDate() &&
-                b.appointmentSlot === slot
-            );
-        }).length;
-        
-        const isAM = slot.includes("AM") || slot.toUpperCase().includes("08:00 AM");
-        const configAny = config as any;
-        const maxLimit = isAM 
-            ? (configAny.maxSlotsAM ?? 25) 
-            : (configAny.maxSlotsPM ?? 25);
-            
-        return count < maxLimit;
-    };
 
-    // Check if a specific date is disabled
-    const isDateDisabled = (date: Date | null) => {
-        if (!date) return true;
-        const dayOfWeek = date.getDay(); // 0 is Sunday, 6 is Saturday
-
-        // Disable weekends if not active
-        if (!config.activeDays.includes(dayOfWeek)) return true;
-
-        // Disable blocked dates
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const formattedDate = `${year}-${month}-${day}`;
-        if (config.blockedDates.includes(formattedDate)) return true;
-
-        // Disable past dates
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (date < today) return true;
-
-        // Check if all slots are fully booked
-        const totalMaxSlots = config.maxSlots;
-        const bookedOnThisDay = bookedSlots.filter(b => {
-            const bDate = new Date(b.appointmentDate);
-            return (
-                bDate.getFullYear() === date.getFullYear() &&
-                bDate.getMonth() === date.getMonth() &&
-                bDate.getDate() === date.getDate()
-            );
-        }).length;
-        if (bookedOnThisDay >= totalMaxSlots) return true;
-
-        return false;
-    };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -349,18 +310,17 @@ export function CedulaAppointmentClient({
     const isStepValid = (stepId: Step) => {
         switch (stepId) {
             case "STATUS":
+                if (hasActiveIndividual && applicantType === "INDIVIDUAL") return false;
+                if (hasActiveJuridical && applicantType === "JURIDICAL") return false;
                 return !!activeType?.id;
-            case "RESIDENT":
-                return !!formState.contactNumber;
             case "TAX_DECLARATION":
-                return !!formState.income.trim(); // Income is now required
-            case "DECLARATION":
-                const isJur = applicantType === "JURIDICAL";
-                const hasSchedule = !!selectedDate && !!selectedSlot;
-                if (isJur) {
-                    return !!formState.businessName.trim() && hasSchedule;
+                const isIncomeValid = !!formState.income.trim();
+                if (applicantType === "JURIDICAL") {
+                    return isIncomeValid && !!formState.businessName.trim();
                 }
-                return hasSchedule;
+                return isIncomeValid;
+            case "DECLARATION":
+                return !!selectedDate && !!selectedSlot;
             case "CONFIRM":
                 return privacyAccepted;
             default:
@@ -382,19 +342,24 @@ export function CedulaAppointmentClient({
     const handleNext = () => {
         if (!isStepValid(currentStep)) {
             if (currentStep === "STATUS") {
-                toast.error("Please select your application status.");
-            } else if (currentStep === "RESIDENT") {
-                contactInputRef.current?.focus();
-                toast.error("Please provide your contact number.");
+                if (hasActiveIndividual && applicantType === "INDIVIDUAL") {
+                    toast.error("You already have an active Individual Cedula request currently in progress.");
+                } else if (hasActiveJuridical && applicantType === "JURIDICAL") {
+                    toast.error("You already have an active Juridical Cedula request currently in progress.");
+                } else {
+                    toast.error("Please select your application status.");
+                }
             } else if (currentStep === "TAX_DECLARATION") {
-                setIncomeError(true);
-                incomeInputRef.current?.focus();
-                incomeInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                toast.error("Please declare your Annual Gross Income to compute the estimated tax.");
-            } else if (currentStep === "DECLARATION") {
                 if (applicantType === "JURIDICAL" && !formState.businessName.trim()) {
                     toast.error("Please declare your Business Name.");
-                } else if (!selectedDate || !selectedSlot) {
+                } else if (!formState.income.trim()) {
+                    setIncomeError(true);
+                    incomeInputRef.current?.focus();
+                    incomeInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    toast.error("Please declare your Annual Gross Income to compute the estimated tax.");
+                }
+            } else if (currentStep === "DECLARATION") {
+                if (!selectedDate || !selectedSlot) {
                     toast.error("Please select your appointment date and time session.");
                 }
             }
@@ -485,12 +450,7 @@ export function CedulaAppointmentClient({
         setPrintTriggered(true);
     };
 
-    const formatDateString = (date: Date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
+
 
     return (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-0 pb-0 space-y-12">
@@ -553,7 +513,7 @@ export function CedulaAppointmentClient({
 
             {/* Progress Stepper */}
             {currentStep !== "SUCCESS" && (
-                <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2 print:hidden">
+                <div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2 print:hidden">
                     {STEPS.map((step, idx) => {
                         const isActive = currentStep === step.id;
                         const isCompleted = STEPS.findIndex(s => s.id === currentStep) > idx;
@@ -565,10 +525,7 @@ export function CedulaAppointmentClient({
                                     if (canNavigate(step.id)) {
                                         setCurrentStep(step.id);
                                     } else {
-                                        if (currentStep === "RESIDENT") {
-                                            contactInputRef.current?.focus();
-                                            toast.error("Please complete your identity details first.");
-                                        } else if (currentStep === "DECLARATION") {
+                                        if (currentStep === "DECLARATION") {
                                             toast.error("Please complete the declaration and schedule first.");
                                         } else {
                                             toast.error("Please complete the current phase first.");
@@ -643,7 +600,14 @@ export function CedulaAppointmentClient({
                                                 <button
                                                     key={opt.id}
                                                     type="button"
-                                                    onClick={() => setApplicantType(opt.id as any)}
+                                                    onClick={() => {
+                                                        setApplicantType(opt.id as any);
+                                                        if (opt.id === "JURIDICAL") {
+                                                            setFormState(p => ({ ...p, incomeSource: "BUSINESS" }));
+                                                        } else {
+                                                            setFormState(p => ({ ...p, incomeSource: "PROFESSION" }));
+                                                        }
+                                                    }}
                                                     className={cn(
                                                         "p-6 md:p-8 rounded-[2rem] border-2 text-left relative group select-none overflow-hidden transition-all duration-300 min-h-[180px] md:min-h-[260px] flex flex-col justify-between cursor-pointer",
                                                         isSelected
@@ -686,85 +650,7 @@ export function CedulaAppointmentClient({
                                 </div>
                             )}
 
-                            {currentStep === "RESIDENT" && (
-                                <div className="space-y-6 md:space-y-8">
-                                    <div className="space-y-1">
-                                        <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight">Identity <span className="text-primary italic">Confirmation</span></h2>
-                                        <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">Verify your personal records. Only the contact number should be provided/updated.</p>
-                                    </div>
 
-                                    <div className="space-y-4 md:space-y-6">
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">First Name</Label>
-                                                <Input value={formState.firstName} readOnly className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400 dark:bg-white/5" />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Middle Name</Label>
-                                                <Input value={formState.middleName} readOnly className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400 dark:bg-white/5" />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Last Name</Label>
-                                                <Input value={formState.lastName} readOnly className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400 dark:bg-white/5" />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Suffix</Label>
-                                                <Input value={formState.suffix} readOnly className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400 dark:bg-white/5" />
-                                            </div>
-                                        </div>
-
-                                        <Separator className="opacity-50" />
-
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Birth Date</Label>
-                                                <Input type="date" value={formState.dateOfBirth} readOnly className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400 dark:bg-white/5" />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Gender</Label>
-                                                <Input value={formState.gender} readOnly className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm dark:bg-white/5" />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Civil Status</Label>
-                                                <Input value={formState.civilStatus} readOnly className="h-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 font-bold text-xs md:text-sm dark:bg-white/5" />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Citizenship</Label>
-                                                <Input value={formState.citizenship} readOnly className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm bg-slate-50 text-slate-400 dark:bg-white/5" />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Residential Address</Label>
-                                                <Input
-                                                    value={`${formState.houseNumber ? formState.houseNumber + ' ' : ''}${formState.street ? formState.street + ', ' : ''}${formState.barangay}, ${formState.municipality}, ${formState.province}`}
-                                                    readOnly
-                                                    className="h-10 rounded-xl border-slate-200 text-xs bg-slate-50 text-slate-400 dark:bg-white/5"
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Contact Number</Label>
-                                                <Input
-                                                    ref={contactInputRef}
-                                                    name="contactNumber"
-                                                    value={formState.contactNumber}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value.replace(/[^\d+]/g, "");
-                                                        setFormState(prev => ({ ...prev, contactNumber: val }));
-                                                    }}
-                                                    className="h-10 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm"
-                                                    placeholder="09xx xxx xxxx"
-                                                    required
-                                                />
-                                                <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider ml-1 animate-pulse">
-                                                    * Note: Please use your active contact number. This will be used to coordinate your appointment.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
 
                             {currentStep === "TAX_DECLARATION" && (
                                 <div className="space-y-8 md:space-y-12 animate-in fade-in duration-300">
@@ -780,6 +666,32 @@ export function CedulaAppointmentClient({
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
                                         {/* Left Column: Inputs */}
                                         <div className="space-y-6">
+                                            {applicantType === "JURIDICAL" && (
+                                                <div className="space-y-2 md:space-y-3">
+                                                    <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 italic ml-1">
+                                                        Business Name
+                                                    </Label>
+                                                    <Input
+                                                         ref={businessNameInputRef}
+                                                         type="text"
+                                                         name="businessName"
+                                                         value={formState.businessName}
+                                                         onChange={(e) => {
+                                                             handleInputChange(e);
+                                                             if (businessNameError) setBusinessNameError(false);
+                                                         }}
+                                                         placeholder="Enter registered business name"
+                                                         className={cn(
+                                                             "h-12 md:h-16 px-4 rounded-xl md:rounded-2xl dark:bg-white/5 text-sm font-bold bg-white transition-all",
+                                                             businessNameError
+                                                                 ? "border-red-500 ring-2 ring-red-500/20 dark:border-red-500"
+                                                                 : "border-slate-200 dark:border-white/10"
+                                                         )}
+                                                         required
+                                                     />
+                                                </div>
+                                            )}
+
                                             <div className="space-y-2 md:space-y-3">
                                                 <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 italic ml-1">
                                                     Annual Gross Income
@@ -793,8 +705,8 @@ export function CedulaAppointmentClient({
                                                         onChange={(e) => {
                                                             const val = e.target.value.replace(/[^0-9.]/g, '');
                                                             if (val === '') {
-                                                                setFormState(p => ({ ...p, income: '' }));
-                                                                return;
+                                                                 setFormState(p => ({ ...p, income: '' }));
+                                                                 return;
                                                             }
                                                             const parts = val.split('.');
                                                             parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -805,8 +717,8 @@ export function CedulaAppointmentClient({
                                                         placeholder="0.00"
                                                         className={cn(
                                                             "h-12 md:h-16 pl-10 rounded-xl md:rounded-2xl dark:bg-white/5 text-lg md:text-xl font-black italic bg-white transition-all",
-                                                            incomeError 
-                                                                ? "border-red-500 ring-2 ring-red-500/20 dark:border-red-500" 
+                                                            incomeError
+                                                                ? "border-red-500 ring-2 ring-red-500/20 dark:border-red-500"
                                                                 : "border-slate-200 dark:border-white/10"
                                                         )}
                                                     />
@@ -834,7 +746,12 @@ export function CedulaAppointmentClient({
                                                             label: "Property",
                                                             desc: "Real Estate Rentals & Leases"
                                                         }
-                                                    ].map(opt => {
+                                                    ].filter(opt => {
+                                                        if (applicantType === "JURIDICAL") {
+                                                            return opt.id !== "PROFESSION";
+                                                        }
+                                                        return true;
+                                                    }).map(opt => {
                                                         const isSelected = formState.incomeSource === opt.id;
                                                         return (
                                                             <button
@@ -893,7 +810,7 @@ export function CedulaAppointmentClient({
                                             <div className="pt-6 border-t border-white/10 relative z-10 flex justify-between items-end">
                                                 <div className="space-y-1">
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic block">Estimated Total</span>
-                                                    <span className="text-[8px] font-bold text-amber-500/80 uppercase block italic">* Subject to admin evaluation</span>
+                                                    <span className="text-[8px] font-bold text-amber-500/80 uppercase block italic"></span>
                                                 </div>
                                                 <span className="text-3xl md:text-5xl font-black italic tracking-tighter text-primary">
                                                     ₱{(calcResult?.totalAmount ?? 0).toFixed(2)}
@@ -916,168 +833,15 @@ export function CedulaAppointmentClient({
                                         </p>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 relative">
-                                        {/* Ambient background blur accent */}
-                                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full blur-[100px] opacity-10 dark:opacity-5 pointer-events-none" style={{ backgroundColor: themeColor }} />
-
-                                        {/* Left Side: Appointment Date Selection */}
-                                        <div className="space-y-6 relative z-10">
-                                            {applicantType === "JURIDICAL" && (
-                                                <div className="space-y-2">
-                                                    <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 italic ml-1">Registered Business Name</Label>
-                                                    <Input
-                                                        name="businessName"
-                                                        value={formState.businessName}
-                                                        onChange={handleInputChange}
-                                                        placeholder="Enter Corporate/Business Name"
-                                                        className="h-12 rounded-xl border-slate-200 dark:border-white/10 dark:bg-white/5 text-base font-bold bg-white focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-transparent transition-all"
-                                                    />
-                                                </div>
-                                            )}
-
-                                            <div className="space-y-4">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 italic ml-1 flex items-center gap-1.5">
-                                                    <Calendar className="w-4 h-4" style={{ color: themeColor }} /> 1. Select Date
-                                                </Label>
-
-                                                <div className="border border-slate-200/80 dark:border-white/10 rounded-[2.5rem] p-5 md:p-6 bg-white/60 dark:bg-[#0c0f16]/60 backdrop-blur-md shadow-xl dark:shadow-2xl/40 space-y-5 select-none transition-all">
-                                                    {/* Calendar Header: Month, Year and Navigation */}
-                                                    <div className="flex items-center justify-between px-1">
-                                                        <span className="font-black text-sm md:text-base uppercase tracking-wider text-slate-900 dark:text-white italic">
-                                                            {currentMonth.toLocaleString("default", { month: "long", year: "numeric" })}
-                                                        </span>
-                                                        <div className="flex items-center gap-1.5">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => changeMonth(-1)}
-                                                                className="w-8 h-8 rounded-full border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-slate-650 dark:text-slate-400 flex items-center justify-center active:scale-90"
-                                                            >
-                                                                <ArrowLeft className="w-3.5 h-3.5" />
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => changeMonth(1)}
-                                                                className="w-8 h-8 rounded-full border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-slate-650 dark:text-slate-400 flex items-center justify-center active:scale-90"
-                                                            >
-                                                                <ChevronRight className="w-3.5 h-3.5" />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Weekdays Grid */}
-                                                    <div className="grid grid-cols-7 text-center gap-1.5">
-                                                        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
-                                                            <span key={day} className="text-[10px] font-black uppercase tracking-widest text-slate-450 dark:text-slate-500 py-1">
-                                                                {day}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-
-                                                    {/* Days Grid */}
-                                                    <div className="grid grid-cols-7 gap-1.5">
-                                                        {getDaysInMonth(currentMonth).map((day, idx) => {
-                                                            if (!day) {
-                                                                return <div key={`empty-${idx}`} />;
-                                                            }
-                                                            const formatted = formatDateString(day);
-                                                            const disabled = isDateDisabled(day);
-                                                            const isSelected = selectedDate === formatted;
-
-                                                            return (
-                                                                <button
-                                                                    key={formatted}
-                                                                    type="button"
-                                                                    disabled={disabled}
-                                                                    onClick={() => {
-                                                                        setSelectedDate(formatted);
-                                                                        setSelectedSlot("");
-                                                                    }}
-                                                                    className={cn(
-                                                                        "h-9 w-9 md:h-10 md:w-10 rounded-full mx-auto flex items-center justify-center text-xs font-bold transition-all duration-300 relative group",
-                                                                        isSelected
-                                                                            ? "text-white font-black shadow-lg scale-110 active:scale-95"
-                                                                            : disabled
-                                                                                ? "text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-35"
-                                                                                : "text-slate-700 dark:text-slate-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-white/5 dark:hover:text-white"
-                                                                    )}
-                                                                    style={isSelected ? { backgroundColor: themeColor } : {}}
-                                                                >
-                                                                    <span>{day.getDate()}</span>
-                                                                    {!disabled && !isSelected && (
-                                                                        <div className="absolute bottom-1 w-1 h-1 rounded-full bg-slate-300 dark:bg-white/20 group-hover:bg-primary" />
-                                                                    )}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Right Side: Time Slots Selection */}
-                                        <div className="space-y-6 relative z-10">
-                                            <div className="space-y-4">
-                                                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 italic ml-1 flex items-center gap-1.5">
-                                                    <Clock className="w-4 h-4" style={{ color: themeColor }} /> 2. Choose Time Session
-                                                </Label>
-                                                {!selectedDate ? (
-                                                    <div className="h-[260px] border border-dashed border-slate-200 dark:border-white/10 rounded-[2.5rem] bg-slate-50/50 dark:bg-white/[0.01] flex flex-col items-center justify-center gap-2 text-slate-400 italic text-xs shadow-inner">
-                                                        <Calendar className="w-8 h-8 opacity-40 animate-pulse text-slate-400" />
-                                                        <span>Select an appointment date first</span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="grid grid-cols-1 gap-3.5">
-                                                        {SLOTS.map((slot) => {
-                                                            const available = getSlotAvailability(selectedDate, slot);
-                                                            const active = selectedSlot === slot;
-                                                            return (
-                                                                <button
-                                                                    key={slot}
-                                                                    type="button"
-                                                                    disabled={!available}
-                                                                    onClick={() => setSelectedSlot(slot)}
-                                                                    className={cn(
-                                                                        "p-5 border rounded-[2rem] flex items-center justify-between text-left transition-all duration-300 shadow-sm relative overflow-hidden group/slot",
-                                                                        !available
-                                                                            ? "opacity-35 cursor-not-allowed bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/5"
-                                                                            : active
-                                                                                ? "border-primary bg-primary/[0.04] dark:bg-primary/[0.08] scale-[1.01] ring-2 ring-primary/20"
-                                                                                : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] hover:border-slate-350 dark:hover:border-white/20 hover:scale-[1.01]"
-                                                                    )}
-                                                                >
-                                                                    <div className="flex items-center gap-4">
-                                                                        {/* Circular selector */}
-                                                                        <div className={cn(
-                                                                            "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
-                                                                            active
-                                                                                ? "bg-primary border-primary text-white"
-                                                                                : "border-slate-300 dark:border-white/20 bg-white dark:bg-black/20"
-                                                                        )}
-                                                                            style={active ? { borderColor: themeColor, backgroundColor: themeColor } : {}}
-                                                                        >
-                                                                            {active && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                                                                        </div>
-                                                                        <div className="space-y-0.5">
-                                                                            <span className="font-black text-xs md:text-sm text-slate-800 dark:text-slate-100">{slot}</span>
-                                                                            <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400">Regular processing hours</p>
-                                                                        </div>
-                                                                    </div>
-                                                                    <span className={cn(
-                                                                        "text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-full",
-                                                                        available
-                                                                            ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                                                                            : "bg-red-500/10 text-red-500 border border-red-500/20"
-                                                                    )}>
-                                                                        {available ? "Available" : "Full"}
-                                                                    </span>
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <SchedulePicker
+                                        selectedDate={selectedDate}
+                                        setSelectedDate={setSelectedDate}
+                                        selectedSlot={selectedSlot}
+                                        setSelectedSlot={setSelectedSlot}
+                                        bookedSlots={bookedSlots}
+                                        config={config}
+                                        themeColor={themeColor}
+                                    />
                                 </div>
                             )}
 
@@ -1293,14 +1057,14 @@ export function CedulaAppointmentClient({
 
                                     {/* ♿ Minimalist Priority Lane Row Checkbox (No big card borders) */}
                                     <div className="mt-6 pt-4 border-t border-slate-100 dark:border-white/5">
-                                        <div 
+                                        <div
                                             onClick={() => setIsPriorityLane(!isPriorityLane)}
                                             className="flex items-start gap-3 md:gap-4 cursor-pointer select-none p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-2xl transition-colors"
                                         >
                                             <div className={cn(
                                                 "w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
-                                                isPriorityLane 
-                                                    ? "bg-primary border-primary text-white" 
+                                                isPriorityLane
+                                                    ? "bg-primary border-primary text-white"
                                                     : "border-slate-300 dark:border-white/10"
                                             )}
                                                 style={isPriorityLane ? { borderColor: themeColor, backgroundColor: themeColor } : {}}
@@ -1359,162 +1123,162 @@ export function CedulaAppointmentClient({
                             )}
 
                             {currentStep === "SUCCESS" && (
-                                        <div className="space-y-8 text-center py-6">
-                                            {/* Print queue ticket helper portal */}
-                                            {queueNumber && (
-                                                <PrintQueueTicket
-                                                    queueNumber={queueNumber}
-                                                    residentName={`${formState.firstName} ${formState.lastName}`}
-                                                    serviceName={activeType?.name || "Cedula Appointment"}
-                                                    appointmentDate={selectedDate ? new Date(selectedDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : ""}
-                                                    appointmentSlot={selectedSlot}
-                                                    isPriority={isPriorityLane}
-                                                    branding={branding}
-                                                    themeColor={themeColor}
-                                                    triggerPrint={printTriggered}
-                                                    onPrintCompleted={() => setPrintTriggered(false)}
-                                                />
-                                            )}
+                                <div className="space-y-8 text-center py-6">
+                                    {/* Print queue ticket helper portal */}
+                                    {queueNumber && (
+                                        <PrintQueueTicket
+                                            queueNumber={queueNumber}
+                                            residentName={`${formState.firstName} ${formState.lastName}`}
+                                            serviceName={activeType?.name || "Cedula Appointment"}
+                                            appointmentDate={selectedDate ? new Date(selectedDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : ""}
+                                            appointmentSlot={selectedSlot}
+                                            isPriority={isPriorityLane}
+                                            branding={branding}
+                                            themeColor={themeColor}
+                                            triggerPrint={printTriggered}
+                                            onPrintCompleted={() => setPrintTriggered(false)}
+                                        />
+                                    )}
 
-                                            <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/5">
-                                                <CheckCircle2 className="w-10 h-10 animate-in zoom-in duration-300" />
-                                            </div>
+                                    <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/5">
+                                        <CheckCircle2 className="w-10 h-10 animate-in zoom-in duration-300" />
+                                    </div>
 
-                                            <div className="space-y-2">
-                                                <h2 className="text-3xl font-black uppercase italic tracking-tight text-slate-900 dark:text-white">Appointment Scheduled!</h2>
-                                                <p className="text-xs text-slate-400 font-black uppercase tracking-widest">Your slot has been successfully registered in the system</p>
-                                            </div>
+                                    <div className="space-y-2">
+                                        <h2 className="text-3xl font-black uppercase italic tracking-tight text-slate-900 dark:text-white">Appointment Scheduled!</h2>
+                                        <p className="text-xs text-slate-400 font-black uppercase tracking-widest">Your slot has been successfully registered in the system</p>
+                                    </div>
 
-                                            {/* Dynamic queue ticket-like display layout */}
-                                            <div className="max-w-md mx-auto border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-6 bg-slate-50 dark:bg-black/10 text-left space-y-5 print:border-none print:bg-white print:text-black">
-                                                <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest text-slate-400 pb-2 border-b border-slate-100 dark:border-white/5">
-                                                    <span>Queue ticket details</span>
-                                                    <span className="text-slate-800 dark:text-slate-200 font-bold">#{(newTransactionId || "").slice(-8).toUpperCase()}</span>
-                                                </div>
+                                    {/* Dynamic queue ticket-like display layout */}
+                                    <div className="max-w-md mx-auto border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-6 bg-slate-50 dark:bg-black/10 text-left space-y-5 print:border-none print:bg-white print:text-black">
+                                        <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest text-slate-400 pb-2 border-b border-slate-100 dark:border-white/5">
+                                            <span>Queue ticket details</span>
+                                            <span className="text-slate-800 dark:text-slate-200 font-bold">#{(newTransactionId || "").slice(-8).toUpperCase()}</span>
+                                        </div>
 
-                                                {queueNumber && (
-                                                    <div className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-5 bg-white dark:bg-[#1a1f2c]/50 flex flex-col items-center justify-center gap-3">
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Your queue number</span>
-                                                        <span className="text-4xl font-black italic tracking-tighter text-slate-900 dark:text-white font-mono">
-                                                            {queueNumber}
-                                                        </span>
-                                                        
-                                                        {isPriorityLane && (
-                                                            <span className="bg-primary/10 text-primary border border-primary/20 rounded-full px-4 py-1 text-[9px] font-black uppercase tracking-widest">
-                                                                ♿ Priority Lane
-                                                            </span>
-                                                        )}
+                                        {queueNumber && (
+                                            <div className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-5 bg-white dark:bg-[#1a1f2c]/50 flex flex-col items-center justify-center gap-3">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Your queue number</span>
+                                                <span className="text-4xl font-black italic tracking-tighter text-slate-900 dark:text-white font-mono">
+                                                    {queueNumber}
+                                                </span>
 
-                                                        <div className="w-full flex items-center justify-center mt-2">
-                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                            <img 
-                                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${queueNumber}`} 
-                                                                alt="QR Ticket Code"
-                                                                className="w-24 h-24 p-2 bg-white rounded-xl border border-slate-100" 
-                                                            />
-                                                        </div>
-                                                    </div>
+                                                {isPriorityLane && (
+                                                    <span className="bg-primary/10 text-primary border border-primary/20 rounded-full px-4 py-1 text-[9px] font-black uppercase tracking-widest">
+                                                        ♿ Priority Lane
+                                                    </span>
                                                 )}
 
-                                                <div className="space-y-2.5 text-xs md:text-sm pt-2">
-                                                    <div className="flex justify-between">
-                                                        <span className="text-slate-400 font-semibold">Applicant Name:</span>
-                                                        <span className="font-bold text-slate-800 dark:text-slate-100">{formState.lastName}, {formState.firstName}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-slate-400 font-semibold">Scheduled Date:</span>
-                                                        <span className="font-bold text-slate-800 dark:text-slate-100">{selectedDate}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-slate-400 font-semibold">Time Session:</span>
-                                                        <span className="font-bold text-slate-800 dark:text-slate-100">{selectedSlot}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-slate-400 font-semibold">Fulfillment Office:</span>
-                                                        <span className="font-bold text-slate-800 dark:text-slate-100">{activeType?.pickupAddress || "Treasury Office"}</span>
-                                                    </div>
-                                                    {activeType?.processingTime && (
-                                                        <div className="flex justify-between">
-                                                            <span className="text-slate-400 font-semibold">Estimated Process Duration:</span>
-                                                            <span className="font-bold text-slate-800 dark:text-slate-100">{activeType.processingTime}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                <Separator className="opacity-50" />
-
-                                                <div className="space-y-3 pt-2">
-                                                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-650 dark:text-slate-350 flex items-center gap-1.5">
-                                                        <FileText className="w-4 h-4 text-blue-500" style={{ color: themeColor }} /> Requirements checklist to bring:
-                                                    </h4>
-                                                    {docs.length === 0 ? (
-                                                        <p className="text-xs text-slate-450 italic">No specific documents required.</p>
-                                                    ) : (
-                                                        <ul className="text-xs font-semibold space-y-1.5 pl-5 list-disc text-slate-500 dark:text-slate-400 leading-relaxed">
-                                                            {docs.map((doc, idx) => (
-                                                                <li key={idx}>{doc}</li>
-                                                            ))}
-                                                            <li>Cash for payment (Final taxes will be computed on-site by officers).</li>
-                                                        </ul>
-                                                    )}
+                                                <div className="w-full flex items-center justify-center mt-2">
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img
+                                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${queueNumber}`}
+                                                        alt="QR Ticket Code"
+                                                        className="w-24 h-24 p-2 bg-white rounded-xl border border-slate-100"
+                                                    />
                                                 </div>
                                             </div>
+                                        )}
 
-                                            <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-6 print:hidden">
-                                                <Button onClick={printSlip} variant="outline" className="font-bold uppercase tracking-widest text-xs px-6 py-5 rounded-2xl w-full sm:w-auto">
-                                                    <Printer className="w-4 h-4 mr-2" /> Print Ticket
-                                                </Button>
-                                                <Link href="/user/services" className="w-full sm:w-auto">
-                                                    <Button className="text-white font-bold uppercase tracking-widest text-xs px-8 py-6 rounded-2xl hover:opacity-90 transition-all w-full" style={{ backgroundColor: themeColor }}>
-                                                        <Home className="w-4 h-4 mr-2" /> Finish & Exit
-                                                    </Button>
-                                                </Link>
+                                        <div className="space-y-2.5 text-xs md:text-sm pt-2">
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400 font-semibold">Applicant Name:</span>
+                                                <span className="font-bold text-slate-800 dark:text-slate-100">{formState.lastName}, {formState.firstName}</span>
                                             </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400 font-semibold">Scheduled Date:</span>
+                                                <span className="font-bold text-slate-800 dark:text-slate-100">{selectedDate}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400 font-semibold">Time Session:</span>
+                                                <span className="font-bold text-slate-800 dark:text-slate-100">{selectedSlot}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400 font-semibold">Fulfillment Office:</span>
+                                                <span className="font-bold text-slate-800 dark:text-slate-100">{activeType?.pickupAddress || "Treasury Office"}</span>
+                                            </div>
+                                            {activeType?.processingTime && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400 font-semibold">Estimated Process Duration:</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-100">{activeType.processingTime}</span>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
+
+                                        <Separator className="opacity-50" />
+
+                                        <div className="space-y-3 pt-2">
+                                            <h4 className="text-xs font-black uppercase tracking-wider text-slate-650 dark:text-slate-350 flex items-center gap-1.5">
+                                                <FileText className="w-4 h-4 text-blue-500" style={{ color: themeColor }} /> Requirements checklist to bring:
+                                            </h4>
+                                            {docs.length === 0 ? (
+                                                <p className="text-xs text-slate-450 italic">No specific documents required.</p>
+                                            ) : (
+                                                <ul className="text-xs font-semibold space-y-1.5 pl-5 list-disc text-slate-500 dark:text-slate-400 leading-relaxed">
+                                                    {docs.map((doc, idx) => (
+                                                        <li key={idx}>{doc}</li>
+                                                    ))}
+                                                    <li>Cash for payment (Final taxes will be computed on-site by officers).</li>
+                                                </ul>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-6 print:hidden">
+                                        <Button onClick={printSlip} variant="outline" className="font-bold uppercase tracking-widest text-xs px-6 py-5 rounded-2xl w-full sm:w-auto">
+                                            <Printer className="w-4 h-4 mr-2" /> Print Ticket
+                                        </Button>
+                                        <Link href="/user/services" className="w-full sm:w-auto">
+                                            <Button className="text-white font-bold uppercase tracking-widest text-xs px-8 py-6 rounded-2xl hover:opacity-90 transition-all w-full" style={{ backgroundColor: themeColor }}>
+                                                <Home className="w-4 h-4 mr-2" /> Finish & Exit
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                </div>
+                            )}
                         </motion.div>
                     </AnimatePresence>
                 </div>
 
                 {/* Global Navigation Footer — like cedula page */}
                 <div className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-slate-200 dark:border-white/10 flex justify-between items-center">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => {
-                                if (currentStep === "STATUS") {
-                                    router.push("/user/services");
-                                } else {
-                                    const stepIndex = STEPS.findIndex(s => s.id === currentStep);
-                                    if (stepIndex > 0) {
-                                        setCurrentStep(STEPS[stepIndex - 1].id);
-                                    }
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                            if (currentStep === "STATUS") {
+                                router.push("/user/services");
+                            } else {
+                                const stepIndex = STEPS.findIndex(s => s.id === currentStep);
+                                if (stepIndex > 0) {
+                                    setCurrentStep(STEPS[stepIndex - 1].id);
                                 }
-                            }}
-                            className="rounded-full px-12 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest italic text-[10px] h-10 md:h-14 bg-transparent hover:bg-slate-50 dark:hover:bg-white/5 flex items-center"
-                        >
-                            <ArrowLeft className="w-4 h-4 mr-2" />
-                            Back
-                        </Button>
-                        <Button
-                            onClick={currentStep === "CONFIRM" ? handleSubmit : handleNext}
-                            disabled={submitting || (currentStep === "CONFIRM" && (!privacyAccepted))}
-                            className="bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 text-[10px] md:text-xs rounded-xl md:rounded-2xl px-8 md:px-12 h-10 md:h-14 group transition-all duration-300 active:scale-95 font-black uppercase tracking-widest italic"
-                            style={{ backgroundColor: themeColor }}
-                        >
-                            {submitting ? (
-                                <div className="flex items-center gap-2">
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    <span>Booking Slot...</span>
-                                </div>
-                            ) : (
-                                <div className="flex items-center">
-                                    {currentStep === "CONFIRM" ? "Book Appointment" : "Next Phase"}
-                                    <ChevronRight className={cn("w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform", submitting && "hidden")} />
-                                </div>
-                            )}
-                        </Button>
-                    </div>
+                            }
+                        }}
+                        className="rounded-full px-12 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest italic text-[10px] h-10 md:h-14 bg-transparent hover:bg-slate-50 dark:hover:bg-white/5 flex items-center"
+                    >
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back
+                    </Button>
+                    <Button
+                        onClick={currentStep === "CONFIRM" ? handleSubmit : handleNext}
+                        disabled={submitting || (currentStep === "CONFIRM" && (!privacyAccepted))}
+                        className="bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 text-[10px] md:text-xs rounded-xl md:rounded-2xl px-8 md:px-12 h-10 md:h-14 group transition-all duration-300 active:scale-95 font-black uppercase tracking-widest italic"
+                        style={{ backgroundColor: themeColor }}
+                    >
+                        {submitting ? (
+                            <div className="flex items-center gap-2">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Booking Slot...</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center">
+                                {currentStep === "CONFIRM" ? "Book Appointment" : "Next Phase"}
+                                <ChevronRight className={cn("w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform", submitting && "hidden")} />
+                            </div>
+                        )}
+                    </Button>
+                </div>
             </div>
 
             {/* Sticky Progress Bar at Bottom */}

@@ -7,11 +7,65 @@ import { revalidatePath } from "next/cache";
 import { sanitizeString, sanitizeObject, sanitizeUrl } from "@/lib/validation";
 import { uploadFile } from "@/lib/storage";
 
+function isValidImageOrPdf(buffer: Buffer, filename: string, mimeType: string): boolean {
+    // 1. Extension check
+    const allowedExtensions = /\.(jpe?g|png|gif|webp|pdf)$/i;
+    if (!allowedExtensions.test(filename)) {
+        return false;
+    }
+
+    // 2. MIME type check
+    const allowedMimeTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+        "application/pdf"
+    ];
+    if (!allowedMimeTypes.includes(mimeType.toLowerCase())) {
+        return false;
+    }
+
+    // 3. Magic bytes verification (headers)
+    if (buffer.length < 4) return false;
+    const hex = buffer.toString("hex", 0, 12).toUpperCase();
+
+    // JPEG: FF D8 FF
+    if (hex.startsWith("FFD8FF")) {
+        return mimeType.toLowerCase() === "image/jpeg";
+    }
+    // PNG: 89 50 4E 47 0D 0A 1A 0A
+    if (hex.startsWith("89504E470D0A1A0A")) {
+        return mimeType.toLowerCase() === "image/png";
+    }
+    // GIF: GIF87a / GIF89a
+    if (hex.startsWith("474946383761") || hex.startsWith("474946383961")) {
+        return mimeType.toLowerCase() === "image/gif";
+    }
+    // PDF: %PDF
+    if (hex.startsWith("25504446")) {
+        return mimeType.toLowerCase() === "application/pdf";
+    }
+    // WEBP: RIFF at start and WEBP at offset 8
+    if (hex.startsWith("52494646") && hex.substring(16, 24) === "57454250") {
+        return mimeType.toLowerCase() === "image/webp";
+    }
+
+    return false;
+}
+
 async function processFileUpload(file: File, folder: string = "transactions"): Promise<string | null> {
     if (!file || file.size === 0) return null;
 
     try {
         const buffer = Buffer.from(await file.arrayBuffer());
+
+        // Validate the file headers (magic bytes) to prevent script execution attacks
+        if (!isValidImageOrPdf(buffer, file.name, file.type)) {
+            console.error(`Blocked upload attempt: File ${file.name} is not a valid image/PDF or headers mismatch.`);
+            return null;
+        }
+
         const filename = `${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
         const storagePath = `services/${folder}/${filename}`;
 
@@ -33,6 +87,45 @@ export async function submitCedulaAppointment(formData: FormData) {
         const typeId = sanitizeString(formData.get("typeId") as string);
         const appointmentSlot = sanitizeString(formData.get("appointmentSlot") as string);
         const appointmentDate = new Date(formData.get("appointmentDate") as string);
+
+        // Check if there is an existing active request of the same type
+        const txType = await prisma.transactionType.findUnique({
+            where: { id: typeId }
+        });
+        if (!txType) {
+            return { success: false, error: "Invalid transaction type." };
+        }
+
+        // Debug log to find out what's in the db
+        const allUserTxs = await prisma.transaction.findMany({
+            where: { userId: session.user.id },
+            include: { type: true }
+        });
+        console.log("User Transactions Check:", allUserTxs.map(t => ({
+            id: t.id,
+            code: t.type.code,
+            status: t.status,
+            isCancelled: t.isCancelled
+        })));
+
+        const activeTx = await prisma.transaction.findFirst({
+            where: {
+                userId: session.user.id,
+                type: {
+                    code: txType.code
+                },
+                status: {
+                    notIn: ["RELEASED", "DELIVERED", "REJECTED"]
+                },
+                isCancelled: false
+            }
+        });
+        if (activeTx) {
+            return {
+                success: false,
+                error: `You currently have an ongoing request for "${txType.name}". Please wait for it to be completed (Released) or cancelled before requesting another one.`
+            };
+        }
 
         // Sanitize resident snapshot and additional data
         const residentSnapshot = sanitizeObject(JSON.parse(formData.get("residentSnapshot") as string));

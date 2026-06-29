@@ -1468,7 +1468,7 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
         // Determine New Status.
         // New BPLO requests that pass inspection move to Treasury requesting.
         // Re-inspection keeps the existing later-phase flow and returns to processing.
-        let newStatus = (isUserAdminAide(user) && isBusinessPermit) ? "FOR_REQUESTING" : "EVALUATED" as any;
+        let newStatus = (isUserAdminAide(user) && isBusinessPermit) ? "FOR_REQUESTING" : "UNPAID" as any;
         if (isLCR && transaction.status === "FOR_INSPECTION") {
             const typeCode = (transaction.type?.code || "").toUpperCase();
             const regType = (additionalData?.registrationType || "").toUpperCase();
@@ -1477,7 +1477,7 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
             if (isCertifiedCopy) {
                 newStatus = "FOR_REQUESTING";
             } else if (typeCode === "LCR_DEATH_REG" && (regType === "STANDARD" || !regType) && !hasAdditionalFees) {
-                newStatus = "EVALUATED";
+                newStatus = "UNPAID";
             } else {
                 newStatus = "FOR_REQUESTING";
             }
@@ -1516,7 +1516,7 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
         // Trigger email notification for payment / processing
         if (updatedTransaction.user?.email) {
             const resident = updatedTransaction.residentSnapshot as any;
-            if (newStatus === "EVALUATED") {
+            if (newStatus === "EVALUATED" || newStatus === "UNPAID") {
                 await sendEmail({
                     type: "FOR_PAYMENT",
                     to: updatedTransaction.user.email,

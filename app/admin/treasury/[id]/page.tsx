@@ -1128,28 +1128,11 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 { id: "REGISTRAR_RELEASE", label: "Registrar: Release" }
             ];
         }
-        const stepsList = [
+        return [
             { id: "FOR_REQUESTING", label: "FOR EVALUATION" },
-            { id: "EVALUATED", label: "PENDING PAYMENT" },
-            { id: "PAID", label: "PAID" },
+            { id: "UNPAID", label: "TO PAY" },
+            { id: "RELEASED", label: "RELEASED" }
         ];
-        if (isLcrBirthCertifiedCopy) {
-            stepsList.push({ id: "VERIFY_OR", label: "VERIFY & ISSUE O.R." });
-        }
-        stepsList.push({ id: "FOR_PROCESSING", label: "FOR PROCESSING" });
-        if (transaction.fulfillmentType === "DELIVERY") {
-            stepsList.push(
-                { id: "FOR_PICKING", label: "FOR PICKING" },
-                { id: "IN_ROUTE", label: "IN ROUTE" },
-                { id: "DELIVERED", label: "DELIVERED" }
-            );
-        } else {
-            stepsList.push(
-                { id: "FOR_CLAIM", label: "CLAIMING" },
-                { id: "RELEASED", label: "RELEASED" }
-            );
-        }
-        return stepsList;
     })();
 
     // Logic to add terminal or dispute steps
@@ -1205,6 +1188,16 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         }
         if (isLcrBirthCertifiedCopy && (s === "PAID" || s === "PENDING_PAYMENT_VERIFICATION")) {
             return "VERIFY_OR";
+        }
+        // Generic / Cedula / Civil Registry simplified tracker mapping
+        if (!isBusinessPermit && !isBuildingPermit) {
+            if (["FOR_REQUESTING", "FOR_REVISION", "REJECTED", "FOR_INSPECTION"].includes(s)) {
+                return "FOR_REQUESTING";
+            }
+            if (["EVALUATED", "UNPAID"].includes(s)) {
+                return "UNPAID";
+            }
+            return "RELEASED";
         }
         return s;
     };
@@ -1519,7 +1512,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         } finally { setActionLoading(false); }
     };
 
-    const handleOnsitePayment = async (method: string, amountTendered?: number) => {
+    const handleOnsitePayment = async (method: string, amountTendered?: number, paymentReference?: string) => {
         setActionLoading(true);
         try {
             let itemsToSend: { label: string; amount: number }[] | undefined = undefined;
@@ -1585,6 +1578,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
             }
             formData.append("remarks", paymentRemarks);
             if (orSeriesNumber) formData.append("orSeriesNumber", orSeriesNumber);
+            if (paymentReference) formData.append("paymentReference", paymentReference);
 
             const confirmRes = await confirmTransactionPaymentWithReceipt(formData);
             if (!confirmRes.success) {
@@ -1592,7 +1586,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 return;
             }
 
-            toast.success("Payment Received & Confirmed Successfully!");
+            toast.success("Transaction Marked as Paid & Released successfully!");
 
             // 3. Transition to processing
             const releaseFn = typeCode === "LCR_BIRTH"
@@ -1622,10 +1616,8 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 (confirmRes.data?.additionalData as any)?.orDocumentUrl
             );
 
-            if (rel.success) {
-                toast.success("Transaction proceeded to Processing");
-            } else {
-                toast.error(rel.error || "Failed to proceed to processing stage");
+            if (!rel.success) {
+                toast.error(rel.error || "Failed to release transaction");
             }
             router.push(backUrl);
 

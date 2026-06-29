@@ -372,6 +372,7 @@ export async function submitClearancesForReviewAction(transactionId: string) {
       where: { id: transactionId },
       data: {
         status: "PAID",
+        isPaid: true,
         additionalData: {
           ...currentAdditionalData,
           clearancesSubmitted: true
