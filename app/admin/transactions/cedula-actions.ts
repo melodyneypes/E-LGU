@@ -149,10 +149,13 @@ export async function confirmTransactionPaymentWithReceipt(formData: FormData) {
             ...(orDocumentUrl && { orDocumentUrl })
         };
 
+        const paymentMethod = formData.get("paymentMethod") as string;
+
         const updatedTransaction = await prisma.transaction.update({
             where: { id: sanitizedId },
             data: {
                 status: "PAID",
+                paymentType: paymentMethod ? sanitizeString(paymentMethod) : transaction.paymentType,
                 updatedAt: new Date(),
                 additionalData: updatedAdditionalData
             },

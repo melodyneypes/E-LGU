@@ -401,4 +401,44 @@ export async function updateMultipleSystemSettings(settings: { key: string, valu
     }
 }
 
+export async function updateAppointmentConfig(
+    department: string, 
+    data: { 
+        maxSlots: number; 
+        maxSlotsAM: number; 
+        maxSlotsPM: number; 
+        activeDays: number[]; 
+        blockedDates: string[] 
+    }
+) {
+    try {
+        await prisma.appointmentConfig.upsert({
+            where: { department },
+            update: {
+                maxSlots: data.maxSlots,
+                maxSlotsAM: data.maxSlotsAM,
+                maxSlotsPM: data.maxSlotsPM,
+                activeDays: data.activeDays,
+                blockedDates: data.blockedDates
+            } as any,
+            create: {
+                department,
+                maxSlots: data.maxSlots,
+                maxSlotsAM: data.maxSlotsAM,
+                maxSlotsPM: data.maxSlotsPM,
+                activeDays: data.activeDays,
+                blockedDates: data.blockedDates
+            } as any
+        });
+
+        revalidatePath("/user/services/cedula-appointment");
+        revalidatePath("/admin/treasury/payment-settings");
+        revalidatePath("/admin/treasury/appointment-settings");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error updating appointment config:", error);
+        return { success: false, error: error.message || "Failed to save configuration" };
+    }
+}
+
 // End of settings actions

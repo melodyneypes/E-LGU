@@ -103,7 +103,7 @@ export default function ServicesClient({ initialServices, themeColor }: Services
             title = "Community Tax Certificate Services";
             department = "Treasury Office";
             description = "Secure your official Community Tax Certificate (CTC) online for personal clearance or corporate registration with dynamic municipal rate assessment.";
-            link = "/user/services/cedula";
+            link = "/user/services/cedula-appointment";
             icon = Coins;
             accentBg = "bg-blue-500/10 dark:bg-blue-500/5";
             borderColor = "border-blue-500/10 dark:border-blue-500/5";

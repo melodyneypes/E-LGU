@@ -118,8 +118,13 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         setDisputeModalOpen,
         disputeAction,
         setDisputeAction,
-        handleResolveDispute
+        handleResolveDispute,
+        handleOnsitePayment
     } = props;
+
+    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = React.useState(false);
+    const [paymentMethod, setPaymentMethod] = React.useState<'CASH' | 'QR' | 'LANDBANK'>('CASH');
+    const [amountTendered, setAmountTendered] = React.useState('');
 
     const isCedula = transaction.type?.code?.includes("CEDULA");
     const isJuridical = transaction.type?.code?.includes("JURIDICAL") || transaction.additionalData?.applicantType === "JURIDICAL";
@@ -350,7 +355,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                             </div>
                                         )}
 
-                                        {/* ADDITIONAL FEES EDITOR — Treasury Staff / Admin only when FOR_REQUESTING */}
+                                        {/* ADDITIONAL FEES EDITOR — Hiding but keeping code for future project reference */}
+                                        {/*
                                         {(transaction.status === "FOR_REQUESTING" && (userRole === "TREASURY_STAFF" || userRole === "ADMIN")) && (
                                             <div className="pt-2 space-y-2">
                                                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
@@ -427,6 +433,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                                 </div>
                                             </div>
                                         )}
+                                        */}
 
                                         {/* DELIVERY FEE — always visible if applicable */}
                                         {transaction.fulfillmentType === "DELIVERY" && (
@@ -451,12 +458,14 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                         )}
                     </div>
 
-                    {/* RESIDENT IDENTITY PROFILE ACCORDION */}
+                    {/* RESIDENT IDENTITY PROFILE ACCORDION — Hiding from Treasury per request */}
+                    {/*
                     <ResidentIdentityProfile
                         resident={resident}
                         safeFormatDate={safeFormatDate}
                         themeColor={themeColor}
                     />
+                    */}
 
                     {/* EVIDENCE VAULT */}
                     <div className="bg-white dark:bg-[#151b28] p-10 rounded-[2.5rem] border border-slate-50 dark:border-white/5 shadow-2xl shadow-slate-900/5 space-y-6">
@@ -684,7 +693,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                 });
                                 return (
                                     <Button
-                                        onClick={transaction.status === "PAID" ? handleConfirmPayment : handleEvaluate}
+                                        onClick={transaction.status === "PAID" ? handleConfirmPayment : () => setIsPaymentDialogOpen(true)}
                                         disabled={actionLoading || hasInvalidFees}
                                         title={hasInvalidFees ? "Please complete all fee descriptions and amounts before approving." : undefined}
                                         className="w-full h-14 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
@@ -1019,6 +1028,118 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                 handleReject={handleReject}
                 handleRequestRevision={transaction.status === "PAID" ? handleDeclinePaymentProof : handleRequestRevision}
             />
+
+            <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+                <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
+                    <DialogHeader className="space-y-3">
+                        <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
+                            Onsite <span className="text-primary">Payment</span>
+                        </DialogTitle>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Select payment method & record cash tendered</p>
+                    </DialogHeader>
+
+                    <div className="space-y-6 py-6">
+                        {/* Payment Method Selector */}
+                        <div className="space-y-3">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Payment Method</Label>
+                            <div className="grid grid-cols-3 gap-3">
+                                {(["CASH", "QR", "LANDBANK"] as const).map((method) => (
+                                    <button
+                                        key={method}
+                                        type="button"
+                                        onClick={() => {
+                                            setPaymentMethod(method);
+                                            if (method !== "CASH") setAmountTendered("");
+                                        }}
+                                        className={cn(
+                                            "h-12 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all active:scale-95",
+                                            paymentMethod === method
+                                                ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
+                                                : "bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-white/10"
+                                        )}
+                                    >
+                                        {method}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Cash Details */}
+                        {paymentMethod === "CASH" && (
+                            <div className="space-y-4 bg-slate-50 dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-white/5">
+                                <div className="flex justify-between items-center text-xs font-bold text-slate-500 italic">
+                                    <span>Total Due:</span>
+                                    <span className="text-base font-black text-slate-900 dark:text-white">
+                                        ₱{adjustedDisplayTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount Tendered</Label>
+                                    <div className="relative flex items-center bg-white dark:bg-slate-900 border border-slate-150 dark:border-white/10 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20">
+                                        <span className="text-sm font-black text-slate-400 select-none mr-1">₱</span>
+                                        <input
+                                            type="number"
+                                            placeholder="Enter cash given..."
+                                            value={amountTendered}
+                                            onChange={(e) => setAmountTendered(e.target.value)}
+                                            className="w-full bg-transparent text-sm font-black text-slate-800 dark:text-white focus:outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                {(() => {
+                                    const tendered = parseFloat(amountTendered) || 0;
+                                    const change = tendered - adjustedDisplayTotal;
+                                    if (amountTendered.trim() !== "") {
+                                        if (change < 0) {
+                                            return (
+                                                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center">
+                                                    <p className="text-[10px] font-black uppercase text-red-650 dark:text-red-400 italic">
+                                                        Kulang: ₱{Math.abs(change).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                    </p>
+                                                </div>
+                                            );
+                                        }
+                                        return (
+                                            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center">
+                                                <p className="text-[10px] font-black uppercase text-emerald-650 dark:text-emerald-400 italic">
+                                                    Sukli: ₱{change.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                </p>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex gap-3">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setIsPaymentDialogOpen(false)}
+                            className="flex-1 h-12 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-350 font-black italic uppercase tracking-widest text-[10px] rounded-2xl transition-all"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={async () => {
+                                const tenderedVal = parseFloat(amountTendered) || 0;
+                                if (handleOnsitePayment) {
+                                    setIsPaymentDialogOpen(false);
+                                    await handleOnsitePayment(paymentMethod, paymentMethod === "CASH" ? tenderedVal : undefined);
+                                }
+                            }}
+                            disabled={actionLoading || (paymentMethod === "CASH" && (parseFloat(amountTendered) || 0) < adjustedDisplayTotal)}
+                            style={{ backgroundColor: themeColor }}
+                            className="flex-1 h-12 text-white font-black italic uppercase tracking-widest text-[10px] rounded-2xl shadow-xl hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
+                        >
+                            {actionLoading ? "Processing..." : "Confirm Payment"}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

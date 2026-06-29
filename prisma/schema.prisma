@@ -596,6 +596,10 @@ model TransactionType {
   formSchema    Json     @default("{}") // Definitions for extra fields needed
   logicCode     String?  // Code-hook for backend calculator (e.g., "cedula_calc_v1")
   defaultFees   Json     @default("[]")
+  pickupAddress String?  // The physical location/office where the document or certificate should be claimed
+  processingTime String? // Estimated minutes or days of process for the transaction
+
+
   
   
   // Operations
@@ -675,6 +679,11 @@ model Transaction {
   birthPsaEndorsementRequest BirthPsaEndorsementRequest? // One-to-one link to the birth psa endorsement request
   deathPsaEndorsementRequest DeathPsaEndorsementRequest? // One-to-one link to the death psa endorsement request
   
+  appointmentDate   DateTime?
+  appointmentSlot   String?
+  queueNumber       String?           // Formatted queue ticket number (e.g. 06272026-AM-P002)
+  isPriority        Boolean           @default(false)
+  
   isCancelled       Boolean           @default(false)
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
@@ -684,6 +693,8 @@ model Transaction {
   @@index([status])
   @@index([typeId])
   @@index([createdAt])
+  @@index([appointmentDate])
+  @@index([appointmentDate, appointmentSlot])
 }
 
 
@@ -1159,5 +1170,17 @@ model Review {
   @@index([userId])
   @@index([accommodationId])
   @@index([diningId])
+}
+
+model AppointmentConfig {
+  id           String   @id @default(cuid())
+  department   String   @unique // "TREASURY", "BPLO", "REGISTRAR", "ENGINEER"
+  maxSlots     Int      @default(50)
+  maxSlotsAM   Int      @default(25)
+  maxSlotsPM   Int      @default(25)
+  blockedDates String[] @default([]) // Array of ISO strings (e.g., ["2026-12-25"])
+  activeDays   Int[]    @default([1, 2, 3, 4, 5]) // Days of week active (1 = Monday, 5 = Friday, etc.)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 

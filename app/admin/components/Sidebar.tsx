@@ -210,7 +210,7 @@ export function Sidebar({
         setIsSettingsOpen(pathname.startsWith("/admin/settings"));
         setIsAboutOpen(pathname.startsWith("/admin/about"));
         setIsBarangaysOpen(pathname.startsWith("/admin/barangays"));
-        setIsTreasuryOpen(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings"));
+        setIsTreasuryOpen(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
         setIsRegistrarOpen(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger"));
         setIsLedgerOpen(pathname.startsWith("/admin/registrar/ledger"));
     }, [pathname]);
@@ -384,6 +384,7 @@ export function Sidebar({
         { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury" },
         { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "Treasury", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
         { href: "/admin/treasury/payment-settings", label: "Payment Settings", icon: CreditCard, category: "Treasury" },
+        { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury" },
         { href: "/admin/users", label: "User Accounts", icon: UserCheck, category: "Security & Accounts" },
     ];
 
@@ -485,11 +486,11 @@ export function Sidebar({
                     );
                 } else if (deptUpper === "TREASURY") {
                     menuItems = allMenuItems.filter(item =>
-                        ["Treasury Hub", "Payments Ledger", "Payment Settings"].includes(item.label)
+                        ["Treasury Hub", "Payments Ledger", "Payment Settings", "Appointment Settings"].includes(item.label)
                     );
                 } else if (deptUpper === "LGU") {
                     menuItems = allMenuItems.filter(item =>
-                        !["Registrar Hub", "Transaction Ledger", "Treasury Hub", "Payments Ledger", "BPLO Permits", "Payment Settings"].includes(item.label)
+                        !["Registrar Hub", "Transaction Ledger", "Treasury Hub", "Payments Ledger", "BPLO Permits", "Payment Settings", "Appointment Settings"].includes(item.label)
                     );
                 } else {
                     menuItems = [
@@ -505,7 +506,7 @@ export function Sidebar({
         } else if (role === "BARANGAY_ADMIN") {
             menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
         } else if (role === "TREASURY_STAFF") {
-            menuItems = allMenuItems.filter(item => ["Treasury Hub", "Payments Ledger", "Payment Settings"].includes(item.label));
+            menuItems = allMenuItems.filter(item => ["Treasury Hub", "Payments Ledger", "Payment Settings", "Appointment Settings"].includes(item.label));
         } else if (role === "ADMIN_AIDE") {
             menuItems = allMenuItems.filter(item => ["BPLO Permits"].includes(item.label));
         } else if (role === "ENGINEER") {

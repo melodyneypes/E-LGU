@@ -1519,6 +1519,124 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         } finally { setActionLoading(false); }
     };
 
+    const handleOnsitePayment = async (method: string, amountTendered?: number) => {
+        setActionLoading(true);
+        try {
+            let itemsToSend: { label: string; amount: number }[] | undefined = undefined;
+
+            if (isBusinessPermit && !transaction.isStudent && userRole !== "ADMIN_AIDE") {
+                const validItems = feeLineItems.filter(item => item.label.trim() !== "" && item.amount.trim() !== "");
+                itemsToSend = validItems.map(item => ({
+                    label: item.label.trim(),
+                    amount: parseFloat(item.amount) || 0
+                }));
+            } else if (isLCR) {
+                const validItems = feeLineItems.filter(item => item.label.trim() !== "" && item.amount.trim() !== "" && (parseFloat(item.amount) || 0) > 0);
+                if (validItems.length > 0) {
+                    itemsToSend = validItems.map(item => ({
+                        label: item.label.trim(),
+                        amount: parseFloat(item.amount) || 0
+                    }));
+                }
+            } else {
+                const validItems = feeLineItems.filter(item => item.label.trim() !== "" && item.amount.trim() !== "");
+                if (validItems.length > 0) {
+                    itemsToSend = validItems.map(item => ({
+                        label: item.label.trim(),
+                        amount: parseFloat(item.amount) || 0
+                    }));
+                }
+            }
+
+            const uploadedDocUrl = "";
+            const lcrMiscFee = isLCR && additional.miscFee !== undefined ? Number(additional.miscFee) : undefined;
+
+            // 1. Run evaluation logic
+            const evalRes = transaction.isStudent
+                ? await evaluateStudentCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber)
+                : typeCode === "LCR_DEATH"
+                    ? await evaluateDeathCertificateTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee)
+                    : typeCode === "LCR_MARRIAGE_REG"
+                        ? await evaluateMarriageRegistrationTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee, true)
+                        : typeCode === "LCR_MARRIAGE_LICENSE"
+                            ? await evaluateMarriageLicenseTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee)
+                            : await evaluateCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee);
+
+            if (!evalRes.success) {
+                toast.error(evalRes.error || "Failed to evaluate transaction");
+                return;
+            }
+
+            // Calculate live sum
+            const itemsSum = feeLineItems.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+            const totalDue = displayTotal + itemsSum;
+
+            // 2. Build payment confirmation formData
+            const formData = new FormData();
+            formData.append("id", transaction.id);
+            formData.append("paymentMethod", method);
+            
+            let paymentRemarks = remarks || "";
+            if (method === "CASH" && amountTendered !== undefined) {
+                const changeAmt = Math.max(0, amountTendered - totalDue);
+                paymentRemarks = `[Onsite Cash Payment] Tendered: ₱${amountTendered.toFixed(2)} | Change: ₱${changeAmt.toFixed(2)}${remarks ? ` | Remarks: ${remarks}` : ""}`;
+            } else {
+                paymentRemarks = `[Onsite ${method} Payment]${remarks ? ` | Remarks: ${remarks}` : ""}`;
+            }
+            formData.append("remarks", paymentRemarks);
+            if (orSeriesNumber) formData.append("orSeriesNumber", orSeriesNumber);
+
+            const confirmRes = await confirmTransactionPaymentWithReceipt(formData);
+            if (!confirmRes.success) {
+                toast.error(confirmRes.error || "Failed to confirm payment");
+                return;
+            }
+
+            toast.success("Payment Received & Confirmed Successfully!");
+
+            // 3. Transition to processing
+            const releaseFn = typeCode === "LCR_BIRTH"
+                ? releaseBirthCertificate
+                : typeCode === "LCR_BIRTH_REG"
+                    ? releaseBirthRegistry
+                    : typeCode === "LCR_DEATH"
+                        ? releaseDeathCertificate
+                        : typeCode === "LCR_DEATH_REG"
+                            ? releaseDeathRegistry
+                            : typeCode === "LCR_MARRIAGE_REG"
+                                ? releaseMarriageRegistry
+                                : typeCode === "LCR_MARRIAGE_LICENSE"
+                                    ? releaseMarriageLicense
+                                    : typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT"
+                                        ? releaseMarriagePsaEndorsement
+                                        : typeCode === "LCR_PSA_ENDORSEMENT"
+                                            ? releaseBirthPsaEndorsement
+                                            : typeCode === "LCR_DEATH_PSA_ENDORSEMENT"
+                                                ? releaseDeathPsaEndorsement
+                                                : releaseCedula;
+
+            const rel = await releaseFn(
+                transaction.id, 
+                ctcNumber || transaction?.cedula?.ctcNumber || "",
+                undefined,
+                (confirmRes.data?.additionalData as any)?.orDocumentUrl
+            );
+
+            if (rel.success) {
+                toast.success("Transaction proceeded to Processing");
+            } else {
+                toast.error(rel.error || "Failed to proceed to processing stage");
+            }
+            router.push(backUrl);
+
+        } catch (err: any) {
+            console.error("Onsite payment processing error:", err);
+            toast.error("An error occurred while processing the onsite payment.");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const handleConfirmPayment = async () => {
         setActionLoading(true);
         try {
@@ -1931,6 +2049,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         setFeeLineItems,
         fetchTransaction,
         handleEvaluate,
+        handleOnsitePayment,
         handleConfirmPayment,
         handleDeclinePaymentProof,
         handlePrintWaybill,

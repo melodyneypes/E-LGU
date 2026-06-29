@@ -155,6 +155,7 @@ export default function PaymentSettingsClient({
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
+
             <Card className="border-slate-200 dark:border-[#2a3040] shadow-xl overflow-hidden rounded-[1.5rem] md:rounded-[2rem] bg-white dark:bg-[#1e2330]">
                 <CardHeader className="bg-slate-50/50 dark:bg-black/20 border-b border-slate-100 dark:border-[#2a3040] p-5 md:p-6 px-4 md:px-8">
                     <div className="flex justify-between items-center">

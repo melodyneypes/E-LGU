@@ -81,7 +81,7 @@ export function AdminShell({
                 isRestricted = true;
             } else if ((deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") && !pathname.startsWith("/admin/registrar")) {
                 isRestricted = true;
-            } else if (deptUpper === "TREASURY" && !pathname.startsWith("/admin/treasury") && !pathname.startsWith("/admin/treasury/payments") && !pathname.startsWith("/admin/treasury/payment-settings")) {
+            } else if (deptUpper === "TREASURY" && !pathname.startsWith("/admin/treasury") && !pathname.startsWith("/admin/treasury/payments") && !pathname.startsWith("/admin/treasury/payment-settings") && !pathname.startsWith("/admin/treasury/appointment-settings")) {
                 isRestricted = true;
             } else if (deptUpper === "LGU") {
                 // LGU admins are restricted from specialized sub-sections
