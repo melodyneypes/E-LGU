@@ -119,8 +119,15 @@ export async function POST(request: Request) {
   try {
     const raw = await request.text();
 
-    // Optional: verify signature if webhook secret provided
     const webhookSecret = process.env.PAYMONGO_WEBHOOK_SECRET;
+    
+    // In production, signature verification MUST be active. If secret is missing, reject the webhook.
+    const isProduction = process.env.NODE_ENV === "production";
+    if (isProduction && !webhookSecret) {
+      console.error("[PayMongo Webhook] Critical Error: PAYMONGO_WEBHOOK_SECRET is missing in production!");
+      return NextResponse.json({ error: "Webhook configuration error" }, { status: 400 });
+    }
+
     if (webhookSecret) {
       const sigHeader = request.headers.get("paymongo-signature") || request.headers.get("Paymongo-Signature") || request.headers.get("signature");
       const ok = await verifySignature(sigHeader, webhookSecret, raw);
@@ -269,6 +276,7 @@ export async function POST(request: Request) {
       const txUpdate: any = { additionalData: updatedAdditional, updatedAt: new Date(), paymentType: mappedPrismaMethod };
       if (paymentStatus === "PAID") {
         txUpdate.status = "PAID";
+        txUpdate.isPaid = true;
         txUpdate.paymentReference = paymentId;
       }
 
@@ -392,6 +400,7 @@ export async function POST(request: Request) {
         const txUpdate: any = { additionalData: updatedAdditional, updatedAt: new Date(), paymentType: mappedPrismaMethod };
         if (paymentStatus === "PAID") {
           txUpdate.status = "PAID";
+          txUpdate.isPaid = true;
           txUpdate.paymentReference = paymentId;
         }
 
@@ -476,6 +485,7 @@ export async function POST(request: Request) {
       const txUpdate: any = { additionalData: updatedAdditional, updatedAt: new Date(), paymentType: mappedPrismaMethod };
       if (status === "PAID") {
         txUpdate.status = "PAID";
+        txUpdate.isPaid = true;
         txUpdate.paymentReference = paymentId;
       }
 

@@ -21,6 +21,7 @@ export default function UserLayoutClient({
     brandWord2 = "",
     themeColor = "#2563eb"
 }: UserLayoutClientProps) {
+    const [mounted, setMounted] = React.useState(false);
     const { status } = useSession();
     const pathname = usePathname();
 
@@ -35,10 +36,35 @@ export default function UserLayoutClient({
         pathname.startsWith("/user/hotlines");
 
     React.useEffect(() => {
-        if (status === "unauthenticated" && !isPublicPath) {
+        setMounted(true);
+    }, []);
+
+    React.useEffect(() => {
+        if (mounted && status === "unauthenticated" && !isPublicPath) {
             window.location.href = "/auth/login";
         }
-    }, [status, isPublicPath]);
+    }, [status, isPublicPath, mounted]);
+
+    if (!mounted) {
+        return (
+            <div
+                className="min-h-screen bg-slate-50 dark:bg-[#06080a] text-slate-900 dark:text-slate-200 font-sans transition-colors duration-500 flex flex-col selection:bg-primary/30"
+                style={{ "--primary-theme": themeColor } as React.CSSProperties}
+            >
+                <Navbar
+                    logoUrl={logoUrl}
+                    brandWord1={brandWord1}
+                    brandWord2={brandWord2}
+                    themeColor={themeColor}
+                />
+                <main className="flex-1 pt-20 sm:pt-24 md:pt-28 pb-20">
+                    <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
+                        {children}
+                    </div>
+                </main>
+            </div>
+        );
+    }
 
     return (
         <div

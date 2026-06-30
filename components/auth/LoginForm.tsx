@@ -60,11 +60,13 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
 
         if (status === "authenticated" && session && session.user) {
             if (hasError) {
-                signOut({ redirect: false });
+                const errorVal = params.get("error") || "";
+                signOut({ callbackUrl: `/auth/login?error=${encodeURIComponent(errorVal)}` });
+                return;
             } else {
                 // If account is not verified, sign them out
                 if ((session.user as any).isEmailVerified === false) {
-                    signOut({ redirect: false });
+                    signOut({ callbackUrl: "/auth/login?error=Email not verified" });
                     return;
                 }
 
@@ -98,6 +100,15 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
             }
         }
     }, [session, status, router, isMaintenanceActive, isLoggingIn]);
+
+    // Show toast error if sessionStorage contains account_locked_toast flag
+    React.useEffect(() => {
+        if (typeof window === "undefined") return;
+        if (sessionStorage.getItem("account_locked_toast") === "true") {
+            toast.error("Your account has been locked due to 3 rejection strikes. Please visit the Municipal Treasury Office for identity verification and account restoration.");
+            sessionStorage.removeItem("account_locked_toast");
+        }
+    }, []);
 
     const [lockout, setLockout] = React.useState<LockoutState>(DEFAULT_STATE);
     const [otpLockout, setOtpLockout] = React.useState<LockoutState>(DEFAULT_STATE);

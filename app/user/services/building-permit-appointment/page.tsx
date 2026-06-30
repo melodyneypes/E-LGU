@@ -1,3 +1,4 @@
+
 /* eslint-disable react/no-unescaped-entities, @next/next/no-img-element */
 "use client";
 
@@ -36,7 +37,8 @@ import {
   Check,
   Hash,
   UserCheck,
-  ChevronDown
+  ChevronDown,
+  CalendarDays
 } from "lucide-react";
 
 import {
@@ -67,7 +69,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { getCurrentUserResident, cancelTransaction, uploadECopyAction, saveBfpClearanceProofAction, saveZoningClearanceProofAction, getSystemSettingAction } from "@/app/admin/transactions/actions";
-import { submitBuildingPermit, saveTransactionSignature, getExistingBuildingPermits, resubmitBuildingPermit, submitBuildingPermitPaymentProof, submitClearancesForReviewAction, checkActivePropertyPermit, getBarangaysAction } from "./actions";
+import { submitBuildingPermit, saveTransactionSignature, getExistingBuildingPermits, resubmitBuildingPermit, submitBuildingPermitPaymentProof, submitClearancesForReviewAction, checkActivePropertyPermit, getBarangaysAction, getEngineeringAppointmentConfig } from "./actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { compressImage } from "@/lib/image-compression";
@@ -78,8 +80,10 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import { getSecureUploadUrlAction } from "@/app/auth/actions";
+import SchedulePicker from "@/components/shared/SchedulePicker";
 
 const STEPS = [
+  { id: "APPOINTMENT", label: "Appointment", icon: CalendarDays },
   { id: "GUIDE", label: "Guide", icon: ClipboardList },
   { id: "PROFILE", label: "Profile", icon: User },
   { id: "DOCUMENTS", label: "Upload", icon: Upload },
@@ -262,12 +266,10 @@ function parseOccupancyUse(occupancyUse: string) {
 
     subs = rest.split(", ").map(s => s.trim()).filter(Boolean);
   } else {
-    // Check if it matches category exactly, otherwise fallback
     const matchedCategory = OCCUPANCY_CATEGORIES.find(c => c.toLowerCase() === occupancyUse.toLowerCase());
     if (matchedCategory) {
       category = matchedCategory;
     } else {
-      // Legacy structure or format we don't recognize
       if (occupancyUse.includes("Residential (Single Family)")) {
         category = "Residential";
         subs = ["Single"];
@@ -367,7 +369,7 @@ const getEngineeringStatusLabel = (status: string) => {
   }
 };
 
-export default function BuildingPermitPage() {
+export default function BuildingPermitAppointmentPage() {
   const router = useRouter();
   const [themeColor, setThemeColor] = useState("var(--primary-theme)");
 
@@ -379,12 +381,14 @@ export default function BuildingPermitPage() {
     });
   }, []);
 
-  const [currentStep, setCurrentStep] = useState("GUIDE");
-  const [hasReadGuide, setHasReadGuide] = useState(true);
+  const [currentStep, setCurrentStep] = useState("APPOINTMENT");
+  const [hasReadGuide, setHasReadGuide] = useState(false);
   const [existingApplications, setExistingApplications] = useState<any[]>([]);
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
   const [residentData, setResidentData] = useState<any>(null);
   const [barangayList, setBarangayList] = useState<string[]>([]);
+  const [appointmentConfig, setAppointmentConfig] = useState<any>(null);
+  const [bookedSlots, setBookedSlots] = useState<any[]>([]);
   const [brgySearchQuery, setBrgySearchQuery] = useState("");
   const [isBrgyDropdownOpen, setIsBrgyDropdownOpen] = useState(false);
   const brgyDropdownRef = React.useRef<HTMLDivElement>(null);
@@ -456,6 +460,8 @@ export default function BuildingPermitPage() {
     occupancyUse: "",
     otherOccupancyUse: "",
     totalFloors: "",
+    appointmentDate: null as Date | null,
+    appointmentSlot: "",
   });
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [duplicatePropertyWarning, setDuplicatePropertyWarning] = useState<{ isProcessing: boolean; applicantName?: string } | null>(null);
@@ -591,13 +597,18 @@ export default function BuildingPermitPage() {
   useEffect(() => {
     async function init() {
       try {
-        const [res, permitsRes, brgyRes] = await Promise.all([
+        const [res, permitsRes, brgyRes, configRes] = await Promise.all([
           getCurrentUserResident(),
           getExistingBuildingPermits(),
-          getBarangaysAction()
+          getBarangaysAction(),
+          getEngineeringAppointmentConfig()
         ]);
         if (res.success && res.data) {
           setResidentData(res.data);
+        }
+        if (configRes.success && configRes.config) {
+          setAppointmentConfig(configRes.config);
+          setBookedSlots(configRes.bookedSlots);
         }
         if (permitsRes.success && permitsRes.data.length > 0) {
           setExistingApplications(permitsRes.data);
@@ -654,6 +665,8 @@ export default function BuildingPermitPage() {
         tctFile: null,
         occupancyUse: addData.occupancyUse || "",
         otherOccupancyUse: parsedOccupancy.specify,
+        appointmentDate: addData.appointmentDate ? new Date(addData.appointmentDate) : null,
+        appointmentSlot: addData.appointmentSlot || "",
       });
       if (addData.signature) {
         setSignatureUrl(addData.signature);
@@ -1204,6 +1217,7 @@ export default function BuildingPermitPage() {
       if (formData.scopeAddition) parts.push(`ADDITION: ${formData.scopeAdditionText}`);
       if (formData.scopeRepair) parts.push(`REPAIR: ${formData.scopeRepairText}`);
       if (formData.scopeRenovation) parts.push(`RENOVATION: ${formData.scopeRenovationText}`);
+      if (formData.scopeDemolition) parts.push(`DEMOLITION: ${formData.scopeDemolitionText}`);
       if (formData.scopeOthers1) parts.push(`OTHERS: ${formData.scopeOthers1Text1} OF ${formData.scopeOthers1Text2}`);
       if (formData.scopeOthers2) parts.push(`OTHERS: ${formData.scopeOthers2Text1} OF ${formData.scopeOthers2Text2}`);
       if (formData.descriptionOfWorkLegacyText) parts.push(formData.descriptionOfWorkLegacyText);
@@ -1222,6 +1236,17 @@ export default function BuildingPermitPage() {
       data.append("street", formData.locationStreet);
       data.append("barangay", formData.locationBarangay);
       data.append("totalFloors", formData.totalFloors);
+
+      if (formData.appointmentDate) {
+        const d = formData.appointmentDate;
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        data.append("appointmentDate", `${year}-${month}-${day}`);
+      }
+      if (formData.appointmentSlot) {
+        data.append("appointmentSlot", formData.appointmentSlot);
+      }
 
       if (idFileUrl) {
         data.append("newIdFile", idFileUrl);
@@ -1365,7 +1390,8 @@ export default function BuildingPermitPage() {
                     backgroundColor: themeColor.startsWith("#") ? `${themeColor}1a` : `rgba(var(--primary), 0.1)`,
                     color: themeColor,
                     borderColor: themeColor.startsWith("#") ? `${themeColor}4d` : `rgba(var(--primary), 0.3)`,
-                  } : undefined}>
+                  } : undefined}
+                  >
                     <Icon className="w-4 h-4 md:w-7 md:h-7" />
                   </div>
                   <span className={cn(
@@ -1383,6 +1409,56 @@ export default function BuildingPermitPage() {
 
       {/* Main Content Area */}
       <div className="mt-4 md:mt-8 md:bg-white md:dark:bg-[#11131a] md:rounded-[2.5rem] md:border md:border-slate-200 md:dark:border-white/10 p-0 md:p-12 md:shadow-2xl relative md:overflow-hidden group/container min-h-[400px] md:min-h-[500px] flex flex-col">
+
+        {currentStep === "APPOINTMENT" && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="text-center mb-8 space-y-3">
+              <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter leading-tight">
+                Select <span className="text-primary italic">Appointment</span>
+              </h2>
+              <p className="text-slate-500 font-medium italic text-xs md:text-lg uppercase tracking-widest max-w-2xl mx-auto">
+                Choose your preferred date and time for your Building Permit application.
+              </p>
+            </div>
+
+            <div className="max-w-2xl mx-auto">
+              <SchedulePicker
+                config={appointmentConfig}
+                bookedSlots={bookedSlots}
+                selectedDate={formData.appointmentDate ? (() => {
+                  const d = formData.appointmentDate;
+                  const year = d.getFullYear();
+                  const month = String(d.getMonth() + 1).padStart(2, '0');
+                  const day = String(d.getDate()).padStart(2, '0');
+                  return `${year}-${month}-${day}`;
+                })() : ""}
+                setSelectedDate={(dateStr) => setFormData(prev => ({ ...prev, appointmentDate: dateStr ? new Date(dateStr) : null }))}
+                selectedSlot={formData.appointmentSlot}
+                setSelectedSlot={(slot) => setFormData(prev => ({ ...prev, appointmentSlot: slot }))}
+                themeColor="var(--primary-theme)"
+              />
+            </div>
+
+            <div className="mt-12 flex flex-col md:flex-row justify-end items-center gap-6">
+              <button
+                disabled={!formData.appointmentDate || !formData.appointmentSlot}
+                onClick={() => {
+                  setCurrentStep("GUIDE");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className={cn(
+                  "px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all w-full md:w-auto",
+                  formData.appointmentDate && formData.appointmentSlot
+                    ? "bg-primary text-white hover:bg-primary/90 shadow-xl shadow-primary/20"
+                    : "bg-slate-300 text-slate-500 cursor-not-allowed dark:bg-white/10 dark:text-slate-400"
+                )}
+              >
+                Proceed to Guide
+                <span className="text-xl leading-none">→</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {currentStep === "EXISTING" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -1416,7 +1492,9 @@ export default function BuildingPermitPage() {
                       totalFloors: app.additionalData?.totalFloors !== undefined ? String(app.additionalData.totalFloors) : "",
                       newIdFile: null,
                       newIdFileBack: null,
-                      tctFile: null
+                      tctFile: null,
+                      appointmentDate: app.additionalData?.appointmentDate ? new Date(app.additionalData.appointmentDate) : null,
+                      appointmentSlot: app.additionalData?.appointmentSlot || "",
                     }));
                     setIsRevision(false);
                     let newMaxIdx = 3;
@@ -1447,7 +1525,6 @@ export default function BuildingPermitPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    {/* UPDATED: Dynamic styling kapag cancelled, rejected, or released yung application */}
                     <span className={cn(
                       "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full",
                       app.isCancelled || app.status === "CANCELLED" || app.status === "REJECTED"
@@ -1520,10 +1597,12 @@ export default function BuildingPermitPage() {
                     tctFile: null,
                     occupancyUse: "Residential (Single Family)",
                     otherOccupancyUse: "",
+                    appointmentDate: null,
+                    appointmentSlot: "",
                   });
                   setUploadedRequirements({});
                   setUploadedPermits({});
-                  setCurrentStep("GUIDE");
+                  setCurrentStep("APPOINTMENT");
                 }}
                 className="bg-emerald-500 text-white hover:bg-emerald-600 px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all shadow-xl shadow-emerald-500/20"
               >
@@ -2923,15 +3002,15 @@ export default function BuildingPermitPage() {
                         setCurrentStep("DOCUMENTS");
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
-                       className="px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all w-full md:w-auto text-white hover:opacity-90 shadow-xl"
-                       style={{
-                         backgroundColor: themeColor,
-                         boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
-                       }}
-                     >
-                       Next: Upload Docs & Permits
-                       <span className="text-xl leading-none">→</span>
-                     </button>
+                      className="px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all w-full md:w-auto text-white hover:opacity-90 shadow-xl"
+                      style={{
+                        backgroundColor: themeColor,
+                        boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
+                      }}
+                    >
+                      Next: Upload Docs & Permits
+                      <span className="text-xl leading-none">→</span>
+                    </button>
                   </div>
                 </>
               )}
@@ -2959,6 +3038,7 @@ export default function BuildingPermitPage() {
               </p>
             </div>
 
+            {/* Tabs */}
             <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
               <button
                 onClick={() => setActiveDocTab("REQUIREMENTS")}
@@ -3004,229 +3084,225 @@ export default function BuildingPermitPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
               {(activeDocTab === "REQUIREMENTS"
                 ? documentRequirementsList
-                  .map((docName, idx) => ({ docName, idx }))
-                  .filter(({ idx }) => idx !== 5 && (isAffidavitOfConsentRequired || idx !== 7))
-                : permitTypesList.map((docName, idx) => ({ docName, idx }))
-              ).map(({ docName, idx }) => {
-                const key = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;
-                const fileUrl = selectedApplication?.additionalData?.documents?.[key];
-                const newlyUploaded = activeDocTab === "REQUIREMENTS" ? !!uploadedRequirements[idx] : !!uploadedPermits[idx];
-                const isUploaded = !isEditable ? !!fileUrl : (!!fileUrl || newlyUploaded);
-                const isRequired = activeDocTab === "PERMITS"
-                  ? requiredPermitIndexes.includes(idx)
-                  : requiredRequirementIndexes.includes(idx);
-                const hasError = showValidationErrors && isRequired && !isUploaded;
-                return (
-                  <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group", hasError ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
-                    <div className="flex justify-between items-start gap-4 mb-4">
-                      <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm min-w-0 flex-1">
-                        <span className="inline-flex items-center gap-1.5 flex-wrap">
-                          <span className="text-lg">📄</span>
-                          <span className="break-words">{docName}</span>
-                          {isRequired ? (
-                            <span className="text-red-500 ml-0.5 text-lg">*</span>
-                          ) : (
-                            <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1">Optional</span>
-                          )}
-                        </span>
-                      </h4>
-                      {isUploaded ? (
-                        <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500 text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full shrink-0">
-                          Uploaded
-                        </span>
-                      ) : (
-                        <span className="bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500 text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full shrink-0">
-                          Pending
-                        </span>
-                      )}
-                    </div>
+                    .map((docName, idx) => ({ docName, idx }))
+                    .filter(({ idx }) => idx !== 5 && (isAffidavitOfConsentRequired || idx !== 7))
+                : permitTypesList.map((docName, idx) => ({ docName, idx })))
+                .map(({ docName, idx }) => {
+                  const key = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;
+                  const fileUrl = selectedApplication?.additionalData?.documents?.[key] as string | undefined;
+                  const uploadedFile = activeDocTab === "REQUIREMENTS"
+                    ? uploadedRequirements[idx]
+                    : uploadedPermits[idx];
+                  const isUploaded = !isEditable
+                    ? Boolean(fileUrl)
+                    : Boolean(fileUrl || uploadedFile);
+                  const isRequired = activeDocTab === "PERMITS"
+                    ? requiredPermitIndexes.includes(idx)
+                    : requiredRequirementIndexes.includes(idx);
+                  const hasError = showValidationErrors && isRequired && !isUploaded;
+                  const isExistingImage = Boolean(fileUrl && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(fileUrl));
+                  const isNewImage = Boolean(uploadedFile?.type.startsWith("image/"));
 
-                    {!isEditable ? (
-                      <div className="bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[140px] shadow-sm">
-                        {fileUrl ? (
-                          (() => {
-                            const isImage = /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(fileUrl);
-                            return (
-                              <div className="space-y-3 w-full flex flex-col items-center">
-                                {isImage ? (
-                                  <img src={fileUrl} alt={docName} className="max-h-24 object-contain rounded border border-slate-200 dark:border-white/10" />
-                                ) : (
-                                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-                                    <FileText className="w-5 h-5" />
-                                  </div>
-                                )}
-                                <p className="text-[10px] font-semibold text-slate-500">Document Uploaded</p>
+                  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast.error("File size exceeds the 5MB limit.");
+                      event.target.value = "";
+                      return;
+                    }
+
+                    let fileToProcess = file;
+                    if (file.type.startsWith("image/")) {
+                      try {
+                        toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
+                        fileToProcess = await compressImage(file);
+                        toast.success("Image optimized successfully!", { id: "image-compress-toast" });
+                      } catch (error) {
+                        console.error("Compression error:", error);
+                        toast.dismiss("image-compress-toast");
+                      }
+                    }
+
+                    if (activeDocTab === "REQUIREMENTS") {
+                      setUploadedRequirements((previous) => ({ ...previous, [idx]: fileToProcess }));
+                    } else {
+                      setUploadedPermits((previous) => ({ ...previous, [idx]: fileToProcess }));
+                    }
+
+                    event.target.value = "";
+                  };
+
+                  return (
+                    <div
+                      key={key}
+                      className={cn(
+                        "bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group",
+                        hasError
+                          ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse"
+                          : "border-slate-200 dark:border-white/10 hover:border-primary/30"
+                      )}
+                    >
+                      <div className="flex justify-between items-start gap-4 mb-4">
+                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm min-w-0 flex-1">
+                          <span className="inline-flex items-center gap-1.5 flex-wrap">
+                            <span className="text-lg">📄</span>
+                            <span className="break-words">{docName}</span>
+                            {isRequired ? (
+                              <span className="text-red-500 ml-0.5 text-lg">*</span>
+                            ) : (
+                              <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1">Optional</span>
+                            )}
+                          </span>
+                        </h4>
+
+                        <span
+                          className={cn(
+                            "text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full shrink-0",
+                            isUploaded
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
+                              : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                          )}
+                        >
+                          {isUploaded ? "Uploaded" : "Pending"}
+                        </span>
+                      </div>
+
+                      {!isEditable ? (
+                        <div className="bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[140px] shadow-sm">
+                          {fileUrl ? (
+                            <div className="space-y-3 w-full flex flex-col items-center">
+                              {isExistingImage ? (
+                                <img
+                                  src={fileUrl}
+                                  alt={docName}
+                                  className="max-h-24 object-contain rounded border border-slate-200 dark:border-white/10"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                                  <FileText className="w-5 h-5" />
+                                </div>
+                              )}
+                              <p className="text-[10px] font-semibold text-slate-500">Document Uploaded</p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setViewerUrl(fileUrl);
+                                  setViewerFile(null);
+                                  setViewerTitle(docName);
+                                  setViewerOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:underline bg-transparent border-0 cursor-pointer"
+                              >
+                                View Document ↗
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-center p-4">
+                              <FileWarning className="w-6 h-6 text-slate-400 mx-auto mb-2" />
+                              <p className="text-xs font-semibold text-slate-400 italic">Not Uploaded / Not Required</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-slate-50 dark:bg-black/20 rounded-xl border border-dashed border-slate-300 dark:border-white/20 p-6 flex flex-col items-center justify-center text-center relative hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer group-hover:border-primary/40 overflow-hidden min-h-[140px]">
+                          {uploadedFile ? (
+                            <div className="w-full h-full absolute inset-0 z-0 flex flex-col justify-center items-center group/preview">
+                              {isNewImage ? (
+                                <img
+                                  src={URL.createObjectURL(uploadedFile)}
+                                  alt="Preview"
+                                  className="w-full h-full object-contain bg-slate-900"
+                                />
+                              ) : (
+                                <>
+                                  <FileText className="w-10 h-10 text-primary mb-2" />
+                                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">
+                                    {uploadedFile.name}
+                                  </p>
+                                </>
+                              )}
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setViewerUrl(fileUrl);
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setViewerFile(uploadedFile);
+                                    setViewerUrl(null);
                                     setViewerTitle(docName);
                                     setViewerOpen(true);
                                   }}
-                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:underline bg-transparent border-0 cursor-pointer"
+                                  className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
                                 >
-                                  View Document ↗
+                                  Preview {isNewImage ? "Image" : "Document"}
                                 </button>
+                                <label
+                                  htmlFor={`upload-${activeDocTab}-${idx}`}
+                                  className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer"
+                                >
+                                  Replace {isNewImage ? "Image" : "Document"}
+                                </label>
                               </div>
-                            );
-                          })()
-                        ) : (
-                          <div className="text-center p-4">
-                            <FileWarning className="w-6 h-6 text-slate-400 mx-auto mb-2" />
-                            <p className="text-xs font-semibold text-slate-400 italic">Not Uploaded / Not Required</p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="bg-slate-50 dark:bg-black/20 rounded-xl border border-dashed border-slate-300 dark:border-white/20 p-6 flex flex-col items-center justify-center text-center relative hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer group-hover:border-primary/40 overflow-hidden min-h-[140px]">
-                        {(() => {
-                          const file = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
-                          if (file && file.type.startsWith("image/")) {
-                            return (
-                              <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-contain" />
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setViewerFile(file);
-                                      setViewerTitle(docName);
-                                      setViewerOpen(true);
-                                    }}
-                                    className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                  >
-                                    Preview Image
-                                  </button>
-                                  <label htmlFor={`upload-${activeDocTab}-${idx}`} className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                    Replace Image
-                                  </label>
-                                </div>
+                            </div>
+                          ) : fileUrl && isRevision ? (
+                            <div className="w-full h-full absolute inset-0 z-0 flex flex-col justify-center items-center group/preview">
+                              {isExistingImage ? (
+                                <img src={fileUrl} alt="Preview" className="w-full h-full object-contain bg-slate-900" />
+                              ) : (
+                                <>
+                                  <FileText className="w-10 h-10 text-primary mb-2" />
+                                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">Existing Document</p>
+                                </>
+                              )}
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setViewerUrl(fileUrl);
+                                    setViewerFile(null);
+                                    setViewerTitle(docName);
+                                    setViewerOpen(true);
+                                  }}
+                                  className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
+                                >
+                                  Preview {isExistingImage ? "Image" : "Document"}
+                                </button>
+                                <label
+                                  htmlFor={`upload-${activeDocTab}-${idx}`}
+                                  className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer"
+                                >
+                                  Replace {isExistingImage ? "Image" : "Document"}
+                                </label>
                               </div>
-                            );
-                          } else if (isRevision && !file && fileUrl && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(fileUrl)) {
-                            return (
-                              <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                <img src={fileUrl} alt="Preview" className="w-full h-full object-contain" />
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setViewerUrl(fileUrl);
-                                      setViewerTitle(docName);
-                                      setViewerOpen(true);
-                                    }}
-                                    className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                  >
-                                    Preview Image
-                                  </button>
-                                  <label htmlFor={`upload-${activeDocTab}-${idx}`} className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                    Replace Image
-                                  </label>
-                                </div>
-                              </div>
-                            );
-                          } else if (file) {
-                            return (
-                              <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                <FileText className="w-10 h-10 text-primary mb-2" />
-                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">{file.name}</p>
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setViewerFile(file);
-                                      setViewerTitle(docName);
-                                      setViewerOpen(true);
-                                    }}
-                                    className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                  >
-                                    Preview Document
-                                  </button>
-                                  <label htmlFor={`upload-${activeDocTab}-${idx}`} className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                    Replace Document
-                                  </label>
-                                </div>
-                              </div>
-                            );
-                          } else if (isRevision && !file && fileUrl) {
-                            return (
-                              <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                <FileText className="w-10 h-10 text-primary mb-2" />
-                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">Existing Document</p>
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setViewerUrl(fileUrl);
-                                      setViewerTitle(docName);
-                                      setViewerOpen(true);
-                                    }}
-                                    className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                  >
-                                    Preview Document
-                                  </button>
-                                  <label htmlFor={`upload-${activeDocTab}-${idx}`} className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                    Replace Document
-                                  </label>
-                                </div>
-                              </div>
-                            );
-                          }
-                          return (
-                            <label htmlFor={`upload-${activeDocTab}-${idx}`} className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20">
+                            </div>
+                          ) : (
+                            <label
+                              htmlFor={`upload-${activeDocTab}-${idx}`}
+                              className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20"
+                            >
                               <UploadCloud className="w-6 h-6 text-slate-400 mb-2 group-hover:text-primary transition-colors pointer-events-none" />
                               <p className="text-xs font-medium text-slate-600 dark:text-slate-400 px-2 pointer-events-none">
                                 Click to upload document/image
                               </p>
                             </label>
-                          );
-                        })()}
-                        <input
-                          id={`upload-${activeDocTab}-${idx}`}
-                          type="file"
-                          accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              if (file.size > 5 * 1024 * 1024) {
-                                toast.error("File size exceeds 5MB limit.");
-                                e.target.value = "";
-                                return;
-                              }
-                              let fileToProcess = file;
-                              if (file.type.startsWith("image/")) {
-                                try {
-                                  toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-                                  fileToProcess = await compressImage(file);
-                                  toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-                                } catch (err) {
-                                  console.error("Compression error:", err);
-                                  toast.dismiss("image-compress-toast");
-                                }
-                              }
-                              if (activeDocTab === "REQUIREMENTS") {
-                                setUploadedRequirements(prev => ({ ...prev, [idx]: fileToProcess }));
-                              } else {
-                                setUploadedPermits(prev => ({ ...prev, [idx]: fileToProcess }));
-                              }
-                              e.target.value = "";
-                            }
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                          )}
+
+                          <input
+                            id={`upload-${activeDocTab}-${idx}`}
+                            type="file"
+                            accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
+                            className="hidden"
+                            onChange={handleFileChange}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
 
             {/* Progress Summary */}

@@ -61,12 +61,14 @@ export const authOptions: NextAuthOptions = {
                 // Using deleteMany() instead of delete() — safe even if no record exists
                 await prisma.rateLimit.deleteMany({ where: { key: limitKey } });
 
-                // Block login if user is not verified (but allow ADMIN)
-                if (user.role === "USER" && !user.isEmailVerified) {
+                // Block login if user is deactivated or not verified (but allow ADMIN)
+                if (user.role === "USER") {
                     if ((user as any).rejectionCount >= 3) {
                         throw new Error("Your account has been deactivated due to multiple rejected requests. Please visit the Municipal Treasury Office for identity verification and account restoration.");
                     }
-                    throw new Error("Your account has not been approved yet. Please wait for an administrator to process your registration.");
+                    if (!user.isEmailVerified) {
+                        throw new Error("Your account has not been approved yet. Please wait for an administrator to process your registration.");
+                    }
                 }
 
                 return {

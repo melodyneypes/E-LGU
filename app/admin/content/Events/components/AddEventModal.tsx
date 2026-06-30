@@ -148,10 +148,10 @@ export function AddEventModal() {
                 setOtherCategory("");
             }
         }}>
-            <DialogContent className="sm:max-w-5xl p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-2xl">
+            <DialogContent showCloseButton={false} className="sm:max-w-5xl p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-2xl">
                 <div className="relative flex flex-col h-[90vh] sm:h-auto sm:max-h-[85vh]">
                     <DialogHeader
-                        className="p-8 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040]"
+                        className="p-8 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040] flex flex-row items-center justify-between"
                         style={{ backgroundColor: `${themeColor}14` }}
                     >
                         <div className="flex items-center space-x-3 mb-1">
@@ -167,6 +167,22 @@ export function AddEventModal() {
                                 </DialogDescription>
                             </div>
                         </div>
+                        {/* ❌ Explicit Clickable Close (X) button */}
+                        <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => {
+                                setIsAddModalOpen(false);
+                                setEditingData(null);
+                                setImagePreview(null);
+                                setSelectedCategory("Community");
+                                setOtherCategory("");
+                            }}
+                            className="h-8 w-8 rounded-full border border-slate-200 dark:border-white/10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white shrink-0 mt-[-8px]"
+                        >
+                            <X className="w-4 h-4" />
+                        </Button>
                     </DialogHeader>
 
                     <div className="p-8 pb-28 overflow-y-auto custom-scrollbar">

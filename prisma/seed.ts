@@ -111,6 +111,12 @@ async function main() {
       logicCode: "cedula_calc_v1",
       slaDays: 3,
       processorRole: UserRole.TREASURY_STAFF,
+      pickupAddress: "Treasury Office",
+      processingTime: "20 Minutes",
+      defaultFees: [
+        { code: "BASIC_TAX", label: "Basic Community Tax", amount: 5.00 },
+        { code: "INDIVIDUAL_TAX_RULE", label: "Individual - ₱5.00 + ₱1.00 for every ₱1,000.00 gross income from business, Profession or property but in no case shall exceed ₱5,000.00", amount: 0.00 }
+      ],
     },
     {
       code: "CEDULA_JUR",
@@ -131,6 +137,12 @@ async function main() {
       logicCode: "cedula_calc_v1",
       slaDays: 3,
       processorRole: UserRole.TREASURY_STAFF,
+      pickupAddress: "Treasury Office",
+      processingTime: "20 Minutes",
+      defaultFees: [
+        { code: "BASIC_TAX", label: "Basic Community Tax", amount: 500.00 },
+        { code: "JURIDICAL_TAX_RULE", label: "Juridical - ₱500.00 + ₱2.00 for every ₱5,000.00 gross income from business or worth of real property but in no case shall exceed ₱10,000.00", amount: 0.00 }
+      ],
     },
     {
       code: "BUSINESS_PERMIT_NEW",
@@ -159,6 +171,7 @@ async function main() {
       logicCode: "business_permit_calc_v1",
       slaDays: 5,
       processorRole: UserRole.TREASURY_STAFF,
+      pickupAddress: "BPLO Office",
     },
     {
       code: "BUSINESS_PERMIT_RENEW",
@@ -187,6 +200,7 @@ async function main() {
       logicCode: "business_permit_calc_v1",
       slaDays: 5,
       processorRole: UserRole.TREASURY_STAFF,
+      pickupAddress: "BPLO Office",
     },
     {
       code: "LCR_BIRTH",
@@ -207,6 +221,7 @@ async function main() {
       },
       slaDays: 3,
       processorRole: UserRole.TREASURY_STAFF,
+      pickupAddress: "Local Civil Registry (LCR) Office",
     },
     {
       code: "LCR_BIRTH_REG",
@@ -232,7 +247,8 @@ async function main() {
         { code: "LATE_FEE_1_10", label: "Late Fee (1-10 Years)", amount: 315.00 },
         { code: "LATE_FEE_10_20", label: "Late Fee (10-20 Years)", amount: 515.00 },
         { code: "LATE_FEE_20_UP", label: "Late Fee (20+ Years)", amount: 1015.00 }
-      ]
+      ],
+      pickupAddress: "Local Civil Registry (LCR) Office",
     },
     {
       code: "LCR_MARRIAGE",
@@ -253,6 +269,7 @@ async function main() {
       },
       slaDays: 3,
       processorRole: UserRole.TREASURY_STAFF,
+      pickupAddress: "Local Civil Registry (LCR) Office",
     },
     {
       code: "LCR_DEATH",
@@ -273,6 +290,7 @@ async function main() {
       },
       slaDays: 3,
       processorRole: UserRole.TREASURY_STAFF,
+      pickupAddress: "Local Civil Registry (LCR) Office",
     },
     {
       code: "LCR_DEATH_REG",
@@ -294,6 +312,7 @@ async function main() {
       slaDays: 3,
       processorRole: UserRole.TREASURY_STAFF,
       lateFee: 300.00,
+      pickupAddress: "Local Civil Registry (LCR) Office",
     }
   ];
 

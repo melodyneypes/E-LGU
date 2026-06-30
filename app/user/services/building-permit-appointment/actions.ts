@@ -25,6 +25,10 @@ export async function submitBuildingPermit(formData: FormData) {
     }
 
     // Extract basic form data
+    const appointmentSlot = formData.get("appointmentSlot") as string;
+    const appointmentDateStr = formData.get("appointmentDate") as string;
+    const appointmentDate = appointmentDateStr ? new Date(appointmentDateStr) : null;
+    
     const descriptionOfWork = formData.get("descriptionOfWork") as string;
     const occupancyUse = formData.get("occupancyUse") as string;
     const estimatedCost = formData.get("estimatedCost") as string;
@@ -96,6 +100,51 @@ export async function submitBuildingPermit(formData: FormData) {
 
     const sanitizedResidentSnapshot = resident ? sanitizeObject(resident) : {};
 
+    // Handle Appointment Booking if provided
+    let queueNumber = null;
+    if (appointmentDate && appointmentSlot) {
+      const config = await prisma.appointmentConfig.findUnique({
+        where: { department: "ENGINEERING" }
+      }) as any;
+      const maxSlotsAM = config?.maxSlotsAM ?? 25;
+      const maxSlotsPM = config?.maxSlotsPM ?? 25;
+
+      const startOfDay = new Date(appointmentDate);
+      startOfDay.setUTCHours(0, 0, 0, 0);
+      const endOfDay = new Date(appointmentDate);
+      endOfDay.setUTCHours(23, 59, 59, 999);
+
+      const bookedCount = await prisma.transaction.count({
+        where: {
+          appointmentDate: { gte: startOfDay, lte: endOfDay },
+          appointmentSlot: appointmentSlot,
+          isCancelled: false,
+          type: { category: "Engineer" }
+        }
+      });
+
+      const isAM = appointmentSlot.includes("AM") || appointmentSlot.toUpperCase().includes("08:00 AM");
+      const maxLimit = isAM ? maxSlotsAM : maxSlotsPM;
+
+      if (bookedCount >= maxLimit) {
+        return { success: false, error: "This appointment slot is already fully booked. Please select another slot." };
+      }
+
+      const dateStr = startOfDay.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }).replace(/\//g, "");
+      const shiftStr = isAM ? "AM" : "PM";
+      
+      const shiftCount = await prisma.transaction.count({
+        where: {
+          appointmentDate: { gte: startOfDay, lte: endOfDay },
+          appointmentSlot: { contains: shiftStr },
+          isCancelled: false,
+          type: { category: "Engineer" }
+        } as any
+      });
+
+      queueNumber = `${dateStr}-${shiftStr}-${String(shiftCount + 1).padStart(3, "0")}`;
+    }
+
     // Create the transaction (FOR_REQUESTING)
     const transaction = await prisma.transaction.create({
       data: {
@@ -105,7 +154,10 @@ export async function submitBuildingPermit(formData: FormData) {
         residentSnapshot: sanitizedResidentSnapshot as any,
         additionalData: sanitizedAdditionalData as any,
         totalAmount: 0,
-      }
+        appointmentDate: appointmentDate,
+        appointmentSlot: appointmentSlot || null,
+        queueNumber: queueNumber,
+      } as any
     });
 
     revalidatePath("/user/transactions");
@@ -372,7 +424,6 @@ export async function submitClearancesForReviewAction(transactionId: string) {
       where: { id: transactionId },
       data: {
         status: "PAID",
-        isPaid: true,
         additionalData: {
           ...currentAdditionalData,
           clearancesSubmitted: true
@@ -459,5 +510,43 @@ export async function getBarangaysAction() {
   } catch (error) {
     console.error("Error fetching barangays:", error);
     return { success: false, data: [] };
+  }
+}
+
+export async function getEngineeringAppointmentConfig() {
+  try {
+    let config = await prisma.appointmentConfig.findUnique({
+      where: { department: "ENGINEERING" }
+    });
+
+    if (!config) {
+      config = await prisma.appointmentConfig.create({
+        data: {
+          department: "ENGINEERING",
+          maxSlots: 50,
+          maxSlotsAM: 25,
+          maxSlotsPM: 25,
+          blockedDates: [],
+          activeDays: [1, 2, 3, 4, 5]
+        } as any
+      });
+    }
+
+    const bookedSlots = await prisma.transaction.findMany({
+      where: {
+        appointmentDate: { not: null },
+        isCancelled: false,
+        type: { category: "Engineer" }
+      },
+      select: {
+        appointmentDate: true,
+        appointmentSlot: true
+      }
+    });
+
+    return { success: true, config, bookedSlots };
+  } catch (error) {
+    console.error("Error fetching engineering appointment config:", error);
+    return { success: false, config: null, bookedSlots: [] };
   }
 }
