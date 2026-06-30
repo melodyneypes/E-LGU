@@ -1226,7 +1226,11 @@ export default function BuildingPermitAppointmentPage() {
       data.append("totalFloors", formData.totalFloors);
 
       if (formData.appointmentDate) {
-        data.append("appointmentDate", formData.appointmentDate);
+        const d = formData.appointmentDate;
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        data.append("appointmentDate", `${year}-${month}-${day}`);
       }
       if (formData.appointmentSlot) {
         data.append("appointmentSlot", formData.appointmentSlot);
@@ -1403,8 +1407,14 @@ export default function BuildingPermitAppointmentPage() {
               <SchedulePicker
                 config={appointmentConfig}
                 bookedSlots={bookedSlots}
-                selectedDate={formData.appointmentDate}
-                setSelectedDate={(date) => setFormData(prev => ({ ...prev, appointmentDate: date }))}
+                selectedDate={formData.appointmentDate ? (() => {
+                  const d = formData.appointmentDate;
+                  const year = d.getFullYear();
+                  const month = String(d.getMonth() + 1).padStart(2, '0');
+                  const day = String(d.getDate()).padStart(2, '0');
+                  return `${year}-${month}-${day}`;
+                })() : ""}
+                setSelectedDate={(dateStr) => setFormData(prev => ({ ...prev, appointmentDate: dateStr ? new Date(dateStr) : null }))}
                 selectedSlot={formData.appointmentSlot}
                 setSelectedSlot={(slot) => setFormData(prev => ({ ...prev, appointmentSlot: slot }))}
                 themeColor="var(--primary-theme)"
