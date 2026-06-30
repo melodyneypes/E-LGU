@@ -307,7 +307,7 @@ export function DeathRegistrationVerificationCard({ request, additionalData, the
                                     style={{ color: themeColor, backgroundColor: `${themeColor}10`, borderColor: `${themeColor}20` }}
                                 >
                                     <Check className="w-4 h-4 shrink-0" />
-                                    <span>Death PSA Endorsement Requested (₱200)</span>
+                                    <span>Death PSA Endorsement Requested (₱330)</span>
                                 </div>
                             ) : (
                                 <Dialog open={psaEndorsementOpen} onOpenChange={setPsaEndorsementOpen}>
@@ -319,7 +319,7 @@ export function DeathRegistrationVerificationCard({ request, additionalData, the
                                                 boxShadow: `0 10px 20px -5px ${themeColor}30`
                                             }}
                                         >
-                                            Request Death PSA Endorsement (₱200)
+                                            Request Death PSA Endorsement (₱330)
                                         </Button>
                                     </DialogTrigger>
                                     <DialogContent className="max-w-[360px] w-full bg-white dark:bg-slate-950 border-none rounded-[1.5rem] shadow-2xl p-6 z-[150]">
@@ -333,7 +333,7 @@ export function DeathRegistrationVerificationCard({ request, additionalData, the
                                         </DialogHeader>
                                         <div className="space-y-4 py-3">
                                             <p className="text-xs font-medium text-slate-500 leading-relaxed italic">
-                                                Please upload your PSA Negative Certification document to initiate the endorsement process. This service carries a government fee of ₱200.
+                                                Please upload your PSA Negative Certification document to initiate the endorsement process. This service carries a government fee of ₱330 (₱200 Misc Fee + ₱130 Mandatory Fine).
                                             </p>
                                             <div className="space-y-1.5">
                                                 <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic ml-1 leading-none">PSA Negative Cert (PDF/Image)</Label>

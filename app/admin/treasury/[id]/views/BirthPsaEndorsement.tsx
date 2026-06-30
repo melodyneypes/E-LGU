@@ -204,12 +204,14 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                             Fee Assessment Breakdown
                                         </h3>
                                         <div className="space-y-4">
-                                            <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
-                                                <span>PSA Endorsement Fee</span>
-                                                <span className="dark:text-slate-200 font-black">
-                                                    ₱{(transaction.type?.baseFee || 130.00).toFixed(2)}
-                                                </span>
-                                            </div>
+                                            {(!feeLineItems || feeLineItems.length === 0) && (
+                                                <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
+                                                    <span>PSA Endorsement Fee</span>
+                                                    <span className="dark:text-slate-200 font-black">
+                                                        ₱{(transaction.type?.baseFee || 330.00).toFixed(2)}
+                                                    </span>
+                                                </div>
+                                            )}
 
                                             {transaction.fulfillmentType === "DELIVERY" && (
                                                 <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
