@@ -7,6 +7,7 @@ import { GlobalLoading } from "./GlobalLoading";
 import { NetworkInterceptor } from "./NetworkInterceptor";
 import { RealtimeSettingsListener } from "./RealtimeSettingsListener";
 import { AuthOTPGuard } from "../auth/AuthOTPGuard";
+import { RealtimeUserListener } from "./RealtimeUserListener";
 
 export function Providers({ 
     children,
@@ -16,9 +17,10 @@ export function Providers({
     isMaintenanceActive?: boolean;
 }) {
     return (
-        <SessionProvider refetchInterval={15}>
+        <SessionProvider refetchOnWindowFocus={false}>
             <BarangayProvider>
                 <AuthOTPGuard />
+                <RealtimeUserListener />
                 <NetworkInterceptor />
                 <GlobalLoading />
                 <RealtimeSettingsListener isMaintenanceActive={isMaintenanceActive} />
