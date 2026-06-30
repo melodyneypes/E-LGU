@@ -66,7 +66,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { getCurrentUserResident, cancelTransaction, uploadECopyAction, saveBfpClearanceProofAction, saveZoningClearanceProofAction } from "@/app/admin/transactions/actions";
+import { getCurrentUserResident, cancelTransaction, uploadECopyAction, saveBfpClearanceProofAction, saveZoningClearanceProofAction, getSystemSettingAction } from "@/app/admin/transactions/actions";
 import { submitBuildingPermit, saveTransactionSignature, getExistingBuildingPermits, resubmitBuildingPermit, submitBuildingPermitPaymentProof, submitClearancesForReviewAction, checkActivePropertyPermit, getBarangaysAction } from "./actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -369,6 +369,16 @@ const getEngineeringStatusLabel = (status: string) => {
 
 export default function BuildingPermitPage() {
   const router = useRouter();
+  const [themeColor, setThemeColor] = useState("var(--primary-theme)");
+
+  useEffect(() => {
+    getSystemSettingAction("theme_color").then((res) => {
+      if (res.success && res.data) {
+        setThemeColor(res.data);
+      }
+    });
+  }, []);
+
   const [currentStep, setCurrentStep] = useState("GUIDE");
   const [hasReadGuide, setHasReadGuide] = useState(true);
   const [existingApplications, setExistingApplications] = useState<any[]>([]);
@@ -1348,9 +1358,14 @@ export default function BuildingPermitPage() {
                   <div className={cn(
                     "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
                     isActive ? "bg-primary text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
-                      isCompleted ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" :
+                      isCompleted ? "" :
                         "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
-                  )}>
+                  )}
+                  style={isCompleted && !isActive ? {
+                    backgroundColor: themeColor.startsWith("#") ? `${themeColor}1a` : `rgba(var(--primary), 0.1)`,
+                    color: themeColor,
+                    borderColor: themeColor.startsWith("#") ? `${themeColor}4d` : `rgba(var(--primary), 0.3)`,
+                  } : undefined}>
                     <Icon className="w-4 h-4 md:w-7 md:h-7" />
                   </div>
                   <span className={cn(
@@ -2908,11 +2923,15 @@ export default function BuildingPermitPage() {
                         setCurrentStep("DOCUMENTS");
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
-                      className="px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all w-full md:w-auto bg-emerald-500 text-white hover:bg-emerald-600 shadow-xl shadow-emerald-500/20"
-                    >
-                      Next: Upload Docs & Permits
-                      <span className="text-xl leading-none">→</span>
-                    </button>
+                       className="px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all w-full md:w-auto text-white hover:opacity-90 shadow-xl"
+                       style={{
+                         backgroundColor: themeColor,
+                         boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
+                       }}
+                     >
+                       Next: Upload Docs & Permits
+                       <span className="text-xl leading-none">→</span>
+                     </button>
                   </div>
                 </>
               )}
@@ -2940,16 +2959,20 @@ export default function BuildingPermitPage() {
               </p>
             </div>
 
-            {/* Tabs */}
             <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
               <button
                 onClick={() => setActiveDocTab("REQUIREMENTS")}
                 className={cn(
                   "flex-1 py-4 px-6 rounded-full font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center justify-center gap-3 transition-all border w-full",
                   activeDocTab === "REQUIREMENTS"
-                    ? "bg-emerald-500 text-white border-emerald-500 shadow-xl shadow-emerald-500/20"
+                    ? "text-white shadow-xl"
                     : "bg-white dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
                 )}
+                style={activeDocTab === "REQUIREMENTS" ? {
+                  backgroundColor: themeColor,
+                  borderColor: themeColor,
+                  boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
+                } : undefined}
               >
                 <FileText className="w-4 h-4" />
                 Requirements ({requiredRequirementsCount} items)
@@ -2959,9 +2982,14 @@ export default function BuildingPermitPage() {
                 className={cn(
                   "flex-1 py-4 px-6 rounded-full font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center justify-center gap-3 transition-all border w-full",
                   activeDocTab === "PERMITS"
-                    ? "bg-emerald-500 text-white border-emerald-500 shadow-xl shadow-emerald-500/20"
+                    ? "text-white shadow-xl"
                     : "bg-white dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
                 )}
+                style={activeDocTab === "PERMITS" ? {
+                  backgroundColor: themeColor,
+                  borderColor: themeColor,
+                  boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
+                } : undefined}
               >
                 <FileSignature className="w-4 h-4" />
                 Permits ({requiredPermitsCount} required)
@@ -3203,9 +3231,21 @@ export default function BuildingPermitPage() {
 
             {/* Progress Summary */}
             <div className="space-y-4 mt-8">
-              <div className="bg-emerald-50 dark:bg-emerald-500/5 border-l-4 border-emerald-500 p-4 rounded-r-xl flex items-center gap-3">
-                <UploadCloud className="w-5 h-5 text-emerald-700 dark:text-emerald-400 shrink-0" />
-                <p className="text-xs md:text-sm font-bold text-emerald-800 dark:text-emerald-300">
+              <div 
+                className="border-l-4 p-4 rounded-r-xl flex items-center gap-3"
+                style={{
+                  backgroundColor: themeColor.startsWith("#") ? `${themeColor}0d` : `rgba(var(--primary), 0.05)`,
+                  borderLeftColor: themeColor
+                }}
+              >
+                <UploadCloud 
+                  className="w-5 h-5 shrink-0" 
+                  style={{ color: themeColor }}
+                />
+                <p 
+                  className="text-xs md:text-sm font-bold"
+                  style={{ color: themeColor }}
+                >
                   {activeDocTab === "REQUIREMENTS"
                     ? `Requirements Progress: ${requirementsProgress}/${requiredRequirementsCount} documents uploaded`
                     : `Permits Progress: ${permitsProgress}/${requiredPermitsCount} permits uploaded`}
@@ -3227,8 +3267,16 @@ export default function BuildingPermitPage() {
             {/* Signature Block */}
             <div className="bg-white dark:bg-black/20 rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-sm mt-8">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                  <PenTool className="w-5 h-5 text-emerald-600" />
+                <div 
+                  className="w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{
+                    backgroundColor: themeColor.startsWith("#") ? `${themeColor}1a` : `rgba(var(--primary), 0.1)`
+                  }}
+                >
+                  <PenTool 
+                    className="w-5 h-5" 
+                    style={{ color: themeColor }}
+                  />
                 </div>
                 <div>
                   <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tighter text-lg flex items-center gap-2">
@@ -3253,7 +3301,12 @@ export default function BuildingPermitPage() {
                   <p className="text-sm text-slate-500 mb-6">Please sign to acknowledge that all information provided is true and correct.</p>
                   {isRevision && signatureUrl && (
                     <div className="mb-4">
-                      <p className="text-xs text-emerald-600 font-bold mb-2">Previous Signature (You can resign below to update):</p>
+                      <p 
+                        className="text-xs font-bold mb-2"
+                        style={{ color: themeColor }}
+                      >
+                        Previous Signature (You can resign below to update):
+                      </p>
                       <div className="border border-slate-200 dark:border-white/10 rounded-xl p-4 bg-white max-w-md">
                         <img src={signatureUrl} alt="Digital Signature" className="max-h-32 object-contain mx-auto" />
                       </div>
@@ -3261,6 +3314,7 @@ export default function BuildingPermitPage() {
                   )}
                   <div className={cn("rounded-xl overflow-hidden bg-white transition-all", showValidationErrors && !signatureUrl ? "border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border border-slate-200 dark:border-white/10")}>
                   <SignaturePad
+                    themeColor={themeColor}
                     onSave={async (file) => {
                       if (!file) return;
                       toast.loading("Uploading signature...", { id: "signature-upload-toast" });
@@ -3275,7 +3329,14 @@ export default function BuildingPermitPage() {
                   />
                   </div>
                   {signatureUrl && (
-                    <div className="mt-4 p-3 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-sm font-bold">
+                    <div 
+                      className="mt-4 p-3 border rounded-xl flex items-center gap-2 text-sm font-bold"
+                      style={{
+                        backgroundColor: themeColor.startsWith("#") ? `${themeColor}0d` : `rgba(var(--primary), 0.05)`,
+                        borderColor: themeColor.startsWith("#") ? `${themeColor}33` : `rgba(var(--primary), 0.2)`,
+                        color: themeColor
+                      }}
+                    >
                       <CheckCircle className="w-4 h-4" /> Signature captured successfully. Ready to submit!
                     </div>
                   )}
@@ -3322,7 +3383,7 @@ export default function BuildingPermitPage() {
                 setPrivacyAccepted(true);
                 setIsPrivacyModalOpen(false);
               }}
-              themeColor="#10b981"
+              themeColor={themeColor}
             />
 
             {/* Footer Buttons */}
@@ -3351,7 +3412,11 @@ export default function BuildingPermitPage() {
                 <button
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="bg-emerald-500 text-white hover:bg-emerald-600 px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all shadow-xl shadow-emerald-500/20 w-full md:w-auto disabled:opacity-70"
+                  className="text-white px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all shadow-xl w-full md:w-auto disabled:opacity-70 hover:opacity-90"
+                  style={{
+                    backgroundColor: themeColor,
+                    boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
+                  }}
                 >
                   {isSubmitting ? "Submitting..." : (isRevision ? "Resubmit Application" : "Submit to Engineering for Review")}
                   {!isSubmitting && <span className="text-xl leading-none">→</span>}
@@ -4146,7 +4211,7 @@ export default function BuildingPermitPage() {
   );
 }
 
-const SignaturePad = ({ onSave }: { onSave: (file: File | null) => void }) => {
+const SignaturePad = ({ onSave, themeColor = "var(--primary-theme)" }: { onSave: (file: File | null) => void; themeColor?: string }) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isDrawing, setIsDrawing] = React.useState(false);
@@ -4294,9 +4359,10 @@ const SignaturePad = ({ onSave }: { onSave: (file: File | null) => void }) => {
           onClick={handleSave}
           disabled={isUploadedSignature}
           className={cn(
-            "px-6 py-2 rounded-full bg-emerald-500 text-white text-sm font-bold flex items-center gap-2 shadow-md hover:bg-emerald-600 transition-colors",
+            "px-6 py-2 rounded-full text-white text-sm font-bold flex items-center gap-2 shadow-md transition-all hover:opacity-90",
             isUploadedSignature && "opacity-50 cursor-not-allowed"
           )}
+          style={!isUploadedSignature ? { backgroundColor: themeColor } : undefined}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
           Save Signature
