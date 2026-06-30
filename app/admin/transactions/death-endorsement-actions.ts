@@ -39,7 +39,10 @@ export async function ensureDeathEndorsementTransactionType() {
                     },
                     requiresBusinessName: false,
                     supportsECopy: true,
-                    processorRole: "TREASURY_STAFF"
+                    processorRole: "TREASURY_STAFF",
+                    defaultFees: [
+                        { code: "MANDATORY_FINE", label: "Mandatory Fee", amount: 130.00 }
+                    ]
                 }
             });
         }

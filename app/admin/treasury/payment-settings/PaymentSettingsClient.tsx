@@ -30,6 +30,21 @@ export default function PaymentSettingsClient({
         }, {} as Record<string, string>);
     });
 
+    const [apptMandatoryFees, setApptMandatoryFees] = useState<Record<string, string>>(() => {
+        return transactionTypes.reduce((acc, type) => {
+            const isAppt = type.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" || 
+                           type.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" || 
+                           type.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
+            if (isAppt && type.defaultFees) {
+                const arr = typeof type.defaultFees === "string" ? JSON.parse(type.defaultFees) : type.defaultFees;
+                acc[type.id] = String(arr.find((f: any) => f.code === "MANDATORY_FINE" || f.code === "MANDATORY_FEE")?.amount ?? 140);
+            } else if (isAppt) {
+                acc[type.id] = "140";
+            }
+            return acc;
+        }, {} as Record<string, string>);
+    });
+
     const [studentFees, setStudentFees] = useState<Record<string, string>>(() => {
         return transactionTypes.reduce((acc, type) => {
             acc[type.id] = String(type.studentFee || 0);
@@ -87,6 +102,19 @@ export default function PaymentSettingsClient({
             return acc;
         }, {} as Record<string, string>));
 
+        setApptMandatoryFees(transactionTypes.reduce((acc, type) => {
+            const isAppt = type.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" || 
+                           type.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" || 
+                           type.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
+            if (isAppt && type.defaultFees) {
+                const arr = typeof type.defaultFees === "string" ? JSON.parse(type.defaultFees) : type.defaultFees;
+                acc[type.id] = String(arr.find((f: any) => f.code === "MANDATORY_FINE" || f.code === "MANDATORY_FEE")?.amount ?? 140);
+            } else if (isAppt) {
+                acc[type.id] = "140";
+            }
+            return acc;
+        }, {} as Record<string, string>));
+
         const birthReg = transactionTypes.find(t => t.code === "LCR_BIRTH_REG");
         if (birthReg?.defaultFees) {
             const arr = typeof birthReg.defaultFees === "string" ? JSON.parse(birthReg.defaultFees) : birthReg.defaultFees;
@@ -118,6 +146,12 @@ export default function PaymentSettingsClient({
                 const type = transactionTypes.find(t => t.id === id);
                 const isCedula = type?.code?.includes("CEDULA");
                 const isBirthReg = type?.code === "LCR_BIRTH_REG";
+                const isAppt = type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" || 
+                               type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" || 
+                               type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
+                
+                const apptMandatory = isAppt ? (Number(apptMandatoryFees[id]) || 0) : 0;
+
                 return {
                     id,
                     baseFee: Number(baseFee) || 0,
@@ -128,6 +162,11 @@ export default function PaymentSettingsClient({
                             { code: "LATE_FEE_1_10", label: "Late Fee (1-10 Years)", amount: Number(birthRegLate1) || 0 },
                             { code: "LATE_FEE_10_20", label: "Late Fee (10-20 Years)", amount: Number(birthRegLate10) || 0 },
                             { code: "LATE_FEE_20_UP", label: "Late Fee (20+ Years)", amount: Number(birthRegLate20) || 0 }
+                        ]
+                    } : {}),
+                    ...(isAppt ? {
+                        defaultFees: [
+                            { code: "MANDATORY_FINE", label: "Mandatory Fee", amount: apptMandatory }
                         ]
                     } : {})
                 };
@@ -304,6 +343,28 @@ export default function PaymentSettingsClient({
                                                                             step="0.01"
                                                                             value={birthRegLate20}
                                                                             onChange={(e) => setBirthRegLate20(e.target.value)}
+                                                                            className="h-9 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {(type.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" || 
+                                                          type.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" || 
+                                                          type.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT") && (
+                                                            <div className="flex flex-col gap-2 mt-2 w-full max-w-[280px]">
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">Mandatory Fee:</span>
+                                                                    <div className="relative inline-flex items-center max-w-[130px]">
+                                                                        <span className="absolute left-3 text-slate-400 dark:text-slate-500 font-black text-sm">₱</span>
+                                                                        <Input 
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            value={apptMandatoryFees[type.id] !== undefined ? apptMandatoryFees[type.id] : "140"}
+                                                                            onChange={(e) => {
+                                                                                const val = e.target.value;
+                                                                                setApptMandatoryFees(prev => ({ ...prev, [type.id]: val }));
+                                                                            }}
                                                                             className="h-9 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
                                                                         />
                                                                     </div>

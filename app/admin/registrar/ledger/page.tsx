@@ -135,7 +135,13 @@ export default function RegistrarLedgerPage() {
             } else if (selectedType === "MARRIAGE") {
                 matchesType = tx.type?.code === "LCR_MARRIAGE_REG" || tx.type?.code === "LCR_MARRIAGE" || tx.type?.code === "LCR_MARRIAGE_LICENSE";
             } else if (selectedType === "PSA") {
-                matchesType = tx.type?.code === "LCR_PSA_ENDORSEMENT" || tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" || tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT";
+                matchesType = 
+                    tx.type?.code === "LCR_PSA_ENDORSEMENT" || 
+                    tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" || 
+                    tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
             }
 
             return matchesSearch && matchesType;

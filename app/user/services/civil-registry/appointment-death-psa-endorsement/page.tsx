@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { BackNextButton } from "../_components/back-next-button";
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
-import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
+
 import { motion, AnimatePresence } from "framer-motion";
 import {
     User,
@@ -12,16 +13,17 @@ import {
     Check,
     AlertCircle,
     Home,
-    Baby,
-    ArrowLeft,
+    Skull,
     Upload,
     CheckCircle2,
-    FileText
+    FileText,
+    Sparkles,
+    X
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BackNextButton } from "../_components/back-next-button";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -41,63 +43,39 @@ import {
 import { cn } from "@/lib/utils";
 import {
     getCurrentUserResident,
-    ensureCivilRegistryTransactionTypes,
     submitCivilRegistryTransaction,
     getTransactionTypes,
     getSystemSettingAction,
-    getLatestForm1AForCurrentUser,
-    getTransactionById
+    getTransactionById,
+    ensureCivilRegistryTransactionTypes
 } from "@/app/admin/transactions/actions";
+import {
+    getLatestForm2AForCurrentUser
+} from "@/app/admin/transactions/death-endorsement-actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
-import { getSecureUploadUrlAction } from "@/app/auth/actions";
-import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
-
-
-// --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
-async function uploadFileClientSide(file: File, fieldName: string): Promise<string> {
-    const fileExt = file.name.split('.').pop() || 'bin';
-
-    const res = await getSecureUploadUrlAction(fieldName, "lcr/birth_psa_endorsement", fileExt);
-    if (!res.success || !res.signedUrl || !res.publicUrl) {
-        throw new Error(res.error || "Failed to generate secure upload destination");
-    }
-
-    const uploadRes = await fetch(res.signedUrl, {
-        method: "PUT",
-        headers: {
-            "Content-Type": file.type
-        },
-        body: file
-    });
-
-    if (!uploadRes.ok) {
-        throw new Error(`Upload direct to storage failed: ${uploadRes.statusText}`);
-    }
-
-    return res.publicUrl;
-}
 
 
 
-const STORAGE_KEY = "lcr_birth_psa_endorsement_draft";
 
-type Step = "INFORMANT" | "SUBJECT" | "REVIEW";
+const STORAGE_KEY = "lcr_appointment_death_psa_endorsement_draft";
+
+type Step = "STATUS" | "INFORMANT" | "SUBJECT" | "UPLOAD" | "REVIEW";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
-    { id: "INFORMANT", label: "Informant Info", icon: User },
-    { id: "SUBJECT", label: "Subject & Documents", icon: FileText },
-    { id: "REVIEW", label: "Review & Submit", icon: CheckCircle2 },
+    { id: "STATUS", label: "Status", icon: Sparkles },
+    { id: "INFORMANT", label: "Identity", icon: User },
+    { id: "SUBJECT", label: "Details", icon: FileText },
+    { id: "UPLOAD", label: "Documents", icon: Upload },
+    { id: "REVIEW", label: "Submit", icon: CheckCircle2 },
 ];
 
-export default function BirthPsaEndorsementPage() {
+export default function AppointmentDeathPsaEndorsementPage() {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<Step>("INFORMANT");
     const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(true);
-
     const [themeColor, setThemeColor] = useState("var(--primary-theme)");
 
     useEffect(() => {
@@ -119,29 +97,12 @@ export default function BirthPsaEndorsementPage() {
     const [revisionTx, setRevisionTx] = useState<any>(null);
     const [showErrors, setShowErrors] = useState(false);
 
-    const parsedDefaultFees = dbType?.defaultFees 
-        ? (typeof dbType.defaultFees === "string" ? JSON.parse(dbType.defaultFees) : dbType.defaultFees) 
-        : [];
-    const miscFeeAmount = dbType?.baseFee ?? 200.00;
-    const mandatoryFeeAmount = parsedDefaultFees.find((f: any) => f.code === "MANDATORY_FINE" || f.code === "MANDATORY_FEE")?.amount ?? 130.00;
-    const regTotalAmount = miscFeeAmount + mandatoryFeeAmount;
 
-    const [viewerOpen, setViewerOpen] = useState(false);
-    const [viewerFile, setViewerFile] = useState<File | null>(null);
-    const [viewerUrl, setViewerUrl] = useState<string | null>(null);
-    const [viewerTitle, setViewerTitle] = useState("");
-    const [previews, setPreviews] = useState<Record<string, string | null>>({});
-
-    const handleOpenViewer = (file: File | null, title: string, url: string | null = null) => {
-        setViewerFile(file);
-        setViewerUrl(url);
-        setViewerTitle(title);
-        setViewerOpen(true);
-    };
 
     // Form State
     const [formData, setFormData] = useState({
         relationship: "",
+        relationshipOther: "",
         email: "",
         contactNumber: "",
         informantFirstName: "",
@@ -154,71 +115,55 @@ export default function BirthPsaEndorsementPage() {
         informantCitizenship: "",
         informantOccupation: "",
         informantAddress: "",
-        // Subject fields
+        // Subject (Deceased) fields
         subjectFullName: "",
-        subjectDateOfBirth: "",
+        subjectDateOfDeath: "",
         mothersMaidenName: "",
+        fathersName: "",
+        placeOfDeath: "",
+        causeOfDeath: "",
     });
 
-    const [files, setFiles] = useState<Record<string, File | null>>({
-        psaNegativeCert: null,
-    });
+
 
     // Privacy / Terms modal state
     const [policyOpen, setPolicyOpen] = useState(false);
     const [policyAccepted, setPolicyAccepted] = useState(false);
 
-    const handleAcceptPolicy = () => { setPolicyOpen(false); setPolicyAccepted(true); };
+    const parsedDefaultFees = dbType?.defaultFees 
+        ? (typeof dbType.defaultFees === "string" ? JSON.parse(dbType.defaultFees) : dbType.defaultFees) 
+        : [];
+    const miscFeeAmount = dbType?.baseFee ?? 130.00;
+    const mandatoryFeeAmount = parsedDefaultFees.find((f: any) => f.code === "MANDATORY_FINE" || f.code === "MANDATORY_FEE")?.amount ?? 140.00;
+    const apptTotalAmount = miscFeeAmount + mandatoryFeeAmount;
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _isRestoredRef = useRef(false);
+    const handleAcceptPolicy = () => { setPolicyOpen(false); setPolicyAccepted(true); };
 
     // Restore progress from session storage & IndexedDB
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get("revisionId")) return;
 
-        const savedStep = sessionStorage.getItem("psa-endorsement-step");
-        const savedForm = sessionStorage.getItem("psa-endorsement-form");
+        const savedStep = sessionStorage.getItem("appointment-death-psa-endorsement-step");
+        const savedForm = sessionStorage.getItem("appointment-death-psa-endorsement-form");
 
         if (savedStep) setCurrentStep(savedStep as Step);
         if (savedForm) {
             try {
                 const parsed = JSON.parse(savedForm);
-                setFormData(prev => ({
-                    ...prev,
-                    ...parsed
-                }));
+                setFormData(prev => ({ ...prev, ...parsed }));
             } catch (e) {
                 console.error("Failed to parse saved form", e);
             }
         }
 
-        // Hydrate files from IndexedDB
-        async function hydrateFiles() {
-            try {
-                const draftFiles = await getDraftFiles(STORAGE_KEY);
-                if (draftFiles && Object.keys(draftFiles).length > 0) {
-                    setFiles(prev => ({
-                        ...prev,
-                        ...draftFiles
-                    }));
-                    toast.info("Progress restored. Uploaded document drafts recovered.", {
-                        duration: 6000
-                    });
-                }
-            } catch (error) {
-                console.error("Failed to hydrate draft files from IndexedDB:", error);
-            }
-        }
 
-        hydrateFiles();
     }, []);
 
     useEffect(() => {
         if (!loading && !revisionId) {
-            sessionStorage.setItem("psa-endorsement-step", currentStep);
-            sessionStorage.setItem("psa-endorsement-form", JSON.stringify(formData));
+            sessionStorage.setItem("appointment-death-psa-endorsement-step", currentStep);
+            sessionStorage.setItem("appointment-death-psa-endorsement-form", JSON.stringify(formData));
         }
     }, [currentStep, formData, loading, revisionId]);
 
@@ -266,17 +211,10 @@ export default function BirthPsaEndorsementPage() {
                         const addData = txData.additionalData as any || {};
                         const resSnapshot = txData.residentSnapshot as any || r || {};
 
-                        const previews: Record<string, string | null> = {};
-                        const fileKeys = ["psaNegativeCert"];
-                        fileKeys.forEach(k => {
-                            if (addData[k] && typeof addData[k] === "string" && addData[k].startsWith("http")) {
-                                previews[k] = addData[k];
-                            }
-                        });
-
                         setFormData(prev => ({
                             ...prev,
-                            relationship: addData.relationship || prev.relationship,
+                            relationship: addData.relationship && addData.relationship.startsWith("OTHER:") ? "OTHER" : (addData.relationship || prev.relationship),
+                            relationshipOther: addData.relationship && addData.relationship.startsWith("OTHER:") ? addData.relationship.replace(/^OTHER:\s*/i, "") : "",
                             email: addData.email || resSnapshot.email || prev.email,
                             contactNumber: addData.contactNumber || resSnapshot.contactNumber || prev.contactNumber,
                             informantFirstName: addData.informantFirstName || resSnapshot.firstName || prev.informantFirstName,
@@ -290,10 +228,12 @@ export default function BirthPsaEndorsementPage() {
                             informantOccupation: addData.informantOccupation || prev.informantOccupation,
                             informantAddress: addData.informantAddress || prev.informantAddress,
                             subjectFullName: addData.subjectFullName || "",
-                            subjectDateOfBirth: addData.subjectDateOfBirth || "",
+                            subjectDateOfDeath: addData.subjectDateOfDeath || "",
                             mothersMaidenName: addData.mothersMaidenName || "",
+                            fathersName: addData.fathersName || "",
+                            placeOfDeath: addData.placeOfDeath || "",
+                            causeOfDeath: addData.causeOfDeath || "",
                         }));
-                        setPreviews(previews);
                     } else {
                         setFormData(prev => ({
                             ...prev,
@@ -314,12 +254,14 @@ export default function BirthPsaEndorsementPage() {
                 }
 
                 if (typesResult.success && typesResult.data) {
-                    const psaType = typesResult.data.find((t: any) => t.code === "LCR_PSA_ENDORSEMENT");
+                    const psaType = typesResult.data.find((t: any) => t.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT");
                     if (psaType) {
                         setTypeId(psaType.id);
                         setDbType(psaType);
                     }
                 }
+
+
             } catch (error) {
                 console.error("Initialization error:", error);
             } finally {
@@ -335,111 +277,77 @@ export default function BirthPsaEndorsementPage() {
     };
 
     const handleSelectChange = (name: string, value: string) => {
-        setFormData(prev => {
-            const next = { ...prev, [name]: value };
-            if (name === "relationship") {
-                if (value === "SELF" && resident) {
-                    const sName = [resident.firstName, resident.middleName, resident.lastName].filter(Boolean).join(" ") + (resident.suffix ? " " + resident.suffix : "");
-                    const sDob = resident.dateOfBirth ? new Date(resident.dateOfBirth).toISOString().split('T')[0] : "";
-                    const mName = [resident.motherFirstName, resident.motherMiddleName, resident.motherLastName].filter(Boolean).join(" ");
+        setFormData(prev => ({ ...prev, [name]: value }));
 
-                    next.subjectFullName = sName.toUpperCase();
-                    next.subjectDateOfBirth = sDob;
-                    next.mothersMaidenName = mName.toUpperCase();
-                } else {
-                    next.subjectFullName = "";
-                    next.subjectDateOfBirth = "";
-                    next.mothersMaidenName = "";
-                }
-            }
-            return next;
-        });
-
-        if (name === "relationship" && value === "SELF") {
+        if (name === "relationship") {
             const promise = (async () => {
-                const res = await getLatestForm1AForCurrentUser();
+                const res = await getLatestForm2AForCurrentUser();
                 if (res.success && res.data) {
-                    const { subjectName, dateOfBirth, mothersMaidenName } = res.data;
-
+                    const { subjectName, dateOfDeath, mothersMaidenName, fathersName, placeOfDeath, causeOfDeath } = res.data;
                     setFormData(prev => ({
                         ...prev,
                         subjectFullName: subjectName ? subjectName.toUpperCase() : prev.subjectFullName,
-                        subjectDateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString().split('T')[0] : prev.subjectDateOfBirth,
-                        mothersMaidenName: mothersMaidenName ? mothersMaidenName.toUpperCase() : prev.mothersMaidenName
+                        subjectDateOfDeath: dateOfDeath ? new Date(dateOfDeath).toISOString().split('T')[0] : prev.subjectDateOfDeath,
+                        mothersMaidenName: mothersMaidenName ? mothersMaidenName.toUpperCase() : prev.mothersMaidenName,
+                        fathersName: fathersName ? fathersName.toUpperCase() : prev.fathersName,
+                        placeOfDeath: placeOfDeath ? placeOfDeath.toUpperCase() : prev.placeOfDeath,
+                        causeOfDeath: causeOfDeath ? causeOfDeath.toUpperCase() : prev.causeOfDeath
                     }));
                 }
             })();
             toast.promise(promise, {
-                loading: "Checking for your latest issued Form 1A in transactions...",
-                success: "Form 1A status checked.",
-                error: "Failed to check or fetch Form 1A details."
+                loading: "Searching for your latest Form 2A record...",
+                success: "Form 2A check complete.",
+                error: "Error checking latest Form 2A."
             });
         }
     };
 
-    const renderDocCard = (label: string, fileKey: string, required: boolean = true) => {
-        const file = files[fileKey] || null;
-        const preview = previews[fileKey] || null;
 
-        return (
-            <PremiumDocumentUpload
-                key={fileKey}
-                label={label}
-                required={required}
-                file={file}
-                previewUrl={preview}
-                error={showErrors && required && !file && !preview}
-                onFileSelect={async (newFile) => {
-                    if (newFile.size > 5 * 1024 * 1024) {
-                        toast.error("File size exceeds 5MB limit.");
-                        return;
+
+    const validateStep = (step: Step): boolean => {
+        if (step === "INFORMANT") {
+            const isSpecifyEmpty = formData.relationship === "OTHER" && !formData.relationshipOther?.trim();
+            if (!formData.relationship || !formData.contactNumber || isSpecifyEmpty) {
+                setShowErrors(true);
+                toast.error("Please complete highlighted required fields.");
+                setTimeout(() => {
+                    const firstInvalid = document.querySelector(".border-red-500, [class*='border-red-500']");
+                    if (firstInvalid) {
+                        firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
                     }
-
-                    const fileToProcess = newFile;
-
-                    try {
-                        toast.loading("Uploading and preparing document preview...", { id: `file-upload-${fileKey}` });
-                        const sanitizedKey = fileKey.replace(/[^a-zA-Z0-9_-]/g, '_');
-                        const publicUrl = await uploadFileClientSide(fileToProcess, sanitizedKey);
-
-                        setFiles(prev => ({ ...prev, [fileKey]: fileToProcess }));
-                        setPreviews(prev => ({ ...prev, [fileKey]: publicUrl }));
-                        await saveDraftFile(STORAGE_KEY, fileKey, fileToProcess);
-                        toast.success("Document uploaded & preview ready!", { id: `file-upload-${fileKey}` });
-                    } catch (uploadErr) {
-                        console.error(`[ClientUpload] Failed to upload ${fileKey} on-the-fly:`, uploadErr);
-                        toast.error("Upload failed. Local copy stored (preview limited).", { id: `file-upload-${fileKey}` });
-
-                        setFiles(prev => ({ ...prev, [fileKey]: fileToProcess }));
-                        setPreviews(prev => ({ ...prev, [fileKey]: fileToProcess.type.startsWith("image/") ? URL.createObjectURL(fileToProcess) : null }));
-                        await saveDraftFile(STORAGE_KEY, fileKey, fileToProcess);
+                }, 100);
+                return false;
+            }
+        }
+        if (step === "SUBJECT") {
+            if (!formData.subjectFullName || !formData.subjectDateOfDeath || !formData.mothersMaidenName) {
+                setShowErrors(true);
+                toast.error("Please fill in all required deceased details.");
+                setTimeout(() => {
+                    const firstInvalid = document.querySelector(".border-red-500, [class*='border-red-500']");
+                    if (firstInvalid) {
+                        firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
                     }
-                }}
-                onClear={async () => {
-                    setFiles(prev => ({ ...prev, [fileKey]: null }));
-                    setPreviews(prev => ({ ...prev, [fileKey]: null }));
-                    await saveDraftFile(STORAGE_KEY, fileKey, null);
-                    toast.success("File removed successfully.");
-                }}
-                onView={() => handleOpenViewer(file, label, preview)}
-            />
-        );
+                }, 100);
+                return false;
+            }
+        }
+
+        return true;
     };
 
     const handleSubmit = async () => {
         if (submitting) return;
+
         if (!policyAccepted) {
             setShowErrors(true);
-            toast.error("Please review and accept the Privacy Policy & Terms before submitting. Click Review to open the agreement.");
-            return;
-        }
-        if (!typeId) {
-            toast.error("Service type not initialized. Please try again later.");
+            toast.error("Please review and accept the Privacy Policy & Terms before submitting.");
             return;
         }
 
-        if (!files.psaNegativeCert && !previews.psaNegativeCert) {
-            toast.error("Please upload PSA Negative Certification");
+        if (!typeId) {
+            toast.error("Service type not initialized. Please try again later.");
             return;
         }
 
@@ -447,7 +355,7 @@ export default function BirthPsaEndorsementPage() {
         try {
             const data = new FormData();
             data.append("typeId", typeId);
-            data.append("registryType", "BIRTH_PSA_ENDORSEMENT");
+            data.append("registryType", "DEATH_PSA_APPOINTMENT_ENDORSEMENT");
             if (revisionId) {
                 data.append("revisionId", revisionId);
             }
@@ -465,54 +373,30 @@ export default function BirthPsaEndorsementPage() {
 
             data.append("residentSnapshot", JSON.stringify(residentSnapshot));
 
-            const fileUrls: Record<string, string> = {};
-
-            // First, copy any existing public URLs from previews
-            Object.entries(previews || {}).forEach(([key, url]) => {
-                if (url && typeof url === "string" && url.startsWith("http")) {
-                    fileUrls[key] = url;
-                }
-            });
-
-            const fileEntries = Object.entries(files);
-            for (let i = 0; i < fileEntries.length; i++) {
-                const [key, file] = fileEntries[i];
-                if (!file) continue;
-                const sanitizedKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
-
-                if (fileUrls[key]) {
-                    console.log(`[ClientUpload] Reusing existing public URL for ${key}:`, fileUrls[key]);
-                    continue;
-                }
-
-                try {
-                    toast.loading(`Uploading document ${i + 1}/${fileEntries.length}...`, { id: "upload-toast" });
-                    const url = await uploadFileClientSide(file, sanitizedKey);
-                    fileUrls[key] = url;
-                } catch (uploadErr) {
-                    console.error(`[ClientUpload] Failed to upload ${key}:`, uploadErr);
-                    toast.error(`Failed to upload document: ${key}. Please try again.`, { id: "upload-toast" });
-                    setSubmitting(false);
-                    return;
-                }
-            }
-            toast.dismiss("upload-toast");
+            const finalRelationship = formData.relationship === "OTHER"
+                ? `OTHER: ${formData.relationshipOther.toUpperCase()}`
+                : formData.relationship;
 
             const additionalData = {
-                ...formData,
-                subjectName: formData.subjectFullName,
+                relationship: finalRelationship,
+                contactNumber: formData.contactNumber,
+                email: formData.email,
+                subjectFullName: formData.subjectFullName,
+                subjectDateOfDeath: formData.subjectDateOfDeath,
+                mothersMaidenName: formData.mothersMaidenName,
+                fathersName: formData.fathersName,
+                placeOfDeath: formData.placeOfDeath,
+                causeOfDeath: formData.causeOfDeath,
                 psaEndorsementFee: miscFeeAmount,
-                ...fileUrls
             };
             data.append("additionalData", JSON.stringify(additionalData));
 
             const res = await submitCivilRegistryTransaction(data);
 
             if (res.success && res.data) {
-                toast.success(revisionId ? "Revision resubmitted successfully!" : "Birth PSA Endorsement submitted successfully!");
-                sessionStorage.removeItem("psa-endorsement-step");
-                sessionStorage.removeItem("psa-endorsement-form");
-                await clearDraftFiles(STORAGE_KEY);
+                toast.success(revisionId ? "Revision resubmitted successfully!" : "Death PSA Appointment Endorsement submitted successfully!");
+                sessionStorage.removeItem("appointment-death-psa-endorsement-step");
+                sessionStorage.removeItem("appointment-death-psa-endorsement-form");
                 router.push(`/user/services/requests/${res.data.id}`);
             } else {
                 toast.error(res.error || "Failed to submit endorsement request");
@@ -552,13 +436,13 @@ export default function BirthPsaEndorsementPage() {
                 .bg-emerald-500, [class*="bg-emerald-500"] {
                     background-color: ${themeColor} !important;
                 }
-                .bg-emerald-600, [class*="bg-emerald-600"] {
+                .bg-slate-600, [class*="bg-slate-600"] {
                     background-color: ${themeColor} !important;
                 }
-                .border-emerald-500, [class*="border-emerald-500"] {
+                .border-slate-500, [class*="border-slate-500"] {
                     border-color: ${themeColor} !important;
                 }
-                .border-emerald-600, [class*="border-emerald-600"] {
+                .border-slate-600, [class*="border-slate-600"] {
                     border-color: ${themeColor} !important;
                 }
                 .bg-emerald-500\\/10, [class*="bg-emerald-500/10"] {
@@ -573,14 +457,14 @@ export default function BirthPsaEndorsementPage() {
                 .shadow-emerald-500\\/20, [class*="shadow-emerald-500/20"] {
                     --tw-shadow-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33`} !important;
                 }
-                .hover\\:bg-emerald-600:hover, [class*="hover:bg-emerald-600"]:hover {
+                .hover\\:bg-slate-600:hover, [class*="hover:bg-slate-600"]:hover {
                     background-color: ${themeColor} !important;
                     filter: brightness(0.9);
                 }
                 .hover\\:border-emerald-500\\/50:hover, [class*="hover:border-emerald-500/50"]:hover {
                     border-color: ${themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 50%, transparent)" : `${themeColor}80`} !important;
                 }
-                input:not([type="button"]):not([type="submit"]), select, textarea {
+                input:not([type="button"]):not([type="submit"]), select, textarea, button[role="combobox"], [class*="SelectTrigger"] {
                     color: #0f172a !important;
                 }
                 input:not([type="button"]):not([type="submit"]):disabled, select:disabled, textarea:disabled,
@@ -589,7 +473,7 @@ export default function BirthPsaEndorsementPage() {
                     -webkit-text-fill-color: #1e293b !important;
                     opacity: 0.9 !important;
                 }
-                .dark input:not([type="button"]):not([type="submit"]), .dark select, .dark textarea {
+                .dark input:not([type="button"]):not([type="submit"]), .dark select, .dark textarea, .dark button[role="combobox"], .dark [class*="SelectTrigger"] {
                     color: #f8fafc !important;
                 }
                 .dark input:not([type="button"]):not([type="submit"]):disabled, .dark select:disabled, .dark textarea:disabled,
@@ -608,14 +492,7 @@ export default function BirthPsaEndorsementPage() {
                 onDecline={() => { setPolicyAccepted(false); }}
                 themeColor="var(--primary-theme)"
             />
-            <DocumentViewerModal
-                isOpen={viewerOpen}
-                onClose={() => setViewerOpen(false)}
-                file={viewerFile}
-                fileUrl={viewerUrl}
-                title={viewerTitle}
-                themeColor="var(--primary-theme)"
-            />
+
             <div className="container max-w-5xl mx-auto px-4 pt-3 pb-0 space-y-5">
                 <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                     <Breadcrumb>
@@ -646,7 +523,7 @@ export default function BirthPsaEndorsementPage() {
                             </BreadcrumbItem>
                             <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                             <BreadcrumbItem>
-                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: themeColor }}>Birth PSA Endorsement</BreadcrumbPage>
+                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: themeColor }}>Death PSA Appointment Endorsement</BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
@@ -663,17 +540,17 @@ export default function BirthPsaEndorsementPage() {
                         <div className="space-y-3 md:space-y-4 max-w-2xl relative z-10">
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/10 flex items-center justify-center backdrop-blur-md">
-                                    <Baby className="w-4 h-4 text-emerald-500" style={{ color: themeColor }} />
+                                    <Skull className="w-4 h-4 text-emerald-500" style={{ color: themeColor }} />
                                 </div>
                                 <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500 dark:text-white/70 italic">Local Civil Registry</span>
                             </div>
 
                             <h1 className="text-2xl md:text-4xl font-black uppercase italic tracking-tighter leading-none">
-                                Birth PSA <span style={{ color: themeColor }}>Endorsement</span>
+                                Death PSA <span style={{ color: themeColor }}>Appointment Endorsement</span>
                             </h1>
 
                             <p className="text-slate-600 dark:text-slate-300 font-medium text-xs leading-relaxed max-w-xl italic">
-                                Request endorsement of a verified local birth certificate record to the Philippine Statistics Authority (PSA).
+                                Request an appointment for endorsement of a verified local death certificate record to the Philippine Statistics Authority (PSA).
                             </p>
                         </div>
 
@@ -687,60 +564,66 @@ export default function BirthPsaEndorsementPage() {
                     </div>
 
                     {/* Progress Stepper */}
-                    <div className="relative px-2 py-4">
-                        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 dark:bg-white/5 -translate-y-1/2 rounded-full overflow-hidden">
-                            <motion.div
-                                className="h-full"
-                                style={{ backgroundColor: themeColor }}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${(STEPS.findIndex(s => s.id === currentStep) / (STEPS.length - 1)) * 100}%` }}
-                            />
-                        </div>
+                    <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2 py-4">
+                        {STEPS.map((step, idx) => {
+                            const isActive = currentStep === step.id;
+                            const stepIdx = STEPS.findIndex(s => s.id === currentStep);
+                            const isCompleted = stepIdx > idx;
+                            const Icon = step.icon;
 
-                        <div className="flex justify-between items-center relative z-10">
-                            {STEPS.map((step, idx) => {
-                                const isActive = currentStep === step.id;
-                                const stepIdx = STEPS.findIndex(s => s.id === currentStep);
-                                const isCompleted = stepIdx > idx;
-                                const Icon = step.icon;
-
-                                return (
-                                    <div
-                                        key={idx}
-                                        className="flex flex-col items-center gap-2 transition-all duration-300"
-                                    >
-                                        <div className={cn(
-                                            "w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-500 border-2 bg-white dark:bg-[#08090d]",
-                                            isActive ? "shadow-lg scale-110" :
-                                                isCompleted ? "text-white" :
-                                                    "border-slate-200 dark:border-white/10 text-slate-400"
-                                        )}
-                                            style={
-                                                isActive
-                                                    ? { borderColor: themeColor, color: themeColor, boxShadow: `0 10px 15px -3px color-mix(in srgb, ${themeColor} 20%, transparent)` }
-                                                    : isCompleted
-                                                        ? { backgroundColor: themeColor, borderColor: themeColor }
-                                                        : {}
+                            return (
+                                <div
+                                    key={idx}
+                                    className="flex flex-col items-center gap-2 md:gap-3 relative z-10 font-black group cursor-pointer"
+                                    onClick={() => {
+                                        if (step.id === "STATUS") {
+                                            router.push("/user/services/civil-registry");
+                                            return;
+                                        }
+                                        const targetIdx = STEPS.findIndex(s => s.id === step.id);
+                                        const currentIdx = STEPS.findIndex(s => s.id === currentStep);
+                                        if (targetIdx <= currentIdx) {
+                                            setCurrentStep(step.id);
+                                        } else {
+                                            for (let i = currentIdx; i < targetIdx; i++) {
+                                                const stepToValidate = STEPS[i].id;
+                                                if (stepToValidate !== "STATUS" && !validateStep(stepToValidate)) {
+                                                    return;
+                                                }
                                             }
-                                        >
-                                            {isCompleted ? (
-                                                <Check className="w-5 h-5" />
-                                            ) : (
-                                                <Icon className="w-4 h-4 md:w-5 md:h-5" />
-                                            )}
-                                        </div>
-                                        <span className={cn(
-                                            "text-[8px] md:text-[10px] font-black uppercase tracking-wider italic hidden md:block",
-                                            (isActive || isCompleted) ? "opacity-100 font-black" : "text-slate-400 opacity-55"
+                                            setCurrentStep(step.id);
+                                        }
+                                    }}
+                                >
+                                    <div
+                                        className={cn(
+                                            "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
+                                            isActive ? "text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
+                                                isCompleted ? "border-transparent" :
+                                                    "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
                                         )}
-                                            style={(isActive || isCompleted) ? { color: themeColor } : {}}
-                                        >
-                                            {step.label}
-                                        </span>
+                                        style={
+                                            isActive
+                                                ? { backgroundColor: themeColor, borderColor: themeColor }
+                                                : isCompleted
+                                                    ? { backgroundColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 10%, transparent)" : `${themeColor}1a`, color: themeColor, borderColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 20%, transparent)" : `${themeColor}33` }
+                                                    : {}
+                                        }
+                                    >
+                                        <Icon className="w-4 h-4 md:w-7 md:h-7" />
                                     </div>
-                                );
-                            })}
-                        </div>
+                                    <span
+                                        className={cn(
+                                            "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
+                                            (isActive || isCompleted) ? "opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
+                                        )}
+                                        style={(isActive || isCompleted) ? { color: themeColor } : {}}
+                                    >
+                                        {step.label}
+                                    </span>
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {mounted && typeof document !== "undefined" && createPortal(
@@ -748,7 +631,7 @@ export default function BirthPsaEndorsementPage() {
                             <div className="w-full max-w-5xl flex items-center justify-center gap-4">
                                 <div className="h-1.5 flex-1 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
                                     <motion.div
-                                        className="h-full bg-emerald-500"
+                                        className="h-full bg-slate-600"
                                         initial={{ width: 0 }}
                                         animate={{ width: `${((STEPS.findIndex(s => s.id === currentStep) + 1) / STEPS.length) * 100}%` }}
                                     />
@@ -772,9 +655,13 @@ export default function BirthPsaEndorsementPage() {
                                     exit={{ opacity: 0, scale: 1.05 }}
                                     className="space-y-6"
                                 >
-                                    <div className="space-y-2">
-                                        <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Personal Information</h2>
-                                        <p className="text-xs text-slate-500 font-medium italic">Your details as the requesting informant</p>
+                                    <div className="space-y-1">
+                                        <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight text-slate-900 dark:text-white">
+                                            Requester <span style={{ color: themeColor }}>Identity</span>
+                                        </h2>
+                                        <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">
+                                            Your details as the requesting informant
+                                        </p>
                                     </div>
 
                                     {revisionTx && (
@@ -791,23 +678,44 @@ export default function BirthPsaEndorsementPage() {
 
                                     <div className="space-y-6">
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Relationship to Subject <span className="text-red-500">*</span></Label>
-                                            <Select
-                                                value={formData.relationship}
-                                                onValueChange={(v) => handleSelectChange("relationship", v)}
-                                            >
-                                                <SelectTrigger className={cn("h-12 rounded-xl focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold", (showErrors && !formData.relationship) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10")}>
-                                                    <SelectValue placeholder="SELECT RELATIONSHIP" />
-                                                </SelectTrigger>
-                                                <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
-                                                    <SelectItem value="SELF">SELF (I AM THE SUBJECT)</SelectItem>
-                                                    <SelectItem value="CHILD">CHILD</SelectItem>
-                                                    <SelectItem value="PARENT">PARENT</SelectItem>
-                                                    <SelectItem value="SIBLING">SIBLING</SelectItem>
-                                                    <SelectItem value="RELATIVE">OTHER RELATIVE</SelectItem>
-                                                    <SelectItem value="REPRESENTATIVE">AUTHORIZED REPRESENTATIVE</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Relationship to Deceased <span className="text-red-500">*</span></Label>
+                                            {formData.relationship === "OTHER" ? (
+                                                <div className="relative flex items-center">
+                                                    <Input
+                                                        value={formData.relationshipOther || ""}
+                                                        onChange={(e) => setFormData(p => ({ ...p, relationshipOther: e.target.value }))}
+                                                        className={cn("h-12 rounded-xl text-xs md:text-sm font-bold uppercase pr-10 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10", (showErrors && !formData.relationshipOther) && "!border-2 !border-red-500")}
+                                                        placeholder="Specify relationship (e.g. Nephew, Friend)"
+                                                        autoFocus
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormData(p => ({ ...p, relationship: "", relationshipOther: "" }))}
+                                                        className="absolute right-3 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+                                                        title="Back to options"
+                                                    >
+                                                        <X className="w-4.5 h-4.5" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <Select
+                                                    value={formData.relationship}
+                                                    onValueChange={(v) => handleSelectChange("relationship", v)}
+                                                >
+                                                    <SelectTrigger style={{ height: '3rem' }} className={cn("!h-12 rounded-xl focus:ring-slate-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold border border-slate-200 dark:border-white/10", (showErrors && !formData.relationship) ? "!border-2 !border-red-500" : "")}>
+                                                        <SelectValue placeholder="SELECT RELATIONSHIP" />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
+                                                        <SelectItem value="SPOUSE">SPOUSE</SelectItem>
+                                                        <SelectItem value="CHILD">CHILD</SelectItem>
+                                                        <SelectItem value="PARENT">PARENT</SelectItem>
+                                                        <SelectItem value="SIBLING">SIBLING</SelectItem>
+                                                        <SelectItem value="RELATIVE">OTHER RELATIVE</SelectItem>
+                                                        <SelectItem value="REPRESENTATIVE">AUTHORIZED REPRESENTATIVE</SelectItem>
+                                                        <SelectItem value="OTHER">OTHER</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
                                             {(showErrors && !formData.relationship) && (
                                                 <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                             )}
@@ -817,94 +725,95 @@ export default function BirthPsaEndorsementPage() {
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                             <div className="md:col-span-1 space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">First Name</Label>
-                                                <Input readOnly value={formData.informantFirstName} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantFirstName} className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
                                             <div className="md:col-span-1 space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Middle Name</Label>
-                                                <Input readOnly value={formData.informantMiddleName} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantMiddleName} className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
                                             <div className="md:col-span-1 space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Last Name</Label>
-                                                <Input readOnly value={formData.informantLastName} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantLastName} className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
                                             <div className="md:col-span-1 space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Suffix</Label>
-                                                <Input readOnly value={formData.informantSuffix} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantSuffix} className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Birth Date</Label>
-                                                <Input readOnly value={formData.informantBirthDate} type="date" className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantBirthDate} type="date" className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Age</Label>
-                                                <Input readOnly value={formData.informantAge} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantAge} className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Civil Status</Label>
-                                                <Input readOnly value={formData.informantCivilStatus} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantCivilStatus} className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Citizenship</Label>
-                                                <Input readOnly value={formData.informantCitizenship} className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 font-bold italic text-slate-600" />
+                                                <Input readOnly value={formData.informantCitizenship} className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" />
                                             </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Informant Address</Label>
-                                            <Input
-                                                readOnly
-                                                className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 transition-all font-bold italic text-slate-600 uppercase"
-                                                value={formData.informantAddress}
-                                            />
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Occupation</Label>
-                                                <Input
-                                                    readOnly
-                                                    className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 transition-all font-bold italic text-slate-600"
-                                                    value={formData.informantOccupation}
-                                                />
+                                                <Input readOnly className="rounded-xl bg-slate-100 dark:bg-slate-800 h-12 font-bold uppercase border border-slate-200 dark:border-white/10" value={formData.informantOccupation} />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Contact Number <span className="text-red-500">*</span></Label>
                                                 <Input
-                                                    name="contactNumber"
-                                                    value={formData.contactNumber}
-                                                    onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
                                                     className={cn(
-                                                        "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all font-bold italic",
-                                                        (showErrors && !formData.contactNumber) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10"
+                                                        "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all font-bold uppercase border border-slate-200 dark:border-white/10",
+                                                        (showErrors && !formData.contactNumber) ? "!border-2 !border-red-500" : ""
                                                     )}
+                                                    placeholder="e.g. 0917XXXXXXX"
+                                                    value={formData.contactNumber}
+                                                    maxLength={11}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
                                                 />
+                                                <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider ml-1 animate-pulse">
+                                                    * Note: Please use your active contact number. This will be used to contact you regarding your transaction.
+                                                </p>
                                                 {(showErrors && !formData.contactNumber) && (
                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                                 )}
                                             </div>
+                                        </div>
+
+                                        <div
+                                            className="p-3 md:p-4 rounded-2xl md:rounded-3xl flex items-center gap-2 md:gap-3 border animate-in fade-in duration-300"
+                                            style={{
+                                                backgroundColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 5%, transparent)" : `${themeColor}0d`,
+                                                borderColor: themeColor === "var(--primary-theme)" ? "color-mix(in srgb, var(--primary-theme) 15%, transparent)" : `${themeColor}26`
+                                            }}
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5 shrink-0" style={{ color: themeColor }} />
+                                            <p className="text-[8px] md:text-[10px] font-black italic leading-tight uppercase tracking-widest" style={{ color: themeColor }}>
+                                                Note: Changes will update your Resident Profile upon submission.
+                                            </p>
                                         </div>
                                     </div>
 
                                     <BackNextButton
                                         onBack={() => router.push("/user/services/civil-registry")}
                                         onNext={() => {
-                                            if (!formData.relationship || !formData.contactNumber) {
-                                                setShowErrors(true);
-                                                toast.error("Please fill in all required informant details.");
-                                                return;
+                                            if (validateStep("INFORMANT")) {
+                                                setShowErrors(false);
+                                                setCurrentStep("SUBJECT");
                                             }
-                                            setShowErrors(false);
-                                            setCurrentStep("SUBJECT");
                                         }}
                                         themeColor={themeColor}
                                     />
                                 </motion.div>
                             )}
 
-                            {/* ===== STEP 2: SUBJECT & DOCUMENTS ===== */}
+                            {/* ===== STEP 2: DECEASED DETAILS ===== */}
                             {currentStep === "SUBJECT" && (
                                 <motion.div
                                     key="subject-step"
@@ -913,46 +822,48 @@ export default function BirthPsaEndorsementPage() {
                                     exit={{ opacity: 0, scale: 1.05 }}
                                     className="space-y-6"
                                 >
-                                    <div className="space-y-2">
-                                        <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight flex items-center gap-2">
-                                            Subject Information & Documents
+                                    <div className="space-y-1">
+                                        <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight text-slate-900 dark:text-white">
+                                            Deceased <span style={{ color: themeColor }}>Details</span>
                                         </h2>
-                                        <p className="text-xs text-slate-500 font-medium italic">Provide the details of the person whose birth record needs PSA endorsement</p>
+                                        <p className="text-[10px] md:text-xs text-slate-500 font-medium italic">Provide the details of the deceased person whose record needs PSA endorsement</p>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="md:col-span-2 space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Subject&apos;s Full Name <span className="text-red-500">*</span></Label>
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Deceased&apos;s Full Name <span className="text-red-500">*</span></Label>
                                             <Input
                                                 name="subjectFullName"
-                                                placeholder="ENTER FULL NAME OF SUBJECT"
+                                                placeholder="ENTER FULL NAME OF DECEASED"
                                                 value={formData.subjectFullName}
                                                 onChange={handleInputChange}
                                                 className={cn(
-                                                    "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                    (showErrors && !formData.subjectFullName) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10"
+                                                    "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium border border-slate-200 dark:border-white/10",
+                                                    (showErrors && !formData.subjectFullName) && "!border-2 !border-red-500"
                                                 )}
                                             />
                                             {(showErrors && !formData.subjectFullName) && (
                                                 <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                             )}
                                         </div>
+
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Date of Birth <span className="text-red-500">*</span></Label>
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Date of Death <span className="text-red-500">*</span></Label>
                                             <Input
                                                 type="date"
-                                                name="subjectDateOfBirth"
-                                                value={formData.subjectDateOfBirth}
+                                                name="subjectDateOfDeath"
+                                                value={formData.subjectDateOfDeath}
                                                 onChange={handleInputChange}
                                                 className={cn(
-                                                    "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all font-medium",
-                                                    (showErrors && !formData.subjectDateOfBirth) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10"
+                                                    "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all font-medium border border-slate-200 dark:border-white/10",
+                                                    (showErrors && !formData.subjectDateOfDeath) && "!border-2 !border-red-500"
                                                 )}
                                             />
-                                            {(showErrors && !formData.subjectDateOfBirth) && (
+                                            {(showErrors && !formData.subjectDateOfDeath) && (
                                                 <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                             )}
                                         </div>
+
                                         <div className="space-y-2">
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Mother&apos;s Maiden Name <span className="text-red-500">*</span></Label>
                                             <Input
@@ -961,64 +872,63 @@ export default function BirthPsaEndorsementPage() {
                                                 value={formData.mothersMaidenName}
                                                 onChange={handleInputChange}
                                                 className={cn(
-                                                    "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium",
-                                                    (showErrors && !formData.mothersMaidenName) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10"
+                                                    "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium border border-slate-200 dark:border-white/10",
+                                                    (showErrors && !formData.mothersMaidenName) && "!border-2 !border-red-500"
                                                 )}
                                             />
                                             {(showErrors && !formData.mothersMaidenName) && (
                                                 <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                             )}
                                         </div>
-                                    </div>
 
-                                    {/* Documents Section */}
-                                    <div className="space-y-4 pt-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="p-1.5 bg-emerald-500/10 rounded-lg">
-                                                <Upload className="w-3.5 h-3.5 text-emerald-500" />
-                                            </div>
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Required Documents</span>
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Father&apos;s Full Name</Label>
+                                            <Input
+                                                name="fathersName"
+                                                placeholder="ENTER FATHER'S FULL NAME"
+                                                value={formData.fathersName}
+                                                onChange={handleInputChange}
+                                                className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
+                                            />
                                         </div>
 
-                                        <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200/60 dark:border-amber-500/20">
-                                            <div className="flex items-start gap-3">
-                                                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                                                <div>
-                                                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">PSA Negative Certification Required</p>
-                                                    <p className="text-[9px] text-amber-600/80 dark:text-amber-400/80 italic mt-1">
-                                                        This is strictly required as proof that the record is not available in the national database. Obtain this from any PSA Serbilis outlet.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 gap-4">
-                                            {renderDocCard("PSA Negative Certification", "psaNegativeCert", true)}
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Place of Death</Label>
+                                            <Input
+                                                name="placeOfDeath"
+                                                placeholder="ENTER PLACE OF DEATH"
+                                                value={formData.placeOfDeath}
+                                                onChange={handleInputChange}
+                                                className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
+                                            />
                                         </div>
                                     </div>
 
-                                    <BackNextButton
-                                        onBack={() => setCurrentStep("INFORMANT")}
-                                        onNext={() => {
-                                            if (!formData.subjectFullName || !formData.subjectDateOfBirth || !formData.mothersMaidenName) {
-                                                setShowErrors(true);
-                                                toast.error("Please fill in all subject details.");
-                                                return;
-                                            }
-                                            if (!files.psaNegativeCert && !previews.psaNegativeCert) {
-                                                setShowErrors(true);
-                                                toast.error("Please upload PSA Negative Certification.");
-                                                return;
-                                            }
-                                            setShowErrors(false);
-                                            setCurrentStep("REVIEW");
-                                        }}
-                                        themeColor={themeColor}
-                                    />
+                                    <div className="flex justify-end gap-3 pt-6">
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => setCurrentStep("INFORMANT")}
+                                            className="rounded-full px-8 font-black uppercase tracking-widest italic text-[10px] h-12"
+                                        >
+                                            BACK
+                                        </Button>
+                                        <Button
+                                            onClick={() => {
+                                                if (validateStep("SUBJECT")) {
+                                                    setShowErrors(false);
+                                                    setCurrentStep("REVIEW");
+                                                }
+                                            }}
+                                            className="rounded-full px-12 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl"
+                                            style={{ backgroundColor: themeColor }}
+                                        >
+                                            NEXT
+                                        </Button>
+                                    </div>
                                 </motion.div>
                             )}
 
-                            {/* ===== STEP 3: REVIEW & SUBMIT ===== */}
+                            {/* ===== STEP 5: REVIEW & SUBMIT ===== */}
                             {currentStep === "REVIEW" && (
                                 <motion.div
                                     key="review-step"
@@ -1029,79 +939,77 @@ export default function BirthPsaEndorsementPage() {
                                 >
                                     <div className="flex items-center gap-4 mb-4">
                                         <div>
-                                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Endorsement Review</h2>
+                                            <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter leading-tight text-slate-900 dark:text-white">
+                                                Endorsement <span style={{ color: themeColor }}>Review</span>
+                                            </h2>
                                             <p className="text-xs text-slate-500 font-medium italic">Verify information before submission</p>
                                         </div>
                                     </div>
 
-                                    <Card className="bg-slate-50 dark:bg-white/5 border-none p-6 rounded-[2rem] space-y-4">
+                                    <div className="space-y-6 pt-4">
                                         <div className="grid grid-cols-2 gap-6">
                                             <div className="space-y-1">
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Informant</span>
-                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{resident?.firstName} {resident?.lastName} ({formData.relationship})</p>
+                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">
+                                                    {resident?.firstName} {resident?.lastName} {formData.relationship === "OTHER" ? `(OTHER: ${formData.relationshipOther})` : `(${formData.relationship})`}
+                                                </p>
                                             </div>
                                             <div className="space-y-1">
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Contact</span>
                                                 <p className="font-black text-slate-900 dark:text-white italic">{formData.contactNumber}</p>
                                             </div>
-                                            <div className="space-y-1 col-span-2">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Informant Address</span>
-                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.informantAddress}</p>
-                                            </div>
                                             <div className="col-span-2 border-t border-slate-200 dark:border-white/5 pt-4 space-y-1">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500 italic">Subject Name (To Endorse)</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 italic">Deceased Name (To Endorse)</span>
                                                 <p className="font-black text-slate-900 dark:text-white italic uppercase text-lg">{formData.subjectFullName}</p>
                                             </div>
                                             <div className="space-y-1">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Date of Birth</span>
-                                                <p className="font-black text-slate-900 dark:text-white italic">{formData.subjectDateOfBirth}</p>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Date of Death</span>
+                                                <p className="font-black text-slate-900 dark:text-white italic">{formData.subjectDateOfDeath}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Place of Death</span>
+                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.placeOfDeath || "N/A"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Father&apos;s Name</span>
+                                                <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.fathersName || "N/A"}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Mother&apos;s Maiden Name</span>
                                                 <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.mothersMaidenName}</p>
                                             </div>
+                                            {formData.causeOfDeath && (
+                                                <div className="col-span-2 space-y-1">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Cause of Death</span>
+                                                    <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.causeOfDeath}</p>
+                                                </div>
+                                            )}
                                         </div>
 
-                                        {/* Documents Summary */}
-                                        <div className="pt-4 border-t border-slate-200 dark:border-white/5 space-y-3">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Uploaded Documents</span>
-                                            <div className="grid grid-cols-1 gap-3">
-                                                <div className={cn(
-                                                    "flex items-center gap-3 p-3 rounded-xl border",
-                                                    (files.psaNegativeCert || previews.psaNegativeCert) ? "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/20" : "bg-red-50/30 border-red-200/50"
-                                                )}>
-                                                    {(files.psaNegativeCert || previews.psaNegativeCert) ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
-                                                    <div>
-                                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">PSA Negative Certification</p>
-                                                        <p className="text-[8px] text-slate-400 italic">{files.psaNegativeCert ? files.psaNegativeCert.name : previews.psaNegativeCert ? "Attached from previous draft" : "Not uploaded"}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
 
-                                        {/* Fee Display */}
-                                        <div className="space-y-3 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20">
-                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500 italic">
-                                                <span>Misc Fee</span>
-                                                <span className="font-bold text-slate-700 dark:text-slate-200">₱{miscFeeAmount.toFixed(2)}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500 italic">
-                                                <span>Mandatory Fee</span>
-                                                <span className="font-bold text-slate-700 dark:text-slate-200">₱{mandatoryFeeAmount.toFixed(2)}</span>
-                                            </div>
-                                            <div className="border-t border-emerald-200/40 dark:border-emerald-500/20 pt-2 flex items-center justify-between">
-                                                <div>
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Total PSA Endorsement Fee</span>
-                                                </div>
-                                                <div className="text-right">
-                                                    <span className="text-lg font-black text-emerald-600 tracking-tight">₱{regTotalAmount.toFixed(2)}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </Card>
+
+                                         {/* Fee Display */}
+                                         <div className="space-y-3 p-4 rounded-2xl bg-slate-500/10 border border-slate-500/20">
+                                             <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
+                                                 <span>Misc Fee</span>
+                                                 <span className="font-bold text-slate-200">₱{miscFeeAmount.toFixed(2)}</span>
+                                             </div>
+                                             <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
+                                                 <span>Mandatory Fee</span>
+                                                 <span className="font-bold text-slate-200">₱{mandatoryFeeAmount.toFixed(2)}</span>
+                                             </div>
+                                             <div className="border-t border-slate-500/20 pt-2 flex items-center justify-between">
+                                                 <div>
+                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Total PSA Endorsement Fee</span>
+                                                 </div>
+                                                 <div className="text-right">
+                                                     <span className="text-lg font-black text-slate-200 tracking-tight">₱{apptTotalAmount.toFixed(2)}</span>
+                                                 </div>
+                                             </div>
+                                         </div>
+                                    </div>
 
                                     <div className="space-y-4">
-                                        {/* Data Privacy Agreement panel */}
                                         <div
                                             onClick={() => {
                                                 if (policyAccepted) {
@@ -1113,10 +1021,10 @@ export default function BirthPsaEndorsementPage() {
                                             className={cn(
                                                 "p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-4 select-none",
                                                 policyAccepted
-                                                    ? "bg-emerald-50/20 border-emerald-500/30"
+                                                    ? "bg-slate-500/5 border-slate-500/20"
                                                     : showErrors
                                                         ? "border-2 border-red-500"
-                                                        : "border-slate-200/40 bg-white/30 dark:bg-white/5 hover:border-emerald-500/20"
+                                                        : "border-slate-200/40 bg-white/30 dark:bg-white/5 hover:border-slate-500/20"
                                             )}
                                         >
                                             <button
@@ -1132,7 +1040,7 @@ export default function BirthPsaEndorsementPage() {
                                                 className={cn(
                                                     "w-5 h-5 rounded-full border flex items-center justify-center transition-all shrink-0 mt-0.5",
                                                     policyAccepted
-                                                        ? "bg-emerald-500 border-emerald-500 text-white"
+                                                        ? "bg-slate-500 border-slate-500 text-white"
                                                         : showErrors
                                                             ? "border-2 border-red-500"
                                                             : "border-slate-300"
@@ -1140,9 +1048,9 @@ export default function BirthPsaEndorsementPage() {
                                             >
                                                 {policyAccepted ? <Check className="w-3 h-3" /> : null}
                                             </button>
-                                            <div className="flex-1 text-xs text-left cursor-pointer select-none" onClick={(e) => { e.stopPropagation(); setPolicyOpen(true); }}>
+                                            <div className="flex-1 text-xs text-left cursor-pointer select-none">
                                                 <div className="font-black uppercase text-[11px] tracking-wider text-slate-900 dark:text-white">DATA PRIVACY AND TERMS AGREEMENT</div>
-                                                <div className="text-[10px] text-slate-500 italic mt-1 line-clamp-2 md:line-clamp-none">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
+                                                <div className="text-[10px] text-slate-500 italic mt-1 font-bold line-clamp-2 md:line-clamp-none">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
                                                 {(showErrors && !policyAccepted) && (
                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest mt-1 animate-pulse">Agreement required before submitting</p>
                                                 )}
@@ -1153,46 +1061,29 @@ export default function BirthPsaEndorsementPage() {
                                                     e.stopPropagation();
                                                     setPolicyOpen(true);
                                                 }}
-                                                className="text-[10px] font-black italic text-emerald-600 hover:text-emerald-700 shrink-0"
+                                                className="text-[10px] font-black italic text-slate-500 hover:text-slate-600 shrink-0"
                                             >
                                                 Review
                                             </button>
                                         </div>
 
-                                        <div className="flex justify-end items-center gap-6 pt-6 select-none">
-                                            <button
-                                                type="button"
-                                                onClick={() => setCurrentStep("SUBJECT")}
-                                                className="flex items-center gap-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors duration-200 uppercase font-black tracking-widest italic text-[11px] disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-0 outline-none cursor-pointer group"
+                                        <div className="flex gap-3 w-full justify-end">
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => setCurrentStep("UPLOAD")}
+                                                className="h-14 px-8 rounded-full font-black uppercase tracking-widest italic text-[11px] select-none"
                                             >
-                                                <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
                                                 BACK
-                                            </button>
-                                            <button
-                                                type="button"
+                                            </Button>
+                                            <Button
                                                 onClick={handleSubmit}
-                                                disabled={submitting || (!files.psaNegativeCert && !previews.psaNegativeCert)}
-                                                style={
-                                                    themeColor
-                                                        ? {
-                                                            backgroundColor: themeColor,
-                                                            boxShadow: themeColor.startsWith("var")
-                                                                ? `0 0 20px color-mix(in srgb, ${themeColor} 30%, transparent)`
-                                                                : `0 0 20px ${themeColor}4d`
-                                                        }
-                                                        : {}
-                                                }
-                                                className="rounded-full px-6 py-3 font-black uppercase tracking-widest italic text-[11px] flex items-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 bg-[#e11d48] text-white hover:brightness-110 shadow-[0_0_20px_rgba(225,29,72,0.3)] group"
+                                                disabled={submitting}
+                                                className="flex-1 h-14 rounded-full text-white font-black uppercase tracking-widest italic text-[11px] shadow-xl flex items-center justify-center gap-2 select-none"
+                                                style={{ backgroundColor: themeColor }}
                                             >
-                                                {submitting ? (
-                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                ) : (
-                                                    <>
-                                                        SUBMIT
-                                                        <CheckCircle2 className="w-3.5 h-3.5" />
-                                                    </>
-                                                )}
-                                            </button>
+                                                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                                SUBMIT
+                                            </Button>
                                         </div>
                                     </div>
                                 </motion.div>

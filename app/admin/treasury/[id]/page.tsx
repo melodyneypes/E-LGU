@@ -551,7 +551,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                             if (Array.isArray(defaultFees) && defaultFees.length > 0 && (!tx.fiscalSnapshot || Object.keys(tx.fiscalSnapshot).length === 0)) {
                                 const mappedFees = defaultFees.map((fee: any) => ({
                                     label: fee.label,
-                                    amount: "",
+                                    amount: fee.amount !== undefined ? String(fee.amount) : "",
                                     readonly: isLcrRequesting
                                 }));
                                 // For LCR FOR_REQUESTING, also append a blank editable row
