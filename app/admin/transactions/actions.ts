@@ -1,5 +1,7 @@
 "use server";
 
+import fs from "fs";
+import path from "path";
 import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -4849,8 +4851,6 @@ export async function getUnviewedLcrCounts() {
 
 export async function logDebugMessage(msg: string) {
     try {
-        const fs = require('fs');
-        const path = require('path');
         const logPath = path.join(process.cwd(), 'lcr-debug.log');
         fs.appendFileSync(logPath, `${new Date().toISOString()} - ${msg}\n`);
         return { success: true };

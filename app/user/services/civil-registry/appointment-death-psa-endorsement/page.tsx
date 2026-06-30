@@ -58,9 +58,6 @@ import Link from "next/link";
 
 
 
-
-const STORAGE_KEY = "lcr_appointment_death_psa_endorsement_draft";
-
 type Step = "STATUS" | "INFORMANT" | "SUBJECT" | "UPLOAD" | "REVIEW";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [

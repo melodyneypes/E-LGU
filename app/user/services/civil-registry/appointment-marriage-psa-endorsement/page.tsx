@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
@@ -55,8 +55,6 @@ import { BackNextButton } from "../_components/back-next-button";
 
 
 
-const STORAGE_KEY = "lcr_appointment_marriage_psa_endorsement_draft";
-
 type Step = "STATUS" | "INFORMANT" | "SUBJECT" | "REVIEW";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
@@ -69,7 +67,6 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
 export default function AppointmentMarriagePsaEndorsementPage() {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<Step>("INFORMANT");
-    const isRestoredRef = useRef(false);
 
 
     const validateStep = (step: Step): boolean => {

@@ -53,8 +53,6 @@ import Link from "next/link";
 
 
 
-const STORAGE_KEY = "lcr_appointment_birth_psa_endorsement_draft";
-
 type Step = "INFORMANT" | "SUBJECT" | "REVIEW";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
