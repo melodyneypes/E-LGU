@@ -10,6 +10,15 @@ import { authOptions } from "@/lib/auth";
 
 import { uploadFile, deleteFileByUrl } from "@/lib/storage";
 
+async function verifyAdminOrBarangayAdmin() {
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as any)?.role;
+    if (!session || (role !== "ADMIN" && role !== "BARANGAY_ADMIN")) {
+        throw new Error("Unauthorized: Access denied.");
+    }
+    return session.user;
+}
+
 export async function deleteUploadedFile(imageUrl: string | null | undefined) {
     if (!imageUrl) return;
 
@@ -126,6 +135,7 @@ export async function processFileUpload(formData: FormData, fieldName: string): 
 
 export async function updateSystemSetting(key: string, value: string) {
     try {
+        await verifyAdminOrBarangayAdmin();
         if (key === "maintenance_mode") {
             await prisma.$transaction([
                 prisma.systemSetting.upsert({
@@ -157,6 +167,7 @@ export async function updateSystemSetting(key: string, value: string) {
 
 export async function updateLogoSetting(formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const oldSetting = await prisma.systemSetting.findUnique({ where: { key: "site_logo" } });
         const imageUrl = await processImageUpload(formData, "logo");
         const finalUrl = imageUrl || (formData.get("imageUrl") as string) || "";
@@ -182,11 +193,10 @@ export async function updateLogoSetting(formData: FormData) {
 
 export async function createHeroSlide(formData: FormData) {
     try {
+        const user = await verifyAdminOrBarangayAdmin() as any;
+        const role = user?.role;
+        const managedBarangay = user?.managedBarangay;
         const imageUrl = await processImageUpload(formData, "heroSlide");
-
-        const session = await getServerSession(authOptions);
-        const role = (session?.user as any)?.role;
-        const managedBarangay = (session?.user as any)?.managedBarangay;
 
         await prisma.heroSlide.create({
             data: {
@@ -212,6 +222,7 @@ export async function createHeroSlide(formData: FormData) {
 
 export async function deleteHeroSlide(id: string) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const slide = await prisma.heroSlide.findUnique({ where: { id } });
         if (slide?.imageUrl) {
             await deleteUploadedFile(slide.imageUrl);
@@ -228,16 +239,15 @@ export async function deleteHeroSlide(id: string) {
 
 export async function updateHeroSlide(id: string, formData: FormData) {
     try {
+        const user = await verifyAdminOrBarangayAdmin() as any;
+        const role = user?.role;
+        const managedBarangay = user?.managedBarangay;
         const oldSlide = await prisma.heroSlide.findUnique({ where: { id } });
         const imageUrl = await processImageUpload(formData, "heroSlide");
 
         if (imageUrl && oldSlide?.imageUrl && oldSlide.imageUrl !== imageUrl) {
             await deleteUploadedFile(oldSlide.imageUrl);
         }
-
-        const session = await getServerSession(authOptions);
-        const role = (session?.user as any)?.role;
-        const managedBarangay = (session?.user as any)?.managedBarangay;
 
         await prisma.heroSlide.update({
             where: { id },
@@ -264,6 +274,7 @@ export async function updateHeroSlide(id: string, formData: FormData) {
 
 export async function updateTreasurySettings(formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const oldQr = await prisma.systemSetting.findUnique({ where: { key: "gcash_qr_url" } });
         const qrUrl = await processImageUpload(formData, "gcashQr");
 
@@ -351,6 +362,7 @@ export async function updateTreasurySettings(formData: FormData) {
 
 export async function updateTransactionBaseFees(fees: { id: string, baseFee: number, studentFee?: number | null, defaultFees?: any }[]) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const updates = fees.map(fee =>
             prisma.transactionType.update({
                 where: { id: fee.id },
@@ -373,6 +385,7 @@ export async function updateTransactionBaseFees(fees: { id: string, baseFee: num
 }
 export async function updateMultipleSystemSettings(settings: { key: string, value: string }[]) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const hasMaintenance = settings.some(s => s.key === "maintenance_mode");
         const updates = settings.map(s =>
             prisma.systemSetting.upsert({
@@ -412,6 +425,7 @@ export async function updateAppointmentConfig(
     }
 ) {
     try {
+        await verifyAdminOrBarangayAdmin();
         await prisma.appointmentConfig.upsert({
             where: { department },
             update: {
