@@ -1,4 +1,5 @@
-/* eslint-disable react/no-unescaped-entities, @next/next/no-img-element */
+
+/* eslint-disable react/no-unescaped-entities, @next/next/no-img-element */
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -67,7 +68,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { getCurrentUserResident, cancelTransaction, uploadECopyAction, saveBfpClearanceProofAction, saveZoningClearanceProofAction } from "@/app/admin/transactions/actions";
+import { getCurrentUserResident, cancelTransaction, uploadECopyAction, saveBfpClearanceProofAction, saveZoningClearanceProofAction, getSystemSettingAction } from "@/app/admin/transactions/actions";
 import { submitBuildingPermit, saveTransactionSignature, getExistingBuildingPermits, resubmitBuildingPermit, submitBuildingPermitPaymentProof, submitClearancesForReviewAction, checkActivePropertyPermit, getBarangaysAction, getEngineeringAppointmentConfig } from "./actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -370,6 +371,16 @@ const getEngineeringStatusLabel = (status: string) => {
 
 export default function BuildingPermitAppointmentPage() {
   const router = useRouter();
+  const [themeColor, setThemeColor] = useState("var(--primary-theme)");
+
+  useEffect(() => {
+    getSystemSettingAction("theme_color").then((res) => {
+      if (res.success && res.data) {
+        setThemeColor(res.data);
+      }
+    });
+  }, []);
+
   const [currentStep, setCurrentStep] = useState("APPOINTMENT");
   const [hasReadGuide, setHasReadGuide] = useState(false);
   const [existingApplications, setExistingApplications] = useState<any[]>([]);
@@ -1206,6 +1217,7 @@ export default function BuildingPermitAppointmentPage() {
       if (formData.scopeAddition) parts.push(`ADDITION: ${formData.scopeAdditionText}`);
       if (formData.scopeRepair) parts.push(`REPAIR: ${formData.scopeRepairText}`);
       if (formData.scopeRenovation) parts.push(`RENOVATION: ${formData.scopeRenovationText}`);
+      if (formData.scopeDemolition) parts.push(`DEMOLITION: ${formData.scopeDemolitionText}`);
       if (formData.scopeOthers1) parts.push(`OTHERS: ${formData.scopeOthers1Text1} OF ${formData.scopeOthers1Text2}`);
       if (formData.scopeOthers2) parts.push(`OTHERS: ${formData.scopeOthers2Text1} OF ${formData.scopeOthers2Text2}`);
       if (formData.descriptionOfWorkLegacyText) parts.push(formData.descriptionOfWorkLegacyText);
@@ -1371,9 +1383,15 @@ export default function BuildingPermitAppointmentPage() {
                   <div className={cn(
                     "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
                     isActive ? "bg-primary text-white border-primary shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-105 md:scale-110" :
-                      isCompleted ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" :
+                      isCompleted ? "" :
                         "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
-                  )}>
+                  )}
+                  style={isCompleted && !isActive ? {
+                    backgroundColor: themeColor.startsWith("#") ? `${themeColor}1a` : `rgba(var(--primary), 0.1)`,
+                    color: themeColor,
+                    borderColor: themeColor.startsWith("#") ? `${themeColor}4d` : `rgba(var(--primary), 0.3)`,
+                  } : undefined}
+                  >
                     <Icon className="w-4 h-4 md:w-7 md:h-7" />
                   </div>
                   <span className={cn(
@@ -2984,7 +3002,11 @@ export default function BuildingPermitAppointmentPage() {
                         setCurrentStep("DOCUMENTS");
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
-                      className="px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all w-full md:w-auto bg-emerald-500 text-white hover:bg-emerald-600 shadow-xl shadow-emerald-500/20"
+                      className="px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all w-full md:w-auto text-white hover:opacity-90 shadow-xl"
+                      style={{
+                        backgroundColor: themeColor,
+                        boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
+                      }}
                     >
                       Next: Upload Docs & Permits
                       <span className="text-xl leading-none">→</span>
@@ -3023,9 +3045,14 @@ export default function BuildingPermitAppointmentPage() {
                 className={cn(
                   "flex-1 py-4 px-6 rounded-full font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center justify-center gap-3 transition-all border w-full",
                   activeDocTab === "REQUIREMENTS"
-                    ? "bg-emerald-500 text-white border-emerald-500 shadow-xl shadow-emerald-500/20"
+                    ? "text-white shadow-xl"
                     : "bg-white dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
                 )}
+                style={activeDocTab === "REQUIREMENTS" ? {
+                  backgroundColor: themeColor,
+                  borderColor: themeColor,
+                  boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
+                } : undefined}
               >
                 <FileText className="w-4 h-4" />
                 Requirements ({requiredRequirementsCount} items)
@@ -3035,9 +3062,14 @@ export default function BuildingPermitAppointmentPage() {
                 className={cn(
                   "flex-1 py-4 px-6 rounded-full font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center justify-center gap-3 transition-all border w-full",
                   activeDocTab === "PERMITS"
-                    ? "bg-emerald-500 text-white border-emerald-500 shadow-xl shadow-emerald-500/20"
+                    ? "text-white shadow-xl"
                     : "bg-white dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
                 )}
+                style={activeDocTab === "PERMITS" ? {
+                  backgroundColor: themeColor,
+                  borderColor: themeColor,
+                  boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
+                } : undefined}
               >
                 <FileSignature className="w-4 h-4" />
                 Permits ({requiredPermitsCount} required)
@@ -3052,236 +3084,244 @@ export default function BuildingPermitAppointmentPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
               {(activeDocTab === "REQUIREMENTS"
                 ? documentRequirementsList
-                  .map((docName, idx) => ({ docName, idx }))
-                  .filter(({ idx }) => idx !== 5 && (isAffidavitOfConsentRequired || idx !== 7))
-                : permitTypesList.map((docName, idx) => ({ docName, idx }))
-              ).map(({ docName, idx }) => {
-                const key = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;
-                const fileUrl = selectedApplication?.additionalData?.documents?.[key];
-                const newlyUploaded = activeDocTab === "REQUIREMENTS" ? !!uploadedRequirements[idx] : !!uploadedPermits[idx];
-                const isUploaded = !isEditable ? !!fileUrl : (!!fileUrl || newlyUploaded);
-                const isRequired = activeDocTab === "PERMITS"
-                  ? requiredPermitIndexes.includes(idx)
-                  : requiredRequirementIndexes.includes(idx);
-                const hasError = showValidationErrors && isRequired && !isUploaded;
-                return (
-                  <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group", hasError ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
-                    <div className="flex justify-between items-start gap-4 mb-4">
-                      <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm min-w-0 flex-1">
-                        <span className="inline-flex items-center gap-1.5 flex-wrap">
-                          <span className="text-lg">📄</span>
-                          <span className="break-words">{docName}</span>
-                          {isRequired ? (
-                            <span className="text-red-500 ml-0.5 text-lg">*</span>
-                          ) : (
-                            <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1">Optional</span>
-                          )}
-                        </span>
-                      </h4>
-                      {isUploaded ? (
-                        <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500 text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full shrink-0">
-                          Uploaded
-                        </span>
-                      ) : (
-                        <span className="bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500 text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full shrink-0">
-                          Pending
-                        </span>
-                      )}
-                    </div>
+                    .map((docName, idx) => ({ docName, idx }))
+                    .filter(({ idx }) => idx !== 5 && (isAffidavitOfConsentRequired || idx !== 7))
+                : permitTypesList.map((docName, idx) => ({ docName, idx })))
+                .map(({ docName, idx }) => {
+                  const key = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;
+                  const fileUrl = selectedApplication?.additionalData?.documents?.[key] as string | undefined;
+                  const uploadedFile = activeDocTab === "REQUIREMENTS"
+                    ? uploadedRequirements[idx]
+                    : uploadedPermits[idx];
+                  const isUploaded = !isEditable
+                    ? Boolean(fileUrl)
+                    : Boolean(fileUrl || uploadedFile);
+                  const isRequired = activeDocTab === "PERMITS"
+                    ? requiredPermitIndexes.includes(idx)
+                    : requiredRequirementIndexes.includes(idx);
+                  const hasError = showValidationErrors && isRequired && !isUploaded;
+                  const isExistingImage = Boolean(fileUrl && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(fileUrl));
+                  const isNewImage = Boolean(uploadedFile?.type.startsWith("image/"));
 
-                    {!isEditable ? (
-                      <div className="bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[140px] shadow-sm">
-                        {fileUrl ? (
-                          (() => {
-                            const isImage = /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(fileUrl);
-                            return (
-                              <div className="space-y-3 w-full flex flex-col items-center">
-                                {isImage ? (
-                                  <img src={fileUrl} alt={docName} className="max-h-24 object-contain rounded border border-slate-200 dark:border-white/10" />
-                                ) : (
-                                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-                                    <FileText className="w-5 h-5" />
-                                  </div>
-                                )}
-                                <p className="text-[10px] font-semibold text-slate-500">Document Uploaded</p>
+                  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast.error("File size exceeds the 5MB limit.");
+                      event.target.value = "";
+                      return;
+                    }
+
+                    let fileToProcess = file;
+                    if (file.type.startsWith("image/")) {
+                      try {
+                        toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
+                        fileToProcess = await compressImage(file);
+                        toast.success("Image optimized successfully!", { id: "image-compress-toast" });
+                      } catch (error) {
+                        console.error("Compression error:", error);
+                        toast.dismiss("image-compress-toast");
+                      }
+                    }
+
+                    if (activeDocTab === "REQUIREMENTS") {
+                      setUploadedRequirements((previous) => ({ ...previous, [idx]: fileToProcess }));
+                    } else {
+                      setUploadedPermits((previous) => ({ ...previous, [idx]: fileToProcess }));
+                    }
+
+                    event.target.value = "";
+                  };
+
+                  return (
+                    <div
+                      key={key}
+                      className={cn(
+                        "bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group",
+                        hasError
+                          ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse"
+                          : "border-slate-200 dark:border-white/10 hover:border-primary/30"
+                      )}
+                    >
+                      <div className="flex justify-between items-start gap-4 mb-4">
+                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm min-w-0 flex-1">
+                          <span className="inline-flex items-center gap-1.5 flex-wrap">
+                            <span className="text-lg">📄</span>
+                            <span className="break-words">{docName}</span>
+                            {isRequired ? (
+                              <span className="text-red-500 ml-0.5 text-lg">*</span>
+                            ) : (
+                              <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1">Optional</span>
+                            )}
+                          </span>
+                        </h4>
+
+                        <span
+                          className={cn(
+                            "text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full shrink-0",
+                            isUploaded
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
+                              : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                          )}
+                        >
+                          {isUploaded ? "Uploaded" : "Pending"}
+                        </span>
+                      </div>
+
+                      {!isEditable ? (
+                        <div className="bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[140px] shadow-sm">
+                          {fileUrl ? (
+                            <div className="space-y-3 w-full flex flex-col items-center">
+                              {isExistingImage ? (
+                                <img
+                                  src={fileUrl}
+                                  alt={docName}
+                                  className="max-h-24 object-contain rounded border border-slate-200 dark:border-white/10"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                                  <FileText className="w-5 h-5" />
+                                </div>
+                              )}
+                              <p className="text-[10px] font-semibold text-slate-500">Document Uploaded</p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setViewerUrl(fileUrl);
+                                  setViewerFile(null);
+                                  setViewerTitle(docName);
+                                  setViewerOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:underline bg-transparent border-0 cursor-pointer"
+                              >
+                                View Document ↗
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-center p-4">
+                              <FileWarning className="w-6 h-6 text-slate-400 mx-auto mb-2" />
+                              <p className="text-xs font-semibold text-slate-400 italic">Not Uploaded / Not Required</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-slate-50 dark:bg-black/20 rounded-xl border border-dashed border-slate-300 dark:border-white/20 p-6 flex flex-col items-center justify-center text-center relative hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer group-hover:border-primary/40 overflow-hidden min-h-[140px]">
+                          {uploadedFile ? (
+                            <div className="w-full h-full absolute inset-0 z-0 flex flex-col justify-center items-center group/preview">
+                              {isNewImage ? (
+                                <img
+                                  src={URL.createObjectURL(uploadedFile)}
+                                  alt="Preview"
+                                  className="w-full h-full object-contain bg-slate-900"
+                                />
+                              ) : (
+                                <>
+                                  <FileText className="w-10 h-10 text-primary mb-2" />
+                                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">
+                                    {uploadedFile.name}
+                                  </p>
+                                </>
+                              )}
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setViewerUrl(fileUrl);
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setViewerFile(uploadedFile);
+                                    setViewerUrl(null);
                                     setViewerTitle(docName);
                                     setViewerOpen(true);
                                   }}
-                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:underline bg-transparent border-0 cursor-pointer"
+                                  className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
                                 >
-                                  View Document ↗
+                                  Preview {isNewImage ? "Image" : "Document"}
                                 </button>
+                                <label
+                                  htmlFor={`upload-${activeDocTab}-${idx}`}
+                                  className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer"
+                                >
+                                  Replace {isNewImage ? "Image" : "Document"}
+                                </label>
                               </div>
-                            );
-                          })()
-                        ) : (
-                          <div className="text-center p-4">
-                            <FileWarning className="w-6 h-6 text-slate-400 mx-auto mb-2" />
-                            <p className="text-xs font-semibold text-slate-400 italic">Not Uploaded / Not Required</p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="bg-slate-50 dark:bg-black/20 rounded-xl border border-dashed border-slate-300 dark:border-white/20 p-6 flex flex-col items-center justify-center text-center relative hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer group-hover:border-primary/40 overflow-hidden min-h-[140px]">
-                        {(() => {
-                          const file = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
-                          if (file && file.type.startsWith("image/")) {
-                            return (
-                              <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-contain" />
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setViewerFile(file);
-                                      setViewerTitle(docName);
-                                      setViewerOpen(true);
-                                    }}
-                                    className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                  >
-                                    Preview Image
-                                  </button>
-                                  <label htmlFor={`upload-${activeDocTab}-${idx}`} className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                    Replace Image
-                                  </label>
-                                </div>
+                            </div>
+                          ) : fileUrl && isRevision ? (
+                            <div className="w-full h-full absolute inset-0 z-0 flex flex-col justify-center items-center group/preview">
+                              {isExistingImage ? (
+                                <img src={fileUrl} alt="Preview" className="w-full h-full object-contain bg-slate-900" />
+                              ) : (
+                                <>
+                                  <FileText className="w-10 h-10 text-primary mb-2" />
+                                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">Existing Document</p>
+                                </>
+                              )}
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setViewerUrl(fileUrl);
+                                    setViewerFile(null);
+                                    setViewerTitle(docName);
+                                    setViewerOpen(true);
+                                  }}
+                                  className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
+                                >
+                                  Preview {isExistingImage ? "Image" : "Document"}
+                                </button>
+                                <label
+                                  htmlFor={`upload-${activeDocTab}-${idx}`}
+                                  className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer"
+                                >
+                                  Replace {isExistingImage ? "Image" : "Document"}
+                                </label>
                               </div>
-                            );
-                          } else if (isRevision && !file && fileUrl && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(fileUrl)) {
-                            return (
-                              <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                <img src={fileUrl} alt="Preview" className="w-full h-full object-contain" />
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setViewerUrl(fileUrl);
-                                      setViewerTitle(docName);
-                                      setViewerOpen(true);
-                                    }}
-                                    className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                  >
-                                    Preview Image
-                                  </button>
-                                  <label htmlFor={`upload-${activeDocTab}-${idx}`} className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                    Replace Image
-                                  </label>
-                                </div>
-                              </div>
-                            );
-                          } else if (file) {
-                            return (
-                              <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                <FileText className="w-10 h-10 text-primary mb-2" />
-                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">{file.name}</p>
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setViewerFile(file);
-                                      setViewerTitle(docName);
-                                      setViewerOpen(true);
-                                    }}
-                                    className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                  >
-                                    Preview Document
-                                  </button>
-                                  <label htmlFor={`upload-${activeDocTab}-${idx}`} className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                    Replace Document
-                                  </label>
-                                </div>
-                              </div>
-                            );
-                          } else if (isRevision && !file && fileUrl) {
-                            return (
-                              <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                <FileText className="w-10 h-10 text-primary mb-2" />
-                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">Existing Document</p>
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setViewerUrl(fileUrl);
-                                      setViewerTitle(docName);
-                                      setViewerOpen(true);
-                                    }}
-                                    className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                  >
-                                    Preview Document
-                                  </button>
-                                  <label htmlFor={`upload-${activeDocTab}-${idx}`} className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                    Replace Document
-                                  </label>
-                                </div>
-                              </div>
-                            );
-                          }
-                          return (
-                            <label htmlFor={`upload-${activeDocTab}-${idx}`} className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20">
+                            </div>
+                          ) : (
+                            <label
+                              htmlFor={`upload-${activeDocTab}-${idx}`}
+                              className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20"
+                            >
                               <UploadCloud className="w-6 h-6 text-slate-400 mb-2 group-hover:text-primary transition-colors pointer-events-none" />
                               <p className="text-xs font-medium text-slate-600 dark:text-slate-400 px-2 pointer-events-none">
                                 Click to upload document/image
                               </p>
                             </label>
-                          );
-                        })()}
-                        <input
-                          id={`upload-${activeDocTab}-${idx}`}
-                          type="file"
-                          accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              if (file.size > 5 * 1024 * 1024) {
-                                toast.error("File size exceeds 5MB limit.");
-                                e.target.value = "";
-                                return;
-                              }
-                              let fileToProcess = file;
-                              if (file.type.startsWith("image/")) {
-                                try {
-                                  toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-                                  fileToProcess = await compressImage(file);
-                                  toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-                                } catch (err) {
-                                  console.error("Compression error:", err);
-                                  toast.dismiss("image-compress-toast");
-                                }
-                              }
-                              if (activeDocTab === "REQUIREMENTS") {
-                                setUploadedRequirements(prev => ({ ...prev, [idx]: fileToProcess }));
-                              } else {
-                                setUploadedPermits(prev => ({ ...prev, [idx]: fileToProcess }));
-                              }
-                              e.target.value = "";
-                            }
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                          )}
+
+                          <input
+                            id={`upload-${activeDocTab}-${idx}`}
+                            type="file"
+                            accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
+                            className="hidden"
+                            onChange={handleFileChange}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
 
             {/* Progress Summary */}
             <div className="space-y-4 mt-8">
-              <div className="bg-emerald-50 dark:bg-emerald-500/5 border-l-4 border-emerald-500 p-4 rounded-r-xl flex items-center gap-3">
-                <UploadCloud className="w-5 h-5 text-emerald-700 dark:text-emerald-400 shrink-0" />
-                <p className="text-xs md:text-sm font-bold text-emerald-800 dark:text-emerald-300">
+              <div 
+                className="border-l-4 p-4 rounded-r-xl flex items-center gap-3"
+                style={{
+                  backgroundColor: themeColor.startsWith("#") ? `${themeColor}0d` : `rgba(var(--primary), 0.05)`,
+                  borderLeftColor: themeColor
+                }}
+              >
+                <UploadCloud 
+                  className="w-5 h-5 shrink-0" 
+                  style={{ color: themeColor }}
+                />
+                <p 
+                  className="text-xs md:text-sm font-bold"
+                  style={{ color: themeColor }}
+                >
                   {activeDocTab === "REQUIREMENTS"
                     ? `Requirements Progress: ${requirementsProgress}/${requiredRequirementsCount} documents uploaded`
                     : `Permits Progress: ${permitsProgress}/${requiredPermitsCount} permits uploaded`}
@@ -3303,8 +3343,16 @@ export default function BuildingPermitAppointmentPage() {
             {/* Signature Block */}
             <div className="bg-white dark:bg-black/20 rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-sm mt-8">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                  <PenTool className="w-5 h-5 text-emerald-600" />
+                <div 
+                  className="w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{
+                    backgroundColor: themeColor.startsWith("#") ? `${themeColor}1a` : `rgba(var(--primary), 0.1)`
+                  }}
+                >
+                  <PenTool 
+                    className="w-5 h-5" 
+                    style={{ color: themeColor }}
+                  />
                 </div>
                 <div>
                   <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tighter text-lg flex items-center gap-2">
@@ -3329,7 +3377,12 @@ export default function BuildingPermitAppointmentPage() {
                   <p className="text-sm text-slate-500 mb-6">Please sign to acknowledge that all information provided is true and correct.</p>
                   {isRevision && signatureUrl && (
                     <div className="mb-4">
-                      <p className="text-xs text-emerald-600 font-bold mb-2">Previous Signature (You can resign below to update):</p>
+                      <p 
+                        className="text-xs font-bold mb-2"
+                        style={{ color: themeColor }}
+                      >
+                        Previous Signature (You can resign below to update):
+                      </p>
                       <div className="border border-slate-200 dark:border-white/10 rounded-xl p-4 bg-white max-w-md">
                         <img src={signatureUrl} alt="Digital Signature" className="max-h-32 object-contain mx-auto" />
                       </div>
@@ -3337,6 +3390,7 @@ export default function BuildingPermitAppointmentPage() {
                   )}
                   <div className={cn("rounded-xl overflow-hidden bg-white transition-all", showValidationErrors && !signatureUrl ? "border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border border-slate-200 dark:border-white/10")}>
                   <SignaturePad
+                    themeColor={themeColor}
                     onSave={async (file) => {
                       if (!file) return;
                       toast.loading("Uploading signature...", { id: "signature-upload-toast" });
@@ -3351,7 +3405,14 @@ export default function BuildingPermitAppointmentPage() {
                   />
                   </div>
                   {signatureUrl && (
-                    <div className="mt-4 p-3 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-sm font-bold">
+                    <div 
+                      className="mt-4 p-3 border rounded-xl flex items-center gap-2 text-sm font-bold"
+                      style={{
+                        backgroundColor: themeColor.startsWith("#") ? `${themeColor}0d` : `rgba(var(--primary), 0.05)`,
+                        borderColor: themeColor.startsWith("#") ? `${themeColor}33` : `rgba(var(--primary), 0.2)`,
+                        color: themeColor
+                      }}
+                    >
                       <CheckCircle className="w-4 h-4" /> Signature captured successfully. Ready to submit!
                     </div>
                   )}
@@ -3398,7 +3459,7 @@ export default function BuildingPermitAppointmentPage() {
                 setPrivacyAccepted(true);
                 setIsPrivacyModalOpen(false);
               }}
-              themeColor="#10b981"
+              themeColor={themeColor}
             />
 
             {/* Footer Buttons */}
@@ -3427,7 +3488,11 @@ export default function BuildingPermitAppointmentPage() {
                 <button
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="bg-emerald-500 text-white hover:bg-emerald-600 px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all shadow-xl shadow-emerald-500/20 w-full md:w-auto disabled:opacity-70"
+                  className="text-white px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all shadow-xl w-full md:w-auto disabled:opacity-70 hover:opacity-90"
+                  style={{
+                    backgroundColor: themeColor,
+                    boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
+                  }}
                 >
                   {isSubmitting ? "Submitting..." : (isRevision ? "Resubmit Application" : "Submit to Engineering for Review")}
                   {!isSubmitting && <span className="text-xl leading-none">→</span>}
@@ -4222,7 +4287,7 @@ export default function BuildingPermitAppointmentPage() {
   );
 }
 
-const SignaturePad = ({ onSave }: { onSave: (file: File | null) => void }) => {
+const SignaturePad = ({ onSave, themeColor = "var(--primary-theme)" }: { onSave: (file: File | null) => void; themeColor?: string }) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isDrawing, setIsDrawing] = React.useState(false);
@@ -4370,9 +4435,10 @@ const SignaturePad = ({ onSave }: { onSave: (file: File | null) => void }) => {
           onClick={handleSave}
           disabled={isUploadedSignature}
           className={cn(
-            "px-6 py-2 rounded-full bg-emerald-500 text-white text-sm font-bold flex items-center gap-2 shadow-md hover:bg-emerald-600 transition-colors",
+            "px-6 py-2 rounded-full text-white text-sm font-bold flex items-center gap-2 shadow-md transition-all hover:opacity-90",
             isUploadedSignature && "opacity-50 cursor-not-allowed"
           )}
+          style={!isUploadedSignature ? { backgroundColor: themeColor } : undefined}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
           Save Signature
