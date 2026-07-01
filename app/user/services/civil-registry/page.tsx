@@ -19,7 +19,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { getSystemSettingAction, getCurrentUserResident, getTransactionTypes } from "@/app/admin/transactions/actions";
+import { getSystemSettingAction, getCurrentUserResident, getTransactionTypes, ensureCivilRegistryTransactionTypes } from "@/app/admin/transactions/actions";
 import { supabase } from "@/lib/supabase";
 
 const REGISTRY_TYPES = [
@@ -54,6 +54,16 @@ const REGISTRY_TYPES = [
         code: "LCR_PSA_ENDORSEMENT"
     },
     {
+        id: "PSA_APPOINTMENT_ENDORSEMENT",
+        label: "Birth PSA Appointment Endorsement",
+        icon: FileSignature,
+        description: "Schedule appointment and request endorsement of a verified local birth certificate record to the PSA.",
+        color: "blue",
+        href: "/user/services/civil-registry/appointment-birth-psa-endorsement",
+        available: true,
+        code: "LCR_PSA_APPOINTMENT_ENDORSEMENT"
+    },
+    {
         id: "DEATH_PSA_ENDORSEMENT",
         label: "Death PSA Endorsement",
         icon: FileSignature,
@@ -62,6 +72,16 @@ const REGISTRY_TYPES = [
         href: "/user/services/civil-registry/death-psa-endorsement",
         available: true,
         code: "LCR_DEATH_PSA_ENDORSEMENT"
+    },
+    {
+        id: "DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+        label: "Death PSA Appointment Endorsement",
+        icon: FileSignature,
+        description: "Schedule an appointment and request endorsement of a verified local death certificate record to the PSA.",
+        color: "slate",
+        href: "/user/services/civil-registry/appointment-death-psa-endorsement",
+        available: true,
+        code: "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT"
     },
     {
         id: "DEATH_REQ",
@@ -104,6 +124,16 @@ const REGISTRY_TYPES = [
         code: "LCR_MARRIAGE_PSA_ENDORSEMENT"
     },
     {
+        id: "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT",
+        label: "Marriage PSA Appointment Endorsement",
+        icon: FileSignature,
+        description: "Schedule an appointment and request endorsement of a verified local marriage certificate record to the PSA.",
+        color: "rose",
+        href: "/user/services/civil-registry/appointment-marriage-psa-endorsement",
+        available: true,
+        code: "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+    },
+    {
         id: "MARRIAGE",
         label: "Marriage Registration",
         icon: Heart,
@@ -137,17 +167,17 @@ const REGISTRY_SECTIONS = [
     {
         title: "Birth Registry Services",
         subtitle: "Registration & Certified Copies & Endorsements",
-        items: ["BIRTH_REG", "BIRTH_REQ", "PSA_ENDORSEMENT"]
+        items: ["BIRTH_REG", "BIRTH_REQ", "PSA_ENDORSEMENT", "PSA_APPOINTMENT_ENDORSEMENT"]
     },
     {
         title: "Death Registry Services",
         subtitle: "Registration & Certified True Copy Requests",
-        items: ["DEATH", "DEATH_REQ", "DEATH_PSA_ENDORSEMENT"]
+        items: ["DEATH", "DEATH_REQ", "DEATH_PSA_ENDORSEMENT", "DEATH_PSA_APPOINTMENT_ENDORSEMENT"]
     },
     {
         title: "Marriage Registry & Licenses",
         subtitle: "License Applications, Registrations & Certified Copies",
-        items: ["MARRIAGE_LICENSE", "MARRIAGE", "MARRIAGE_REQ", "MARRIAGE_PSA_ENDORSEMENT"]
+        items: ["MARRIAGE_LICENSE", "MARRIAGE", "MARRIAGE_REQ", "MARRIAGE_PSA_ENDORSEMENT", "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"]
     }
 ];
 
@@ -168,7 +198,7 @@ export default function CivilRegistryPage() {
             }
         });
 
-        const fetchActiveCodes = () => {
+        const fetchActiveCodes = async () => {
             getTransactionTypes().then((res) => {
                 if (res.success && res.data) {
                     const codes = new Set(res.data.map((t: any) => t.code as string));
@@ -179,7 +209,13 @@ export default function CivilRegistryPage() {
             });
         };
 
+        // Fetch immediately so the page doesn't block
         fetchActiveCodes();
+
+        // Seed transaction types in background, then re-fetch to pick up any new ones
+        ensureCivilRegistryTransactionTypes()
+            .catch((e) => console.error("Failed to ensure LCR types:", e))
+            .finally(() => fetchActiveCodes());
 
         if (!supabase) return;
 

@@ -290,55 +290,64 @@ export default async function Home({
         }).then((list: any[]) => list.map((b: any) => b.name));
     const transactionTypes = await prisma.transactionType.findMany({
         where: {
-                isActive: true,
-                OR: [
-                    { code: "CEDULA_IND" },
-                    { code: "BUSINESS_PERMIT_NEW" },
-                    { code: "LCR_BIRTH" },
-                    { code: "BUILDING_PERMIT" }
-                ],
-                level: isFiltered ? 2 : 1
-            },
-            orderBy: { name: "asc" }
-        })
-    ;
-
-    const services = (transactionTypes as any[]).map(t => {
-        if (t.code === "BUSINESS_PERMIT_NEW") {
-            return {
-                id: t.id,
-                code: "BUSINESS_PERMIT",
-                name: "Business Permit",
-                description: "Apply for a new business permit or renew an existing one online.",
-                fee: t.baseFee
-            };
-        }
-        if (t.code === "LCR_BIRTH") {
-            return {
-                id: t.id,
-                code: "CIVIL_REGISTRY",
-                name: "Civil Registry",
-                description: "Request certified copies of Birth, Marriage, or Death Certificates.",
-                fee: t.baseFee
-            };
-        }
-        if (t.code === "BUILDING_PERMIT") {
-            return {
-                id: t.id,
-                code: "BUILDING_PERMIT",
-                name: "Building Permit",
-                description: "Apply for a new building permit online. Manage your construction requirements.",
-                fee: t.baseFee
-            };
-        }
-        return {
-            id: t.id,
-            code: t.code,
-            name: t.name,
-            description: t.description || "",
-            fee: t.baseFee
-        };
+            isActive: true,
+            level: isFiltered ? 2 : 1
+        },
+        orderBy: { name: "asc" }
     });
+
+    const services: any[] = [];
+
+    // 1. Cedula Card
+    const activeCedula = transactionTypes.find(t => t.code === "CEDULA_IND" || t.category?.toLowerCase() === "cedula");
+    if (activeCedula) {
+        services.push({
+            id: activeCedula.id,
+            code: "CEDULA_IND",
+            name: activeCedula.name,
+            description: activeCedula.description || "Tax certificate for individuals including employees, self-employed...",
+            fee: activeCedula.baseFee
+        });
+    }
+
+    // 2. Business Permit Card
+    const activeBiz = transactionTypes.find(t => t.code === "BUSINESS_PERMIT_NEW" || t.category?.toLowerCase() === "business permit");
+    if (activeBiz) {
+        services.push({
+            id: activeBiz.id,
+            code: "BUSINESS_PERMIT",
+            name: "Business Permit",
+            description: activeBiz.description || "Apply for a new business permit or renew an existing one online.",
+            fee: activeBiz.baseFee
+        });
+    }
+
+    // 3. Building Permit Card
+    const activeBuild = transactionTypes.find(t => t.code === "BUILDING_PERMIT" || t.category?.toLowerCase() === "building permit");
+    if (activeBuild) {
+        services.push({
+            id: activeBuild.id,
+            code: "BUILDING_PERMIT",
+            name: activeBuild.name,
+            description: activeBuild.description || "Apply for a new building permit online. Manage your construction requirements.",
+            fee: activeBuild.baseFee
+        });
+    }
+
+    // 4. Civil Registry Card
+    const activeLcr = transactionTypes.find(t => t.code.startsWith("LCR_") || t.category?.toLowerCase() === "civil registry");
+    if (activeLcr) {
+        services.push({
+            id: activeLcr.id,
+            code: "CIVIL_REGISTRY",
+            name: "Civil Registry",
+            description: "Request certified copies of Birth, Marriage, or Death Certificates.",
+            fee: activeLcr.baseFee
+        });
+    }
+
+    // Sort services alphabetically to match original layout
+    services.sort((a, b) => a.name.localeCompare(b.name));
 
     // Merge and shuffle discovery items
     const discoveryItems = [

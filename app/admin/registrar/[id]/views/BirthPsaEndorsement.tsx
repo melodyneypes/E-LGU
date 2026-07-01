@@ -798,7 +798,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                         )}
 
                         {/* TREASURY ACTION PANEL FOR PAID OR PENDING_PAYMENT_VERIFICATION */}
-                        {isTreasuryContext && (transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION") && (
+                        {(isTreasuryContext || rawUserRole === "REGISTRAR") && (transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION") && (
                             <div className="space-y-4">
                                 {/* Proof of Payment Lightbox */}
                                 {(additional.paymentId || (transaction.paymentReference && transaction.paymentReference.trim() !== "")) && (

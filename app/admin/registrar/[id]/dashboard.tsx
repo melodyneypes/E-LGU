@@ -21,13 +21,16 @@ interface ActiveCounts {
     LCR_BIRTH: number;
     LCR_BIRTH_REG: number;
     LCR_PSA_ENDORSEMENT: number;
+    LCR_PSA_APPOINTMENT_ENDORSEMENT: number;
     LCR_DEATH_REG: number;
     LCR_DEATH: number;
     LCR_DEATH_PSA_ENDORSEMENT: number;
+    LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT: number;
     LCR_MARRIAGE_LICENSE: number;
     LCR_MARRIAGE_REG: number;
     LCR_MARRIAGE: number;
     LCR_MARRIAGE_PSA_ENDORSEMENT: number;
+    LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT: number;
 }
 
 interface DashboardCounts {
@@ -68,6 +71,14 @@ const SERVICES_META: ServiceMeta[] = [
         description: "PSA Endorsement requests for Birth, Death, and Marriage",
         icon: Folder,
         color: "indigo"
+    },
+    {
+        code: ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"],
+        name: "PSA Appointment Endorsement",
+        categoryParam: "PSA Appt. Endorsement",
+        description: "PSA Appointment Endorsement requests for Birth, Death, and Marriage",
+        icon: Folder,
+        color: "violet"
     },
     {
         code: "LCR_DEATH_REG",

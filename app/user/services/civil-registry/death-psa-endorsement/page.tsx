@@ -123,6 +123,13 @@ export default function DeathPsaEndorsementPage() {
     const [revisionTx, setRevisionTx] = useState<any>(null);
     const [showErrors, setShowErrors] = useState(false);
 
+    const parsedDefaultFees = dbType?.defaultFees 
+        ? (typeof dbType.defaultFees === "string" ? JSON.parse(dbType.defaultFees) : dbType.defaultFees) 
+        : [];
+    const miscFeeAmount = dbType?.baseFee ?? 200.00;
+    const mandatoryFeeAmount = parsedDefaultFees.find((f: any) => f.code === "MANDATORY_FINE" || f.code === "MANDATORY_FEE")?.amount ?? 130.00;
+    const regTotalAmount = miscFeeAmount + mandatoryFeeAmount;
+
     const [viewerOpen, setViewerOpen] = useState(false);
     const [viewerFile, setViewerFile] = useState<File | null>(null);
     const [viewerUrl, setViewerUrl] = useState<string | null>(null);
@@ -574,7 +581,7 @@ export default function DeathPsaEndorsementPage() {
                 fathersName: formData.fathersName,
                 placeOfDeath: formData.placeOfDeath,
                 causeOfDeath: formData.causeOfDeath,
-                miscFee: dbType?.baseFee || 200.00,
+                psaEndorsementFee: miscFeeAmount,
             };
             data.append("additionalData", JSON.stringify(additionalData));
 
@@ -1294,13 +1301,22 @@ export default function DeathPsaEndorsementPage() {
                                         </div>
 
                                         {/* Fee Display */}
-                                        <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-slate-500/10 border border-slate-500/20">
-                                            <div>
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">PSA Endorsement Fee</span>
-                                                <p className="text-[9px] text-slate-400 italic mt-0.5">Standard processing fee for PSA endorsement</p>
+                                        <div className="space-y-3 p-4 rounded-2xl bg-slate-500/10 border border-slate-500/20">
+                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
+                                                <span>Misc Fee</span>
+                                                <span className="font-bold text-slate-200">₱{miscFeeAmount.toFixed(2)}</span>
                                             </div>
-                                            <div className="text-right">
-                                                <span className="text-lg font-black text-slate-200 tracking-tight">₱{(dbType?.baseFee || 200.00).toFixed(2)}</span>
+                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
+                                                <span>Mandatory Fee</span>
+                                                <span className="font-bold text-slate-200">₱{mandatoryFeeAmount.toFixed(2)}</span>
+                                            </div>
+                                            <div className="border-t border-slate-500/20 pt-2 flex items-center justify-between">
+                                                <div>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Total PSA Endorsement Fee</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-lg font-black text-slate-200 tracking-tight">₱{regTotalAmount.toFixed(2)}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

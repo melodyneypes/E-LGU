@@ -266,6 +266,12 @@ export default function RegistrarPage() {
                     (tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" && tx.status !== "FOR_REQUESTING") ||
                     tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT"
                 ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
+            } else if (categoryParam === "PSA Appt. Endorsement") {
+                matchesCategory = (
+                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    (tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" && tx.status !== "FOR_REQUESTING") ||
+                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
             }
 
             return matchesSearch && matchesCategory;
