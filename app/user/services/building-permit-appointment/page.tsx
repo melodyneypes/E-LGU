@@ -427,6 +427,7 @@ export default function BuildingPermitAppointmentPage() {
   const [activeDocTab, setActiveDocTab] = useState<"REQUIREMENTS" | "PERMITS">("REQUIREMENTS");
   const [uploadedRequirements, setUploadedRequirements] = useState<Record<number, File>>({});
   const [uploadedPermits, setUploadedPermits] = useState<Record<number, File>>({});
+  const [uploadedRevisionDocs, setUploadedRevisionDocs] = useState<Record<number, File>>({});
   const [formData, setFormData] = useState({
     descriptionOfWork: "",
     scopeNewConstruction: false,
@@ -563,8 +564,28 @@ export default function BuildingPermitAppointmentPage() {
   const permitsProgress = requiredPermitIndexes
     .filter(index => uploadedPermitKeys.has(`permit_${index}`)).length;
 
-  const totalUploaded = requirementsProgress + permitsProgress;
-  const totalRequiredItems = requiredRequirementsCount + requiredPermitsCount;
+  const revisionRequests = Array.isArray(selectedApplication?.additionalData?.revisionRequests)
+    ? selectedApplication.additionalData.revisionRequests
+        .map((item: any, index: number) => ({ ...item, index }))
+        .filter((item: any) => item?.name)
+    : [];
+  const revisionRequestsForTab = revisionRequests.filter((item: any) => item.type === activeDocTab);
+  const revisionRequirementsCount = revisionRequests.filter((item: any) => item.type === "REQUIREMENTS").length;
+  const revisionPermitsCount = revisionRequests.filter((item: any) => item.type === "PERMITS").length;
+  const uploadedRevisionKeys = new Set([
+    ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("revision_")),
+    ...Object.keys(uploadedRevisionDocs).map(k => `revision_${k}`)
+  ]);
+  const revisionRequirementsProgress = revisionRequestsForTab
+    .filter((item: any) => activeDocTab === "REQUIREMENTS" && uploadedRevisionKeys.has(`revision_${item.index}`))
+    .length;
+  const revisionPermitsProgress = revisionRequestsForTab
+    .filter((item: any) => activeDocTab === "PERMITS" && uploadedRevisionKeys.has(`revision_${item.index}`))
+    .length;
+  const revisionProgress = revisionRequests.filter((item: any) => uploadedRevisionKeys.has(`revision_${item.index}`)).length;
+
+  const totalUploaded = requirementsProgress + permitsProgress + revisionProgress;
+  const totalRequiredItems = requiredRequirementsCount + requiredPermitsCount + revisionRequests.length;
 
   // UPDATED: Exclude CANCELLED and isCancelled from blocking new applications
   const hasActiveApplication = existingApplications.some(app =>
@@ -1115,14 +1136,11 @@ export default function BuildingPermitAppointmentPage() {
   };
 
   const handleSubmit = async () => {
-    if (requirementsProgress < requiredRequirementsCount || permitsProgress < requiredPermitsCount || !signatureUrl || !privacyAccepted) {
+    if (revisionProgress < revisionRequests.length || !signatureUrl || !privacyAccepted) {
       setShowValidationErrors(true);
-      if (requirementsProgress < requiredRequirementsCount) {
-        toast.warning(`Please ensure ALL ${requiredRequirementsCount} required documents are provided.`);
-        setActiveDocTab("REQUIREMENTS");
-      } else if (permitsProgress < requiredPermitsCount) {
-        toast.warning(`Please ensure ALL ${requiredPermitsCount} required permits are provided.`);
-        setActiveDocTab("PERMITS");
+      if (revisionProgress < revisionRequests.length) {
+        toast.warning("Please upload all revision-requested attachments from Engineering.");
+        setCurrentStep("DOCUMENTS");
       } else if (!signatureUrl) {
         toast.warning("Please provide your digital signature before submitting.");
       } else {
@@ -1211,6 +1229,19 @@ export default function BuildingPermitAppointmentPage() {
         }
       }
 
+      const finalRevisionUrls: Record<string, string> = {};
+      for (let i = 0; i < revisionRequests.length; i++) {
+        const file = uploadedRevisionDocs[i];
+        if (file) {
+          const safeType = (revisionRequests[i]?.type || "REQUIREMENTS").toLowerCase();
+          const url = await uploadFileClientSide(file, `revision_${safeType}`, `revision_${i}`);
+          if (url) finalRevisionUrls[`revision_${i}`] = url;
+        } else {
+          const existingUrl = selectedApplication?.additionalData?.documents?.[`revision_${i}`];
+          if (existingUrl) finalRevisionUrls[`revision_${i}`] = existingUrl;
+        }
+      }
+
       const data = new FormData();
       const parts: string[] = [];
       if (formData.scopeNewConstruction) parts.push("NEW CONSTRUCTION");
@@ -1262,6 +1293,9 @@ export default function BuildingPermitAppointmentPage() {
         data.append(key, url);
       });
       Object.entries(finalPermitUrls).forEach(([key, url]) => {
+        data.append(key, url);
+      });
+      Object.entries(finalRevisionUrls).forEach(([key, url]) => {
         data.append(key, url);
       });
 
@@ -1996,8 +2030,8 @@ export default function BuildingPermitAppointmentPage() {
                           <div className="flex flex-col md:flex-row gap-6">
                             {/* Front Side Upload */}
                             <div className="flex-1 flex flex-col gap-2">
-                              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Front Side <span className="text-red-500">*</span></label>
-                              <div className={cn("bg-white dark:bg-black/20 rounded-xl border border-dashed p-6 flex flex-col items-center justify-center text-center relative hover:bg-slate-50 dark:hover:bg-white/5 transition-colors overflow-hidden min-h-[160px]", (showValidationErrors && idChoice === "UPLOAD" && !formData.newIdFile && !selectedApplication?.additionalData?.documents?.newIdFile) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-300 dark:border-white/20")}>
+                              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Front Side <span className="text-slate-400">(Optional)</span></label>
+                              <div className="bg-white dark:bg-black/20 rounded-xl border border-dashed p-6 flex flex-col items-center justify-center text-center relative hover:bg-slate-50 dark:hover:bg-white/5 transition-colors overflow-hidden min-h-[160px] border-slate-300 dark:border-white/20">
                                 {(() => {
                                   if (formData.newIdFile && formData.newIdFile.type.startsWith("image/")) {
                                     return (
@@ -2502,7 +2536,7 @@ export default function BuildingPermitAppointmentPage() {
 
                       <div>
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                          b. Certified true copy of the TCT covering a lot on which the proposed work is to be done <span className="text-red-500 text-lg">*</span>
+                          b. Certified true copy of the TCT covering a lot on which the proposed work is to be done <span className="text-slate-400 font-medium">(Optional)</span>
                         </label>
                         {!isEditable ? (
                           <div className="bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 p-6 flex flex-col items-center justify-center text-center relative overflow-hidden shadow-sm">
@@ -2538,7 +2572,7 @@ export default function BuildingPermitAppointmentPage() {
                             })()}
                           </div>
                         ) : (
-                          <div className={cn("bg-white dark:bg-black/20 rounded-xl border border-dashed p-8 flex flex-col items-center justify-center text-center relative hover:bg-slate-50 dark:hover:bg-white/5 transition-colors overflow-hidden", (showValidationErrors && !hasTctFile) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-300 dark:border-white/20")}>
+                          <div className="bg-white dark:bg-black/20 rounded-xl border border-dashed p-8 flex flex-col items-center justify-center text-center relative hover:bg-slate-50 dark:hover:bg-white/5 transition-colors overflow-hidden border-slate-300 dark:border-white/20">
                             {(() => {
                               if (formData.tctFile && formData.tctFile.type.startsWith("image/")) {
                                 return (
@@ -2960,9 +2994,7 @@ export default function BuildingPermitAppointmentPage() {
                           !formData.occupancyCategory ||
                           (formData.occupancyCategory !== "Other Construction" && formData.selectedSubOccupancies.length === 0) ||
                           (formData.occupancyCategory === "Other Construction" && !formData.subOccupancyOthersSpecify) ||
-                          (formData.selectedSubOccupancies.includes("Others (Specify)") && !formData.subOccupancyOthersSpecify) ||
-                          (idChoice === "UPLOAD" && !formData.newIdFile && !selectedApplication?.additionalData?.documents?.newIdFile) ||
-                          !hasTctFile;
+                          (formData.selectedSubOccupancies.includes("Others (Specify)") && !formData.subOccupancyOthersSpecify);
 
                         console.log("Validation Details:", {
                           hasNoScopeSelected,
@@ -3072,7 +3104,7 @@ export default function BuildingPermitAppointmentPage() {
                 } : undefined}
               >
                 <FileSignature className="w-4 h-4" />
-                Permits ({requiredPermitsCount} required)
+                Permits ({requiredPermitsCount} items)
               </button>
             </div>
 
@@ -3082,23 +3114,39 @@ export default function BuildingPermitAppointmentPage() {
 
             {/* Document Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-              {(activeDocTab === "REQUIREMENTS"
-                ? documentRequirementsList
-                    .map((docName, idx) => ({ docName, idx }))
-                    .filter(({ idx }) => idx !== 5 && (isAffidavitOfConsentRequired || idx !== 7))
-                : permitTypesList.map((docName, idx) => ({ docName, idx })))
-                .map(({ docName, idx }) => {
-                  const key = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;
-                  const fileUrl = selectedApplication?.additionalData?.documents?.[key] as string | undefined;
-                  const uploadedFile = activeDocTab === "REQUIREMENTS"
-                    ? uploadedRequirements[idx]
-                    : uploadedPermits[idx];
+              {([
+                ...(activeDocTab === "REQUIREMENTS"
+                  ? documentRequirementsList
+                      .map((docName, idx) => ({ docName, idx, kind: "base" as const }))
+                      .filter(({ idx }) => idx !== 5 && (isAffidavitOfConsentRequired || idx !== 7))
+                  : permitTypesList.map((docName, idx) => ({ docName, idx, kind: "base" as const }))),
+                ...revisionRequestsForTab.map((req: any) => ({
+                  docName: req.name,
+                  idx: req.index,
+                  kind: "revision" as const,
+                  revisionType: req.type as "REQUIREMENTS" | "PERMITS"
+                }))
+              ])
+                .map(({ docName, idx, kind }) => {
+                  const baseKey = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;
+                  const key = kind === "revision" ? `${activeDocTab.toLowerCase()}_revision_${idx}` : baseKey;
+                  const uploadId = `upload-${key}`;
+                  const isRevisionItem = kind === "revision";
+                  const revisionKey = `revision_${idx}`;
+                  const fileUrl = isRevisionItem
+                    ? (selectedApplication?.additionalData?.documents?.[revisionKey] as string | undefined)
+                    : (selectedApplication?.additionalData?.documents?.[baseKey] as string | undefined);
+                  const uploadedFile = isRevisionItem
+                    ? uploadedRevisionDocs[idx]
+                    : (activeDocTab === "REQUIREMENTS"
+                      ? uploadedRequirements[idx]
+                      : uploadedPermits[idx]);
                   const isUploaded = !isEditable
                     ? Boolean(fileUrl)
                     : Boolean(fileUrl || uploadedFile);
-                  const isRequired = activeDocTab === "PERMITS"
-                    ? requiredPermitIndexes.includes(idx)
-                    : requiredRequirementIndexes.includes(idx);
+                  const isRequired = isRevisionItem
+                    ? true
+                    : false; // All initial requirements and permits are optional
                   const hasError = showValidationErrors && isRequired && !isUploaded;
                   const isExistingImage = Boolean(fileUrl && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(fileUrl));
                   const isNewImage = Boolean(uploadedFile?.type.startsWith("image/"));
@@ -3125,7 +3173,9 @@ export default function BuildingPermitAppointmentPage() {
                       }
                     }
 
-                    if (activeDocTab === "REQUIREMENTS") {
+                    if (isRevisionItem) {
+                      setUploadedRevisionDocs((previous) => ({ ...previous, [idx]: fileToProcess }));
+                    } else if (activeDocTab === "REQUIREMENTS") {
                       setUploadedRequirements((previous) => ({ ...previous, [idx]: fileToProcess }));
                     } else {
                       setUploadedPermits((previous) => ({ ...previous, [idx]: fileToProcess }));
@@ -3137,6 +3187,7 @@ export default function BuildingPermitAppointmentPage() {
                   return (
                     <div
                       key={key}
+                      data-revision-item={isRevisionItem ? "true" : "false"}
                       className={cn(
                         "bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group",
                         hasError
@@ -3239,7 +3290,7 @@ export default function BuildingPermitAppointmentPage() {
                                   Preview {isNewImage ? "Image" : "Document"}
                                 </button>
                                 <label
-                                  htmlFor={`upload-${activeDocTab}-${idx}`}
+                                  htmlFor={uploadId}
                                   className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer"
                                 >
                                   Replace {isNewImage ? "Image" : "Document"}
@@ -3272,7 +3323,7 @@ export default function BuildingPermitAppointmentPage() {
                                   Preview {isExistingImage ? "Image" : "Document"}
                                 </button>
                                 <label
-                                  htmlFor={`upload-${activeDocTab}-${idx}`}
+                                  htmlFor={uploadId}
                                   className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer"
                                 >
                                   Replace {isExistingImage ? "Image" : "Document"}
@@ -3281,7 +3332,7 @@ export default function BuildingPermitAppointmentPage() {
                             </div>
                           ) : (
                             <label
-                              htmlFor={`upload-${activeDocTab}-${idx}`}
+                              htmlFor={uploadId}
                               className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20"
                             >
                               <UploadCloud className="w-6 h-6 text-slate-400 mb-2 group-hover:text-primary transition-colors pointer-events-none" />
@@ -3292,7 +3343,7 @@ export default function BuildingPermitAppointmentPage() {
                           )}
 
                           <input
-                            id={`upload-${activeDocTab}-${idx}`}
+                            id={uploadId}
                             type="file"
                             accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
                             className="hidden"
@@ -3323,19 +3374,19 @@ export default function BuildingPermitAppointmentPage() {
                   style={{ color: themeColor }}
                 >
                   {activeDocTab === "REQUIREMENTS"
-                    ? `Requirements Progress: ${requirementsProgress}/${requiredRequirementsCount} documents uploaded`
-                    : `Permits Progress: ${permitsProgress}/${requiredPermitsCount} permits uploaded`}
+                    ? `Requirements Uploaded: ${requirementsProgress + revisionRequirementsProgress} documents`
+                    : `Permits Uploaded: ${permitsProgress + revisionPermitsProgress} permits`}
                 </p>
               </div>
               <div className="bg-blue-50 dark:bg-blue-500/5 border-l-4 border-blue-500 p-4 rounded-r-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <CheckCircle className="w-5 h-5 text-blue-700 dark:text-blue-400 shrink-0" />
                   <p className="text-xs md:text-sm font-bold text-blue-800 dark:text-blue-300">
-                    Total Progress: {totalUploaded}/{totalRequiredItems} items uploaded
+                    Total Progress: {totalUploaded} items uploaded
                   </p>
                 </div>
                 {!selectedApplication && (
-                  <span className="text-[10px] text-blue-600/60 dark:text-blue-400/60 font-medium uppercase tracking-widest hidden sm:block">All {totalRequiredItems} items must be uploaded</span>
+                  <span className="text-[10px] text-blue-600/60 dark:text-blue-400/60 font-medium uppercase tracking-widest hidden sm:block">Uploads are optional</span>
                 )}
               </div>
             </div>
