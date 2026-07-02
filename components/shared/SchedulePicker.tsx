@@ -128,11 +128,7 @@ export default function SchedulePicker({
         };
     };
 
-    // Check if slot count exceeds config limit
-    const getSlotAvailability = (dateStr: string, slot: string) => {
-        const { booked, total } = getSlotDetails(dateStr, slot);
-        return booked < total;
-    };
+
 
     // Check if a specific date is disabled
     const isDateDisabled = (date: Date | null) => {
