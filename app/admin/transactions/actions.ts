@@ -2263,10 +2263,20 @@ export async function rejectTransaction(id: string, remarks: string) {
 /**
  * Send a transaction back to the resident for revision
  */
-export async function sendForRevision(id: string, remarks: string) {
+export async function sendForRevision(
+    id: string,
+    remarks: string,
+    revisionRequests: { type: "REQUIREMENTS" | "PERMITS"; name: string }[] = []
+) {
     try {
         id = sanitizeString(id);
         remarks = sanitizeString(remarks);
+        const normalizedRevisionRequests = revisionRequests
+            .map((item) => ({
+                type: item?.type === "PERMITS" ? "PERMITS" as const : "REQUIREMENTS" as const,
+                name: sanitizeString(item?.name || "")
+            }))
+            .filter((item) => item.name.length > 0);
 
         const session = await getSession();
         const user = session?.user as any;
@@ -2365,13 +2375,33 @@ export async function sendForRevision(id: string, remarks: string) {
             return { success: true, data: transaction, isAutoRejected: true };
         } else {
             // Standard Revision Request
+            const currentAdditionalData = (tx.additionalData as any) || {};
+            const revisionHistory = Array.isArray(currentAdditionalData.revisionHistory)
+                ? currentAdditionalData.revisionHistory
+                : [];
+            const updatedAdditionalData = {
+                ...currentAdditionalData,
+                revisionRequests: normalizedRevisionRequests,
+                revisionHistory: [
+                    ...revisionHistory,
+                    {
+                        id: `${Date.now()}`,
+                        remarks,
+                        revisionRequests: normalizedRevisionRequests,
+                        requestedBy: user.id,
+                        requestedAt: new Date().toISOString()
+                    }
+                ]
+            };
+
             const transaction = await prisma.transaction.update({
                 where: { id },
                 data: {
                     status: "FOR_REVISION" as any,
                     rejectionRemarks: remarks,
                     processedBy: user.id,
-                    revisionCount: nextRevisionCount
+                    revisionCount: nextRevisionCount,
+                    additionalData: updatedAdditionalData as any
                 }
             });
 

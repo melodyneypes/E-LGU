@@ -78,6 +78,8 @@ export async function submitBuildingPermit(formData: FormData) {
     for (const [key] of Array.from(formData.entries())) {
       if (key.startsWith("req_") || key.startsWith("permit_")) {
          await processFile(key, key.startsWith("req_") ? "requirements" : "permits");
+      } else if (key.startsWith("revision_")) {
+         await processFile(key, "revision");
       }
     }
 
@@ -299,6 +301,8 @@ export async function resubmitBuildingPermit(transactionId: string, formData: Fo
     for (const [key] of Array.from(formData.entries())) {
       if (key.startsWith("req_") || key.startsWith("permit_")) {
          await processFile(key, key.startsWith("req_") ? "requirements" : "permits");
+      } else if (key.startsWith("revision_")) {
+         await processFile(key, "revision");
       }
     }
 

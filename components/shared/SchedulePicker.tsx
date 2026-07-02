@@ -102,10 +102,10 @@ export default function SchedulePicker({
         const formattedDate = formatDateString(date);
         if (config && config.blockedDates && config.blockedDates.includes(formattedDate)) return true;
 
-        // Disable past dates
+        // Disable past dates and today's date
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        if (date < today) return true;
+        if (date <= today) return true;
 
         // Check if all slots are fully booked
         const totalMaxSlots = config.maxSlots;

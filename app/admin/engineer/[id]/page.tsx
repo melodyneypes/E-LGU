@@ -57,6 +57,11 @@ import {
     DialogTrigger
 } from "@/components/ui/dialog";
 
+type RevisionRequestItem = {
+    type: "REQUIREMENTS" | "PERMITS";
+    name: string;
+};
+
 interface PageProps {
     params: Promise<{ id: string }>;
 }
@@ -241,6 +246,9 @@ export default function EngineerDetailPage({ params }: PageProps) {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [remarks, setRemarks] = useState("");
+    const [revisionRequests, setRevisionRequests] = useState<RevisionRequestItem[]>([
+        { type: "REQUIREMENTS", name: "" }
+    ]);
     const remarksRef = useRef<HTMLTextAreaElement>(null);
     const [ctcNumber, setCtcNumber] = useState("");
     const [isRejecting, setIsRejecting] = useState(false);
@@ -458,10 +466,18 @@ export default function EngineerDetailPage({ params }: PageProps) {
     };
 
     const handleRequestRevision = async () => {
-        if (!remarks) { toast.error("Remarks required"); return; }
+        const cleanedRequests = revisionRequests
+            .map((item) => ({ type: item.type, name: item.name.trim() }))
+            .filter((item) => item.name.length > 0);
+
+        if (!remarks.trim()) { toast.error("Remarks required"); return; }
+        if (cleanedRequests.length === 0) {
+            toast.error("Please add at least one requested attachment.");
+            return;
+        }
         setActionLoading(true);
         try {
-            const res = await sendForRevision(transaction.id, remarks);
+            const res = await sendForRevision(transaction.id, remarks, cleanedRequests);
             if (res.success) {
                 toast.success("Sent back for revision");
                 router.push(backUrl);
@@ -2402,7 +2418,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
                                                 <DialogTrigger asChild>
                                                     {(transaction.revisionCount || 0) < 3 && (
                                                         <Button
-                                                                                                                onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
+                                                                                                                onClick={() => { setIsRequestingRevision(true); setRemarks(""); setRevisionRequests([{ type: "REQUIREMENTS", name: "" }]); }}
                                                                                                                 className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95"
                                                                                                             >
                                                                                                                 Request Revision
@@ -2427,6 +2443,51 @@ export default function EngineerDetailPage({ params }: PageProps) {
                                                                 className="min-h-[120px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 font-bold italic p-6 text-sm"
                                                                 required
                                                             />
+                                                        </div>
+                                                        <div className="space-y-3">
+                                                            <div className="flex items-center justify-between gap-3">
+                                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Requested Attachments <span className="text-red-500">*</span></Label>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    onClick={() => setRevisionRequests((prev) => [...prev, { type: "REQUIREMENTS", name: "" }])}
+                                                                    className="h-8 rounded-full text-[10px] font-black uppercase tracking-widest"
+                                                                >
+                                                                    Add Item
+                                                                </Button>
+                                                            </div>
+                                                            <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
+                                                                {revisionRequests.map((item, index) => (
+                                                                    <div key={`${index}-${item.type}`} className="space-y-2 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 p-4">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <select
+                                                                                value={item.type}
+                                                                                onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, type: e.target.value === "PERMITS" ? "PERMITS" : "REQUIREMENTS" } : entry))}
+                                                                                className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs font-bold uppercase tracking-widest text-slate-700 dark:text-slate-200"
+                                                                            >
+                                                                                <option value="REQUIREMENTS">Requirements</option>
+                                                                                <option value="PERMITS">Permits</option>
+                                                                            </select>
+                                                                            <Input
+                                                                                value={item.name}
+                                                                                onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, name: e.target.value } : entry))}
+                                                                                placeholder="e.g. Structural Plan"
+                                                                                className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-sm font-medium"
+                                                                            />
+                                                                            {revisionRequests.length > 1 && (
+                                                                                <Button
+                                                                                    type="button"
+                                                                                    variant="ghost"
+                                                                                    onClick={() => setRevisionRequests((prev) => prev.filter((_, idx) => idx !== index))}
+                                                                                    className="h-10 w-10 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40"
+                                                                                >
+                                                                                    <Trash2 className="w-4 h-4" />
+                                                                                </Button>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     <Button onClick={() => { if (!remarks.trim()) { toast.error("Reason is required"); return; } handleRequestRevision(); }} disabled={actionLoading || !remarks.trim()} className="w-full h-14 bg-amber-500 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-amber-500/20 active:scale-95 transition-all hover:bg-amber-600">

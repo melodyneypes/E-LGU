@@ -94,6 +94,15 @@ export async function verifyFileSignature(url: string, bucket: string = DEFAULT_
             .createSignedUrl(path, 60);
 
         if (signedError || !signedData?.signedUrl) {
+            const statusCode = (signedError as any)?.statusCode ?? (signedError as any)?.status;
+            const message = (signedError as any)?.message || "";
+
+            // Missing objects are common during cleanup or when records outlive files.
+            // Treat them as validation failures without polluting the logs.
+            if (statusCode === 404 || /not found/i.test(message)) {
+                return { isValid: false, error: "File no longer exists in storage" };
+            }
+
             console.error(`Failed to generate read signed URL for ${path}:`, signedError);
             return { isValid: false, error: "Could not access storage file" };
         }
@@ -191,7 +200,8 @@ export async function validatePayloadFiles(payload: any, bucket: string = DEFAUL
             return { url, ...check };
         }));
 
-        const failed = results.find(r => !r.isValid);
+        // Missing objects are stale references, not upload corruption.
+        const failed = results.find(r => !r.isValid && r.error !== "File no longer exists in storage");
         if (failed) {
             // Clean up the invalid file immediately
             await deleteFileByUrl(failed.url, bucket);
