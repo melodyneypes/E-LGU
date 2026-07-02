@@ -15,6 +15,8 @@ interface SchedulePickerProps {
         maxSlots: number;
         maxSlotsAM?: number;
         maxSlotsPM?: number;
+        amTimeLabel?: string;
+        pmTimeLabel?: string;
         blockedDates: string[];
         activeDays: number[];
     };
@@ -31,8 +33,8 @@ export default function SchedulePicker({
     themeColor = "#2563eb"
 }: SchedulePickerProps) {
     const SLOTS = [
-        "08:00 AM - 11:00 AM",
-        "01:00 PM - 04:00 PM"
+        config.amTimeLabel || "08:00 AM - 11:00 AM",
+        config.pmTimeLabel || "01:00 PM - 04:00 PM"
     ];
 
     const [currentMonth, setCurrentMonth] = useState<Date>(() => {
@@ -67,11 +69,11 @@ export default function SchedulePicker({
         return `${year}-${month}-${day}`;
     };
 
-    // Check if slot count exceeds config limit
-    const getSlotAvailability = (dateStr: string, slot: string) => {
-        if (!dateStr) return true;
+    // Get detailed info about a specific slot
+    const getSlotDetails = (dateStr: string, slot: string) => {
+        if (!dateStr) return { booked: 0, total: 25, isAM: false };
         const targetDate = new Date(dateStr);
-        const count = bookedSlots.filter(b => {
+        const booked = bookedSlots.filter(b => {
             const bDate = new Date(b.appointmentDate);
             return (
                 bDate.getUTCFullYear() === targetDate.getUTCFullYear() &&
@@ -81,13 +83,55 @@ export default function SchedulePicker({
             );
         }).length;
 
-        const isAM = slot.includes("AM") || slot.toUpperCase().includes("08:00 AM");
+        const isAM = slot === (config.amTimeLabel || "08:00 AM - 11:00 AM");
         const configAny = config as any;
-        const maxLimit = isAM
+        const total = isAM
             ? (configAny.maxSlotsAM ?? 25)
             : (configAny.maxSlotsPM ?? 25);
 
-        return count < maxLimit;
+        return { booked, total, isAM };
+    };
+
+    // Get booked stats for a calendar date
+    const getDayBookedStats = (date: Date) => {
+        const bookedAM = bookedSlots.filter(b => {
+            const bDate = new Date(b.appointmentDate);
+            return (
+                bDate.getFullYear() === date.getFullYear() &&
+                bDate.getMonth() === date.getMonth() &&
+                bDate.getDate() === date.getDate() &&
+                b.appointmentSlot === (config.amTimeLabel || "08:00 AM - 11:00 AM")
+            );
+        }).length;
+
+        const bookedPM = bookedSlots.filter(b => {
+            const bDate = new Date(b.appointmentDate);
+            return (
+                bDate.getFullYear() === date.getFullYear() &&
+                bDate.getMonth() === date.getMonth() &&
+                bDate.getDate() === date.getDate() &&
+                b.appointmentSlot === (config.pmTimeLabel || "01:00 PM - 04:00 PM")
+            );
+        }).length;
+
+        const configAny = config as any;
+        const maxAM = configAny.maxSlotsAM ?? 25;
+        const maxPM = configAny.maxSlotsPM ?? 25;
+
+        return {
+            bookedAM,
+            bookedPM,
+            maxAM,
+            maxPM,
+            totalBooked: bookedAM + bookedPM,
+            totalMax: config.maxSlots
+        };
+    };
+
+    // Check if slot count exceeds config limit
+    const getSlotAvailability = (dateStr: string, slot: string) => {
+        const { booked, total } = getSlotDetails(dateStr, slot);
+        return booked < total;
     };
 
     // Check if a specific date is disabled
@@ -176,6 +220,7 @@ export default function SchedulePicker({
                                 const formatted = formatDateString(day);
                                 const disabled = isDateDisabled(day);
                                 const isSelected = selectedDate === formatted;
+                                const stats = getDayBookedStats(day);
 
                                 return (
                                     <button
@@ -200,6 +245,25 @@ export default function SchedulePicker({
                                         {!disabled && !isSelected && (
                                             <div className="absolute bottom-1 w-1 h-1 rounded-full bg-slate-300 dark:bg-white/20 group-hover:bg-primary" />
                                         )}
+                                        {!disabled && (
+                                            <div className="pointer-events-none absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-44 bg-slate-950/95 text-white text-[9px] p-2 rounded-xl shadow-xl hidden group-hover:flex flex-col gap-1 border border-white/10 z-50 backdrop-blur-sm select-none font-sans tracking-normal text-left">
+                                                <div className="font-bold text-center border-b border-white/10 pb-1 mb-1 text-[10px]">
+                                                    {day.toLocaleDateString("en-US", { month: "short", day: "numeric" })} Slots
+                                                </div>
+                                                <div className="flex justify-between gap-2">
+                                                    <span className="text-slate-400 font-bold uppercase tracking-wider text-[8px]">AM Session:</span>
+                                                    <span className="font-black text-white">{stats.bookedAM} / {stats.maxAM}</span>
+                                                </div>
+                                                <div className="flex justify-between gap-2">
+                                                    <span className="text-slate-400 font-bold uppercase tracking-wider text-[8px]">PM Session:</span>
+                                                    <span className="font-black text-white">{stats.bookedPM} / {stats.maxPM}</span>
+                                                </div>
+                                                <div className="flex justify-between gap-2 border-t border-white/5 pt-1 mt-0.5">
+                                                    <span className="text-slate-400 font-bold uppercase tracking-wider text-[8px]">Total booked:</span>
+                                                    <span className="font-black text-emerald-450">{stats.totalBooked} / {stats.totalMax}</span>
+                                                </div>
+                                            </div>
+                                        )}
                                     </button>
                                 );
                             })}
@@ -222,7 +286,8 @@ export default function SchedulePicker({
                     ) : (
                         <div className="grid grid-cols-1 gap-3.5">
                             {SLOTS.map((slot) => {
-                                const available = getSlotAvailability(selectedDate, slot);
+                                const { booked, total } = getSlotDetails(selectedDate, slot);
+                                const available = booked < total;
                                 const active = selectedSlot === slot;
                                 return (
                                     <button
@@ -254,6 +319,9 @@ export default function SchedulePicker({
                                             <div className="space-y-0.5">
                                                 <span className="font-black text-xs md:text-sm text-slate-800 dark:text-slate-100">{slot}</span>
                                                 <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400">Regular processing hours</p>
+                                                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">
+                                                    {booked} / {total} slots occupied ({Math.max(0, total - booked)} remaining)
+                                                </p>
                                             </div>
                                         </div>
                                         <span className={cn(
