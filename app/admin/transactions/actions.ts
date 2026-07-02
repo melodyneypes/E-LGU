@@ -1,5 +1,7 @@
 "use server";
 
+import fs from "fs";
+import path from "path";
 import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -433,7 +435,7 @@ export async function ensureCivilRegistryTransactionTypes() {
                 description: "Request PSA Endorsement for Birth Certificate.",
                 level: 1,
                 category: "Civil Registry",
-                baseFee: 130.00,
+                baseFee: 200.00,
                 deliveryFee: 0.00,
                 isFixed: true,
                 requiredDocs: ["PSA Negative Certification"],
@@ -444,7 +446,10 @@ export async function ensureCivilRegistryTransactionTypes() {
                 },
                 requiresBusinessName: false,
                 supportsECopy: true,
-                processorRole: "TREASURY_STAFF"
+                processorRole: "TREASURY_STAFF",
+                defaultFees: [
+                    { code: "MANDATORY_FINE", label: "Mandatory Fee", amount: 130.00 }
+                ]
             },
             {
                 code: "LCR_DEATH_PSA_ENDORSEMENT",
@@ -463,7 +468,10 @@ export async function ensureCivilRegistryTransactionTypes() {
                 },
                 requiresBusinessName: false,
                 supportsECopy: true,
-                processorRole: "TREASURY_STAFF"
+                processorRole: "TREASURY_STAFF",
+                defaultFees: [
+                    { code: "MANDATORY_FINE", label: "Mandatory Fee", amount: 130.00 }
+                ]
             },
             {
                 code: "LCR_MARRIAGE_PSA_ENDORSEMENT",
@@ -482,14 +490,80 @@ export async function ensureCivilRegistryTransactionTypes() {
                 },
                 requiresBusinessName: false,
                 supportsECopy: true,
-                processorRole: "TREASURY_STAFF"
+                processorRole: "TREASURY_STAFF",
+                defaultFees: [
+                    { code: "MANDATORY_FINE", label: "Mandatory Fee", amount: 130.00 }
+                ]
+            },
+            {
+                code: "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+                name: "Birth PSA Appointment Endorsement",
+                description: "Request appointment for Birth PSA Endorsement.",
+                level: 1,
+                category: "Civil Registry",
+                baseFee: 130.00,
+                deliveryFee: 0.00,
+                isFixed: true,
+                requiredDocs: ["PSA Negative Certification"],
+                formSchema: {
+                    type: "CIVIL_REGISTRY",
+                    registryType: "PSA_APPOINTMENT_ENDORSEMENT",
+                    fields: ["originalTransactionId", "psaNegCertUrl"]
+                },
+                requiresBusinessName: false,
+                supportsECopy: true,
+                processorRole: "TREASURY_STAFF",
+                defaultFees: [
+                    { code: "MANDATORY_FINE", label: "Mandatory Fee", amount: 140.00 }
+                ]
+            },
+            {
+                code: "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+                name: "Death PSA Appointment Endorsement",
+                description: "Request appointment for Death PSA Endorsement.",
+                level: 1,
+                category: "Civil Registry",
+                baseFee: 130.00,
+                deliveryFee: 0.00,
+                isFixed: true,
+                requiredDocs: ["PSA Negative Certification"],
+                formSchema: {
+                    type: "CIVIL_REGISTRY",
+                    registryType: "DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+                    fields: ["originalTransactionId", "psaNegCertUrl"]
+                },
+                requiresBusinessName: false,
+                supportsECopy: true,
+                processorRole: "TREASURY_STAFF",
+                defaultFees: [
+                    { code: "MANDATORY_FINE", label: "Mandatory Fee", amount: 140.00 }
+                ]
+            },
+            {
+                code: "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT",
+                name: "Marriage PSA Appointment Endorsement",
+                description: "Request appointment for Marriage PSA Endorsement.",
+                level: 1,
+                category: "Civil Registry",
+                baseFee: 130.00,
+                deliveryFee: 0.00,
+                isFixed: true,
+                requiredDocs: ["PSA Negative Certification"],
+                formSchema: {
+                    type: "CIVIL_REGISTRY",
+                    registryType: "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT",
+                    fields: ["originalTransactionId", "psaNegCertUrl"]
+                },
+                requiresBusinessName: false,
+                supportsECopy: true,
+                processorRole: "TREASURY_STAFF",
+                defaultFees: [
+                    { code: "MANDATORY_FINE", label: "Mandatory Fee", amount: 140.00 }
+                ]
             }
         ];
 
         for (const t of types) {
-            const existing = await prisma.transactionType.findUnique({ where: { code: t.code } });
-            const hasDefaultFees = existing && Array.isArray(existing.defaultFees) && existing.defaultFees.length > 0;
-
             await prisma.transactionType.upsert({
                 where: { code: t.code },
                 update: {
@@ -498,8 +572,6 @@ export async function ensureCivilRegistryTransactionTypes() {
                     requiredDocs: t.requiredDocs,
                     formSchema: t.formSchema,
                     supportsECopy: t.supportsECopy,
-                    baseFee: t.baseFee,
-                    ...(!hasDefaultFees && (t as any).defaultFees ? { defaultFees: (t as any).defaultFees } : {})
                 },
                 create: t as any
             });
@@ -1427,7 +1499,8 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
             const isFreeBirthApp = (typeCode === "LCR_BIRTH" || typeCode === "LCR_BIRTH_REG") &&
                                    (verifiedBook === "FORM_1B" || verifiedBook === "FORM_1C");
 
-            const baseFee = isFreeBirthApp
+            const isPsaEndorsement = typeCode.includes("PSA_ENDORSEMENT") || typeCode.includes("PSA_APPOINTMENT_ENDORSEMENT");
+            const baseFee = (isFreeBirthApp || isPsaEndorsement)
                 ? 0
                 : isCertifiedCopy
                     ? 0
@@ -2190,10 +2263,20 @@ export async function rejectTransaction(id: string, remarks: string) {
 /**
  * Send a transaction back to the resident for revision
  */
-export async function sendForRevision(id: string, remarks: string) {
+export async function sendForRevision(
+    id: string,
+    remarks: string,
+    revisionRequests: { type: "REQUIREMENTS" | "PERMITS"; name: string }[] = []
+) {
     try {
         id = sanitizeString(id);
         remarks = sanitizeString(remarks);
+        const normalizedRevisionRequests = revisionRequests
+            .map((item) => ({
+                type: item?.type === "PERMITS" ? "PERMITS" as const : "REQUIREMENTS" as const,
+                name: sanitizeString(item?.name || "")
+            }))
+            .filter((item) => item.name.length > 0);
 
         const session = await getSession();
         const user = session?.user as any;
@@ -2292,13 +2375,33 @@ export async function sendForRevision(id: string, remarks: string) {
             return { success: true, data: transaction, isAutoRejected: true };
         } else {
             // Standard Revision Request
+            const currentAdditionalData = (tx.additionalData as any) || {};
+            const revisionHistory = Array.isArray(currentAdditionalData.revisionHistory)
+                ? currentAdditionalData.revisionHistory
+                : [];
+            const updatedAdditionalData = {
+                ...currentAdditionalData,
+                revisionRequests: normalizedRevisionRequests,
+                revisionHistory: [
+                    ...revisionHistory,
+                    {
+                        id: `${Date.now()}`,
+                        remarks,
+                        revisionRequests: normalizedRevisionRequests,
+                        requestedBy: user.id,
+                        requestedAt: new Date().toISOString()
+                    }
+                ]
+            };
+
             const transaction = await prisma.transaction.update({
                 where: { id },
                 data: {
                     status: "FOR_REVISION" as any,
                     rejectionRemarks: remarks,
                     processedBy: user.id,
-                    revisionCount: nextRevisionCount
+                    revisionCount: nextRevisionCount,
+                    additionalData: updatedAdditionalData as any
                 }
             });
 
@@ -4317,7 +4420,7 @@ export async function requestPsaEndorsement(formData: FormData) {
                         description: "Request PSA Endorsement for Death Certificate.",
                         level: 1,
                         category: "Civil Registry",
-                        baseFee: 200.00,
+                        baseFee: 330.00,
                         deliveryFee: 0.00,
                         isFixed: true,
                         requiredDocs: ["PSA Negative Certification"],
@@ -4328,7 +4431,11 @@ export async function requestPsaEndorsement(formData: FormData) {
                         },
                         requiresBusinessName: false,
                         supportsECopy: true,
-                        processorRole: "TREASURY_STAFF"
+                        processorRole: "TREASURY_STAFF",
+                        defaultFees: [
+                            { code: "MISC_FEE", label: "Misc Fee", amount: 200.00 },
+                            { code: "MANDATORY_FINE", label: "Mandatory Fine", amount: 130.00 }
+                        ]
                     }
                 });
             } else if (isMarriage) {
@@ -4339,7 +4446,7 @@ export async function requestPsaEndorsement(formData: FormData) {
                         description: "Request PSA Endorsement for Marriage Certificate.",
                         level: 1,
                         category: "Civil Registry",
-                        baseFee: 200.00,
+                        baseFee: 330.00,
                         deliveryFee: 0.00,
                         isFixed: true,
                         requiredDocs: ["PSA Negative Certification"],
@@ -4350,7 +4457,11 @@ export async function requestPsaEndorsement(formData: FormData) {
                         },
                         requiresBusinessName: false,
                         supportsECopy: true,
-                        processorRole: "TREASURY_STAFF"
+                        processorRole: "TREASURY_STAFF",
+                        defaultFees: [
+                            { code: "MISC_FEE", label: "Misc Fee", amount: 200.00 },
+                            { code: "MANDATORY_FINE", label: "Mandatory Fine", amount: 130.00 }
+                        ]
                     }
                 });
             } else {
@@ -4361,7 +4472,7 @@ export async function requestPsaEndorsement(formData: FormData) {
                         description: "Request PSA Endorsement for Birth Certificate.",
                         level: 1,
                         category: "Civil Registry",
-                        baseFee: 130.00,
+                        baseFee: 330.00,
                         deliveryFee: 0.00,
                         isFixed: true,
                         requiredDocs: ["PSA Negative Certification"],
@@ -4372,7 +4483,11 @@ export async function requestPsaEndorsement(formData: FormData) {
                         },
                         requiresBusinessName: false,
                         supportsECopy: true,
-                        processorRole: "TREASURY_STAFF"
+                        processorRole: "TREASURY_STAFF",
+                        defaultFees: [
+                            { code: "MISC_FEE", label: "Misc Fee", amount: 200.00 },
+                            { code: "MANDATORY_FINE", label: "Mandatory Fine", amount: 130.00 }
+                        ]
                     }
                 });
             }
@@ -4416,7 +4531,7 @@ export async function requestPsaEndorsement(formData: FormData) {
                         psaEndorsementRequested: true,
                         psaEndorsementDate: new Date().toISOString(),
                         psaNegCertUrl,
-                        psaEndorsementFee: 200,
+                        psaEndorsementFee: psaType!.baseFee,
                         psaEndorsementTransactionId: newTx.id
                     },
                     updatedAt: new Date()
@@ -4633,26 +4748,32 @@ export async function getRegistrarActiveCounts() {
             LCR_BIRTH: 0,
             LCR_BIRTH_REG: 0,
             LCR_PSA_ENDORSEMENT: 0,
+            LCR_PSA_APPOINTMENT_ENDORSEMENT: 0,
             LCR_DEATH_REG: 0,
             LCR_DEATH: 0,
             LCR_DEATH_PSA_ENDORSEMENT: 0,
+            LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT: 0,
             LCR_MARRIAGE_LICENSE: 0,
             LCR_MARRIAGE_REG: 0,
             LCR_MARRIAGE: 0,
             LCR_MARRIAGE_PSA_ENDORSEMENT: 0,
+            LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT: 0,
         };
 
         const totalCounts: Record<string, number> = {
             LCR_BIRTH: 0,
             LCR_BIRTH_REG: 0,
             LCR_PSA_ENDORSEMENT: 0,
+            LCR_PSA_APPOINTMENT_ENDORSEMENT: 0,
             LCR_DEATH_REG: 0,
             LCR_DEATH: 0,
             LCR_DEATH_PSA_ENDORSEMENT: 0,
+            LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT: 0,
             LCR_MARRIAGE_LICENSE: 0,
             LCR_MARRIAGE_REG: 0,
             LCR_MARRIAGE: 0,
             LCR_MARRIAGE_PSA_ENDORSEMENT: 0,
+            LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT: 0,
         };
 
         for (const tx of allTransactions) {
@@ -4730,8 +4851,11 @@ export async function getUnviewedLcrCounts() {
             LCR_BIRTH_REG: "Birth Registration",
             LCR_BIRTH: "Birth Certificate",
             LCR_PSA_ENDORSEMENT: "PSA Endorsement",
+            LCR_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appt. Endorsement",
             LCR_DEATH_PSA_ENDORSEMENT: "PSA Endorsement",
+            LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appt. Endorsement",
             LCR_MARRIAGE_PSA_ENDORSEMENT: "PSA Endorsement",
+            LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appt. Endorsement",
             LCR_DEATH_REG: "Death Registration",
             LCR_DEATH: "Death Certificate",
             LCR_MARRIAGE_LICENSE: "Marriage License",
@@ -4752,5 +4876,16 @@ export async function getUnviewedLcrCounts() {
     } catch (error: any) {
         console.error("Get unviewed LCR counts error:", error);
         return { success: false, error: error?.message || "Failed to get unviewed counts" };
+    }
+}
+
+export async function logDebugMessage(msg: string) {
+    try {
+        const logPath = path.join(process.cwd(), 'lcr-debug.log');
+        fs.appendFileSync(logPath, `${new Date().toISOString()} - ${msg}\n`);
+        return { success: true };
+    } catch (e) {
+        console.error("Debug log failed:", e);
+        return { success: false };
     }
 }

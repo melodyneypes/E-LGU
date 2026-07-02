@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
-import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
+
 import { motion, AnimatePresence } from "framer-motion";
 import {
     User,
@@ -50,39 +50,10 @@ import {
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
-import { getSecureUploadUrlAction } from "@/app/auth/actions";
-import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
+
 import { BackNextButton } from "../_components/back-next-button";
 
 
-// --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
-async function uploadFileClientSide(file: File, fieldName: string): Promise<string> {
-    const fileExt = file.name.split('.').pop() || 'bin';
-
-    const res = await getSecureUploadUrlAction(fieldName, "lcr/marriage_psa_endorsement", fileExt);
-    if (!res.success || !res.signedUrl || !res.publicUrl) {
-        throw new Error(res.error || "Failed to generate secure upload destination");
-    }
-
-    const uploadRes = await fetch(res.signedUrl, {
-        method: "PUT",
-        headers: {
-            "Content-Type": file.type
-        },
-        body: file
-    });
-
-    if (!uploadRes.ok) {
-        throw new Error(`Upload direct to storage failed: ${uploadRes.statusText}`);
-    }
-
-    return res.publicUrl;
-}
-
-
-
-const STORAGE_KEY = "lcr_marriage_psa_endorsement_draft";
 
 type Step = "STATUS" | "INFORMANT" | "SUBJECT" | "REVIEW";
 
@@ -93,10 +64,9 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "REVIEW", label: "DOCUMENTS & SUBMIT", icon: CheckCircle2 },
 ];
 
-export default function MarriagePsaEndorsementPage() {
+export default function AppointmentMarriagePsaEndorsementPage() {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<Step>("INFORMANT");
-    const isRestoredRef = useRef(false);
 
 
     const validateStep = (step: Step): boolean => {
@@ -148,16 +118,7 @@ export default function MarriagePsaEndorsementPage() {
                 return false;
             }
 
-            if (!files.psaNegativeCert && !previews.psaNegativeCert) {
-                setShowErrors(true);
-                toast.error("Please upload PSA Negative Certification.");
-                return false;
-            }
-            if (!files.form3a && !previews.form3a) {
-                setShowErrors(true);
-                toast.error("Please upload Form 3A (Local Registry Copy).");
-                return false;
-            }
+
         }
         setShowErrors(false);
         return true;
@@ -185,25 +146,7 @@ export default function MarriagePsaEndorsementPage() {
     const [revisionTx, setRevisionTx] = useState<any>(null);
     const [showErrors, setShowErrors] = useState(false);
 
-    const parsedDefaultFees = dbType?.defaultFees 
-        ? (typeof dbType.defaultFees === "string" ? JSON.parse(dbType.defaultFees) : dbType.defaultFees) 
-        : [];
-    const miscFeeAmount = dbType?.baseFee ?? 200.00;
-    const mandatoryFeeAmount = parsedDefaultFees.find((f: any) => f.code === "MANDATORY_FINE" || f.code === "MANDATORY_FEE")?.amount ?? 130.00;
-    const regTotalAmount = miscFeeAmount + mandatoryFeeAmount;
 
-    const [viewerOpen, setViewerOpen] = useState(false);
-    const [viewerFile, setViewerFile] = useState<File | null>(null);
-    const [viewerUrl, setViewerUrl] = useState<string | null>(null);
-    const [viewerTitle, setViewerTitle] = useState("");
-    const [previews, setPreviews] = useState<Record<string, string | null>>({});
-
-    const handleOpenViewer = (file: File | null, title: string, url: string | null = null) => {
-        setViewerFile(file);
-        setViewerUrl(url);
-        setViewerTitle(title);
-        setViewerOpen(true);
-    };
 
     // Form State
     const [formData, setFormData] = useState({
@@ -227,14 +170,18 @@ export default function MarriagePsaEndorsementPage() {
         placeOfMarriage: "",
     });
 
-    const [files, setFiles] = useState<Record<string, File | null>>({
-        psaNegativeCert: null,
-        form3a: null,
-    });
+
 
     // Privacy / Terms modal state
     const [policyOpen, setPolicyOpen] = useState(false);
     const [policyAccepted, setPolicyAccepted] = useState(false);
+
+    const parsedDefaultFees = dbType?.defaultFees 
+        ? (typeof dbType.defaultFees === "string" ? JSON.parse(dbType.defaultFees) : dbType.defaultFees) 
+        : [];
+    const miscFeeAmount = dbType?.baseFee ?? 130.00;
+    const mandatoryFeeAmount = parsedDefaultFees.find((f: any) => f.code === "MANDATORY_FINE" || f.code === "MANDATORY_FEE")?.amount ?? 140.00;
+    const apptTotalAmount = miscFeeAmount + mandatoryFeeAmount;
 
     const handleAcceptPolicy = () => {
         setPolicyOpen(false);
@@ -247,8 +194,8 @@ export default function MarriagePsaEndorsementPage() {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get("revisionId")) return;
 
-        const savedStep = sessionStorage.getItem("marriage-psa-endorsement-step");
-        const savedForm = sessionStorage.getItem("marriage-psa-endorsement-form");
+        const savedStep = sessionStorage.getItem("appointment-marriage-psa-endorsement-step");
+        const savedForm = sessionStorage.getItem("appointment-marriage-psa-endorsement-form");
 
         if (savedStep) setCurrentStep(savedStep as Step);
         if (savedForm) {
@@ -259,33 +206,12 @@ export default function MarriagePsaEndorsementPage() {
                 console.error("Failed to parse saved form", e);
             }
         }
-
-        async function hydrateFiles() {
-            try {
-                const draftFiles = await getDraftFiles(STORAGE_KEY);
-                if (draftFiles && Object.keys(draftFiles).length > 0 && !isRestoredRef.current) {
-                    isRestoredRef.current = true;
-                    setFiles(prev => ({ ...prev, ...draftFiles }));
-                    const localPreviews: Record<string, string> = {};
-                    Object.entries(draftFiles).forEach(([key, file]) => {
-                        if (file) {
-                            localPreviews[key] = URL.createObjectURL(file);
-                        }
-                    });
-                    setPreviews(prev => ({ ...prev, ...localPreviews }));
-                    toast.info("Progress restored. Uploaded document drafts recovered.", { duration: 6000 });
-                }
-            } catch (error) {
-                console.error("Failed to hydrate draft files:", error);
-            }
-        }
-        hydrateFiles();
     }, []);
 
     useEffect(() => {
         if (!loading && !revisionId) {
-            sessionStorage.setItem("marriage-psa-endorsement-step", currentStep);
-            sessionStorage.setItem("marriage-psa-endorsement-form", JSON.stringify(formData));
+            sessionStorage.setItem("appointment-marriage-psa-endorsement-step", currentStep);
+            sessionStorage.setItem("appointment-marriage-psa-endorsement-form", JSON.stringify(formData));
         }
     }, [currentStep, formData, loading, revisionId]);
 
@@ -333,14 +259,6 @@ export default function MarriagePsaEndorsementPage() {
                         const addData = txData.additionalData as any || {};
                         const resSnapshot = txData.residentSnapshot as any || r || {};
 
-                        const previews: Record<string, string | null> = {};
-                        const fileKeys = ["psaNegativeCert", "form3a"];
-                        fileKeys.forEach(k => {
-                            if (addData[k] && typeof addData[k] === "string" && addData[k].startsWith("http")) {
-                                previews[k] = addData[k];
-                            }
-                        });
-
                         setFormData(prev => ({
                             ...prev,
                             relationship: addData.relationship || prev.relationship,
@@ -361,7 +279,6 @@ export default function MarriagePsaEndorsementPage() {
                             dateOfMarriage: addData.dateOfMarriage || "",
                             placeOfMarriage: addData.placeOfMarriage || "",
                         }));
-                        setPreviews(previews);
                     } else {
                         setFormData(prev => ({
                             ...prev,
@@ -382,45 +299,14 @@ export default function MarriagePsaEndorsementPage() {
                 }
 
                 if (typesResult.success && typesResult.data) {
-                    const psaType = typesResult.data.find((t: any) => t.code === "LCR_MARRIAGE_PSA_ENDORSEMENT");
+                    const psaType = typesResult.data.find((t: any) => t.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT");
                     if (psaType) {
                         setTypeId(psaType.id);
                         setDbType(psaType);
                     }
                 }
 
-                if (!txData) {
-                    // Check for latest Form 3A and auto-attach if no draft exists
-                    const latestRes = await getLatestForm3AForCurrentUser();
-                    if (latestRes.success && latestRes.data) {
-                        const draftFiles = await getDraftFiles(STORAGE_KEY);
-                        if (!draftFiles?.form3a) {
-                            const { docUrl, husbandName, wifeName, dateOfMarriage, placeOfMarriage } = latestRes.data;
-                            setFormData(prev => ({
-                                ...prev,
-                                husbandFullName: prev.husbandFullName || (husbandName ? husbandName.toUpperCase() : ""),
-                                wifeFullName: prev.wifeFullName || (wifeName ? wifeName.toUpperCase() : ""),
-                                dateOfMarriage: prev.dateOfMarriage || (dateOfMarriage ? new Date(dateOfMarriage).toISOString().split('T')[0] : ""),
-                                placeOfMarriage: prev.placeOfMarriage || (placeOfMarriage ? placeOfMarriage.toUpperCase() : "")
-                            }));
 
-                            if (docUrl) {
-                                try {
-                                    const response = await fetch(docUrl);
-                                    const blob = await response.blob();
-                                    const filename = docUrl.split('/').pop() || "form_3a.pdf";
-                                    const file = new File([blob], filename, { type: blob.type });
-
-                                    setFiles(prev => ({ ...prev, form3a: file }));
-                                    await saveDraftFile(STORAGE_KEY, "form3a", file);
-                                    toast.success("Latest Form 3A found and automatically attached from your transactions!");
-                                } catch (err) {
-                                    console.error("Failed to download Form 3A file:", err);
-                                }
-                            }
-                        }
-                    }
-                }
             } catch (error) {
                 console.error("Initialization error:", error);
             } finally {
@@ -439,16 +325,10 @@ export default function MarriagePsaEndorsementPage() {
         setFormData(prev => ({ ...prev, [name]: value }));
 
         if (name === "relationship") {
-            setFiles(prev => ({ ...prev, form3a: null }));
-            saveDraftFile(STORAGE_KEY, "form3a", null).catch(err => {
-                console.error("Failed to delete draft Form 3A file:", err);
-            });
-
             const promise = (async () => {
                 const res = await getLatestForm3AForCurrentUser();
                 if (res.success && res.data) {
-                    const { docUrl, husbandName, wifeName, dateOfMarriage, placeOfMarriage } = res.data;
-
+                    const { husbandName, wifeName, dateOfMarriage, placeOfMarriage } = res.data;
                     setFormData(prev => ({
                         ...prev,
                         husbandFullName: husbandName ? husbandName.toUpperCase() : prev.husbandFullName,
@@ -456,22 +336,6 @@ export default function MarriagePsaEndorsementPage() {
                         dateOfMarriage: dateOfMarriage ? new Date(dateOfMarriage).toISOString().split('T')[0] : prev.dateOfMarriage,
                         placeOfMarriage: placeOfMarriage ? placeOfMarriage.toUpperCase() : prev.placeOfMarriage
                     }));
-
-                    if (docUrl) {
-                        try {
-                            const response = await fetch(docUrl);
-                            const blob = await response.blob();
-                            const filename = docUrl.split('/').pop() || "form_3a.pdf";
-                            const file = new File([blob], filename, { type: blob.type });
-
-                            setFiles(prev => ({ ...prev, form3a: file }));
-                            setPreviews(prev => ({ ...prev, form3a: docUrl }));
-                            await saveDraftFile(STORAGE_KEY, "form3a", file);
-                            toast.success("Latest Form 3A found and automatically attached from your transactions!");
-                        } catch (err) {
-                            console.error("Failed to download Form 3A file:", err);
-                        }
-                    }
                 }
             })();
             toast.promise(promise, {
@@ -482,54 +346,7 @@ export default function MarriagePsaEndorsementPage() {
         }
     };
 
-    const renderDocCard = (label: string, fileKey: string, required: boolean = true) => {
-        const file = files[fileKey] || null;
-        const preview = previews[fileKey] || null;
 
-        return (
-            <PremiumDocumentUpload
-                key={fileKey}
-                label={label}
-                required={required}
-                file={file}
-                previewUrl={preview}
-                error={showErrors && required && !file && !preview}
-                onFileSelect={async (newFile) => {
-                    if (newFile.size > 5 * 1024 * 1024) {
-                        toast.error("File size exceeds 5MB limit.");
-                        return;
-                    }
-
-                    const fileToProcess = newFile;
-
-                    try {
-                        toast.loading("Uploading and preparing document preview...", { id: `file-upload-${fileKey}` });
-                        const sanitizedKey = fileKey.replace(/[^a-zA-Z0-9_-]/g, '_');
-                        const publicUrl = await uploadFileClientSide(fileToProcess, sanitizedKey);
-
-                        setFiles(prev => ({ ...prev, [fileKey]: fileToProcess }));
-                        setPreviews(prev => ({ ...prev, [fileKey]: publicUrl }));
-                        await saveDraftFile(STORAGE_KEY, fileKey, fileToProcess);
-                        toast.success("Document uploaded & preview ready!", { id: `file-upload-${fileKey}` });
-                    } catch (uploadErr) {
-                        console.error(`[ClientUpload] Failed to upload ${fileKey} on-the-fly:`, uploadErr);
-                        toast.error("Upload failed. Local copy stored (preview limited).", { id: `file-upload-${fileKey}` });
-
-                        setFiles(prev => ({ ...prev, [fileKey]: fileToProcess }));
-                        setPreviews(prev => ({ ...prev, [fileKey]: fileToProcess.type.startsWith("image/") ? URL.createObjectURL(fileToProcess) : null }));
-                        await saveDraftFile(STORAGE_KEY, fileKey, fileToProcess);
-                    }
-                }}
-                onClear={async () => {
-                    setFiles(prev => ({ ...prev, [fileKey]: null }));
-                    setPreviews(prev => ({ ...prev, [fileKey]: null }));
-                    await saveDraftFile(STORAGE_KEY, fileKey, null);
-                    toast.success("File removed successfully.");
-                }}
-                onView={() => handleOpenViewer(file, label, preview)}
-            />
-        );
-    };
 
     const handleSubmit = async () => {
         if (submitting) return;
@@ -542,20 +359,12 @@ export default function MarriagePsaEndorsementPage() {
             toast.error("Service type not initialized. Please try again later.");
             return;
         }
-        if (!files.psaNegativeCert && !previews.psaNegativeCert) {
-            toast.error("Please upload PSA Negative Certification");
-            return;
-        }
-        if (!files.form3a && !previews.form3a) {
-            toast.error("Please upload Form 3A (Local Registry Copy)");
-            return;
-        }
 
         setSubmitting(true);
         try {
             const data = new FormData();
             data.append("typeId", typeId);
-            data.append("registryType", "MARRIAGE_PSA_ENDORSEMENT");
+            data.append("registryType", "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT");
             if (revisionId) {
                 data.append("revisionId", revisionId);
             }
@@ -572,53 +381,18 @@ export default function MarriagePsaEndorsementPage() {
             };
             data.append("residentSnapshot", JSON.stringify(residentSnapshot));
 
-            const fileUrls: Record<string, string> = {};
-
-            // First, copy any existing public URLs from previews
-            Object.entries(previews || {}).forEach(([key, url]) => {
-                if (url && typeof url === "string" && url.startsWith("http")) {
-                    fileUrls[key] = url;
-                }
-            });
-
-            const fileEntries = Object.entries(files);
-            for (let i = 0; i < fileEntries.length; i++) {
-                const [key, file] = fileEntries[i];
-                if (!file) continue;
-                const sanitizedKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
-
-                if (fileUrls[key]) {
-                    console.log(`[ClientUpload] Reusing existing public URL for ${key}:`, fileUrls[key]);
-                    continue;
-                }
-
-                try {
-                    toast.loading(`Uploading document ${i + 1}/${fileEntries.length}...`, { id: "upload-toast" });
-                    const url = await uploadFileClientSide(file, sanitizedKey);
-                    fileUrls[key] = url;
-                } catch (uploadErr) {
-                    console.error(`[ClientUpload] Failed to upload ${key}:`, uploadErr);
-                    toast.error(`Failed to upload document: ${key}. Please try again.`, { id: "upload-toast" });
-                    setSubmitting(false);
-                    return;
-                }
-            }
-            toast.dismiss("upload-toast");
-
             const additionalData = {
                 ...formData,
                 psaEndorsementFee: miscFeeAmount,
-                ...fileUrls
             };
             data.append("additionalData", JSON.stringify(additionalData));
 
             const res = await submitCivilRegistryTransaction(data);
 
             if (res.success && res.data) {
-                toast.success(revisionId ? "Revision resubmitted successfully!" : "Marriage PSA Endorsement submitted successfully!");
-                sessionStorage.removeItem("marriage-psa-endorsement-step");
-                sessionStorage.removeItem("marriage-psa-endorsement-form");
-                await clearDraftFiles(STORAGE_KEY);
+                toast.success(revisionId ? "Revision resubmitted successfully!" : "Marriage PSA Appointment Endorsement submitted successfully!");
+                sessionStorage.removeItem("appointment-marriage-psa-endorsement-step");
+                sessionStorage.removeItem("appointment-marriage-psa-endorsement-form");
                 router.push(`/user/services/requests/${res.data.id}`);
             } else {
                 toast.error(res.error || "Failed to submit endorsement request");
@@ -730,14 +504,7 @@ export default function MarriagePsaEndorsementPage() {
                 onDecline={() => { setPolicyAccepted(false); }}
                 themeColor="var(--primary-theme)"
             />
-            <DocumentViewerModal
-                isOpen={viewerOpen}
-                onClose={() => setViewerOpen(false)}
-                file={viewerFile}
-                fileUrl={viewerUrl}
-                title={viewerTitle}
-                themeColor="var(--primary-theme)"
-            />
+
             <div className="container max-w-5xl mx-auto px-4 pt-3 pb-0 space-y-5">
                 <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                     <Breadcrumb>
@@ -768,7 +535,7 @@ export default function MarriagePsaEndorsementPage() {
                             </BreadcrumbItem>
                             <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                             <BreadcrumbItem>
-                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: themeColor }}>Marriage PSA Endorsement</BreadcrumbPage>
+                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: themeColor }}>Marriage PSA Appointment Endorsement</BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
@@ -791,11 +558,11 @@ export default function MarriagePsaEndorsementPage() {
                             </div>
 
                             <h1 className="text-2xl md:text-4xl font-black uppercase italic tracking-tighter leading-none">
-                                Marriage <span style={{ color: themeColor }}>PSA Endorsement</span>
+                                Marriage PSA <span style={{ color: themeColor }}>Appointment Endorsement</span>
                             </h1>
 
                             <p className="text-slate-600 dark:text-slate-300 font-medium text-xs leading-relaxed max-w-xl italic">
-                                Formally request the Local Civil Registry to endorse a verified marriage certificate record to the Philippine Statistics Authority (PSA) database.
+                                Request an appointment for the Local Civil Registry to endorse a verified marriage certificate record to the Philippine Statistics Authority (PSA) database.
                             </p>
                         </div>
 
@@ -1120,33 +887,7 @@ export default function MarriagePsaEndorsementPage() {
                                             </div>
                                         </div>
 
-                                        <div className="border-t border-slate-200/60 dark:border-white/5 pt-8 space-y-6">
-                                            <div className="space-y-2">
-                                                <h3 className="text-xl font-black uppercase italic tracking-tight flex items-center gap-2" style={{ color: themeColor }}>
-                                                    Required Documents
-                                                </h3>
-                                                <p className="text-xs text-slate-400 font-bold italic">
-                                                    Please upload clear photos or scanned copies of the following requirements.
-                                                </p>
-                                            </div>
 
-                                            <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200/60 dark:border-amber-500/20">
-                                                <div className="flex items-start gap-3">
-                                                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                                                    <div>
-                                                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">PSA Negative Certification Required</p>
-                                                        <p className="text-[9px] text-amber-600/80 dark:text-amber-400/80 italic mt-1">
-                                                            This is strictly required as proof that the record is not available in the national database. Obtain this from any PSA Serbilis outlet.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                                {renderDocCard("PSA Negative Certification", "psaNegativeCert", true)}
-                                                {renderDocCard("Form 3A (Local Registry Copy)", "form3a", true)}
-                                            </div>
-                                        </div>
                                     </Card>
 
                                     <div className="flex justify-end gap-4 pt-4">
@@ -1225,48 +966,26 @@ export default function MarriagePsaEndorsementPage() {
                                             </div>
 
                                             <div className="col-span-1 md:col-span-2 space-y-6 pt-6 border-t border-slate-100 dark:border-white/5">
-                                                <h5 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 border-b pb-2">Documents & Fee</h5>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                    <div className={cn(
-                                                        "flex items-center gap-3 p-3 rounded-xl border",
-                                                        (files.psaNegativeCert || previews.psaNegativeCert) ? "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/20" : "bg-red-50/30 border-red-200/50"
-                                                    )}>
-                                                        {(files.psaNegativeCert || previews.psaNegativeCert) ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
-                                                        <div>
-                                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">PSA Negative Certification</p>
-                                                            <p className="text-[8px] text-slate-400 italic">{files.psaNegativeCert ? files.psaNegativeCert.name : previews.psaNegativeCert ? "Attached from previous draft" : "Not uploaded"}</p>
-                                                        </div>
+                                                <h5 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 border-b pb-2">Filing Fee Details</h5>
+
+                                                <div className="space-y-3 p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/40 dark:border-white/5">
+                                                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                        <span>Misc Fee</span>
+                                                        <span className="font-bold text-slate-700 dark:text-slate-200">₱{miscFeeAmount.toFixed(2)}</span>
                                                     </div>
-                                                    <div className={cn(
-                                                        "flex items-center gap-3 p-3 rounded-xl border",
-                                                        (files.form3a || previews.form3a) ? "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/20" : "bg-red-50/30 border-red-200/50"
-                                                    )}>
-                                                        {(files.form3a || previews.form3a) ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
+                                                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                        <span>Mandatory Fee</span>
+                                                        <span className="font-bold text-slate-700 dark:text-slate-200">₱{mandatoryFeeAmount.toFixed(2)}</span>
+                                                    </div>
+                                                    <div className="border-t border-slate-200/40 dark:border-white/5 pt-2 flex items-center justify-between">
                                                         <div>
-                                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Form 3A</p>
-                                                            <p className="text-[8px] text-slate-400 italic">{files.form3a ? files.form3a.name : previews.form3a ? "Attached from previous draft" : "Not uploaded"}</p>
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total PSA Endorsement Fee</span>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className="text-2xl font-black uppercase italic tracking-tight text-rose-500">₱{apptTotalAmount.toFixed(2)}</span>
                                                         </div>
                                                     </div>
                                                 </div>
-
-                                                <div className="space-y-3 p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/40 dark:border-white/5">
-                                                     <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                                         <span>Misc Fee</span>
-                                                         <span className="font-bold text-slate-700 dark:text-slate-200">₱{miscFeeAmount.toFixed(2)}</span>
-                                                     </div>
-                                                     <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                                         <span>Mandatory Fee</span>
-                                                         <span className="font-bold text-slate-700 dark:text-slate-200">₱{mandatoryFeeAmount.toFixed(2)}</span>
-                                                     </div>
-                                                     <div className="border-t border-slate-200/40 dark:border-white/5 pt-2 flex items-center justify-between">
-                                                         <div>
-                                                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total PSA Endorsement Fee</span>
-                                                         </div>
-                                                         <div className="text-right">
-                                                             <span className="text-2xl font-black uppercase italic tracking-tight text-rose-500">₱{regTotalAmount.toFixed(2)}</span>
-                                                         </div>
-                                                     </div>
-                                                 </div>
                                             </div>
                                         </div>
 
@@ -1310,14 +1029,9 @@ export default function MarriagePsaEndorsementPage() {
                                         </Button>
                                         <Button
                                             onClick={handleSubmit}
-                                            disabled={submitting || (!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form3a && !previews.form3a)}
-                                            className={cn(
-                                                "flex-1 h-14 rounded-full font-black uppercase italic tracking-widest shadow-xl transition-all duration-300 select-none",
-                                                ((!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form3a && !previews.form3a))
-                                                    ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                                                    : "text-white"
-                                            )}
-                                            style={((!files.psaNegativeCert && !previews.psaNegativeCert) || (!files.form3a && !previews.form3a)) ? {} : { backgroundColor: themeColor }}
+                                            disabled={submitting}
+                                            className="flex-1 h-14 rounded-full font-black uppercase italic tracking-widest shadow-xl transition-all duration-300 select-none text-white"
+                                            style={{ backgroundColor: themeColor }}
                                         >
                                             {submitting && <Loader2 className="w-5 h-5 animate-spin mr-2" />}
                                             SUBMIT

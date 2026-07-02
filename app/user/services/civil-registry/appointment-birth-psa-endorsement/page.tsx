@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
-import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     User,
@@ -13,10 +12,9 @@ import {
     AlertCircle,
     Home,
     Baby,
-    ArrowLeft,
-    Upload,
     CheckCircle2,
-    FileText
+    FileText,
+    ArrowLeft
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -46,43 +44,14 @@ import {
     getTransactionTypes,
     getSystemSettingAction,
     getLatestForm1AForCurrentUser,
-    getTransactionById
+    getTransactionById,
+    logDebugMessage
 } from "@/app/admin/transactions/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { saveDraftFile, getDraftFiles, clearDraftFiles } from "@/lib/draftDb";
-import { getSecureUploadUrlAction } from "@/app/auth/actions";
-import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 
 
-// --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
-async function uploadFileClientSide(file: File, fieldName: string): Promise<string> {
-    const fileExt = file.name.split('.').pop() || 'bin';
-
-    const res = await getSecureUploadUrlAction(fieldName, "lcr/birth_psa_endorsement", fileExt);
-    if (!res.success || !res.signedUrl || !res.publicUrl) {
-        throw new Error(res.error || "Failed to generate secure upload destination");
-    }
-
-    const uploadRes = await fetch(res.signedUrl, {
-        method: "PUT",
-        headers: {
-            "Content-Type": file.type
-        },
-        body: file
-    });
-
-    if (!uploadRes.ok) {
-        throw new Error(`Upload direct to storage failed: ${uploadRes.statusText}`);
-    }
-
-    return res.publicUrl;
-}
-
-
-
-const STORAGE_KEY = "lcr_birth_psa_endorsement_draft";
 
 type Step = "INFORMANT" | "SUBJECT" | "REVIEW";
 
@@ -92,7 +61,7 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "REVIEW", label: "Review & Submit", icon: CheckCircle2 },
 ];
 
-export default function BirthPsaEndorsementPage() {
+export default function AppointmentBirthPsaEndorsementPage() {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<Step>("INFORMANT");
     const [mounted, setMounted] = useState(false);
@@ -119,25 +88,7 @@ export default function BirthPsaEndorsementPage() {
     const [revisionTx, setRevisionTx] = useState<any>(null);
     const [showErrors, setShowErrors] = useState(false);
 
-    const parsedDefaultFees = dbType?.defaultFees 
-        ? (typeof dbType.defaultFees === "string" ? JSON.parse(dbType.defaultFees) : dbType.defaultFees) 
-        : [];
-    const miscFeeAmount = dbType?.baseFee ?? 200.00;
-    const mandatoryFeeAmount = parsedDefaultFees.find((f: any) => f.code === "MANDATORY_FINE" || f.code === "MANDATORY_FEE")?.amount ?? 130.00;
-    const regTotalAmount = miscFeeAmount + mandatoryFeeAmount;
 
-    const [viewerOpen, setViewerOpen] = useState(false);
-    const [viewerFile, setViewerFile] = useState<File | null>(null);
-    const [viewerUrl, setViewerUrl] = useState<string | null>(null);
-    const [viewerTitle, setViewerTitle] = useState("");
-    const [previews, setPreviews] = useState<Record<string, string | null>>({});
-
-    const handleOpenViewer = (file: File | null, title: string, url: string | null = null) => {
-        setViewerFile(file);
-        setViewerUrl(url);
-        setViewerTitle(title);
-        setViewerOpen(true);
-    };
 
     // Form State
     const [formData, setFormData] = useState({
@@ -160,13 +111,18 @@ export default function BirthPsaEndorsementPage() {
         mothersMaidenName: "",
     });
 
-    const [files, setFiles] = useState<Record<string, File | null>>({
-        psaNegativeCert: null,
-    });
+
 
     // Privacy / Terms modal state
     const [policyOpen, setPolicyOpen] = useState(false);
     const [policyAccepted, setPolicyAccepted] = useState(false);
+
+    const parsedDefaultFees = dbType?.defaultFees 
+        ? (typeof dbType.defaultFees === "string" ? JSON.parse(dbType.defaultFees) : dbType.defaultFees) 
+        : [];
+    const miscFeeAmount = dbType?.baseFee ?? 130.00;
+    const mandatoryFeeAmount = parsedDefaultFees.find((f: any) => f.code === "MANDATORY_FINE" || f.code === "MANDATORY_FEE")?.amount ?? 140.00;
+    const apptTotalAmount = miscFeeAmount + mandatoryFeeAmount;
 
     const handleAcceptPolicy = () => { setPolicyOpen(false); setPolicyAccepted(true); };
 
@@ -178,8 +134,8 @@ export default function BirthPsaEndorsementPage() {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get("revisionId")) return;
 
-        const savedStep = sessionStorage.getItem("psa-endorsement-step");
-        const savedForm = sessionStorage.getItem("psa-endorsement-form");
+        const savedStep = sessionStorage.getItem("appointment-birth-psa-endorsement-step");
+        const savedForm = sessionStorage.getItem("appointment-birth-psa-endorsement-form");
 
         if (savedStep) setCurrentStep(savedStep as Step);
         if (savedForm) {
@@ -194,58 +150,48 @@ export default function BirthPsaEndorsementPage() {
             }
         }
 
-        // Hydrate files from IndexedDB
-        async function hydrateFiles() {
-            try {
-                const draftFiles = await getDraftFiles(STORAGE_KEY);
-                if (draftFiles && Object.keys(draftFiles).length > 0) {
-                    setFiles(prev => ({
-                        ...prev,
-                        ...draftFiles
-                    }));
-                    toast.info("Progress restored. Uploaded document drafts recovered.", {
-                        duration: 6000
-                    });
-                }
-            } catch (error) {
-                console.error("Failed to hydrate draft files from IndexedDB:", error);
-            }
-        }
 
-        hydrateFiles();
     }, []);
 
     useEffect(() => {
         if (!loading && !revisionId) {
-            sessionStorage.setItem("psa-endorsement-step", currentStep);
-            sessionStorage.setItem("psa-endorsement-form", JSON.stringify(formData));
+            sessionStorage.setItem("appointment-birth-psa-endorsement-step", currentStep);
+            sessionStorage.setItem("appointment-birth-psa-endorsement-form", JSON.stringify(formData));
         }
     }, [currentStep, formData, loading, revisionId]);
 
     useEffect(() => {
         async function init() {
             try {
+                await logDebugMessage("Client: init() started");
+                await logDebugMessage("Client: Calling ensureCivilRegistryTransactionTypes()...");
                 await ensureCivilRegistryTransactionTypes();
+                await logDebugMessage("Client: ensureCivilRegistryTransactionTypes() finished");
 
                 const urlParams = new URLSearchParams(window.location.search);
                 const revId = urlParams.get("revisionId");
 
                 let txData: any = null;
                 if (revId) {
+                    await logDebugMessage(`Client: Fetching revision transaction for ID ${revId}...`);
                     const txRes = await getTransactionById(revId);
                     if (txRes.success && txRes.data) {
                         txData = txRes.data;
                         setRevisionId(revId);
                         setRevisionTx(txData);
+                        await logDebugMessage("Client: Revision transaction fetched successfully");
                     } else {
                         toast.error("Failed to fetch revision details");
+                        await logDebugMessage(`Client: Failed to fetch revision details: ${txRes.error}`);
                     }
                 }
 
+                await logDebugMessage("Client: Calling getCurrentUserResident() and getTransactionTypes()...");
                 const [resResult, typesResult] = await Promise.all([
                     getCurrentUserResident(),
                     getTransactionTypes()
                 ]);
+                await logDebugMessage("Client: getCurrentUserResident() and getTransactionTypes() resolved");
 
                 if (resResult.success && resResult.data) {
                     const r = resResult.data;
@@ -266,14 +212,6 @@ export default function BirthPsaEndorsementPage() {
                         const addData = txData.additionalData as any || {};
                         const resSnapshot = txData.residentSnapshot as any || r || {};
 
-                        const previews: Record<string, string | null> = {};
-                        const fileKeys = ["psaNegativeCert"];
-                        fileKeys.forEach(k => {
-                            if (addData[k] && typeof addData[k] === "string" && addData[k].startsWith("http")) {
-                                previews[k] = addData[k];
-                            }
-                        });
-
                         setFormData(prev => ({
                             ...prev,
                             relationship: addData.relationship || prev.relationship,
@@ -293,7 +231,6 @@ export default function BirthPsaEndorsementPage() {
                             subjectDateOfBirth: addData.subjectDateOfBirth || "",
                             mothersMaidenName: addData.mothersMaidenName || "",
                         }));
-                        setPreviews(previews);
                     } else {
                         setFormData(prev => ({
                             ...prev,
@@ -314,15 +251,23 @@ export default function BirthPsaEndorsementPage() {
                 }
 
                 if (typesResult.success && typesResult.data) {
-                    const psaType = typesResult.data.find((t: any) => t.code === "LCR_PSA_ENDORSEMENT");
+                    const psaType = typesResult.data.find((t: any) => t.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT");
                     if (psaType) {
                         setTypeId(psaType.id);
                         setDbType(psaType);
+                        await logDebugMessage(`Client: Found dbType ID: ${psaType.id}`);
+                    } else {
+                        await logDebugMessage("Client: LCR_PSA_APPOINTMENT_ENDORSEMENT type NOT found in dbTypes list");
                     }
+                } else {
+                    await logDebugMessage(`Client: getTransactionTypes was unsuccessful: ${typesResult.error}`);
                 }
-            } catch (error) {
+                await logDebugMessage("Client: init() try block successfully finished");
+            } catch (error: any) {
                 console.error("Initialization error:", error);
+                await logDebugMessage(`Client: init() catch block error: ${error?.message || error}`);
             } finally {
+                await logDebugMessage("Client: init() finally block (setting loading=false)");
                 setLoading(false);
             }
         }
@@ -377,54 +322,7 @@ export default function BirthPsaEndorsementPage() {
         }
     };
 
-    const renderDocCard = (label: string, fileKey: string, required: boolean = true) => {
-        const file = files[fileKey] || null;
-        const preview = previews[fileKey] || null;
 
-        return (
-            <PremiumDocumentUpload
-                key={fileKey}
-                label={label}
-                required={required}
-                file={file}
-                previewUrl={preview}
-                error={showErrors && required && !file && !preview}
-                onFileSelect={async (newFile) => {
-                    if (newFile.size > 5 * 1024 * 1024) {
-                        toast.error("File size exceeds 5MB limit.");
-                        return;
-                    }
-
-                    const fileToProcess = newFile;
-
-                    try {
-                        toast.loading("Uploading and preparing document preview...", { id: `file-upload-${fileKey}` });
-                        const sanitizedKey = fileKey.replace(/[^a-zA-Z0-9_-]/g, '_');
-                        const publicUrl = await uploadFileClientSide(fileToProcess, sanitizedKey);
-
-                        setFiles(prev => ({ ...prev, [fileKey]: fileToProcess }));
-                        setPreviews(prev => ({ ...prev, [fileKey]: publicUrl }));
-                        await saveDraftFile(STORAGE_KEY, fileKey, fileToProcess);
-                        toast.success("Document uploaded & preview ready!", { id: `file-upload-${fileKey}` });
-                    } catch (uploadErr) {
-                        console.error(`[ClientUpload] Failed to upload ${fileKey} on-the-fly:`, uploadErr);
-                        toast.error("Upload failed. Local copy stored (preview limited).", { id: `file-upload-${fileKey}` });
-
-                        setFiles(prev => ({ ...prev, [fileKey]: fileToProcess }));
-                        setPreviews(prev => ({ ...prev, [fileKey]: fileToProcess.type.startsWith("image/") ? URL.createObjectURL(fileToProcess) : null }));
-                        await saveDraftFile(STORAGE_KEY, fileKey, fileToProcess);
-                    }
-                }}
-                onClear={async () => {
-                    setFiles(prev => ({ ...prev, [fileKey]: null }));
-                    setPreviews(prev => ({ ...prev, [fileKey]: null }));
-                    await saveDraftFile(STORAGE_KEY, fileKey, null);
-                    toast.success("File removed successfully.");
-                }}
-                onView={() => handleOpenViewer(file, label, preview)}
-            />
-        );
-    };
 
     const handleSubmit = async () => {
         if (submitting) return;
@@ -438,10 +336,7 @@ export default function BirthPsaEndorsementPage() {
             return;
         }
 
-        if (!files.psaNegativeCert && !previews.psaNegativeCert) {
-            toast.error("Please upload PSA Negative Certification");
-            return;
-        }
+
 
         setSubmitting(true);
         try {
@@ -465,54 +360,19 @@ export default function BirthPsaEndorsementPage() {
 
             data.append("residentSnapshot", JSON.stringify(residentSnapshot));
 
-            const fileUrls: Record<string, string> = {};
-
-            // First, copy any existing public URLs from previews
-            Object.entries(previews || {}).forEach(([key, url]) => {
-                if (url && typeof url === "string" && url.startsWith("http")) {
-                    fileUrls[key] = url;
-                }
-            });
-
-            const fileEntries = Object.entries(files);
-            for (let i = 0; i < fileEntries.length; i++) {
-                const [key, file] = fileEntries[i];
-                if (!file) continue;
-                const sanitizedKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
-
-                if (fileUrls[key]) {
-                    console.log(`[ClientUpload] Reusing existing public URL for ${key}:`, fileUrls[key]);
-                    continue;
-                }
-
-                try {
-                    toast.loading(`Uploading document ${i + 1}/${fileEntries.length}...`, { id: "upload-toast" });
-                    const url = await uploadFileClientSide(file, sanitizedKey);
-                    fileUrls[key] = url;
-                } catch (uploadErr) {
-                    console.error(`[ClientUpload] Failed to upload ${key}:`, uploadErr);
-                    toast.error(`Failed to upload document: ${key}. Please try again.`, { id: "upload-toast" });
-                    setSubmitting(false);
-                    return;
-                }
-            }
-            toast.dismiss("upload-toast");
-
             const additionalData = {
                 ...formData,
                 subjectName: formData.subjectFullName,
                 psaEndorsementFee: miscFeeAmount,
-                ...fileUrls
             };
             data.append("additionalData", JSON.stringify(additionalData));
 
             const res = await submitCivilRegistryTransaction(data);
 
             if (res.success && res.data) {
-                toast.success(revisionId ? "Revision resubmitted successfully!" : "Birth PSA Endorsement submitted successfully!");
-                sessionStorage.removeItem("psa-endorsement-step");
-                sessionStorage.removeItem("psa-endorsement-form");
-                await clearDraftFiles(STORAGE_KEY);
+                toast.success(revisionId ? "Revision resubmitted successfully!" : "Birth PSA Appointment Endorsement submitted successfully!");
+                sessionStorage.removeItem("appointment-birth-psa-endorsement-step");
+                sessionStorage.removeItem("appointment-birth-psa-endorsement-form");
                 router.push(`/user/services/requests/${res.data.id}`);
             } else {
                 toast.error(res.error || "Failed to submit endorsement request");
@@ -608,14 +468,7 @@ export default function BirthPsaEndorsementPage() {
                 onDecline={() => { setPolicyAccepted(false); }}
                 themeColor="var(--primary-theme)"
             />
-            <DocumentViewerModal
-                isOpen={viewerOpen}
-                onClose={() => setViewerOpen(false)}
-                file={viewerFile}
-                fileUrl={viewerUrl}
-                title={viewerTitle}
-                themeColor="var(--primary-theme)"
-            />
+
             <div className="container max-w-5xl mx-auto px-4 pt-3 pb-0 space-y-5">
                 <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
                     <Breadcrumb>
@@ -646,7 +499,7 @@ export default function BirthPsaEndorsementPage() {
                             </BreadcrumbItem>
                             <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                             <BreadcrumbItem>
-                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: themeColor }}>Birth PSA Endorsement</BreadcrumbPage>
+                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: themeColor }}>Birth PSA Appointment Endorsement</BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
@@ -669,11 +522,11 @@ export default function BirthPsaEndorsementPage() {
                             </div>
 
                             <h1 className="text-2xl md:text-4xl font-black uppercase italic tracking-tighter leading-none">
-                                Birth PSA <span style={{ color: themeColor }}>Endorsement</span>
+                                Birth PSA Appointment <span style={{ color: themeColor }}>Endorsement</span>
                             </h1>
 
                             <p className="text-slate-600 dark:text-slate-300 font-medium text-xs leading-relaxed max-w-xl italic">
-                                Request endorsement of a verified local birth certificate record to the Philippine Statistics Authority (PSA).
+                                Request appointment and endorsement of a verified local birth certificate record to the Philippine Statistics Authority (PSA).
                             </p>
                         </div>
 
@@ -917,7 +770,7 @@ export default function BirthPsaEndorsementPage() {
                                         <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight flex items-center gap-2">
                                             Subject Information & Documents
                                         </h2>
-                                        <p className="text-xs text-slate-500 font-medium italic">Provide the details of the person whose birth record needs PSA endorsement</p>
+                                        <p className="text-xs text-slate-500 font-medium italic">Provide the details of the person whose birth record needs PSA appointment endorsement</p>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -971,31 +824,7 @@ export default function BirthPsaEndorsementPage() {
                                         </div>
                                     </div>
 
-                                    {/* Documents Section */}
-                                    <div className="space-y-4 pt-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="p-1.5 bg-emerald-500/10 rounded-lg">
-                                                <Upload className="w-3.5 h-3.5 text-emerald-500" />
-                                            </div>
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Required Documents</span>
-                                        </div>
 
-                                        <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200/60 dark:border-amber-500/20">
-                                            <div className="flex items-start gap-3">
-                                                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                                                <div>
-                                                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">PSA Negative Certification Required</p>
-                                                    <p className="text-[9px] text-amber-600/80 dark:text-amber-400/80 italic mt-1">
-                                                        This is strictly required as proof that the record is not available in the national database. Obtain this from any PSA Serbilis outlet.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 gap-4">
-                                            {renderDocCard("PSA Negative Certification", "psaNegativeCert", true)}
-                                        </div>
-                                    </div>
 
                                     <BackNextButton
                                         onBack={() => setCurrentStep("INFORMANT")}
@@ -1003,11 +832,6 @@ export default function BirthPsaEndorsementPage() {
                                             if (!formData.subjectFullName || !formData.subjectDateOfBirth || !formData.mothersMaidenName) {
                                                 setShowErrors(true);
                                                 toast.error("Please fill in all subject details.");
-                                                return;
-                                            }
-                                            if (!files.psaNegativeCert && !previews.psaNegativeCert) {
-                                                setShowErrors(true);
-                                                toast.error("Please upload PSA Negative Certification.");
                                                 return;
                                             }
                                             setShowErrors(false);
@@ -1062,42 +886,27 @@ export default function BirthPsaEndorsementPage() {
                                             </div>
                                         </div>
 
-                                        {/* Documents Summary */}
-                                        <div className="pt-4 border-t border-slate-200 dark:border-white/5 space-y-3">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Uploaded Documents</span>
-                                            <div className="grid grid-cols-1 gap-3">
-                                                <div className={cn(
-                                                    "flex items-center gap-3 p-3 rounded-xl border",
-                                                    (files.psaNegativeCert || previews.psaNegativeCert) ? "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/20" : "bg-red-50/30 border-red-200/50"
-                                                )}>
-                                                    {(files.psaNegativeCert || previews.psaNegativeCert) ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
-                                                    <div>
-                                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">PSA Negative Certification</p>
-                                                        <p className="text-[8px] text-slate-400 italic">{files.psaNegativeCert ? files.psaNegativeCert.name : previews.psaNegativeCert ? "Attached from previous draft" : "Not uploaded"}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
 
-                                        {/* Fee Display */}
-                                        <div className="space-y-3 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20">
-                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500 italic">
-                                                <span>Misc Fee</span>
-                                                <span className="font-bold text-slate-700 dark:text-slate-200">₱{miscFeeAmount.toFixed(2)}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500 italic">
-                                                <span>Mandatory Fee</span>
-                                                <span className="font-bold text-slate-700 dark:text-slate-200">₱{mandatoryFeeAmount.toFixed(2)}</span>
-                                            </div>
-                                            <div className="border-t border-emerald-200/40 dark:border-emerald-500/20 pt-2 flex items-center justify-between">
-                                                <div>
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Total PSA Endorsement Fee</span>
-                                                </div>
-                                                <div className="text-right">
-                                                    <span className="text-lg font-black text-emerald-600 tracking-tight">₱{regTotalAmount.toFixed(2)}</span>
-                                                </div>
-                                            </div>
-                                        </div>
+
+                                         {/* Fee Display */}
+                                         <div className="space-y-3 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20">
+                                             <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500 italic">
+                                                 <span>Misc Fee</span>
+                                                 <span className="font-bold text-slate-700 dark:text-slate-200">₱{miscFeeAmount.toFixed(2)}</span>
+                                             </div>
+                                             <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500 italic">
+                                                 <span>Mandatory Fee</span>
+                                                 <span className="font-bold text-slate-700 dark:text-slate-200">₱{mandatoryFeeAmount.toFixed(2)}</span>
+                                             </div>
+                                             <div className="border-t border-emerald-200/40 dark:border-emerald-500/20 pt-2 flex items-center justify-between">
+                                                 <div>
+                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Total PSA Appointment Endorsement Fee</span>
+                                                 </div>
+                                                 <div className="text-right">
+                                                     <span className="text-lg font-black text-emerald-600 tracking-tight">₱{apptTotalAmount.toFixed(2)}</span>
+                                                 </div>
+                                             </div>
+                                         </div>
                                     </Card>
 
                                     <div className="space-y-4">
@@ -1171,7 +980,7 @@ export default function BirthPsaEndorsementPage() {
                                             <button
                                                 type="button"
                                                 onClick={handleSubmit}
-                                                disabled={submitting || (!files.psaNegativeCert && !previews.psaNegativeCert)}
+                                                disabled={submitting}
                                                 style={
                                                     themeColor
                                                         ? {
