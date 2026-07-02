@@ -570,8 +570,6 @@ export default function BuildingPermitAppointmentPage() {
         .filter((item: any) => item?.name)
     : [];
   const revisionRequestsForTab = revisionRequests.filter((item: any) => item.type === activeDocTab);
-  const revisionRequirementsCount = revisionRequests.filter((item: any) => item.type === "REQUIREMENTS").length;
-  const revisionPermitsCount = revisionRequests.filter((item: any) => item.type === "PERMITS").length;
   const uploadedRevisionKeys = new Set([
     ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("revision_")),
     ...Object.keys(uploadedRevisionDocs).map(k => `revision_${k}`)
@@ -585,7 +583,6 @@ export default function BuildingPermitAppointmentPage() {
   const revisionProgress = revisionRequests.filter((item: any) => uploadedRevisionKeys.has(`revision_${item.index}`)).length;
 
   const totalUploaded = requirementsProgress + permitsProgress + revisionProgress;
-  const totalRequiredItems = requiredRequirementsCount + requiredPermitsCount + revisionRequests.length;
 
   // UPDATED: Exclude CANCELLED and isCancelled from blocking new applications
   const hasActiveApplication = existingApplications.some(app =>
