@@ -453,12 +453,12 @@ export default function CedulaApplicationPage() {
                 toast.error("Please provide your contact number for better coordination.");
             } else if (currentStep === "DECLARATION") {
                 if (formData.isStudent) {
-                    toast.error("Please state the purpose / reason of your Cedula request, bro.");
+                    toast.error("Please state the purpose of your Community Tax Certificate request.");
                 } else if (formData.applicantType === "JURIDICAL" && !formData.businessName?.trim()) {
-                    toast.error("Oops! You need to enter your Business Name, boss.");
+                    toast.error("Please enter your registered Business Name.");
                 } else if (formData.applicantType === "JURIDICAL" && formData.incomeSource === "PROPERTY") {
                     incomeInputRef.current?.focus();
-                    toast.error("Please declare the worth of your real property owned, pare.");
+                    toast.error("Please declare the value of your owned real property.");
                 } else {
                     incomeInputRef.current?.focus();
                     toast.error("Please declare your annual gross income.");
@@ -527,7 +527,7 @@ export default function CedulaApplicationPage() {
             // Premium, helpful TagLish micro-notifications and smooth scroll to first missing element
             if (formData.isStudent) {
                 if (!hasProof) {
-                    toast.error("Hold on, you need to upload your Student ID or Enrollment Proof first.");
+                    toast.error("Please upload your Student ID or proof of enrollment to proceed.");
                     proofSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                 } else if (!hasPrivacy) {
                     toast.error("Please accept the Data Privacy and Terms Agreement to submit your application.");
@@ -535,13 +535,13 @@ export default function CedulaApplicationPage() {
                 }
             } else {
                 if (!hasId && !hasProof) {
-                    toast.error("Wait lang, pare! You need to upload both your Valid ID and Proof of Income to proceed.");
+                    toast.error("Please upload both your Valid ID and Proof of Income to proceed.");
                     idSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                 } else if (!hasId) {
-                    toast.error("Oops! You forgot to attach your Valid ID, bro.");
+                    toast.error("Please attach your Valid ID to proceed.");
                     idSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                 } else if (!hasProof) {
-                    toast.error("Hold on, you need to upload your Proof of Income first.");
+                    toast.error("Please upload your Proof of Income to proceed.");
                     proofSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                 } else if (!hasPrivacy) {
                     toast.error("Please accept the Data Privacy and Terms Agreement to submit your application.");

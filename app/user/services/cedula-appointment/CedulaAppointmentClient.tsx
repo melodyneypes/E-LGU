@@ -378,13 +378,13 @@ export function CedulaAppointmentClient({
         if (!hasId || !hasProof || !privacyAccepted) {
             setShowValidationErrors(true);
             if (!hasId && !hasProof) {
-                toast.error("Wait lang, pare! You need to upload both your Valid ID and Proof of Income to proceed.");
+                toast.error("Please upload both your Valid ID and Proof of Income to proceed.");
                 idSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
             } else if (!hasId) {
-                toast.error("Oops! You forgot to attach your Valid ID, bro.");
+                toast.error("Please attach your Valid ID to proceed.");
                 idSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
             } else if (!hasProof) {
-                toast.error("Hold on, you need to upload your Proof of Income first.");
+                toast.error("Please upload your Proof of Income to proceed.");
                 proofSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
             } else if (!privacyAccepted) {
                 toast.error("Please accept the Data Privacy and Terms Agreement to submit your application.");

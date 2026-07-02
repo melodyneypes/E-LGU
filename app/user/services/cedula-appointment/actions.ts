@@ -96,17 +96,7 @@ export async function submitCedulaAppointment(formData: FormData) {
             return { success: false, error: "Invalid transaction type." };
         }
 
-        // Debug log to find out what's in the db
-        const allUserTxs = await prisma.transaction.findMany({
-            where: { userId: session.user.id },
-            include: { type: true }
-        });
-        console.log("User Transactions Check:", allUserTxs.map(t => ({
-            id: t.id,
-            code: t.type.code,
-            status: t.status,
-            isCancelled: t.isCancelled
-        })));
+
 
         const activeTx = await prisma.transaction.findFirst({
             where: {
