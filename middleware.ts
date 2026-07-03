@@ -3,6 +3,24 @@ import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req) {
+    // CSRF Mitigation for Next.js Server Actions in Production
+    const origin = req.headers.get("origin");
+    const nextAction = req.headers.get("next-action");
+    if (process.env.NODE_ENV === "production" && req.method === "POST" && nextAction) {
+      const allowedOrigin = process.env.NEXTAUTH_URL;
+      if (allowedOrigin && origin) {
+        try {
+          const originUrl = new URL(origin);
+          const allowedUrl = new URL(allowedOrigin);
+          if (originUrl.host !== allowedUrl.host) {
+            return new NextResponse("Invalid Origin (CSRF Mitigation)", { status: 400 });
+          }
+        } catch {
+          return new NextResponse("Bad Request", { status: 400 });
+        }
+      }
+    }
+
     const url = req.nextUrl.clone();
     const token = req.nextauth.token;
 

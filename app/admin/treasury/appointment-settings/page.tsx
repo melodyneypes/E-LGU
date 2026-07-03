@@ -47,6 +47,8 @@ export default async function AppointmentSettingsPage() {
                 maxSlots: 50,
                 maxSlotsAM: 25,
                 maxSlotsPM: 25,
+                amTimeLabel: "08:00 AM - 11:00 AM",
+                pmTimeLabel: "01:00 PM - 04:00 PM",
                 blockedDates: [],
                 activeDays: [1, 2, 3, 4, 5]
             } as any

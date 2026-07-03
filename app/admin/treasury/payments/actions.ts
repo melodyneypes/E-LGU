@@ -102,6 +102,7 @@ export async function getPaymentsLedger(searchQuery: string = "") {
                         totalAmount: true,
                         paymentType: true,
                         paymentReference: true,
+                        residentSnapshot: true,
                         type: {
                             select: {
                                 id: true,

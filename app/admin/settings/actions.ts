@@ -19,6 +19,21 @@ async function verifyAdminOrBarangayAdmin() {
     return session.user;
 }
 
+async function verifyAppointmentConfigAccess() {
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as any)?.role;
+    if (!session || (
+        role !== "ADMIN" && 
+        role !== "BARANGAY_ADMIN" && 
+        role !== "TREASURY_STAFF" && 
+        role !== "ADMIN_AIDE" && 
+        role !== "ENGINEER"
+    )) {
+        throw new Error("Unauthorized: Access denied.");
+    }
+    return session.user;
+}
+
 export async function deleteUploadedFile(imageUrl: string | null | undefined) {
     if (!imageUrl) return;
 
@@ -421,11 +436,13 @@ export async function updateAppointmentConfig(
         maxSlotsAM: number; 
         maxSlotsPM: number; 
         activeDays: number[]; 
-        blockedDates: string[] 
+        blockedDates: string[];
+        amTimeLabel?: string;
+        pmTimeLabel?: string;
     }
 ) {
     try {
-        await verifyAdminOrBarangayAdmin();
+        await verifyAppointmentConfigAccess();
         await prisma.appointmentConfig.upsert({
             where: { department },
             update: {
@@ -433,7 +450,9 @@ export async function updateAppointmentConfig(
                 maxSlotsAM: data.maxSlotsAM,
                 maxSlotsPM: data.maxSlotsPM,
                 activeDays: data.activeDays,
-                blockedDates: data.blockedDates
+                blockedDates: data.blockedDates,
+                amTimeLabel: data.amTimeLabel,
+                pmTimeLabel: data.pmTimeLabel
             } as any,
             create: {
                 department,
@@ -441,7 +460,9 @@ export async function updateAppointmentConfig(
                 maxSlotsAM: data.maxSlotsAM,
                 maxSlotsPM: data.maxSlotsPM,
                 activeDays: data.activeDays,
-                blockedDates: data.blockedDates
+                blockedDates: data.blockedDates,
+                amTimeLabel: data.amTimeLabel,
+                pmTimeLabel: data.pmTimeLabel
             } as any
         });
 
