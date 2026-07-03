@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db/prisma";
+import { generateQueueNumber } from "@/lib/queue";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -183,39 +184,14 @@ export async function submitCedulaAppointment(formData: FormData) {
             return { success: false, error: "This appointment slot is already fully booked. Please select another slot." };
         }
 
-        // 2. Generate unique Queue Ticket Number
-        // Formats: [DATE]-[SHIFT]-[PRIORITY_INDICATOR][SEQUENCE]
-        // E.g., 06272026-AM-005 or 06272026-AM-P002
-        const dateStr = startOfDay.toLocaleDateString("en-US", {
-            month: "2-digit",
-            day: "2-digit",
-            year: "numeric"
-        }).replace(/\//g, ""); // 06272026
-
-        const shiftStr = isAM ? "AM" : "PM";
-        
         // Read priority lane flag from additionalData (passed from form state)
         const isPriority = additionalData.isPriorityLane === true || additionalData.isPriorityLane === "true";
 
-        // Count existing transactions for this shift on target date
-        // using the direct isPriority column
-        const shiftCount = await prisma.transaction.count({
-            where: {
-                appointmentDate: {
-                    gte: startOfDay,
-                    lte: endOfDay
-                },
-                appointmentSlot: {
-                    contains: shiftStr
-                },
-                isCancelled: false,
-                isPriority: isPriority, // Direct column filter
-                type: { category: "Treasurer" }
-            } as any
+        const queueNumber = await generateQueueNumber({
+            source: "web",
+            isPriority,
+            appointmentDate: startOfDay,
         });
-
-        const seqNum = String(shiftCount + 1).padStart(3, "0");
-        const queueNumber = `${dateStr}-${shiftStr}-${isPriority ? "P" : ""}${seqNum}`;
 
         // 3. Create the Transaction Record
         const transaction = await prisma.$transaction(async (tx) => {

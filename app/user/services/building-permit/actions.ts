@@ -36,6 +36,16 @@ export async function submitBuildingPermit(formData: FormData) {
     const totalFloorsVal = formData.get("totalFloors") as string;
     const totalFloors = totalFloorsVal ? parseInt(totalFloorsVal, 10) : null;
 
+    const customLabelsStr = formData.get("customLabels") as string;
+    let customLabels = {};
+    if (customLabelsStr) {
+      try {
+        customLabels = JSON.parse(customLabelsStr);
+      } catch (e) {
+        console.error("Error parsing customLabels", e);
+      }
+    }
+
     // Prepare JSON for additional Data
     const additionalData: any = {
       descriptionOfWork,
@@ -47,7 +57,8 @@ export async function submitBuildingPermit(formData: FormData) {
       street,
       barangay,
       totalFloors,
-      documents: {}
+      documents: {},
+      customLabels
     };
 
     // Helper to upload and store URL
@@ -199,6 +210,17 @@ export async function resubmitBuildingPermit(transactionId: string, formData: Fo
     const additionalData = transaction.additionalData as any || { documents: {} };
     if (!additionalData.documents) {
       additionalData.documents = {};
+    }
+    const customLabelsStr = formData.get("customLabels") as string;
+    if (customLabelsStr) {
+      try {
+        additionalData.customLabels = {
+          ...(additionalData.customLabels || {}),
+          ...JSON.parse(customLabelsStr)
+        };
+      } catch (e) {
+        console.error("Error parsing customLabels in resubmit", e);
+      }
     }
 
     // Extract basic form data

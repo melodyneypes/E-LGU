@@ -423,6 +423,10 @@ export default function BuildingPermitPage() {
   const [activeDocTab, setActiveDocTab] = useState<"REQUIREMENTS" | "PERMITS">("REQUIREMENTS");
   const [uploadedRequirements, setUploadedRequirements] = useState<Record<number, File>>({});
   const [uploadedPermits, setUploadedPermits] = useState<Record<number, File>>({});
+  const [customRequirements, setCustomRequirements] = useState<{ label: string }[]>([]);
+  const [customPermits, setCustomPermits] = useState<{ label: string }[]>([]);
+  const [isAddCustomDocOpen, setIsAddCustomDocOpen] = useState(false);
+  const [customDocName, setCustomDocName] = useState("");
   const [formData, setFormData] = useState({
     descriptionOfWork: "",
     scopeNewConstruction: false,
@@ -558,6 +562,8 @@ export default function BuildingPermitPage() {
     .filter(index => uploadedPermitKeys.has(`permit_${index}`)).length;
 
   const totalUploaded = requirementsProgress + permitsProgress;
+  const uploadedRequirementsCount = uploadedRequirementKeys.size;
+  const uploadedPermitsCount = uploadedPermitKeys.size;
   const totalRequiredItems = requiredRequirementsCount + requiredPermitsCount;
 
   // UPDATED: Exclude CANCELLED and isCancelled from blocking new applications
@@ -663,8 +669,64 @@ export default function BuildingPermitPage() {
       } else {
         setIdChoice("PROFILE");
       }
+
+      // Load custom requirements
+      const docs = addData.documents || {};
+      const labels = addData.customLabels || {};
+      
+      const loadedReqs: { label: string }[] = [];
+      Object.keys(docs).forEach(key => {
+        if (key.startsWith("req_")) {
+          const idx = parseInt(key.replace("req_", ""), 10);
+          if (idx >= 10) {
+            const label = labels[key] || `Additional Document ${idx - 9}`;
+            loadedReqs[idx - 10] = { label };
+          }
+        }
+      });
+      const finalReqs: { label: string }[] = [];
+      for (let i = 0; i < loadedReqs.length; i++) {
+        finalReqs.push(loadedReqs[i] || { label: `Additional Document ${i + 1}` });
+      }
+      setCustomRequirements(finalReqs);
+
+      // Load custom permits
+      const loadedPermits: { label: string }[] = [];
+      Object.keys(docs).forEach(key => {
+        if (key.startsWith("permit_")) {
+          const idx = parseInt(key.replace("permit_", ""), 10);
+          if (idx >= 7) {
+            const label = labels[key] || `Additional Permit ${idx - 6}`;
+            loadedPermits[idx - 7] = { label };
+          }
+        }
+      });
+      const finalPermits: { label: string }[] = [];
+      for (let i = 0; i < loadedPermits.length; i++) {
+        finalPermits.push(loadedPermits[i] || { label: `Additional Permit ${i + 1}` });
+      }
+      setCustomPermits(finalPermits);
+    } else {
+      setCustomRequirements([]);
+      setCustomPermits([]);
     }
   }, [selectedApplication]);
+
+  const handleAddCustomDocument = () => {
+    setCustomDocName("");
+    setIsAddCustomDocOpen(true);
+  };
+
+  const handleConfirmAddCustomDoc = () => {
+    if (!customDocName || !customDocName.trim()) return;
+
+    if (activeDocTab === "REQUIREMENTS") {
+      setCustomRequirements(prev => [...prev, { label: customDocName.trim() }]);
+    } else {
+      setCustomPermits(prev => [...prev, { label: customDocName.trim() }]);
+    }
+    setIsAddCustomDocOpen(false);
+  };
 
   const handleUploadBfpClearance = async (file: File | null) => {
     if (!file || !selectedApplication) return;
@@ -1184,6 +1246,27 @@ export default function BuildingPermitPage() {
           if (existingUrl) finalReqUrls[`req_${i}`] = existingUrl;
         }
       }
+      // Process custom requirements (index >= 10)
+      for (const idxStr of Object.keys(uploadedRequirements)) {
+        const idx = parseInt(idxStr, 10);
+        if (idx >= 10) {
+          const file = uploadedRequirements[idx];
+          if (file) {
+            const url = await uploadFileClientSide(file, "requirements", `req_${idx}`);
+            if (url) finalReqUrls[`req_${idx}`] = url;
+          }
+        }
+      }
+      if (selectedApplication?.additionalData?.documents) {
+        Object.entries(selectedApplication.additionalData.documents).forEach(([key, url]) => {
+          if (key.startsWith("req_")) {
+            const idx = parseInt(key.replace("req_", ""), 10);
+            if (idx >= 10 && !finalReqUrls[key] && url) {
+              finalReqUrls[key] = url as string;
+            }
+          }
+        });
+      }
 
       // 4. Upload Permits
       const finalPermitUrls: Record<string, string> = {};
@@ -1197,6 +1280,37 @@ export default function BuildingPermitPage() {
           if (existingUrl) finalPermitUrls[`permit_${i}`] = existingUrl;
         }
       }
+      // Process custom permits (index >= 7)
+      for (const idxStr of Object.keys(uploadedPermits)) {
+        const idx = parseInt(idxStr, 10);
+        if (idx >= 7) {
+          const file = uploadedPermits[idx];
+          if (file) {
+            const url = await uploadFileClientSide(file, "permits", `permit_${idx}`);
+            if (url) finalPermitUrls[`permit_${idx}`] = url;
+          }
+        }
+      }
+      if (selectedApplication?.additionalData?.documents) {
+        Object.entries(selectedApplication.additionalData.documents).forEach(([key, url]) => {
+          if (key.startsWith("permit_")) {
+            const idx = parseInt(key.replace("permit_", ""), 10);
+            if (idx >= 7 && !finalPermitUrls[key] && url) {
+              finalPermitUrls[key] = url as string;
+            }
+          }
+        });
+      }
+
+      const customLabels: Record<string, string> = {};
+      const existingLabels = selectedApplication?.additionalData?.customLabels || {};
+      Object.assign(customLabels, existingLabels);
+      customRequirements.forEach((req, idx) => {
+        customLabels[`req_${10 + idx}`] = req.label;
+      });
+      customPermits.forEach((permit, idx) => {
+        customLabels[`permit_${7 + idx}`] = permit.label;
+      });
 
       const data = new FormData();
       const parts: string[] = [];
@@ -1239,6 +1353,7 @@ export default function BuildingPermitPage() {
       Object.entries(finalPermitUrls).forEach(([key, url]) => {
         data.append(key, url);
       });
+      data.append("customLabels", JSON.stringify(customLabels));
 
       let result;
       if (isRevision && selectedApplication) {
@@ -2996,25 +3111,46 @@ export default function BuildingPermitPage() {
               </button>
             </div>
 
-            <h3 className="text-xl font-black text-slate-800 dark:text-white mb-6">
-              {activeDocTab === "REQUIREMENTS" ? "Requirements" : "Permits"}
-            </h3>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-black text-slate-800 dark:text-white">
+                {activeDocTab === "REQUIREMENTS" ? "Requirements" : "Permits"}
+              </h3>
+              {isEditable && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddCustomDocument}
+                  className="rounded-full border-slate-300 hover:bg-slate-50 dark:border-white/20 dark:hover:bg-white/10 flex items-center gap-2"
+                >
+                  <span>+</span> Add Custom {activeDocTab === "REQUIREMENTS" ? "Requirement" : "Permit"}
+                </Button>
+              )}
+            </div>
 
             {/* Document Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
               {(activeDocTab === "REQUIREMENTS"
-                ? documentRequirementsList
-                  .map((docName, idx) => ({ docName, idx }))
-                  .filter(({ idx }) => idx !== 5 && (isAffidavitOfConsentRequired || idx !== 7))
-                : permitTypesList.map((docName, idx) => ({ docName, idx }))
-              ).map(({ docName, idx }) => {
+                ? [
+                    ...documentRequirementsList
+                      .map((docName, idx) => ({ docName, idx, kind: "base" as const })),
+                    ...customRequirements.map((req, idx) => ({ docName: req.label, idx: 10 + idx, kind: "custom" as const }))
+                  ].filter(({ idx, kind }) => kind === "custom" || (idx !== 5 && (isAffidavitOfConsentRequired || idx !== 7)))
+                : [
+                    ...permitTypesList.map((docName, idx) => ({ docName, idx, kind: "base" as const })),
+                    ...customPermits.map((permit, idx) => ({ docName: permit.label, idx: 7 + idx, kind: "custom" as const }))
+                  ]
+              ).map(({ docName, idx, kind }) => {
+                const isCustomItem = kind === "custom";
                 const key = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;
                 const fileUrl = selectedApplication?.additionalData?.documents?.[key];
                 const newlyUploaded = activeDocTab === "REQUIREMENTS" ? !!uploadedRequirements[idx] : !!uploadedPermits[idx];
                 const isUploaded = !isEditable ? !!fileUrl : (!!fileUrl || newlyUploaded);
-                const isRequired = activeDocTab === "PERMITS"
-                  ? requiredPermitIndexes.includes(idx)
-                  : requiredRequirementIndexes.includes(idx);
+                const isRequired = isCustomItem
+                  ? false
+                  : (activeDocTab === "PERMITS"
+                    ? requiredPermitIndexes.includes(idx)
+                    : requiredRequirementIndexes.includes(idx));
                 const hasError = showValidationErrors && isRequired && !isUploaded;
                 return (
                   <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group", hasError ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
@@ -3030,15 +3166,56 @@ export default function BuildingPermitPage() {
                           )}
                         </span>
                       </h4>
-                      {isUploaded ? (
-                        <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500 text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full shrink-0">
-                          Uploaded
-                        </span>
-                      ) : (
-                        <span className="bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500 text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full shrink-0">
-                          Pending
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isUploaded ? (
+                          <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500 text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full">
+                            Uploaded
+                          </span>
+                        ) : (
+                          <span className="bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500 text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full">
+                            Pending
+                          </span>
+                        )}
+                        {isCustomItem && isEditable && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (activeDocTab === "REQUIREMENTS") {
+                                setCustomRequirements(prev => prev.filter((_, i) => i !== (idx - 10)));
+                                setUploadedRequirements(prev => {
+                                  const nextReqs: Record<number, File> = {};
+                                  Object.entries(prev).forEach(([kStr, file]) => {
+                                    const k = parseInt(kStr, 10);
+                                    if (k < idx) {
+                                      nextReqs[k] = file;
+                                    } else if (k > idx) {
+                                      nextReqs[k - 1] = file;
+                                    }
+                                  });
+                                  return nextReqs;
+                                });
+                              } else {
+                                setCustomPermits(prev => prev.filter((_, i) => i !== (idx - 7)));
+                                setUploadedPermits(prev => {
+                                  const nextPermits: Record<number, File> = {};
+                                  Object.entries(prev).forEach(([kStr, file]) => {
+                                    const k = parseInt(kStr, 10);
+                                    if (k < idx) {
+                                      nextPermits[k] = file;
+                                    } else if (k > idx) {
+                                      nextPermits[k - 1] = file;
+                                    }
+                                  });
+                                  return nextPermits;
+                                });
+                              }
+                            }}
+                            className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-[10px] font-bold transition-colors border border-red-200 dark:border-red-500/20 px-2 py-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {!isEditable ? (
@@ -3247,15 +3424,15 @@ export default function BuildingPermitPage() {
                   style={{ color: themeColor }}
                 >
                   {activeDocTab === "REQUIREMENTS"
-                    ? `Requirements Progress: ${requirementsProgress}/${requiredRequirementsCount} documents uploaded`
-                    : `Permits Progress: ${permitsProgress}/${requiredPermitsCount} permits uploaded`}
+                    ? `Requirements Progress: ${uploadedRequirementsCount}/${requiredRequirementsCount} documents uploaded`
+                    : `Permits Progress: ${uploadedPermitsCount}/${requiredPermitsCount} permits uploaded`}
                 </p>
               </div>
               <div className="bg-blue-50 dark:bg-blue-500/5 border-l-4 border-blue-500 p-4 rounded-r-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <CheckCircle className="w-5 h-5 text-blue-700 dark:text-blue-400 shrink-0" />
                   <p className="text-xs md:text-sm font-bold text-blue-800 dark:text-blue-300">
-                    Total Progress: {totalUploaded}/{totalRequiredItems} items uploaded
+                    Total Progress: {uploadedRequirementsCount + uploadedPermitsCount}/{totalRequiredItems} items uploaded
                   </p>
                 </div>
                 {!selectedApplication && (
@@ -4145,6 +4322,51 @@ export default function BuildingPermitPage() {
 
       </div>
 
+      {/* Add Custom Document Modal */}
+      <Dialog open={isAddCustomDocOpen} onOpenChange={setIsAddCustomDocOpen}>
+        <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
+          <DialogHeader className="space-y-3">
+            <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
+              Add Custom <span className="text-primary">{activeDocTab === "REQUIREMENTS" ? "Requirement" : "Permit"}</span>
+            </DialogTitle>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Define a new document name for upload</p>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <label htmlFor="customDocNameInput" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Document/Permit Name</label>
+              <Input
+                id="customDocNameInput"
+                type="text"
+                placeholder="e.g. Structural Computations"
+                value={customDocName}
+                onChange={(e) => setCustomDocName(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl py-6 px-4 font-bold text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus-visible:ring-primary/20"
+              />
+            </div>
+
+            <div className="flex gap-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAddCustomDocOpen(false)}
+                className="flex-1 rounded-full border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 font-black uppercase tracking-widest text-[10px] py-6"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleConfirmAddCustomDoc}
+                className="flex-1 rounded-full font-black uppercase tracking-widest text-[10px] py-6 text-white"
+                style={{ backgroundColor: themeColor }}
+              >
+                Add Document
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Payment Receipt Upload Modal */}
       <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
         <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
@@ -4233,15 +4455,26 @@ const SignaturePad = ({ onSave, themeColor = "var(--primary-theme)" }: { onSave:
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let offsetX, offsetY;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#000000';
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    let clientX, clientY;
     if ('touches' in e) {
-      const rect = canvas.getBoundingClientRect();
-      offsetX = e.touches[0].clientX - rect.left;
-      offsetY = e.touches[0].clientY - rect.top;
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
     } else {
-      offsetX = e.nativeEvent.offsetX;
-      offsetY = e.nativeEvent.offsetY;
+      clientX = e.clientX;
+      clientY = e.clientY;
     }
+
+    const offsetX = (clientX - rect.left) * scaleX;
+    const offsetY = (clientY - rect.top) * scaleY;
 
     ctx.beginPath();
     ctx.moveTo(offsetX, offsetY);
@@ -4256,15 +4489,26 @@ const SignaturePad = ({ onSave, themeColor = "var(--primary-theme)" }: { onSave:
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let offsetX, offsetY;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#000000';
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    let clientX, clientY;
     if ('touches' in e) {
-      const rect = canvas.getBoundingClientRect();
-      offsetX = e.touches[0].clientX - rect.left;
-      offsetY = e.touches[0].clientY - rect.top;
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
     } else {
-      offsetX = e.nativeEvent.offsetX;
-      offsetY = e.nativeEvent.offsetY;
+      clientX = e.clientX;
+      clientY = e.clientY;
     }
+
+    const offsetX = (clientX - rect.left) * scaleX;
+    const offsetY = (clientY - rect.top) * scaleY;
 
     ctx.lineTo(offsetX, offsetY);
     ctx.stroke();
