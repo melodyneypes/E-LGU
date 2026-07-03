@@ -21,6 +21,8 @@ interface AppointmentSettingsClientProps {
         maxSlotsPM: number;
         activeDays: number[];
         blockedDates: string[];
+        amTimeLabel?: string;
+        pmTimeLabel?: string;
     };
 }
 
@@ -31,6 +33,8 @@ export default function AppointmentSettingsClient({
     // Appointment Settings State
     const [maxSlotsAM, setMaxSlotsAM] = useState<number>(appointmentConfig.maxSlotsAM ?? 25);
     const [maxSlotsPM, setMaxSlotsPM] = useState<number>(appointmentConfig.maxSlotsPM ?? 25);
+    const [amTimeLabel, setAmTimeLabel] = useState<string>(appointmentConfig.amTimeLabel ?? "08:00 AM - 11:00 AM");
+    const [pmTimeLabel, setPmTimeLabel] = useState<string>(appointmentConfig.pmTimeLabel ?? "01:00 PM - 04:00 PM");
     const [activeDays, setActiveDays] = useState<number[]>(appointmentConfig.activeDays);
     const [blockedDates, setBlockedDates] = useState<string[]>(appointmentConfig.blockedDates);
     const [newBlockedDate, setNewBlockedDate] = useState("");
@@ -66,7 +70,9 @@ export default function AppointmentSettingsClient({
                 maxSlotsAM,
                 maxSlotsPM,
                 activeDays,
-                blockedDates
+                blockedDates,
+                amTimeLabel,
+                pmTimeLabel
             });
             if (res.success) {
                 toast.success("Treasury Cedula Appointment settings updated successfully!");
@@ -84,6 +90,8 @@ export default function AppointmentSettingsClient({
         if (appointmentConfig) {
             setMaxSlotsAM(appointmentConfig.maxSlotsAM ?? 25);
             setMaxSlotsPM(appointmentConfig.maxSlotsPM ?? 25);
+            setAmTimeLabel(appointmentConfig.amTimeLabel ?? "08:00 AM - 11:00 AM");
+            setPmTimeLabel(appointmentConfig.pmTimeLabel ?? "01:00 PM - 04:00 PM");
             setActiveDays(appointmentConfig.activeDays);
             setBlockedDates(appointmentConfig.blockedDates);
         }
@@ -108,7 +116,7 @@ export default function AppointmentSettingsClient({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                         {/* Left Side: General Limits & Active Days */}
                         <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
+                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">AM Slots Capacity</Label>
                                     <div className="relative inline-flex items-center w-full">
@@ -129,6 +137,35 @@ export default function AppointmentSettingsClient({
                                             type="number" 
                                             value={maxSlotsPM} 
                                             onChange={(e) => setMaxSlotsPM(Math.max(0, parseInt(e.target.value) || 0))}
+                                            className="h-12 pl-11 pr-4 rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-sm"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">AM Session Hours</Label>
+                                    <div className="relative inline-flex items-center w-full">
+                                        <Clock className="absolute left-4 w-4 h-4 text-slate-400" />
+                                        <Input 
+                                            type="text" 
+                                            value={amTimeLabel} 
+                                            onChange={(e) => setAmTimeLabel(e.target.value)}
+                                            placeholder="08:00 AM - 11:00 AM"
+                                            className="h-12 pl-11 pr-4 rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-sm"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">PM Session Hours</Label>
+                                    <div className="relative inline-flex items-center w-full">
+                                        <Clock className="absolute left-4 w-4 h-4 text-slate-400" />
+                                        <Input 
+                                            type="text" 
+                                            value={pmTimeLabel} 
+                                            onChange={(e) => setPmTimeLabel(e.target.value)}
+                                            placeholder="01:00 PM - 04:00 PM"
                                             className="h-12 pl-11 pr-4 rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-sm"
                                         />
                                     </div>

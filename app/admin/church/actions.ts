@@ -4,9 +4,21 @@
 import prisma from "@/lib/db/prisma";
 import { revalidatePath } from "next/cache";
 import { processFileUpload, deleteUploadedFile } from "@/app/admin/settings/actions";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+
+async function verifyAdminOrBarangayAdmin() {
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as any)?.role;
+    if (!session || (role !== "ADMIN" && role !== "BARANGAY_ADMIN")) {
+        throw new Error("Unauthorized: Access denied.");
+    }
+    return session.user;
+}
 
 export async function updateChurchInfo(id: string, formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const existing = await (prisma as any).churchInfo.findUnique({ where: { id } });
         
         // Handle Flyer Upload
@@ -43,6 +55,7 @@ export async function updateChurchInfo(id: string, formData: FormData) {
 }
 
 export async function addMassSchedule(data: any) {
+    await verifyAdminOrBarangayAdmin();
     const created = await (prisma as any).churchSchedule.create({
         data: {
             churchInfoId: data.churchInfoId,
@@ -61,6 +74,7 @@ export async function addMassSchedule(data: any) {
 }
 
 export async function updateMassSchedule(id: string, data: any) {
+    await verifyAdminOrBarangayAdmin();
     const updated = await (prisma as any).churchSchedule.update({
         where: { id },
         data: {
@@ -79,12 +93,14 @@ export async function updateMassSchedule(id: string, data: any) {
 }
 
 export async function deleteMassSchedule(id: string) {
+    await verifyAdminOrBarangayAdmin();
     await (prisma as any).churchSchedule.delete({ where: { id } });
     revalidatePath("/admin/church");
     revalidatePath("/");
 }
 
 export async function saveChurchCollection(data: any) {
+    await verifyAdminOrBarangayAdmin();
     // Generate total amount
     let total = Number(data.secondBasket || 0) + Number(data.weekdays || 0) + Number(data.envelopes || 0);
     
@@ -131,6 +147,7 @@ export async function saveChurchCollection(data: any) {
 }
 
 export async function deleteCollectionEntry(id: string) {
+    await verifyAdminOrBarangayAdmin();
     await (prisma as any).churchCollection.delete({ where: { id } });
     revalidatePath("/admin/church");
     revalidatePath("/");

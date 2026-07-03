@@ -1180,6 +1180,8 @@ model AppointmentConfig {
   maxSlots     Int      @default(50)
   maxSlotsAM   Int      @default(25)
   maxSlotsPM   Int      @default(25)
+  amTimeLabel  String   @default("08:00 AM - 11:00 AM")
+  pmTimeLabel  String   @default("01:00 PM - 04:00 PM")
   blockedDates String[] @default([]) // Array of ISO strings (e.g., ["2026-12-25"])
   activeDays   Int[]    @default([1, 2, 3, 4, 5]) // Days of week active (1 = Monday, 5 = Friday, etc.)
   createdAt    DateTime @default(now())
