@@ -696,7 +696,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
 
                                     {/* REVISION + REJECT — side by side */}
                                     <div className="flex gap-3">
-                                        {transaction.revisionCount < 3 && (
+                                        {!isCedula && transaction.revisionCount < 3 && (
                                             <Button
                                                 onClick={() => {
                                                     setRemarks("");
