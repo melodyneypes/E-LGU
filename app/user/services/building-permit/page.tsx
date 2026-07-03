@@ -561,7 +561,6 @@ export default function BuildingPermitPage() {
   const permitsProgress = requiredPermitIndexes
     .filter(index => uploadedPermitKeys.has(`permit_${index}`)).length;
 
-  const totalUploaded = requirementsProgress + permitsProgress;
   const uploadedRequirementsCount = uploadedRequirementKeys.size;
   const uploadedPermitsCount = uploadedPermitKeys.size;
   const totalRequiredItems = requiredRequirementsCount + requiredPermitsCount;

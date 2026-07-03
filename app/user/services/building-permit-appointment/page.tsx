@@ -558,9 +558,6 @@ export default function BuildingPermitAppointmentPage() {
     ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("req_")),
     ...Object.keys(uploadedRequirements).map(k => `req_${k}`)
   ]);
-  const requirementsProgress = requiredRequirementIndexes
-    .filter(index => uploadedRequirementKeys.has(`req_${index}`)).length;
-
   const requiredPermitIndexes = Array.from({ length: 7 }, (_, index) => index)
     .filter(index => index !== 4);
   const requiredPermitsCount = requiredPermitIndexes.length;
@@ -568,8 +565,6 @@ export default function BuildingPermitAppointmentPage() {
     ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("permit_")),
     ...Object.keys(uploadedPermits).map(k => `permit_${k}`)
   ]);
-  const permitsProgress = requiredPermitIndexes
-    .filter(index => uploadedPermitKeys.has(`permit_${index}`)).length;
 
   const revisionRequests = Array.isArray(selectedApplication?.additionalData?.revisionRequests)
     ? selectedApplication.additionalData.revisionRequests

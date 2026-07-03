@@ -49,11 +49,9 @@ const formatDateTime = (dateStrOrObj: string | Date | null | undefined): string 
 
 export default function PrintQueueTicket({
     queueNumber,
-    residentName,
     serviceName,
     appointmentDate,
     appointmentSlot,
-    isPriority = false,
     department,
     dateGenerated = new Date(),
     triggerPrint = false,
