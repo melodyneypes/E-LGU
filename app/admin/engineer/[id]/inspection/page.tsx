@@ -319,6 +319,17 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                     "Affidavit of Adjoining Owners",
                     "Signed & Sealed Plans"
                 ].map((label, idx) => ({ url: additional?.documents?.[`req_${idx}`], label })),
+                ...Object.keys(additional?.documents || {})
+                    .filter(key => key.startsWith("req_"))
+                    .map(key => {
+                        const idx = parseInt(key.replace("req_", ""), 10);
+                        if (idx >= 10) {
+                            const label = additional?.customLabels?.[key] || `Additional Document ${idx - 9}`;
+                            return { url: additional.documents[key], label };
+                        }
+                        return null;
+                    })
+                    .filter(Boolean) as { url: string; label: string }[],
                 ...[
                     "1. Electrical Permit",
                     "2. Plumbing Permit",
@@ -327,7 +338,18 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                     "5. Fencing Permit",
                     "6. Scaffolding Permit",
                     "7. Mechanical Permit"
-                ].map((label, idx) => ({ url: additional?.documents?.[`permit_${idx}`], label }))
+                ].map((label, idx) => ({ url: additional?.documents?.[`permit_${idx}`], label })),
+                ...Object.keys(additional?.documents || {})
+                    .filter(key => key.startsWith("permit_"))
+                    .map(key => {
+                        const idx = parseInt(key.replace("permit_", ""), 10);
+                        if (idx >= 7) {
+                            const label = additional?.customLabels?.[key] || `Additional Permit ${idx - 6}`;
+                            return { url: additional.documents[key], label };
+                        }
+                        return null;
+                    })
+                    .filter(Boolean) as { url: string; label: string }[]
             ].filter(doc => doc.url).map((doc, i) => (
                 <Dialog key={i}>
                     <DialogTrigger asChild>
