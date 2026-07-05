@@ -355,7 +355,7 @@ export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormPr
 
 
 
-    const onSubmit = async (data: FormValues) => {
+    const onSubmit = React.useCallback(async (data: FormValues) => {
         if (lockout.cooldownUntil && Date.now() < lockout.cooldownUntil) {
             toast.error("Security cooldown active. Redirecting to login page...");
             setTimeout(() => {
@@ -411,7 +411,7 @@ export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormPr
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [email, lockout.cooldownUntil, form]);
 
     return (
         <div className="space-y-8">
