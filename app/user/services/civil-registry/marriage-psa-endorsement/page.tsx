@@ -548,7 +548,6 @@ export default function MarriagePsaEndorsementPage() {
                 const sanitizedKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
 
                 if (fileUrls[key]) {
-                    console.log(`[ClientUpload] Reusing existing public URL for ${key}:`, fileUrls[key]);
                     continue;
                 }
 
