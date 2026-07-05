@@ -322,28 +322,34 @@ export default function AppointmentMarriagePsaEndorsementPage() {
     };
 
     const handleSelectChange = (name: string, value: string) => {
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => {
+            const next = { ...prev, [name]: value };
 
-        if (name === "relationship") {
-            const promise = (async () => {
-                const res = await getLatestForm3AForCurrentUser();
-                if (res.success && res.data) {
-                    const { husbandName, wifeName, dateOfMarriage, placeOfMarriage } = res.data;
-                    setFormData(prev => ({
-                        ...prev,
-                        husbandFullName: husbandName ? husbandName.toUpperCase() : prev.husbandFullName,
-                        wifeFullName: wifeName ? wifeName.toUpperCase() : prev.wifeFullName,
-                        dateOfMarriage: dateOfMarriage ? new Date(dateOfMarriage).toISOString().split('T')[0] : prev.dateOfMarriage,
-                        placeOfMarriage: placeOfMarriage ? placeOfMarriage.toUpperCase() : prev.placeOfMarriage
-                    }));
+            if (name === "relationship") {
+                if (value === "SELF") {
+                    if (resident) {
+                        const residentName = [resident.firstName, resident.middleName, resident.lastName]
+                            .filter(Boolean)
+                            .join(" ") + (resident.suffix ? " " + resident.suffix : "");
+                        const isMale = resident.gender?.toUpperCase() === "MALE";
+
+                        if (isMale) {
+                            next.husbandFullName = residentName.toUpperCase();
+                            next.wifeFullName = "";
+                        } else {
+                            next.wifeFullName = residentName.toUpperCase();
+                            next.husbandFullName = "";
+                        }
+                    }
+                } else {
+                    next.husbandFullName = "";
+                    next.wifeFullName = "";
+                    next.dateOfMarriage = "";
+                    next.placeOfMarriage = "";
                 }
-            })();
-            toast.promise(promise, {
-                loading: "Checking for your latest issued Form 3A in transactions...",
-                success: "Form 3A status checked.",
-                error: "Failed to check or fetch Form 3A document."
-            });
-        }
+            }
+            return next;
+        });
     };
 
 
