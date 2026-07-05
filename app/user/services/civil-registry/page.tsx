@@ -230,7 +230,7 @@ export default function CivilRegistryPage() {
                         schema: "public",
                         table: "TransactionType",
                     },
-                    (payload: any) => {
+                    () => {
                         fetchActiveCodes();
                     }
                 )
