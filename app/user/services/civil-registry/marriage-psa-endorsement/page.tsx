@@ -389,38 +389,7 @@ export default function MarriagePsaEndorsementPage() {
                     }
                 }
 
-                if (!txData) {
-                    // Check for latest Form 3A and auto-attach if no draft exists
-                    const latestRes = await getLatestForm3AForCurrentUser();
-                    if (latestRes.success && latestRes.data) {
-                        const draftFiles = await getDraftFiles(STORAGE_KEY);
-                        if (!draftFiles?.form3a) {
-                            const { docUrl, husbandName, wifeName, dateOfMarriage, placeOfMarriage } = latestRes.data;
-                            setFormData(prev => ({
-                                ...prev,
-                                husbandFullName: prev.husbandFullName || (husbandName ? husbandName.toUpperCase() : ""),
-                                wifeFullName: prev.wifeFullName || (wifeName ? wifeName.toUpperCase() : ""),
-                                dateOfMarriage: prev.dateOfMarriage || (dateOfMarriage ? new Date(dateOfMarriage).toISOString().split('T')[0] : ""),
-                                placeOfMarriage: prev.placeOfMarriage || (placeOfMarriage ? placeOfMarriage.toUpperCase() : "")
-                            }));
 
-                            if (docUrl) {
-                                try {
-                                    const response = await fetch(docUrl);
-                                    const blob = await response.blob();
-                                    const filename = docUrl.split('/').pop() || "form_3a.pdf";
-                                    const file = new File([blob], filename, { type: blob.type });
-
-                                    setFiles(prev => ({ ...prev, form3a: file }));
-                                    await saveDraftFile(STORAGE_KEY, "form3a", file);
-                                    toast.success("Latest Form 3A found and automatically attached from your transactions!");
-                                } catch (err) {
-                                    console.error("Failed to download Form 3A file:", err);
-                                }
-                            }
-                        }
-                    }
-                }
             } catch (error) {
                 console.error("Initialization error:", error);
             } finally {
@@ -436,48 +405,39 @@ export default function MarriagePsaEndorsementPage() {
     };
 
     const handleSelectChange = (name: string, value: string) => {
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => {
+            const next = { ...prev, [name]: value };
+
+            if (name === "relationship") {
+                if (value === "SELF") {
+                    if (resident) {
+                        const residentName = [resident.firstName, resident.middleName, resident.lastName]
+                            .filter(Boolean)
+                            .join(" ") + (resident.suffix ? " " + resident.suffix : "");
+                        const isMale = resident.gender?.toUpperCase() === "MALE";
+
+                        if (isMale) {
+                            next.husbandFullName = residentName.toUpperCase();
+                            next.wifeFullName = "";
+                        } else {
+                            next.wifeFullName = residentName.toUpperCase();
+                            next.husbandFullName = "";
+                        }
+                    }
+                } else {
+                    next.husbandFullName = "";
+                    next.wifeFullName = "";
+                    next.dateOfMarriage = "";
+                    next.placeOfMarriage = "";
+                }
+            }
+            return next;
+        });
 
         if (name === "relationship") {
             setFiles(prev => ({ ...prev, form3a: null }));
             saveDraftFile(STORAGE_KEY, "form3a", null).catch(err => {
                 console.error("Failed to delete draft Form 3A file:", err);
-            });
-
-            const promise = (async () => {
-                const res = await getLatestForm3AForCurrentUser();
-                if (res.success && res.data) {
-                    const { docUrl, husbandName, wifeName, dateOfMarriage, placeOfMarriage } = res.data;
-
-                    setFormData(prev => ({
-                        ...prev,
-                        husbandFullName: husbandName ? husbandName.toUpperCase() : prev.husbandFullName,
-                        wifeFullName: wifeName ? wifeName.toUpperCase() : prev.wifeFullName,
-                        dateOfMarriage: dateOfMarriage ? new Date(dateOfMarriage).toISOString().split('T')[0] : prev.dateOfMarriage,
-                        placeOfMarriage: placeOfMarriage ? placeOfMarriage.toUpperCase() : prev.placeOfMarriage
-                    }));
-
-                    if (docUrl) {
-                        try {
-                            const response = await fetch(docUrl);
-                            const blob = await response.blob();
-                            const filename = docUrl.split('/').pop() || "form_3a.pdf";
-                            const file = new File([blob], filename, { type: blob.type });
-
-                            setFiles(prev => ({ ...prev, form3a: file }));
-                            setPreviews(prev => ({ ...prev, form3a: docUrl }));
-                            await saveDraftFile(STORAGE_KEY, "form3a", file);
-                            toast.success("Latest Form 3A found and automatically attached from your transactions!");
-                        } catch (err) {
-                            console.error("Failed to download Form 3A file:", err);
-                        }
-                    }
-                }
-            })();
-            toast.promise(promise, {
-                loading: "Checking for your latest issued Form 3A in transactions...",
-                success: "Form 3A status checked.",
-                error: "Failed to check or fetch Form 3A document."
             });
         }
     };
