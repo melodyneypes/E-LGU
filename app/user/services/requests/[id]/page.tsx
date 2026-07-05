@@ -827,12 +827,16 @@ export default function RequestHubPage() {
         (isPaymongoPaymentId(additionalData?.paymongo?.paymentId) ? additionalData.paymongo.paymentId : null) ||
         (isPaymongoPaymentId(request?.paymentReference) ? request.paymentReference : null);
 
-    const isReportAllowed = useMemo(() => {
-        if (!request || request.status !== "DELIVERED") return false;
+    const [isReportAllowed, setIsReportAllowed] = useState(false);
+    useEffect(() => {
+        if (!request || request.status !== "DELIVERED") {
+            setIsReportAllowed(false);
+            return;
+        }
         const deliveredTime = request.deliveredAt ? new Date(request.deliveredAt) : new Date(request.updatedAt);
         const timeDiff = Date.now() - deliveredTime.getTime();
         const twoDaysInMs = 2 * 24 * 60 * 60 * 1000;
-        return timeDiff <= twoDaysInMs;
+        setIsReportAllowed(timeDiff <= twoDaysInMs);
     }, [request]);
 
     const computation = useMemo(() => {
