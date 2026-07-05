@@ -117,12 +117,12 @@ export function Sidebar({
                         schema: "public",
                         table: "Transaction",
                     },
-                    (payload: any) => {
+                    () => {
 
                         fetchBploCount();
                     }
                 )
-                .subscribe((status: string) => {
+                .subscribe(() => {
 
                 });
         } catch (error) {
