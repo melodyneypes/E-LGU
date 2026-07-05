@@ -73,6 +73,7 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
         },
     });
 
+    // eslint-disable-next-line react-hooks/incompatible-library
     const passwordValue = form.watch("password") || "";
 
     const requirements = [
