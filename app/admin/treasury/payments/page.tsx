@@ -35,6 +35,7 @@ export default async function PaymentsPage() {
                     totalAmount: true,
                     paymentType: true,
                     paymentReference: true,
+                    residentSnapshot: true,
                     type: {
                         select: {
                             id: true,

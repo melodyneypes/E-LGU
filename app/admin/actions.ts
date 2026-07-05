@@ -17,6 +17,15 @@ import { isRateLimited, getClientIp } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/mail";
 import { supabaseAdmin } from "@/lib/supabase";
 
+async function verifyAdminOrBarangayAdmin() {
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as any)?.role;
+    if (!session || (role !== "ADMIN" && role !== "BARANGAY_ADMIN")) {
+        throw new Error("Unauthorized: Access denied.");
+    }
+    return session.user;
+}
+
 async function getSessionBarangay(): Promise<string | null> {
     const session = await getServerSession(authOptions);
     if (!session?.user) return null;
@@ -438,6 +447,7 @@ export async function getHeadDetails(id: string) {
 
 export async function addDining(formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const imageUrl = await processImageUpload(formData);
         const barangay = formData.get("barangay") as string || await getSessionBarangay();
 
@@ -469,6 +479,7 @@ export async function addDining(formData: FormData) {
 
 export async function deleteDining(id: string) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const item = await prisma.dining.findUnique({ where: { id } });
         if (item?.imageUrl) {
             await deleteUploadedFile(item.imageUrl);
@@ -486,6 +497,7 @@ export async function deleteDining(id: string) {
 
 export async function updateDining(id: string, formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const oldItem = await prisma.dining.findUnique({ where: { id } });
         const imageUrl = await processImageUpload(formData);
         const barangay = formData.get("barangay") as string || await getSessionBarangay();
@@ -522,6 +534,7 @@ export async function updateDining(id: string, formData: FormData) {
 
 export async function toggleDiningStatus(id: string, isPublished: boolean) {
     try {
+        await verifyAdminOrBarangayAdmin();
         await prisma.dining.update({
             where: { id },
             data: { isPublished }
@@ -540,6 +553,7 @@ export async function toggleDiningStatus(id: string, isPublished: boolean) {
 
 export async function addAccommodation(formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const imageUrl = await processImageUpload(formData);
         const barangay = formData.get("barangay") as string || await getSessionBarangay();
 
@@ -572,6 +586,7 @@ export async function addAccommodation(formData: FormData) {
 
 export async function deleteAccommodation(id: string) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const item = await prisma.accommodation.findUnique({ where: { id } });
         if (item?.imageUrl) {
             await deleteUploadedFile(item.imageUrl);
@@ -589,6 +604,7 @@ export async function deleteAccommodation(id: string) {
 
 export async function updateAccommodation(id: string, formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const oldItem = await prisma.accommodation.findUnique({ where: { id } });
         const imageUrl = await processImageUpload(formData);
         const barangay = formData.get("barangay") as string || await getSessionBarangay();
@@ -626,6 +642,7 @@ export async function updateAccommodation(id: string, formData: FormData) {
 
 export async function toggleAccommodationStatus(id: string, isPublished: boolean) {
     try {
+        await verifyAdminOrBarangayAdmin();
         await prisma.accommodation.update({
             where: { id },
             data: { isPublished }
@@ -644,6 +661,7 @@ export async function toggleAccommodationStatus(id: string, isPublished: boolean
 
 export async function addTourismSpot(formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const imageUrl = await processImageUpload(formData);
         const barangay = formData.get("barangay") as string || await getSessionBarangay();
 
@@ -675,6 +693,7 @@ export async function addTourismSpot(formData: FormData) {
 
 export async function deleteTourismSpot(id: string) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const item = await prisma.tourismSpot.findUnique({ where: { id } });
         if (item?.imageUrl) {
             await deleteUploadedFile(item.imageUrl);
@@ -692,6 +711,7 @@ export async function deleteTourismSpot(id: string) {
 
 export async function updateTourismSpot(id: string, formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const oldItem = await prisma.tourismSpot.findUnique({ where: { id } });
         const imageUrl = await processImageUpload(formData);
         const barangay = formData.get("barangay") as string || await getSessionBarangay();
@@ -728,6 +748,7 @@ export async function updateTourismSpot(id: string, formData: FormData) {
 
 export async function toggleTourismSpotStatus(id: string, isPublished: boolean) {
     try {
+        await verifyAdminOrBarangayAdmin();
         await prisma.tourismSpot.update({
             where: { id },
             data: { isPublished }
@@ -746,6 +767,7 @@ export async function toggleTourismSpotStatus(id: string, isPublished: boolean) 
 
 export async function addEvent(formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const imageUrl = await processImageUpload(formData);
 
         const barangay = formData.get("barangay") as string || await getSessionBarangay();
@@ -780,6 +802,7 @@ export async function addEvent(formData: FormData) {
 
 export async function updateEvent(id: string, formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const oldItem = await (prisma as any).event.findUnique({ where: { id } });
         const imageUrl = await processImageUpload(formData);
 
@@ -816,6 +839,7 @@ export async function updateEvent(id: string, formData: FormData) {
 
 export async function deleteEvent(id: string) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const item = await prisma.event.findUnique({ where: { id } });
         if (item?.imageUrl) {
             await deleteUploadedFile(item.imageUrl);
@@ -833,6 +857,7 @@ export async function deleteEvent(id: string) {
 
 export async function toggleEventStatus(id: string, isPublished: boolean) {
     try {
+        await verifyAdminOrBarangayAdmin();
         await (prisma as any).event.update({
             where: { id },
             data: { isPublished } as any
@@ -851,6 +876,7 @@ export async function toggleEventStatus(id: string, isPublished: boolean) {
 
 export async function addNews(formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const imageUrl = await processImageUpload(formData);
         const barangay = formData.get("barangay") as string || await getSessionBarangay();
 
@@ -877,6 +903,7 @@ export async function addNews(formData: FormData) {
 
 export async function updateNews(id: string, formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const oldItem = await (prisma as any).news.findUnique({ where: { id } });
         const imageUrl = await processImageUpload(formData);
 
@@ -906,6 +933,7 @@ export async function updateNews(id: string, formData: FormData) {
 
 export async function deleteNews(id: string) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const item = await prisma.news.findUnique({ where: { id } });
         if (item?.imageUrl) {
             await deleteUploadedFile(item.imageUrl);
@@ -923,6 +951,7 @@ export async function deleteNews(id: string) {
 
 export async function toggleNewsStatus(id: string, isPublished: boolean) {
     try {
+        await verifyAdminOrBarangayAdmin();
         await prisma.news.update({
             where: { id },
             data: { isPublished }
@@ -941,6 +970,7 @@ export async function toggleNewsStatus(id: string, isPublished: boolean) {
 
 export async function addJob(formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const linksJson = formData.get("linksJson") as string;
         const links = linksJson ? JSON.parse(linksJson) : [];
 
@@ -975,6 +1005,7 @@ export async function addJob(formData: FormData) {
 
 export async function updateJob(id: string, formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const linksJson = formData.get("linksJson") as string;
         const links = linksJson ? JSON.parse(linksJson) : [];
         const barangay = formData.get("barangay") as string || await getSessionBarangay();
@@ -1008,6 +1039,7 @@ export async function updateJob(id: string, formData: FormData) {
 
 export async function deleteJob(id: string) {
     try {
+        await verifyAdminOrBarangayAdmin();
         await prisma.job.delete({
             where: { id }
         });
@@ -1021,6 +1053,7 @@ export async function deleteJob(id: string) {
 
 export async function toggleJobStatus(id: string, isActive: boolean) {
     try {
+        await verifyAdminOrBarangayAdmin();
         await (prisma as any).job.update({
             where: { id },
             data: { isActive } as any
@@ -1039,6 +1072,7 @@ export async function toggleJobStatus(id: string, isActive: boolean) {
 
 export async function addOfficial(formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const imageUrl = await processImageUpload(formData);
         const linksJson = formData.get("links") as string;
         const links = linksJson ? JSON.parse(linksJson) : [];
@@ -1080,6 +1114,7 @@ export async function addOfficial(formData: FormData) {
 
 export async function updateOfficial(id: string, formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const oldItem = await (prisma as any).official.findUnique({ where: { id } });
         const imageUrl = await processImageUpload(formData);
 
@@ -1124,6 +1159,7 @@ export async function updateOfficial(id: string, formData: FormData) {
 
 export async function deleteOfficial(id: string) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const item = await (prisma as any).official.findUnique({ where: { id } });
         if (item?.imageUrl) {
             await deleteUploadedFile(item.imageUrl);
@@ -1139,6 +1175,7 @@ export async function deleteOfficial(id: string) {
 
 export async function toggleOfficialStatus(id: string, isActive: boolean) {
     try {
+        await verifyAdminOrBarangayAdmin();
         await prisma.official.update({ where: { id }, data: { isActive } });
         revalidatePath("/admin/officials");
         return { success: true };
@@ -1154,6 +1191,7 @@ export async function toggleOfficialStatus(id: string, isActive: boolean) {
 
 export async function addHotline(formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const orderValue = formData.get("order") as string;
         const parsedOrder = orderValue ? parseInt(orderValue, 10) : 0;
 
@@ -1179,6 +1217,7 @@ export async function addHotline(formData: FormData) {
 
 export async function updateHotline(id: string, formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const orderValue = formData.get("order") as string;
         const parsedOrder = orderValue ? parseInt(orderValue, 10) : 0;
 
@@ -1204,6 +1243,7 @@ export async function updateHotline(id: string, formData: FormData) {
 
 export async function deleteHotline(id: string) {
     try {
+        await verifyAdminOrBarangayAdmin();
         await prisma.hotline.delete({ where: { id } });
         revalidatePath("/admin/hotlines");
         return { success: true };
@@ -1215,6 +1255,7 @@ export async function deleteHotline(id: string) {
 
 export async function toggleHotlineStatus(id: string, isActive: boolean) {
     try {
+        await verifyAdminOrBarangayAdmin();
         await prisma.hotline.update({ where: { id }, data: { isActive } });
         revalidatePath("/admin/hotlines");
         return { success: true };
@@ -1230,6 +1271,7 @@ export async function toggleHotlineStatus(id: string, isActive: boolean) {
 
 export async function addProject(formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const imageUrl = await processImageUpload(formData);
 
         const barangay = formData.get("barangay") as string || await getSessionBarangay();
@@ -1262,6 +1304,7 @@ export async function addProject(formData: FormData) {
 
 export async function updateProject(id: string, formData: FormData) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const oldItem = await (prisma as any).project.findUnique({ where: { id } });
         const imageUrl = await processImageUpload(formData);
 
@@ -1296,6 +1339,7 @@ export async function updateProject(id: string, formData: FormData) {
 
 export async function deleteProject(id: string) {
     try {
+        await verifyAdminOrBarangayAdmin();
         const item = await (prisma as any).project.findUnique({ where: { id } });
         if (item?.imageUrl) {
             await deleteUploadedFile(item.imageUrl);
@@ -1311,6 +1355,7 @@ export async function deleteProject(id: string) {
 
 export async function toggleProjectStatus(id: string, isPublished: boolean) {
     try {
+        await verifyAdminOrBarangayAdmin();
         await (prisma as any).project.update({ where: { id }, data: { isPublished } as any });
         revalidatePath("/admin/projects");
         return { success: true };
