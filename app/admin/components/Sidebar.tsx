@@ -68,7 +68,7 @@ export function Sidebar({
     const [isEntranceComplete, setIsEntranceComplete] = React.useState(false);
     const [mounted, setMounted] = React.useState(false);
     const [liveLcrCounts, setLiveLcrCounts] = React.useState<Record<string, number>>(unviewedLcrCounts);
-    console.log("[LCR Sidebar] Render - unviewedLcrCounts prop:", unviewedLcrCounts, "liveLcrCounts state:", liveLcrCounts);
+
     const { theme, setTheme } = useTheme();
     React.useEffect(() => {
         setMounted(true);
@@ -78,7 +78,7 @@ export function Sidebar({
 
     React.useEffect(() => {
         getTransactionTypes().then(res => {
-            console.log("[Sidebar] getTransactionTypes response:", res);
+
             if (res.success && res.data) {
                 setActiveTypes(res.data);
             }
@@ -118,12 +118,12 @@ export function Sidebar({
                         table: "Transaction",
                     },
                     (payload: any) => {
-                        console.log("[BPLO Realtime] Received table change event:", payload);
+
                         fetchBploCount();
                     }
                 )
                 .subscribe((status: string) => {
-                    console.log("[BPLO Realtime] Subscription status callback:", status);
+
                 });
         } catch (error) {
             console.warn("Failed to setup sidebar realtime:", error);
@@ -138,9 +138,7 @@ export function Sidebar({
 
     const fetchLcrCounts = React.useCallback(async () => {
         try {
-            console.log("[LCR Sidebar] Fetching counts via getUnviewedLcrCounts...");
             const res = await getUnviewedLcrCounts();
-            console.log("[LCR Sidebar] getUnviewedLcrCounts response:", res);
             if (res && res.success && res.data) {
                 setLiveLcrCounts(res.data);
             }
@@ -150,7 +148,7 @@ export function Sidebar({
     }, []);
 
     React.useEffect(() => {
-        console.log("[LCR Sidebar] Pathname changed, running fetchLcrCounts...");
+
         fetchLcrCounts();
     }, [pathname, fetchLcrCounts]);
 
