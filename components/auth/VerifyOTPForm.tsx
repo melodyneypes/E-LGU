@@ -424,7 +424,7 @@ export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormPr
         } finally {
             setIsLoading(false);
         }
-    }, [email, lockout.cooldownUntil, form]);
+    }, [email, lockout.cooldownUntil, form, handleSuccessAttempt, handleFailedAttempt]);
 
     return (
         <div className="space-y-8">
