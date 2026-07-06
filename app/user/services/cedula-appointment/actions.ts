@@ -173,7 +173,7 @@ export async function submitCedulaAppointment(formData: FormData) {
                 },
                 appointmentSlot: appointmentSlot,
                 isCancelled: false,
-                type: { category: "Treasurer" }
+                type: { category: "CEDULA" }
             }
         });
 
