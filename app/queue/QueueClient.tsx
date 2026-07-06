@@ -17,6 +17,7 @@ import {
     Loader2
 } from "lucide-react";
 import { getActiveQueueData, QueueDepartmentData, verifyRfidUnlock } from "./actions";
+import { supabase } from "@/lib/supabase";
 
 interface QueueClientProps {
     themeColor: string;
@@ -166,15 +167,48 @@ export default function QueueClient({
         return () => clearInterval(timer);
     }, []);
 
-    // Active Polling: fetch queue updates every 3 seconds
+    // Real-time updates via Supabase WebSockets + Fallback Polling (10 seconds)
     useEffect(() => {
-        const interval = setInterval(async () => {
+        const fetchUpdates = async () => {
             const freshData = await getActiveQueueData();
             if (freshData && freshData.length > 0) {
                 setQueueData(freshData);
             }
-        }, 3000);
-        return () => clearInterval(interval);
+        };
+
+        // 1. WebSocket Realtime subscription to postgres changes on Transaction table
+        let channel: any = null;
+        if (supabase) {
+            channel = supabase
+                .channel("lobby-queue-realtime")
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "Transaction"
+                    },
+                    async (payload: any) => {
+                        console.log("Realtime Update: Transaction change detected", payload);
+                        await fetchUpdates();
+                    }
+                )
+                .subscribe((status: string) => {
+                    console.log(`Realtime Channel status: ${status}`);
+                });
+        }
+
+        // 2. Fallback polling (updates every 10 seconds to sync if connection drops)
+        const fallbackInterval = setInterval(async () => {
+            await fetchUpdates();
+        }, 10000);
+
+        return () => {
+            if (supabase && channel) {
+                supabase.removeChannel(channel);
+            }
+            clearInterval(fallbackInterval);
+        };
     }, []);
 
     // Text-to-Speech logic
@@ -182,67 +216,70 @@ export default function QueueClient({
         if (!isVoiceEnabled) return;
 
         queueData.forEach(dept => {
-            const currentTicket = dept.nowServing?.queueNumber;
-            const prevTicket = prevCalledRef.current[dept.department];
+            dept.nowServing.forEach(active => {
+                const currentTicket = active.queueNumber;
+                const trackerKey = `${dept.department}-${active.counterName}`;
+                const prevTicket = prevCalledRef.current[trackerKey];
 
-            if (currentTicket && currentTicket !== prevTicket) {
-                // Update tracker immediately to avoid double calls
-                prevCalledRef.current[dept.department] = currentTicket;
+                if (currentTicket && currentTicket !== prevTicket) {
+                    // Update tracker immediately to avoid double calls
+                    prevCalledRef.current[trackerKey] = currentTicket;
 
-                // Speech Synthesis
-                const counter = dept.nowServing?.counterName || `${dept.department} Counter`;
-                const phrase = `Ticket number, ${currentTicket.split("").join(" ")}, please proceed to ${counter}.`;
-                
-                const utterance = new SpeechSynthesisUtterance(phrase);
-                utterance.rate = 0.85; // slightly slower for clarity
-                utterance.pitch = 1.05; // slightly higher pitch for natural female tone
-                
-                // Find a high-quality female English voice from our loaded state
-                const femaleVoice = voices.find(voice => {
-                    const name = voice.name.toLowerCase();
-                    const lang = voice.lang.toLowerCase();
-                    const isEnglish = lang.startsWith("en");
+                    // Speech Synthesis
+                    const counter = active.counterName;
+                    const phrase = `Ticket number, ${currentTicket.split("").join(" ")}, please proceed to ${counter}.`;
                     
-                    const isFemaleName = 
-                        name.includes("zira") ||
-                        name.includes("samantha") ||
-                        name.includes("hazel") ||
-                        name.includes("aria") ||
-                        name.includes("susan") ||
-                        name.includes("female") ||
-                        name.includes("google us english") ||
-                        name.includes("en-us-language") ||
-                        name.includes("heera"); // Cortana/other standard female voices
+                    const utterance = new SpeechSynthesisUtterance(phrase);
+                    utterance.rate = 0.85; // slightly slower for clarity
+                    utterance.pitch = 1.05; // slightly higher pitch for natural female tone
                     
-                    const isMaleName = 
-                        name.includes("david") ||
-                        name.includes("mark") ||
-                        name.includes("george") ||
-                        name.includes("ravi") ||
-                        name.includes("male");
+                    // Find a high-quality female English voice from our loaded state
+                    const femaleVoice = voices.find(voice => {
+                        const name = voice.name.toLowerCase();
+                        const lang = voice.lang.toLowerCase();
+                        const isEnglish = lang.startsWith("en");
+                        
+                        const isFemaleName = 
+                            name.includes("zira") ||
+                            name.includes("samantha") ||
+                            name.includes("hazel") ||
+                            name.includes("aria") ||
+                            name.includes("susan") ||
+                            name.includes("female") ||
+                            name.includes("google us english") ||
+                            name.includes("en-us-language") ||
+                            name.includes("heera"); // Cortana/other standard female voices
+                        
+                        const isMaleName = 
+                            name.includes("david") ||
+                            name.includes("mark") ||
+                            name.includes("george") ||
+                            name.includes("ravi") ||
+                            name.includes("male");
 
-                    return isEnglish && isFemaleName && !isMaleName;
-                }) || voices.find(voice => {
-                    // Fallback to any voice that is English and doesn't contain a male name
-                    const name = voice.name.toLowerCase();
-                    const lang = voice.lang.toLowerCase();
-                    return lang.startsWith("en") && !(
-                        name.includes("david") ||
-                        name.includes("mark") ||
-                        name.includes("george") ||
-                        name.includes("male")
-                    );
-                });
+                        return isEnglish && isFemaleName && !isMaleName;
+                    }) || voices.find(voice => {
+                        // Fallback to any voice that is English and doesn't contain a male name
+                        const name = voice.name.toLowerCase();
+                        const lang = voice.lang.toLowerCase();
+                        return lang.startsWith("en") && !(
+                            name.includes("david") ||
+                            name.includes("mark") ||
+                            name.includes("george") ||
+                            name.includes("male")
+                        );
+                    });
 
-                console.log("Speech Engine: Selected voice -", femaleVoice?.name || "System Default");
+                    console.log("Speech Engine: Selected voice -", femaleVoice?.name || "System Default");
 
-                if (femaleVoice) {
-                    utterance.voice = femaleVoice;
+                    if (femaleVoice) {
+                        utterance.voice = femaleVoice;
+                    }
+                    
+                    // Add minor delays between queued voices if many change at once
+                    window.speechSynthesis.speak(utterance);
                 }
-                
-                // Add minor delays between queued voices if many change at once
-                window.speechSynthesis.speak(utterance);
-            }
+            });
         });
     }, [queueData, isVoiceEnabled, voices]);
 
@@ -463,38 +500,42 @@ export default function QueueClient({
                             </div>
 
                             {/* Now Serving Ticket Panel */}
-                            <div className="flex-1 flex flex-col items-center justify-center py-8">
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] italic mb-4">Now Serving</span>
+                            <div className="flex-1 flex flex-col justify-center py-4 overflow-y-auto space-y-4 min-h-0">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] italic text-center block mb-2">Now Serving</span>
                                 
-                                <AnimatePresence mode="wait">
-                                    {dept.nowServing ? (
-                                        <motion.div 
-                                            key={dept.nowServing.queueNumber}
-                                            initial={{ scale: 0.9, opacity: 0 }}
-                                            animate={{ scale: 1, opacity: 1 }}
-                                            exit={{ scale: 0.95, opacity: 0 }}
-                                            transition={{ duration: 0.4, ease: "easeOut" }}
-                                            className="text-center w-full"
-                                        >
-                                            <h3 className={`text-4xl lg:text-5xl font-black tracking-tight font-mono ${theme.text} drop-shadow-[0_0_20px_rgba(var(--primary),0.3)] animate-pulse`}>
-                                                {dept.nowServing.queueNumber}
-                                            </h3>
-                                            <div className="mt-4 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10">
-                                                <Activity className="w-3.5 h-3.5 text-slate-400" />
-                                                <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">
-                                                    {dept.nowServing.counterName}
-                                                </span>
-                                            </div>
-                                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-3 line-clamp-1">
-                                                {dept.nowServing.residentName}
-                                            </p>
-                                        </motion.div>
+                                <AnimatePresence mode="popLayout">
+                                    {dept.nowServing.length > 0 ? (
+                                        <div className="space-y-4 w-full">
+                                            {dept.nowServing.map((serving) => (
+                                                <motion.div 
+                                                    key={serving.queueNumber}
+                                                    initial={{ scale: 0.95, opacity: 0 }}
+                                                    animate={{ scale: 1, opacity: 1 }}
+                                                    exit={{ scale: 0.95, opacity: 0 }}
+                                                    transition={{ duration: 0.3 }}
+                                                    className="text-center w-full p-4 rounded-3xl bg-white/5 border border-white/5 shadow-md flex flex-col items-center justify-center"
+                                                >
+                                                    <h3 className={`text-3xl lg:text-4xl font-black tracking-tight font-mono ${theme.text} drop-shadow-[0_0_15px_rgba(var(--primary),0.3)] animate-pulse`}>
+                                                        {serving.queueNumber}
+                                                    </h3>
+                                                    <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/5">
+                                                        <Activity className="w-3 h-3 text-slate-400" />
+                                                        <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">
+                                                            {serving.counterName}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-2 line-clamp-1">
+                                                        {serving.residentName}
+                                                    </p>
+                                                </motion.div>
+                                            ))}
+                                        </div>
                                     ) : (
                                         <motion.div
                                             key="idle"
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 0.4 }}
-                                            className="text-center space-y-2 py-6"
+                                            className="text-center space-y-2 py-6 w-full"
                                         >
                                             <p className="text-2xl font-black uppercase tracking-wider italic text-slate-500 font-mono">---</p>
                                             <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">No Ticket Called</span>

@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log("🌱 Starting queue seeder...");
+    console.log("🌱 Starting beautiful multi-window queue seeder...");
 
     // 1. Get an existing user to own these test transactions
     const user = await prisma.user.findFirst({
@@ -34,7 +34,7 @@ async function main() {
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
-    // Clean existing test transactions for today to avoid pollution
+    // Clean existing test transactions to avoid duplicates
     await prisma.transaction.deleteMany({
         where: {
             queueNumber: { contains: "-TEST-" }
@@ -55,8 +55,8 @@ async function main() {
         province: "Pangasinan"
     };
 
-    console.log("📝 Seeding Treasury (Cedula) Queue...");
-    // Now Serving
+    console.log("📝 Seeding Treasury (Cedula) Queue (3 Counters)...");
+    // Treasury Counter 1 (Now Serving)
     await prisma.transaction.create({
         data: {
             userId: user.id,
@@ -70,6 +70,34 @@ async function main() {
             isPriority: false
         }
     });
+    // Treasury Counter 2 (Now Serving)
+    await prisma.transaction.create({
+        data: {
+            userId: user.id,
+            typeId: cedulaType.id,
+            status: "FOR_PROCESSING",
+            residentSnapshot: testResidentSnapshot,
+            additionalData: { counterName: "Treasury Counter 2" },
+            appointmentDate: today,
+            appointmentSlot: "08:00 AM - 11:30 AM",
+            queueNumber: "07062026-AM-TEST-002",
+            isPriority: true
+        }
+    });
+    // Treasury Counter 3 (Now Serving)
+    await prisma.transaction.create({
+        data: {
+            userId: user.id,
+            typeId: cedulaType.id,
+            status: "FOR_PROCESSING",
+            residentSnapshot: testResidentSnapshot,
+            additionalData: { counterName: "Treasury Counter 3" },
+            appointmentDate: today,
+            appointmentSlot: "08:00 AM - 11:30 AM",
+            queueNumber: "07062026-AM-TEST-003",
+            isPriority: false
+        }
+    });
     // Waiting 1
     await prisma.transaction.create({
         data: {
@@ -80,7 +108,7 @@ async function main() {
             additionalData: {},
             appointmentDate: today,
             appointmentSlot: "08:00 AM - 11:30 AM",
-            queueNumber: "07062026-AM-TEST-002",
+            queueNumber: "07062026-AM-TEST-004",
             isPriority: true
         }
     });
@@ -94,13 +122,27 @@ async function main() {
             additionalData: {},
             appointmentDate: today,
             appointmentSlot: "08:00 AM - 11:30 AM",
-            queueNumber: "07062026-AM-TEST-003",
+            queueNumber: "07062026-AM-TEST-005",
             isPriority: false
         }
     });
 
-    console.log("📝 Seeding BPLO (Business Permit) Queue...");
-    // Now Serving
+    console.log("📝 Seeding BPLO (Business Permit) Queue (2 Counters)...");
+    // BPLO Window 1 (Now Serving)
+    await prisma.transaction.create({
+        data: {
+            userId: user.id,
+            typeId: bploType.id,
+            status: "FOR_PROCESSING",
+            residentSnapshot: testResidentSnapshot,
+            additionalData: { counterName: "BPLO Window 1" },
+            appointmentDate: today,
+            appointmentSlot: "01:00 PM - 04:00 PM",
+            queueNumber: "07062026-PM-TEST-010",
+            isPriority: false
+        }
+    });
+    // BPLO Window 2 (Now Serving)
     await prisma.transaction.create({
         data: {
             userId: user.id,
@@ -110,8 +152,8 @@ async function main() {
             additionalData: { counterName: "BPLO Window 2" },
             appointmentDate: today,
             appointmentSlot: "01:00 PM - 04:00 PM",
-            queueNumber: "07062026-PM-TEST-010",
-            isPriority: false
+            queueNumber: "07062026-PM-TEST-011",
+            isPriority: true
         }
     });
     // Waiting
@@ -124,13 +166,13 @@ async function main() {
             additionalData: {},
             appointmentDate: today,
             appointmentSlot: "01:00 PM - 04:00 PM",
-            queueNumber: "07062026-PM-TEST-011",
+            queueNumber: "07062026-PM-TEST-012",
             isPriority: false
         }
     });
 
-    console.log("📝 Seeding Registrar (Civil Registry) Queue...");
-    // Now Serving
+    console.log("📝 Seeding Registrar (Civil Registry) Queue (2 Counters)...");
+    // Registrar Window 1 (Now Serving)
     await prisma.transaction.create({
         data: {
             userId: user.id,
@@ -144,6 +186,20 @@ async function main() {
             isPriority: true
         }
     });
+    // Registrar Window 2 (Now Serving)
+    await prisma.transaction.create({
+        data: {
+            userId: user.id,
+            typeId: registrarType.id,
+            status: "FOR_PROCESSING",
+            residentSnapshot: testResidentSnapshot,
+            additionalData: { counterName: "Registrar Window 2" },
+            appointmentDate: today,
+            appointmentSlot: "08:00 AM - 11:30 AM",
+            queueNumber: "07062026-AM-TEST-021",
+            isPriority: false
+        }
+    });
     // Waiting
     await prisma.transaction.create({
         data: {
@@ -154,7 +210,7 @@ async function main() {
             additionalData: {},
             appointmentDate: today,
             appointmentSlot: "08:00 AM - 11:30 AM",
-            queueNumber: "07062026-AM-TEST-021",
+            queueNumber: "07062026-AM-TEST-022",
             isPriority: false
         }
     });
@@ -167,15 +223,29 @@ async function main() {
             typeId: engineeringType.id,
             status: "FOR_PROCESSING",
             residentSnapshot: testResidentSnapshot,
-            additionalData: { counterName: "Engineering Desk 3" },
+            additionalData: { counterName: "Engineering Desk 1" },
             appointmentDate: today,
             appointmentSlot: "01:00 PM - 04:00 PM",
             queueNumber: "07062026-PM-TEST-030",
             isPriority: false
         }
     });
+    // Waiting
+    await prisma.transaction.create({
+        data: {
+            userId: user.id,
+            typeId: engineeringType.id,
+            status: "FOR_REQUESTING",
+            residentSnapshot: testResidentSnapshot,
+            additionalData: {},
+            appointmentDate: today,
+            appointmentSlot: "01:00 PM - 04:00 PM",
+            queueNumber: "07062026-PM-TEST-031",
+            isPriority: false
+        }
+    });
 
-    console.log("🎉 Queue seeder successfully completed!");
+    console.log("🎉 Beautiful multi-window queue seeder successfully completed!");
 }
 
 main()

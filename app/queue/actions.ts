@@ -8,7 +8,7 @@ export interface QueueDepartmentData {
         queueNumber: string | null;
         residentName: string;
         counterName: string;
-    } | null;
+    }[];
     waiting: string[];
 }
 
@@ -41,8 +41,8 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
         const queueData: QueueDepartmentData[] = [];
 
         for (const dept of departments) {
-            // Find current serving transaction for this department (scheduled for today)
-            const activeTx = await prisma.transaction.findFirst({
+            // Find current serving transactions for this department (scheduled for today)
+            const activeTxs = await prisma.transaction.findMany({
                 where: {
                     status: "FOR_PROCESSING",
                     isCancelled: false,
@@ -66,10 +66,40 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
                 }
             });
 
-            // Find next waiting tickets (status: FOR_REQUESTING or FOR_INSPECTION scheduled for today)
-            const waitingTxs = await prisma.transaction.findMany({
+            // Group by counterName in memory to show the latest ticket per window
+            const nowServingList: { queueNumber: string | null; residentName: string; counterName: string }[] = [];
+            const seenCounters = new Set<string>();
+
+            for (const tx of activeTxs) {
+                const additionalData = tx.additionalData as any;
+                const counterName = additionalData?.counterName || `${dept.name} Counter`;
+
+                if (!seenCounters.has(counterName)) {
+                    seenCounters.add(counterName);
+
+                    let residentName = "N/A";
+                    if (tx.user?.residentProfile) {
+                        const profile = tx.user.residentProfile;
+                        residentName = `${profile.firstName} ${profile.lastName}`;
+                    }
+
+                    nowServingList.push({
+                        queueNumber: tx.queueNumber,
+                        residentName,
+                        counterName
+                    });
+                }
+            }
+
+            const allowedStatuses = ["FOR_REQUESTING", "FOR_INSPECTION"];
+            if (dept.name === "Treasury") {
+                allowedStatuses.push("UNPAID");
+            }
+
+            // Find next waiting tickets (scheduled for today and physically checked-in)
+            const waitingTxsRaw = await prisma.transaction.findMany({
                 where: {
-                    status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] },
+                    status: { in: allowedStatuses as any },
                     isCancelled: false,
                     appointmentDate: {
                         gte: startOfDay,
@@ -77,39 +107,36 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
                     },
                     type: {
                         category: { in: dept.categories }
+                    },
+                    additionalData: {
+                        path: ["checkedIn"],
+                        equals: true
                     }
                 },
-                orderBy: [
-                    { isPriority: "desc" },
-                    { createdAt: "asc" }
-                ],
-                take: 5,
                 select: {
-                    queueNumber: true
+                    queueNumber: true,
+                    isPriority: true,
+                    additionalData: true,
+                    createdAt: true
                 }
             });
 
-            let residentName = "N/A";
-            if (activeTx?.user?.residentProfile) {
-                const profile = activeTx.user.residentProfile;
-                residentName = `${profile.firstName} ${profile.lastName}`;
-            }
+            // Sort in memory: Priority (Seniors/PWDs) first, then by checkedInAt physical timestamp (FIFO)
+            const sortedWaiting = waitingTxsRaw
+                .sort((a, b) => {
+                    if (a.isPriority && !b.isPriority) return -1;
+                    if (!a.isPriority && b.isPriority) return 1;
 
-            // Map counter dynamically if counter data is present in additionalData, else default to department name
-            let counterName = `${dept.name} Counter`;
-            const additionalData = activeTx?.additionalData as any;
-            if (additionalData?.counterName) {
-                counterName = additionalData.counterName;
-            }
+                    const aCheckedInAt = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+                    const bCheckedInAt = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+                    return aCheckedInAt - bCheckedInAt;
+                })
+                .slice(0, 5);
 
             queueData.push({
                 department: dept.name,
-                nowServing: activeTx ? {
-                    queueNumber: activeTx.queueNumber,
-                    residentName,
-                    counterName
-                } : null,
-                waiting: waitingTxs
+                nowServing: nowServingList,
+                waiting: sortedWaiting
                     .map(tx => tx.queueNumber)
                     .filter((num): num is string => !!num)
             });
