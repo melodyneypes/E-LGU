@@ -121,3 +121,24 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
         return [];
     }
 }
+
+export async function verifyRfidUnlock(rfidCardId: string): Promise<{ success: boolean; role?: string; error?: string }> {
+    try {
+        const user = await prisma.user.findFirst({
+            where: {
+                rfid: rfidCardId,
+                role: {
+                    in: ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"]
+                }
+            }
+        });
+
+        if (user) {
+            return { success: true, role: user.role };
+        }
+        return { success: false, error: "Invalid RFID Card or Unauthorized Access" };
+    } catch (error) {
+        console.error("RFID Verification failed:", error);
+        return { success: false, error: "Database verification failed" };
+    }
+}

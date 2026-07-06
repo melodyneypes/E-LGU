@@ -11,9 +11,12 @@ import {
     Building2, 
     Scroll, 
     Ruler,
-    Play
+    Play,
+    Lock,
+    ShieldAlert,
+    Loader2
 } from "lucide-react";
-import { getActiveQueueData, QueueDepartmentData } from "./actions";
+import { getActiveQueueData, QueueDepartmentData, verifyRfidUnlock } from "./actions";
 
 interface QueueClientProps {
     themeColor: string;
@@ -68,9 +71,91 @@ export default function QueueClient({
     const [currentTime, setCurrentTime] = useState<Date | null>(null);
     const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
     const [hasInteracted, setHasInteracted] = useState(false);
+    const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+    
+    // RFID Lock Screen States
+    const [isLocked, setIsLocked] = useState(true);
+    const [verifyingRfid, setVerifyingRfid] = useState(false);
+    const [rfidError, setRfidError] = useState("");
+    const [manualRfid, setManualRfid] = useState("");
+    const [showManualInput, setShowManualInput] = useState(false);
 
     // Keep track of previously called queue numbers to prevent repeating announcements
     const prevCalledRef = useRef<Record<string, string>>({});
+
+    // Listen to global USB RFID scanner keyboard emulation (types digits + Enter)
+    useEffect(() => {
+        if (!isLocked) return;
+
+        let buffer = "";
+        let timeout: NodeJS.Timeout;
+
+        const handleKeyDown = async (e: KeyboardEvent) => {
+            // Avoid capturing key events when typing manually in the input box
+            if (document.activeElement?.tagName === "INPUT") {
+                return;
+            }
+
+            if (e.key === "Control" || e.key === "Alt" || e.key === "Shift" || e.key === "Meta") {
+                return;
+            }
+
+            if (e.key === "Enter") {
+                if (buffer.length > 0) {
+                    const scannedCode = buffer.trim();
+                    buffer = "";
+                    await triggerRfidUnlock(scannedCode);
+                }
+            } else {
+                if (e.key.length === 1) {
+                    buffer += e.key;
+                    
+                    // USB scanners send keys at lightning speeds (e.g. 10ms intervals)
+                    // Reset buffer if character interval is slow (>150ms) to ignore normal typing
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => {
+                        buffer = "";
+                    }, 150);
+                }
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+            clearTimeout(timeout);
+        };
+    }, [isLocked]);
+
+    const triggerRfidUnlock = async (rfidCode: string) => {
+        setVerifyingRfid(true);
+        setRfidError("");
+        try {
+            const res = await verifyRfidUnlock(rfidCode);
+            if (res.success) {
+                setIsLocked(false);
+                setIsVoiceEnabled(true);
+                setHasInteracted(true);
+            } else {
+                setRfidError(res.error || "Access Denied: RFID not authorized");
+            }
+        } catch {
+            setRfidError("Database verification failed");
+        } finally {
+            setVerifyingRfid(false);
+        }
+    };
+
+    // Load voices and listen for async changes (crucial for Chrome/Safari)
+    useEffect(() => {
+        if (typeof window !== "undefined" && window.speechSynthesis) {
+            const loadVoices = () => {
+                setVoices(window.speechSynthesis.getVoices());
+            };
+            loadVoices();
+            window.speechSynthesis.onvoiceschanged = loadVoices;
+        }
+    }, []);
 
     // Update Clock
     useEffect(() => {
@@ -110,13 +195,56 @@ export default function QueueClient({
                 
                 const utterance = new SpeechSynthesisUtterance(phrase);
                 utterance.rate = 0.85; // slightly slower for clarity
-                utterance.pitch = 1.0;
+                utterance.pitch = 1.05; // slightly higher pitch for natural female tone
+                
+                // Find a high-quality female English voice from our loaded state
+                const femaleVoice = voices.find(voice => {
+                    const name = voice.name.toLowerCase();
+                    const lang = voice.lang.toLowerCase();
+                    const isEnglish = lang.startsWith("en");
+                    
+                    const isFemaleName = 
+                        name.includes("zira") ||
+                        name.includes("samantha") ||
+                        name.includes("hazel") ||
+                        name.includes("aria") ||
+                        name.includes("susan") ||
+                        name.includes("female") ||
+                        name.includes("google us english") ||
+                        name.includes("en-us-language") ||
+                        name.includes("heera"); // Cortana/other standard female voices
+                    
+                    const isMaleName = 
+                        name.includes("david") ||
+                        name.includes("mark") ||
+                        name.includes("george") ||
+                        name.includes("ravi") ||
+                        name.includes("male");
+
+                    return isEnglish && isFemaleName && !isMaleName;
+                }) || voices.find(voice => {
+                    // Fallback to any voice that is English and doesn't contain a male name
+                    const name = voice.name.toLowerCase();
+                    const lang = voice.lang.toLowerCase();
+                    return lang.startsWith("en") && !(
+                        name.includes("david") ||
+                        name.includes("mark") ||
+                        name.includes("george") ||
+                        name.includes("male")
+                    );
+                });
+
+                console.log("Speech Engine: Selected voice -", femaleVoice?.name || "System Default");
+
+                if (femaleVoice) {
+                    utterance.voice = femaleVoice;
+                }
                 
                 // Add minor delays between queued voices if many change at once
                 window.speechSynthesis.speak(utterance);
             }
         });
-    }, [queueData, isVoiceEnabled]);
+    }, [queueData, isVoiceEnabled, voices]);
 
     const handleEnableVoice = () => {
         setIsVoiceEnabled(true);
@@ -127,6 +255,112 @@ export default function QueueClient({
         utterance.volume = 0;
         window.speechSynthesis.speak(utterance);
     };
+
+    if (isLocked) {
+        return (
+            <div className="min-h-screen bg-[#060813] text-white flex flex-col items-center justify-center font-sans relative overflow-hidden select-none">
+                {/* Ambient Background Glows */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-blue-500/10 blur-[120px] pointer-events-none" />
+
+                <div className="max-w-md w-full mx-4 p-8 rounded-[2.5rem] border border-white/10 bg-slate-950/40 backdrop-blur-xl shadow-2xl flex flex-col items-center text-center space-y-8 relative z-10">
+                    <div className="w-20 h-20 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center" style={{ color: themeColor }}>
+                        {verifyingRfid ? (
+                            <Loader2 className="w-8 h-8 animate-spin" style={{ color: themeColor }} />
+                        ) : (
+                            <Lock className="w-8 h-8" style={{ color: themeColor }} />
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <h1 className="text-xl font-black uppercase tracking-wider italic">
+                            {branding.word1} <span style={{ color: themeColor }}>SECURE ACCESS</span>
+                        </h1>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">
+                            Lobby TV Monitor Display
+                        </p>
+                    </div>
+
+                    <div className="p-4 w-full rounded-2xl bg-white/5 border border-white/5 space-y-2">
+                        {verifyingRfid ? (
+                            <p className="text-xs font-black uppercase tracking-wider text-slate-400 animate-pulse">
+                                Verifying RFID badge...
+                            </p>
+                        ) : (
+                            <div className="space-y-1">
+                                <p className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                                    🟢 Waiting for RFID Scan
+                                </p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-normal">
+                                    Please tap your staff RFID badge on the reader to unlock the queue display.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {rfidError && (
+                        <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 w-full text-left">
+                            <ShieldAlert className="w-4.5 h-4.5 shrink-0 text-red-500" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider leading-normal">
+                                {rfidError}
+                            </span>
+                        </div>
+                    )}
+
+                    <div className="pt-4 border-t border-white/5 w-full flex flex-col items-center">
+                        {!showManualInput ? (
+                            <button
+                                onClick={() => setShowManualInput(true)}
+                                className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors"
+                            >
+                                ⌨️ Type RFID card ID manually
+                            </button>
+                        ) : (
+                            <form 
+                                onSubmit={async (e) => {
+                                    e.preventDefault();
+                                    if (manualRfid.trim()) {
+                                        await triggerRfidUnlock(manualRfid.trim());
+                                    }
+                                }}
+                                className="w-full space-y-3"
+                            >
+                                <input
+                                    type="text"
+                                    placeholder="Enter RFID Card ID"
+                                    value={manualRfid}
+                                    onChange={(e) => setManualRfid(e.target.value)}
+                                    className="w-full h-11 px-4 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-center text-white focus:border-primary focus:outline-none placeholder-slate-600 focus:ring-1 focus:ring-white/20"
+                                    disabled={verifyingRfid}
+                                    autoFocus
+                                />
+                                <div className="flex gap-2 w-full">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowManualInput(false);
+                                            setManualRfid("");
+                                            setRfidError("");
+                                        }}
+                                        className="h-9 px-4 rounded-xl border border-white/5 hover:bg-white/5 text-[9px] font-black uppercase tracking-widest text-slate-400 transition-all flex-1"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={verifyingRfid || !manualRfid.trim()}
+                                        className="h-9 px-4 rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition-all flex-1 flex items-center justify-center gap-1.5"
+                                        style={{ backgroundColor: themeColor }}
+                                    >
+                                        Unlock
+                                    </button>
+                                </div>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[#060813] text-white flex flex-col font-sans select-none overflow-hidden relative">
