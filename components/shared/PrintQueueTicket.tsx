@@ -5,61 +5,99 @@ import { createPortal } from "react-dom";
 
 interface PrintQueueTicketProps {
     queueNumber: string;
-    residentName: string;
+    residentName?: string;
     serviceName: string;
-    appointmentDate: string;
+    appointmentDate: string | Date;
     appointmentSlot: string;
-    isPriority: boolean;
-    branding: {
-        logo?: string | null;
-        word1?: string;
-        word2?: string;
-    };
+    isPriority?: boolean;
+    department?: string;
+    dateGenerated?: string | Date;
+    branding?: any;
     themeColor?: string;
     triggerPrint?: boolean;
     onPrintCompleted?: () => void;
 }
 
+const formatDate = (dateStrOrObj: string | Date | null | undefined): string => {
+    if (!dateStrOrObj) return "N/A";
+    const date = new Date(dateStrOrObj);
+    if (isNaN(date.getTime())) return String(dateStrOrObj);
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    const y = date.getFullYear();
+    return `${m}/${d}/${y}`;
+};
+
+const formatDateTime = (dateStrOrObj: string | Date | null | undefined): string => {
+    if (!dateStrOrObj) return "N/A";
+    const date = new Date(dateStrOrObj);
+    if (isNaN(date.getTime())) return String(dateStrOrObj);
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    const y = date.getFullYear();
+    
+    let hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+    const h = String(hours).padStart(2, '0');
+    
+    return `${m}/${d}/${y} ${h}:${minutes}:${seconds} ${ampm}`;
+};
+
 export default function PrintQueueTicket({
     queueNumber,
-    residentName,
     serviceName,
     appointmentDate,
     appointmentSlot,
-    isPriority,
-    branding,
-    themeColor = "#2563eb",
+    department,
+    dateGenerated = new Date(),
     triggerPrint = false,
     onPrintCompleted
 }: PrintQueueTicketProps) {
     const [mounted, setMounted] = useState(false);
+    const [qrLoaded, setQrLoaded] = useState(false);
 
     useEffect(() => {
         setMounted(true);
     }, []);
 
     useEffect(() => {
+        setQrLoaded(false);
+    }, [queueNumber]);
+
+    useEffect(() => {
         if (mounted && triggerPrint) {
-            setTimeout(() => {
-                window.print();
-                if (onPrintCompleted) onPrintCompleted();
-            }, 500);
+            if (qrLoaded) {
+                const timer = setTimeout(() => {
+                    window.print();
+                    if (onPrintCompleted) onPrintCompleted();
+                }, 150);
+                return () => clearTimeout(timer);
+            } else {
+                // Fallback timeout in case image loading fails or takes too long
+                const fallback = setTimeout(() => {
+                    window.print();
+                    if (onPrintCompleted) onPrintCompleted();
+                }, 1500);
+                return () => clearTimeout(fallback);
+            }
         }
-    }, [mounted, triggerPrint, queueNumber, onPrintCompleted]);
+    }, [mounted, triggerPrint, qrLoaded, queueNumber, onPrintCompleted]);
 
     if (!mounted) return null;
 
-    const isValidUrl = (url?: string | null) => {
-        if (!url) return false;
-        return url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/");
-    };
+    // Resolve department default if not specified
+    const resolvedDepartment = department || (serviceName.toLowerCase().includes("cedula") ? "Treasury" : "Engineering");
 
     return createPortal(
         <>
             <style dangerouslySetInnerHTML={{ __html: `
                 @media print {
                     @page { 
-                        size: 80mm 120mm; 
+                        size: 80mm 150mm; 
                         margin: 0; 
                     }
                     body { 
@@ -79,7 +117,7 @@ export default function PrintQueueTicket({
                         height: 100% !important;
                         visibility: visible !important;
                         overflow: visible !important;
-                        padding: 4mm !important;
+                        padding: 6mm !important;
                         background: white !important;
                         z-index: 99999 !important;
                         color: black !important;
@@ -100,7 +138,6 @@ export default function PrintQueueTicket({
                     left: '-9999px',
                     top: 0,
                     width: '80mm',
-                    height: '120mm',
                     visibility: 'hidden',
                     overflow: 'hidden',
                     zIndex: -1,
@@ -111,124 +148,78 @@ export default function PrintQueueTicket({
                     style={{
                         display: 'flex',
                         flexDirection: 'column',
-                        height: '100%',
-                        border: '2px solid black',
-                        borderRadius: '4px',
-                        fontFamily: 'system-ui, -apple-system, sans-serif',
-                        lineHeight: 1.2,
+                        fontFamily: 'Arial, Helvetica, sans-serif',
+                        lineHeight: 1.3,
                         color: 'black',
                         background: 'white',
-                        padding: '10px'
+                        padding: '16px',
+                        textAlign: 'center'
                     }}
                 >
-                    {/* Header Banner */}
-                    <div style={{ borderBottom: '2px solid black', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {branding.logo && isValidUrl(branding.logo) ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                                src={branding.logo}
-                                alt="Municipal Logo"
-                                style={{ width: '32px', height: '32px', objectFit: 'contain' }}
-                            />
-                        ) : (
-                            <div style={{ width: '30px', height: '30px', border: '2px solid black', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '10px' }}>
-                                {branding.word1?.charAt(0) || 'M'}
-                            </div>
-                        )}
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', letterSpacing: '-0.02em' }}>
-                                {branding.word1 || "MUNICIPALITY"}{' '}
-                                <span style={{ color: themeColor }}>{branding.word2 || "PORTAL"}</span>
-                            </span>
-                            <span style={{ fontSize: '6px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b' }}>
-                                Municipal Treasury Department
-                            </span>
+                    {/* Header */}
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 8px 0', textTransform: 'none' }}>
+                        Your Ticket Number is
+                    </div>
+
+                    {/* Thick line */}
+                    <div style={{ borderTop: '3px solid black', margin: '4px 0 8px 0' }}></div>
+
+                    {/* Big Queue Number */}
+                    <div style={{ fontSize: '38px', fontWeight: '900', margin: '8px 0', letterSpacing: '1px' }}>
+                        {queueNumber}
+                    </div>
+
+                    {/* Thick line */}
+                    <div style={{ borderTop: '3px solid black', margin: '8px 0 12px 0' }}></div>
+
+                    {/* Service Name */}
+                    <div style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 16px 0', textTransform: 'none' }}>
+                        &lt;{serviceName}&gt;
+                    </div>
+
+                    {/* Meta Details */}
+                    <div style={{ textAlign: 'left', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '14px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ fontWeight: 'normal' }}>Date of Appointment:</span>
+                            <span style={{ fontWeight: 'bold' }}>{formatDate(appointmentDate)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ fontWeight: 'normal' }}>Time of Appointment:</span>
+                            <span style={{ fontWeight: 'bold' }}>{appointmentSlot}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ fontWeight: 'normal' }}>Department:</span>
+                            <span style={{ fontWeight: 'bold' }}>{resolvedDepartment}</span>
                         </div>
                     </div>
 
-                    {/* Ticket Title */}
-                    <div style={{ textAlign: 'center', margin: '8px 0' }}>
-                        <span style={{ fontSize: '8px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>
-                            APPOINTMENT QUEUE TICKET
-                        </span>
+                    {/* Date Generated */}
+                    <div style={{ textAlign: 'left', fontSize: '11px', marginBottom: '22px' }}>
+                        <span>Date and Time Generated:</span>
+                        <span style={{ fontWeight: 'bold', marginLeft: '6px' }}>{formatDateTime(dateGenerated)}</span>
                     </div>
 
-                    {/* Queue Ticket Number Section */}
-                    <div style={{ 
-                        flex: 1, 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        border: '2px dashed black',
-                        borderRadius: '4px',
-                        padding: '10px',
-                        background: '#f8fafc',
-                        margin: '5px 0'
-                    }}>
-                        <span style={{ fontSize: '24px', fontWeight: 950, fontFamily: 'monospace', letterSpacing: '-0.03em', color: 'black' }}>
-                            {queueNumber}
-                        </span>
-                        
-                        {isPriority && (
-                            <div style={{ 
-                                marginTop: '4px', 
-                                background: 'black', 
-                                color: 'white', 
-                                padding: '2px 8px', 
-                                borderRadius: '9999px',
-                                fontSize: '8px',
-                                fontWeight: 900,
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em'
-                            }}>
-                                ♿ PRIORITY LANE
-                            </div>
-                        )}
-
-                        <span style={{ fontSize: '7px', fontWeight: 800, textTransform: 'uppercase', color: '#64748b', marginTop: '6px' }}>
-                            {serviceName}
-                        </span>
-                    </div>
-
-                    {/* Appointment Details Details */}
-                    <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px' }}>
-                            <span style={{ fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Applicant:</span>
-                            <span style={{ fontWeight: 900, textTransform: 'uppercase' }}>{residentName}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px' }}>
-                            <span style={{ fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Date:</span>
-                            <span style={{ fontWeight: 900 }}>{appointmentDate}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px' }}>
-                            <span style={{ fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Schedule Session:</span>
-                            <span style={{ fontWeight: 900, textTransform: 'uppercase' }}>{appointmentSlot}</span>
-                        </div>
-                    </div>
-
-                    {/* Barcode Section */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '10px 0 5px 0' }}>
-                        <div style={{ width: '100%', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${queueNumber}`}
-                                alt="Barcode Scannable Ticket"
-                                style={{ height: '32px', width: '32px' }}
-                            />
-                        </div>
-                        <span style={{ fontSize: '6px', fontFamily: 'monospace', fontWeight: 700, color: '#475569', marginTop: '2px' }}>
-                            SCAN TO IDENTIFY TRANSACTION RECORD
-                        </span>
-                    </div>
-
-                    {/* Notes Footer */}
-                    <div style={{ borderTop: '2px solid black', paddingTop: '6px', textAlign: 'center' }}>
-                        <p style={{ fontSize: '5.5px', fontWeight: 700, lineHeight: 1.3, color: '#475569', margin: 0 }}>
-                            * Present this ticket at the municipal office treasury counter.<br/>
-                            * Arrive at least 15 minutes before your schedule shift.<br/>
-                            * Bring your required physical documents and valid ID.
+                    {/* Call to Actions / Waiting instructions */}
+                    <div style={{ fontSize: '10px', lineHeight: 1.4, marginBottom: '20px', textAlign: 'center' }}>
+                        <p style={{ margin: '0', fontWeight: 'bold' }}>Please wait for your number to be called.</p>
+                        <p style={{ margin: '0 0 10px 0', fontStyle: 'italic', fontSize: '9px', color: '#333' }}>
+                            (Mangyaring hintayin na tawagin ang inyong numero.)
                         </p>
+                        <p style={{ margin: '0', fontWeight: 'bold' }}>Please have your documents ready.</p>
+                        <p style={{ margin: '0', fontStyle: 'italic', fontSize: '9px', color: '#333' }}>
+                            (Ihanda ang inyong mga kinakailangang dokumento.)
+                        </p>
+                    </div>
+
+                    {/* QR Code */}
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '5px' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${queueNumber}`}
+                            alt="QR Code"
+                            style={{ width: '110px', height: '110px' }}
+                            onLoad={() => setQrLoaded(true)}
+                        />
                     </div>
                 </div>
             </div>

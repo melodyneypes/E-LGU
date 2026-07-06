@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db/prisma";
+import { generateQueueNumber } from "@/lib/queue";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { uploadFile, validatePayloadFiles } from "@/lib/storage";
@@ -40,6 +41,16 @@ export async function submitBuildingPermit(formData: FormData) {
     const totalFloorsVal = formData.get("totalFloors") as string;
     const totalFloors = totalFloorsVal ? parseInt(totalFloorsVal, 10) : null;
 
+    const customLabelsStr = formData.get("customLabels") as string;
+    let customLabels = {};
+    if (customLabelsStr) {
+      try {
+        customLabels = JSON.parse(customLabelsStr);
+      } catch (e) {
+        console.error("Error parsing customLabels", e);
+      }
+    }
+
     // Prepare JSON for additional Data
     const additionalData: any = {
       descriptionOfWork,
@@ -51,7 +62,8 @@ export async function submitBuildingPermit(formData: FormData) {
       street,
       barangay,
       totalFloors,
-      documents: {}
+      documents: {},
+      customLabels
     };
 
     // Helper to upload and store URL
@@ -104,6 +116,8 @@ export async function submitBuildingPermit(formData: FormData) {
 
     // Handle Appointment Booking if provided
     let queueNumber = null;
+    let isPriority = false;
+
     if (appointmentDate && appointmentSlot) {
       const config = await prisma.appointmentConfig.findUnique({
         where: { department: "ENGINEERING" }
@@ -132,19 +146,13 @@ export async function submitBuildingPermit(formData: FormData) {
         return { success: false, error: "This appointment slot is already fully booked. Please select another slot." };
       }
 
-      const dateStr = startOfDay.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }).replace(/\//g, "");
-      const shiftStr = isAM ? "AM" : "PM";
-      
-      const shiftCount = await prisma.transaction.count({
-        where: {
-          appointmentDate: { gte: startOfDay, lte: endOfDay },
-          appointmentSlot: { contains: shiftStr },
-          isCancelled: false,
-          type: { category: "Engineer" }
-        } as any
-      });
+      isPriority = sanitizedAdditionalData.isPriorityLane === true || sanitizedAdditionalData.isPriorityLane === "true";
 
-      queueNumber = `${dateStr}-${shiftStr}-${String(shiftCount + 1).padStart(3, "0")}`;
+      queueNumber = await generateQueueNumber({
+        source: "web",
+        isPriority,
+        appointmentDate: startOfDay,
+      });
     }
 
     // Create the transaction (FOR_REQUESTING)
@@ -159,6 +167,7 @@ export async function submitBuildingPermit(formData: FormData) {
         appointmentDate: appointmentDate,
         appointmentSlot: appointmentSlot || null,
         queueNumber: queueNumber,
+        isPriority: isPriority,
       } as any
     });
 
@@ -253,6 +262,17 @@ export async function resubmitBuildingPermit(transactionId: string, formData: Fo
     const additionalData = transaction.additionalData as any || { documents: {} };
     if (!additionalData.documents) {
       additionalData.documents = {};
+    }
+    const customLabelsStr = formData.get("customLabels") as string;
+    if (customLabelsStr) {
+      try {
+        additionalData.customLabels = {
+          ...(additionalData.customLabels || {}),
+          ...JSON.parse(customLabelsStr)
+        };
+      } catch (e) {
+        console.error("Error parsing customLabels in resubmit", e);
+      }
     }
 
     // Extract basic form data
