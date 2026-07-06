@@ -172,7 +172,7 @@ export async function submitCedulaAppointment(formData: FormData) {
                 },
                 appointmentSlot: appointmentSlot,
                 isCancelled: false,
-                type: { category: "Treasurer" }
+                type: { category: "CEDULA" }
             }
         });
 
@@ -210,7 +210,7 @@ export async function submitCedulaAppointment(formData: FormData) {
                 },
                 isCancelled: false,
                 isPriority: isPriority, // Direct column filter
-                type: { category: "Treasurer" }
+                type: { category: "CEDULA" }
             } as any
         });
 
