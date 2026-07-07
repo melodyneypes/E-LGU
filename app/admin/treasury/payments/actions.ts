@@ -64,6 +64,7 @@ export async function getPaymentsLedger(searchQuery: string = "") {
                         method: transaction.paymentType || "CASH",
                         status: "PAID",
                         reference: String(reference),
+                        orNumber: additional.orSeriesNumber ? String(additional.orSeriesNumber) : null,
                         meta: {
                             source: "paid_transaction_reconciliation",
                             reconciledAt: new Date().toISOString(),

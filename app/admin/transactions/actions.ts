@@ -1643,7 +1643,15 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
             const regType = (additionalData?.registrationType || "").toUpperCase();
             const hasAdditionalFees = sanitizedBpFeeLineItems && sanitizedBpFeeLineItems.length > 0;
             const isCertifiedCopy = ["LCR_BIRTH", "LCR_MARRIAGE"].includes(typeCode);
-            if (isCertifiedCopy) {
+            const isPsaAppointment = [
+                "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+                "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+                "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+            ].includes(typeCode);
+
+            if (isPsaAppointment) {
+                newStatus = "EVALUATED";
+            } else if (isCertifiedCopy) {
                 newStatus = "FOR_REQUESTING";
             } else if (typeCode === "LCR_DEATH_REG" && (regType === "STANDARD" || !regType) && !hasAdditionalFees) {
                 newStatus = "UNPAID";

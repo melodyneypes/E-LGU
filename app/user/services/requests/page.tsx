@@ -114,6 +114,11 @@ export default function UserServiceRequestsPage() {
     }, []);
 
     const getStatusStyle = (req: any) => {
+        const typeCode = req.type?.code || "";
+        const isPsaAppointment = typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
+
         if (req.isCancelled) {
             return { color: "text-red-500", bg: "bg-red-500/10", border: "border-red-500/20", icon: X, label: "CANCELLED" };
         }
@@ -121,17 +126,36 @@ export default function UserServiceRequestsPage() {
         switch (status) {
             case "FOR_REVISION": return { color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20", icon: AlertCircle, label: "NEEDS REVISION", opacity: 1 };
             case "FOR_REQUESTING": 
+                if (isPsaAppointment) {
+                    return { color: "text-white", bg: "bg-[var(--primary-theme)]", border: "border-transparent", icon: Clock, label: "AWAITING REGISTRAR EVALUATION", opacity: 0.8 };
+                }
                 if (req.type?.code?.startsWith("LCR_") || req.type?.code?.startsWith("CIVIL_REGISTRY")) {
                     return { color: "text-white", bg: "bg-amber-500", border: "border-transparent", icon: Clock, label: "AWAITING TREASURY CONFIRMATION", opacity: 0.9 };
                 }
                 return { color: "text-white", bg: "bg-[var(--primary-theme)]", border: "border-transparent", icon: Clock, label: "FOR EVALUATION", opacity: 0.8 };
             case "FOR_INSPECTION": return { color: "text-white", bg: "bg-blue-600", border: "border-transparent", icon: Search, label: "UNDER INSPECTION", opacity: 0.9 };
-            case "EVALUATED": return { color: "text-white", bg: "bg-[var(--primary-theme)]", border: "border-transparent", icon: DollarSign, label: "EVALUATED", opacity: 0.9 };
+            case "EVALUATED": 
+                if (isPsaAppointment) {
+                    return { color: "text-white", bg: "bg-amber-500", border: "border-transparent", icon: Clock, label: "APPOINTMENT CONFIRMED", opacity: 0.9 };
+                }
+                return { color: "text-white", bg: "bg-[var(--primary-theme)]", border: "border-transparent", icon: DollarSign, label: "EVALUATED", opacity: 0.9 };
             case "PAID": return { color: "text-white", bg: "bg-emerald-500", border: "border-transparent", icon: CheckCircle2, label: "PAID", opacity: 1 };
-            case "FOR_PROCESSING": return { color: "text-white", bg: "bg-blue-500", border: "border-transparent", icon: Activity, label: "FOR PROCESSING", opacity: 1 };
+            case "FOR_PROCESSING": 
+                if (isPsaAppointment) {
+                    return { color: "text-white", bg: "bg-blue-600", border: "border-transparent", icon: Clock, label: "AWAITING REGISTRAR ENDORSEMENT", opacity: 1 };
+                }
+                return { color: "text-white", bg: "bg-blue-500", border: "border-transparent", icon: Activity, label: "FOR PROCESSING", opacity: 1 };
             case "FOR_REINSPECTION": return { color: "text-white", bg: "bg-blue-500", border: "border-transparent", icon: Activity, label: "FOR PROCESSING", opacity: 1 };
-            case "FOR_PICKING": return { color: "text-white", bg: "bg-amber-500", border: "border-transparent", icon: Package, label: "FOR PICKING", opacity: 1 };
-            case "FOR_CLAIM": return { color: "text-white", bg: "bg-amber-500", border: "border-transparent", icon: UserCheck, label: "FOR CLAIMING", opacity: 1 };
+            case "FOR_PICKING": 
+                if (isPsaAppointment) {
+                    return { color: "text-white", bg: "bg-amber-500", border: "border-transparent", icon: Clock, label: "PAYMENT DUE AT TREASURY COUNTER", opacity: 1 };
+                }
+                return { color: "text-white", bg: "bg-amber-500", border: "border-transparent", icon: Package, label: "FOR PICKING", opacity: 1 };
+            case "FOR_CLAIM": 
+                if (isPsaAppointment) {
+                    return { color: "text-white", bg: "bg-amber-500", border: "border-transparent", icon: Clock, label: "PAYMENT DUE AT TREASURY COUNTER", opacity: 1 };
+                }
+                return { color: "text-white", bg: "bg-amber-500", border: "border-transparent", icon: UserCheck, label: "FOR CLAIMING", opacity: 1 };
             case "IN_ROUTE": return { color: "text-white", bg: "bg-indigo-500", border: "border-transparent", icon: Truck, label: "IN ROUTE", opacity: 1 };
             case "DELIVERED": return { color: "text-white", bg: "bg-emerald-600", border: "border-transparent", icon: CheckCircle2, label: "DELIVERED", opacity: 1 };
             case "RELEASED": return { color: "text-white", bg: "bg-emerald-600", border: "border-transparent", icon: CheckCircle2, label: "RELEASED", opacity: 1 };

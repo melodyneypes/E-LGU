@@ -60,7 +60,7 @@ import { releaseMarriageLicense, evaluateMarriageLicenseTransaction } from "@/ap
 import { releaseMarriageRegistry, evaluateMarriageRegistrationTransaction } from "@/app/admin/transactions/marriage-regis-actions";
 import { evaluateStudentCedulaTransaction } from "@/app/admin/transactions/student-actions";
 import { releaseMarriagePsaEndorsement } from "@/app/admin/transactions/marriage-endorsement-actions";
-import { releaseBirthPsaEndorsement } from "@/app/admin/transactions/birth-endorsement-actions";
+import { releaseBirthPsaEndorsement, collectPsaAppointmentPayment } from "@/app/admin/transactions/birth-endorsement-actions";
 import { releaseDeathPsaEndorsement } from "@/app/admin/transactions/death-endorsement-actions";
 import { cn } from "@/lib/utils";
 import { calculateCedula } from "@/lib/cedula";
@@ -481,7 +481,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
     const isLCR = (transaction?.type?.code?.startsWith("LCR_") ?? false) || (transaction?.type?.code?.startsWith("CIVIL_REGISTRY") ?? false);
     const isCedula = transaction?.type?.code?.includes("CEDULA") ?? false;
     const typeCode = (transaction?.type?.code || "").toUpperCase();
-    const isLcrCertifiedCopy = typeCode === "LCR_BIRTH" || typeCode === "LCR_DEATH" || typeCode === "LCR_MARRIAGE" || typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || (transaction?.type?.name && (transaction.type.name.includes("Birth Certificate") || transaction.type.name.includes("Death Certificate") || transaction.type.name.includes("Marriage Certificate"))) || false;
+    const isLcrCertifiedCopy = typeCode === "LCR_BIRTH" || typeCode === "LCR_DEATH" || typeCode === "LCR_MARRIAGE" || typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT" || (transaction?.type?.name && (transaction.type.name.includes("Birth Certificate") || transaction.type.name.includes("Death Certificate") || transaction.type.name.includes("Marriage Certificate"))) || false;
     const isLcrBirthCertifiedCopy = typeCode === "LCR_BIRTH" || (transaction?.type?.name && transaction.type.name.includes("Birth Certificate")) || false;
     const _isBirth = typeCode.includes("BIRTH");
     const isDeath = typeCode.includes("DEATH");
@@ -649,7 +649,8 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 supabase.removeChannel(channel);
             }
         };
-    }, [id, fetchTransaction]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id]);
 
     useEffect(() => {
         if (!id) return;
@@ -662,7 +663,8 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         }, 10000);
 
         return () => clearInterval(interval);
-    }, [id, fetchTransaction]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id]);
 
     useEffect(() => {
         if (!session) return;
@@ -704,7 +706,8 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 logo: logo.data || ""
             });
         });
-    }, [fetchTransaction, id]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id]);
 
     useEffect(() => {
         if (!eCopyFile) {
@@ -895,6 +898,25 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         }
     };
 
+    const handleCollectPsaPayment = async () => {
+        if (!orSeriesNumber || orSeriesNumber.trim() === "") {
+            toast.error("Please enter the Official Receipt (O.R.) number before proceeding.");
+            return;
+        }
+        setActionLoading(true);
+        try {
+            const res = await collectPsaAppointmentPayment(transaction.id, orSeriesNumber.trim());
+            if (res.success) {
+                toast.success("Payment collected! O.R. number recorded. Transaction completed.");
+                router.push(backUrl);
+            } else {
+                toast.error(res.error || "Failed to collect payment.");
+            }
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (isRejecting || isRequestingRevision) {
             remarksRef.current?.focus();
@@ -980,6 +1002,38 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 </div>
                 <p className="text-slate-500 dark:text-slate-400 font-medium italic max-w-md">
                     This request is currently under Registrar verification, document release, or waiting for User payment. The Treasury department cannot access this request until it is paid and ready for payment verification.
+                </p>
+                <Link href={backUrl} prefetch={false}>
+                    <Button variant="outline" className="h-12 px-6 rounded-xl border-2 font-black italic uppercase text-xs tracking-wider transition-all active:scale-95">
+                        Back to Treasury Dashboard
+                    </Button>
+                </Link>
+            </div>
+        );
+    }
+
+    // For PSA Appointment Endorsement types, treasury only acts at the FOR_CLAIM/FOR_PICKING/RELEASED step (collect cash & issue O.R.)
+    // Before that (EVALUATED, UNPAID, FOR_PROCESSING), show an "Awaiting Registrar" screen
+    if (
+        (typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT") &&
+        !["FOR_CLAIM", "FOR_PICKING", "RELEASED", "PAID"].includes(transaction?.status || "")
+    ) {
+        return (
+            <div className="min-h-screen bg-white dark:bg-[#0c111d] flex flex-col items-center justify-center p-8 text-center space-y-8 animate-in fade-in duration-700">
+                <div className="relative">
+                    <div className="absolute inset-0 bg-blue-500/20 blur-[80px] rounded-full animate-pulse" />
+                    <div className="p-8 rounded-[3rem] bg-white dark:bg-slate-900 shadow-2xl relative z-10 border border-blue-500/20">
+                        <span className="text-8xl">📅</span>
+                    </div>
+                </div>
+                <div className="space-y-3">
+                    <h1 className="text-4xl font-black italic tracking-tighter text-slate-900 dark:text-white uppercase leading-none">Awaiting Appointment</h1>
+                    <p className="text-[11px] font-black uppercase tracking-[0.4em] text-blue-500 italic">Registrar Release Required First</p>
+                </div>
+                <p className="text-slate-500 dark:text-slate-400 font-medium italic max-w-md">
+                    This is a PSA Appointment Endorsement. The citizen must first attend their appointment and the Registrar must verify and endorse the document to the PSA before Treasury can collect the counter payment and issue an Official Receipt.
                 </p>
                 <Link href={backUrl} prefetch={false}>
                     <Button variant="outline" className="h-12 px-6 rounded-xl border-2 font-black italic uppercase text-xs tracking-wider transition-all active:scale-95">
@@ -1170,6 +1224,18 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 { id: "REGISTRAR_RELEASE", label: "Registrar: Release" }
             ];
         }
+        if (
+            typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+        ) {
+            return [
+                { id: "VERIFY_BILL", label: "Registrar: Verify & Schedule" },
+                { id: "ATTEND_APPOINTMENT", label: "Attend Appointment" },
+                { id: "REGISTRAR_RELEASE", label: "Registrar: Endorse to PSA" },
+                { id: "TREASURY_OR", label: "Treasury: Issue O.R." }
+            ];
+        }
         return [
             { id: "FOR_REQUESTING", label: "FOR EVALUATION" },
             { id: "UNPAID", label: "TO PAY" },
@@ -1181,7 +1247,10 @@ export default function TreasuryDetailPage({ params }: PageProps) {
     let steps = [...baseSteps];
     const status = transaction.status as string;
 
-    if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT") {
+    if (
+        typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
+        typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+    ) {
         // Maintain standard 4 steps
     } else if (status === "REJECTED") {
         steps = [
@@ -1227,6 +1296,22 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 return "TREASURY_OR";
             }
             return "REGISTRAR_RELEASE";
+        }
+        if (
+            typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+        ) {
+            if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED"].includes(s)) {
+                return "VERIFY_BILL";
+            }
+            if (["EVALUATED", "UNPAID"].includes(s)) {
+                return "ATTEND_APPOINTMENT";
+            }
+            if (["FOR_PROCESSING", "PAID", "PENDING_PAYMENT_VERIFICATION"].includes(s) && !transaction.eCopyUrl) {
+                return "REGISTRAR_RELEASE";
+            }
+            return "TREASURY_OR";
         }
         if (isLcrBirthCertifiedCopy && (s === "PAID" || s === "PENDING_PAYMENT_VERIFICATION")) {
             return "VERIFY_OR";
@@ -1711,11 +1796,11 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                                     ? releaseMarriageRegistry
                                     : typeCode === "LCR_MARRIAGE_LICENSE"
                                         ? releaseMarriageLicense
-                                        : typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT"
+                                        : (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT")
                                             ? releaseMarriagePsaEndorsement
-                                            : typeCode === "LCR_PSA_ENDORSEMENT"
+                                            : (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT")
                                                 ? releaseBirthPsaEndorsement
-                                                : typeCode === "LCR_DEATH_PSA_ENDORSEMENT"
+                                                : (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT")
                                                     ? releaseDeathPsaEndorsement
                                                     : releaseCedula;
                 const rel = await releaseFn(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "");
@@ -1757,11 +1842,11 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                                     ? releaseMarriageRegistry
                                     : typeCode === "LCR_MARRIAGE_LICENSE"
                                         ? releaseMarriageLicense
-                                        : typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT"
+                                        : (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT")
                                             ? releaseMarriagePsaEndorsement
-                                            : typeCode === "LCR_PSA_ENDORSEMENT"
+                                            : (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT")
                                                 ? releaseBirthPsaEndorsement
-                                                : typeCode === "LCR_DEATH_PSA_ENDORSEMENT"
+                                                : (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT")
                                                     ? releaseDeathPsaEndorsement
                                                     : releaseCedula;
                 const rel = await releaseFn(
@@ -2125,7 +2210,8 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         orSeriesNumber,
         setOrSeriesNumber,
         miscFee,
-        setMiscFee
+        setMiscFee,
+        handleCollectPsaPayment
     };
 
     if (isBusinessPermit) {
@@ -2162,7 +2248,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
             </>
         );
     }
-    if (typeCode === "LCR_PSA_ENDORSEMENT") {
+    if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT") {
         return (
             <>
                 <BirthPsaEndorsementView {...viewProps} />
@@ -2179,7 +2265,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
             </>
         );
     }
-    if (typeCode === "LCR_DEATH_PSA_ENDORSEMENT") {
+    if (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") {
         return (
             <>
                 <DeathPsaEndorsementView {...viewProps} />
@@ -2196,7 +2282,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
             </>
         );
     }
-    if (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT") {
+    if (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT") {
         return (
             <>
                 <MarriagePsaEndorsementView {...viewProps} />
