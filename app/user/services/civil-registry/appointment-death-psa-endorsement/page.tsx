@@ -18,7 +18,8 @@ import {
     FileText,
     Sparkles,
     X,
-    Calendar
+    Calendar,
+    Search
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -48,7 +49,8 @@ import {
     getSystemSettingAction,
     getTransactionById,
     ensureCivilRegistryTransactionTypes,
-    getRegistrarAppointmentConfig
+    getRegistrarAppointmentConfig,
+    getBarangaysList
 } from "@/app/admin/transactions/actions";
 import SchedulePicker from "@/components/shared/SchedulePicker";
 import {
@@ -97,6 +99,11 @@ export default function AppointmentDeathPsaEndorsementPage() {
     const [revisionId, setRevisionId] = useState<string | null>(null);
     const [revisionTx, setRevisionTx] = useState<any>(null);
     const [showErrors, setShowErrors] = useState(false);
+    const [barangaysList, setBarangaysList] = useState<string[]>([]);
+    const [searchQuery, setSearchQuery] = useState("");
+    const filteredBarangays = barangaysList.filter(brgy =>
+        brgy.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
 
 
@@ -190,11 +197,16 @@ export default function AppointmentDeathPsaEndorsementPage() {
                     }
                 }
 
-                const [resResult, typesResult, configResult] = await Promise.all([
+                const [resResult, typesResult, configResult, brgyResult] = await Promise.all([
                     getCurrentUserResident(),
                     getTransactionTypes(),
-                    getRegistrarAppointmentConfig()
+                    getRegistrarAppointmentConfig(),
+                    getBarangaysList()
                 ]);
+
+                if (brgyResult.success && brgyResult.data) {
+                    setBarangaysList(brgyResult.data);
+                }
 
                 if (configResult.success) {
                     setAppointmentConfig(configResult.config);
@@ -314,7 +326,15 @@ export default function AppointmentDeathPsaEndorsementPage() {
         }
     };
 
-
+    const getNormalizedPlaceOfDeath = (val: string) => {
+        if (!val) return "";
+        const upperVal = val.toUpperCase();
+        const found = barangaysList.find(b => upperVal.includes(b.toUpperCase()));
+        if (found) {
+            return `${found.toUpperCase()}, MAPANDAN, PANGASINAN`;
+        }
+        return val;
+    };
 
     const validateStep = (step: Step): boolean => {
         if (step === "INFORMANT") {
@@ -914,13 +934,56 @@ export default function AppointmentDeathPsaEndorsementPage() {
 
                                         <div className="space-y-2">
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Place of Death</Label>
-                                            <Input
-                                                name="placeOfDeath"
-                                                placeholder="ENTER PLACE OF DEATH"
-                                                value={formData.placeOfDeath}
-                                                onChange={handleInputChange}
-                                                className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
-                                            />
+                                            <Select
+                                                value={getNormalizedPlaceOfDeath(formData.placeOfDeath)}
+                                                onValueChange={(val) => setFormData(prev => ({ ...prev, placeOfDeath: val }))}
+                                            >
+                                                <SelectTrigger className={cn("!w-full !h-12 rounded-xl text-xs font-medium uppercase bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 transition-all text-left px-3", (showErrors && !formData.placeOfDeath) && "border-2 border-red-500")}>
+                                                    <SelectValue placeholder="SELECT PLACE OF DEATH" />
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-[300px] flex flex-col p-0 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0f1117]" position="popper">
+                                                    <div className="p-2 border-b border-slate-100 dark:border-white/5 bg-white dark:bg-[#0f1117] sticky top-0 z-20">
+                                                        <div className="relative flex items-center">
+                                                            <Search className="absolute left-2.5 w-4 h-4 text-slate-400" />
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Search barangay..."
+                                                                value={searchQuery}
+                                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                                onKeyDown={(e) => {
+                                                                    e.stopPropagation();
+                                                                }}
+                                                                onPointerDown={(e) => {
+                                                                    e.stopPropagation();
+                                                                }}
+                                                                className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-[#2a3040] rounded-lg outline-none focus:border-slate-300 dark:focus:border-white/20 font-semibold text-slate-900 dark:text-white"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="overflow-y-auto max-h-[220px] p-1 italic">
+                                                        {filteredBarangays.length > 0 ? (
+                                                            filteredBarangays.map((brgy) => (
+                                                                <SelectItem key={brgy} value={`${brgy.toUpperCase()}, MAPANDAN, PANGASINAN`}>
+                                                                    {brgy.toUpperCase()}
+                                                                </SelectItem>
+                                                            ))
+                                                        ) : (
+                                                            <div className="p-4 text-center text-xs text-slate-400 font-bold">No barangay found</div>
+                                                        )}
+                                                        {(() => {
+                                                            const normVal = getNormalizedPlaceOfDeath(formData.placeOfDeath);
+                                                            if (normVal && !barangaysList.some(b => normVal.startsWith(b.toUpperCase()))) {
+                                                                return (
+                                                                    <SelectItem value={normVal}>
+                                                                        {normVal}
+                                                                    </SelectItem>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })()}
+                                                    </div>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                     </div>
 
@@ -1110,7 +1173,7 @@ export default function AppointmentDeathPsaEndorsementPage() {
                                             className={cn(
                                                 "p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-4 select-none",
                                                 policyAccepted
-                                                    ? "bg-slate-500/5 border-slate-500/20"
+                                                    ? "bg-emerald-500/5 border-emerald-500/20"
                                                     : showErrors
                                                         ? "border-2 border-red-500"
                                                         : "border-slate-200/40 bg-white/30 dark:bg-white/5 hover:border-slate-500/20"
@@ -1129,7 +1192,7 @@ export default function AppointmentDeathPsaEndorsementPage() {
                                                 className={cn(
                                                     "w-5 h-5 rounded-full border flex items-center justify-center transition-all shrink-0 mt-0.5",
                                                     policyAccepted
-                                                        ? "bg-slate-500 border-slate-500 text-white"
+                                                        ? "bg-emerald-500 border-emerald-500 text-white"
                                                         : showErrors
                                                             ? "border-2 border-red-500"
                                                             : "border-slate-300"

@@ -92,7 +92,8 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
         miscFee,
         setMiscFee,
         handleProcessRequest,
-        handlePrintWaybill
+        handlePrintWaybill,
+        handleCollectPsaPayment
     } = props;
 
     const [isAssessmentOpen, setIsAssessmentOpen] = React.useState(true);
@@ -105,6 +106,8 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
     const fiscal = transaction.fiscalSnapshot || null;
 
     const isTreasuryContext = backUrl?.includes("/admin/treasury") || rawUserRole === "TREASURY_STAFF";
+    const typeCode = transaction?.type?.code || "";
+    const isAppointmentPsa = typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
     const husbandFullName = additional.husbandFullName || additional.husbandName || "—";
     const wifeFullName = additional.wifeFullName || additional.wifeName || "—";
     const subjectName = husbandFullName !== "—" && wifeFullName !== "—" ? `${husbandFullName} & ${wifeFullName}` : "N/A";
@@ -205,43 +208,103 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                                             Fee Assessment Breakdown
                                         </h3>
                                         <div className="space-y-4">
-                                            {(() => {
-                                                const fiscal = (transaction.fiscalSnapshot as any) || null;
-                                                const defaultFees = transaction.type?.defaultFees
-                                                    ? (typeof transaction.type.defaultFees === "string" ? JSON.parse(transaction.type.defaultFees) : transaction.type.defaultFees)
-                                                    : [];
-                                                const items = (fiscal?.lineItems && fiscal.lineItems.length > 0)
-                                                    ? fiscal.lineItems
-                                                    : defaultFees;
-
-                                                if (items && items.length > 0) {
-                                                    return items.map((item: any, idx: number) => {
-                                                        const amt = parseFloat(item.amount) || 0;
-                                                        return (
-                                                            <div key={idx} className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
-                                                                <span>{item.label || item.name || "Fee Item"}</span>
-                                                                <span className="dark:text-slate-200 font-black">
-                                                                    ₱{amt.toFixed(2)}
-                                                                </span>
-                                                            </div>
-                                                        );
-                                                    });
-                                                }
-
-                                                return (
-                                                    <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
-                                                        <span>PSA Endorsement Fee</span>
-                                                        <span className="dark:text-slate-200 font-black">
-                                                            ₱{(transaction.type?.baseFee || 330.00).toFixed(2)}
-                                                        </span>
-                                                    </div>
-                                                );
-                                            })()}
+                                            <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
+                                                <span>Miscellaneous Fee</span>
+                                                <span className="dark:text-slate-200 font-black">
+                                                    {parseFloat(miscFee || "0") > 0
+                                                        ? `₱${(parseFloat(miscFee || "0")).toFixed(2)}`
+                                                        : "FREE"}
+                                                </span>
+                                            </div>
 
                                             {transaction.fulfillmentType === "DELIVERY" && (
                                                 <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
                                                     <span>Delivery Fee</span>
                                                     <span className="dark:text-slate-200 font-black">₱{deliveryFee.toFixed(2)}</span>
+                                                </div>
+                                            )}
+
+                                            {/* RENDER STATIC ADDITIONAL FEES */}
+                                            {feeLineItems && feeLineItems.length > 0 && feeLineItems.map((item: any, idx: number) => {
+                                                if (!item.readonly && ["FOR_INSPECTION", "FOR_REQUESTING"].includes(transaction.status)) {
+                                                    return null;
+                                                }
+                                                const feeAmt = parseFloat(item.amount) || 0;
+                                                if (feeAmt === 0) return null;
+                                                return (
+                                                    <div key={idx} className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
+                                                        <span>{item.label || "Additional Fee"}</span>
+                                                        <span className="dark:text-slate-200 font-black">
+                                                            ₱{feeAmt.toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+
+                                            {/* ADDITIONAL FEES EDITOR */}
+                                            {["FOR_INSPECTION", "FOR_REQUESTING"].includes(transaction.status) && (
+                                                <div className="pt-2 space-y-2 border-t border-slate-100 dark:border-white/5 pt-4">
+                                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                                                        Additional Fees
+                                                    </p>
+                                                    <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-100 dark:border-white/5 rounded-2xl p-4 space-y-3">
+                                                        {feeLineItems?.map((item, idx) => {
+                                                            if (item.readonly) return null;
+                                                            return (
+                                                                <div key={idx} className={cn(
+                                                                    "flex gap-3 items-center group bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 px-3 py-1.5 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-primary/20 transition-all",
+                                                                    item.readonly && "opacity-75 bg-slate-50 dark:bg-white/[0.02] cursor-not-allowed select-none"
+                                                                )}>
+                                                                    <span className="text-[9px] font-mono font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-white/5 w-6 h-6 flex items-center justify-center rounded-lg select-none shrink-0">
+                                                                        {String(idx + 1).padStart(2, '0')}
+                                                                    </span>
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="Fee Description"
+                                                                        value={item.label}
+                                                                        disabled={item.readonly}
+                                                                        onChange={(e) => updateFeeLineItem?.(idx, 'label', e.target.value)}
+                                                                        className="flex-1 h-9 bg-transparent text-sm font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none border-none p-0 focus:ring-0 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed"
+                                                                    />
+                                                                    <div className="relative w-28 shrink-0 flex items-center border-l border-slate-105 dark:border-white/5 pl-3">
+                                                                        <span className="text-xs font-black text-slate-400 mr-1 select-none">₱</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            placeholder="0.00"
+                                                                            value={item.amount}
+                                                                            disabled={item.readonly}
+                                                                            onChange={(e) => updateFeeLineItem?.(idx, 'amount', e.target.value)}
+                                                                            className="w-full bg-transparent text-sm font-black text-right text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed"
+                                                                        />
+                                                                    </div>
+                                                                    {!item.readonly && feeLineItems.length > 1 ? (
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            onClick={() => removeFeeLineItem?.(idx)}
+                                                                            className="w-8 h-8 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-all shrink-0 md:opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                                                        >
+                                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                                        </Button>
+                                                                    ) : (
+                                                                        <div className="w-8 h-8 shrink-0" />
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                        {!feeLineItems.some(i => !i.readonly) && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                onClick={addFeeLineItem}
+                                                                className="w-full h-10 border-dashed border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 text-xs font-bold text-slate-600 dark:text-slate-350 rounded-xl flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all"
+                                                            >
+                                                                <Plus className="w-3.5 h-3.5" />
+                                                                Add Assessment Row
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
 
@@ -438,7 +501,7 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                             </div>
                         </div>
 
-                        {((transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION") && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && (
+                        {((isAppointmentPsa ? (transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING") : (transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION")) && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && (
                             <div className="space-y-4">
                                 {transaction.paymentReference && additional?.gcashReferenceNo && (
                                     <div className="space-y-3">
@@ -485,39 +548,54 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                                     />
                                 </div>
 
-                                <div className="space-y-2">
-                                     <PremiumDocumentUpload
-                                         label="Official Receipt Image"
-                                         file={orFile}
-                                         previewUrl={orPreview}
-                                         existingUrl={transaction.orUrl}
-                                         onFileSelect={(file) => {
-                                             setOrFile(file);
-                                             setOrPreview?.(URL.createObjectURL(file));
-                                         }}
-                                         onView={() => handleViewFile?.(orPreview || transaction.orUrl, "Official Treasury Receipt")}
-                                         infoText="PDF / IMAGE (MAX 5MB)"
-                                     />
-                                </div>
+                                {!isAppointmentPsa && (
+                                     <div className="space-y-2">
+                                          <PremiumDocumentUpload
+                                              label="Official Receipt Image"
+                                              file={orFile}
+                                              previewUrl={orPreview}
+                                              existingUrl={transaction.orUrl}
+                                              onFileSelect={(file) => {
+                                                  setOrFile(file);
+                                                  setOrPreview?.(URL.createObjectURL(file));
+                                              }}
+                                              onView={() => handleViewFile?.(orPreview || transaction.orUrl, "Official Treasury Receipt")}
+                                              infoText="PDF / IMAGE (MAX 5MB)"
+                                          />
+                                     </div>
+                                 )}
 
-                                <Button
-                                    onClick={handleConfirmPayment}
-                                    disabled={actionLoading || !orSeriesNumber}
-                                    className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
-                                >
-                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                    Confirm Receipt & Send to Registrar
-                                </Button>
+                                 {isAppointmentPsa ? (
+                                     <Button
+                                         onClick={handleCollectPsaPayment}
+                                         disabled={actionLoading || !orSeriesNumber || orSeriesNumber.trim() === ""}
+                                         className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
+                                     >
+                                         {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                         Collect Payment & Issue O.R.
+                                     </Button>
+                                 ) : (
+                                     <Button
+                                         onClick={handleConfirmPayment}
+                                         disabled={actionLoading || !orSeriesNumber}
+                                         className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
+                                     >
+                                         {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                         Confirm Receipt & Send to Registrar
+                                     </Button>
+                                 )}
 
-                                <div className="flex gap-2">
-                                    <Button
-                                        onClick={handleDeclinePaymentProof}
-                                        disabled={actionLoading}
-                                        className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
-                                    >
-                                        Decline Proof
-                                    </Button>
-                                </div>
+                                 {!isAppointmentPsa && (
+                                     <div className="flex gap-2">
+                                         <Button
+                                             onClick={handleDeclinePaymentProof}
+                                             disabled={actionLoading}
+                                             className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
+                                         >
+                                             Decline Proof
+                                         </Button>
+                                     </div>
+                                 )}
                             </div>
                         ))}
 

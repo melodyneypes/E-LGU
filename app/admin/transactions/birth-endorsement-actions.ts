@@ -47,11 +47,13 @@ export async function releaseBirthPsaEndorsement(
         const additionalData = (transaction.additionalData as any) || {};
         const isInitialRelease = (transaction.status as any) === "FOR_PROCESSING" || (transaction.status as any) === "PAID" || (transaction.status as any) === "FOR_REINSPECTION";
 
-        const targetStatus = (transaction.status as any) === "PAID"
-            ? "FOR_REINSPECTION"
-            : isInitialRelease
-                ? (transaction.fulfillmentType === "DELIVERY" ? "FOR_PICKING" : "FOR_CLAIM")
-                : "RELEASED";
+        const targetStatus = (transaction.eCopyUrl || eCopyUrl)
+            ? (transaction.fulfillmentType === "DELIVERY" ? "FOR_PICKING" : "RELEASED")
+            : (transaction.status as any) === "PAID"
+                ? "FOR_REINSPECTION"
+                : isInitialRelease
+                    ? (transaction.fulfillmentType === "DELIVERY" ? "FOR_PICKING" : "FOR_CLAIM")
+                    : "RELEASED";
 
         if (targetStatus === "FOR_PICKING") {
             try {
@@ -156,5 +158,193 @@ export async function releaseBirthPsaEndorsement(
     } catch (error: any) {
         console.error("Release birth psa endorsement error:", error);
         return { success: false, error: error?.message || "Failed to release birth psa endorsement." };
+    }
+}
+
+/**
+ * Marks a PSA Appointment Endorsement as "appointment attended" — 
+ * transitions from EVALUATED → PAID so the Registrar can proceed to release the document.
+ * Used for Birth, Death, and Marriage PSA Appointment Endorsement types.
+ */
+export async function markPsaAppointmentAttended(id: string) {
+    try {
+        id = sanitizeString(id);
+
+        const session = await getSession();
+        const user = session?.user as any;
+        if (!user || (user.role !== "REGISTRAR" && user.role !== "ADMIN")) {
+            return { success: false, error: "Forbidden: Only Registrar or Admin can mark appointment as attended." };
+        }
+
+        const transaction = await prisma.transaction.findUnique({
+            where: { id },
+            include: { type: true, user: true }
+        });
+
+        if (!transaction) return { success: false, error: "Transaction not found." };
+
+        const PSA_APPOINTMENT_CODES = [
+            "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+            "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+            "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+        ];
+
+        if (!PSA_APPOINTMENT_CODES.includes(transaction.type.code)) {
+            return { success: false, error: "This action is only valid for PSA Appointment Endorsement types." };
+        }
+
+        if ((transaction.status as string) !== "EVALUATED" && (transaction.status as string) !== "UNPAID") {
+            return { success: false, error: "Transaction must be in EVALUATED or UNPAID (Awaiting Appointment) status." };
+        }
+
+        await prisma.transaction.update({
+            where: { id },
+            data: {
+                status: "FOR_PROCESSING" as any,
+                isPaid: false,
+                updatedAt: new Date()
+            }
+        });
+
+        if (transaction.user?.email) {
+            try {
+                const resident = (transaction.residentSnapshot as any) || {};
+                await sendEmail({
+                    type: "FOR_PROCESSING" as any,
+                    to: transaction.user.email,
+                    name: `${resident.firstName || ""} ${resident.lastName || ""}`.trim() || transaction.user.name || "Resident",
+                    transactionId: id.slice(-8).toUpperCase(),
+                    amount: transaction.totalAmount,
+                    serviceName: transaction.type.name
+                });
+            } catch (emailErr) {
+                console.error("Failed to send appointment attended email:", emailErr);
+            }
+        }
+
+        revalidatePath("/admin/registrar");
+        revalidatePath("/admin/treasury");
+        revalidatePath("/user/services");
+        return { success: true, data: { status: "FOR_PROCESSING" } };
+    } catch (error: any) {
+        console.error("Mark PSA appointment attended error:", error);
+        return { success: false, error: error?.message || "Failed to mark appointment as attended." };
+    }
+}
+
+/**
+ * Treasury counter payment collection for PSA Appointment Endorsements.
+ * Records the Official Receipt (O.R.) number and marks the transaction as RELEASED.
+ * Transitions: FOR_CLAIM | FOR_PICKING → RELEASED
+ * Used for Birth, Death, and Marriage PSA Appointment Endorsement types.
+ */
+export async function collectPsaAppointmentPayment(id: string, orNumber: string) {
+    try {
+        id = sanitizeString(id);
+        orNumber = sanitizeString(orNumber);
+
+        if (!orNumber || orNumber.trim() === "") {
+            return { success: false, error: "Official Receipt (O.R.) number is required." };
+        }
+
+        const session = await getSession();
+        const user = session?.user as any;
+        if (!user || (user.role !== "TREASURY_STAFF" && user.role !== "ADMIN")) {
+            return { success: false, error: "Forbidden: Only Treasury Staff or Admin can collect payment." };
+        }
+
+        const transaction = await prisma.transaction.findUnique({
+            where: { id },
+            include: { type: true, user: true }
+        });
+
+        if (!transaction) return { success: false, error: "Transaction not found." };
+
+        const PSA_APPOINTMENT_CODES = [
+            "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+            "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+            "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+        ];
+
+        if (!PSA_APPOINTMENT_CODES.includes(transaction.type.code)) {
+            return { success: false, error: "This action is only valid for PSA Appointment Endorsement types." };
+        }
+
+        if (!["FOR_CLAIM", "FOR_PICKING"].includes(transaction.status as string)) {
+            return { success: false, error: "Transaction must be in FOR_CLAIM or FOR_PICKING status to collect payment." };
+        }
+
+        const existingAdditional = (transaction.additionalData as Record<string, unknown>) || {};
+
+        const updatedTransaction = await prisma.transaction.update({
+            where: { id },
+            data: {
+                status: "RELEASED" as any,
+                isPaid: true,
+                additionalData: {
+                    ...existingAdditional,
+                    orSeriesNumber: orNumber.trim(),
+                    orCollectedAt: new Date().toISOString(),
+                    orCollectedBy: user.name || user.email || "Treasury Staff"
+                },
+                updatedAt: new Date()
+            },
+            include: { type: true }
+        });
+
+        // Directly upsert the Payment record for the payments ledger
+        const paymentReference = null;
+        await prisma.payment.upsert({
+            where: { transactionId: id },
+            update: {
+                amount: Number(updatedTransaction.totalAmount || 0),
+                method: updatedTransaction.paymentType || "CASH",
+                status: "PAID",
+                reference: paymentReference,
+                orNumber: orNumber.trim(),
+                meta: {
+                    source: "treasury_counter_payment",
+                    collectedAt: new Date().toISOString(),
+                    collectedBy: user.name || user.email || "Treasury Staff"
+                }
+            },
+            create: {
+                transactionId: id,
+                amount: Number(updatedTransaction.totalAmount || 0),
+                method: updatedTransaction.paymentType || "CASH",
+                status: "PAID",
+                reference: paymentReference,
+                orNumber: orNumber.trim(),
+                meta: {
+                    source: "treasury_counter_payment",
+                    collectedAt: new Date().toISOString(),
+                    collectedBy: user.name || user.email || "Treasury Staff"
+                }
+            }
+        });
+
+        if (transaction.user?.email) {
+            try {
+                const resident = (transaction.residentSnapshot as any) || {};
+                await sendEmail({
+                    type: "RELEASED" as any,
+                    to: transaction.user.email,
+                    name: `${resident.firstName || ""} ${resident.lastName || ""}`.trim() || transaction.user.name || "Resident",
+                    transactionId: id.slice(-8).toUpperCase(),
+                    amount: transaction.totalAmount,
+                    serviceName: transaction.type.name
+                });
+            } catch (emailErr) {
+                console.error("Failed to send payment collected email:", emailErr);
+            }
+        }
+
+        revalidatePath("/admin/registrar");
+        revalidatePath("/admin/treasury");
+        revalidatePath("/user/services");
+        return { success: true, data: { status: "RELEASED", orNumber: orNumber.trim() } };
+    } catch (error: any) {
+        console.error("Collect PSA appointment payment error:", error);
+        return { success: false, error: error?.message || "Failed to collect payment." };
     }
 }
