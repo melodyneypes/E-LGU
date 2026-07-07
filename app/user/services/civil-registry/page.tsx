@@ -219,7 +219,6 @@ export default function CivilRegistryPage() {
 
         if (!supabase) return;
 
-        console.log("Subscribing to Supabase Realtime 'TransactionType' table for civil registry...");
         let channel: any;
         try {
             channel = supabase
@@ -231,8 +230,7 @@ export default function CivilRegistryPage() {
                         schema: "public",
                         table: "TransactionType",
                     },
-                    (payload: any) => {
-                        console.log("Realtime change caught on TransactionType table:", payload);
+                    () => {
                         fetchActiveCodes();
                     }
                 )
@@ -246,7 +244,6 @@ export default function CivilRegistryPage() {
         }
 
         return () => {
-            console.log("Unsubscribing from Supabase Realtime 'TransactionType' table...");
             if (channel) {
                 supabase.removeChannel(channel);
             }

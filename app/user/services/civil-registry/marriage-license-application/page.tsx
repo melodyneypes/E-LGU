@@ -736,8 +736,7 @@ export default function MarriageLicenseApplicationPage() {
 			return;
 		}
 
-		// Helpful debug info for failed submissions
-		console.log("[LCR Submit] typeId:", typeId, "registryType:", "MARRIAGE_LICENSE", "resident:", resident, "form:", form);
+
 
 		setSubmitting(true);
 		try {
@@ -795,14 +794,12 @@ export default function MarriageLicenseApplicationPage() {
 
 				// Reuse already uploaded files/URLs
 				if (fileUrls[key]) {
-					console.log(`[ClientUpload] Reusing existing public URL for ${key}:`, fileUrls[key]);
 					continue;
 				}
 
 				try {
 					const url = await uploadFileClientSide(file, sanitizedKey);
 					fileUrls[key] = url;
-					console.log(`[ClientUpload] ${i + 1}/${fileEntries.length} uploaded: ${key}`);
 				} catch (uploadErr) {
 					console.error(`[ClientUpload] Failed to upload ${key}:`, uploadErr);
 					toast.error(`Failed to upload document: ${key}. Please try again.`, { id: "ml-upload-toast" });
@@ -843,7 +840,7 @@ export default function MarriageLicenseApplicationPage() {
 				...fileUrls
 			};
 
-			console.log("[LCR Submit] additionalData (with URLs):", additionalData);
+
 
 			// Build lightweight FormData — NO binary files appended!
 			const formData = new FormData();
@@ -855,13 +852,7 @@ export default function MarriageLicenseApplicationPage() {
 				formData.append("revisionId", revisionId);
 			}
 
-			// Console log payload sizes to help debug
-			console.log("=== MARRIAGE LICENSE SUBMIT PAYLOAD DIAGNOSTICS ===");
-			for (const [key, value] of (formData as any).entries()) {
-				if (typeof value === "string") {
-					console.log(`Key: ${key}, Length: ${value.length} chars (approx ${(value.length / 1024).toFixed(2)} KB)`);
-				}
-			}
+
 
 			const res = await submitMarriageLicenseTransaction(formData);
 			if (res.success) {
