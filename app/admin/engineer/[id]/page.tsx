@@ -241,7 +241,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
     // Map BPLO Admin to behave exactly like ADMIN_AIDE for Treasury pages
     const isBPLOAdmin = rawUserRole === "ADMIN" && userDepartment === "BPLO";
     const userRole = isBPLOAdmin ? "ADMIN_AIDE" : rawUserRole;
-    const backUrl = userRole === "ENGINEER" ? "/admin/engineer" : "/admin/treasury";
+    const backUrl = userRole === "ENGINEER" ? "/admin/engineer" : userRole === "MPDC_ZONING" ? "/admin/zoning" : "/admin/treasury";
     const [transaction, setTransaction] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);

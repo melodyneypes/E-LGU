@@ -92,6 +92,8 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                     router.push("/admin/bplo");
                 } else if (role === "ENGINEER") {
                     router.push("/admin/engineer");
+                } else if (role === "MPDC_ZONING") {
+                    router.push("/admin/zoning");
                 } else if (dept === "REGISTRAR" || dept === "CIVIL_REGISTRY") {
                     router.push("/admin/registrar");
                 } else {

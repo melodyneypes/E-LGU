@@ -229,7 +229,7 @@ export async function searchResidents(query: string, page: number = 1, limit: nu
         }
 
         const userRole = (session.user as any).role;
-        const isAdmin = userRole === "ADMIN" || userRole === "BARANGAY_ADMIN" || userRole === "TREASURY_STAFF" || userRole === "REGISTRAR" || userRole === "ENGINEER" || userRole === "ADMIN_AIDE";
+        const isAdmin = userRole === "ADMIN" || userRole === "BARANGAY_ADMIN" || userRole === "TREASURY_STAFF" || userRole === "REGISTRAR" || userRole === "ENGINEER" || userRole === "MPDC_ZONING" || userRole === "ADMIN_AIDE";
 
         if (!isAdmin) {
             const ip = await getClientIp();
@@ -319,7 +319,7 @@ export async function getResidentDataById(id: string) {
         }
 
         const userRole = (session.user as any).role;
-        const isAdmin = userRole === "ADMIN" || userRole === "BARANGAY_ADMIN" || userRole === "TREASURY_STAFF" || userRole === "REGISTRAR" || userRole === "ENGINEER" || userRole === "ADMIN_AIDE";
+        const isAdmin = userRole === "ADMIN" || userRole === "BARANGAY_ADMIN" || userRole === "TREASURY_STAFF" || userRole === "REGISTRAR" || userRole === "ENGINEER" || userRole === "MPDC_ZONING" || userRole === "ADMIN_AIDE";
 
         if (!isAdmin) {
             const ip = await getClientIp();

@@ -33,7 +33,7 @@ export default function CounterSelectorHeader({
     const dropdownRef = React.useRef<HTMLDivElement>(null);
 
     // Only enable counter selection for authorized staff roles
-    const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
+    const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "MPDC_ZONING"];
     const isAuthorized = allowedRoles.includes(userRole);
 
     useEffect(() => {
