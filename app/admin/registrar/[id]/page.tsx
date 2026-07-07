@@ -475,7 +475,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                         setFeeLineItems(mappedFees);
                     } else {
                         const defaultFees = tx.type?.defaultFees;
-                        if (Array.isArray(defaultFees) && defaultFees.length > 0 && (!tx.fiscalSnapshot || Object.keys(tx.fiscalSnapshot).length === 0)) {
+                        if (Array.isArray(defaultFees) && defaultFees.length > 0) {
                             const mappedFees = defaultFees.map((fee: any) => ({
                                 label: fee.label,
                                 amount: (tx.type?.code?.includes("PSA_") ?? false) ? String(fee.amount) : ""

@@ -61,6 +61,7 @@ import { format } from "date-fns";
 import { CancelRequestModal } from "@/components/shared/CancelRequestModal";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PaymongoCheckoutButton from "@/components/PaymongoCheckoutButton";
+import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
 
 const checkIsPdf = (url: string | null) => {
     if (!url) return false;
@@ -216,6 +217,13 @@ export default function RequestHubPage() {
     const [viewerUrl, setViewerUrl] = useState<string | null>(null);
     const [viewerTitle, setViewerTitle] = useState("");
     const [isTreasuryOpen, setIsTreasuryOpen] = useState(true);
+    const [printTriggered, setPrintTriggered] = useState(false);
+    const [ticketPreviewOpen, setTicketPreviewOpen] = useState(false);
+    const [branding, setBranding] = useState({
+        logo: null as string | null,
+        word1: "MUNICIPALITY",
+        word2: "PORTAL"
+    });
 
     const handleViewFile = (url: string | null, title: string) => {
         setViewerUrl(url);
@@ -322,6 +330,15 @@ export default function RequestHubPage() {
                 const bAccNameRes = await getSystemSettingAction("bank_account_name", "MUNICIPALITY OF MAPANDAN");
                 const bAccNumRes = await getSystemSettingAction("bank_account_number", "0541-2345-67");
                 const themeRes = await getSystemSettingAction("theme_color", "#2563eb");
+                const logoRes = await getSystemSettingAction("logo", "");
+                const word1Res = await getSystemSettingAction("brand_word_1", "MUNICIPALITY");
+                const word2Res = await getSystemSettingAction("brand_word_2", "PORTAL");
+
+                setBranding({
+                    logo: logoRes.data || null,
+                    word1: word1Res.data || "MUNICIPALITY",
+                    word2: word2Res.data || "PORTAL"
+                });
 
                 setGcashDetails({
                     qr: qrRes.data,
@@ -792,9 +809,9 @@ export default function RequestHubPage() {
     const isLcrDeathReg = typeCode === "LCR_DEATH_REG";
     const isLcrMarriage = typeCode === "LCR_MARRIAGE" || typeCode === "LCR_MARRIAGE_REG";
     const isLcrMarriageLicense = typeCode === "LCR_MARRIAGE_LICENSE";
-    const isBirthPsaEndorsement = typeCode === "LCR_PSA_ENDORSEMENT";
-    const isDeathPsaEndorsement = typeCode === "LCR_DEATH_PSA_ENDORSEMENT";
-    const isMarriagePsaEndorsement = typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT";
+    const isBirthPsaEndorsement = typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT";
+    const isDeathPsaEndorsement = typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT";
+    const isMarriagePsaEndorsement = typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
     const isPsaEndorsement = isBirthPsaEndorsement || isDeathPsaEndorsement || isMarriagePsaEndorsement;
     const getRevisionUrl = () => {
         if (isBusinessPermit) return `/user/services/business-permit?revisionId=${request.id}`;
@@ -811,6 +828,9 @@ export default function RequestHubPage() {
             if (code === "LCR_PSA_ENDORSEMENT") return `/user/services/civil-registry/birth-psa-endorsement?revisionId=${request.id}`;
             if (code === "LCR_DEATH_PSA_ENDORSEMENT") return `/user/services/civil-registry/death-psa-endorsement?revisionId=${request.id}`;
             if (code === "LCR_MARRIAGE_PSA_ENDORSEMENT") return `/user/services/civil-registry/marriage-psa-endorsement?revisionId=${request.id}`;
+            if (code === "LCR_PSA_APPOINTMENT_ENDORSEMENT") return `/user/services/civil-registry/appointment-birth-psa-endorsement?revisionId=${request.id}`;
+            if (code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") return `/user/services/civil-registry/appointment-death-psa-endorsement?revisionId=${request.id}`;
+            if (code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT") return `/user/services/civil-registry/appointment-marriage-psa-endorsement?revisionId=${request.id}`;
         }
         return `/user/services/requests/${request.id}`;
     };
@@ -827,12 +847,16 @@ export default function RequestHubPage() {
         (isPaymongoPaymentId(additionalData?.paymongo?.paymentId) ? additionalData.paymongo.paymentId : null) ||
         (isPaymongoPaymentId(request?.paymentReference) ? request.paymentReference : null);
 
-    const isReportAllowed = useMemo(() => {
-        if (!request || request.status !== "DELIVERED") return false;
+    const [isReportAllowed, setIsReportAllowed] = useState(false);
+    useEffect(() => {
+        if (!request || request.status !== "DELIVERED") {
+            setIsReportAllowed(false);
+            return;
+        }
         const deliveredTime = request.deliveredAt ? new Date(request.deliveredAt) : new Date(request.updatedAt);
         const timeDiff = Date.now() - deliveredTime.getTime();
         const twoDaysInMs = 2 * 24 * 60 * 60 * 1000;
-        return timeDiff <= twoDaysInMs;
+        setIsReportAllowed(timeDiff <= twoDaysInMs);
     }, [request]);
 
     const computation = useMemo(() => {
@@ -1518,6 +1542,22 @@ export default function RequestHubPage() {
                                 )}
 
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-10 items-start">
+                                    {/* Print queue ticket helper portal */}
+                                    {request.queueNumber && (
+                                        <PrintQueueTicket
+                                            queueNumber={request.queueNumber}
+                                            residentName={`${residentData.firstName} ${residentData.lastName}`}
+                                            serviceName={request.type?.name || "Service Request"}
+                                            appointmentDate={request.appointmentDate ? new Date(request.appointmentDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : ""}
+                                            appointmentSlot={request.appointmentSlot || "N/A"}
+                                            isPriority={request.isPriority || false}
+                                            branding={branding}
+                                            themeColor={themeColor}
+                                            triggerPrint={printTriggered}
+                                            onPrintCompleted={() => setPrintTriggered(false)}
+                                        />
+                                    )}
+
                                     {/* Application Matrix Card */}
                                     <Card className="p-6 md:p-10 border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900/40 shadow-xl rounded-2xl md:rounded-3xl lg:col-span-2 relative overflow-hidden h-fit">
                                         <div className="absolute top-0 right-0 p-8 opacity-5"><FileText className="w-32 h-32" /></div>
@@ -1531,6 +1571,24 @@ export default function RequestHubPage() {
                                                 <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Date Submitted</p><p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">{formatPHDate(request.createdAt)}</p></div>
                                                 <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Logistics Phase</p><p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">{request.fulfillmentType?.replace(/_/g, " ") || "PENDING EVALUATION"}</p></div>
                                                 <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Payment</p><p className="text-base md:text-xl font-semibold text-primary italic leading-tight uppercase">{((request.type?.code === "LCR_BIRTH" || request.type?.code?.startsWith("LCR_")) && ["FOR_REQUESTING", "UNDER_REVIEW"].includes(request.status)) ? "TBD" : (request.paymentType?.replace(/_/g, " ") || "PENDING ASSESSMENT")}</p></div>
+
+                                                {request.queueNumber && (
+                                                    <div className="space-y-2 col-span-1 sm:col-span-2 pt-6 border-t border-slate-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                        <div>
+                                                            <p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Queue Ticket</p>
+                                                            <p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase mt-1">
+                                                                Number: <span className="font-mono text-primary font-black">{request.queueNumber}</span>
+                                                            </p>
+                                                        </div>
+                                                        <Button
+                                                            onClick={() => setTicketPreviewOpen(true)}
+                                                            className="w-full sm:w-auto h-9 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl px-6 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                                                        >
+                                                            <QrCode className="w-3.5 h-3.5" />
+                                                            Preview Ticket
+                                                        </Button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </Card>
@@ -2516,6 +2574,66 @@ export default function RequestHubPage() {
                 title={viewerTitle}
                 themeColor={themeColor || "var(--primary-theme)"}
             />
+
+            {/* Queue Ticket Preview Dialog Modal */}
+            {request && request.queueNumber && (
+                <Dialog open={ticketPreviewOpen} onOpenChange={setTicketPreviewOpen}>
+                    <DialogContent className="max-w-md bg-white dark:bg-[#0d0f14] border-slate-200 dark:border-white/5 rounded-3xl p-6">
+                        <DialogHeader>
+                            <DialogTitle className="text-sm font-black uppercase tracking-widest text-slate-400 italic">Queue Ticket Preview</DialogTitle>
+                            <DialogDescription className="text-[10px] text-slate-500 uppercase tracking-widest">Present this screen or printed ticket at the municipal office counter.</DialogDescription>
+                        </DialogHeader>
+
+                        <div className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl p-6 bg-slate-50 dark:bg-black/20 flex flex-col items-center justify-center gap-3 my-4">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Queue Number</span>
+                            <span className="text-4xl font-black italic tracking-tighter text-slate-900 dark:text-white font-mono">
+                                {request.queueNumber}
+                            </span>
+
+                            {request.isPriority && (
+                                <span className="bg-primary/10 text-primary border border-primary/20 rounded-full px-4 py-1 text-[9px] font-black uppercase tracking-widest">
+                                    ♿ Priority Lane
+                                </span>
+                            )}
+
+                            <div className="w-full flex items-center justify-center mt-2">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${request.queueNumber}`}
+                                    alt="QR Ticket Code"
+                                    className="w-28 h-28 p-2 bg-white rounded-xl border border-slate-100"
+                                />
+                            </div>
+
+                            <div className="w-full space-y-2 text-xs pt-4 border-t border-slate-200/50 dark:border-white/5 mt-2">
+                                <div className="flex justify-between">
+                                    <span className="text-slate-400 font-semibold">Service:</span>
+                                    <span className="font-bold text-slate-800 dark:text-slate-100 uppercase">{request.type?.name}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-400 font-semibold">Scheduled Date:</span>
+                                    <span className="font-bold text-slate-800 dark:text-slate-100">{request.appointmentDate ? formatPHDate(request.appointmentDate) : "N/A"}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-400 font-semibold">Time Slot:</span>
+                                    <span className="font-bold text-slate-800 dark:text-slate-100 uppercase">{request.appointmentSlot || "N/A"}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">
+                            <Button
+                                onClick={() => setPrintTriggered(true)}
+                                className="w-full h-11 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[9px] rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-primary/25"
+                                style={{ backgroundColor: themeColor }}
+                            >
+                                <QrCode className="w-3.5 h-3.5" />
+                                Print / Download Ticket
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            )}
         </>
     );
 }

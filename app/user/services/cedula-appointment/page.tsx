@@ -57,7 +57,7 @@ export default async function CedulaAppointmentPage() {
         where: {
             appointmentDate: { not: null },
             isCancelled: false,
-            type: { category: "Treasurer" }
+            type: { category: "CEDULA" }
         },
         select: {
             appointmentDate: true,

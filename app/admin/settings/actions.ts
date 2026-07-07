@@ -469,6 +469,10 @@ export async function updateAppointmentConfig(
         revalidatePath("/user/services/cedula-appointment");
         revalidatePath("/admin/treasury/payment-settings");
         revalidatePath("/admin/treasury/appointment-settings");
+        revalidatePath("/user/services/civil-registry/appointment-birth-psa-endorsement");
+        revalidatePath("/user/services/civil-registry/appointment-death-psa-endorsement");
+        revalidatePath("/user/services/civil-registry/appointment-marriage-psa-endorsement");
+        revalidatePath("/admin/registrar/appointment-settings");
         return { success: true };
     } catch (error: any) {
         console.error("Error updating appointment config:", error);

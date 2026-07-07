@@ -14,11 +14,11 @@ import {
     AlertCircle,
     Home,
     Skull,
-    Upload,
     CheckCircle2,
     FileText,
     Sparkles,
-    X
+    X,
+    Calendar
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -47,8 +47,10 @@ import {
     getTransactionTypes,
     getSystemSettingAction,
     getTransactionById,
-    ensureCivilRegistryTransactionTypes
+    ensureCivilRegistryTransactionTypes,
+    getRegistrarAppointmentConfig
 } from "@/app/admin/transactions/actions";
+import SchedulePicker from "@/components/shared/SchedulePicker";
 import {
     getLatestForm2AForCurrentUser
 } from "@/app/admin/transactions/death-endorsement-actions";
@@ -58,13 +60,13 @@ import Link from "next/link";
 
 
 
-type Step = "STATUS" | "INFORMANT" | "SUBJECT" | "UPLOAD" | "REVIEW";
+type Step = "STATUS" | "INFORMANT" | "SUBJECT" | "SCHEDULE" | "REVIEW";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "STATUS", label: "Status", icon: Sparkles },
     { id: "INFORMANT", label: "Identity", icon: User },
     { id: "SUBJECT", label: "Details", icon: FileText },
-    { id: "UPLOAD", label: "Documents", icon: Upload },
+    { id: "SCHEDULE", label: "Schedule", icon: Calendar },
     { id: "REVIEW", label: "Submit", icon: CheckCircle2 },
 ];
 
@@ -74,6 +76,8 @@ export default function AppointmentDeathPsaEndorsementPage() {
     const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(true);
     const [themeColor, setThemeColor] = useState("var(--primary-theme)");
+    const [appointmentConfig, setAppointmentConfig] = useState<any>(null);
+    const [bookedSlots, setBookedSlots] = useState<any[]>([]);
 
     useEffect(() => {
         getSystemSettingAction("theme_color").then((res) => {
@@ -119,6 +123,8 @@ export default function AppointmentDeathPsaEndorsementPage() {
         fathersName: "",
         placeOfDeath: "",
         causeOfDeath: "",
+        appointmentDate: "",
+        appointmentSlot: "",
     });
 
 
@@ -184,10 +190,16 @@ export default function AppointmentDeathPsaEndorsementPage() {
                     }
                 }
 
-                const [resResult, typesResult] = await Promise.all([
+                const [resResult, typesResult, configResult] = await Promise.all([
                     getCurrentUserResident(),
-                    getTransactionTypes()
+                    getTransactionTypes(),
+                    getRegistrarAppointmentConfig()
                 ]);
+
+                if (configResult.success) {
+                    setAppointmentConfig(configResult.config);
+                    setBookedSlots(configResult.bookedSlots);
+                }
 
                 if (resResult.success && resResult.data) {
                     const r = resResult.data;
@@ -230,6 +242,8 @@ export default function AppointmentDeathPsaEndorsementPage() {
                             fathersName: addData.fathersName || "",
                             placeOfDeath: addData.placeOfDeath || "",
                             causeOfDeath: addData.causeOfDeath || "",
+                            appointmentDate: addData.appointmentDate || (txData.appointmentDate ? new Date(txData.appointmentDate).toISOString().split('T')[0] : "") || "",
+                            appointmentSlot: addData.appointmentSlot || txData.appointmentSlot || "",
                         }));
                     } else {
                         setFormData(prev => ({
@@ -330,6 +344,13 @@ export default function AppointmentDeathPsaEndorsementPage() {
                 return false;
             }
         }
+        if (step === "SCHEDULE") {
+            if (!formData.appointmentDate || !formData.appointmentSlot) {
+                setShowErrors(true);
+                toast.error("Please select an appointment date and session.");
+                return false;
+            }
+        }
 
         return true;
     };
@@ -384,6 +405,8 @@ export default function AppointmentDeathPsaEndorsementPage() {
                 fathersName: formData.fathersName,
                 placeOfDeath: formData.placeOfDeath,
                 causeOfDeath: formData.causeOfDeath,
+                appointmentDate: formData.appointmentDate,
+                appointmentSlot: formData.appointmentSlot,
                 psaEndorsementFee: miscFeeAmount,
             };
             data.append("additionalData", JSON.stringify(additionalData));
@@ -913,6 +936,61 @@ export default function AppointmentDeathPsaEndorsementPage() {
                                             onClick={() => {
                                                 if (validateStep("SUBJECT")) {
                                                     setShowErrors(false);
+                                                    setCurrentStep("SCHEDULE");
+                                                }
+                                            }}
+                                            className="rounded-full px-12 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl"
+                                            style={{ backgroundColor: themeColor }}
+                                        >
+                                            NEXT
+                                        </Button>
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* ===== STEP 4: CHOOSE SCHEDULE ===== */}
+                            {currentStep === "SCHEDULE" && (
+                                <motion.div
+                                    key="schedule-step"
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 1.05 }}
+                                    className="space-y-8"
+                                >
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div>
+                                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Choose Schedule</h2>
+                                            <p className="text-xs text-slate-500 font-medium italic">Select an appointment date and session</p>
+                                        </div>
+                                    </div>
+
+                                    {appointmentConfig && (
+                                        <SchedulePicker
+                                            selectedDate={formData.appointmentDate}
+                                            setSelectedDate={(dateStr) => setFormData(prev => ({ ...prev, appointmentDate: dateStr }))}
+                                            selectedSlot={formData.appointmentSlot}
+                                            setSelectedSlot={(slotStr) => setFormData(prev => ({ ...prev, appointmentSlot: slotStr }))}
+                                            bookedSlots={bookedSlots}
+                                            config={appointmentConfig}
+                                            themeColor={themeColor}
+                                        />
+                                    )}
+
+                                    <div className="flex justify-end gap-3 pt-6">
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => {
+                                                setShowErrors(false);
+                                                setCurrentStep("SUBJECT");
+                                            }}
+                                            className="rounded-full px-8 font-black uppercase tracking-widest italic text-[10px] h-12"
+                                        >
+                                            BACK
+                                        </Button>
+                                        <Button
+                                            onClick={() => {
+                                                if (validateStep("SCHEDULE")) {
+                                                    setShowErrors(false);
                                                     setCurrentStep("REVIEW");
                                                 }
                                             }}
@@ -974,6 +1052,20 @@ export default function AppointmentDeathPsaEndorsementPage() {
                                             <div className="space-y-1">
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Mother&apos;s Maiden Name</span>
                                                 <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.mothersMaidenName}</p>
+                                            </div>
+                                            <div className="col-span-2 border-t border-slate-200 dark:border-white/5 pt-4 grid grid-cols-2 gap-6">
+                                                <div className="space-y-1">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Appointment Date</span>
+                                                    <p className="font-black text-slate-900 dark:text-white italic">
+                                                        {formData.appointmentDate ? new Date(formData.appointmentDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "Not selected"}
+                                                    </p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Appointment Slot</span>
+                                                    <p className="font-black text-slate-900 dark:text-white italic uppercase">
+                                                        {formData.appointmentSlot || "Not selected"}
+                                                    </p>
+                                                </div>
                                             </div>
                                             {formData.causeOfDeath && (
                                                 <div className="col-span-2 space-y-1">
@@ -1067,7 +1159,7 @@ export default function AppointmentDeathPsaEndorsementPage() {
                                         <div className="flex gap-3 w-full justify-end">
                                             <Button
                                                 variant="outline"
-                                                onClick={() => setCurrentStep("UPLOAD")}
+                                                onClick={() => setCurrentStep("SCHEDULE")}
                                                 className="h-14 px-8 rounded-full font-black uppercase tracking-widest italic text-[11px] select-none"
                                             >
                                                 BACK

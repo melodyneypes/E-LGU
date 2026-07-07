@@ -110,12 +110,13 @@ export default function RegistrarPage() {
     const categoryParam = searchParams.get("category");
     const hasSelectedCategory = Boolean(categoryParam && categoryParam !== "ALL");
 
-    const lastActivityRef = useRef(Date.now());
+    const lastActivityRef = useRef<number | null>(null);
     const [showUpdateModal, setShowUpdateModal] = useState(false);
     const [pendingUpdatesCount, setPendingUpdatesCount] = useState(0);
 
     // Track user activity to determine idle state
     useEffect(() => {
+        lastActivityRef.current = Date.now();
         const handleActivity = () => {
             lastActivityRef.current = Date.now();
         };
@@ -176,7 +177,7 @@ export default function RegistrarPage() {
                         console.log("Realtime change caught on Transaction table for registrar queue:", payload);
                         
                         const idleThreshold = 30000; // 30 seconds
-                        const isCurrentlyIdle = Date.now() - lastActivityRef.current > idleThreshold;
+                        const isCurrentlyIdle = Date.now() - (lastActivityRef.current ?? Date.now()) > idleThreshold;
 
                         if (isCurrentlyIdle) {
                             console.log("[Registrar Queue] User is idle. Queueing update modal...");
@@ -213,7 +214,7 @@ export default function RegistrarPage() {
         // Background polling fallback every 15 seconds to ensure queue updates
         const interval = setInterval(() => {
             const idleThreshold = 30000; // 30 seconds
-            const isCurrentlyIdle = Date.now() - lastActivityRef.current > idleThreshold;
+            const isCurrentlyIdle = Date.now() - (lastActivityRef.current ?? Date.now()) > idleThreshold;
 
             if (isCurrentlyIdle) {
                 console.log("[Polling Registrar Queue] User is idle. Bypassing silent auto-refresh.");
@@ -263,8 +264,10 @@ export default function RegistrarPage() {
             } else if (categoryParam === "PSA Endorsement") {
                 matchesCategory = (
                     tx.type?.code === "LCR_PSA_ENDORSEMENT" ||
-                    (tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" && tx.status !== "FOR_REQUESTING") ||
-                    tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT"
+                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    ((tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" || tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") && tx.status !== "FOR_REQUESTING") ||
+                    tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
                 ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
             } else if (categoryParam === "PSA Appt. Endorsement") {
                 matchesCategory = (

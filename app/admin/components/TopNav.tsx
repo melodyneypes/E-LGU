@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
 import { motion } from "framer-motion";
 import { getTransactionById } from "@/app/admin/transactions/actions";
+import CounterSelectorHeader from "@/components/admin/CounterSelectorHeader";
 
 interface TopNavProps {
     session: {
@@ -308,9 +309,12 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
                 </div>
             </div>
 
-            {/* Right: User menu */}
-            <div className="relative shrink-0" ref={dropdownRef}>
-                <button
+            {/* Right: User menu & Counter Selector */}
+            <div className="flex items-center gap-4 shrink-0">
+                <CounterSelectorHeader themeColor={themeColor} userRole={session.user?.role || "ADMIN"} />
+
+                <div className="relative shrink-0" ref={dropdownRef}>
+                    <button
                     onClick={() => setDropdownOpen(!dropdownOpen)}
                     className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
                 >
@@ -383,6 +387,7 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
                     </div>
                 )}
             </div>
-        </motion.header>
+        </div>
+    </motion.header>
     );
 }
