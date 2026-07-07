@@ -1175,7 +1175,8 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         }
         return [
             { id: "FOR_REQUESTING", label: "FOR EVALUATION" },
-            { id: "UNPAID", label: "TO PAY" },
+            { id: "TO_PROCESS", label: "TO PROCESS" },
+            { id: "FOR_PROCESSING", label: "FOR PROCESSING" },
             { id: "RELEASED", label: "RELEASED" }
         ];
     })();
@@ -1234,13 +1235,15 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         if (isLcrBirthCertifiedCopy && (s === "PAID" || s === "PENDING_PAYMENT_VERIFICATION")) {
             return "VERIFY_OR";
         }
-        // Generic / Cedula / Civil Registry simplified tracker mapping
         if (!isBusinessPermit && !isBuildingPermit) {
-            if (["FOR_REQUESTING", "FOR_REVISION", "REJECTED", "FOR_INSPECTION"].includes(s)) {
+            if (["FOR_REQUESTING", "FOR_REVISION", "REJECTED"].includes(s)) {
                 return "FOR_REQUESTING";
             }
-            if (["EVALUATED", "UNPAID"].includes(s)) {
-                return "UNPAID";
+            if (["EVALUATED", "UNPAID", "FOR_INSPECTION"].includes(s)) {
+                return "TO_PROCESS";
+            }
+            if (s === "FOR_PROCESSING") {
+                return "FOR_PROCESSING";
             }
             return "RELEASED";
         }

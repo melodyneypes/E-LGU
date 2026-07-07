@@ -152,6 +152,7 @@ export async function submitBuildingPermit(formData: FormData) {
         source: "web",
         isPriority,
         appointmentDate: startOfDay,
+        appointmentSlot,
       });
     }
 

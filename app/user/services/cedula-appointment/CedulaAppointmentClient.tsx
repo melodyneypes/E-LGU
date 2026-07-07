@@ -372,24 +372,10 @@ export function CedulaAppointmentClient({
     };
 
     const handleSubmit = async () => {
-        const hasId = !!idFile || !!existingIdUrl;
-        const hasProof = !!proofFile || !!existingProofUrl;
-
-        if (!hasId || !hasProof || !privacyAccepted) {
+        if (!privacyAccepted) {
             setShowValidationErrors(true);
-            if (!hasId && !hasProof) {
-                toast.error("Please upload both your Valid ID and Proof of Income to proceed.");
-                idSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-            } else if (!hasId) {
-                toast.error("Please attach your Valid ID to proceed.");
-                idSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-            } else if (!hasProof) {
-                toast.error("Please upload your Proof of Income to proceed.");
-                proofSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-            } else if (!privacyAccepted) {
-                toast.error("Please accept the Data Privacy and Terms Agreement to submit your application.");
-                privacySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-            }
+            toast.error("Please accept the Data Privacy and Terms Agreement to submit your application.");
+            privacySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
             return;
         }
 
@@ -855,19 +841,14 @@ export function CedulaAppointmentClient({
                                     {/* Upload cards */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
                                         <div className="space-y-4 md:space-y-6" ref={idSectionRef}>
-                                            <div className={cn(
-                                                "p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary",
-                                                showValidationErrors && !(idFile || existingIdUrl)
-                                                    ? "border-red-500 dark:border-red-500/80 ring-2 ring-red-500/20 bg-red-50/10 animate-pulse"
-                                                    : "border-slate-200 dark:border-white/10"
-                                            )}>
+                                            <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary border-slate-200 dark:border-white/10">
                                                 <div className="flex items-center gap-3 md:gap-4 w-full text-left">
                                                     <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
                                                         <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                                                     </div>
                                                     <div className="space-y-0.5">
                                                         <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1">
-                                                            Valid ID <span className="text-red-500 font-black not-italic">*</span>
+                                                            Valid ID <span className="text-slate-450 text-[8px] font-bold lowercase tracking-normal">(optional)</span>
                                                         </h4>
                                                         <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">PDF / Image (Max 5MB)</p>
                                                     </div>
@@ -939,19 +920,14 @@ export function CedulaAppointmentClient({
                                         </div>
 
                                         <div className="space-y-4 md:space-y-6" ref={proofSectionRef}>
-                                            <div className={cn(
-                                                "p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary",
-                                                showValidationErrors && !(proofFile || existingProofUrl)
-                                                    ? "border-red-500 dark:border-red-500/80 ring-2 ring-red-500/20 bg-red-50/10 animate-pulse"
-                                                    : "border-slate-200 dark:border-white/10"
-                                            )}>
+                                            <div className="p-4 md:p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed flex flex-col items-center text-center gap-3 md:gap-4 transition-all hover:border-primary border-slate-200 dark:border-white/10">
                                                 <div className="flex items-center gap-3 md:gap-4 w-full text-left">
                                                     <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0">
                                                         <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                                                     </div>
                                                     <div className="space-y-0.5">
                                                         <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1">
-                                                            Proof of Income <span className="text-red-500 font-black not-italic">*</span>
+                                                            Proof of Income <span className="text-slate-450 text-[8px] font-bold lowercase tracking-normal">(optional)</span>
                                                         </h4>
                                                         <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
                                                             Payslip / BIR (Max 5MB)

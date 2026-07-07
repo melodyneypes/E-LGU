@@ -719,8 +719,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                 </div>
                             )}
 
-                            {/* If status is EVALUATED / UNPAID: Show Payment & Release stage */}
-                            {(transaction.status === "EVALUATED" || transaction.status === "UNPAID") && (() => {
+                            {/* If status is EVALUATED / FOR_PROCESSING: Show Payment & Release stage */}
+                            {(transaction.status === "EVALUATED" || transaction.status === "FOR_PROCESSING") && (() => {
                                 const hasInvalidFees = feeLineItems.some(item => {
                                     const labelEmpty = item.label.trim() === "";
                                     const amountEmpty = item.amount.trim() === "" || item.amount === "0";

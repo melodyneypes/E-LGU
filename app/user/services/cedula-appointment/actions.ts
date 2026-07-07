@@ -78,12 +78,57 @@ async function processFileUpload(file: File, folder: string = "transactions"): P
     }
 }
 
+export async function cleanupPastDueCedulaAppointments(userId?: string) {
+    try {
+        const manilaDateString = new Intl.DateTimeFormat("en-US", {
+            timeZone: "Asia/Manila",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).format(new Date());
+        const [month, day, year] = manilaDateString.split("/");
+        const startOfTodayManila = new Date(`${year}-${month}-${day}T00:00:00.000Z`);
+
+        // Find all non-terminal cedula appointments before today
+        const whereClause: any = {
+            appointmentDate: {
+                lt: startOfTodayManila
+            },
+            status: {
+                notIn: ["RELEASED", "DELIVERED", "REJECTED"]
+            },
+            isCancelled: false,
+            type: {
+                category: "CEDULA"
+            }
+        };
+
+        if (userId) {
+            whereClause.userId = userId;
+        }
+
+        await prisma.transaction.updateMany({
+            where: whereClause,
+            data: {
+                isCancelled: true,
+                status: "REJECTED",
+                rejectionRemarks: "Appointment slot expired / missed"
+            }
+        });
+    } catch (error) {
+        console.error("Error cleaning up past-due appointments:", error);
+    }
+}
+
 export async function submitCedulaAppointment(formData: FormData) {
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
             return { success: false, error: "Unauthorized" };
         }
+
+        // Automatically cancel/reject any past-due appointments before verifying active transaction
+        await cleanupPastDueCedulaAppointments(session.user.id);
 
         const typeId = sanitizeString(formData.get("typeId") as string);
         const appointmentSlot = sanitizeString(formData.get("appointmentSlot") as string);
@@ -191,6 +236,7 @@ export async function submitCedulaAppointment(formData: FormData) {
             source: "web",
             isPriority,
             appointmentDate: startOfDay,
+            appointmentSlot,
         });
 
         // 3. Create the Transaction Record
