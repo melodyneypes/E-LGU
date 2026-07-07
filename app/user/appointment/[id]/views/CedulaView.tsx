@@ -8,10 +8,9 @@ import { FileText } from "lucide-react";
 interface CedulaViewProps {
     request: any;
     additionalData: any;
-    residentData: any;
 }
 
-export default function CedulaView({ request, additionalData, residentData }: CedulaViewProps) {
+export default function CedulaView({ request, additionalData }: CedulaViewProps) {
     return (
         <div className="space-y-6 animate-in fade-in duration-300">
             <div className="flex items-center gap-3">

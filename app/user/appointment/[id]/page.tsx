@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import {
     Clock,
     CheckCircle2,
@@ -11,21 +10,13 @@ import {
     Activity,
     DollarSign,
     Search,
-    Package,
     UserCheck,
-    Truck,
     X,
     AlertCircle,
     QrCode,
     Printer,
-    ArrowLeft,
-    Calendar,
-    User,
-    Phone,
-    MapPin,
     AlertTriangle,
-    ShieldAlert,
-    Download
+    ShieldAlert
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -80,7 +71,7 @@ export default function AppointmentDetailsPage() {
         word2: "PORTAL"
     });
 
-    const fetchAppointment = async () => {
+    const fetchAppointment = useCallback(async () => {
         try {
             const res = await getTransactionById(id);
             if (res.success && res.data) {
@@ -92,9 +83,9 @@ export default function AppointmentDetailsPage() {
         } catch (err) {
             console.error("Fetch appointment error:", err);
         }
-    };
+    }, [id, router]);
 
-    const fetchSettings = async () => {
+    const fetchSettings = useCallback(async () => {
         try {
             const [themeRes, logoRes, word1Res, word2Res] = await Promise.all([
                 getSystemSettingAction("theme_color", "#2563eb"),
@@ -111,7 +102,7 @@ export default function AppointmentDetailsPage() {
         } catch (err) {
             console.error("Fetch settings error:", err);
         }
-    };
+    }, []);
 
     useEffect(() => {
         async function initialize() {
@@ -120,7 +111,7 @@ export default function AppointmentDetailsPage() {
             setLoading(false);
         }
         initialize();
-    }, [id]);
+    }, [fetchAppointment, fetchSettings]);
 
     // Realtime Supabase updates
     useEffect(() => {
@@ -149,7 +140,7 @@ export default function AppointmentDetailsPage() {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [id]);
+    }, [id, fetchAppointment]);
 
     const handleCancel = async () => {
         setIsCancelling(true);
@@ -423,7 +414,6 @@ export default function AppointmentDetailsPage() {
                                 <CedulaView 
                                     request={request} 
                                     additionalData={additionalData} 
-                                    residentData={residentData} 
                                 />
                             )}
 

@@ -16,7 +16,6 @@ interface GenerateQueueParams {
  * Auto-increments sequentially regardless of the service selected.
  */
 export async function generateQueueNumber({
-  source,
   isPriority,
   appointmentDate,
   appointmentSlot,
