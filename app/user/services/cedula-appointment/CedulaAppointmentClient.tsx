@@ -1052,7 +1052,10 @@ export function CedulaAppointmentClient({
                                                     ♿ Request Priority lane service
                                                 </p>
                                                 <p className="text-[8px] md:text-[10px] text-slate-500 font-medium leading-relaxed italic uppercase tracking-widest">
-                                                    Check this if you are a Senior Citizen, PWD, or Pregnant applicant. Please present your valid ID counter for validation.
+                                                    Check this if you are a Senior Citizen, PWD, or Pregnant applicant.
+                                                </p>
+                                                <p className="text-[8px] md:text-[9px] text-amber-600 dark:text-amber-500 font-bold leading-relaxed uppercase tracking-wider mt-1">
+                                                    ⚠️ WARNING: You must present a valid Priority ID or proof of entitlement at the counter. Failure to produce valid verification will result in the immediate disapproval of your priority queue status, and you will be required to book a new appointment on another day.
                                                 </p>
                                             </div>
                                         </div>

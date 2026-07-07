@@ -37,7 +37,7 @@ export default function CedulaView({ request, additionalData }: CedulaViewProps)
                 <div className="space-y-1">
                     <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Estimated Assessment Tax</span>
                     <p className="font-black text-primary font-mono text-sm">
-                        ₱{Number(request.totalAmount || additionalData.calculatedTax || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        ₱{Number(request.totalAmount || additionalData.calculatedTax?.totalAmount || additionalData.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </p>
                 </div>
             </div>

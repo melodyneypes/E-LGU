@@ -265,19 +265,8 @@ export default function AppointmentDetailsPage() {
                                 </div>
                             </div>
 
-                            {/* Queue Ticket QR & Number */}
+                            {/* Queue Ticket Number */}
                             <div className="py-6 text-center space-y-6">
-                                {!isCedula && (
-                                    <div className="bg-white p-3 rounded-2xl w-fit mx-auto shadow-inner">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img 
-                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${id}`} 
-                                            alt="QR Code" 
-                                            className="w-[130px] h-[130px]" 
-                                        />
-                                    </div>
-                                )}
-
                                 <div className="space-y-1">
                                     <p className="text-[8px] font-black tracking-[0.3em] text-slate-400 uppercase leading-none">Your Queue Number</p>
                                     <h2 className="text-xl md:text-2xl font-black font-mono tracking-tight text-white select-all">

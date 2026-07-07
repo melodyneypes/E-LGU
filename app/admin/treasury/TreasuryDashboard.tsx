@@ -22,12 +22,13 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Search, RefreshCcw,
-    Archive, Clock
+    Archive, Clock, Volume2
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { fetchAndCallNextTicket } from "@/app/admin/transactions/calling-actions";
 import { supabase } from "@/lib/supabase";
 
 const STATUS_TABS = [
@@ -124,6 +125,32 @@ export default function TreasuryDashboard() {
         }
     }, [isAdminAide]);
     const [transactions, setTransactions] = useState<any[]>([]);
+    const [callingNext, setCallingNext] = useState(false);
+
+    const handleCallNextInQueue = async () => {
+        const activeCounter = localStorage.getItem("activeCounterName");
+        if (!activeCounter) {
+            toast.error("Please set your active counter/window in the header first.");
+            return;
+        }
+
+        setCallingNext(true);
+        try {
+            const res = await fetchAndCallNextTicket(activeCounter);
+            if (res.success && res.data) {
+                toast.success(`Calling next ticket: ${res.data.queueNumber} assigned to ${activeCounter}`);
+                router.push(`/admin/treasury/${res.data.id}`);
+            } else {
+                toast.error(res.error || "Failed to fetch next ticket.");
+            }
+        } catch (err) {
+            console.error("Queue calling error:", err);
+            toast.error("An error occurred while calling the next ticket.");
+        } finally {
+            setCallingNext(false);
+        }
+    };
+
     const [serviceTypes, setServiceTypes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -478,6 +505,15 @@ export default function TreasuryDashboard() {
                                         </SelectContent>
                                     </Select>
                                 </div>
+
+                                <Button
+                                    onClick={handleCallNextInQueue}
+                                    disabled={callingNext}
+                                    className="h-11 px-5 rounded-xl text-white text-[10px] font-black uppercase tracking-wider gap-2 flex items-center bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 border-none transition-all active:scale-95 shadow-md"
+                                >
+                                    <Volume2 className="w-3.5 h-3.5" />
+                                    <span>{callingNext ? "Calling..." : "Call Next in Queue"}</span>
+                                </Button>
 
                                 <Button
                                     onClick={fetchTransactions}

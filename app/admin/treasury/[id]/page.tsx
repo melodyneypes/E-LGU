@@ -729,50 +729,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         return () => URL.revokeObjectURL(url);
     }, [orFile]);
 
-    // Auto-call ticket to staff's active counter when they open it
-    const hasAutoCalledRef = useRef(false);
-    useEffect(() => {
-        if (!transaction?.id || hasAutoCalledRef.current) return;
 
-        const activeCounter = localStorage.getItem("activeCounterName");
-        if (!activeCounter) {
-            console.log("Auto-caller: No active counter set in browser localStorage.");
-            return;
-        }
-
-        const currentCounter = transaction.additionalData?.counterName;
-        if (currentCounter === activeCounter) {
-            console.log(`Auto-caller: Ticket already called at ${activeCounter}. Skipping.`);
-            return;
-        }
-
-        hasAutoCalledRef.current = true;
-        
-        const triggerCall = async () => {
-            try {
-                const { callTicketToCounter } = await import("@/app/admin/transactions/calling-actions");
-                const res = await callTicketToCounter(transaction.id, activeCounter);
-                if (res.success) {
-                    toast.info(`Ticket actively called to ${activeCounter}`);
-                    setTransaction((prev: any) => {
-                        if (!prev) return prev;
-                        return {
-                            ...prev,
-                            status: "FOR_PROCESSING",
-                            additionalData: {
-                                ...(prev.additionalData || {}),
-                                counterName: activeCounter
-                            }
-                        };
-                    });
-                }
-            } catch (err) {
-                console.error("Auto-caller action trigger failed:", err);
-            }
-        };
-
-        triggerCall();
-    }, [transaction?.id, transaction?.additionalData?.counterName]);
 
     const handleReject = async () => {
         if (!remarks) { toast.error("Remarks required"); return; }
@@ -2134,230 +2091,40 @@ export default function TreasuryDetailPage({ params }: PageProps) {
         setMiscFee
     };
 
+    let renderView = null;
+
     if (isBusinessPermit) {
-        return (
-            <>
-                <BusinessPermitView {...viewProps} />
-                <DocumentViewerModal
-                    isOpen={viewerOpen}
-                    onClose={() => setViewerOpen(false)}
-                    file={null}
-                    fileUrl={viewerUrl}
-                    title={viewerTitle}
-                    themeColor={themeColor}
-                    documents={viewerDocs}
-                    initialIndex={viewerIndex}
-                />
-            </>
-        );
+        renderView = <BusinessPermitView {...viewProps} />;
+    } else if (isBuildingPermit) {
+        renderView = <BuildingPermitView {...viewProps} />;
+    } else if (typeCode === "LCR_PSA_ENDORSEMENT") {
+        renderView = <BirthPsaEndorsementView {...viewProps} />;
+    } else if (typeCode === "LCR_DEATH_PSA_ENDORSEMENT") {
+        renderView = <DeathPsaEndorsementView {...viewProps} />;
+    } else if (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT") {
+        renderView = <MarriagePsaEndorsementView {...viewProps} />;
+    } else if (typeCode === "LCR_MARRIAGE") {
+        renderView = <MarraigeCertificateView {...viewProps} />;
+    } else if (typeCode === "LCR_DEATH" || (transaction?.type?.name && (transaction.type.name.includes("Death Certificate") || transaction.type.name.includes("Certified Copy of Death")))) {
+        renderView = <DeathCertificateView {...viewProps} />;
+    } else if (typeCode === "LCR_BIRTH" || isLcrBirthCertifiedCopy) {
+        renderView = <BirthCertificateView {...viewProps} />;
+    } else if (typeCode === "LCR_DEATH_REG") {
+        renderView = <DeathRegistrationView {...viewProps} />;
+    } else if (typeCode === "LCR_MARRIAGE_LICENSE") {
+        renderView = <MarriageLicenseView {...viewProps} />;
+    } else if (typeCode === "LCR_MARRIAGE_REG") {
+        renderView = <MarriageRegistrationView {...viewProps} />;
+    } else if (isLCR) {
+        renderView = <BirthRegistrationView {...viewProps} />;
+    } else {
+        renderView = <GenericServiceView {...viewProps} />;
     }
-    if (isBuildingPermit) {
-        return (
-            <>
-                <BuildingPermitView {...viewProps} />
-                <DocumentViewerModal
-                    isOpen={viewerOpen}
-                    onClose={() => setViewerOpen(false)}
-                    file={null}
-                    fileUrl={viewerUrl}
-                    title={viewerTitle}
-                    themeColor={themeColor}
-                    documents={viewerDocs}
-                    initialIndex={viewerIndex}
-                />
-            </>
-        );
-    }
-    if (typeCode === "LCR_PSA_ENDORSEMENT") {
-        return (
-            <>
-                <BirthPsaEndorsementView {...viewProps} />
-                <DocumentViewerModal
-                    isOpen={viewerOpen}
-                    onClose={() => setViewerOpen(false)}
-                    file={null}
-                    fileUrl={viewerUrl}
-                    title={viewerTitle}
-                    themeColor={themeColor}
-                    documents={viewerDocs}
-                    initialIndex={viewerIndex}
-                />
-            </>
-        );
-    }
-    if (typeCode === "LCR_DEATH_PSA_ENDORSEMENT") {
-        return (
-            <>
-                <DeathPsaEndorsementView {...viewProps} />
-                <DocumentViewerModal
-                    isOpen={viewerOpen}
-                    onClose={() => setViewerOpen(false)}
-                    file={null}
-                    fileUrl={viewerUrl}
-                    title={viewerTitle}
-                    themeColor={themeColor}
-                    documents={viewerDocs}
-                    initialIndex={viewerIndex}
-                />
-            </>
-        );
-    }
-    if (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT") {
-        return (
-            <>
-                <MarriagePsaEndorsementView {...viewProps} />
-                <DocumentViewerModal
-                    isOpen={viewerOpen}
-                    onClose={() => setViewerOpen(false)}
-                    file={null}
-                    fileUrl={viewerUrl}
-                    title={viewerTitle}
-                    themeColor={themeColor}
-                    documents={viewerDocs}
-                    initialIndex={viewerIndex}
-                />
-            </>
-        );
-    }
-    if (typeCode === "LCR_MARRIAGE") {
-        return (
-            <>
-                <MarraigeCertificateView {...viewProps} />
-                <DocumentViewerModal
-                    isOpen={viewerOpen}
-                    onClose={() => setViewerOpen(false)}
-                    file={null}
-                    fileUrl={viewerUrl}
-                    title={viewerTitle}
-                    themeColor={themeColor}
-                    documents={viewerDocs}
-                    initialIndex={viewerIndex}
-                />
-            </>
-        );
-    }
-    if (typeCode === "LCR_DEATH" || (transaction?.type?.name && (transaction.type.name.includes("Death Certificate") || transaction.type.name.includes("Certified Copy of Death")))) {
-        return (
-            <>
-                <DeathCertificateView {...viewProps} />
-                <DocumentViewerModal
-                    isOpen={viewerOpen}
-                    onClose={() => setViewerOpen(false)}
-                    file={null}
-                    fileUrl={viewerUrl}
-                    title={viewerTitle}
-                    themeColor={themeColor}
-                    documents={viewerDocs}
-                    initialIndex={viewerIndex}
-                />
-            </>
-        );
-    }
-    if (typeCode === "LCR_BIRTH" || isLcrBirthCertifiedCopy) {
-        return (
-            <>
-                <BirthCertificateView {...viewProps} />
-                <DocumentViewerModal
-                    isOpen={viewerOpen}
-                    onClose={() => setViewerOpen(false)}
-                    file={null}
-                    fileUrl={viewerUrl}
-                    title={viewerTitle}
-                    themeColor={themeColor}
-                    documents={viewerDocs}
-                    initialIndex={viewerIndex}
-                />
-            </>
-        );
-    }
-    if (typeCode === "LCR_DEATH") {
-        return (
-            <>
-                <DeathCertificateView {...viewProps} />
-                <DocumentViewerModal
-                    isOpen={viewerOpen}
-                    onClose={() => setViewerOpen(false)}
-                    file={null}
-                    fileUrl={viewerUrl}
-                    title={viewerTitle}
-                    themeColor={themeColor}
-                    documents={viewerDocs}
-                    initialIndex={viewerIndex}
-                />
-            </>
-        );
-    }
-    if (typeCode === "LCR_DEATH_REG") {
-        return (
-            <>
-                <DeathRegistrationView {...viewProps} />
-                <DocumentViewerModal
-                    isOpen={viewerOpen}
-                    onClose={() => setViewerOpen(false)}
-                    file={null}
-                    fileUrl={viewerUrl}
-                    title={viewerTitle}
-                    themeColor={themeColor}
-                    documents={viewerDocs}
-                    initialIndex={viewerIndex}
-                />
-            </>
-        );
-    }
-    if (typeCode === "LCR_MARRIAGE_LICENSE") {
-        return (
-            <>
-                <MarriageLicenseView {...viewProps} />
-                <DocumentViewerModal
-                    isOpen={viewerOpen}
-                    onClose={() => setViewerOpen(false)}
-                    file={null}
-                    fileUrl={viewerUrl}
-                    title={viewerTitle}
-                    themeColor={themeColor}
-                    documents={viewerDocs}
-                    initialIndex={viewerIndex}
-                />
-            </>
-        );
-    }
-    if (typeCode === "LCR_MARRIAGE_REG") {
-        return (
-            <>
-                <MarriageRegistrationView {...viewProps} />
-                <DocumentViewerModal
-                    isOpen={viewerOpen}
-                    onClose={() => setViewerOpen(false)}
-                    file={null}
-                    fileUrl={viewerUrl}
-                    title={viewerTitle}
-                    themeColor={themeColor}
-                    documents={viewerDocs}
-                    initialIndex={viewerIndex}
-                />
-            </>
-        );
-    }
-    if (isLCR) {
-        return (
-            <>
-                <BirthRegistrationView {...viewProps} />
-                <DocumentViewerModal
-                    isOpen={viewerOpen}
-                    onClose={() => setViewerOpen(false)}
-                    file={null}
-                    fileUrl={viewerUrl}
-                    title={viewerTitle}
-                    themeColor={themeColor}
-                    documents={viewerDocs}
-                    initialIndex={viewerIndex}
-                />
-            </>
-        );
-    }
+
     return (
-        <>
-            <GenericServiceView {...viewProps} />
+        <div className="space-y-6 pb-20">
+            {renderView}
+
             <DocumentViewerModal
                 isOpen={viewerOpen}
                 onClose={() => setViewerOpen(false)}
@@ -2368,7 +2135,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                 documents={viewerDocs}
                 initialIndex={viewerIndex}
             />
-        </>
+        </div>
     );
 }
 
