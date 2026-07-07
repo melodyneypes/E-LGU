@@ -557,6 +557,7 @@ enum UserRole {
   ADMIN_AIDE
   RIDER
   ENGINEER
+  MPDC_ZONING
 }
 
 enum ResidentStatus {
