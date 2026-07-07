@@ -57,9 +57,9 @@ export function PsaEndorsementRequestDetails({ typeCode, additionalData }: PsaEn
         }
     };
 
-    const isBirth = typeCode === "LCR_PSA_ENDORSEMENT";
-    const isDeath = typeCode === "LCR_DEATH_PSA_ENDORSEMENT";
-    const isMarriage = typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT";
+    const isBirth = typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT";
+    const isDeath = typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT";
+    const isMarriage = typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
 
     const title = isBirth
         ? "Birth PSA Endorsement Details"

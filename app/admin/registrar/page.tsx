@@ -214,7 +214,7 @@ export default function RegistrarPage() {
         // Background polling fallback every 15 seconds to ensure queue updates
         const interval = setInterval(() => {
             const idleThreshold = 30000; // 30 seconds
-            const isCurrentlyIdle = Date.now() - lastActivityRef.current > idleThreshold;
+            const isCurrentlyIdle = Date.now() - (lastActivityRef.current ?? Date.now()) > idleThreshold;
 
             if (isCurrentlyIdle) {
                 console.log("[Polling Registrar Queue] User is idle. Bypassing silent auto-refresh.");
@@ -264,8 +264,10 @@ export default function RegistrarPage() {
             } else if (categoryParam === "PSA Endorsement") {
                 matchesCategory = (
                     tx.type?.code === "LCR_PSA_ENDORSEMENT" ||
-                    (tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" && tx.status !== "FOR_REQUESTING") ||
-                    tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT"
+                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    ((tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" || tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") && tx.status !== "FOR_REQUESTING") ||
+                    tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
                 ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
             } else if (categoryParam === "PSA Appt. Endorsement") {
                 matchesCategory = (

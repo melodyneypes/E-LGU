@@ -14,7 +14,9 @@ import {
     Baby,
     CheckCircle2,
     FileText,
-    ArrowLeft
+    ArrowLeft,
+    Calendar,
+    Clock
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -37,6 +39,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import SchedulePicker from "@/components/shared/SchedulePicker";
 import {
     getCurrentUserResident,
     ensureCivilRegistryTransactionTypes,
@@ -45,7 +48,8 @@ import {
     getSystemSettingAction,
     getLatestForm1AForCurrentUser,
     getTransactionById,
-    logDebugMessage
+    logDebugMessage,
+    getRegistrarAppointmentConfig
 } from "@/app/admin/transactions/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -53,11 +57,12 @@ import Link from "next/link";
 
 
 
-type Step = "INFORMANT" | "SUBJECT" | "REVIEW";
+type Step = "INFORMANT" | "SUBJECT" | "SCHEDULE" | "REVIEW";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "INFORMANT", label: "Informant Info", icon: User },
     { id: "SUBJECT", label: "Subject & Documents", icon: FileText },
+    { id: "SCHEDULE", label: "Choose Schedule", icon: Calendar },
     { id: "REVIEW", label: "Review & Submit", icon: CheckCircle2 },
 ];
 
@@ -68,6 +73,8 @@ export default function AppointmentBirthPsaEndorsementPage() {
     const [loading, setLoading] = useState(true);
 
     const [themeColor, setThemeColor] = useState("var(--primary-theme)");
+    const [appointmentConfig, setAppointmentConfig] = useState<any>(null);
+    const [bookedSlots, setBookedSlots] = useState<any[]>([]);
 
     useEffect(() => {
         getSystemSettingAction("theme_color").then((res) => {
@@ -109,6 +116,8 @@ export default function AppointmentBirthPsaEndorsementPage() {
         subjectFullName: "",
         subjectDateOfBirth: "",
         mothersMaidenName: "",
+        appointmentDate: "",
+        appointmentSlot: "",
     });
 
 
@@ -187,11 +196,17 @@ export default function AppointmentBirthPsaEndorsementPage() {
                 }
 
                 await logDebugMessage("Client: Calling getCurrentUserResident() and getTransactionTypes()...");
-                const [resResult, typesResult] = await Promise.all([
+                const [resResult, typesResult, configResult] = await Promise.all([
                     getCurrentUserResident(),
-                    getTransactionTypes()
+                    getTransactionTypes(),
+                    getRegistrarAppointmentConfig()
                 ]);
                 await logDebugMessage("Client: getCurrentUserResident() and getTransactionTypes() resolved");
+
+                if (configResult.success) {
+                    setAppointmentConfig(configResult.config);
+                    setBookedSlots(configResult.bookedSlots);
+                }
 
                 if (resResult.success && resResult.data) {
                     const r = resResult.data;
@@ -230,6 +245,8 @@ export default function AppointmentBirthPsaEndorsementPage() {
                             subjectFullName: addData.subjectFullName || "",
                             subjectDateOfBirth: addData.subjectDateOfBirth || "",
                             mothersMaidenName: addData.mothersMaidenName || "",
+                            appointmentDate: addData.appointmentDate || (txData.appointmentDate ? new Date(txData.appointmentDate).toISOString().split('T')[0] : "") || "",
+                            appointmentSlot: addData.appointmentSlot || txData.appointmentSlot || "",
                         }));
                     } else {
                         setFormData(prev => ({
@@ -835,6 +852,53 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                                 return;
                                             }
                                             setShowErrors(false);
+                                            setCurrentStep("SCHEDULE");
+                                        }}
+                                        themeColor={themeColor}
+                                    />
+                                </motion.div>
+                            )}
+
+                            {/* ===== STEP 3: CHOOSE SCHEDULE ===== */}
+                            {currentStep === "SCHEDULE" && (
+                                <motion.div
+                                    key="schedule-step"
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 1.05 }}
+                                    className="space-y-8"
+                                >
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div>
+                                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Choose Schedule</h2>
+                                            <p className="text-xs text-slate-500 font-medium italic">Select an appointment date and session</p>
+                                        </div>
+                                    </div>
+
+                                    {appointmentConfig && (
+                                        <SchedulePicker
+                                            selectedDate={formData.appointmentDate}
+                                            setSelectedDate={(dateStr) => setFormData(prev => ({ ...prev, appointmentDate: dateStr }))}
+                                            selectedSlot={formData.appointmentSlot}
+                                            setSelectedSlot={(slotStr) => setFormData(prev => ({ ...prev, appointmentSlot: slotStr }))}
+                                            bookedSlots={bookedSlots}
+                                            config={appointmentConfig}
+                                            themeColor={themeColor}
+                                        />
+                                    )}
+
+                                    <BackNextButton
+                                        onBack={() => {
+                                            setShowErrors(false);
+                                            setCurrentStep("SUBJECT");
+                                        }}
+                                        onNext={() => {
+                                            if (!formData.appointmentDate || !formData.appointmentSlot) {
+                                                setShowErrors(true);
+                                                toast.error("Please select an appointment date and session.");
+                                                return;
+                                            }
+                                            setShowErrors(false);
                                             setCurrentStep("REVIEW");
                                         }}
                                         themeColor={themeColor}
@@ -883,6 +947,20 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                             <div className="space-y-1">
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Mother&apos;s Maiden Name</span>
                                                 <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.mothersMaidenName}</p>
+                                            </div>
+                                            <div className="col-span-2 border-t border-slate-200 dark:border-white/5 pt-4 grid grid-cols-2 gap-6">
+                                                <div className="space-y-1">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Appointment Date</span>
+                                                    <p className="font-black text-slate-900 dark:text-white italic">
+                                                        {formData.appointmentDate ? new Date(formData.appointmentDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "Not selected"}
+                                                    </p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Appointment Slot</span>
+                                                    <p className="font-black text-slate-900 dark:text-white italic uppercase">
+                                                        {formData.appointmentSlot || "Not selected"}
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -971,7 +1049,7 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                         <div className="flex justify-end items-center gap-6 pt-6 select-none">
                                             <button
                                                 type="button"
-                                                onClick={() => setCurrentStep("SUBJECT")}
+                                                onClick={() => setCurrentStep("SCHEDULE")}
                                                 className="flex items-center gap-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors duration-200 uppercase font-black tracking-widest italic text-[11px] disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-0 outline-none cursor-pointer group"
                                             >
                                                 <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />

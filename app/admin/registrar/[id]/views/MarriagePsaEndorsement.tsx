@@ -197,12 +197,38 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                                             Fee Assessment Breakdown
                                         </h3>
                                         <div className="space-y-4">
-                                            <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
-                                                <span>PSA Endorsement Fee</span>
-                                                <span className="dark:text-slate-200 font-black">
-                                                    ₱{(transaction.type?.baseFee || 200.00).toFixed(2)}
-                                                </span>
-                                            </div>
+                                            {(() => {
+                                                const fiscal = (transaction.fiscalSnapshot as any) || null;
+                                                const defaultFees = transaction.type?.defaultFees
+                                                    ? (typeof transaction.type.defaultFees === "string" ? JSON.parse(transaction.type.defaultFees) : transaction.type.defaultFees)
+                                                    : [];
+                                                const items = (fiscal?.lineItems && fiscal.lineItems.length > 0)
+                                                    ? fiscal.lineItems
+                                                    : defaultFees;
+
+                                                if (items && items.length > 0) {
+                                                    return items.map((item: any, idx: number) => {
+                                                        const amt = parseFloat(item.amount) || 0;
+                                                        return (
+                                                            <div key={idx} className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
+                                                                <span>{item.label || item.name || "Fee Item"}</span>
+                                                                <span className="dark:text-slate-200 font-black">
+                                                                    ₱{amt.toFixed(2)}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    });
+                                                }
+
+                                                return (
+                                                    <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
+                                                        <span>PSA Endorsement Fee</span>
+                                                        <span className="dark:text-slate-200 font-black">
+                                                            ₱{(transaction.type?.baseFee || 200.00).toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })()}
 
                                             {transaction.fulfillmentType === "DELIVERY" && (
                                                 <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">

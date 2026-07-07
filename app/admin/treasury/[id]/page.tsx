@@ -546,24 +546,21 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                     } else {
                         if (tx.isStudent) {
                             setFeeLineItems([{ label: "", amount: "0" }]);
-                        } else {
-                            const defaultFees = tx.type?.defaultFees;
-                            if (Array.isArray(defaultFees) && defaultFees.length > 0 && (!tx.fiscalSnapshot || Object.keys(tx.fiscalSnapshot).length === 0)) {
-                                const mappedFees = defaultFees.map((fee: any) => ({
-                                    label: fee.label,
-                                    amount: fee.amount !== undefined ? String(fee.amount) : "",
-                                    readonly: isLcrRequesting
-                                }));
-                                // For LCR FOR_REQUESTING, also append a blank editable row
-                                if (isLcrRequesting) {
-                                    mappedFees.push({ label: "", amount: "", readonly: false });
-                                }
-                                setFeeLineItems(mappedFees);
-                            } else {
-                                // For LCR or CEDULA FOR_REQUESTING, ensure at least one blank editable row ready for input
-                                const isCedulaForRequesting = tx.type?.code?.includes("CEDULA") && tx.status === "FOR_REQUESTING";
-                                setFeeLineItems((isLcrRequesting || isCedulaForRequesting) ? [{ label: "", amount: "" }] : []);
+                        } else if (Array.isArray(tx.type?.defaultFees) && tx.type.defaultFees.length > 0) {
+                            const mappedFees = tx.type.defaultFees.map((fee: any) => ({
+                                label: fee.label,
+                                amount: fee.amount !== undefined ? String(fee.amount) : "",
+                                readonly: isLcrRequesting
+                            }));
+                            // For LCR FOR_REQUESTING, also append a blank editable row
+                            if (isLcrRequesting) {
+                                mappedFees.push({ label: "", amount: "", readonly: false });
                             }
+                            setFeeLineItems(mappedFees);
+                        } else {
+                            // For LCR or CEDULA FOR_REQUESTING, ensure at least one blank editable row ready for input
+                            const isCedulaForRequesting = tx.type?.code?.includes("CEDULA") && tx.status === "FOR_REQUESTING";
+                            setFeeLineItems((isLcrRequesting || isCedulaForRequesting) ? [{ label: "", amount: "" }] : []);
                         }
                     }
                 }

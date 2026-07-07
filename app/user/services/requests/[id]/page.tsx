@@ -809,9 +809,9 @@ export default function RequestHubPage() {
     const isLcrDeathReg = typeCode === "LCR_DEATH_REG";
     const isLcrMarriage = typeCode === "LCR_MARRIAGE" || typeCode === "LCR_MARRIAGE_REG";
     const isLcrMarriageLicense = typeCode === "LCR_MARRIAGE_LICENSE";
-    const isBirthPsaEndorsement = typeCode === "LCR_PSA_ENDORSEMENT";
-    const isDeathPsaEndorsement = typeCode === "LCR_DEATH_PSA_ENDORSEMENT";
-    const isMarriagePsaEndorsement = typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT";
+    const isBirthPsaEndorsement = typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT";
+    const isDeathPsaEndorsement = typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT";
+    const isMarriagePsaEndorsement = typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
     const isPsaEndorsement = isBirthPsaEndorsement || isDeathPsaEndorsement || isMarriagePsaEndorsement;
     const getRevisionUrl = () => {
         if (isBusinessPermit) return `/user/services/business-permit?revisionId=${request.id}`;
@@ -828,6 +828,9 @@ export default function RequestHubPage() {
             if (code === "LCR_PSA_ENDORSEMENT") return `/user/services/civil-registry/birth-psa-endorsement?revisionId=${request.id}`;
             if (code === "LCR_DEATH_PSA_ENDORSEMENT") return `/user/services/civil-registry/death-psa-endorsement?revisionId=${request.id}`;
             if (code === "LCR_MARRIAGE_PSA_ENDORSEMENT") return `/user/services/civil-registry/marriage-psa-endorsement?revisionId=${request.id}`;
+            if (code === "LCR_PSA_APPOINTMENT_ENDORSEMENT") return `/user/services/civil-registry/appointment-birth-psa-endorsement?revisionId=${request.id}`;
+            if (code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") return `/user/services/civil-registry/appointment-death-psa-endorsement?revisionId=${request.id}`;
+            if (code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT") return `/user/services/civil-registry/appointment-marriage-psa-endorsement?revisionId=${request.id}`;
         }
         return `/user/services/requests/${request.id}`;
     };

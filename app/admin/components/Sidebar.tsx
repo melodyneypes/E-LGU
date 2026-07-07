@@ -61,8 +61,8 @@ export function Sidebar({
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(pathname.startsWith("/admin/settings"));
     const [isAboutOpen, setIsAboutOpen] = React.useState(pathname.startsWith("/admin/about"));
     const [isBarangaysOpen, setIsBarangaysOpen] = React.useState(pathname.startsWith("/admin/barangays"));
-    const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings"));
-    const [isRegistrarOpen, setIsRegistrarOpen] = React.useState(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger"));
+    const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
+    const [isRegistrarOpen, setIsRegistrarOpen] = React.useState(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger") && !pathname.startsWith("/admin/registrar/appointment-settings"));
     const [isLedgerOpen, setIsLedgerOpen] = React.useState(pathname.startsWith("/admin/registrar/ledger"));
     const [searchQuery, setSearchQuery] = React.useState("");
     const [isEntranceComplete, setIsEntranceComplete] = React.useState(false);
@@ -209,7 +209,7 @@ export function Sidebar({
         setIsAboutOpen(pathname.startsWith("/admin/about"));
         setIsBarangaysOpen(pathname.startsWith("/admin/barangays"));
         setIsTreasuryOpen(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
-        setIsRegistrarOpen(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger"));
+        setIsRegistrarOpen(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger") && !pathname.startsWith("/admin/registrar/appointment-settings"));
         setIsLedgerOpen(pathname.startsWith("/admin/registrar/ledger"));
     }, [pathname]);
 
@@ -330,6 +330,7 @@ export function Sidebar({
                 { href: "/admin/registrar?category=Birth Registration", label: "Birth Registration" },
                 { href: "/admin/registrar?category=Birth Certificate", label: "Birth Certificate" },
                 { href: "/admin/registrar?category=PSA Endorsement", label: "PSA Endorsement" },
+                { href: "/admin/registrar?category=PSA Appt. Endorsement", label: "PSA Appointment Endorsement" },
                 { href: "/admin/registrar?category=Death Registration", label: "Death Registration" },
                 { href: "/admin/registrar?category=Death Certificate", label: "Death Certificate" },
                 { href: "/admin/registrar?category=Marriage License", label: "Marriage License" },
@@ -357,6 +358,12 @@ export function Sidebar({
                 { href: "/admin/registrar/ledger?type=MARRIAGE", label: "Marriage Registration" },
                 { href: "/admin/registrar/ledger?type=PSA", label: "PSA Endorsement" },
             ]
+        },
+        {
+            href: "/admin/registrar/appointment-settings",
+            label: "Appointment Settings",
+            icon: Calendar,
+            category: "Registrar"
         },
         {
             label: "Treasury Hub",
@@ -436,6 +443,7 @@ export function Sidebar({
                 if (sub.label === "Birth Registration") code = "LCR_BIRTH_REG";
                 else if (sub.label === "Birth Certificate") code = "LCR_BIRTH";
                 else if (sub.label === "PSA Endorsement") code = ["LCR_PSA_ENDORSEMENT", "LCR_DEATH_PSA_ENDORSEMENT", "LCR_MARRIAGE_PSA_ENDORSEMENT"];
+                else if (sub.label === "PSA Appointment Endorsement") code = ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"];
                 else if (sub.label === "Death Registration") code = "LCR_DEATH_REG";
                 else if (sub.label === "Death Certificate") code = "LCR_DEATH";
                 else if (sub.label === "Marriage License") code = "LCR_MARRIAGE_LICENSE";
@@ -481,11 +489,13 @@ export function Sidebar({
                     menuItems = allMenuItems.filter(item => ["BPLO Permits"].includes(item.label));
                 } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
                     menuItems = allMenuItems.filter(item =>
-                        ["Registrar Hub", "Transaction Ledger"].includes(item.label)
+                        ["Registrar Hub", "Transaction Ledger"].includes(item.label) ||
+                        (item.label === "Appointment Settings" && item.category === "Registrar")
                     );
                 } else if (deptUpper === "TREASURY") {
                     menuItems = allMenuItems.filter(item =>
-                        ["Treasury Hub", "Payments Ledger", "Payment Settings", "Appointment Settings"].includes(item.label)
+                        ["Treasury Hub", "Payments Ledger", "Payment Settings"].includes(item.label) ||
+                        (item.label === "Appointment Settings" && item.category === "Treasury")
                     );
                 } else if (deptUpper === "LGU") {
                     menuItems = allMenuItems.filter(item =>
@@ -505,7 +515,10 @@ export function Sidebar({
         } else if (role === "BARANGAY_ADMIN") {
             menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
         } else if (role === "TREASURY_STAFF") {
-            menuItems = allMenuItems.filter(item => ["Treasury Hub", "Payments Ledger", "Payment Settings", "Appointment Settings"].includes(item.label));
+            menuItems = allMenuItems.filter(item =>
+                ["Treasury Hub", "Payments Ledger", "Payment Settings"].includes(item.label) ||
+                (item.label === "Appointment Settings" && item.category === "Treasury")
+            );
         } else if (role === "ADMIN_AIDE") {
             menuItems = allMenuItems.filter(item => ["BPLO Permits"].includes(item.label));
         } else if (role === "ENGINEER") {
