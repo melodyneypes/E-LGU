@@ -15,8 +15,7 @@ import {
     CheckCircle2,
     FileText,
     ArrowLeft,
-    Calendar,
-    Clock
+    Calendar
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";

@@ -14,13 +14,11 @@ import {
     AlertCircle,
     Home,
     Skull,
-    Upload,
     CheckCircle2,
     FileText,
     Sparkles,
     X,
-    Calendar,
-    Clock
+    Calendar
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
