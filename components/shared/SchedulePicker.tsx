@@ -19,7 +19,7 @@ interface SchedulePickerProps {
         pmTimeLabel?: string;
         blockedDates: string[];
         activeDays: number[];
-    };
+    } | null | undefined;
     themeColor?: string;
 }
 
@@ -33,8 +33,8 @@ export default function SchedulePicker({
     themeColor = "#2563eb"
 }: SchedulePickerProps) {
     const SLOTS = [
-        config.amTimeLabel || "08:00 AM - 11:00 AM",
-        config.pmTimeLabel || "01:00 PM - 04:00 PM"
+        config?.amTimeLabel || "08:00 AM - 11:00 AM",
+        config?.pmTimeLabel || "01:00 PM - 04:00 PM"
     ];
 
     const [currentMonth, setCurrentMonth] = useState<Date>(() => {
@@ -83,11 +83,11 @@ export default function SchedulePicker({
             );
         }).length;
 
-        const isAM = slot === (config.amTimeLabel || "08:00 AM - 11:00 AM");
+        const isAM = slot === (config?.amTimeLabel || "08:00 AM - 11:00 AM");
         const configAny = config as any;
         const total = isAM
-            ? (configAny.maxSlotsAM ?? 25)
-            : (configAny.maxSlotsPM ?? 25);
+            ? (configAny?.maxSlotsAM ?? 25)
+            : (configAny?.maxSlotsPM ?? 25);
 
         return { booked, total, isAM };
     };
@@ -100,7 +100,7 @@ export default function SchedulePicker({
                 bDate.getFullYear() === date.getFullYear() &&
                 bDate.getMonth() === date.getMonth() &&
                 bDate.getDate() === date.getDate() &&
-                b.appointmentSlot === (config.amTimeLabel || "08:00 AM - 11:00 AM")
+                b.appointmentSlot === (config?.amTimeLabel || "08:00 AM - 11:00 AM")
             );
         }).length;
 
@@ -110,13 +110,13 @@ export default function SchedulePicker({
                 bDate.getFullYear() === date.getFullYear() &&
                 bDate.getMonth() === date.getMonth() &&
                 bDate.getDate() === date.getDate() &&
-                b.appointmentSlot === (config.pmTimeLabel || "01:00 PM - 04:00 PM")
+                b.appointmentSlot === (config?.pmTimeLabel || "01:00 PM - 04:00 PM")
             );
         }).length;
 
         const configAny = config as any;
-        const maxAM = configAny.maxSlotsAM ?? 25;
-        const maxPM = configAny.maxSlotsPM ?? 25;
+        const maxAM = configAny?.maxSlotsAM ?? 25;
+        const maxPM = configAny?.maxSlotsPM ?? 25;
 
         return {
             bookedAM,
@@ -124,7 +124,7 @@ export default function SchedulePicker({
             maxAM,
             maxPM,
             totalBooked: bookedAM + bookedPM,
-            totalMax: config.maxSlots
+            totalMax: config?.maxSlots ?? 50
         };
     };
 

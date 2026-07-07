@@ -4326,7 +4326,7 @@ export default function BuildingPermitPage() {
         <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
           <DialogHeader className="space-y-3">
             <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
-              Add Custom <span className="text-primary">{activeDocTab === "REQUIREMENTS" ? "Requirement" : "Permit"}</span>
+              Add Custom <span style={{ color: themeColor }}>{activeDocTab === "REQUIREMENTS" ? "Requirement" : "Permit"}</span>
             </DialogTitle>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Define a new document name for upload</p>
           </DialogHeader>
