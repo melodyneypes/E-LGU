@@ -467,8 +467,10 @@ export async function updateAppointmentConfig(
         });
 
         revalidatePath("/user/services/cedula-appointment");
+        revalidatePath("/user/services/business-permit-appointment");
         revalidatePath("/admin/treasury/payment-settings");
         revalidatePath("/admin/treasury/appointment-settings");
+        revalidatePath("/admin/bplo/appointment-settings");
         return { success: true };
     } catch (error: any) {
         console.error("Error updating appointment config:", error);

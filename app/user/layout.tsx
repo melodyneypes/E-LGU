@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { getMultipleSystemSettings } from "@/lib/settings";
-import UserLayoutClient from "./UserLayoutClient";
+import UserLayoutClientWrapper from "./UserLayoutClientWrapper";
 import * as React from "react";
 import prisma from "@/lib/db/prisma";
 import { headers, cookies } from "next/headers";
@@ -67,13 +67,13 @@ export default async function UserLayout({
     }
 
     return (
-        <UserLayoutClient 
+        <UserLayoutClientWrapper 
             logoUrl={settings.get("site_logo") || ""}
             brandWord1={settings.get("brand_word_1") || "E"}
             brandWord2={settings.get("brand_word_2") || ""}
             themeColor={settings.get("theme_color") || "#2563eb"}
         >
             {children}
-        </UserLayoutClient>
+        </UserLayoutClientWrapper>
     );
 }

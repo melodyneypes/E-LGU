@@ -2,32 +2,12 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useState, useRef, useEffect, use, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import Image from "next/image";
-import { isValidUrl } from "@/utils/image";
-import { format, differenceInYears } from "date-fns";
-import {
-    FileText,
-    Camera,
-    BadgeCheck, ArrowLeft,
-    Upload,
-    Check,
-    RotateCw,
-    RefreshCcw,
-    ZoomIn,
-    ZoomOut,
-    ExternalLink,
-    AlertCircle,
-    Ban,
-    Hash,
-    Trash2,
-    Plus,
-    Coins
-} from "lucide-react";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import {
     getTransactionById,
@@ -49,7 +29,6 @@ import {
     confirmBusinessPermitPayment
 } from "@/app/admin/transactions/business-permit-actions";
 import {
-    confirmTransactionPayment,
     confirmTransactionPaymentWithReceipt,
     releaseCedula
 } from "@/app/admin/transactions/cedula-actions";
@@ -63,27 +42,10 @@ import { evaluateStudentCedulaTransaction } from "@/app/admin/transactions/stude
 import { releaseMarriagePsaEndorsement } from "@/app/admin/transactions/marriage-endorsement-actions";
 import { releaseBirthPsaEndorsement } from "@/app/admin/transactions/birth-endorsement-actions";
 import { releaseDeathPsaEndorsement } from "@/app/admin/transactions/death-endorsement-actions";
-import { cn } from "@/lib/utils";
 import { calculateCedula } from "@/lib/cedula";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger
-} from "@/components/ui/dialog";
 import DocumentViewerModal from "./components/DocumentViewerModal";
-
-const checkIsPdf = (url: string | null) => {
-    if (!url) return false;
-    return url.toLowerCase().endsWith(".pdf") || url.includes("application/pdf") || url.includes(".pdf?");
-};
 
 import BusinessPermitView from "./views/BusinessPermitView";
 import BuildingPermitView from "./views/BuildingPermitView";
@@ -99,13 +61,15 @@ import DeathPsaEndorsementView from "./views/DeathPsaEndorsement";
 import MarriagePsaEndorsementView from "./views/MarriagePsaEndorsement";
 import MarraigeCertificateView from "./views/MarraigeCertificateView";
 
+/*
 interface PageProps {
     params: Promise<{ id: string }>;
 }
+*/
 
 /**
  * High-Fidelity Lightbox View with Transform Controls
- */
+ * Note: Temporarily disabled because it's not currently used in this file.
 function LightboxView({ src, alt, label }: { src: string; alt: string; label: string }) {
     const [scale, setScale] = useState(1);
     const [rotate, setRotate] = useState(0);
@@ -205,7 +169,6 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
                 </div>
             </div>
 
-            {/* Premium Control Bar */}
             <div className="flex items-center gap-2 px-6 py-3 bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-4">
                 <div className="flex items-center gap-1 pr-4 border-r border-white/10">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white italic whitespace-nowrap">{label}</p>
@@ -260,8 +223,9 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
         </DialogContent>
     );
 }
+*/
 
-export default function TreasuryDetailPage({ params }: PageProps) {
+export default function TreasuryDetailPage() {
     const routeParams = useParams();
     const id = routeParams?.id as string;
     const router = useRouter();
@@ -300,6 +264,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
     const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
     const remarksRef = useRef<HTMLTextAreaElement>(null);
     const [ctcNumber, setCtcNumber] = useState("");
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [showPaymentHistoryOverride, setShowPaymentHistoryOverride] = useState(false);
     const [stickerNumber, setStickerNumber] = useState("");
     const [isRejecting, setIsRejecting] = useState(false);
@@ -413,7 +378,6 @@ export default function TreasuryDetailPage({ params }: PageProps) {
             setActionLoading(false);
         }
     };
-    const [_showAdditionalDebug, _setShowAdditionalDebug] = useState(false);
     const [isResolvingDispute, setIsResolvingDispute] = useState(false);
     const [disputeModalOpen, setDisputeModalOpen] = useState(false);
     const [disputeAction, setDisputeAction] = useState<'APPROVE' | 'REJECT'>('APPROVE');
@@ -473,20 +437,11 @@ export default function TreasuryDetailPage({ params }: PageProps) {
     };
 
     const isBusinessPermit = transaction?.type?.code?.startsWith("BUSINESS_PERMIT") ?? false;
-    const isBusinessPermitRenewal = isBusinessPermit && (
-        transaction?.type?.code === "BUSINESS_PERMIT_RENEW" ||
-        (transaction?.additionalData as any)?.businessType === "RENEWAL" ||
-        (transaction?.additionalData as any)?.businessType === "RENEW"
-    );
     const isBuildingPermit = transaction?.type?.code?.startsWith("BUILDING_PERMIT") ?? false;
     const isLCR = (transaction?.type?.code?.startsWith("LCR_") ?? false) || (transaction?.type?.code?.startsWith("CIVIL_REGISTRY") ?? false);
     const isCedula = transaction?.type?.code?.includes("CEDULA") ?? false;
     const typeCode = (transaction?.type?.code || "").toUpperCase();
-    const isLcrCertifiedCopy = typeCode === "LCR_BIRTH" || typeCode === "LCR_DEATH" || typeCode === "LCR_MARRIAGE" || typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || (transaction?.type?.name && (transaction.type.name.includes("Birth Certificate") || transaction.type.name.includes("Death Certificate") || transaction.type.name.includes("Marriage Certificate"))) || false;
     const isLcrBirthCertifiedCopy = typeCode === "LCR_BIRTH" || (transaction?.type?.name && transaction.type.name.includes("Birth Certificate")) || false;
-    const _isBirth = typeCode.includes("BIRTH");
-    const isDeath = typeCode.includes("DEATH");
-    const isMarriage = typeCode.includes("MARRIAGE") || typeCode.includes("LICENSE");
     const safeFormatDate = (dateStr: any) => {
         if (!dateStr) return "N/A";
         const d = new Date(dateStr);

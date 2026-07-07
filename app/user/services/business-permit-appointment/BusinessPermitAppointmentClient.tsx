@@ -1,0 +1,961 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+    CheckCircle2,
+    ChevronRight,
+    Loader2,
+    Check,
+    Home,
+    Sparkles,
+    Calendar,
+    Printer,
+    TrendingUp,
+    ShieldAlert,
+    Upload,
+    Eye
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
+import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
+import SchedulePicker from "@/components/shared/SchedulePicker";
+import { compressImage } from "@/lib/image-compression";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { submitBusinessAppointment } from "./actions";
+import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
+
+function FilePreview({ file, onClick }: { file: File; onClick?: () => void }) {
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!file) return;
+
+        if (file.type.startsWith("image/")) {
+            const url = URL.createObjectURL(file);
+            setPreviewUrl(url);
+            return () => URL.revokeObjectURL(url);
+        } else {
+            setPreviewUrl(null);
+        }
+    }, [file]);
+
+    if (file.type.startsWith("image/")) {
+        if (!previewUrl) return null;
+        return (
+            <div
+                onClick={onClick}
+                className="relative w-full h-36 rounded-xl overflow-hidden mt-3 border border-slate-100 dark:border-white/10 shadow-inner bg-slate-50 dark:bg-black/20 flex items-center justify-center group/preview animate-in fade-in zoom-in-95 duration-200 cursor-pointer"
+            >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                    src={previewUrl}
+                    alt="Document Preview"
+                    className="w-full h-full object-cover group-hover/preview:scale-105 transition-transform duration-300"
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <span className="text-[10px] text-white font-black uppercase tracking-widest bg-black/60 px-3.5 py-1.5 rounded-full backdrop-blur-md flex items-center gap-1.5 hover:bg-black/80 transition-colors">
+                        <Eye className="w-3.5 h-3.5" />
+                        Click to View
+                    </span>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div
+            onClick={onClick}
+            className="w-full py-4 px-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 mt-3 flex items-center justify-between gap-2.5 animate-in fade-in duration-200 cursor-pointer group/pdf hover:border-primary/25 transition-all"
+        >
+            <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center font-bold text-xs font-mono shrink-0">
+                    PDF
+                </div>
+                <div className="truncate text-left">
+                    <span className="block text-xs font-bold text-slate-700 dark:text-slate-300 truncate font-mono">{file.name}</span>
+                    <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest">Document File</span>
+                </div>
+            </div>
+            <Eye className="w-4 h-4 text-slate-400 group-hover/pdf:text-primary transition-colors shrink-0 mr-1" />
+        </div>
+    );
+}
+
+type Step = "PATHWAY" | "CHECKLIST" | "SCHEDULE" | "SUBMIT" | "SUCCESS";
+
+const STEPS: { id: Step; label: string; icon: any }[] = [
+    { id: "PATHWAY", label: "Status", icon: Sparkles },
+    { id: "SCHEDULE", label: "Schedule", icon: Calendar },
+    { id: "CHECKLIST", label: "Documents", icon: Upload },
+    { id: "SUBMIT", label: "Submit", icon: CheckCircle2 },
+];
+
+const STEP_TABS: { id: string; label: string; icon: any }[] = [
+    { id: "PATHWAY", label: "Status", icon: Sparkles },
+    { id: "SCHEDULE", label: "Schedule", icon: Calendar },
+    { id: "CHECKLIST", label: "Documents", icon: Upload },
+    { id: "SUBMIT", label: "Submit", icon: CheckCircle2 }
+];
+
+
+
+interface BusinessPermitAppointmentClientProps {
+    resident: any;
+    businessTypes: any[];
+    themeColor: string;
+    branding: {
+        logo?: string | null;
+        word1?: string;
+        word2?: string;
+    };
+    config: {
+        maxSlots: number;
+        maxSlotsAM?: number;
+        maxSlotsPM?: number;
+        blockedDates: string[];
+        activeDays: number[];
+    };
+    bookedSlots: { appointmentDate: Date; appointmentSlot: string }[];
+    hasActiveNew: boolean;
+    hasActiveRenew: boolean;
+}
+
+export function BusinessPermitAppointmentClient({
+    resident,
+    businessTypes,
+    themeColor,
+    branding,
+    config,
+    bookedSlots,
+    hasActiveNew,
+    hasActiveRenew
+}: BusinessPermitAppointmentClientProps) {
+    const router = useRouter();
+    const [currentStep, setCurrentStep] = useState<Step>("PATHWAY");
+    const [submitting, setSubmitting] = useState(false);
+    const [businessType, setBusinessType] = useState<"NEW" | "RENEWAL">("NEW");
+    const [privacyAccepted, setPrivacyAccepted] = useState(false);
+    const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+    const [queueNumber, setQueueNumber] = useState<string | null>(null);
+
+    const [newTransactionId, setNewTransactionId] = useState<string | null>(null);
+    const [isPriorityLane, setIsPriorityLane] = useState(false);
+    const [printTriggered, setPrintTriggered] = useState(false);
+
+    // Form State matching the online filing form
+    const [formState] = useState({
+        businessName: "",
+        tradeName: "",
+        orgType: "SOLE_PROPRIETORSHIP",
+        dtiSecNumber: "",
+        permitNumber: "",
+        lineOfBusiness: "",
+        barangay: "",
+        street: "",
+        building: "",
+        capitalInvestment: "",
+        grossSales: "",
+        employeeCount: "0",
+        businessArea: "",
+        tinNumber: "",
+        philhealthNumber: "",
+        pagibigNumber: "",
+        sssNumber: "",
+        businessBranch: "MAIN",
+        registrationType: "DTI",
+        dtiSecDate: ""
+    });
+
+    const [residentState] = useState({
+        firstName: resident?.firstName || "",
+        lastName: resident?.lastName || "",
+        middleName: resident?.middleName || "",
+        suffix: resident?.suffix || "",
+        gender: resident?.gender || "Male",
+        dateOfBirth: resident?.dateOfBirth ? new Date(resident.dateOfBirth).toISOString().split("T")[0] : "",
+        civilStatus: resident?.civilStatus || "Single",
+        citizenship: resident?.citizenship || "Filipino",
+        houseNumber: resident?.houseNumber || "",
+        street: resident?.street || "",
+        barangay: resident?.barangay || "",
+        municipality: resident?.municipality || "Mapandan",
+        province: resident?.province || "Pangasinan",
+        contactNumber: resident?.contactNumber || "",
+        email: resident?.email || "",
+        occupation: resident?.occupation || ""
+    });
+
+    // Appointment Schedule State
+    const [selectedDate, setSelectedDate] = useState<string>("");
+    const [selectedSlot, setSelectedSlot] = useState<string>("");
+
+    // Document Files
+    const [idFile, setIdFile] = useState<File | null>(null);
+    const [ctcFile, setCtcFile] = useState<File | null>(null);
+    const [dtiSecFile, setDtiSecFile] = useState<File | null>(null);
+    const [brgyClearanceFile, setBrgyClearanceFile] = useState<File | null>(null);
+    const [sanitaryPermitFile, setSanitaryPermitFile] = useState<File | null>(null);
+    const [fireSafetyFile, setFireSafetyFile] = useState<File | null>(null);
+    const [previousPermitFile, setPreviousPermitFile] = useState<File | null>(null);
+    const [birCorFile, setBirCorFile] = useState<File | null>(null);
+    const [locationPhotoFile, setLocationPhotoFile] = useState<File | null>(null);
+
+    const [existingIdUrl] = useState<string | null>(resident?.idFrontUrl || null);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [showValidationErrors, setShowValidationErrors] = useState(false);
+
+    // Document Viewers
+    const [viewerOpen, setViewerOpen] = useState(false);
+    const [viewerFile, setViewerFile] = useState<File | null>(null);
+    const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+    const [viewerTitle, setViewerTitle] = useState("");
+
+    const hasActiveTransaction = businessType === "NEW" ? hasActiveNew : hasActiveRenew;
+
+    const handleViewFile = (file: File | null, url: string | null, title: string) => {
+        setViewerFile(file);
+        setViewerUrl(url);
+        setViewerTitle(title);
+        setViewerOpen(true);
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, setter: (f: File | null) => void) => {
+        const file = e.target.files?.[0] || null;
+        if (!file) {
+            setter(null);
+            return;
+        }
+
+        const allowedMimeTypes = ["image/jpeg", "image/png", "application/pdf"];
+        if (!allowedMimeTypes.includes(file.type)) {
+            toast.error("Invalid file type. Only JPEG, PNG, and PDF are allowed.");
+            e.target.value = "";
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("File size exceeds 5MB limit.");
+            e.target.value = "";
+            return;
+        }
+
+        if (file.type.startsWith("image/")) {
+            try {
+                const compressed = await compressImage(file);
+                setter(compressed);
+            } catch (err) {
+                console.error("Compression error:", err);
+                setter(file);
+            }
+        } else {
+            setter(file);
+        }
+    };
+
+    const isStepValid = (step: Step): boolean => {
+        if (step === "PATHWAY") {
+            return !hasActiveTransaction;
+        }
+        if (step === "CHECKLIST") {
+            return true;
+        }
+        if (step === "SCHEDULE") {
+            return !!selectedDate && !!selectedSlot;
+        }
+        if (step === "SUBMIT") {
+            return privacyAccepted;
+        }
+        return true;
+    };
+
+    const handleNext = () => {
+        if (!isStepValid(currentStep)) {
+            setShowValidationErrors(true);
+            toast.error("Please fill in all required fields and upload the necessary documents.");
+            return;
+        }
+        setShowValidationErrors(false);
+
+        const idx = STEPS.findIndex(s => s.id === currentStep);
+        if (idx < STEPS.length - 1) {
+            setCurrentStep(STEPS[idx + 1].id);
+        }
+    };
+
+    const handleBack = () => {
+        setShowValidationErrors(false);
+        const idx = STEPS.findIndex(s => s.id === currentStep);
+        if (idx > 0) {
+            setCurrentStep(STEPS[idx - 1].id);
+        }
+    };
+
+    const handleSubmit = async () => {
+        if (!isStepValid("PATHWAY") || !isStepValid("CHECKLIST") || !isStepValid("SCHEDULE")) {
+            toast.error("Verification failed. Please review your details.");
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            const targetType = businessTypes.find(t => t.code === (businessType === "NEW" ? "BUSINESS_PERMIT_NEW" : "BUSINESS_PERMIT_RENEW"));
+            if (!targetType) {
+                toast.error("Invalid transaction type configuration.");
+                setSubmitting(false);
+                return;
+            }
+
+            const formDataPayload = new FormData();
+            formDataPayload.append("typeId", targetType.id);
+            formDataPayload.append("appointmentDate", selectedDate);
+            formDataPayload.append("appointmentSlot", selectedSlot);
+            formDataPayload.append("residentSnapshot", JSON.stringify(residentState));
+
+            const addData = {
+                ...formState,
+                businessType,
+                isPriorityLane,
+                capitalInvestment: parseFloat(formState.capitalInvestment.replace(/,/g, "")) || 0,
+                grossSales: parseFloat(formState.grossSales.replace(/,/g, "")) || 0,
+            };
+            formDataPayload.append("additionalData", JSON.stringify(addData));
+
+            if (idFile) formDataPayload.append("idFile", idFile);
+            if (ctcFile) formDataPayload.append("ctcFile", ctcFile);
+            if (dtiSecFile) formDataPayload.append("dtiSecFile", dtiSecFile);
+            if (brgyClearanceFile) formDataPayload.append("brgyClearanceFile", brgyClearanceFile);
+            if (sanitaryPermitFile) formDataPayload.append("sanitaryPermitFile", sanitaryPermitFile);
+            if (fireSafetyFile) formDataPayload.append("fireSafetyFile", fireSafetyFile);
+            if (previousPermitFile) formDataPayload.append("previousPermitFile", previousPermitFile);
+            if (birCorFile) formDataPayload.append("birCorFile", birCorFile);
+            if (locationPhotoFile) formDataPayload.append("locationPhotoFile", locationPhotoFile);
+
+            if (existingIdUrl) formDataPayload.append("existingIdUrl", existingIdUrl);
+
+            const res = await submitBusinessAppointment(formDataPayload);
+            if (res.success && res.data) {
+                setNewTransactionId(res.data.id);
+                setQueueNumber(res.data.queueNumber);
+                setCurrentStep("SUCCESS");
+                toast.success("Business Permit Appointment booked successfully!");
+            } else {
+                toast.error(res.error || "Failed to submit booking");
+            }
+        } catch (err) {
+            console.error("Submit error:", err);
+            toast.error("An unexpected error occurred. Please try again.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+
+    const getCurrentTabIdx = () => {
+        if (currentStep === "PATHWAY") return 0;
+        if (currentStep === "SCHEDULE") return 1;
+        if (currentStep === "CHECKLIST") return 2;
+        return 3; // SUBMIT or SUCCESS
+    };
+
+    return (
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-0 pb-8 space-y-12 pb-32">
+            {/* Header / Breadcrumb */}
+            <div className="space-y-4 md:space-y-10">
+                <div className="sticky top-[64px] sm:top-[80px] z-40 md:static -mx-4 md:mx-0 px-4 md:px-0 pt-2 md:pt-0">
+                    <Breadcrumb>
+                        <BreadcrumbList className="flex-nowrap whitespace-nowrap overflow-x-auto scrollbar-none max-w-full bg-white/80 dark:bg-white/5 backdrop-blur-md px-4 md:px-6 py-2 md:py-2.5 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 w-fit shadow-sm">
+                            <BreadcrumbItem>
+                                <BreadcrumbLink href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                    <Home className="w-3.5 h-3.5 mb-0.5" /> Home
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+                            <BreadcrumbItem>
+                                <BreadcrumbLink href="/user/services" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors italic">
+                                    Services
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
+                            <BreadcrumbItem>
+                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: themeColor }}>Permit Appointment Portal</BreadcrumbPage>
+                            </BreadcrumbItem>
+                        </BreadcrumbList>
+                    </Breadcrumb>
+                </div>
+
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 px-1 md:px-0">
+                    <div className="space-y-1 md:space-y-2">
+                        <h1 className="text-4xl md:text-7xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none select-none">
+                            BUSINESS <span className="text-primary underline decoration-[6px] md:decoration-8 decoration-primary/20 underline-offset-[6px] md:underline-offset-[12px]" style={{ textDecorationColor: `${themeColor}33`, color: themeColor }}>PERMIT</span>
+                        </h1>
+                        <p className="text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-[0.4em] ml-1 md:ml-2 italic">Streamlined Permitting & Compliance Portal</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Progress Stepper */}
+            {currentStep !== "SUCCESS" && (
+                <div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2">
+                    {STEP_TABS.map((step, idx) => {
+                        const isActive = getCurrentTabIdx() === idx;
+                        const isCompleted = getCurrentTabIdx() > idx;
+                        const Icon = step.icon;
+                        return (
+                            <div
+                                key={idx}
+                                className={cn(
+                                    "flex flex-col items-center gap-2 md:gap-3 relative z-10 font-black cursor-pointer group"
+                                )}
+                            >
+                                <div
+                                    className={cn(
+                                        "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
+                                        isActive ? "bg-primary text-white border-primary shadow-lg scale-105 md:scale-110" :
+                                            isCompleted ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" :
+                                                "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
+                                    )}
+                                    style={isActive ? { backgroundColor: themeColor, borderColor: themeColor, boxShadow: `0 0 20px ${themeColor}4d` } : {}}
+                                >
+                                    <Icon className="w-4 h-4 md:w-7 md:h-7" />
+                                </div>
+                                <span className={cn(
+                                    "text-[7px] md:text-[10px] uppercase tracking-widest text-center italic hidden sm:block",
+                                    isActive ? "text-primary opacity-100 font-black" : "opacity-40 group-hover:opacity-100 transition-opacity"
+                                )} style={isActive ? { color: themeColor } : {}}>
+                                    {step.label}
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* Step Content Card Wrapper */}
+            <div className="mt-4 md:mt-8 md:bg-white md:dark:bg-[#11131a] md:rounded-[2.5rem] md:border md:border-slate-200 md:dark:border-white/10 p-0 md:p-12 md:shadow-2xl relative md:overflow-hidden group/container min-h-[400px] md:min-h-[500px] flex flex-col">
+                <div className="flex-1">
+                    <AnimatePresence mode="wait">
+                        {/* STEP 1: PATHWAY */}
+                        {currentStep === "PATHWAY" && (
+                            <motion.div
+                                key="pathway-step"
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                className="space-y-8 md:space-y-12"
+                            >
+                                <div className="space-y-3 md:space-y-4 text-center">
+                                    <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter leading-tight">
+                                        Choose Application <span style={{ color: themeColor }}>Pathway</span>
+                                    </h2>
+                                    <p className="text-slate-500 font-medium italic text-xs md:text-lg uppercase tracking-widest max-w-2xl mx-auto">Select your current business permit status to proceed.</p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 max-w-4xl mx-auto">
+                                    {[
+                                        {
+                                            id: "NEW",
+                                            label: "Business Permit - New",
+                                            desc: "Apply for a new business permit for starting a business in Mapandan, Pangasinan.",
+                                            icon: Sparkles
+                                        },
+                                        {
+                                            id: "RENEWAL",
+                                            label: "Business Permit - Renewal",
+                                            desc: "Renew your existing business permit. Calculated based on previous annual gross sales.",
+                                            icon: TrendingUp
+                                        }
+                                    ].map(opt => {
+                                        const isSelected = businessType === opt.id;
+                                        const Icon = opt.icon;
+                                        return (
+                                            <button
+                                                key={opt.id}
+                                                onClick={() => setBusinessType(opt.id as any)}
+                                                className={cn(
+                                                    "p-6 md:p-10 rounded-2xl md:rounded-[3rem] border-2 md:border-4 transition-all duration-500 text-left relative group select-none overflow-hidden h-[240px] md:h-[300px] flex flex-col justify-between",
+                                                    isSelected ? "bg-primary text-white border-primary shadow-2xl scale-[1.02]" : "bg-white/40 dark:bg-white/5 backdrop-blur-md border-slate-100 dark:border-white/10 hover:border-primary/30"
+                                                )}
+                                                style={isSelected ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
+                                            >
+                                                <div className={cn("w-14 h-14 md:w-20 md:h-20 rounded-xl md:rounded-[2rem] flex items-center justify-center transition-transform group-hover:scale-110", isSelected ? "bg-white/20" : "bg-primary/5 text-primary")} style={!isSelected ? { color: themeColor, backgroundColor: `${themeColor}0d` } : {}}>
+                                                    <Icon className={cn("w-6 h-6 md:w-10 md:h-10", isSelected ? "animate-pulse" : "")} />
+                                                </div>
+                                                <div className="space-y-1 md:space-y-2 relative z-10">
+                                                    <h4 className="text-xl md:text-2xl font-black uppercase italic tracking-tighter">
+                                                        {opt.label}
+                                                    </h4>
+                                                    <p className={cn("text-[9px] md:text-[11px] font-bold uppercase italic tracking-widest leading-relaxed", isSelected ? "text-white/70" : "text-slate-400")}>
+                                                        {opt.desc}
+                                                    </p>
+                                                </div>
+                                                {isSelected && (
+                                                    <div className="absolute top-6 right-6 md:top-8 md:right-8 w-8 h-8 md:w-10 md:h-10 bg-white rounded-full flex items-center justify-center text-primary shadow-xl">
+                                                        <Check className="w-4 h-4 md:w-6 md:h-6 stroke-[4]" style={{ color: themeColor }} />
+                                                    </div>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {hasActiveTransaction && (
+                                    <div className="p-5 rounded-2xl bg-red-500/10 border border-red-500/10 text-red-500 flex items-start gap-3">
+                                        <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
+                                        <p className="text-[10px] font-bold italic leading-relaxed">
+                                            You already have an active/pending BPLO transaction for {businessType === "NEW" ? "New Business" : "Renewal"}. Please complete or cancel it first.
+                                        </p>
+                                    </div>
+                                )}
+
+                                <div className="mt-8 flex justify-end">
+                                    <Button
+                                        onClick={handleNext}
+                                        disabled={hasActiveTransaction}
+                                        className="bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 text-[10px] md:text-xs rounded-xl md:rounded-2xl px-8 md:px-12 h-10 md:h-14 group transition-all duration-300 active:scale-95 font-black uppercase tracking-widest italic"
+                                        style={{ backgroundColor: themeColor }}
+                                    >
+                                        Next Phase <ChevronRight className="w-4 h-4 ml-2" />
+                                    </Button>
+                                </div>
+                            </motion.div>
+                        )}
+
+
+
+
+                    {/* STEP 4: CHECKLIST */}
+                    {currentStep === "CHECKLIST" && (
+                        <motion.div
+                            key="checklist-step"
+                            initial={{ opacity: 0, y: 15 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -15 }}
+                            className="space-y-8"
+                        >
+                            <div className="border-b border-slate-100 dark:border-white/5 pb-4">
+                                <h2 className="text-2xl font-black uppercase italic text-slate-900 dark:text-white tracking-tighter">Required Document Checklist</h2>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Provide the required legal registrations and clearances to complete your submission</p>
+
+                                <div className="mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-3 text-amber-500 animate-in fade-in duration-300">
+                                    <ShieldAlert className="w-5 h-5 shrink-0 animate-pulse" />
+                                    <div className="text-left">
+                                        <p className="text-[10px] font-black uppercase tracking-wider italic">Notice for Multiple Pages/Images</p>
+                                        <p className="text-xs font-bold text-slate-600 dark:text-slate-400">If your document has more than 1 image/page, please compile them into a single PDF file before uploading.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {((businessType === "NEW"
+                                    ? [
+                                        { label: "1. Owner's Valid ID", field: "idFile", file: idFile, setter: setIdFile, existingUrl: existingIdUrl, optional: true },
+                                        { label: "2. Community Tax Certificate (CTC/Cedula)", field: "ctcFile", file: ctcFile, setter: setCtcFile, optional: true },
+                                        { label: "3. DTI / SEC / COA Registration", field: "dtiSecFile", file: dtiSecFile, setter: setDtiSecFile, optional: true },
+                                        { label: "4. BIR Certificate of Registration (COR)", field: "birCorFile", file: birCorFile, setter: setBirCorFile, optional: true },
+                                        { label: "5. Barangay Clearance", field: "brgyClearanceFile", file: brgyClearanceFile, setter: setBrgyClearanceFile, optional: true },
+                                        { label: "6. Location Photo of Business", field: "locationPhotoFile", file: locationPhotoFile, setter: setLocationPhotoFile, optional: true },
+                                        { label: "7. Sanitary Permit", field: "sanitaryPermitFile", file: sanitaryPermitFile, setter: setSanitaryPermitFile, optional: true },
+                                        { label: "8. Fire Safety Inspection Certificate", field: "fireSafetyFile", file: fireSafetyFile, setter: setFireSafetyFile, optional: true }
+                                    ]
+                                    : [
+                                        { label: "1. Owner's Valid ID", field: "idFile", file: idFile, setter: setIdFile, existingUrl: existingIdUrl, optional: true },
+                                        { label: "2. Community Tax Certificate (CTC/Cedula)", field: "ctcFile", file: ctcFile, setter: setCtcFile, optional: true },
+                                        { label: "3. DTI / SEC / COA Registration", field: "dtiSecFile", file: dtiSecFile, setter: setDtiSecFile, optional: true },
+                                        { label: "4. BIR Certificate of Registration (COR)", field: "birCorFile", file: birCorFile, setter: setBirCorFile, optional: true },
+                                        { label: "5. Previous Business Permit", field: "previousPermitFile", file: previousPermitFile, setter: setPreviousPermitFile, optional: true }
+                                    ]
+                                ) as { label: string; field: string; file: File | null; setter: (f: File | null) => void; existingUrl?: string | null; optional?: boolean }[]).map(item => {
+                                    const hasFile = !!item.file || !!item.existingUrl;
+                                    return (
+                                        <div key={item.field} className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic flex items-center">
+                                                    <span>{item.label}</span>
+                                                    {!item.optional && <span className="text-rose-500 ml-0.5">*</span>}
+                                                </Label>
+                                                {item.optional && (
+                                                    <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase italic">
+                                                        (optional)
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className={cn(
+                                                "p-4 md:p-5 bg-slate-50/50 dark:bg-white/[0.02] rounded-3xl border border-dashed flex flex-col gap-4 relative overflow-hidden transition-all duration-300 hover:border-primary/40 shadow-sm",
+                                                hasFile ? "border-primary dark:border-primary/30 bg-primary/[0.01]" : "border-slate-200 dark:border-white/10"
+                                            )}>
+                                                <div className="flex items-center gap-3.5 w-full text-left">
+                                                    <div className={cn(
+                                                        "w-11 h-11 bg-white dark:bg-black/20 border rounded-xl flex items-center justify-center shadow-sm shrink-0",
+                                                        hasFile ? "border-primary/20 dark:border-primary/20 text-primary" : "border-slate-100 dark:border-white/5 text-primary"
+                                                    )}>
+                                                        <Upload className={cn("w-4 h-4", hasFile && "animate-bounce")} />
+                                                    </div>
+                                                    <div className="space-y-0.5 min-w-0">
+                                                        <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-white italic truncate pr-2">
+                                                            {item.label.replace(/^\d+\.\s*/, "")}
+                                                        </h4>
+                                                        <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter truncate">
+                                                            {item.file
+                                                                ? `Uploaded (${(item.file.size / 1024).toFixed(1)} KB)`
+                                                                : item.existingUrl
+                                                                    ? "Preloaded from Resident Profile"
+                                                                    : (item.optional ? "PDF / IMAGE (OPTIONAL)" : "PDF / IMAGE (MAX 5MB)")}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Live File Preview Card */}
+                                                {item.file ? (
+                                                    <FilePreview file={item.file} onClick={() => handleViewFile(item.file, null, item.label)} />
+                                                ) : item.existingUrl ? (
+                                                    <div
+                                                        onClick={() => handleViewFile(null, item.existingUrl!, item.label)}
+                                                        className="relative rounded-2xl overflow-hidden border border-slate-100 dark:border-white/5 bg-slate-100 dark:bg-black/30 h-28 flex items-center justify-center group/preview cursor-pointer animate-in fade-in duration-200"
+                                                    >
+                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                        <img
+                                                            src={item.existingUrl}
+                                                            alt="Preloaded Document"
+                                                            className="object-cover w-full h-full group-hover/preview:scale-105 transition-transform duration-300"
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                            <span className="text-[10px] text-white font-black uppercase tracking-widest bg-black/60 px-3.5 py-1.5 rounded-full backdrop-blur-md flex items-center gap-1.5 hover:bg-black/80 transition-colors">
+                                                                <Eye className="w-3.5 h-3.5" />
+                                                                CLICK TO VIEW FULL SIZE
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ) : null}
+
+                                                <div className="flex items-center justify-between w-full mt-1">
+                                                    <input
+                                                        type="file"
+                                                        onChange={(e) => handleFileChange(e, item.setter)}
+                                                        className="hidden"
+                                                        id={`upload-${item.field}`}
+                                                        accept=".pdf,.png,.jpg,.jpeg"
+                                                    />
+                                                    {hasFile ? (
+                                                        <div className="flex gap-2 w-full">
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                onClick={() => document.getElementById(`upload-${item.field}`)?.click()}
+                                                                className="flex-1 font-black italic uppercase tracking-widest text-[9px] sm:text-xs h-10 rounded-2xl transition-all select-none border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 active:scale-[0.98] shadow-sm bg-transparent"
+                                                            >
+                                                                Change File
+                                                            </Button>
+                                                            {!(item.field === "idFile" && item.existingUrl && !item.file) && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    onClick={() => item.setter(null)}
+                                                                    className="flex-1 font-black italic uppercase tracking-widest text-[9px] sm:text-xs h-10 rounded-2xl transition-all border-rose-200/50 dark:border-rose-500/10 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 active:scale-[0.98] shadow-sm bg-transparent"
+                                                                >
+                                                                    Remove
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <Button
+                                                            type="button"
+                                                            onClick={() => document.getElementById(`upload-${item.field}`)?.click()}
+                                                            className="font-black italic uppercase tracking-widest text-[9px] sm:text-xs h-10 w-full rounded-2xl transition-all select-none bg-primary hover:bg-primary/90 text-white shadow-md active:scale-[0.98]"
+                                                            style={{ backgroundColor: themeColor }}
+                                                        >
+                                                            Upload
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-white/5">
+                                <Button variant="outline" onClick={handleBack} className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                    Back
+                                </Button>
+                                <Button
+                                    onClick={handleNext}
+                                    className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-white italic shadow-md gap-2"
+                                    style={{ backgroundColor: themeColor }}
+                                >
+                                    Review Details <ChevronRight className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* STEP 5: SCHEDULE PICKER */}
+                    {currentStep === "SCHEDULE" && (
+                        <motion.div
+                            key="schedule-step"
+                            initial={{ opacity: 0, y: 15 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -15 }}
+                            className="space-y-8"
+                        >
+                            <div className="space-y-1">
+                                <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-800 dark:text-white">Choose Appointment Schedule</h3>
+                                <p className="text-[10px] text-slate-400 italic">Select an available date and shift slot for BPLO counter validation.</p>
+                            </div>
+
+                            <SchedulePicker
+                                selectedDate={selectedDate}
+                                setSelectedDate={setSelectedDate}
+                                selectedSlot={selectedSlot}
+                                setSelectedSlot={setSelectedSlot}
+                                bookedSlots={bookedSlots}
+                                config={config}
+                                themeColor={themeColor}
+                            />
+
+                            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-white/5">
+                                <Button variant="outline" onClick={handleBack} className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                    Back
+                                </Button>
+                                <Button
+                                    onClick={handleNext}
+                                    disabled={!isStepValid("SCHEDULE")}
+                                    className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-white italic shadow-md gap-2"
+                                    style={{ backgroundColor: themeColor }}
+                                >
+                                    Upload Documents <ChevronRight className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* STEP 6: SUBMIT */}
+                    {currentStep === "SUBMIT" && (
+                        <motion.div
+                            key="submit-step"
+                            initial={{ opacity: 0, y: 15 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -15 }}
+                            className="space-y-8"
+                        >
+                            <div className="space-y-1">
+                                <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-800 dark:text-white">Review Appointment Parameters</h3>
+                                <p className="text-[10px] text-slate-400 italic">Verify all information before submitting to the queue.</p>
+                            </div>
+
+                            <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-100 dark:border-white/5 p-6 rounded-2xl space-y-4 text-xs leading-relaxed">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Filing Route</span>
+                                        <p className="font-black uppercase text-slate-900 dark:text-white">{businessType === "NEW" ? "New Business Registration" : "License Renewal"}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Selected Date</span>
+                                        <p className="font-black text-slate-900 dark:text-white">{selectedDate}</p>
+                                    </div>
+                                    <div className="space-y-1 col-span-1 sm:col-span-2">
+                                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Selected Slot</span>
+                                        <p className="font-black text-slate-900 dark:text-white">{selectedSlot}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Priority Lane Option */}
+                            <div
+                                onClick={() => setIsPriorityLane(!isPriorityLane)}
+                                className={cn(
+                                    "p-5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-4 select-none",
+                                    isPriorityLane ? "bg-primary/5 border-primary shadow-sm" : "bg-slate-50 dark:bg-white/[0.02] border-transparent hover:border-primary/20"
+                                )}
+                                style={isPriorityLane ? { borderColor: themeColor, backgroundColor: `${themeColor}0a` } : {}}
+                            >
+                                <div className={cn(
+                                    "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
+                                    isPriorityLane ? "bg-primary border-primary text-white" : "border-slate-300 dark:border-white/10"
+                                )} style={isPriorityLane ? { backgroundColor: themeColor, borderColor: themeColor } : {}}>
+                                    {isPriorityLane && <Check className="w-3.5 h-3.5" />}
+                                </div>
+                                <div className="space-y-1 text-left">
+                                    <p className="text-xs font-black italic uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+                                        ♿ REQUEST PRIORITY LANE SERVICE
+                                    </p>
+                                    <p className="text-[8px] md:text-[10px] text-slate-400 font-bold leading-relaxed italic uppercase tracking-widest">
+                                        CHECK THIS IF YOU ARE A SENIOR CITIZEN, PWD, OR PREGNANT APPLICANT.
+                                    </p>
+                                    <p className="text-[9px] font-bold text-amber-500 dark:text-amber-500/90 leading-relaxed uppercase tracking-wider mt-2">
+                                        ⚠️ WARNING: YOU MUST PRESENT A VALID PRIORITY ID OR PROOF OF ENTITLEMENT AT THE COUNTER. FAILURE TO PRODUCE VALID VERIFICATION WILL RESULT IN THE IMMEDIATE DISAPPROVAL OF YOUR PRIORITY QUEUE STATUS, AND YOU WILL BE REQUIRED TO BOOK A NEW APPOINTMENT ON ANOTHER DAY.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Privacy Policy Checklist */}
+                            <div
+                                onClick={() => {
+                                    if (privacyAccepted) {
+                                        setPrivacyAccepted(false);
+                                    } else {
+                                        setIsPrivacyModalOpen(true);
+                                    }
+                                }}
+                                className={cn(
+                                    "p-5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-4 select-none",
+                                    privacyAccepted ? "bg-primary/5 border-primary shadow-sm" : "bg-slate-50 dark:bg-white/[0.02] border-transparent hover:border-primary/20"
+                                )}
+                                style={privacyAccepted ? { borderColor: themeColor, backgroundColor: `${themeColor}0a` } : {}}
+                            >
+                                <div className={cn(
+                                    "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
+                                    privacyAccepted ? "bg-primary border-primary text-white" : "border-slate-300 dark:border-white/10"
+                                )} style={privacyAccepted ? { backgroundColor: themeColor, borderColor: themeColor } : {}}>
+                                    {privacyAccepted && <Check className="w-3.5 h-3.5" />}
+                                </div>
+                                <div className="space-y-1 text-left">
+                                    <p className="text-xs font-black italic uppercase tracking-tight text-slate-900 dark:text-white">DATA PRIVACY AND TERMS AGREEMENT</p>
+                                    <p className="text-[8px] md:text-[10px] text-slate-500 font-medium leading-relaxed italic uppercase tracking-widest">
+                                        I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. I CONFIRM ALL INFO IS TRUE AND CORRECT. CLICK TO REVIEW AGREEMENT.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-white/5">
+                                <Button variant="outline" onClick={handleBack} disabled={submitting} className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                    Back
+                                </Button>
+                                <Button
+                                    onClick={handleSubmit}
+                                    disabled={submitting || !privacyAccepted}
+                                    className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-white italic shadow-md gap-2"
+                                    style={{ backgroundColor: themeColor }}
+                                >
+                                    {submitting ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Submit Appointment <Check className="w-4 h-4" />
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* SUCCESS RECEIPT PRINT */}
+                    {currentStep === "SUCCESS" && queueNumber && (
+                        <motion.div
+                            key="success-step"
+                            initial={{ opacity: 0, scale: 0.98 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="max-w-md mx-auto bg-white dark:bg-[#0c1017] rounded-3xl border border-slate-100 dark:border-white/5 p-6 md:p-8 space-y-6 text-center shadow-2xl"
+                        >
+                            {queueNumber && (
+                                <PrintQueueTicket
+                                    queueNumber={queueNumber}
+                                    serviceName={businessType === "NEW" ? "BPLO - NEW BUSINESS" : "BPLO - BUSINESS RENEWAL"}
+                                    appointmentDate={selectedDate}
+                                    appointmentSlot={selectedSlot}
+                                    isPriority={isPriorityLane}
+                                    triggerPrint={printTriggered}
+                                    onPrintCompleted={() => setPrintTriggered(false)}
+                                    branding={branding}
+                                    themeColor={themeColor}
+                                />
+                            )}
+
+                            <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/10 flex items-center justify-center mx-auto">
+                                <Check className="w-6 h-6 animate-bounce" />
+                            </div>
+
+                            <div className="space-y-1">
+                                <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-800 dark:text-white">Filing Complete!</h3>
+                                <p className="text-[10px] text-slate-400 italic">Please screenshot or print the queue slip below.</p>
+                            </div>
+
+                            <div className="border border-slate-100 dark:border-white/5 rounded-2xl overflow-hidden p-1 bg-slate-50/50 dark:bg-white/[0.005]">
+                                <div className="max-w-md mx-auto rounded-[2.5rem] p-6 bg-slate-50 dark:bg-black/10 text-left space-y-5">
+                                    <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest text-slate-400 pb-2 border-b border-slate-100 dark:border-white/5">
+                                        <span>Queue ticket details</span>
+                                        <span className="text-slate-800 dark:text-slate-200 font-bold">#{(newTransactionId || "").slice(-8).toUpperCase()}</span>
+                                    </div>
+
+                                    <div className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-5 bg-white dark:bg-[#1a1f2c]/50 flex flex-col items-center justify-center gap-3">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Your queue number</span>
+                                        <span className="text-4xl font-black italic tracking-tighter text-slate-900 dark:text-white font-mono">
+                                            {queueNumber}
+                                        </span>
+
+                                        {isPriorityLane && (
+                                            <span className="bg-primary/10 text-primary border border-primary/20 rounded-full px-4 py-1 text-[9px] font-black uppercase tracking-widest">
+                                                ♿ Priority Lane
+                                            </span>
+                                        )}
+
+                                        <div className="w-full flex items-center justify-center mt-2">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${queueNumber}`}
+                                                alt="QR Ticket Code"
+                                                className="w-24 h-24 p-2 bg-white rounded-xl border border-slate-100"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3 pt-2">
+                                <Button
+                                    onClick={() => setPrintTriggered(true)}
+                                    className="w-full h-12 rounded-xl text-white font-black italic uppercase tracking-widest text-[10px] gap-2 active:scale-95 transition-all"
+                                    style={{ backgroundColor: themeColor }}
+                                >
+                                    <Printer className="w-4 h-4" /> Print Slip Receipt
+                                </Button>
+
+                                <Button
+                                    variant="outline"
+                                    onClick={() => router.push("/user/services")}
+                                    className="w-full h-12 rounded-xl font-bold uppercase tracking-widest text-[9px] text-slate-500"
+                                >
+                                    Exit to Services
+                                </Button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+                </div>
+            </div>
+
+            <PrivacyTermsModal
+                isOpen={isPrivacyModalOpen}
+                onClose={() => setIsPrivacyModalOpen(false)}
+                onAccept={() => {
+                    setPrivacyAccepted(true);
+                    setIsPrivacyModalOpen(false);
+                }}
+                themeColor={themeColor}
+            />
+
+            <DocumentViewerModal
+                isOpen={viewerOpen}
+                onClose={() => setViewerOpen(false)}
+                file={viewerFile}
+                fileUrl={viewerUrl}
+                title={viewerTitle}
+                themeColor={themeColor}
+            />
+        </div>
+    );
+}
