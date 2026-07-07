@@ -272,7 +272,7 @@ export function Navbar({
     const userDropdownLinks = [
         { name: "My Profile", href: "/user/resident-profile", icon: User },
         { name: "My Reports", href: "/user/reports", icon: Archive },
-        { name: "My Requests", href: "/user/services/requests", icon: Activity },
+        { name: "My Appointments", href: "/user/appointment", icon: Activity },
     ];
 
     const activeTheme = mounted ? resolvedTheme : "light";
@@ -592,6 +592,30 @@ export function Navbar({
                                                 )}
                                             </Link>
 
+                                            {/* My Appointments */}
+                                            <Link
+                                                href="/user/appointment"
+                                                onClick={() => setIsDropdownOpen(false)}
+                                                className={cn(
+                                                    "flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group",
+                                                    isLinkActive("/user/appointment") && "bg-slate-50 dark:bg-white/5"
+                                                )}
+                                            >
+                                                <Activity
+                                                    className="w-4 h-4 transition-colors"
+                                                    style={{ color: isLinkActive("/user/appointment") ? themeColor : undefined }}
+                                                />
+                                                <span
+                                                    className="text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors"
+                                                    style={{ color: isLinkActive("/user/appointment") ? themeColor : undefined }}
+                                                >
+                                                    My Appointments
+                                                </span>
+                                                {isLinkActive("/user/appointment") && (
+                                                    <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ backgroundColor: themeColor }} />
+                                                )}
+                                            </Link>
+
                                             {/* My Archive */}
                                             <Link
                                                 href="/user/reports"
@@ -616,8 +640,8 @@ export function Navbar({
                                                 )}
                                             </Link>
 
-                                            {/* My Requests */}
-                                            <Link
+                                            {/* My Requests mobile link hidden */}
+                                            {false && <Link
                                                 href="/user/services/requests"
                                                 onClick={() => setIsDropdownOpen(false)}
                                                 className={cn(
@@ -635,10 +659,10 @@ export function Navbar({
                                                 >
                                                     My Requests
                                                 </span>
-                                        {isLinkActive("/user/services/requests") && (
+                                                {isLinkActive("/user/services/requests") && (
                                                     <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ backgroundColor: themeColor }} />
                                                 )}
-                                            </Link>
+                                            </Link>}
 
                                             <div className="h-px bg-slate-100 dark:bg-white/5 mx-3 my-1" />
 

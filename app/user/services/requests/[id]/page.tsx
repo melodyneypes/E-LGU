@@ -148,6 +148,7 @@ export default function RequestHubPage() {
     const params = useParams();
     const router = useRouter();
     const id = params.id as string;
+    const isAppointmentPath = typeof window !== "undefined" ? window.location.pathname.includes("/user/appointment/") : false;
 
     const [request, setRequest] = useState<any>(null);
     const [copied, setCopied] = useState(false);
@@ -1171,12 +1172,16 @@ export default function RequestHubPage() {
                                 <BreadcrumbSeparator />
                                 <BreadcrumbItem>
                                     <BreadcrumbLink asChild>
-                                        <Link href="/user/services/requests" className="text-[9px] md:text-[10px] font-semibold uppercase tracking-widest text-slate-500 hover:text-primary transition-colors">Requests</Link>
+                                        <Link href={isAppointmentPath ? "/user/services" : "/user/services/requests"} className="text-[9px] md:text-[10px] font-semibold uppercase tracking-widest text-slate-500 hover:text-primary transition-colors">
+                                            {isAppointmentPath ? "Services" : "Requests"}
+                                        </Link>
                                     </BreadcrumbLink>
                                 </BreadcrumbItem>
                                 <BreadcrumbSeparator />
                                 <BreadcrumbItem>
-                                    <BreadcrumbPage className="text-[9px] md:text-[10px] font-semibold uppercase tracking-widest text-primary italic max-w-[120px] truncate">Tracker</BreadcrumbPage>
+                                    <BreadcrumbPage className="text-[9px] md:text-[10px] font-semibold uppercase tracking-widest text-primary italic max-w-[120px] truncate">
+                                        {isAppointmentPath ? "Appointment" : "Tracker"}
+                                    </BreadcrumbPage>
                                 </BreadcrumbItem>
                             </BreadcrumbList>
                         </Breadcrumb>
@@ -1191,7 +1196,7 @@ export default function RequestHubPage() {
                                 </div>
                                 <div className="space-y-0.5 md:space-y-1">
                                     <h1 className="text-xl md:text-3xl font-bold text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none">
-                                        {request.type?.name || "Request"} <span className="text-primary">Hub</span>
+                                        {request.type?.name || "Request"} <span className="text-primary">{isAppointmentPath ? "Appointment" : "Hub"}</span>
                                     </h1>
                                     <div className="flex items-center gap-2">
                                         <Badge

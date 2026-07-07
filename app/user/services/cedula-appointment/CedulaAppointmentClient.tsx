@@ -420,7 +420,7 @@ export function CedulaAppointmentClient({
             const response = await submitCedulaAppointment(submitData);
             if (response.success && response.data) {
                 toast.success("Appointment booked successfully!");
-                router.push("/user/services/requests");
+                router.push(`/user/appointment/${response.data.id}`);
             } else {
                 toast.error(response.error || "Failed to book appointment.");
             }
