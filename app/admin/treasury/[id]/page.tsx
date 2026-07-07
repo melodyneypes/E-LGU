@@ -1,5 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
+
+export const dynamic = "force-dynamic";
 
 import React, { useState, useRef, useEffect, use, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
@@ -622,6 +623,7 @@ export default function TreasuryDetailPage({ params }: PageProps) {
                         event: "*",
                         schema: "public",
                         table: "Transaction",
+                        filter: `id=eq.${id}`,
                     },
                     (payload: any) => {
                         console.log(`[Realtime Treasury Detail] Change detected on Transaction table:`, payload);

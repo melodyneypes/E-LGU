@@ -317,7 +317,7 @@ export default function AppointmentDetailsPage() {
                                 <Printer className="w-4 h-4 mr-2" /> Print Slip Receipt
                             </Button>
 
-                            {request.status === "FOR_REQUESTING" && !request.isCancelled && (
+                            {request.status === "FOR_REQUESTING" && !request.isCancelled && !additionalData?.checkedIn && (
                                 <Button 
                                     onClick={() => setCancelConfirmOpen(true)} 
                                     variant="outline" 
