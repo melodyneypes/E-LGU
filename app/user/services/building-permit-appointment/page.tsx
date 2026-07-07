@@ -385,7 +385,6 @@ export default function BuildingPermitAppointmentPage() {
   }, []);
 
   const [currentStep, setCurrentStep] = useState("APPOINTMENT");
-  const [hasReadGuide, setHasReadGuide] = useState(true);
   const [existingApplications, setExistingApplications] = useState<any[]>([]);
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
   const [residentData, setResidentData] = useState<any>(null);
@@ -832,24 +831,7 @@ export default function BuildingPermitAppointmentPage() {
     }
   };
 
-  const handlePaymentFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      let fileToProcess = file;
-      if (file.type.startsWith("image/")) {
-        try {
-          toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-          fileToProcess = await compressImage(file);
-          toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-        } catch (err) {
-          console.error("Compression error:", err);
-          toast.dismiss("image-compress-toast");
-        }
-      }
-      setPaymentFile(fileToProcess);
-      setPaymentPreviewUrl(URL.createObjectURL(fileToProcess));
-    }
-  };
+
 
   const handleSubmitPaymentProof = async () => {
     if (!paymentFile || !selectedApplication) return;
@@ -1790,12 +1772,6 @@ export default function BuildingPermitAppointmentPage() {
 
             <div
               className="space-y-6 max-h-[600px] overflow-y-auto pr-2 md:pr-4 custom-scrollbar"
-              onScroll={(e) => {
-                const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-                if (Math.ceil(scrollTop + clientHeight) >= scrollHeight - 5) {
-                  setHasReadGuide(true);
-                }
-              }}
             >
               {requirements.map((req) => (
                 <div
@@ -2917,7 +2893,6 @@ export default function BuildingPermitAppointmentPage() {
                 .map(({ docName, idx, kind }) => {
                   const baseKey = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;
                   const key = kind === "revision" ? `${activeDocTab.toLowerCase()}_revision_${idx}` : baseKey;
-                  const uploadId = `upload-${key}`;
                   const isRevisionItem = kind === "revision";
                   const isCustomItem = kind === "custom";
                   const revisionKey = `revision_${idx}`;
@@ -2936,41 +2911,6 @@ export default function BuildingPermitAppointmentPage() {
                     ? true
                     : false; // All initial requirements and permits are optional
                   const hasError = showValidationErrors && isRequired && !isUploaded;
-                  const isExistingImage = Boolean(fileUrl && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(fileUrl));
-                  const isNewImage = Boolean(uploadedFile?.type.startsWith("image/"));
-
-                  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-                    const file = event.target.files?.[0];
-                    if (!file) return;
-
-                    if (file.size > 5 * 1024 * 1024) {
-                      toast.error("File size exceeds the 5MB limit.");
-                      event.target.value = "";
-                      return;
-                    }
-
-                    let fileToProcess = file;
-                    if (file.type.startsWith("image/")) {
-                      try {
-                        toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-                        fileToProcess = await compressImage(file);
-                        toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-                      } catch (error) {
-                        console.error("Compression error:", error);
-                        toast.dismiss("image-compress-toast");
-                      }
-                    }
-
-                    if (isRevisionItem) {
-                      setUploadedRevisionDocs((previous) => ({ ...previous, [idx]: fileToProcess }));
-                    } else if (activeDocTab === "REQUIREMENTS") {
-                      setUploadedRequirements((previous) => ({ ...previous, [idx]: fileToProcess }));
-                    } else {
-                      setUploadedPermits((previous) => ({ ...previous, [idx]: fileToProcess }));
-                    }
-
-                    event.target.value = "";
-                  };
 
                   return (
                     <div
