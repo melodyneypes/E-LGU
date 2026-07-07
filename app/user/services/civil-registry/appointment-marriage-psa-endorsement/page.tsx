@@ -15,7 +15,8 @@ import {
     Home,
     Heart,
     CheckCircle2,
-    Sparkles
+    Sparkles,
+    Calendar
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -44,9 +45,10 @@ import {
     getTransactionTypes,
     getSystemSettingAction,
     getTransactionById,
-    getLatestForm3AForCurrentUser,
-    ensureCivilRegistryTransactionTypes
+    ensureCivilRegistryTransactionTypes,
+    getRegistrarAppointmentConfig
 } from "@/app/admin/transactions/actions";
+import SchedulePicker from "@/components/shared/SchedulePicker";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -55,12 +57,13 @@ import { BackNextButton } from "../_components/back-next-button";
 
 
 
-type Step = "STATUS" | "INFORMANT" | "SUBJECT" | "REVIEW";
+type Step = "STATUS" | "INFORMANT" | "SUBJECT" | "SCHEDULE" | "REVIEW";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "STATUS", label: "STATUS", icon: Sparkles },
     { id: "INFORMANT", label: "INFORMANT INFO", icon: User },
     { id: "SUBJECT", label: "MARRIAGE DETAILS", icon: Heart },
+    { id: "SCHEDULE", label: "CHOOSE SCHEDULE", icon: Calendar },
     { id: "REVIEW", label: "DOCUMENTS & SUBMIT", icon: CheckCircle2 },
 ];
 
@@ -126,6 +129,8 @@ export default function AppointmentMarriagePsaEndorsementPage() {
     const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(true);
     const [themeColor, setThemeColor] = useState("var(--primary-theme)");
+    const [appointmentConfig, setAppointmentConfig] = useState<any>(null);
+    const [bookedSlots, setBookedSlots] = useState<any[]>([]);
 
     useEffect(() => {
         getSystemSettingAction("theme_color").then((res) => {
@@ -168,6 +173,8 @@ export default function AppointmentMarriagePsaEndorsementPage() {
         wifeFullName: "",
         dateOfMarriage: "",
         placeOfMarriage: "",
+        appointmentDate: "",
+        appointmentSlot: "",
     });
 
 
@@ -235,10 +242,16 @@ export default function AppointmentMarriagePsaEndorsementPage() {
                     }
                 }
 
-                const [resResult, typesResult] = await Promise.all([
+                const [resResult, typesResult, configResult] = await Promise.all([
                     getCurrentUserResident(),
-                    getTransactionTypes()
+                    getTransactionTypes(),
+                    getRegistrarAppointmentConfig()
                 ]);
+
+                if (configResult.success) {
+                    setAppointmentConfig(configResult.config);
+                    setBookedSlots(configResult.bookedSlots);
+                }
 
                 if (resResult.success && resResult.data) {
                     const r = resResult.data;
@@ -278,6 +291,8 @@ export default function AppointmentMarriagePsaEndorsementPage() {
                             wifeFullName: addData.wifeFullName || "",
                             dateOfMarriage: addData.dateOfMarriage || "",
                             placeOfMarriage: addData.placeOfMarriage || "",
+                            appointmentDate: addData.appointmentDate || (txData.appointmentDate ? new Date(txData.appointmentDate).toISOString().split('T')[0] : "") || "",
+                            appointmentSlot: addData.appointmentSlot || txData.appointmentSlot || "",
                         }));
                     } else {
                         setFormData(prev => ({
@@ -322,28 +337,34 @@ export default function AppointmentMarriagePsaEndorsementPage() {
     };
 
     const handleSelectChange = (name: string, value: string) => {
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => {
+            const next = { ...prev, [name]: value };
 
-        if (name === "relationship") {
-            const promise = (async () => {
-                const res = await getLatestForm3AForCurrentUser();
-                if (res.success && res.data) {
-                    const { husbandName, wifeName, dateOfMarriage, placeOfMarriage } = res.data;
-                    setFormData(prev => ({
-                        ...prev,
-                        husbandFullName: husbandName ? husbandName.toUpperCase() : prev.husbandFullName,
-                        wifeFullName: wifeName ? wifeName.toUpperCase() : prev.wifeFullName,
-                        dateOfMarriage: dateOfMarriage ? new Date(dateOfMarriage).toISOString().split('T')[0] : prev.dateOfMarriage,
-                        placeOfMarriage: placeOfMarriage ? placeOfMarriage.toUpperCase() : prev.placeOfMarriage
-                    }));
+            if (name === "relationship") {
+                if (value === "SELF") {
+                    if (resident) {
+                        const residentName = [resident.firstName, resident.middleName, resident.lastName]
+                            .filter(Boolean)
+                            .join(" ") + (resident.suffix ? " " + resident.suffix : "");
+                        const isMale = resident.gender?.toUpperCase() === "MALE";
+
+                        if (isMale) {
+                            next.husbandFullName = residentName.toUpperCase();
+                            next.wifeFullName = "";
+                        } else {
+                            next.wifeFullName = residentName.toUpperCase();
+                            next.husbandFullName = "";
+                        }
+                    }
+                } else {
+                    next.husbandFullName = "";
+                    next.wifeFullName = "";
+                    next.dateOfMarriage = "";
+                    next.placeOfMarriage = "";
                 }
-            })();
-            toast.promise(promise, {
-                loading: "Checking for your latest issued Form 3A in transactions...",
-                success: "Form 3A status checked.",
-                error: "Failed to check or fetch Form 3A document."
-            });
-        }
+            }
+            return next;
+        });
     };
 
 
@@ -411,13 +432,22 @@ export default function AppointmentMarriagePsaEndorsementPage() {
             setCurrentStep("SUBJECT");
         } else if (currentStep === "SUBJECT") {
             if (!validateStep("SUBJECT")) return;
+            setCurrentStep("SCHEDULE");
+        } else if (currentStep === "SCHEDULE") {
+            if (!formData.appointmentDate || !formData.appointmentSlot) {
+                setShowErrors(true);
+                toast.error("Please select an appointment date and session.");
+                return;
+            }
+            setShowErrors(false);
             setCurrentStep("REVIEW");
         }
     };
 
     const prevStep = () => {
         if (currentStep === "SUBJECT") setCurrentStep("INFORMANT");
-        else if (currentStep === "REVIEW") setCurrentStep("SUBJECT");
+        else if (currentStep === "SCHEDULE") setCurrentStep("SUBJECT");
+        else if (currentStep === "REVIEW") setCurrentStep("SCHEDULE");
     };
 
     if (loading) {
@@ -576,7 +606,7 @@ export default function AppointmentMarriagePsaEndorsementPage() {
                     </div>
 
                     {/* Progress Stepper */}
-                    <div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2">
+                    <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2">
                         {STEPS.map((step, idx) => {
                             const isActive = currentStep === step.id;
                             const stepIdx = STEPS.findIndex(s => s.id === currentStep);
@@ -905,6 +935,45 @@ export default function AppointmentMarriagePsaEndorsementPage() {
                                 </div>
                             )}
 
+                            {/* ===== STEP 3: CHOOSE SCHEDULE ===== */}
+                            {currentStep === "SCHEDULE" && (
+                                <div className="space-y-8">
+                                    <Card className="p-8 rounded-[2rem] border border-slate-200/50 dark:border-white/5 bg-white dark:bg-[#0f1117] shadow-xl dark:shadow-2xl space-y-8">
+                                        <div className="flex items-center gap-4 mb-4">
+                                            <div>
+                                                <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Choose Schedule</h2>
+                                                <p className="text-xs text-slate-500 font-medium italic">Select an appointment date and session</p>
+                                            </div>
+                                        </div>
+
+                                        {appointmentConfig && (
+                                            <SchedulePicker
+                                                selectedDate={formData.appointmentDate}
+                                                setSelectedDate={(dateStr) => setFormData(prev => ({ ...prev, appointmentDate: dateStr }))}
+                                                selectedSlot={formData.appointmentSlot}
+                                                setSelectedSlot={(slotStr) => setFormData(prev => ({ ...prev, appointmentSlot: slotStr }))}
+                                                bookedSlots={bookedSlots}
+                                                config={appointmentConfig}
+                                                themeColor={themeColor}
+                                            />
+                                        )}
+                                    </Card>
+
+                                    <div className="flex justify-end gap-4 pt-4">
+                                        <Button variant="outline" onClick={prevStep} className="h-14 px-8 rounded-full font-black uppercase italic tracking-widest">
+                                            BACK
+                                        </Button>
+                                        <Button
+                                            onClick={nextStep}
+                                            className="h-14 px-10 rounded-full text-white font-black uppercase italic tracking-widest shadow-lg hover:opacity-90 transition-opacity"
+                                            style={{ backgroundColor: themeColor }}
+                                        >
+                                            NEXT
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* ===== STEP 3: REVIEW & SUBMIT ===== */}
                             {currentStep === "REVIEW" && (
                                 <div className="space-y-8">
@@ -961,6 +1030,24 @@ export default function AppointmentMarriagePsaEndorsementPage() {
                                                     <div className="flex justify-between items-center text-xs">
                                                         <span className="font-bold text-slate-400 italic">Place:</span>
                                                         <span className="font-black uppercase italic">{formData.placeOfMarriage}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="col-span-1 md:col-span-2 space-y-6 pt-6 border-t border-slate-100 dark:border-white/5">
+                                                <h5 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 border-b pb-2">Appointment Schedule</h5>
+                                                <div className="grid grid-cols-2 gap-6 p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/40 dark:border-white/5">
+                                                    <div className="space-y-1">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Appointment Date</span>
+                                                        <p className="font-black text-slate-900 dark:text-white italic">
+                                                            {formData.appointmentDate ? new Date(formData.appointmentDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "Not selected"}
+                                                        </p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Appointment Slot</span>
+                                                        <p className="font-black text-slate-900 dark:text-white italic uppercase">
+                                                            {formData.appointmentSlot || "Not selected"}
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </div>

@@ -31,6 +31,19 @@ const DEFAULT_STATE: LockoutState = {
     cooldownUntil: null,
 };
 
+function isLockedOut(cooldownUntil: number | null): boolean {
+    if (!cooldownUntil) return false;
+    return Date.now() < cooldownUntil;
+}
+
+function calculateCooldown(minutesLeft: number): number {
+    return Date.now() + minutesLeft * 60 * 1000;
+}
+
+function navigateTo(url: string) {
+    window.location.href = url;
+}
+
 interface VerifyOTPFormProps {
     email: string;
     themeColor?: string;
@@ -355,11 +368,11 @@ export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormPr
 
 
 
-    const onSubmit = async (data: FormValues) => {
-        if (lockout.cooldownUntil && Date.now() < lockout.cooldownUntil) {
+    const onSubmit = React.useCallback(async (data: FormValues) => {
+        if (isLockedOut(lockout.cooldownUntil)) {
             toast.error("Security cooldown active. Redirecting to login page...");
             setTimeout(() => {
-                window.location.href = `/auth/login?otp_locked=true&email=${encodeURIComponent(email)}`;
+                navigateTo(`/auth/login?otp_locked=true&email=${encodeURIComponent(email)}`);
             }, 1500);
             return;
         }
@@ -374,7 +387,7 @@ export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormPr
                 sessionStorage.removeItem("setup_email");
                 
                 // Redirect user to the new setup page
-                window.location.href = `/auth/setup-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(result.token)}`;
+                navigateTo(`/auth/setup-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(result.token)}`);
             } else {
                 if ((result as any).code === "otp_lockout") {
                     const minutesLeft = (result as any).minutesLeft || 3;
@@ -389,7 +402,7 @@ export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormPr
                     const existing = map[normalizedEmail] || DEFAULT_STATE;
                     const newState: LockoutState = {
                         ...existing,
-                        cooldownUntil: Date.now() + minutesLeft * 60 * 1000,
+                        cooldownUntil: calculateCooldown(minutesLeft),
                     };
                     map[normalizedEmail] = newState;
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
@@ -399,7 +412,7 @@ export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormPr
                     sessionStorage.removeItem("setup_timer_expiry");
                     await signOut({ redirect: false });
                     setTimeout(() => {
-                        window.location.href = "/auth/login";
+                        navigateTo("/auth/login");
                     }, 1500);
                     return;
                 }
@@ -411,7 +424,7 @@ export function VerifyOTPForm({ email, themeColor = "#2563eb" }: VerifyOTPFormPr
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [email, lockout.cooldownUntil, form, handleSuccessAttempt, handleFailedAttempt]);
 
     return (
         <div className="space-y-8">

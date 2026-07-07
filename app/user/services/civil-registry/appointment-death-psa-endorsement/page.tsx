@@ -14,11 +14,12 @@ import {
     AlertCircle,
     Home,
     Skull,
-    Upload,
     CheckCircle2,
     FileText,
     Sparkles,
-    X
+    X,
+    Calendar,
+    Search
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -47,8 +48,11 @@ import {
     getTransactionTypes,
     getSystemSettingAction,
     getTransactionById,
-    ensureCivilRegistryTransactionTypes
+    ensureCivilRegistryTransactionTypes,
+    getRegistrarAppointmentConfig,
+    getBarangaysList
 } from "@/app/admin/transactions/actions";
+import SchedulePicker from "@/components/shared/SchedulePicker";
 import {
     getLatestForm2AForCurrentUser
 } from "@/app/admin/transactions/death-endorsement-actions";
@@ -58,13 +62,13 @@ import Link from "next/link";
 
 
 
-type Step = "STATUS" | "INFORMANT" | "SUBJECT" | "UPLOAD" | "REVIEW";
+type Step = "STATUS" | "INFORMANT" | "SUBJECT" | "SCHEDULE" | "REVIEW";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "STATUS", label: "Status", icon: Sparkles },
     { id: "INFORMANT", label: "Identity", icon: User },
     { id: "SUBJECT", label: "Details", icon: FileText },
-    { id: "UPLOAD", label: "Documents", icon: Upload },
+    { id: "SCHEDULE", label: "Schedule", icon: Calendar },
     { id: "REVIEW", label: "Submit", icon: CheckCircle2 },
 ];
 
@@ -74,6 +78,8 @@ export default function AppointmentDeathPsaEndorsementPage() {
     const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(true);
     const [themeColor, setThemeColor] = useState("var(--primary-theme)");
+    const [appointmentConfig, setAppointmentConfig] = useState<any>(null);
+    const [bookedSlots, setBookedSlots] = useState<any[]>([]);
 
     useEffect(() => {
         getSystemSettingAction("theme_color").then((res) => {
@@ -93,6 +99,11 @@ export default function AppointmentDeathPsaEndorsementPage() {
     const [revisionId, setRevisionId] = useState<string | null>(null);
     const [revisionTx, setRevisionTx] = useState<any>(null);
     const [showErrors, setShowErrors] = useState(false);
+    const [barangaysList, setBarangaysList] = useState<string[]>([]);
+    const [searchQuery, setSearchQuery] = useState("");
+    const filteredBarangays = barangaysList.filter(brgy =>
+        brgy.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
 
 
@@ -119,6 +130,8 @@ export default function AppointmentDeathPsaEndorsementPage() {
         fathersName: "",
         placeOfDeath: "",
         causeOfDeath: "",
+        appointmentDate: "",
+        appointmentSlot: "",
     });
 
 
@@ -184,10 +197,21 @@ export default function AppointmentDeathPsaEndorsementPage() {
                     }
                 }
 
-                const [resResult, typesResult] = await Promise.all([
+                const [resResult, typesResult, configResult, brgyResult] = await Promise.all([
                     getCurrentUserResident(),
-                    getTransactionTypes()
+                    getTransactionTypes(),
+                    getRegistrarAppointmentConfig(),
+                    getBarangaysList()
                 ]);
+
+                if (brgyResult.success && brgyResult.data) {
+                    setBarangaysList(brgyResult.data);
+                }
+
+                if (configResult.success) {
+                    setAppointmentConfig(configResult.config);
+                    setBookedSlots(configResult.bookedSlots);
+                }
 
                 if (resResult.success && resResult.data) {
                     const r = resResult.data;
@@ -230,6 +254,8 @@ export default function AppointmentDeathPsaEndorsementPage() {
                             fathersName: addData.fathersName || "",
                             placeOfDeath: addData.placeOfDeath || "",
                             causeOfDeath: addData.causeOfDeath || "",
+                            appointmentDate: addData.appointmentDate || (txData.appointmentDate ? new Date(txData.appointmentDate).toISOString().split('T')[0] : "") || "",
+                            appointmentSlot: addData.appointmentSlot || txData.appointmentSlot || "",
                         }));
                     } else {
                         setFormData(prev => ({
@@ -300,7 +326,15 @@ export default function AppointmentDeathPsaEndorsementPage() {
         }
     };
 
-
+    const getNormalizedPlaceOfDeath = (val: string) => {
+        if (!val) return "";
+        const upperVal = val.toUpperCase();
+        const found = barangaysList.find(b => upperVal.includes(b.toUpperCase()));
+        if (found) {
+            return `${found.toUpperCase()}, MAPANDAN, PANGASINAN`;
+        }
+        return val;
+    };
 
     const validateStep = (step: Step): boolean => {
         if (step === "INFORMANT") {
@@ -327,6 +361,13 @@ export default function AppointmentDeathPsaEndorsementPage() {
                         firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
                     }
                 }, 100);
+                return false;
+            }
+        }
+        if (step === "SCHEDULE") {
+            if (!formData.appointmentDate || !formData.appointmentSlot) {
+                setShowErrors(true);
+                toast.error("Please select an appointment date and session.");
                 return false;
             }
         }
@@ -384,6 +425,8 @@ export default function AppointmentDeathPsaEndorsementPage() {
                 fathersName: formData.fathersName,
                 placeOfDeath: formData.placeOfDeath,
                 causeOfDeath: formData.causeOfDeath,
+                appointmentDate: formData.appointmentDate,
+                appointmentSlot: formData.appointmentSlot,
                 psaEndorsementFee: miscFeeAmount,
             };
             data.append("additionalData", JSON.stringify(additionalData));
@@ -891,13 +934,56 @@ export default function AppointmentDeathPsaEndorsementPage() {
 
                                         <div className="space-y-2">
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Place of Death</Label>
-                                            <Input
-                                                name="placeOfDeath"
-                                                placeholder="ENTER PLACE OF DEATH"
-                                                value={formData.placeOfDeath}
-                                                onChange={handleInputChange}
-                                                className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
-                                            />
+                                            <Select
+                                                value={getNormalizedPlaceOfDeath(formData.placeOfDeath)}
+                                                onValueChange={(val) => setFormData(prev => ({ ...prev, placeOfDeath: val }))}
+                                            >
+                                                <SelectTrigger className={cn("!w-full !h-12 rounded-xl text-xs font-medium uppercase bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 transition-all text-left px-3", (showErrors && !formData.placeOfDeath) && "border-2 border-red-500")}>
+                                                    <SelectValue placeholder="SELECT PLACE OF DEATH" />
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-[300px] flex flex-col p-0 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0f1117]" position="popper">
+                                                    <div className="p-2 border-b border-slate-100 dark:border-white/5 bg-white dark:bg-[#0f1117] sticky top-0 z-20">
+                                                        <div className="relative flex items-center">
+                                                            <Search className="absolute left-2.5 w-4 h-4 text-slate-400" />
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Search barangay..."
+                                                                value={searchQuery}
+                                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                                onKeyDown={(e) => {
+                                                                    e.stopPropagation();
+                                                                }}
+                                                                onPointerDown={(e) => {
+                                                                    e.stopPropagation();
+                                                                }}
+                                                                className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-[#2a3040] rounded-lg outline-none focus:border-slate-300 dark:focus:border-white/20 font-semibold text-slate-900 dark:text-white"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="overflow-y-auto max-h-[220px] p-1 italic">
+                                                        {filteredBarangays.length > 0 ? (
+                                                            filteredBarangays.map((brgy) => (
+                                                                <SelectItem key={brgy} value={`${brgy.toUpperCase()}, MAPANDAN, PANGASINAN`}>
+                                                                    {brgy.toUpperCase()}
+                                                                </SelectItem>
+                                                            ))
+                                                        ) : (
+                                                            <div className="p-4 text-center text-xs text-slate-400 font-bold">No barangay found</div>
+                                                        )}
+                                                        {(() => {
+                                                            const normVal = getNormalizedPlaceOfDeath(formData.placeOfDeath);
+                                                            if (normVal && !barangaysList.some(b => normVal.startsWith(b.toUpperCase()))) {
+                                                                return (
+                                                                    <SelectItem value={normVal}>
+                                                                        {normVal}
+                                                                    </SelectItem>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })()}
+                                                    </div>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                     </div>
 
@@ -912,6 +998,61 @@ export default function AppointmentDeathPsaEndorsementPage() {
                                         <Button
                                             onClick={() => {
                                                 if (validateStep("SUBJECT")) {
+                                                    setShowErrors(false);
+                                                    setCurrentStep("SCHEDULE");
+                                                }
+                                            }}
+                                            className="rounded-full px-12 text-white font-black uppercase tracking-widest italic text-[10px] h-12 shadow-xl"
+                                            style={{ backgroundColor: themeColor }}
+                                        >
+                                            NEXT
+                                        </Button>
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* ===== STEP 4: CHOOSE SCHEDULE ===== */}
+                            {currentStep === "SCHEDULE" && (
+                                <motion.div
+                                    key="schedule-step"
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 1.05 }}
+                                    className="space-y-8"
+                                >
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div>
+                                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Choose Schedule</h2>
+                                            <p className="text-xs text-slate-500 font-medium italic">Select an appointment date and session</p>
+                                        </div>
+                                    </div>
+
+                                    {appointmentConfig && (
+                                        <SchedulePicker
+                                            selectedDate={formData.appointmentDate}
+                                            setSelectedDate={(dateStr) => setFormData(prev => ({ ...prev, appointmentDate: dateStr }))}
+                                            selectedSlot={formData.appointmentSlot}
+                                            setSelectedSlot={(slotStr) => setFormData(prev => ({ ...prev, appointmentSlot: slotStr }))}
+                                            bookedSlots={bookedSlots}
+                                            config={appointmentConfig}
+                                            themeColor={themeColor}
+                                        />
+                                    )}
+
+                                    <div className="flex justify-end gap-3 pt-6">
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => {
+                                                setShowErrors(false);
+                                                setCurrentStep("SUBJECT");
+                                            }}
+                                            className="rounded-full px-8 font-black uppercase tracking-widest italic text-[10px] h-12"
+                                        >
+                                            BACK
+                                        </Button>
+                                        <Button
+                                            onClick={() => {
+                                                if (validateStep("SCHEDULE")) {
                                                     setShowErrors(false);
                                                     setCurrentStep("REVIEW");
                                                 }
@@ -975,6 +1116,20 @@ export default function AppointmentDeathPsaEndorsementPage() {
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Mother&apos;s Maiden Name</span>
                                                 <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.mothersMaidenName}</p>
                                             </div>
+                                            <div className="col-span-2 border-t border-slate-200 dark:border-white/5 pt-4 grid grid-cols-2 gap-6">
+                                                <div className="space-y-1">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Appointment Date</span>
+                                                    <p className="font-black text-slate-900 dark:text-white italic">
+                                                        {formData.appointmentDate ? new Date(formData.appointmentDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "Not selected"}
+                                                    </p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Appointment Slot</span>
+                                                    <p className="font-black text-slate-900 dark:text-white italic uppercase">
+                                                        {formData.appointmentSlot || "Not selected"}
+                                                    </p>
+                                                </div>
+                                            </div>
                                             {formData.causeOfDeath && (
                                                 <div className="col-span-2 space-y-1">
                                                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Cause of Death</span>
@@ -1018,7 +1173,7 @@ export default function AppointmentDeathPsaEndorsementPage() {
                                             className={cn(
                                                 "p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-4 select-none",
                                                 policyAccepted
-                                                    ? "bg-slate-500/5 border-slate-500/20"
+                                                    ? "bg-emerald-500/5 border-emerald-500/20"
                                                     : showErrors
                                                         ? "border-2 border-red-500"
                                                         : "border-slate-200/40 bg-white/30 dark:bg-white/5 hover:border-slate-500/20"
@@ -1037,7 +1192,7 @@ export default function AppointmentDeathPsaEndorsementPage() {
                                                 className={cn(
                                                     "w-5 h-5 rounded-full border flex items-center justify-center transition-all shrink-0 mt-0.5",
                                                     policyAccepted
-                                                        ? "bg-slate-500 border-slate-500 text-white"
+                                                        ? "bg-emerald-500 border-emerald-500 text-white"
                                                         : showErrors
                                                             ? "border-2 border-red-500"
                                                             : "border-slate-300"
@@ -1067,7 +1222,7 @@ export default function AppointmentDeathPsaEndorsementPage() {
                                         <div className="flex gap-3 w-full justify-end">
                                             <Button
                                                 variant="outline"
-                                                onClick={() => setCurrentStep("UPLOAD")}
+                                                onClick={() => setCurrentStep("SCHEDULE")}
                                                 className="h-14 px-8 rounded-full font-black uppercase tracking-widest italic text-[11px] select-none"
                                             >
                                                 BACK

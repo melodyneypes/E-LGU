@@ -88,7 +88,8 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
         miscFee,
         setMiscFee,
         handleProcessRequest,
-        handlePrintWaybill
+        handlePrintWaybill,
+        handleCollectPsaPayment
     } = props;
 
     const [isAssessmentOpen, setIsAssessmentOpen] = React.useState(true);
@@ -101,6 +102,8 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
     const fiscal = transaction.fiscalSnapshot || null;
 
     const isTreasuryContext = backUrl?.includes("/admin/treasury") || rawUserRole === "TREASURY_STAFF";
+    const typeCode = transaction?.type?.code || "";
+    const isAppointmentPsa = typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT";
     const subjectName = additional.subjectFullName || additional.subjectName || "N/A";
     const subjectDateOfBirth = additional.subjectDateOfBirth || additional.dateOfEvent || "";
     const mothersMaidenName = additional.mothersMaidenName || additional.motherName || "";
@@ -204,14 +207,14 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                             Fee Assessment Breakdown
                                         </h3>
                                         <div className="space-y-4">
-                                            {(!feeLineItems || feeLineItems.length === 0) && (
-                                                <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
-                                                    <span>PSA Endorsement Fee</span>
-                                                    <span className="dark:text-slate-200 font-black">
-                                                        ₱{(transaction.type?.baseFee || 330.00).toFixed(2)}
-                                                    </span>
-                                                </div>
-                                            )}
+                                            <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
+                                                <span>Miscellaneous Fee</span>
+                                                <span className="dark:text-slate-200 font-black">
+                                                    {parseFloat(miscFee || "0") > 0
+                                                        ? `₱${(parseFloat(miscFee || "0")).toFixed(2)}`
+                                                        : "FREE"}
+                                                </span>
+                                            </div>
 
                                             {transaction.fulfillmentType === "DELIVERY" && (
                                                 <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
@@ -705,19 +708,32 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                             </div>
                         )}
 
-                        {/* AWAITING CITIZEN PAYMENT NOTICE */}
+                        {/* AWAITING CITIZEN PAYMENT / APPOINTMENT NOTICE */}
                         {transaction.status === "EVALUATED" && (
                             <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
                                 <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
                                     <Clock className="w-6 h-6 animate-pulse" />
                                 </div>
-                                <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Citizen Payment</h4>
-                                <p className="text-[10px] text-slate-400 italic">Assessment invoice sent. The request is currently pending official citizen payment verification.</p>
+                                {isAppointmentPsa ? (
+                                    <>
+                                        <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Appointment</h4>
+                                        <p className="text-[10px] text-slate-400 italic">The citizen&apos;s appointment has been scheduled. They will appear in person to present original documents. Payment will be collected at the office upon appearance.</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Citizen Payment</h4>
+                                        <p className="text-[10px] text-slate-400 italic">Assessment invoice sent. The request is currently pending official citizen payment verification.</p>
+                                    </>
+                                )}
                             </div>
                         )}
 
-                        {/* TREASURY ACTION PANEL FOR PAID OR PENDING_PAYMENT_VERIFICATION */}
-                        {isTreasuryContext && (transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION") && (
+                        {/* TREASURY ACTION PANEL FOR PAID OR PENDING_PAYMENT_VERIFICATION (non-appointment) OR FOR_CLAIM / FOR_PICKING (appointment) */}
+                        {isTreasuryContext && (
+                            isAppointmentPsa
+                                ? (transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING")
+                                : (transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION")
+                        ) && (
                             <div className="space-y-4">
                                 {/* Proof of Payment Lightbox */}
                                 {(additional.paymentId || (transaction.paymentReference && transaction.paymentReference.trim() !== "")) && (
@@ -798,111 +814,124 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                     </div>
 
                                     {/* Scanned O.R. file upload */}
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 italic block">
-                                            Attach Scanned Official Receipt (O.R.) <span className="text-rose-500 font-extrabold">*Required</span>
-                                        </label>
-                                        <input
-                                            type="file"
-                                            accept=".pdf,image/*"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0] || null;
-                                                setOrFile?.(file);
-                                                if (file) {
-                                                    const url = URL.createObjectURL(file);
-                                                    setOrPreview?.(url);
-                                                } else {
-                                                    setOrPreview?.(null);
-                                                }
-                                            }}
-                                            className="hidden"
-                                            id="or-document-upload-paid"
-                                        />
-                                        {orFile || transaction.orUrl ? (
-                                            <div className="space-y-3">
-                                                {(() => {
-                                                    const isPdf = orFile
-                                                        ? (orFile.type === "application/pdf" || orFile.name.toLowerCase().endsWith(".pdf"))
-                                                        : (transaction.orUrl
-                                                            ? (transaction.orUrl.toLowerCase().endsWith(".pdf") || transaction.orUrl.includes("application/pdf") || transaction.orUrl.includes(".pdf?"))
-                                                            : false);
-
-                                                    if (isPdf) {
-                                                        return (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleViewFile?.(orPreview || transaction.orUrl, "Official Receipt PDF")}
-                                                                className="w-full flex items-center justify-between p-5 bg-[#151b28]/60 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-primary/50 hover:bg-primary/5 transition-all text-left animate-in fade-in duration-300 group"
-                                                            >
-                                                                 <div className="flex items-center gap-4">
-                                                                    <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 text-xl shrink-0 group-hover:scale-110 transition-transform">
-                                                                        📕
-                                                                    </div>
-                                                                    <div className="space-y-1">
-                                                                        <p className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 leading-none">Official Receipt PDF</p>
-                                                                        <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic leading-none">Click to View PDF in Modal</p>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="h-9 px-4 rounded-xl border border-primary/20 text-primary font-black italic uppercase tracking-widest text-[9px] group-hover:bg-primary/10 flex items-center gap-1.5 transition-all shrink-0">
-                                                                    Open PDF ➔
-                                                                </div>
-                                                            </button>
-                                                        );
+                                    {!isAppointmentPsa && (
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 italic block">
+                                                Attach Scanned Official Receipt (O.R.) <span className="text-rose-500 font-extrabold">*Required</span>
+                                            </label>
+                                            <input
+                                                type="file"
+                                                accept=".pdf,image/*"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0] || null;
+                                                    setOrFile?.(file);
+                                                    if (file) {
+                                                        const url = URL.createObjectURL(file);
+                                                        setOrPreview?.(url);
+                                                    } else {
+                                                        setOrPreview?.(null);
                                                     }
+                                                }}
+                                                className="hidden"
+                                                id="or-document-upload-paid"
+                                            />
+                                            {orFile || transaction.orUrl ? (
+                                                <div className="space-y-3">
+                                                    {(() => {
+                                                        const isPdf = orFile
+                                                            ? (orFile.type === "application/pdf" || orFile.name.toLowerCase().endsWith(".pdf"))
+                                                            : (transaction.orUrl
+                                                                ? (transaction.orUrl.toLowerCase().endsWith(".pdf") || transaction.orUrl.includes("application/pdf") || transaction.orUrl.includes(".pdf?"))
+                                                                : false);
 
-                                                    return (
-                                                        <div
-                                                            onClick={() => handleViewFile?.(orPreview || transaction.orUrl, "Official Treasury Receipt")}
-                                                            className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all text-left block cursor-pointer select-none"
-                                                        >
-                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                            <img
-                                                                src={orPreview || transaction.orUrl}
-                                                                alt="OR Preview"
-                                                                className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
-                                                            />
-                                                            <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 backdrop-blur-[2px]">
-                                                                <div
-                                                                    style={{ backgroundColor: themeColor }}
-                                                                    className="backdrop-blur-md px-4 py-2 rounded-xl border border-white/25 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg animate-in zoom-in-75 duration-200"
+                                                        if (isPdf) {
+                                                            return (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleViewFile?.(orPreview || transaction.orUrl, "Official Receipt PDF")}
+                                                                    className="w-full flex items-center justify-between p-5 bg-[#151b28]/60 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-primary/50 hover:bg-primary/5 transition-all text-left animate-in fade-in duration-300 group"
                                                                 >
-                                                                    <span>View</span>
+                                                                     <div className="flex items-center gap-4">
+                                                                        <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 text-xl shrink-0 group-hover:scale-110 transition-transform">
+                                                                            📕
+                                                                        </div>
+                                                                        <div className="space-y-1">
+                                                                            <p className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 leading-none">Official Receipt PDF</p>
+                                                                            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic leading-none">Click to View PDF in Modal</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="h-9 px-4 rounded-xl border border-primary/20 text-primary font-black italic uppercase tracking-widest text-[9px] group-hover:bg-primary/10 flex items-center gap-1.5 transition-all shrink-0">
+                                                                        Open PDF ➔
+                                                                    </div>
+                                                                </button>
+                                                            );
+                                                        }
+
+                                                        return (
+                                                            <div
+                                                                onClick={() => handleViewFile?.(orPreview || transaction.orUrl, "Official Treasury Receipt")}
+                                                                className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all text-left block cursor-pointer select-none"
+                                                            >
+                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                <img
+                                                                    src={orPreview || transaction.orUrl}
+                                                                    alt="OR Preview"
+                                                                    className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
+                                                                />
+                                                                <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 backdrop-blur-[2px]">
+                                                                    <div
+                                                                        style={{ backgroundColor: themeColor }}
+                                                                        className="backdrop-blur-md px-4 py-2 rounded-xl border border-white/25 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg animate-in zoom-in-75 duration-200"
+                                                                    >
+                                                                        <span>View</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                                <div className="flex justify-end">
-                                                    <label
-                                                        htmlFor="or-document-upload-paid"
-                                                        className="h-8 px-3 rounded-lg border border-transparent bg-slate-200 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white text-[9px] font-black uppercase tracking-widest italic flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-sm select-none"
-                                                    >
-                                                        <Upload className="w-3 h-3" /> Replace O.R. File
-                                                    </label>
+                                                        );
+                                                    })()}
+                                                    <div className="flex justify-end">
+                                                        <label
+                                                            htmlFor="or-document-upload-paid"
+                                                            className="h-8 px-3 rounded-lg border border-transparent bg-slate-200 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white text-[9px] font-black uppercase tracking-widest italic flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-sm select-none"
+                                                        >
+                                                            <Upload className="w-3 h-3" /> Replace O.R. File
+                                                        </label>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ) : (
-                                            <label
-                                                htmlFor="or-document-upload-paid"
-                                                className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed transition-all h-28 bg-white dark:bg-[#151b28]/60 overflow-hidden relative group cursor-pointer border-slate-200 dark:border-white/10 hover:border-primary/30"
-                                            >
-                                                <Upload className="w-4.5 h-4.5 text-slate-400 group-hover:text-primary transition-colors mb-1" />
-                                                <span className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 text-center px-2">
-                                                    Upload Scanned O.R. Document
-                                                </span>
-                                            </label>
-                                        )}
-                                    </div>
+                                            ) : (
+                                                <label
+                                                    htmlFor="or-document-upload-paid"
+                                                    className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed transition-all h-28 bg-white dark:bg-[#151b28]/60 overflow-hidden relative group cursor-pointer border-slate-200 dark:border-white/10 hover:border-primary/30"
+                                                >
+                                                    <Upload className="w-4.5 h-4.5 text-slate-400 group-hover:text-primary transition-colors mb-1" />
+                                                    <span className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 text-center px-2">
+                                                        Upload Scanned O.R. Document
+                                                    </span>
+                                                </label>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
-                                <Button
-                                    onClick={handleConfirmPayment}
-                                    disabled={actionLoading || !orSeriesNumber || (!orFile && !transaction.orUrl)}
-                                    className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all"
-                                >
-                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                    Upload O.R. & Mark as Paid
-                                </Button>
+                                {isAppointmentPsa ? (
+                                    <Button
+                                        onClick={handleCollectPsaPayment}
+                                        disabled={actionLoading || !orSeriesNumber || orSeriesNumber.trim() === ""}
+                                        className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-green-500/10"
+                                    >
+                                        {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                        Collect Payment & Issue O.R.
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        onClick={handleConfirmPayment}
+                                        disabled={actionLoading || !orSeriesNumber || (!orFile && !transaction.orUrl)}
+                                        className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all"
+                                    >
+                                        {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                        Upload O.R. & Mark as Paid
+                                    </Button>
+                                )}
                             </div>
                         )}
 

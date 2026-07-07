@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import React, { useState, useRef, useEffect, use, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -46,7 +46,7 @@ import { releaseMarriageLicense, evaluateMarriageLicenseTransaction, processMarr
 import { releaseMarriageRegistry, evaluateMarriageRegistrationTransaction } from "@/app/admin/transactions/marriage-regis-actions";
 import { releaseMarriageCertificate, evaluateMarriageCertificateTransaction } from "@/app/admin/transactions/marriage-cert-actions";
 import { releaseMarriagePsaEndorsement } from "@/app/admin/transactions/marriage-endorsement-actions";
-import { releaseBirthPsaEndorsement } from "@/app/admin/transactions/birth-endorsement-actions";
+import { releaseBirthPsaEndorsement, markPsaAppointmentAttended } from "@/app/admin/transactions/birth-endorsement-actions";
 import { releaseDeathPsaEndorsement } from "@/app/admin/transactions/death-endorsement-actions";
 import { calculateCedula } from "@/lib/cedula";
 import { calculateBusinessPermit } from "@/lib/business-permit";
@@ -238,7 +238,8 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
 }
 
 export default function RegistrarDetailPage({ params }: PageProps) {
-    const { id } = use(params);
+    const routeParams = useParams();
+    const id = routeParams?.id as string;
     const router = useRouter();
     const { data: session } = useSession();
     const rawUserRole = (session?.user as any)?.role;
@@ -448,7 +449,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                     const addData = tx.additionalData || {};
                     const isLate = (addData.registrationType || "").toUpperCase() === "LATE";
                     const typeCode = (tx.type?.code || "").toUpperCase();
-                    const defaultLcrMisc = typeCode === "LCR_BIRTH" ? String(tx.type?.baseFee || tx.totalAmount || "115") : "0";
+                    const defaultLcrMisc = (typeCode === "LCR_BIRTH" || typeCode.includes("PSA_")) ? String(tx.type?.baseFee || tx.totalAmount || "130") : "0";
                     const initialMisc = fiscalSnapshot?.miscFee !== undefined
                         ? String(fiscalSnapshot.miscFee)
                         : (addData.miscFee !== undefined ? String(addData.miscFee) : (isLate ? "300" : defaultLcrMisc));
@@ -475,7 +476,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                         setFeeLineItems(mappedFees);
                     } else {
                         const defaultFees = tx.type?.defaultFees;
-                        if (Array.isArray(defaultFees) && defaultFees.length > 0 && (!tx.fiscalSnapshot || Object.keys(tx.fiscalSnapshot).length === 0)) {
+                        if (Array.isArray(defaultFees) && defaultFees.length > 0) {
                             const mappedFees = defaultFees.map((fee: any) => ({
                                 label: fee.label,
                                 amount: (tx.type?.code?.includes("PSA_") ?? false) ? String(fee.amount) : ""
@@ -566,7 +567,8 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 supabase.removeChannel(channel);
             }
         };
-    }, [id, fetchTransaction]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id]);
 
     useEffect(() => {
         if (!id) return;
@@ -579,7 +581,8 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         }, 10000);
 
         return () => clearInterval(interval);
-    }, [id, fetchTransaction]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id]);
 
     useEffect(() => {
         if (!session) return;
@@ -610,7 +613,8 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 logo: logo.data || ""
             });
         });
-    }, [fetchTransaction, id]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id]);
 
     useEffect(() => {
         if (!eCopyFile) {
@@ -663,12 +667,17 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     };
 
     const handleRelease = useCallback(async () => {
+        const isPsaAppointmentEndorsement = 
+            typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
+
         const ctcRequired = !isBusinessPermit && !isLCR && !isLcrBirthCertifiedCopy && !["PAID", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction?.status);
         if (ctcRequired && !ctcNumber && !transaction?.cedula?.ctcNumber) {
             toast.error("CTC Number Required");
             return;
         }
-        if (isLCR && typeCode !== "LCR_BIRTH" && typeCode !== "LCR_DEATH" && typeCode !== "LCR_MARRIAGE" && !eCopyFile && !transaction.eCopyUrl) {
+        if (isLCR && typeCode !== "LCR_BIRTH" && typeCode !== "LCR_DEATH" && typeCode !== "LCR_MARRIAGE" && !isPsaAppointmentEndorsement && !eCopyFile && !transaction.eCopyUrl) {
             toast.error("Official Digital E-Copy registry record is required before releasing.");
             return;
         }
@@ -750,15 +759,22 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                                                     : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
             if (res.success) {
                 const status = res.data?.status;
-                const message = status === "FOR_PICKING"
-                    ? "Ready for Picking"
-                    : status === "FOR_CLAIM"
-                        ? "Marked as Ready for Claiming"
-                        : status === "FOR_PROCESSING"
-                            ? "Transaction Proceeded to Processing"
-                            : status === "FOR_REINSPECTION"
-                                ? "Successfully sent to BPLO for Re-Inspection"
-                                : "Document Released";
+                const isPsaAppointmentEndorsement = 
+                    typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
+
+                const message = isPsaAppointmentEndorsement
+                    ? "Endorsement submitted to PSA. Sent to Treasury for counter payment."
+                    : status === "FOR_PICKING"
+                        ? "Ready for Picking"
+                        : status === "FOR_CLAIM"
+                            ? "Marked as Ready for Claiming"
+                            : status === "FOR_PROCESSING"
+                                ? "Transaction Proceeded to Processing"
+                                : status === "FOR_REINSPECTION"
+                                    ? "Successfully sent to BPLO for Re-Inspection"
+                                    : "Document Released";
                 toast.success(message);
                 setECopyFile(null);
                 setOrFile(null);
@@ -892,6 +908,21 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             }
             else toast.error(res.error || "Failed");
         } finally { setActionLoading(false); }
+    };
+
+    const handleMarkAppointmentAttended = async () => {
+        setActionLoading(true);
+        try {
+            const res = await markPsaAppointmentAttended(transaction.id);
+            if (res.success) {
+                toast.success("Appointment marked as attended. Proceed to endorse the application to the PSA.");
+                fetchTransaction();
+            } else {
+                toast.error(res.error || "Failed to mark appointment as attended.");
+            }
+        } finally {
+            setActionLoading(false);
+        }
     };
 
     const handleConfirmPayment = async () => {
@@ -1352,7 +1383,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             const isBirthReg = typeCode === "LCR_BIRTH_REG";
             const isDeathReg = typeCode === "LCR_DEATH_REG";
             const isMarriageLicense = typeCode === "LCR_MARRIAGE_LICENSE";
-            const baseFee = (isCertifiedCopy || isBirthReg || isDeathReg || isMarriageReg || isMarriageLicense)
+            const baseFee = (isCertifiedCopy || isBirthReg || isDeathReg || isMarriageReg || isMarriageLicense || typeCode.includes("PSA_"))
                 ? 0
                 : Number(transaction.type?.baseFee || additional.totalAmount || transaction.totalAmount || 0);
             const typeDelivery = Number(transaction.type?.deliveryFee || 0);
@@ -1423,16 +1454,25 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         if (
             typeCode === "LCR_PSA_ENDORSEMENT" ||
             typeCode === "LCR_DEATH_PSA_ENDORSEMENT" ||
-            typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
-            typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+            typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT"
         ) {
             return [
                 { id: "VERIFY_BILL", label: "Registrar: Verify & Bill" },
                 { id: "USER_PAYMENT", label: "User: Payment" },
                 { id: "TREASURY_OR", label: "Treasury: Verify & OR" },
                 { id: "REGISTRAR_RELEASE", label: "Registrar: Release" }
+            ];
+        }
+        if (
+            typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+        ) {
+            return [
+                { id: "VERIFY_BILL", label: "Registrar: Verify & Schedule" },
+                { id: "ATTEND_APPOINTMENT", label: "Attend Appointment" },
+                { id: "REGISTRAR_RELEASE", label: "Registrar: Endorse to PSA" },
+                { id: "TREASURY_OR", label: "Treasury: Issue O.R." }
             ];
         }
         const stepsList = [
@@ -1508,10 +1548,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         if (
             typeCode === "LCR_PSA_ENDORSEMENT" ||
             typeCode === "LCR_DEATH_PSA_ENDORSEMENT" ||
-            typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
-            typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+            typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT"
         ) {
             if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED"].includes(s)) {
                 return "VERIFY_BILL";
@@ -1524,6 +1561,23 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             }
             return "REGISTRAR_RELEASE";
         }
+        if (
+            typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+        ) {
+            if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED"].includes(s)) {
+                return "VERIFY_BILL";
+            }
+            if (["EVALUATED", "UNPAID"].includes(s)) {
+                return "ATTEND_APPOINTMENT";
+            }
+            if (["FOR_PROCESSING", "PAID", "PENDING_PAYMENT_VERIFICATION"].includes(s) && !transaction.eCopyUrl) {
+                return "REGISTRAR_RELEASE";
+            }
+            return "TREASURY_OR";
+        }
+
         if (isLcrBirthCertifiedCopy && (s === "PAID" || s === "PENDING_PAYMENT_VERIFICATION")) {
             return "VERIFY_OR";
         }
@@ -1857,7 +1911,8 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         setOrSeriesNumber,
         miscFee,
         setMiscFee,
-        handleProcessRequest
+        handleProcessRequest,
+        handleMarkAppointmentAttended
     };
 
     if (typeCode === "LCR_MARRIAGE") {

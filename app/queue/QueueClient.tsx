@@ -84,6 +84,25 @@ export default function QueueClient({
     // Keep track of previously called queue numbers to prevent repeating announcements
     const prevCalledRef = useRef<Record<string, string>>({});
 
+    const triggerRfidUnlock = React.useCallback(async (rfidCode: string) => {
+        setVerifyingRfid(true);
+        setRfidError("");
+        try {
+            const res = await verifyRfidUnlock(rfidCode);
+            if (res.success) {
+                setIsLocked(false);
+                setIsVoiceEnabled(true);
+                setHasInteracted(true);
+            } else {
+                setRfidError(res.error || "Access Denied: RFID not authorized");
+            }
+        } catch {
+            setRfidError("Database verification failed");
+        } finally {
+            setVerifyingRfid(false);
+        }
+    }, []);
+
     // Listen to global USB RFID scanner keyboard emulation (types digits + Enter)
     useEffect(() => {
         if (!isLocked) return;
@@ -126,26 +145,9 @@ export default function QueueClient({
             window.removeEventListener("keydown", handleKeyDown);
             clearTimeout(timeout);
         };
-    }, [isLocked]);
+    }, [isLocked, triggerRfidUnlock]);
 
-    const triggerRfidUnlock = async (rfidCode: string) => {
-        setVerifyingRfid(true);
-        setRfidError("");
-        try {
-            const res = await verifyRfidUnlock(rfidCode);
-            if (res.success) {
-                setIsLocked(false);
-                setIsVoiceEnabled(true);
-                setHasInteracted(true);
-            } else {
-                setRfidError(res.error || "Access Denied: RFID not authorized");
-            }
-        } catch {
-            setRfidError("Database verification failed");
-        } finally {
-            setVerifyingRfid(false);
-        }
-    };
+
 
     // Load voices and listen for async changes (crucial for Chrome/Safari)
     useEffect(() => {

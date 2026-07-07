@@ -55,6 +55,7 @@ interface ChangePasswordModalProps {
 type Step = 'identity' | 'otp' | 'password';
 
 export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, themeColor = "#2563eb" }: ChangePasswordModalProps) {
+    "use no memo";
     const [step, setStep] = React.useState<Step>('identity');
     const [isLoading, setIsLoading] = React.useState(false);
     const [showPassword, setShowPassword] = React.useState(false);
@@ -72,6 +73,7 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
         },
     });
 
+    // eslint-disable-next-line react-hooks/incompatible-library
     const passwordValue = form.watch("password") || "";
 
     const requirements = [

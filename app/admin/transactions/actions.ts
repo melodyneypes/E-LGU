@@ -591,6 +591,44 @@ function getPHTimeISOString() {
     return phTime.toISOString().replace("Z", "+08:00");
 }
 
+export async function getRegistrarAppointmentConfig() {
+    try {
+        let config = await prisma.appointmentConfig.findUnique({
+            where: { department: "REGISTRAR" }
+        });
+
+        if (!config) {
+            config = await prisma.appointmentConfig.create({
+                data: {
+                    department: "REGISTRAR",
+                    maxSlots: 50,
+                    maxSlotsAM: 25,
+                    maxSlotsPM: 25,
+                    blockedDates: [],
+                    activeDays: [1, 2, 3, 4, 5]
+                } as any
+            });
+        }
+
+        const bookedSlots = await prisma.transaction.findMany({
+            where: {
+                appointmentDate: { not: null },
+                isCancelled: false,
+                type: { category: "Civil Registry" }
+            },
+            select: {
+                appointmentDate: true,
+                appointmentSlot: true
+            }
+        });
+
+        return { success: true, config, bookedSlots };
+    } catch (error) {
+        console.error("Error fetching registrar appointment config:", error);
+        return { success: false, config: null, bookedSlots: [] };
+    }
+}
+
 export async function submitCivilRegistryTransaction(formData: FormData) {
     try {
         const session = await getSession();
@@ -653,7 +691,9 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
             "BIRTH", "DEATH", "MARRIAGE",
             "BIRTH_REG", "DEATH_REG", "MARRIAGE_REG",
             "MARRIAGE_LICENSE", "PSA_ENDORSEMENT",
-            "BIRTH_PSA_ENDORSEMENT", "DEATH_PSA_ENDORSEMENT", "MARRIAGE_PSA_ENDORSEMENT"
+            "BIRTH_PSA_ENDORSEMENT", "DEATH_PSA_ENDORSEMENT", "MARRIAGE_PSA_ENDORSEMENT",
+            "PSA_APPOINTMENT_ENDORSEMENT", "BIRTH_PSA_APPOINTMENT_ENDORSEMENT",
+            "DEATH_PSA_APPOINTMENT_ENDORSEMENT", "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
         ].includes(registryType);
 
         if (isLCRType) {
@@ -665,8 +705,24 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
                     ? Number(additionalData.totalAmount)
                     : (transType ? Number(transType.baseFee) : 0);
             }
-            // No basicTax. Total is just the miscFee.
-            initialTotalAmount = Number(initialMiscFee);
+            
+            // Calculate and sum default/mandatory fees
+            let defaultFeesAmount = 0;
+            if (transType?.defaultFees) {
+                try {
+                    const parsedDefault = typeof transType.defaultFees === "string"
+                        ? JSON.parse(transType.defaultFees)
+                        : transType.defaultFees;
+                    if (Array.isArray(parsedDefault)) {
+                        defaultFeesAmount = parsedDefault.reduce((sum: number, fee: any) => sum + (Number(fee.amount) || 0), 0);
+                    }
+                } catch (e) {
+                    console.error("Error parsing default fees in submitCivilRegistryTransaction:", e);
+                }
+            }
+
+            // No basicTax. Total is miscFee + default fees.
+            initialTotalAmount = Number(initialMiscFee) + defaultFeesAmount;
             initialFiscalSnapshot = {
                 basicTax: 0,
                 additionalTax: 0,
@@ -693,6 +749,42 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
             return { success: false, error: fileCheck.error || "File validation failed." };
         }
 
+        const appointmentDateVal = additionalData.appointmentDate ? new Date(additionalData.appointmentDate) : null;
+        const appointmentSlotVal = additionalData.appointmentSlot || null;
+
+        if (appointmentDateVal && appointmentSlotVal) {
+            const config = await prisma.appointmentConfig.findUnique({
+                where: { department: "REGISTRAR" }
+            });
+            const maxSlotsAM = config?.maxSlotsAM ?? 25;
+            const maxSlotsPM = config?.maxSlotsPM ?? 25;
+
+            const startOfDay = new Date(appointmentDateVal);
+            startOfDay.setUTCHours(0, 0, 0, 0);
+            const endOfDay = new Date(appointmentDateVal);
+            endOfDay.setUTCHours(23, 59, 59, 999);
+
+            const bookedCount = await prisma.transaction.count({
+                where: {
+                    appointmentDate: {
+                        gte: startOfDay,
+                        lte: endOfDay
+                    },
+                    appointmentSlot: appointmentSlotVal,
+                    isCancelled: false,
+                    type: { category: "Civil Registry" },
+                    ...(revisionId ? { id: { not: revisionId } } : {})
+                }
+            });
+
+            const isAM = appointmentSlotVal.includes("AM") || appointmentSlotVal.toUpperCase().includes("08:00 AM");
+            const maxLimit = isAM ? maxSlotsAM : maxSlotsPM;
+
+            if (bookedCount >= maxLimit) {
+                return { success: false, error: "This appointment slot is already fully booked. Please select another slot." };
+            }
+        }
+
         const transaction = await prisma.$transaction(async (tx: any) => {
             const t = revisionId
                 ? await tx.transaction.update({
@@ -706,6 +798,8 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
                         totalAmount: initialTotalAmount !== undefined ? initialTotalAmount : (additionalData.miscFee ?? additionalData.totalAmount ?? 0),
                         rejectionRemarks: null, // Reset rejection remarks on resubmit!
                         updatedAt: new Date(),
+                        appointmentDate: appointmentDateVal,
+                        appointmentSlot: appointmentSlotVal,
                         ...(initialFiscalSnapshot ? { fiscalSnapshot: initialFiscalSnapshot } : {})
                     }
                 })
@@ -720,6 +814,8 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
                         additionalData: updatedAdditionalData,
                         totalAmount: initialTotalAmount !== undefined ? initialTotalAmount : (additionalData.miscFee ?? additionalData.totalAmount ?? 0),
                         businessName: null,
+                        appointmentDate: appointmentDateVal,
+                        appointmentSlot: appointmentSlotVal,
                         ...(initialFiscalSnapshot ? { fiscalSnapshot: initialFiscalSnapshot } : {})
                     }
                 });
@@ -1548,7 +1644,15 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
             const regType = (additionalData?.registrationType || "").toUpperCase();
             const hasAdditionalFees = sanitizedBpFeeLineItems && sanitizedBpFeeLineItems.length > 0;
             const isCertifiedCopy = ["LCR_BIRTH", "LCR_MARRIAGE"].includes(typeCode);
-            if (isCertifiedCopy) {
+            const isPsaAppointment = [
+                "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+                "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+                "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+            ].includes(typeCode);
+
+            if (isPsaAppointment) {
+                newStatus = "EVALUATED";
+            } else if (isCertifiedCopy) {
                 newStatus = "FOR_REQUESTING";
             } else if (typeCode === "LCR_DEATH_REG" && (regType === "STANDARD" || !regType) && !hasAdditionalFees) {
                 newStatus = "FOR_INSPECTION";
@@ -4791,7 +4895,7 @@ export async function getRegistrarActiveCounts() {
             if (code === "LCR_MARRIAGE_LICENSE" && tx.status === "FOR_REQUESTING") {
                 continue;
             }
-            if (code === "LCR_DEATH_PSA_ENDORSEMENT" && tx.status === "FOR_REQUESTING") {
+            if ((code === "LCR_DEATH_PSA_ENDORSEMENT" || code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") && tx.status === "FOR_REQUESTING") {
                 continue;
             }
 

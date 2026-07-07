@@ -537,7 +537,6 @@ export default function MarriageRegistrationPage() {
             };
 
             // Debug: log additionalData to browser console to verify dateOfMarriage
-            console.log("[LCR Submit] additionalData:", additionalData);
             formData.append("additionalData", JSON.stringify(additionalData));
 
             const fileUrls: Record<string, string> = {};
@@ -557,7 +556,6 @@ export default function MarriageRegistrationPage() {
                 const sanitizedKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
 
                 if (fileUrls[key]) {
-                    console.log(`[ClientUpload] Reusing existing public URL for ${key}:`, fileUrls[key]);
                     continue;
                 }
 

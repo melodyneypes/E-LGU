@@ -335,18 +335,20 @@ export function Navbar({
                         onClick={() => setIsBarangayModalOpen(true)}
                         className="relative px-3 xl:px-5 py-2 group overflow-hidden flex items-center gap-1.5 transition-all hover:bg-slate-50 dark:hover:bg-white/5 rounded-full"
                     >
-                        <MapPin
-                            className="w-3.5 h-3.5 shrink-0"
-                            style={{ color: selectedBarangay !== "All" ? themeColor : undefined }}
-                        />
+                        <motion.span
+                            style={{ color: selectedBarangay !== "All" ? themeColor : (isDark ? darkColor : color) }}
+                            className="inline-flex shrink-0"
+                        >
+                            <MapPin className="w-3.5 h-3.5" />
+                        </motion.span>
                         <div className="flex flex-col items-start leading-none">
                             <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider">Jurisdiction</span>
-                            <span
+                            <motion.span
                                 className="text-[10px] xl:text-[11px] font-bold uppercase tracking-wider"
-                                style={{ color: selectedBarangay !== "All" ? themeColor : undefined }}
+                                style={{ color: selectedBarangay !== "All" ? themeColor : (isDark ? darkColor : color) }}
                             >
                                 {selectedBarangay === "All" ? "Mapandan" : selectedBarangay}
-                            </span>
+                            </motion.span>
                         </div>
                     </button>
 
@@ -377,18 +379,21 @@ export function Navbar({
                                                 transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                                             />
                                         )}
-                                        <div className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5">
+                                        <motion.div
+                                            style={{ color: isActive ? themeColor : (isDark ? darkColor : color) }}
+                                            className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5"
+                                        >
                                             <link.icon
                                                 className={cn(
                                                     "w-3.5 h-3.5 transition-all duration-200",
                                                     isActive ? "opacity-100 scale-110" : "opacity-60 group-hover/services:opacity-100"
                                                 )}
                                             />
-                                            <motion.span style={{ color: isActive ? themeColor : (isDark ? darkColor : color) }}>
+                                            <span>
                                                 {link.name}
-                                            </motion.span>
+                                            </span>
                                             <ChevronDown className="w-3 h-3 text-slate-400 transition-transform duration-355 group-hover/services:rotate-180" />
-                                        </div>
+                                        </motion.div>
                                     </button>
 
                                     <AnimatePresence>
@@ -447,9 +452,9 @@ export function Navbar({
                                         transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                                     />
                                 )}
-                                <div
+                                <motion.div
                                     className="relative z-10 text-[10px] xl:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 xl:gap-1.5 transition-colors duration-200"
-                                    style={{ color: isActive ? themeColor : undefined }}
+                                    style={{ color: isActive ? themeColor : (isDark ? darkColor : color) }}
                                 >
                                     <link.icon
                                         className={cn(
@@ -457,13 +462,10 @@ export function Navbar({
                                             isActive ? "opacity-100 scale-110" : "opacity-60 group-hover:opacity-100"
                                         )}
                                     />
-                                    <motion.span
-                                        style={{ color: isActive ? themeColor : (isDark ? darkColor : color) }}
-                                        className="group-hover:opacity-80 transition-opacity"
-                                    >
+                                    <span className="group-hover:opacity-80 transition-opacity">
                                         {link.name}
-                                    </motion.span>
-                                </div>
+                                    </span>
+                                </motion.div>
                                 {/* Active bottom indicator */}
                                 {isActive && (
                                     <motion.div

@@ -89,7 +89,8 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
         miscFee,
         setMiscFee,
         handleProcessRequest,
-        handlePrintWaybill
+        handlePrintWaybill,
+        handleMarkAppointmentAttended
     } = props;
 
     const [isAssessmentOpen, setIsAssessmentOpen] = React.useState(true);
@@ -97,6 +98,7 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
     const additional = transaction.additionalData || {};
 
     const isTreasuryContext = backUrl?.includes("/admin/treasury") || rawUserRole === "TREASURY_STAFF";
+    const isAppointmentEndorsement = (transaction.type?.code || "").includes("APPOINTMENT_ENDORSEMENT");
     const husbandFullName = additional.husbandFullName || additional.husbandName || "—";
     const wifeFullName = additional.wifeFullName || additional.wifeName || "—";
     const subjectName = husbandFullName !== "—" && wifeFullName !== "—" ? `${husbandFullName} & ${wifeFullName}` : "N/A";
@@ -198,9 +200,11 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                                         </h3>
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
-                                                <span>PSA Endorsement Fee</span>
+                                                <span>Miscellaneous Fee</span>
                                                 <span className="dark:text-slate-200 font-black">
-                                                    ₱{(transaction.type?.baseFee || 200.00).toFixed(2)}
+                                                    {parseFloat(miscFee || "0") > 0
+                                                        ? `₱${(parseFloat(miscFee || "0")).toFixed(2)}`
+                                                        : "FREE"}
                                                 </span>
                                             </div>
 
@@ -208,6 +212,90 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                                                 <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
                                                     <span>Delivery Fee</span>
                                                     <span className="dark:text-slate-200 font-black">₱{deliveryFee.toFixed(2)}</span>
+                                                </div>
+                                            )}
+
+                                            {/* RENDER STATIC ADDITIONAL FEES */}
+                                            {feeLineItems && feeLineItems.length > 0 && feeLineItems.map((item: any, idx: number) => {
+                                                if (!item.readonly && ["FOR_INSPECTION", "FOR_REQUESTING"].includes(transaction.status)) {
+                                                    return null;
+                                                }
+                                                const feeAmt = parseFloat(item.amount) || 0;
+                                                if (feeAmt === 0) return null;
+                                                return (
+                                                    <div key={idx} className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
+                                                        <span>{item.label || "Additional Fee"}</span>
+                                                        <span className="dark:text-slate-200 font-black">
+                                                            ₱{feeAmt.toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+
+                                            {/* ADDITIONAL FEES EDITOR */}
+                                            {["FOR_INSPECTION", "FOR_REQUESTING"].includes(transaction.status) && (
+                                                <div className="pt-2 space-y-2 border-t border-slate-100 dark:border-white/5 pt-4">
+                                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                                                        Additional Fees
+                                                    </p>
+                                                    <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-100 dark:border-white/5 rounded-2xl p-4 space-y-3">
+                                                        {feeLineItems?.map((item, idx) => {
+                                                            if (item.readonly) return null;
+                                                            return (
+                                                                <div key={idx} className={cn(
+                                                                    "flex gap-3 items-center group bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 px-3 py-1.5 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-primary/20 transition-all",
+                                                                    item.readonly && "opacity-75 bg-slate-50 dark:bg-white/[0.02] cursor-not-allowed select-none"
+                                                                )}>
+                                                                    <span className="text-[9px] font-mono font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-white/5 w-6 h-6 flex items-center justify-center rounded-lg select-none shrink-0">
+                                                                        {String(idx + 1).padStart(2, '0')}
+                                                                    </span>
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="Fee Description"
+                                                                        value={item.label}
+                                                                        disabled={item.readonly}
+                                                                        onChange={(e) => updateFeeLineItem?.(idx, 'label', e.target.value)}
+                                                                        className="flex-1 h-9 bg-transparent text-sm font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none border-none p-0 focus:ring-0 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed"
+                                                                    />
+                                                                    <div className="relative w-28 shrink-0 flex items-center border-l border-slate-100 dark:border-white/5 pl-3">
+                                                                        <span className="text-xs font-black text-slate-400 mr-1 select-none">₱</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            placeholder="0.00"
+                                                                            value={item.amount}
+                                                                            disabled={item.readonly}
+                                                                            onChange={(e) => updateFeeLineItem?.(idx, 'amount', e.target.value)}
+                                                                            className="w-full bg-transparent text-sm font-black text-right text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed"
+                                                                        />
+                                                                    </div>
+                                                                    {!item.readonly && feeLineItems.length > 1 ? (
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            onClick={() => removeFeeLineItem?.(idx)}
+                                                                            className="w-8 h-8 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-all shrink-0 md:opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                                                        >
+                                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                                        </Button>
+                                                                    ) : (
+                                                                        <div className="w-8 h-8 shrink-0" />
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                        {!feeLineItems.some(i => !i.readonly) && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                onClick={addFeeLineItem}
+                                                                className="w-full h-10 border-dashed border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 text-xs font-bold text-slate-600 dark:text-slate-350 rounded-xl flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all"
+                                                            >
+                                                                <Plus className="w-3.5 h-3.5" />
+                                                                Add Assessment Row
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
 
@@ -904,7 +992,114 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                             </div>
                         )}
 
-                        {transaction.status === "FOR_CLAIM" && (
+                        {(transaction.status === "EVALUATED" || transaction.status === "UNPAID") && (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
+                                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mx-auto">
+                                        <Clock className="w-6 h-6 animate-pulse" />
+                                    </div>
+                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Citizen Appointment</h4>
+                                    <p className="text-[10px] text-slate-400 italic">The citizen has scheduled their appointment. Once they arrive, click below to mark their appointment as attended.</p>
+                                </div>
+                                
+                                {!isTreasuryContext && handleMarkAppointmentAttended && (
+                                    <Button
+                                        onClick={handleMarkAppointmentAttended}
+                                        disabled={actionLoading}
+                                        className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all"
+                                    >
+                                        {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                        Finish Appointment
+                                    </Button>
+                                )}
+                            </div>
+                        )}
+
+                        {/* REGISTRAR RELEASE PROCESSOR CONTROLLER */}
+                        {transaction.status === "FOR_PROCESSING" && !isTreasuryContext && (
+                            <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-6">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-[#1e293b] dark:text-slate-400">
+                                    {isAppointmentEndorsement ? "PSA Endorsement Submission" : "Endorsement Document Attachment"}
+                                </h4>
+
+                                {isAppointmentEndorsement ? (
+                                    <div className="space-y-4">
+                                        <p className="text-xs font-bold text-slate-650 dark:text-slate-405 italic leading-relaxed">
+                                            The citizen&apos;s appointment has been marked as attended. Click below to submit this endorsement to the PSA. The request will proceed to the Treasury counter for counter payment collection and O.R. issuance.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="space-y-1">
+                                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Upload Official Endorsement E-Copy *</span>
+                                            {eCopyPreview ? (
+                                                <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 aspect-[3/2] bg-[#f8fafd] dark:bg-white/5">
+                                                    <img src={eCopyPreview} alt="E-Copy Preview" className="w-full h-full object-cover" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setECopyFile(null); setECopyPreview?.(null); }}
+                                                        className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black text-white rounded-full transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <Label
+                                                    htmlFor="ecopy-upload-proc"
+                                                    className="flex flex-col items-center justify-center py-8 px-4 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-primary/50 transition-colors cursor-pointer text-center bg-white/50 dark:bg-[#151b28]/50"
+                                                >
+                                                    <Upload className="w-6 h-6 text-slate-400 mb-2" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">Click to Upload Final Document</span>
+                                                    <span className="text-[8px] text-slate-400 italic mt-0.5">PDF, JPG, PNG up to 5MB</span>
+                                                    <input
+                                                        id="ecopy-upload-proc"
+                                                        type="file"
+                                                        accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                                                        onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file && file.size > 5 * 1024 * 1024) {
+                                                                toast.error("File size exceeds 5MB limit.");
+                                                                if (e.target.parentElement) {
+                                                                    const parent = e.target.parentElement;
+                                                                    let errEl = parent.querySelector('.file-error-msg');
+                                                                    if (!errEl) {
+                                                                        errEl = document.createElement('div');
+                                                                        errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
+                                                                        parent.appendChild(errEl);
+                                                                    }
+                                                                    errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
+                                                                    setTimeout(() => errEl && errEl.remove(), 4000);
+                                                                }
+                                                                e.target.value = "";
+                                                                setECopyFile(null);
+                                                                setECopyPreview?.(null);
+                                                                return;
+                                                            }
+                                                            if (file) {
+                                                                setECopyFile(file);
+                                                                setECopyPreview?.(URL.createObjectURL(file));
+                                                            }
+                                                        }}
+                                                        className="hidden"
+                                                    />
+                                                </Label>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <Button
+                                    onClick={handleRelease}
+                                    disabled={actionLoading}
+                                    className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
+                                >
+                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                    {isAppointmentEndorsement ? "Submit Endorsement to PSA" : "Release & Send to Citizen"}
+                                </Button>
+                            </div>
+                        )}
+
+                        {transaction.status === "FOR_CLAIM" && !isAppointmentEndorsement && (
                             <div className="space-y-6">
                                 <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-6">
                                     <div className="text-center space-y-3">
@@ -926,6 +1121,21 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                                     {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
                                     Release the Document
                                 </Button>
+                            </div>
+                        )}
+
+                        {/* PSA APPOINTMENT: WAITING FOR TREASURY COUNTER PAYMENT */}
+                        {(transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING") && isAppointmentEndorsement && (
+                            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
+                                    <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
+                                        <Clock className="w-7 h-7 animate-pulse" />
+                                    </div>
+                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">Endorsement Submitted — Awaiting Treasury</h4>
+                                    <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
+                                        The application has been endorsed to the PSA. The citizen will pay the counter fee at the Treasury Office. Treasury staff will issue the Official Receipt to complete the transaction.
+                                    </p>
+                                </div>
                             </div>
                         )}
 

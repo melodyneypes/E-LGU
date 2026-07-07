@@ -69,6 +69,35 @@ function isRegistrarLcrRequest(tx: any) {
     );
 }
 
+const PSA_APPOINTMENT_CODES = [
+    "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+    "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+    "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+];
+
+// Contextual status label for PSA Appointment Endorsements
+function getDisplayStatus(tx: any): string {
+    if (tx.isCancelled) return "CANCELLED";
+    const typeCode = tx.type?.code || "";
+    const status = tx.status || "";
+    if (PSA_APPOINTMENT_CODES.includes(typeCode)) {
+        switch (status) {
+            case "FOR_INSPECTION":
+            case "FOR_REQUESTING": return "AWAITING EVALUATION";
+            case "EVALUATED":      return "APPOINTMENT CONFIRMED";
+            case "UNPAID":         return "APPOINTMENT SCHEDULED";
+            case "FOR_PROCESSING": return "AWAITING REGISTRAR ENDORSEMENT";
+            case "FOR_CLAIM":
+            case "FOR_PICKING":    return "PAYMENT DUE AT TREASURY";
+            case "FOR_REINSPECTION": return "FOR PROCESSING";
+            case "RELEASED":       return "ENDORSED TO PSA";
+            case "PAID":           return "PAID";
+            default: break;
+        }
+    }
+    return status.replace(/_/g, " ");
+}
+
 // Status coloring helper mapping
 const getStatusClassName = (status: string, isCancelled?: boolean) => {
     if (isCancelled) return "text-red-600";
@@ -110,12 +139,13 @@ export default function RegistrarPage() {
     const categoryParam = searchParams.get("category");
     const hasSelectedCategory = Boolean(categoryParam && categoryParam !== "ALL");
 
-    const lastActivityRef = useRef(Date.now());
+    const lastActivityRef = useRef<number | null>(null);
     const [showUpdateModal, setShowUpdateModal] = useState(false);
     const [pendingUpdatesCount, setPendingUpdatesCount] = useState(0);
 
     // Track user activity to determine idle state
     useEffect(() => {
+        lastActivityRef.current = Date.now();
         const handleActivity = () => {
             lastActivityRef.current = Date.now();
         };
@@ -176,7 +206,7 @@ export default function RegistrarPage() {
                         console.log("Realtime change caught on Transaction table for registrar queue:", payload);
                         
                         const idleThreshold = 30000; // 30 seconds
-                        const isCurrentlyIdle = Date.now() - lastActivityRef.current > idleThreshold;
+                        const isCurrentlyIdle = Date.now() - (lastActivityRef.current ?? Date.now()) > idleThreshold;
 
                         if (isCurrentlyIdle) {
                             console.log("[Registrar Queue] User is idle. Queueing update modal...");
@@ -213,7 +243,7 @@ export default function RegistrarPage() {
         // Background polling fallback every 15 seconds to ensure queue updates
         const interval = setInterval(() => {
             const idleThreshold = 30000; // 30 seconds
-            const isCurrentlyIdle = Date.now() - lastActivityRef.current > idleThreshold;
+            const isCurrentlyIdle = Date.now() - (lastActivityRef.current ?? Date.now()) > idleThreshold;
 
             if (isCurrentlyIdle) {
                 console.log("[Polling Registrar Queue] User is idle. Bypassing silent auto-refresh.");
@@ -263,8 +293,10 @@ export default function RegistrarPage() {
             } else if (categoryParam === "PSA Endorsement") {
                 matchesCategory = (
                     tx.type?.code === "LCR_PSA_ENDORSEMENT" ||
-                    (tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" && tx.status !== "FOR_REQUESTING") ||
-                    tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT"
+                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    ((tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" || tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") && tx.status !== "FOR_REQUESTING") ||
+                    tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
                 ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
             } else if (categoryParam === "PSA Appt. Endorsement") {
                 matchesCategory = (
@@ -531,7 +563,7 @@ export default function RegistrarPage() {
                                                     "text-[10px] font-black uppercase italic tracking-wider px-2 py-1 rounded bg-slate-50 dark:bg-black/30 border border-current w-fit block",
                                                     getStatusClassName(tx.status, tx.isCancelled)
                                                 )}>
-                                                    {tx.isCancelled ? "CANCELLED" : tx.status?.replace(/_/g, " ")}
+                                                    {getDisplayStatus(tx)}
                                                 </span>
                                             </TableCell>
                                             <TableCell>
