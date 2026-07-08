@@ -66,6 +66,7 @@ export function AdminShell({
                 role === "TREASURY_STAFF" ||
                 role === "ADMIN_AIDE" ||
                 role === "ENGINEER" ||
+                role === "MPDC_ZONING" ||
                 (role === "ADMIN" && (deptUpper === "TREASURY" || deptUpper === "BPLO" || deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY"))
             ) {
                 isRedirecting = true;
@@ -105,6 +106,10 @@ export function AdminShell({
             if (!pathname.startsWith("/admin/engineer")) {
                 isRestricted = true;
             }
+        } else if (role === "MPDC_ZONING") {
+            if (!pathname.startsWith("/admin/zoning")) {
+                isRestricted = true;
+            }
         }
     }
 
@@ -137,6 +142,8 @@ export function AdminShell({
                         router.push("/admin/bplo");
                     } else if (role === "ENGINEER") {
                         router.push("/admin/engineer");
+                    } else if (role === "MPDC_ZONING") {
+                        router.push("/admin/zoning");
                     }
                 }, 100);
                 return () => clearTimeout(timer);
@@ -169,7 +176,7 @@ export function AdminShell({
                     {isRedirecting ? (
                         <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 bg-slate-50 dark:bg-[#0c111d] transition-colors duration-300">
                             <div className="max-w-md w-full bg-white dark:bg-[#151b28] rounded-[2rem] p-10 text-center shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-100 dark:border-white/5 space-y-6 flex flex-col items-center justify-center">
-                                <div className="w-16 h-16 rounded-3xl bg-blue-500/10 text-blue-600 flex items-center justify-center mx-auto shadow-lg shadow-blue-500/5">
+                        <div className="w-16 h-16 rounded-3xl bg-blue-500/10 text-blue-600 flex items-center justify-center mx-auto shadow-lg shadow-blue-500/5">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 animate-spin">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                                     </svg>

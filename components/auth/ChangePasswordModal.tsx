@@ -72,7 +72,6 @@ export function ChangePasswordModal({ isOpen, onOpenChange, email, onSuccess, th
             confirmPassword: "",
         },
     });
-
     const passwordValue = form.watch("password") || "";
 
     const requirements = [

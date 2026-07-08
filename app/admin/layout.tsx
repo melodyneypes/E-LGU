@@ -17,7 +17,7 @@ export default async function AdminLayout({
         redirect("/auth/login");
     }
     const role = (session.user as { role?: string })?.role;
-    if (role !== "ADMIN" && role !== "CONTENT_ADMIN" && role !== "BARANGAY_ADMIN" && role !== "TREASURY_STAFF" && role !== "ADMIN_AIDE" && role !== "ENGINEER") {
+    if (role !== "ADMIN" && role !== "CONTENT_ADMIN" && role !== "BARANGAY_ADMIN" && role !== "TREASURY_STAFF" && role !== "ADMIN_AIDE" && role !== "ENGINEER" && role !== "MPDC_ZONING") {
         redirect("/auth/login");
     }
 

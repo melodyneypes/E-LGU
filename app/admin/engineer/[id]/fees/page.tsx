@@ -63,7 +63,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const isForcedView = searchParams.get("view") === "true";
     const { data: session } = useSession();
     const userRole = (session?.user as any)?.role;
-    const backUrl = userRole === "ENGINEER" ? "/admin/engineer" : "/admin/treasury";
+    const backUrl = userRole === "ENGINEER" ? "/admin/engineer" : userRole === "MPDC_ZONING" ? "/admin/zoning" : "/admin/treasury";
 
     const [transaction, setTransaction] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -915,7 +915,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
                     {/* Executive Actions */}
                     <div className="space-y-4">
-                        {!isEndorsed && userRole === "ENGINEER" && (
+                        {!isEndorsed && (userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
                             <Button
                                 onClick={handleEndorse}
                                 disabled={actionLoading || !buildingFee}
@@ -978,7 +978,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                             </div>
                                         )}
 
-                                        {userRole === "ENGINEER" && (
+                                        {(userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
                                             <div className="pt-2 space-y-3">
                                                 {(transaction.additionalData?.clearanceRevisionCount || 0) > 0 && (
                                                     <div className="flex items-center gap-2 mb-2">
@@ -1035,7 +1035,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                             </p>
                                         </div>
 
-                                        {userRole === "ENGINEER" && (
+                                        {(userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
                                             <div className="pt-2 space-y-3">
                                                 <Button
                                                     onClick={handleSubmitPermit}

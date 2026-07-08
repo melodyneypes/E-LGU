@@ -44,6 +44,10 @@ function assertUserRoles(user: any, allowedRoles: string[]) {
     }
 }
 
+function isEngineerOrZoningRole(role?: string) {
+    return role === "ENGINEER" || role === "MPDC_ZONING";
+}
+
 
 /**
  * Fetches the current logged -in user's resident profile
@@ -1215,8 +1219,8 @@ export async function getTransactionById(id: string) {
 
         // ENGINEER should only be able to view Building Permit transactions
         const isBuildingPermit = transaction.type.code.startsWith("BUILDING_PERMIT");
-        if (user?.role === "ENGINEER" && !isBuildingPermit) {
-            return { success: false, error: "Forbidden: Engineers can only access Building Permit transactions." };
+        if ((user?.role === "ENGINEER" || user?.role === "MPDC_ZONING") && !isBuildingPermit) {
+            return { success: false, error: "Forbidden: Engineers and Zoning Officers can only access Building Permit transactions." };
         }
 
         // Ordinary resident check: can only fetch their own transactions
@@ -1461,7 +1465,7 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
         const session = await getSession();
         // Check for TREASURY_STAFF or ADMIN role
         const user = session?.user as any;
-        if (!user || (user.role !== "TREASURY_STAFF" && user.role !== "ADMIN" && !isUserAdminAide(user) && user.role !== "ENGINEER" && user.role !== "REGISTRAR")) {
+        if (!user || (user.role !== "TREASURY_STAFF" && user.role !== "ADMIN" && !isUserAdminAide(user) && user.role !== "ENGINEER" && user.role !== "MPDC_ZONING" && user.role !== "REGISTRAR")) {
             return { success: false, error: "Forbidden" };
         }
 
@@ -2257,7 +2261,7 @@ export async function rejectTransaction(id: string, remarks: string) {
 
         const session = await getSession();
         const user = session?.user as any;
-        if (!user || (user.role !== "TREASURY_STAFF" && user.role !== "ADMIN" && !isUserAdminAide(user) && user.role !== "ENGINEER" && user.role !== "REGISTRAR")) {
+        if (!user || (user.role !== "TREASURY_STAFF" && user.role !== "ADMIN" && !isUserAdminAide(user) && user.role !== "ENGINEER" && user.role !== "MPDC_ZONING" && user.role !== "REGISTRAR")) {
             return { success: false, error: "Forbidden" };
         }
 
@@ -2385,7 +2389,7 @@ export async function sendForRevision(
 
         const session = await getSession();
         const user = session?.user as any;
-        if (!user || (user.role !== "TREASURY_STAFF" && user.role !== "ADMIN" && !isUserAdminAide(user) && user.role !== "ENGINEER" && user.role !== "REGISTRAR")) {
+        if (!user || (user.role !== "TREASURY_STAFF" && user.role !== "ADMIN" && !isUserAdminAide(user) && user.role !== "ENGINEER" && user.role !== "MPDC_ZONING" && user.role !== "REGISTRAR")) {
             return { success: false, error: "Forbidden" };
         }
 
@@ -3046,7 +3050,7 @@ export async function getAllSuccessfulBusinessPermits() {
 export async function getEngineerTransactions(status?: string) {
     try {
         const user = await assertSessionUser();
-        assertUserRoles(user, ["ENGINEER", "ADMIN"]);
+        assertUserRoles(user, ["ENGINEER", "MPDC_ZONING", "ADMIN"]);
 
         const where: any = {
             type: { code: { startsWith: "BUILDING_PERMIT" } }
@@ -3113,7 +3117,7 @@ export async function getEngineerTransactions(status?: string) {
 export async function getEngineerPendingCount() {
     try {
         const user = await assertSessionUser();
-        assertUserRoles(user, ["ENGINEER", "ADMIN"]);
+        assertUserRoles(user, ["ENGINEER", "MPDC_ZONING", "ADMIN"]);
 
         const count = await prisma.transaction.count({
             where: {
@@ -3134,7 +3138,7 @@ export async function getEngineerPendingCount() {
 export async function getEngineerStatusCounts() {
     try {
         const user = await assertSessionUser();
-        assertUserRoles(user, ["ENGINEER", "ADMIN"]);
+        assertUserRoles(user, ["ENGINEER", "MPDC_ZONING", "ADMIN"]);
 
         const where: any = {
             type: { code: { startsWith: "BUILDING_PERMIT" } },
@@ -3174,8 +3178,8 @@ export async function scheduleBuildingInspection(id: string, details: any) {
     try {
         const session = await getSession();
         const user = session?.user as any;
-        if (!user || user.role !== "ENGINEER") {
-            return { success: false, error: "Forbidden: Only Engineers can schedule inspections" };
+        if (!user || !isEngineerOrZoningRole(user.role)) {
+            return { success: false, error: "Forbidden: Only Engineers or Zoning Officers can schedule inspections" };
         }
 
         const transaction = await prisma.transaction.findUnique({
@@ -3223,6 +3227,7 @@ export async function scheduleBuildingInspection(id: string, details: any) {
         }
 
         revalidatePath("/admin/engineer");
+        revalidatePath("/admin/zoning");
         revalidatePath("/admin/treasury");
         return { success: true, data: updatedTransaction };
     } catch (error) {
@@ -3238,8 +3243,8 @@ export async function markForReinspection(id: string, reason: string, details?: 
     try {
         const session = await getSession();
         const user = session?.user as any;
-        if (!user || user.role !== "ENGINEER") {
-            return { success: false, error: "Forbidden: Only Engineers can re-inspect" };
+        if (!user || !isEngineerOrZoningRole(user.role)) {
+            return { success: false, error: "Forbidden: Only Engineers or Zoning Officers can re-inspect" };
         }
 
         const transaction = await prisma.transaction.findUnique({
@@ -3323,6 +3328,7 @@ export async function markForReinspection(id: string, reason: string, details?: 
         }
 
         revalidatePath("/admin/engineer");
+        revalidatePath("/admin/zoning");
         revalidatePath("/admin/treasury");
         return { success: true, data: updatedTransaction };
     } catch (error) {
@@ -3341,8 +3347,8 @@ export async function endorseBuildingPermitFees(
     try {
         const session = await getSession();
         const user = session?.user as any;
-        if (!user || (user.role !== "ENGINEER" && user.role !== "ADMIN")) {
-            return { success: false, error: "Forbidden: Only Engineers or Admins can endorse fees." };
+        if (!user || (!isEngineerOrZoningRole(user.role) && user.role !== "ADMIN")) {
+            return { success: false, error: "Forbidden: Only Engineers, Zoning Officers, or Admins can endorse fees." };
         }
 
         const transaction = await prisma.transaction.findUnique({
@@ -3361,7 +3367,7 @@ export async function endorseBuildingPermitFees(
                 engineerMunicipalCharges: fees.engineerMunicipalCharges || [],
                 endorsed: true,
                 endorsedAt: new Date(),
-                endorsedBy: user.name || "Municipal Engineer"
+                endorsedBy: user.name || (user.role === "MPDC_ZONING" ? "MPDC Zoning Officer" : "Municipal Engineer")
             }
         };
 
@@ -3391,6 +3397,7 @@ export async function endorseBuildingPermitFees(
         }
 
         revalidatePath("/admin/engineer");
+        revalidatePath("/admin/zoning");
         revalidatePath("/admin/treasury");
         return { success: true, data: updatedTransaction };
     } catch (error) {
@@ -3403,8 +3410,8 @@ export async function approveBuildingPermit(id: string) {
     try {
         const session = await getSession();
         const user = session?.user as any;
-        if (!user || (user.role !== "ENGINEER" && user.role !== "ADMIN")) {
-            return { success: false, error: "Forbidden: Only Engineers or Admins can approve building permits." };
+        if (!user || (!isEngineerOrZoningRole(user.role) && user.role !== "ADMIN")) {
+            return { success: false, error: "Forbidden: Only Engineers, Zoning Officers, or Admins can approve building permits." };
         }
 
         const transaction = await prisma.transaction.findUnique({
@@ -3439,6 +3446,7 @@ export async function approveBuildingPermit(id: string) {
         }
 
         revalidatePath("/admin/engineer");
+        revalidatePath("/admin/zoning");
         revalidatePath("/admin/treasury");
         return { success: true, data: updatedTransaction };
     } catch (error) {
@@ -3453,8 +3461,8 @@ export async function reviseBuildingPermitClearancesAction(id: string, reason: s
     try {
         const session = await getSession();
         const user = session?.user as any;
-        if (!user || (user.role !== "ENGINEER" && user.role !== "ADMIN")) {
-            return { success: false, error: "Forbidden: Only Engineers or Admins can request revisions." };
+        if (!user || (!isEngineerOrZoningRole(user.role) && user.role !== "ADMIN")) {
+            return { success: false, error: "Forbidden: Only Engineers, Zoning Officers, or Admins can request revisions." };
         }
 
         const transaction = await prisma.transaction.findUnique({
@@ -3505,6 +3513,7 @@ export async function reviseBuildingPermitClearancesAction(id: string, reason: s
         }
 
         revalidatePath("/admin/engineer");
+        revalidatePath("/admin/zoning");
         revalidatePath("/admin/treasury");
         revalidatePath("/user/services/building-permit");
 
@@ -3519,8 +3528,8 @@ export async function declineBuildingPermitAction(id: string, reason: string) {
     try {
         const session = await getSession();
         const user = session?.user as any;
-        if (!user || (user.role !== "ENGINEER" && user.role !== "ADMIN")) {
-            return { success: false, error: "Forbidden: Only Engineers or Admins can decline." };
+        if (!user || (!isEngineerOrZoningRole(user.role) && user.role !== "ADMIN")) {
+            return { success: false, error: "Forbidden: Only Engineers, Zoning Officers, or Admins can decline." };
         }
 
         return await rejectTransaction(id, reason);
@@ -3761,8 +3770,8 @@ export async function submitBuildingPermitAction(id: string, eCopyUrl: string) {
     try {
         const session = await getSession();
         const user = session?.user as any;
-        if (!user || (user.role !== "ENGINEER" && user.role !== "ADMIN")) {
-            return { success: false, error: "Forbidden: Only Engineers or Admins can submit building permits." };
+        if (!user || (!isEngineerOrZoningRole(user.role) && user.role !== "ADMIN")) {
+            return { success: false, error: "Forbidden: Only Engineers, Zoning Officers, or Admins can submit building permits." };
         }
 
         const transaction = await prisma.transaction.findUnique({
@@ -3800,6 +3809,7 @@ export async function submitBuildingPermitAction(id: string, eCopyUrl: string) {
         }
 
         revalidatePath("/admin/engineer");
+        revalidatePath("/admin/zoning");
         revalidatePath("/admin/treasury");
         revalidatePath("/user/services/building-permit");
         return { success: true, data: updatedTransaction };
@@ -3813,8 +3823,8 @@ export async function releaseBuildingPermitAction(id: string) {
     try {
         const session = await getSession();
         const user = session?.user as any;
-        if (!user || (user.role !== "ENGINEER" && user.role !== "ADMIN")) {
-            return { success: false, error: "Forbidden: Only Engineers or Admins can release building permits." };
+        if (!user || (!isEngineerOrZoningRole(user.role) && user.role !== "ADMIN")) {
+            return { success: false, error: "Forbidden: Only Engineers, Zoning Officers, or Admins can release building permits." };
         }
 
         const transaction = await prisma.transaction.findUnique({
@@ -3870,6 +3880,7 @@ export async function releaseBuildingPermitAction(id: string) {
         }
 
         revalidatePath("/admin/engineer");
+        revalidatePath("/admin/zoning");
         revalidatePath("/admin/treasury");
         revalidatePath("/user/services/building-permit");
         return { success: true, data: updatedTransaction };
@@ -4099,7 +4110,7 @@ export async function saveZoningClearanceProofAction(id: string, url: string) {
     try {
         const session = await getSession();
         const user = session?.user as any;
-        if (!user || (user.role !== "USER" && user.role !== "ADMIN" && user.role !== "ENGINEER")) {
+        if (!user || (user.role !== "USER" && user.role !== "ADMIN" && user.role !== "ENGINEER" && user.role !== "MPDC_ZONING")) {
             return { success: false, error: "Forbidden" };
         }
 

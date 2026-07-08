@@ -176,7 +176,7 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
     const isForcedView = searchParams.get("view") === "true";
     const { data: session } = useSession();
     const userRole = (session?.user as any)?.role;
-    const backUrl = userRole === "ENGINEER" ? "/admin/engineer" : "/admin/treasury";
+    const backUrl = userRole === "ENGINEER" ? "/admin/engineer" : userRole === "MPDC_ZONING" ? "/admin/zoning" : "/admin/treasury";
 
     const [transaction, setTransaction] = useState<any>(null);
     const isViewOnly = isForcedView || (transaction && transaction.status !== "FOR_REINSPECTION");
@@ -799,7 +799,7 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
 
                     {/* Executive Actions */}
                     <div className="space-y-4">
-                        {!isViewOnly && userRole === "ENGINEER" && (
+                        {!isViewOnly && (userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
                             <div className="space-y-3">
                                 <Button onClick={handleEvaluate} disabled={actionLoading} className="w-full h-16 rounded-2xl bg-primary text-white font-black italic uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20">
                                     <Check className="w-4 h-4 mr-2" /> Approve Inspection
