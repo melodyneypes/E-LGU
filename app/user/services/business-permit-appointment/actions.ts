@@ -9,13 +9,11 @@ import { sanitizeString, sanitizeObject, sanitizeUrl } from "@/lib/validation";
 import { uploadFile } from "@/lib/storage";
 
 function isValidImageOrPdf(buffer: Buffer, filename: string, mimeType: string): boolean {
-    // 1. Extension check
-    const allowedExtensions = /\.(jpe?g|png|gif|webp|pdf)$/i;
+    const allowedExtensions = /\.(jpe?g|png|webp|pdf)$/i;
     if (!allowedExtensions.test(filename)) {
         return false;
     }
 
-    // 2. MIME type check
     const allowedMimeTypes = [
         "image/jpeg",
         "image/png",
@@ -26,23 +24,18 @@ function isValidImageOrPdf(buffer: Buffer, filename: string, mimeType: string): 
         return false;
     }
 
-    // 3. Magic bytes verification (headers)
     if (buffer.length < 4) return false;
     const hex = buffer.toString("hex", 0, 12).toUpperCase();
 
-    // JPEG: FF D8 FF
     if (hex.startsWith("FFD8FF")) {
         return mimeType.toLowerCase() === "image/jpeg";
     }
-    // PNG: 89 50 4E 47 0D 0A 1A 0A
     if (hex.startsWith("89504E470D0A1A0A")) {
         return mimeType.toLowerCase() === "image/png";
     }
-    // PDF: %PDF
     if (hex.startsWith("25504446")) {
         return mimeType.toLowerCase() === "application/pdf";
     }
-    // WEBP: RIFF at start and WEBP at offset 8
     if (hex.startsWith("52494646") && hex.substring(16, 24) === "57454250") {
         return mimeType.toLowerCase() === "image/webp";
     }
@@ -56,9 +49,8 @@ async function processFileUpload(file: File, folder: string = "transactions"): P
     try {
         const buffer = Buffer.from(await file.arrayBuffer());
 
-        // Validate the file headers (magic bytes) to prevent script execution attacks
         if (!isValidImageOrPdf(buffer, file.name, file.type)) {
-            console.error(`Blocked upload attempt: File ${file.name} is not a valid image/PDF or headers mismatch.`);
+            console.error(`Blocked upload attempt: File ${file.name} is not a valid image/PDF.`);
             return null;
         }
 
@@ -73,7 +65,7 @@ async function processFileUpload(file: File, folder: string = "transactions"): P
     }
 }
 
-export async function cleanupPastDueCedulaAppointments(userId?: string) {
+export async function cleanupPastDueBusinessAppointments(userId?: string) {
     try {
         const manilaDateString = new Intl.DateTimeFormat("en-US", {
             timeZone: "Asia/Manila",
@@ -84,7 +76,6 @@ export async function cleanupPastDueCedulaAppointments(userId?: string) {
         const [month, day, year] = manilaDateString.split("/");
         const startOfTodayManila = new Date(`${year}-${month}-${day}T00:00:00.000Z`);
 
-        // Find all non-terminal cedula appointments before today
         const whereClause: any = {
             appointmentDate: {
                 lt: startOfTodayManila
@@ -94,7 +85,7 @@ export async function cleanupPastDueCedulaAppointments(userId?: string) {
             },
             isCancelled: false,
             type: {
-                category: "CEDULA"
+                code: { in: ["BUSINESS_PERMIT_NEW", "BUSINESS_PERMIT_RENEW"] }
             }
         };
 
@@ -111,33 +102,29 @@ export async function cleanupPastDueCedulaAppointments(userId?: string) {
             }
         });
     } catch (error) {
-        console.error("Error cleaning up past-due appointments:", error);
+        console.error("Error cleaning up past-due business appointments:", error);
     }
 }
 
-export async function submitCedulaAppointment(formData: FormData) {
+export async function submitBusinessAppointment(formData: FormData) {
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
             return { success: false, error: "Unauthorized" };
         }
 
-        // Automatically cancel/reject any past-due appointments before verifying active transaction
-        await cleanupPastDueCedulaAppointments(session.user.id);
+        await cleanupPastDueBusinessAppointments(session.user.id);
 
         const typeId = sanitizeString(formData.get("typeId") as string);
         const appointmentSlot = sanitizeString(formData.get("appointmentSlot") as string);
         const appointmentDate = new Date(formData.get("appointmentDate") as string);
 
-        // Check if there is an existing active request of the same type
         const txType = await prisma.transactionType.findUnique({
             where: { id: typeId }
         });
         if (!txType) {
             return { success: false, error: "Invalid transaction type." };
         }
-
-
 
         const activeTx = await prisma.transaction.findFirst({
             where: {
@@ -154,49 +141,116 @@ export async function submitCedulaAppointment(formData: FormData) {
         if (activeTx) {
             return {
                 success: false,
-                error: `You currently have an ongoing request for "${txType.name}". Please wait for it to be completed (Released) or cancelled before requesting another one.`
+                error: `You currently have an ongoing request for "${txType.name}". Please wait for it to be completed or cancelled before requesting another one.`
             };
         }
 
-        // Sanitize resident snapshot and additional data
         const residentSnapshot = sanitizeObject(JSON.parse(formData.get("residentSnapshot") as string));
         const additionalData = sanitizeObject(JSON.parse(formData.get("additionalData") as string));
 
         // Files
         const idFile = formData.get("idFile") as File;
-        const proofFile = formData.get("proofFile") as File;
+        const brgyClearanceFile = formData.get("brgyClearanceFile") as File;
+        const dtiSecFile = formData.get("dtiSecFile") as File;
+        const ctcFile = formData.get("ctcFile") as File;
+        const sanitaryPermitFile = formData.get("sanitaryPermitFile") as File;
+        const fireSafetyFile = formData.get("fireSafetyFile") as File;
+        const previousPermitFile = formData.get("previousPermitFile") as File;
+        const birCorFile = formData.get("birCorFile") as File;
+        const locationPhotoFile = formData.get("locationPhotoFile") as File;
+
         const existingIdUrl = sanitizeUrl(formData.get("existingIdUrl") as string);
-        const existingProofUrl = sanitizeUrl(formData.get("existingProofUrl") as string);
 
         let idUrl = null;
         if (idFile && idFile.size > 0 && idFile.name !== "undefined") {
             idUrl = await processFileUpload(idFile, "ids");
             if (!idUrl) {
-                return { success: false, error: "Failed to upload Valid ID. Please try again or check your connection." };
+                return { success: false, error: "Failed to upload Valid ID." };
             }
         }
         if (!idUrl && existingIdUrl) idUrl = existingIdUrl;
 
-        let proofUrl = null;
-        if (proofFile && proofFile.size > 0 && proofFile.name !== "undefined") {
-            proofUrl = await processFileUpload(proofFile, "proofs");
-            if (!proofUrl) {
-                return { success: false, error: "Failed to upload Proof document. Please try again or check your connection." };
+        let brgyUrl = null;
+        if (brgyClearanceFile && brgyClearanceFile.size > 0 && brgyClearanceFile.name !== "undefined") {
+            brgyUrl = await processFileUpload(brgyClearanceFile, "clearances");
+            if (!brgyUrl) {
+                return { success: false, error: "Failed to upload Barangay Clearance." };
             }
         }
-        if (!proofUrl && existingProofUrl) proofUrl = existingProofUrl;
 
-        // Merge file URLs into additionalData
+        let dtiSecUrl = null;
+        if (dtiSecFile && dtiSecFile.size > 0 && dtiSecFile.name !== "undefined") {
+            dtiSecUrl = await processFileUpload(dtiSecFile, "dti_sec");
+            if (!dtiSecUrl) {
+                return { success: false, error: "Failed to upload DTI/SEC registration certificate." };
+            }
+        }
+
+        let ctcUrl = null;
+        if (ctcFile && ctcFile.size > 0 && ctcFile.name !== "undefined") {
+            ctcUrl = await processFileUpload(ctcFile, "ctc");
+            if (!ctcUrl) {
+                return { success: false, error: "Failed to upload CTC." };
+            }
+        }
+
+        let sanitaryPermitUrl = null;
+        if (sanitaryPermitFile && sanitaryPermitFile.size > 0 && sanitaryPermitFile.name !== "undefined") {
+            sanitaryPermitUrl = await processFileUpload(sanitaryPermitFile, "sanitary_permit");
+            if (!sanitaryPermitUrl) {
+                return { success: false, error: "Failed to upload Sanitary Permit." };
+            }
+        }
+
+        let fireSafetyUrl = null;
+        if (fireSafetyFile && fireSafetyFile.size > 0 && fireSafetyFile.name !== "undefined") {
+            fireSafetyUrl = await processFileUpload(fireSafetyFile, "fire_safety");
+            if (!fireSafetyUrl) {
+                return { success: false, error: "Failed to upload Fire Safety Inspection Certificate." };
+            }
+        }
+
+        let previousPermitUrl = null;
+        if (previousPermitFile && previousPermitFile.size > 0 && previousPermitFile.name !== "undefined") {
+            previousPermitUrl = await processFileUpload(previousPermitFile, "previous_permit");
+            if (!previousPermitUrl) {
+                return { success: false, error: "Failed to upload Previous Business Permit." };
+            }
+        }
+
+        let birCorUrl = null;
+        if (birCorFile && birCorFile.size > 0 && birCorFile.name !== "undefined") {
+            birCorUrl = await processFileUpload(birCorFile, "bir_cor");
+            if (!birCorUrl) {
+                return { success: false, error: "Failed to upload BIR Certificate of Registration." };
+            }
+        }
+
+        let locationPhotoUrl = null;
+        if (locationPhotoFile && locationPhotoFile.size > 0 && locationPhotoFile.name !== "undefined") {
+            locationPhotoUrl = await processFileUpload(locationPhotoFile, "location_photo");
+            if (!locationPhotoUrl) {
+                return { success: false, error: "Failed to upload Photo of Business Location." };
+            }
+        }
+
         const updatedAdditionalData = {
             ...additionalData,
-            validIdUrl: idUrl,
-            proofOfIncomeUrl: proofUrl
+            ownerIdUrl: idUrl,
+            brgyClearanceUrl: brgyUrl,
+            dtiSecUrl: dtiSecUrl,
+            ctcUrl: ctcUrl,
+            sanitaryPermitUrl: sanitaryPermitUrl,
+            fireSafetyUrl: fireSafetyUrl,
+            previousPermitUrl: previousPermitUrl,
+            birCorUrl: birCorUrl,
+            locationPhotoUrl: locationPhotoUrl,
         };
 
-        // 1. Check if the slot is still available (concurrency control)
+        // Check if the slot is still available
         const config = await prisma.appointmentConfig.findUnique({
-            where: { department: "TREASURY" }
-        }) as any; // Cast as any to resolve maxSlotsAM/PM cache lag warning
+            where: { department: "BPLO" }
+        }) as any;
         const maxSlotsAM = config?.maxSlotsAM ?? 25;
         const maxSlotsPM = config?.maxSlotsPM ?? 25;
 
@@ -213,7 +267,9 @@ export async function submitCedulaAppointment(formData: FormData) {
                 },
                 appointmentSlot: appointmentSlot,
                 isCancelled: false,
-                type: { category: "CEDULA" }
+                type: {
+                    code: { in: ["BUSINESS_PERMIT_NEW", "BUSINESS_PERMIT_RENEW"] }
+                }
             }
         });
 
@@ -221,10 +277,9 @@ export async function submitCedulaAppointment(formData: FormData) {
         const maxLimit = isAM ? maxSlotsAM : maxSlotsPM;
 
         if (bookedCount >= maxLimit) {
-            return { success: false, error: "This appointment slot is already fully booked. Please select another slot." };
+            return { success: false, error: "This appointment slot is already fully booked." };
         }
 
-        // Read priority lane flag from additionalData (passed from form state)
         const isPriority = additionalData.isPriorityLane === true || additionalData.isPriorityLane === "true";
 
         const queueNumber = await generateQueueNumber({
@@ -234,13 +289,12 @@ export async function submitCedulaAppointment(formData: FormData) {
             appointmentSlot,
         });
 
-        // 3. Create the Transaction Record
         const transaction = await prisma.$transaction(async (tx) => {
             const newTx = await tx.transaction.create({
                 data: {
                     userId: session.user.id,
                     typeId,
-                    status: "FOR_REQUESTING", // Updated status to FOR_REQUESTING
+                    status: "FOR_INSPECTION",
                     residentSnapshot,
                     additionalData: {
                         ...updatedAdditionalData,
@@ -250,12 +304,11 @@ export async function submitCedulaAppointment(formData: FormData) {
                     appointmentDate,
                     appointmentSlot,
                     queueNumber,
-                    isPriority, // Save under new isPriority column
+                    isPriority,
                     businessName: additionalData.businessName || null,
                 } as any
             });
 
-            // Update permanent resident profile
             await tx.resident.update({
                 where: { userId: session.user.id },
                 data: {
@@ -283,7 +336,7 @@ export async function submitCedulaAppointment(formData: FormData) {
         revalidatePath("/admin/transactions");
         return { success: true, data: transaction as any };
     } catch (error) {
-        console.error("Submit appointment transaction error:", error);
-        return { success: false, error: "Failed to book appointment" };
+        console.error("Submit business appointment error:", error);
+        return { success: false, error: "Failed to book business permit appointment" };
     }
 }

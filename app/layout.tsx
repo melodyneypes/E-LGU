@@ -59,7 +59,7 @@ export default async function RootLayout({
   const isMaintenanceActive = settings.get("maintenance_mode") === "true";
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

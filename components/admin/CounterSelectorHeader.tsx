@@ -3,10 +3,12 @@
 import React, { useState, useEffect } from "react";
 import { Monitor, ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface CounterSelectorHeaderProps {
     themeColor?: string;
     userRole: string;
+    userDepartment?: string | null;
 }
 
 const COUNTER_OPTIONS = [
@@ -25,16 +27,27 @@ const COUNTER_OPTIONS = [
 
 export default function CounterSelectorHeader({
     themeColor = "#2563eb",
-    userRole
+    userRole,
+    userDepartment
 }: CounterSelectorHeaderProps) {
     const [counterName, setCounterName] = useState<string | null>(null);
+    const [prompted, setPrompted] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const [customValue, setCustomValue] = useState("");
     const dropdownRef = React.useRef<HTMLDivElement>(null);
 
     // Only enable counter selection for authorized staff roles
-    const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "MPDC_ZONING"];
-    const isAuthorized = allowedRoles.includes(userRole);
+    const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
+    
+    // Departments that MUST have counter/window selection
+    const allowedDepartments = ["Zoning", "MPDC Zoning", "Treasury", "Registrar", "Civil Registry", "BPLO", "Engineer", "Engineering"];
+    
+    const isLGU = userDepartment?.toUpperCase() === "LGU";
+    
+    const isAuthorized = allowedRoles.includes(userRole) && !isLGU && (
+        (userDepartment && allowedDepartments.some(dept => userDepartment.toLowerCase().includes(dept.toLowerCase()))) ||
+        (!userDepartment && userRole === "BARANGAY_ADMIN")
+    );
 
     useEffect(() => {
         if (!isAuthorized) return;
@@ -44,8 +57,12 @@ export default function CounterSelectorHeader({
         if (saved) {
             setCounterName(saved);
         } else {
-            // Auto prompt or keep null to show warning state
             setCounterName(null);
+        }
+
+        const savedPrompted = sessionStorage.getItem("counterSetPrompted") === "true";
+        if (savedPrompted) {
+            setPrompted(true);
         }
     }, [isAuthorized]);
 
@@ -66,6 +83,8 @@ export default function CounterSelectorHeader({
         localStorage.setItem("activeCounterName", name);
         setCounterName(name);
         setIsOpen(false);
+        sessionStorage.setItem("counterSetPrompted", "true");
+        setPrompted(true);
 
         // Dispatch storage event to notify other components instantly
         window.dispatchEvent(new Event("storage"));
@@ -78,6 +97,13 @@ export default function CounterSelectorHeader({
             setCustomValue("");
         }
     };
+
+    const handleSkip = () => {
+        sessionStorage.setItem("counterSetPrompted", "true");
+        setPrompted(true);
+    };
+
+    const isEnforcerOpen = isAuthorized && counterName === null && !prompted;
 
     return (
         <div className="relative" ref={dropdownRef}>
@@ -154,6 +180,59 @@ export default function CounterSelectorHeader({
                     </form>
                 </div>
             )}
+
+            {/* Enforcer Modal Dialog */}
+            <Dialog open={isEnforcerOpen} onOpenChange={() => {}}>
+                <DialogContent 
+                    className="rounded-3xl max-w-md p-6 md:p-8 [&>button]:hidden shadow-2xl border border-slate-200 dark:border-white/10"
+                    onPointerDownOutside={(e) => e.preventDefault()}
+                    onEscapeKeyDown={(e) => e.preventDefault()}
+                >
+                    <DialogHeader className="space-y-2">
+                        <DialogTitle className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                            <Monitor className="w-6 h-6 text-primary shrink-0" style={{ color: themeColor }} />
+                            Assign Active Counter / Window
+                        </DialogTitle>
+                        <DialogDescription className="text-xs font-semibold text-slate-500 leading-relaxed">
+                            Please type your active counter or window assignment below. This is required if you will call queue tickets so they are routed to your counter. If you are not assigned to a queue window (e.g., payment ledger only), you may skip this.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 mt-4">
+                        <form onSubmit={handleCustomSubmit} className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none block">
+                                    Counter / Window Name
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Window 1, Counter 2"
+                                    value={customValue}
+                                    onChange={(e) => setCustomValue(e.target.value)}
+                                    className="w-full h-11 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-primary placeholder-slate-400"
+                                />
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={handleSkip}
+                                    className="flex-1 h-11 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-455 hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+                                >
+                                    Skip Assignment
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-1 h-11 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all hover:brightness-95 active:scale-95"
+                                    style={{ backgroundColor: themeColor }}
+                                >
+                                    Set Active Counter
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

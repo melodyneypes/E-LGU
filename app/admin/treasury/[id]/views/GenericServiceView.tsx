@@ -160,6 +160,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
             <header className="h-16 px-8 flex items-center justify-between border-b border-transparent dark:border-white/5">
                 <Link
                     href={backUrl}
+                    prefetch={false}
                     className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-primary transition-all group"
                 >
                     <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
@@ -681,7 +682,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                     )}
 
                     {/* ACTION BUTTONS — below the card, no card wrapper */}
-                    {((transaction.status === "FOR_REQUESTING" || transaction.status === "EVALUATED" || transaction.status === "UNPAID") && (userRole === "TREASURY_STAFF" || userRole === "ADMIN") && !isReadOnlyAide) && (
+                    {((transaction.status === "FOR_REQUESTING" || transaction.status === "EVALUATED" || transaction.status === "UNPAID" || (transaction.status === "FOR_PROCESSING" && !transaction.orSeriesNumber && !transaction.paymentType)) && (userRole === "TREASURY_STAFF" || userRole === "ADMIN") && !isReadOnlyAide) && (
                         <div className="space-y-3">
                             {/* If status is FOR_REQUESTING: Show Evaluation stage (Approve, Request Revision, Decline) */}
                             {transaction.status === "FOR_REQUESTING" && (
@@ -719,8 +720,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                 </div>
                             )}
 
-                            {/* If status is EVALUATED / UNPAID: Show Payment & Release stage */}
-                            {(transaction.status === "EVALUATED" || transaction.status === "UNPAID") && (() => {
+                            {/* If status is EVALUATED / FOR_PROCESSING: Show Payment & Release stage */}
+                            {(transaction.status === "EVALUATED" || transaction.status === "FOR_PROCESSING") && (() => {
                                 const hasInvalidFees = feeLineItems.some(item => {
                                     const labelEmpty = item.label.trim() === "";
                                     const amountEmpty = item.amount.trim() === "" || item.amount === "0";
@@ -857,7 +858,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                     )}
 
                     {/* INTERACTIVE RELEASE HUB FOR PROCESSING PHASES */}
-                    {["PAID", "FOR_CLAIM", "FOR_PICKING", "FOR_PROCESSING"].includes(transaction.status) && (
+                    {(["PAID", "FOR_CLAIM", "FOR_PICKING"].includes(transaction.status) || (transaction.status === "FOR_PROCESSING" && (!!transaction.orSeriesNumber || !!transaction.paymentType))) && (
                         <div className="space-y-6">
                             <div>
                                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 block italic leading-none">Document Issuance</span>

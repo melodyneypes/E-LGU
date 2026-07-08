@@ -13,6 +13,7 @@ import { sendEmail } from "@/lib/mail";
 import { uploadFile, validatePayloadFiles } from "@/lib/storage";
 import { sanitizeString, sanitizeObject, sanitizeUrl } from "@/lib/validation";
 import { updateDeceasedResidentStatus } from "./death-regis-actions";
+import { cleanupPastDueCedulaAppointments } from "@/app/user/services/cedula-appointment/actions";
 
 const isUserAdminAide = (u: any) => u?.role === "ADMIN_AIDE" || (u?.role === "ADMIN" && u?.department?.toUpperCase() === "BPLO");
 
@@ -1641,7 +1642,7 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
         // Determine New Status.
         // New BPLO requests that pass inspection move to Treasury requesting.
         // Re-inspection keeps the existing later-phase flow and returns to processing.
-        let newStatus = (isUserAdminAide(user) && isBusinessPermit) ? "FOR_REQUESTING" : "UNPAID" as any;
+        let newStatus = (isUserAdminAide(user) && isBusinessPermit) ? "FOR_REQUESTING" : "FOR_INSPECTION" as any;
         if (isLCR && transaction.status === "FOR_INSPECTION") {
             const typeCode = (transaction.type?.code || "").toUpperCase();
             const regType = (additionalData?.registrationType || "").toUpperCase();
@@ -1658,7 +1659,7 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
             } else if (isCertifiedCopy) {
                 newStatus = "FOR_REQUESTING";
             } else if (typeCode === "LCR_DEATH_REG" && (regType === "STANDARD" || !regType) && !hasAdditionalFees) {
-                newStatus = "UNPAID";
+                newStatus = "FOR_INSPECTION";
             } else {
                 newStatus = "FOR_REQUESTING";
             }
@@ -2660,6 +2661,9 @@ export async function getUserTransactions() {
     try {
         const session = await getSession();
         if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+        // Automatically cancel/reject any past-due appointments before fetching
+        await cleanupPastDueCedulaAppointments(session.user.id);
 
         const transactions = await prisma.transaction.findMany({
             where: { userId: session.user.id },

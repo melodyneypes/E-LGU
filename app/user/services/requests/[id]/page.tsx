@@ -151,6 +151,7 @@ export default function RequestHubPage() {
     const params = useParams();
     const router = useRouter();
     const id = params.id as string;
+    const isAppointmentPath = typeof window !== "undefined" ? window.location.pathname.includes("/user/appointment/") : false;
 
     const [request, setRequest] = useState<any>(null);
     const [copied, setCopied] = useState(false);
@@ -235,46 +236,39 @@ export default function RequestHubPage() {
     };
 
     useEffect(() => {
+        async function checkPaymentStatusBackground(reqId: string) {
+            try {
+                const MAX_RETRIES = 3;
+                const RETRY_DELAY_MS = 3000;
+                for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+                    const checkRes = await checkPaymongoPaymentStatus(reqId);
+                    if (checkRes.success && checkRes.status === "PAID") {
+                        const refreshedRes = await getTransactionById(reqId);
+                        if (refreshedRes.success && refreshedRes.data) {
+                            setRequest(refreshedRes.data);
+                        }
+                        break;
+                    }
+                    if (attempt < MAX_RETRIES) {
+                        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+                    }
+                }
+            } catch (checkErr) {
+                console.error("Failed to check PayMongo status in background:", checkErr);
+            }
+        }
+
         async function fetchRequest() {
             try {
                 const res = await getTransactionById(id);
                 if (res.success && res.data) {
-                    let req = res.data;
-
-
-
-                    if (req.status === "UNPAID" || req.status === "EVALUATED") {
-                        try {
-                            // Retry up to 3 times with delays — PayMongo may not settle the payment immediately after redirect
-                            const MAX_RETRIES = 3;
-                            const RETRY_DELAY_MS = 3000;
-                            let paymentConfirmed = false;
-
-                            for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-                                const checkRes = await checkPaymongoPaymentStatus(id);
-                                if (checkRes.success && checkRes.status === "PAID") {
-                                    const refreshedRes = await getTransactionById(id);
-                                    if (refreshedRes.success && refreshedRes.data) {
-                                        req = refreshedRes.data;
-                                    }
-                                    paymentConfirmed = true;
-                                    break;
-                                }
-                                // If not paid yet and we have retries left, wait before trying again
-                                if (attempt < MAX_RETRIES) {
-                                    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-                                }
-                            }
-
-                            if (!paymentConfirmed) {
-                                console.log("[RequestHubPage] Payment not confirmed after retries — may still be processing.");
-                            }
-                        } catch (checkErr) {
-                            console.error("Failed to check PayMongo status:", checkErr);
-                        }
-                    }
-
+                    const req = res.data;
                     setRequest(req);
+
+                    // Trigger PayMongo check in the background so it doesn't block page load speed
+                    if (req.status === "UNPAID" || req.status === "EVALUATED") {
+                        checkPaymentStatusBackground(id);
+                    }
 
                     if (req.user?.residentProfile || req.residentSnapshot) {
                         const r = (req.user?.residentProfile || req.residentSnapshot) as any;
@@ -326,16 +320,29 @@ export default function RequestHubPage() {
 
         async function fetchSettings() {
             try {
-                const qrRes = await getSystemSettingAction("gcash_qr_url", "");
-                const nameRes = await getSystemSettingAction("gcash_account_name", "ADMIN ACCOUNT");
-                const numRes = await getSystemSettingAction("gcash_account_number", "0000 000 0000");
-                const bNameRes = await getSystemSettingAction("bank_name", "LANDBANK OF THE PHILIPPINES");
-                const bAccNameRes = await getSystemSettingAction("bank_account_name", "MUNICIPALITY OF MAPANDAN");
-                const bAccNumRes = await getSystemSettingAction("bank_account_number", "0541-2345-67");
-                const themeRes = await getSystemSettingAction("theme_color", "#2563eb");
-                const logoRes = await getSystemSettingAction("logo", "");
-                const word1Res = await getSystemSettingAction("brand_word_1", "MUNICIPALITY");
-                const word2Res = await getSystemSettingAction("brand_word_2", "PORTAL");
+                const [
+                    qrRes,
+                    nameRes,
+                    numRes,
+                    bNameRes,
+                    bAccNameRes,
+                    bAccNumRes,
+                    themeRes,
+                    logoRes,
+                    word1Res,
+                    word2Res
+                ] = await Promise.all([
+                    getSystemSettingAction("gcash_qr_url", ""),
+                    getSystemSettingAction("gcash_account_name", "ADMIN ACCOUNT"),
+                    getSystemSettingAction("gcash_account_number", "0000 000 0000"),
+                    getSystemSettingAction("bank_name", "LANDBANK OF THE PHILIPPINES"),
+                    getSystemSettingAction("bank_account_name", "MUNICIPALITY OF MAPANDAN"),
+                    getSystemSettingAction("bank_account_number", "0541-2345-67"),
+                    getSystemSettingAction("theme_color", "#2563eb"),
+                    getSystemSettingAction("logo", ""),
+                    getSystemSettingAction("brand_word_1", "MUNICIPALITY"),
+                    getSystemSettingAction("brand_word_2", "PORTAL")
+                ]);
 
                 setBranding({
                     logo: logoRes.data || null,
@@ -1183,12 +1190,16 @@ export default function RequestHubPage() {
                                 <BreadcrumbSeparator />
                                 <BreadcrumbItem>
                                     <BreadcrumbLink asChild>
-                                        <Link href="/user/services/requests" className="text-[9px] md:text-[10px] font-semibold uppercase tracking-widest text-slate-500 hover:text-primary transition-colors">Requests</Link>
+                                        <Link href={isAppointmentPath ? "/user/services" : "/user/services/requests"} className="text-[9px] md:text-[10px] font-semibold uppercase tracking-widest text-slate-500 hover:text-primary transition-colors">
+                                            {isAppointmentPath ? "Services" : "Requests"}
+                                        </Link>
                                     </BreadcrumbLink>
                                 </BreadcrumbItem>
                                 <BreadcrumbSeparator />
                                 <BreadcrumbItem>
-                                    <BreadcrumbPage className="text-[9px] md:text-[10px] font-semibold uppercase tracking-widest text-primary italic max-w-[120px] truncate">Tracker</BreadcrumbPage>
+                                    <BreadcrumbPage className="text-[9px] md:text-[10px] font-semibold uppercase tracking-widest text-primary italic max-w-[120px] truncate">
+                                        {isAppointmentPath ? "Appointment" : "Tracker"}
+                                    </BreadcrumbPage>
                                 </BreadcrumbItem>
                             </BreadcrumbList>
                         </Breadcrumb>
@@ -1203,7 +1214,7 @@ export default function RequestHubPage() {
                                 </div>
                                 <div className="space-y-0.5 md:space-y-1">
                                     <h1 className="text-xl md:text-3xl font-bold text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none">
-                                        {request.type?.name || "Request"} <span className="text-primary">Hub</span>
+                                        {request.type?.name || "Request"} <span className="text-primary">{isAppointmentPath ? "Appointment" : "Hub"}</span>
                                     </h1>
                                     <div className="flex items-center gap-2">
                                         <Badge

@@ -383,12 +383,28 @@ export default function ServicesClient({ initialServices, themeColor }: Services
                                                             <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">verified digital gateway</span>
                                                         </div>
 
-                                                        <Button asChild className={`h-10 px-5 text-white rounded-xl text-[9px] font-black uppercase tracking-widest italic transition-all active:scale-95 shadow-md ${service.buttonShadow} gap-2`} style={{ backgroundColor: themeColor }}>
-                                                            <Link href={service.link}>
-                                                                Filing Portal
-                                                                <ArrowRight className="w-3.5 h-3.5" />
-                                                            </Link>
-                                                        </Button>
+                                                        {service.code === "BPLO" ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <Button asChild variant="outline" className="h-10 px-5 text-slate-700 dark:text-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest italic transition-all active:scale-95 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5">
+                                                                    <Link href="/user/services/business-permit">
+                                                                        File Online
+                                                                    </Link>
+                                                                </Button>
+                                                                <Button asChild className="h-10 px-5 text-white rounded-xl text-[9px] font-black uppercase tracking-widest italic transition-all active:scale-95 shadow-md gap-2" style={{ backgroundColor: themeColor }}>
+                                                                    <Link href="/user/services/business-permit-appointment">
+                                                                        Book Appointment
+                                                                        <ArrowRight className="w-3.5 h-3.5" />
+                                                                    </Link>
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <Button asChild className={`h-10 px-5 text-white rounded-xl text-[9px] font-black uppercase tracking-widest italic transition-all active:scale-95 shadow-md ${service.buttonShadow} gap-2`} style={{ backgroundColor: themeColor }}>
+                                                                <Link href={service.link}>
+                                                                    Filing Portal
+                                                                    <ArrowRight className="w-3.5 h-3.5" />
+                                                                </Link>
+                                                            </Button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </motion.div>

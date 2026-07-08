@@ -163,6 +163,7 @@ export function AddUserModal({
                       <SelectItem value="ADMIN_AIDE">Admin Aide</SelectItem>
                       <SelectItem value="RIDER">Logistics Rider</SelectItem>
                       <SelectItem value="ENGINEER">Municipal Engineer</SelectItem>
+                      <SelectItem value="MPDC_ZONING">MPDC Zoning</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
