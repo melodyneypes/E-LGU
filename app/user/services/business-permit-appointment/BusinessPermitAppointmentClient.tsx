@@ -13,10 +13,14 @@ import {
     TrendingUp,
     ShieldAlert,
     Upload,
-    Eye
+    Eye,
+    Building2,
+    ChevronDown,
+    X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -92,10 +96,42 @@ function FilePreview({ file, onClick }: { file: File; onClick?: () => void }) {
     );
 }
 
-type Step = "PATHWAY" | "CHECKLIST" | "SCHEDULE" | "SUBMIT" | "SUCCESS";
+const MAPANDAN_BARANGAYS = [
+    "Amanoaoac",
+    "Apaya",
+    "Aserda",
+    "Baloling",
+    "Coral",
+    "Golden",
+    "Lanas",
+    "Nilombot",
+    "Patland",
+    "Pias",
+    "Poblacion",
+    "Primicias",
+    "Santa Maria",
+    "Torres",
+    "Valenzuela"
+];
+
+const LINE_OF_BUSINESS_OPTIONS = [
+    "Agriculture & Forestry",
+    "Manufacturing",
+    "Wholesale & Retail",
+    "Food & Beverage Services",
+    "IT & Computer Services",
+    "Construction",
+    "Real Estate",
+    "Transportation & Storage",
+    "Healthcare & Social",
+    "Education"
+];
+
+type Step = "PATHWAY" | "PROFILE" | "SCHEDULE" | "CHECKLIST" | "SUBMIT" | "SUCCESS";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "PATHWAY", label: "Status", icon: Sparkles },
+    { id: "PROFILE", label: "Business", icon: Building2 },
     { id: "SCHEDULE", label: "Schedule", icon: Calendar },
     { id: "CHECKLIST", label: "Documents", icon: Upload },
     { id: "SUBMIT", label: "Submit", icon: CheckCircle2 },
@@ -103,6 +139,7 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
 
 const STEP_TABS: { id: string; label: string; icon: any }[] = [
     { id: "PATHWAY", label: "Status", icon: Sparkles },
+    { id: "PROFILE", label: "Business", icon: Building2 },
     { id: "SCHEDULE", label: "Schedule", icon: Calendar },
     { id: "CHECKLIST", label: "Documents", icon: Upload },
     { id: "SUBMIT", label: "Submit", icon: CheckCircle2 }
@@ -148,8 +185,10 @@ export function BusinessPermitAppointmentClient({
     const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
     const [isPriorityLane, setIsPriorityLane] = useState(false);
 
+    const [isOtherLine, setIsOtherLine] = useState(false);
+
     // Form State matching the online filing form
-    const [formState] = useState({
+    const [formState, setFormState] = useState({
         businessName: "",
         tradeName: "",
         orgType: "SOLE_PROPRIETORSHIP",
@@ -191,6 +230,25 @@ export function BusinessPermitAppointmentClient({
         occupation: resident?.occupation || ""
     });
 
+    const handleInputChange = (field: string, value: any) => {
+        setFormState(prev => ({
+            ...prev,
+            [field]: value
+        }));
+    };
+
+
+
+    const handleLineOfBusinessSelect = (val: string) => {
+        if (val === "Other") {
+            setIsOtherLine(true);
+            handleInputChange("lineOfBusiness", "");
+        } else {
+            setIsOtherLine(false);
+            handleInputChange("lineOfBusiness", val);
+        }
+    };
+
     // Appointment Schedule State
     const [selectedDate, setSelectedDate] = useState<string>("");
     const [selectedSlot, setSelectedSlot] = useState<string>("");
@@ -207,7 +265,6 @@ export function BusinessPermitAppointmentClient({
     const [locationPhotoFile, setLocationPhotoFile] = useState<File | null>(null);
 
     const [existingIdUrl] = useState<string | null>(resident?.idFrontUrl || null);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [showValidationErrors, setShowValidationErrors] = useState(false);
 
     // Document Viewers
@@ -299,6 +356,13 @@ export function BusinessPermitAppointmentClient({
         if (step === "PATHWAY") {
             return !hasActiveTransaction;
         }
+        if (step === "USER_IDENTITY") {
+            return !!residentState.firstName && !!residentState.lastName && !!residentState.contactNumber;
+        }
+        if (step === "PROFILE") {
+            const hasCapital = businessType === "NEW" ? !!formState.capitalInvestment : !!formState.grossSales;
+            return !!formState.businessName && !!formState.lineOfBusiness && !!formState.barangay && hasCapital;
+        }
         if (step === "CHECKLIST") {
             return true;
         }
@@ -334,7 +398,7 @@ export function BusinessPermitAppointmentClient({
     };
 
     const handleSubmit = async () => {
-        if (!isStepValid("PATHWAY") || !isStepValid("CHECKLIST") || !isStepValid("SCHEDULE")) {
+        if (!isStepValid("PATHWAY") || !isStepValid("USER_IDENTITY") || !isStepValid("PROFILE") || !isStepValid("CHECKLIST") || !isStepValid("SCHEDULE")) {
             toast.error("Verification failed. Please review your details.");
             return;
         }
@@ -393,9 +457,10 @@ export function BusinessPermitAppointmentClient({
 
     const getCurrentTabIdx = () => {
         if (currentStep === "PATHWAY") return 0;
-        if (currentStep === "SCHEDULE") return 1;
-        if (currentStep === "CHECKLIST") return 2;
-        return 3; // SUBMIT or SUCCESS
+        if (currentStep === "PROFILE") return 1;
+        if (currentStep === "SCHEDULE") return 2;
+        if (currentStep === "CHECKLIST") return 3;
+        return 4; // SUBMIT or SUCCESS
     };
 
     return (
@@ -436,7 +501,7 @@ export function BusinessPermitAppointmentClient({
 
             {/* Progress Stepper */}
             {currentStep !== "SUCCESS" && (
-                <div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2">
+                <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2">
                     {STEP_TABS.map((step, idx) => {
                         const isActive = getCurrentTabIdx() === idx;
                         const isCompleted = getCurrentTabIdx() > idx;
@@ -567,10 +632,368 @@ export function BusinessPermitAppointmentClient({
                             </motion.div>
                         )}
 
+                        {/* STEP 2: BUSINESS DETAILS */}
+                        {currentStep === "PROFILE" && (
+                            <motion.div
+                                key="profile-step"
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                className="space-y-8"
+                            >
+                                <div className="border-b border-slate-100 dark:border-white/5 pb-4">
+                                    <h2 className="text-2xl font-black uppercase italic text-slate-900 dark:text-white tracking-tighter">Business Details</h2>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Provide legal and financial registration metrics</p>
+                                </div>
 
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Official Business Name (DTI/SEC) <span className="text-rose-500 ml-0.5">*</span></Label>
+                                        <Input
+                                            type="text"
+                                            value={formState.businessName}
+                                            onChange={e => handleInputChange("businessName", e.target.value)}
+                                            placeholder="e.g. Mapandan Express Café Inc."
+                                            className={cn(
+                                                "rounded-xl h-12 border-slate-200 transition-all duration-200",
+                                                showValidationErrors && !formState.businessName && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                            )}
+                                        />
+                                    </div>
 
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Trade / Signage Name</Label>
+                                        <Input
+                                            type="text"
+                                            value={formState.tradeName}
+                                            onChange={e => handleInputChange("tradeName", e.target.value)}
+                                            placeholder="e.g. Mapandan Express Café"
+                                            className="rounded-xl h-12 border-slate-200"
+                                        />
+                                    </div>
 
-                    {/* STEP 4: CHECKLIST */}
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Organization Type <span className="text-rose-500 ml-0.5">*</span></Label>
+                                        <div className="relative">
+                                            <select
+                                                value={formState.orgType}
+                                                onChange={e => handleInputChange("orgType", e.target.value)}
+                                                className={cn(
+                                                    "w-full appearance-none rounded-xl h-12 border border-slate-200 dark:border-white bg-white dark:bg-[#0c0d12]/50 px-4 pr-10 text-xs md:text-sm font-bold text-slate-900 dark:text-white focus:outline-none transition-all cursor-pointer shadow-sm hover:border-slate-300 dark:hover:border-white/20",
+                                                    showValidationErrors && !formState.orgType && "border-red-500 ring-2 ring-red-500/20 dark:border-red-500/50"
+                                                )}
+                                            >
+                                                <option value="SOLE_PROPRIETORSHIP" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Sole Proprietorship</option>
+                                                <option value="PARTNERSHIP" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Partnership</option>
+                                                <option value="CORPORATION" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Corporation</option>
+                                            </select>
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                <ChevronDown className="w-4 h-4" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Business Barangay Location <span className="text-rose-500 ml-0.5">*</span></Label>
+                                        <div className="relative">
+                                            <select
+                                                value={formState.barangay}
+                                                onChange={e => handleInputChange("barangay", e.target.value)}
+                                                className={cn(
+                                                    "w-full appearance-none rounded-xl h-12 border border-slate-200 dark:border-white bg-white dark:bg-[#0c0d12]/50 px-4 pr-10 text-xs md:text-sm font-bold text-slate-900 dark:text-white focus:outline-none transition-all cursor-pointer shadow-sm hover:border-slate-300 dark:hover:border-white/20",
+                                                    showValidationErrors && !formState.barangay && "border-red-500 ring-2 ring-red-500/20 dark:border-red-500/50"
+                                                )}
+                                            >
+                                                <option value="" disabled className="dark:bg-[#0c0d12] text-slate-400">Select Barangay...</option>
+                                                {MAPANDAN_BARANGAYS.map((b) => (
+                                                    <option key={b} value={b} className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">{b}</option>
+                                                ))}
+                                            </select>
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                <ChevronDown className="w-4 h-4" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Building / House No. / Unit</Label>
+                                        <Input
+                                            type="text"
+                                            value={formState.building}
+                                            onChange={e => handleInputChange("building", e.target.value)}
+                                            placeholder="e.g. Bldg 4A, Green Meadows (Optional)"
+                                            className="rounded-xl h-12 border-slate-200"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Street Address</Label>
+                                        <Input
+                                            type="text"
+                                            value={formState.street}
+                                            onChange={e => handleInputChange("street", e.target.value)}
+                                            placeholder="e.g. Rizal Avenue (Optional)"
+                                            className="rounded-xl h-12 border-slate-200"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Line of Business / Classification <span className="text-rose-500 ml-0.5">*</span></Label>
+                                        {!isOtherLine ? (
+                                            <div className="relative">
+                                                <select
+                                                    value={formState.lineOfBusiness || ""}
+                                                    onChange={e => handleLineOfBusinessSelect(e.target.value)}
+                                                    className={cn(
+                                                        "w-full appearance-none rounded-xl h-12 border border-slate-200 dark:border-white bg-white dark:bg-[#0c0d12]/50 px-4 pr-10 text-xs md:text-sm font-bold text-slate-900 dark:text-white focus:outline-none transition-all cursor-pointer shadow-sm hover:border-slate-300 dark:hover:border-white/20",
+                                                        showValidationErrors && !formState.lineOfBusiness && "border-red-500 ring-2 ring-red-500/20 dark:border-red-500/50"
+                                                    )}
+                                                >
+                                                    <option value="" disabled className="dark:bg-[#0c0d12] text-slate-400">Select Line of Business...</option>
+                                                    {LINE_OF_BUSINESS_OPTIONS.map((opt) => (
+                                                        <option key={opt} value={opt} className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">{opt}</option>
+                                                    ))}
+                                                    <option value="Other" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Other...</option>
+                                                </select>
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                    <ChevronDown className="w-4 h-4" />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <Input
+                                                    type="text"
+                                                    value={formState.lineOfBusiness}
+                                                    onChange={e => handleInputChange("lineOfBusiness", e.target.value)}
+                                                    placeholder="Enter your custom line of business..."
+                                                    className={cn(
+                                                         "rounded-xl h-12 border-slate-200 pr-10 font-bold",
+                                                         showValidationErrors && !formState.lineOfBusiness && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                     )}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setIsOtherLine(false);
+                                                        handleInputChange("lineOfBusiness", "");
+                                                    }}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/10 transition-all select-none"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Employee Count</Label>
+                                        <Input
+                                            type="number"
+                                            value={formState.employeeCount}
+                                            onChange={e => handleInputChange("employeeCount", e.target.value)}
+                                            min="0"
+                                            className="rounded-xl h-12 border-slate-200"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Store Area (in Sqm)</Label>
+                                        <Input
+                                            type="number"
+                                            value={formState.businessArea}
+                                            onChange={e => handleInputChange("businessArea", e.target.value)}
+                                            placeholder="e.g. 120"
+                                            className="rounded-xl h-12 border-slate-200"
+                                        />
+                                    </div>
+
+                                    {businessType === "NEW" ? (
+                                        <div className="space-y-2 relative">
+                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Initial Capitalization (₱) <span className="text-rose-500 ml-0.5">*</span></Label>
+                                            <Input
+                                                type="text"
+                                                value={formState.capitalInvestment}
+                                                onChange={e => {
+                                                    const cleanVal = e.target.value.replace(/[^0-9.,]/g, "");
+                                                    handleInputChange("capitalInvestment", cleanVal);
+                                                }}
+                                                placeholder="e.g. 250,000"
+                                                className={cn(
+                                                    "rounded-xl h-12 border-slate-200 font-mono font-bold",
+                                                    showValidationErrors && !formState.capitalInvestment && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                )}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2 relative">
+                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Annual Gross Sales In The Previous Year (₱) <span className="text-rose-500 ml-0.5">*</span></Label>
+                                            <Input
+                                                type="text"
+                                                value={formState.grossSales}
+                                                onChange={e => {
+                                                    const cleanVal = e.target.value.replace(/[^0-9.,]/g, "");
+                                                    handleInputChange("grossSales", cleanVal);
+                                                }}
+                                                placeholder="e.g. 1,200,000"
+                                                className={cn(
+                                                    "rounded-xl h-12 border-slate-200 font-mono font-bold",
+                                                    showValidationErrors && !formState.grossSales && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                )}
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Branch of Business <span className="text-rose-500 ml-0.5">*</span></Label>
+                                        <div className="relative">
+                                            <select
+                                                value={formState.businessBranch}
+                                                onChange={e => handleInputChange("businessBranch", e.target.value)}
+                                                className={cn(
+                                                    "w-full appearance-none rounded-xl h-12 border border-slate-200 dark:border-white bg-white dark:bg-[#0c0d12]/50 px-4 pr-10 text-xs md:text-sm font-bold text-slate-900 dark:text-white focus:outline-none transition-all cursor-pointer shadow-sm hover:border-slate-300 dark:hover:border-white/20",
+                                                    showValidationErrors && !formState.businessBranch && "border-red-500 ring-2 ring-red-500/20 dark:border-red-500/50"
+                                                )}
+                                            >
+                                                <option value="MAIN" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Main</option>
+                                                <option value="BRANCH" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">Branch</option>
+                                            </select>
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                <ChevronDown className="w-4 h-4" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">TIN No. of the Business <span className="text-rose-500 ml-0.5">*</span></Label>
+                                        <Input
+                                            type="text"
+                                            value={formState.tinNumber}
+                                            onChange={e => handleInputChange("tinNumber", e.target.value)}
+                                            placeholder="e.g. 123-456-789-000"
+                                            className={cn(
+                                                "rounded-xl h-12 border-slate-200 font-bold",
+                                                showValidationErrors && !formState.tinNumber && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                            )}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">PhilHealth Number <span className="text-slate-400 font-normal ml-1">(Optional)</span></Label>
+                                        <Input
+                                            type="text"
+                                            value={formState.philhealthNumber}
+                                            onChange={e => handleInputChange("philhealthNumber", e.target.value)}
+                                            placeholder="e.g. 12-345678901-2"
+                                            className="rounded-xl h-12 border-slate-200 font-bold"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Pag-Ibig MID Number <span className="text-slate-400 font-normal ml-1">(Optional)</span></Label>
+                                        <Input
+                                            type="text"
+                                            value={formState.pagibigNumber}
+                                            onChange={e => handleInputChange("pagibigNumber", e.target.value)}
+                                            placeholder="e.g. 1234-5678-9012"
+                                            className="rounded-xl h-12 border-slate-200 font-bold"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2 col-span-1 md:col-span-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">SSS Number <span className="text-slate-400 font-normal ml-1">(Optional)</span></Label>
+                                        <Input
+                                            type="text"
+                                            value={formState.sssNumber}
+                                            onChange={e => handleInputChange("sssNumber", e.target.value)}
+                                            placeholder="e.g. 12-3456789-0"
+                                            className="rounded-xl h-12 border-slate-200 font-bold"
+                                        />
+                                    </div>
+
+                                    {/* Pathway Specific Inputs */}
+                                    {businessType === "NEW" ? (
+                                        <div className="space-y-2 col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in duration-200">
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Registration Type <span className="text-rose-500 ml-0.5">*</span></Label>
+                                                <div className="relative">
+                                                    <select
+                                                        value={formState.registrationType}
+                                                        onChange={e => handleInputChange("registrationType", e.target.value)}
+                                                        className={cn(
+                                                            "w-full appearance-none rounded-xl h-12 border border-slate-200 dark:border-white bg-white dark:bg-[#0c0d12]/50 px-4 pr-10 text-xs md:text-sm font-bold text-slate-900 dark:text-white focus:outline-none transition-all cursor-pointer shadow-sm hover:border-slate-300 dark:hover:border-white/20",
+                                                            showValidationErrors && !formState.registrationType && "border-red-500 ring-2 ring-red-500/20 dark:border-red-500/50"
+                                                        )}
+                                                    >
+                                                        <option value="DTI" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">DTI</option>
+                                                        <option value="SEC" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">SEC</option>
+                                                        <option value="COA" className="dark:bg-[#0c0d12] text-slate-900 dark:text-white font-bold">COA</option>
+                                                    </select>
+                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                        <ChevronDown className="w-4 h-4" />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formState.registrationType} Registration Number <span className="text-rose-500 ml-0.5">*</span></Label>
+                                                <Input
+                                                    type="text"
+                                                    value={formState.dtiSecNumber}
+                                                    onChange={e => handleInputChange("dtiSecNumber", e.target.value)}
+                                                    placeholder={`e.g. ${formState.registrationType === "DTI" ? "DTI-123456789" : formState.registrationType === "SEC" ? "SEC-CS202012345" : "COA-987654"}`}
+                                                    className={cn(
+                                                        "rounded-xl h-12 border-slate-200 font-bold",
+                                                        showValidationErrors && !formState.dtiSecNumber && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                    )}
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">{formState.registrationType} Registration Date <span className="text-rose-500 ml-0.5">*</span></Label>
+                                                <Input
+                                                    type="date"
+                                                    value={formState.dtiSecDate}
+                                                    onChange={e => handleInputChange("dtiSecDate", e.target.value)}
+                                                    className={cn(
+                                                        "rounded-xl h-12 border-slate-200 font-bold",
+                                                        showValidationErrors && !formState.dtiSecDate && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                    )}
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2 col-span-1 md:col-span-2 animate-in fade-in duration-200">
+                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Existing Permit License Number <span className="text-rose-500 ml-0.5">*</span></Label>
+                                            <Input
+                                                type="text"
+                                                value={formState.permitNumber}
+                                                onChange={e => handleInputChange("permitNumber", e.target.value)}
+                                                placeholder="e.g. BP-2025-00123"
+                                                className={cn(
+                                                    "rounded-xl h-12 border-slate-200 font-bold",
+                                                    showValidationErrors && !formState.permitNumber && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                                )}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="mt-8 flex justify-between">
+                                    <Button variant="outline" onClick={handleBack} className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                        Back
+                                    </Button>
+                                    <Button
+                                        onClick={handleNext}
+                                        className="text-white shadow-md text-[10px] md:text-xs rounded-xl md:rounded-2xl px-8 md:px-12 h-10 md:h-14 group transition-all duration-300 active:scale-95 font-black uppercase tracking-widest italic"
+                                        style={{ backgroundColor: themeColor }}
+                                    >
+                                        Next Phase <ChevronRight className="w-4 h-4 ml-2" />
+                                    </Button>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {/* STEP 4: CHECKLIST */}
                     {currentStep === "CHECKLIST" && (
                         <motion.div
                             key="checklist-step"

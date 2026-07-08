@@ -43,6 +43,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
 import CedulaView from "./views/CedulaView";
+import BusinessPermitView from "./views/BusinessPermitView";
 
 // Display dates/times in Philippine Standard Time (Asia/Manila)
 function formatPHDate(date: string | Date): string {
@@ -206,6 +207,7 @@ export default function AppointmentDetailsPage() {
 
     const isCedula = request.type?.code?.startsWith("CEDULA");
     const isBuildingPermit = request.type?.code?.startsWith("BUILDING_PERMIT");
+    const isBusinessPermit = request.type?.code?.startsWith("BUSINESS_PERMIT");
 
     return (
         <div className="min-h-screen bg-white dark:bg-[#0a0c10] pb-24" style={{ "--primary-theme": themeColor } as React.CSSProperties}>
@@ -403,6 +405,14 @@ export default function AppointmentDetailsPage() {
                                 <CedulaView 
                                     request={request} 
                                     additionalData={additionalData} 
+                                />
+                            )}
+
+                            {/* CUSTOM BUSINESS PERMIT VIEW */}
+                            {isBusinessPermit && (
+                                <BusinessPermitView
+                                    request={request}
+                                    additionalData={additionalData}
                                 />
                             )}
 
