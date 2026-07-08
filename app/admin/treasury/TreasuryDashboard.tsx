@@ -317,6 +317,14 @@ export default function TreasuryDashboard() {
             }
         }
 
+        // PSA Appointment Endorsements in FOR_CLAIM/FOR_PICKING are for Treasury counter payment — always allow
+        // const isPsaApptEndorsement = [
+        //     "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+        //     "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+        //     "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+        // ].includes(tx.type?.code || "");
+        // (no filter block needed here — handled below in categoryParam check)
+
         // During the verify & issue O.R. phase (PAID/PENDING_PAYMENT_VERIFICATION), the Registrar department cannot see it yet
         if (isLcrBirthCertifiedCopy && ["PAID", "PENDING_PAYMENT_VERIFICATION"].includes(tx.status)) {
             const isRegistrar = userRole === "REGISTRAR" || userDepartment?.toUpperCase() === "REGISTRAR";
@@ -340,8 +348,16 @@ export default function TreasuryDashboard() {
         }
 
         // For Civil Registry, Treasury only needs to see FOR_REQUESTING, PAID, and UNPAID when active (EVALUATED is hidden)
+        // Exception: PSA Appointment Endorsements in FOR_CLAIM or FOR_PICKING need to be visible to Treasury for counter payment
         if (categoryParam === "Civil Registry") {
-            const allowedStatuses = ["FOR_REQUESTING", "PAID", "UNPAID"];
+            const isPsaAppointmentTx = [
+                "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+                "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+                "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+            ].includes(tx.type?.code || "");
+            const allowedStatuses = isPsaAppointmentTx
+                ? ["FOR_REQUESTING", "PAID", "UNPAID", "FOR_CLAIM", "FOR_PICKING"]
+                : ["FOR_REQUESTING", "PAID", "UNPAID"];
             if (!allowedStatuses.includes(tx.status)) {
                 return false;
             }
@@ -597,13 +613,30 @@ export default function TreasuryDashboard() {
                                                         )}>
                                                             {tx.isCancelled 
                                                                 ? "CANCELLED" 
-                                                                : ({
-                                                                    "FOR_REQUESTING": "FOR EVALUATION",
-                                                                    "FOR_PROCESSING": "FOR PROCESSING",
-                                                                    "FOR_REINSPECTION": "FOR PROCESSING",
-                                                                    "RETURN_REQUESTED": "REQUEST FOR RETURN",
-                                                                    "REFUND_REQUESTED": "REQUEST FOR REFUND",
-                                                                } as Record<string, string>)[tx.status] || tx.status?.replace(/_/g, " ")}
+                                                                 : (() => {
+                                                                        const tc = tx.type?.code || "";
+                                                                        const s = tx.status || "";
+                                                                        const isPsaAppt = [
+                                                                            "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+                                                                            "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+                                                                            "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                                                                        ].includes(tc);
+                                                                        if (isPsaAppt) {
+                                                                            if (s === "FOR_INSPECTION" || s === "FOR_REQUESTING") return "AWAITING EVALUATION";
+                                                                            if (s === "EVALUATED") return "APPOINTMENT CONFIRMED";
+                                                                            if (s === "UNPAID") return "APPOINTMENT SCHEDULED";
+                                                                            if (s === "FOR_PROCESSING") return "AWAITING REGISTRAR ENDORSEMENT";
+                                                                            if (s === "FOR_CLAIM" || s === "FOR_PICKING") return "PAYMENT DUE AT TREASURY";
+                                                                            if (s === "RELEASED") return "ENDORSED TO PSA";
+                                                                        }
+                                                                        return ({
+                                                                            "FOR_REQUESTING": "FOR EVALUATION",
+                                                                            "FOR_PROCESSING": "FOR PROCESSING",
+                                                                            "FOR_REINSPECTION": "FOR PROCESSING",
+                                                                            "RETURN_REQUESTED": "REQUEST FOR RETURN",
+                                                                            "REFUND_REQUESTED": "REQUEST FOR REFUND",
+                                                                        } as Record<string, string>)[s] || s?.replace(/_/g, " ");
+                                                                    })()}
                                                         </span>
                                                     </TableCell>
                                                     <TableCell>

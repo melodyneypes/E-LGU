@@ -32,8 +32,10 @@ import {
     Hash,
     Eye,
     ChevronDown,
-    ChevronUp
+    ChevronUp,
+    Banknote
 } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { compressImage } from "@/lib/image-compression";
@@ -136,6 +138,7 @@ import { DeathRegistrationRequestDetails, DeathRegistrationVerificationCard } fr
 import { MarriageCertificateRequestDetails, MarriageCertificateVerificationCard } from "./marriage-certificate-request";
 import { MarriageLicenseRequestDetails } from "./marriage-license-request";
 import { PsaEndorsementRequestDetails } from "./psa-endorsement-request";
+import { isPsaAppointmentEndorsement as checkIsPsaAppointmentEndorsement } from "./psa-appointment-endorsement";
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
     ssr: false,
@@ -731,6 +734,9 @@ export default function RequestHubPage() {
             case "FOR_REINSPECTION":
                 return { label: "FOR PROCESSING", color: "bg-primary text-white border-primary", icon: Activity };
             case "FOR_CLAIM":
+                if (request?.type?.code && checkIsPsaAppointmentEndorsement(request.type.code)) {
+                    return { label: "PAYMENT DUE AT TREASURY COUNTER", color: "bg-amber-500 text-white border-amber-500", icon: Clock };
+                }
                 return { label: "FOR CLAIM", color: "bg-blue-600 text-white border-blue-600", icon: Clock };
             case "EVALUATED":
                 if (request?.type?.code?.startsWith("BUILDING_PERMIT") && !request?.fiscalSnapshot) {
@@ -742,6 +748,9 @@ export default function RequestHubPage() {
             case "PAID":
                 return { label: "PAID", color: "bg-primary text-white border-primary", icon: Clock };
             case "FOR_PICKING":
+                if (request?.type?.code && checkIsPsaAppointmentEndorsement(request.type.code)) {
+                    return { label: "PAYMENT DUE AT TREASURY COUNTER", color: "bg-amber-500 text-white border-amber-500", icon: Clock };
+                }
                 return { label: "FOR DELIVERY", color: "bg-amber-500 text-white border-amber-500", icon: Clock };
             case "IN_ROUTE":
                 return { label: "IN ROUTE", color: "bg-blue-500 text-white border-blue-500", icon: Truck };
@@ -772,7 +781,8 @@ export default function RequestHubPage() {
     const residentIdBack = residentData.idBackUrl;
     const statusConfig = request ? getStatusConfig(request.status) : null;
     const typeCode = request?.type?.code || "";
-    const isActionable = (request?.status === "EVALUATED" && (!typeCode.startsWith("BUILDING_PERMIT") || !!request.fiscalSnapshot)) || (request?.status === "UNPAID" && (typeCode.startsWith("BUSINESS_PERMIT") || typeCode.startsWith("CEDULA") || typeCode.startsWith("BUILDING_PERMIT")));
+    const isPsaAppointmentEndorsement = checkIsPsaAppointmentEndorsement(typeCode);
+    const isActionable = (request?.status === "EVALUATED" && (!typeCode.startsWith("BUILDING_PERMIT") || !!request.fiscalSnapshot) && !isPsaAppointmentEndorsement) || (request?.status === "UNPAID" && (typeCode.startsWith("BUSINESS_PERMIT") || typeCode.startsWith("CEDULA") || typeCode.startsWith("BUILDING_PERMIT")));
     const isBusinessPermit = typeCode.startsWith("BUSINESS_PERMIT");
     const isBuildingPermit = typeCode.startsWith("BUILDING_PERMIT");
     const isCedula = typeCode.startsWith("CEDULA");
@@ -813,6 +823,7 @@ export default function RequestHubPage() {
     const isDeathPsaEndorsement = typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT";
     const isMarriagePsaEndorsement = typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
     const isPsaEndorsement = isBirthPsaEndorsement || isDeathPsaEndorsement || isMarriagePsaEndorsement;
+
     const getRevisionUrl = () => {
         if (isBusinessPermit) return `/user/services/business-permit?revisionId=${request.id}`;
         if (isCedula) return `/user/services/cedula?revisionId=${request.id}`;
@@ -1240,7 +1251,67 @@ export default function RequestHubPage() {
 
 
 
+                    {isPsaAppointmentEndorsement && request.status === "EVALUATED" && !request.isCancelled && (
+                        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+                            <Card className="p-6 md:p-10 border border-amber-400/30 bg-amber-50 dark:bg-amber-950/20 shadow-2xl rounded-2xl md:rounded-[2.5rem] relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-6 md:p-10 opacity-10 text-amber-500">
+                                    <Banknote className="w-28 h-28 md:w-40 md:h-40" />
+                                </div>
+                                <div className="relative z-10 space-y-6">
+                                    <div className="flex items-start gap-4">
+                                        <div className="p-3 rounded-2xl bg-amber-400/20 border border-amber-400/30 shrink-0">
+                                            <Banknote className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <h3 className="text-sm md:text-base font-black uppercase tracking-widest italic text-amber-700 dark:text-amber-300">
+                                                Appointment Confirmed — Pay at the Office
+                                            </h3>
+                                            <p className="text-[10px] md:text-xs font-semibold text-amber-600/80 dark:text-amber-400/80 uppercase tracking-widest">
+                                                Cash payment only · No online payment required
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs md:text-sm font-bold italic text-amber-800 dark:text-amber-200 leading-relaxed">
+                                        Your request has been evaluated and your appointment is confirmed. Please bring <strong>all original documents</strong> to the Municipal Civil Registrar&apos;s Office on your scheduled date. Payment will be collected <strong>in cash at the counter</strong> after you have presented and verified your documents in person.
+                                    </p>
+                                    {(request.appointmentDate || request.appointmentSlot) && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-amber-400/20">
+                                            {request.appointmentDate && (
+                                                <div className="space-y-1">
+                                                    <p className="text-[8px] md:text-[10px] uppercase font-black text-amber-600/60 dark:text-amber-400/60 tracking-widest leading-none">Appointment Date</p>
+                                                    <p className="text-base md:text-xl font-black italic text-amber-800 dark:text-amber-200 uppercase leading-tight">
+                                                        {new Date(request.appointmentDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {request.appointmentSlot && (
+                                                <div className="space-y-1">
+                                                    <p className="text-[8px] md:text-[10px] uppercase font-black text-amber-600/60 dark:text-amber-400/60 tracking-widest leading-none">Time Slot</p>
+                                                    <p className="text-base md:text-xl font-black italic text-amber-800 dark:text-amber-200 uppercase leading-tight">
+                                                        {request.appointmentSlot}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            <div className="space-y-1 sm:col-span-2">
+                                                <p className="text-[8px] md:text-[10px] uppercase font-black text-amber-600/60 dark:text-amber-400/60 tracking-widest leading-none">Amount Due (Cash at Office)</p>
+                                                <p className="text-xl md:text-3xl font-black italic text-amber-700 dark:text-amber-300 leading-tight">
+                                                    ₱{(request.totalAmount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center gap-2 px-4 py-3 bg-amber-400/10 border border-amber-400/20 rounded-xl">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300 leading-relaxed">
+                                            ⚠️ Do NOT send any payment online. All fees are settled face-to-face at the Municipal Office.
+                                        </span>
+                                    </div>
+                                </div>
+                            </Card>
+                        </motion.div>
+                    )}
+
                     {isActionable && !request.isCancelled ? (
+
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-10">
                             {/* Treasury Card */}
                             <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-28 h-fit">
@@ -1571,6 +1642,22 @@ export default function RequestHubPage() {
                                                 <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Date Submitted</p><p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">{formatPHDate(request.createdAt)}</p></div>
                                                 <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Logistics Phase</p><p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">{request.fulfillmentType?.replace(/_/g, " ") || "PENDING EVALUATION"}</p></div>
                                                 <div className="space-y-1"><p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Payment</p><p className="text-base md:text-xl font-semibold text-primary italic leading-tight uppercase">{((request.type?.code === "LCR_BIRTH" || request.type?.code?.startsWith("LCR_")) && ["FOR_REQUESTING", "UNDER_REVIEW"].includes(request.status)) ? "TBD" : (request.paymentType?.replace(/_/g, " ") || "PENDING ASSESSMENT")}</p></div>
+                                                {request.appointmentDate && (
+                                                    <div className="space-y-1">
+                                                        <p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Appointment Date</p>
+                                                        <p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">
+                                                            {formatPHDate(request.appointmentDate)}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                                {request.appointmentSlot && (
+                                                    <div className="space-y-1">
+                                                        <p className="text-[8px] md:text-[10px] uppercase font-semibold text-slate-400 tracking-widest italic opacity-60 leading-none">Time Slot</p>
+                                                        <p className="text-base md:text-xl font-semibold text-slate-900 dark:text-white italic leading-tight uppercase">
+                                                            {request.appointmentSlot}
+                                                        </p>
+                                                    </div>
+                                                )}
 
                                                 {request.queueNumber && (
                                                     <div className="space-y-2 col-span-1 sm:col-span-2 pt-6 border-t border-slate-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

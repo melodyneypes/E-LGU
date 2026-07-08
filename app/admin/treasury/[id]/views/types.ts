@@ -97,4 +97,5 @@ export interface TreasuryViewProps {
     setMiscFee?: Dispatch<SetStateAction<string>>;
     handleProcessRequest?: () => Promise<void>;
     handleOnsitePayment?: (method: string, amountTendered?: number, paymentReference?: string) => Promise<void>;
+    handleCollectPsaPayment?: () => Promise<void>;
 }

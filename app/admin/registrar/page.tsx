@@ -69,6 +69,35 @@ function isRegistrarLcrRequest(tx: any) {
     );
 }
 
+const PSA_APPOINTMENT_CODES = [
+    "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+    "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+    "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+];
+
+// Contextual status label for PSA Appointment Endorsements
+function getDisplayStatus(tx: any): string {
+    if (tx.isCancelled) return "CANCELLED";
+    const typeCode = tx.type?.code || "";
+    const status = tx.status || "";
+    if (PSA_APPOINTMENT_CODES.includes(typeCode)) {
+        switch (status) {
+            case "FOR_INSPECTION":
+            case "FOR_REQUESTING": return "AWAITING EVALUATION";
+            case "EVALUATED":      return "APPOINTMENT CONFIRMED";
+            case "UNPAID":         return "APPOINTMENT SCHEDULED";
+            case "FOR_PROCESSING": return "AWAITING REGISTRAR ENDORSEMENT";
+            case "FOR_CLAIM":
+            case "FOR_PICKING":    return "PAYMENT DUE AT TREASURY";
+            case "FOR_REINSPECTION": return "FOR PROCESSING";
+            case "RELEASED":       return "ENDORSED TO PSA";
+            case "PAID":           return "PAID";
+            default: break;
+        }
+    }
+    return status.replace(/_/g, " ");
+}
+
 // Status coloring helper mapping
 const getStatusClassName = (status: string, isCancelled?: boolean) => {
     if (isCancelled) return "text-red-600";
@@ -534,7 +563,7 @@ export default function RegistrarPage() {
                                                     "text-[10px] font-black uppercase italic tracking-wider px-2 py-1 rounded bg-slate-50 dark:bg-black/30 border border-current w-fit block",
                                                     getStatusClassName(tx.status, tx.isCancelled)
                                                 )}>
-                                                    {tx.isCancelled ? "CANCELLED" : tx.status?.replace(/_/g, " ")}
+                                                    {getDisplayStatus(tx)}
                                                 </span>
                                             </TableCell>
                                             <TableCell>
