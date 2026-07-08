@@ -311,7 +311,11 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
 
             {/* Right: User menu & Counter Selector */}
             <div className="flex items-center gap-4 shrink-0">
-                <CounterSelectorHeader themeColor={themeColor} userRole={session.user?.role || "ADMIN"} />
+                <CounterSelectorHeader 
+                    themeColor={themeColor} 
+                    userRole={session.user?.role || "ADMIN"} 
+                    userDepartment={session.user?.department} 
+                />
 
                 <div className="relative shrink-0" ref={dropdownRef}>
                     <button

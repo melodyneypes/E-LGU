@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 interface CounterSelectorHeaderProps {
     themeColor?: string;
     userRole: string;
+    userDepartment?: string | null;
 }
 
 const COUNTER_OPTIONS = [
@@ -26,7 +27,8 @@ const COUNTER_OPTIONS = [
 
 export default function CounterSelectorHeader({
     themeColor = "#2563eb",
-    userRole
+    userRole,
+    userDepartment
 }: CounterSelectorHeaderProps) {
     const [counterName, setCounterName] = useState<string | null>(null);
     const [prompted, setPrompted] = useState(false);
@@ -36,7 +38,16 @@ export default function CounterSelectorHeader({
 
     // Only enable counter selection for authorized staff roles
     const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
-    const isAuthorized = allowedRoles.includes(userRole);
+    
+    // Departments that MUST have counter/window selection
+    const allowedDepartments = ["Zoning", "MPDC Zoning", "Treasury", "Registrar", "Civil Registry", "BPLO", "Engineer", "Engineering"];
+    
+    const isLGU = userDepartment?.toUpperCase() === "LGU";
+    
+    const isAuthorized = allowedRoles.includes(userRole) && !isLGU && (
+        (userDepartment && allowedDepartments.some(dept => userDepartment.toLowerCase().includes(dept.toLowerCase()))) ||
+        (!userDepartment && userRole === "BARANGAY_ADMIN")
+    );
 
     useEffect(() => {
         if (!isAuthorized) return;
