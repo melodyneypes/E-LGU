@@ -356,12 +356,10 @@ export function BusinessPermitAppointmentClient({
         if (step === "PATHWAY") {
             return !hasActiveTransaction;
         }
-        if (step === "USER_IDENTITY") {
-            return !!residentState.firstName && !!residentState.lastName && !!residentState.contactNumber;
-        }
         if (step === "PROFILE") {
             const hasCapital = businessType === "NEW" ? !!formState.capitalInvestment : !!formState.grossSales;
-            return !!formState.businessName && !!formState.lineOfBusiness && !!formState.barangay && hasCapital;
+            const hasRegistration = businessType === "NEW" ? (!!formState.registrationType && !!formState.dtiSecNumber && !!formState.dtiSecDate) : !!formState.permitNumber;
+            return !!formState.businessName && !!formState.lineOfBusiness && !!formState.barangay && hasCapital && !!formState.businessBranch && !!formState.tinNumber && hasRegistration;
         }
         if (step === "CHECKLIST") {
             return true;
@@ -398,7 +396,7 @@ export function BusinessPermitAppointmentClient({
     };
 
     const handleSubmit = async () => {
-        if (!isStepValid("PATHWAY") || !isStepValid("USER_IDENTITY") || !isStepValid("PROFILE") || !isStepValid("CHECKLIST") || !isStepValid("SCHEDULE")) {
+        if (!isStepValid("PATHWAY") || !isStepValid("PROFILE") || !isStepValid("CHECKLIST") || !isStepValid("SCHEDULE")) {
             toast.error("Verification failed. Please review your details.");
             return;
         }
