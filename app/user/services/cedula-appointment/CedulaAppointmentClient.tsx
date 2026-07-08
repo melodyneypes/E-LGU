@@ -174,14 +174,14 @@ export function CedulaAppointmentClient({
 
             // 1. Validate file extension and MIME type
             const allowedTypes = [
-                "image/jpeg", "image/png", "image/gif", "image/webp",
+                "image/jpeg", "image/png", "image/webp",
                 "application/pdf"
             ];
             const fileExtension = file.name.split('.').pop()?.toLowerCase() || "";
-            const allowedExtensions = ["pdf", "jpg", "jpeg", "png", "gif", "webp"];
+            const allowedExtensions = ["pdf", "jpg", "jpeg", "png", "webp"];
 
             if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
-                toast.error("Invalid file type! Only standard images (PNG, JPG, GIF, WEBP) and PDFs are allowed.");
+                toast.error("Invalid file type! Only standard images (PNG, JPG, WEBP) and PDFs are allowed.");
                 e.target.value = ""; // clear file input
                 return;
             }
@@ -201,8 +201,6 @@ export function CedulaAppointmentClient({
                 if (hex.startsWith("FFD8FF") && mime === "image/jpeg") {
                     isMagicValid = true;
                 } else if (hex.startsWith("89504E470D0A1A0A") && mime === "image/png") {
-                    isMagicValid = true;
-                } else if ((hex.startsWith("474946383761") || hex.startsWith("474946383961")) && mime === "image/gif") {
                     isMagicValid = true;
                 } else if (hex.startsWith("25504446") && mime === "application/pdf") {
                     isMagicValid = true;

@@ -19,7 +19,6 @@ function isValidImageOrPdf(buffer: Buffer, filename: string, mimeType: string): 
     const allowedMimeTypes = [
         "image/jpeg",
         "image/png",
-        "image/gif",
         "image/webp",
         "application/pdf"
     ];
@@ -38,10 +37,6 @@ function isValidImageOrPdf(buffer: Buffer, filename: string, mimeType: string): 
     // PNG: 89 50 4E 47 0D 0A 1A 0A
     if (hex.startsWith("89504E470D0A1A0A")) {
         return mimeType.toLowerCase() === "image/png";
-    }
-    // GIF: GIF87a / GIF89a
-    if (hex.startsWith("474946383761") || hex.startsWith("474946383961")) {
-        return mimeType.toLowerCase() === "image/gif";
     }
     // PDF: %PDF
     if (hex.startsWith("25504446")) {

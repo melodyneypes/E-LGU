@@ -10,7 +10,6 @@ import {
     Home,
     Sparkles,
     Calendar,
-    Printer,
     TrendingUp,
     ShieldAlert,
     Upload,
@@ -34,7 +33,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { submitBusinessAppointment } from "./actions";
-import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
+
 
 function FilePreview({ file, onClick }: { file: File; onClick?: () => void }) {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -136,7 +135,6 @@ export function BusinessPermitAppointmentClient({
     resident,
     businessTypes,
     themeColor,
-    branding,
     config,
     bookedSlots,
     hasActiveNew,
@@ -148,11 +146,7 @@ export function BusinessPermitAppointmentClient({
     const [businessType, setBusinessType] = useState<"NEW" | "RENEWAL">("NEW");
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
     const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
-    const [queueNumber, setQueueNumber] = useState<string | null>(null);
-
-    const [newTransactionId, setNewTransactionId] = useState<string | null>(null);
     const [isPriorityLane, setIsPriorityLane] = useState(false);
-    const [printTriggered, setPrintTriggered] = useState(false);
 
     // Form State matching the online filing form
     const [formState] = useState({
@@ -238,9 +232,46 @@ export function BusinessPermitAppointmentClient({
             return;
         }
 
-        const allowedMimeTypes = ["image/jpeg", "image/png", "application/pdf"];
-        if (!allowedMimeTypes.includes(file.type)) {
-            toast.error("Invalid file type. Only JPEG, PNG, and PDF are allowed.");
+        const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+        const fileExtension = file.name.split('.').pop()?.toLowerCase() || "";
+        const allowedExtensions = ["pdf", "jpg", "jpeg", "png", "webp"];
+
+        if (!allowedMimeTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+            toast.error("Invalid file type. Only JPEG, PNG, WEBP, and PDF are allowed.");
+            e.target.value = "";
+            return;
+        }
+
+        // Validate magic bytes (headers) on the client-side
+        try {
+            const headBuffer = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+            let hex = "";
+            for (let i = 0; i < headBuffer.length; i++) {
+                hex += headBuffer[i].toString(16).padStart(2, "0");
+            }
+            hex = hex.toUpperCase();
+
+            let isMagicValid = false;
+            const mime = file.type.toLowerCase();
+
+            if (hex.startsWith("FFD8FF") && (mime === "image/jpeg" || mime === "image/jpg")) {
+                isMagicValid = true;
+            } else if (hex.startsWith("89504E470D0A1A0A") && mime === "image/png") {
+                isMagicValid = true;
+            } else if (hex.startsWith("25504446") && mime === "application/pdf") {
+                isMagicValid = true;
+            } else if (hex.startsWith("52494646") && hex.substring(16, 24) === "57454250" && mime === "image/webp") {
+                isMagicValid = true;
+            }
+
+            if (!isMagicValid) {
+                toast.error("Security alert: File header mismatch! The actual file content does not match its extension.");
+                e.target.value = "";
+                return;
+            }
+        } catch (err) {
+            console.error("Client-side file headers verification error:", err);
+            toast.error("Failed to verify file security headers.");
             e.target.value = "";
             return;
         }
@@ -346,10 +377,8 @@ export function BusinessPermitAppointmentClient({
 
             const res = await submitBusinessAppointment(formDataPayload);
             if (res.success && res.data) {
-                setNewTransactionId(res.data.id);
-                setQueueNumber(res.data.queueNumber);
-                setCurrentStep("SUCCESS");
                 toast.success("Business Permit Appointment booked successfully!");
+                router.push(`/user/appointment/${res.data.id}`);
             } else {
                 toast.error(res.error || "Failed to submit booking");
             }
@@ -423,10 +452,16 @@ export function BusinessPermitAppointmentClient({
                                     className={cn(
                                         "w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
                                         isActive ? "bg-primary text-white border-primary shadow-lg scale-105 md:scale-110" :
-                                            isCompleted ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" :
+                                            isCompleted ? "" :
                                                 "bg-slate-100 dark:bg-white/5 text-slate-400 border-transparent group-hover:border-primary/30"
                                     )}
-                                    style={isActive ? { backgroundColor: themeColor, borderColor: themeColor, boxShadow: `0 0 20px ${themeColor}4d` } : {}}
+                                    style={
+                                        isActive 
+                                            ? { backgroundColor: themeColor, borderColor: themeColor, boxShadow: `0 0 20px ${themeColor}4d` } 
+                                            : isCompleted 
+                                                ? { backgroundColor: `${themeColor}1a`, color: themeColor, borderColor: `${themeColor}4d` }
+                                                : {}
+                                    }
                                 >
                                     <Icon className="w-4 h-4 md:w-7 md:h-7" />
                                 </div>
@@ -848,88 +883,6 @@ export function BusinessPermitAppointmentClient({
                                             Submit Appointment <Check className="w-4 h-4" />
                                         </>
                                     )}
-                                </Button>
-                            </div>
-                        </motion.div>
-                    )}
-
-                    {/* SUCCESS RECEIPT PRINT */}
-                    {currentStep === "SUCCESS" && queueNumber && (
-                        <motion.div
-                            key="success-step"
-                            initial={{ opacity: 0, scale: 0.98 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="max-w-md mx-auto bg-white dark:bg-[#0c1017] rounded-3xl border border-slate-100 dark:border-white/5 p-6 md:p-8 space-y-6 text-center shadow-2xl"
-                        >
-                            {queueNumber && (
-                                <PrintQueueTicket
-                                    queueNumber={queueNumber}
-                                    serviceName={businessType === "NEW" ? "BPLO - NEW BUSINESS" : "BPLO - BUSINESS RENEWAL"}
-                                    appointmentDate={selectedDate}
-                                    appointmentSlot={selectedSlot}
-                                    isPriority={isPriorityLane}
-                                    triggerPrint={printTriggered}
-                                    onPrintCompleted={() => setPrintTriggered(false)}
-                                    branding={branding}
-                                    themeColor={themeColor}
-                                />
-                            )}
-
-                            <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/10 flex items-center justify-center mx-auto">
-                                <Check className="w-6 h-6 animate-bounce" />
-                            </div>
-
-                            <div className="space-y-1">
-                                <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-800 dark:text-white">Filing Complete!</h3>
-                                <p className="text-[10px] text-slate-400 italic">Please screenshot or print the queue slip below.</p>
-                            </div>
-
-                            <div className="border border-slate-100 dark:border-white/5 rounded-2xl overflow-hidden p-1 bg-slate-50/50 dark:bg-white/[0.005]">
-                                <div className="max-w-md mx-auto rounded-[2.5rem] p-6 bg-slate-50 dark:bg-black/10 text-left space-y-5">
-                                    <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest text-slate-400 pb-2 border-b border-slate-100 dark:border-white/5">
-                                        <span>Queue ticket details</span>
-                                        <span className="text-slate-800 dark:text-slate-200 font-bold">#{(newTransactionId || "").slice(-8).toUpperCase()}</span>
-                                    </div>
-
-                                    <div className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-5 bg-white dark:bg-[#1a1f2c]/50 flex flex-col items-center justify-center gap-3">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Your queue number</span>
-                                        <span className="text-4xl font-black italic tracking-tighter text-slate-900 dark:text-white font-mono">
-                                            {queueNumber}
-                                        </span>
-
-                                        {isPriorityLane && (
-                                            <span className="bg-primary/10 text-primary border border-primary/20 rounded-full px-4 py-1 text-[9px] font-black uppercase tracking-widest">
-                                                ♿ Priority Lane
-                                            </span>
-                                        )}
-
-                                        <div className="w-full flex items-center justify-center mt-2">
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img
-                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${queueNumber}`}
-                                                alt="QR Ticket Code"
-                                                className="w-24 h-24 p-2 bg-white rounded-xl border border-slate-100"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-3 pt-2">
-                                <Button
-                                    onClick={() => setPrintTriggered(true)}
-                                    className="w-full h-12 rounded-xl text-white font-black italic uppercase tracking-widest text-[10px] gap-2 active:scale-95 transition-all"
-                                    style={{ backgroundColor: themeColor }}
-                                >
-                                    <Printer className="w-4 h-4" /> Print Slip Receipt
-                                </Button>
-
-                                <Button
-                                    variant="outline"
-                                    onClick={() => router.push("/user/services")}
-                                    className="w-full h-12 rounded-xl font-bold uppercase tracking-widest text-[9px] text-slate-500"
-                                >
-                                    Exit to Services
                                 </Button>
                             </div>
                         </motion.div>

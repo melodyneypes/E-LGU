@@ -161,7 +161,7 @@ export async function submitBuildingPermit(formData: FormData) {
       data: {
         userId: userId,
         typeId: type.id,
-        status: "FOR_REQUESTING",
+        status: "FOR_INSPECTION",
         residentSnapshot: sanitizedResidentSnapshot as any,
         additionalData: sanitizedAdditionalData as any,
         totalAmount: 0,
@@ -349,7 +349,7 @@ export async function resubmitBuildingPermit(transactionId: string, formData: Fo
     const updatedTransaction = await prisma.transaction.update({
       where: { id: transactionId },
       data: {
-        status: "FOR_REQUESTING",
+        status: "FOR_INSPECTION",
         rejectionRemarks: null,
         residentSnapshot: sanitizedResidentSnapshot as any,
         additionalData: sanitizedAdditionalData as any,

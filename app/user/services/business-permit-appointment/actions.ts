@@ -9,7 +9,7 @@ import { sanitizeString, sanitizeObject, sanitizeUrl } from "@/lib/validation";
 import { uploadFile } from "@/lib/storage";
 
 function isValidImageOrPdf(buffer: Buffer, filename: string, mimeType: string): boolean {
-    const allowedExtensions = /\.(jpe?g|png|gif|webp|pdf)$/i;
+    const allowedExtensions = /\.(jpe?g|png|webp|pdf)$/i;
     if (!allowedExtensions.test(filename)) {
         return false;
     }
@@ -17,7 +17,6 @@ function isValidImageOrPdf(buffer: Buffer, filename: string, mimeType: string): 
     const allowedMimeTypes = [
         "image/jpeg",
         "image/png",
-        "image/gif",
         "image/webp",
         "application/pdf"
     ];
@@ -33,9 +32,6 @@ function isValidImageOrPdf(buffer: Buffer, filename: string, mimeType: string): 
     }
     if (hex.startsWith("89504E470D0A1A0A")) {
         return mimeType.toLowerCase() === "image/png";
-    }
-    if (hex.startsWith("474946383761") || hex.startsWith("474946383961")) {
-        return mimeType.toLowerCase() === "image/gif";
     }
     if (hex.startsWith("25504446")) {
         return mimeType.toLowerCase() === "application/pdf";
@@ -156,10 +152,14 @@ export async function submitBusinessAppointment(formData: FormData) {
         const idFile = formData.get("idFile") as File;
         const brgyClearanceFile = formData.get("brgyClearanceFile") as File;
         const dtiSecFile = formData.get("dtiSecFile") as File;
+        const ctcFile = formData.get("ctcFile") as File;
+        const sanitaryPermitFile = formData.get("sanitaryPermitFile") as File;
+        const fireSafetyFile = formData.get("fireSafetyFile") as File;
+        const previousPermitFile = formData.get("previousPermitFile") as File;
+        const birCorFile = formData.get("birCorFile") as File;
+        const locationPhotoFile = formData.get("locationPhotoFile") as File;
 
         const existingIdUrl = sanitizeUrl(formData.get("existingIdUrl") as string);
-        const existingBrgyUrl = sanitizeUrl(formData.get("existingBrgyUrl") as string);
-        const existingDtiSecUrl = sanitizeUrl(formData.get("existingDtiSecUrl") as string);
 
         let idUrl = null;
         if (idFile && idFile.size > 0 && idFile.name !== "undefined") {
@@ -177,7 +177,6 @@ export async function submitBusinessAppointment(formData: FormData) {
                 return { success: false, error: "Failed to upload Barangay Clearance." };
             }
         }
-        if (!brgyUrl && existingBrgyUrl) brgyUrl = existingBrgyUrl;
 
         let dtiSecUrl = null;
         if (dtiSecFile && dtiSecFile.size > 0 && dtiSecFile.name !== "undefined") {
@@ -186,13 +185,66 @@ export async function submitBusinessAppointment(formData: FormData) {
                 return { success: false, error: "Failed to upload DTI/SEC registration certificate." };
             }
         }
-        if (!dtiSecUrl && existingDtiSecUrl) dtiSecUrl = existingDtiSecUrl;
+
+        let ctcUrl = null;
+        if (ctcFile && ctcFile.size > 0 && ctcFile.name !== "undefined") {
+            ctcUrl = await processFileUpload(ctcFile, "ctc");
+            if (!ctcUrl) {
+                return { success: false, error: "Failed to upload CTC." };
+            }
+        }
+
+        let sanitaryPermitUrl = null;
+        if (sanitaryPermitFile && sanitaryPermitFile.size > 0 && sanitaryPermitFile.name !== "undefined") {
+            sanitaryPermitUrl = await processFileUpload(sanitaryPermitFile, "sanitary_permit");
+            if (!sanitaryPermitUrl) {
+                return { success: false, error: "Failed to upload Sanitary Permit." };
+            }
+        }
+
+        let fireSafetyUrl = null;
+        if (fireSafetyFile && fireSafetyFile.size > 0 && fireSafetyFile.name !== "undefined") {
+            fireSafetyUrl = await processFileUpload(fireSafetyFile, "fire_safety");
+            if (!fireSafetyUrl) {
+                return { success: false, error: "Failed to upload Fire Safety Inspection Certificate." };
+            }
+        }
+
+        let previousPermitUrl = null;
+        if (previousPermitFile && previousPermitFile.size > 0 && previousPermitFile.name !== "undefined") {
+            previousPermitUrl = await processFileUpload(previousPermitFile, "previous_permit");
+            if (!previousPermitUrl) {
+                return { success: false, error: "Failed to upload Previous Business Permit." };
+            }
+        }
+
+        let birCorUrl = null;
+        if (birCorFile && birCorFile.size > 0 && birCorFile.name !== "undefined") {
+            birCorUrl = await processFileUpload(birCorFile, "bir_cor");
+            if (!birCorUrl) {
+                return { success: false, error: "Failed to upload BIR Certificate of Registration." };
+            }
+        }
+
+        let locationPhotoUrl = null;
+        if (locationPhotoFile && locationPhotoFile.size > 0 && locationPhotoFile.name !== "undefined") {
+            locationPhotoUrl = await processFileUpload(locationPhotoFile, "location_photo");
+            if (!locationPhotoUrl) {
+                return { success: false, error: "Failed to upload Photo of Business Location." };
+            }
+        }
 
         const updatedAdditionalData = {
             ...additionalData,
             ownerIdUrl: idUrl,
             brgyClearanceUrl: brgyUrl,
             dtiSecUrl: dtiSecUrl,
+            ctcUrl: ctcUrl,
+            sanitaryPermitUrl: sanitaryPermitUrl,
+            fireSafetyUrl: fireSafetyUrl,
+            previousPermitUrl: previousPermitUrl,
+            birCorUrl: birCorUrl,
+            locationPhotoUrl: locationPhotoUrl,
         };
 
         // Check if the slot is still available
@@ -242,7 +294,7 @@ export async function submitBusinessAppointment(formData: FormData) {
                 data: {
                     userId: session.user.id,
                     typeId,
-                    status: "FOR_REQUESTING",
+                    status: "FOR_INSPECTION",
                     residentSnapshot,
                     additionalData: {
                         ...updatedAdditionalData,
