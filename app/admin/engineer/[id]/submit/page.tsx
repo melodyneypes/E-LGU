@@ -40,7 +40,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
     const isForcedView = searchParams.get("view") === "true";
     const { data: session } = useSession();
     const userRole = (session?.user as any)?.role;
-    const backUrl = userRole === "ENGINEER" ? "/admin/engineer" : "/admin/treasury";
+    const backUrl = userRole === "ENGINEER" ? "/admin/engineer" : userRole === "MPDC_ZONING" ? "/admin/zoning" : "/admin/treasury";
 
     const [transaction, setTransaction] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -564,7 +564,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
                             </div>
                         )}
 
-                        {transaction?.status === "FOR_PROCESSING" && userRole === "ENGINEER" && (
+                        {transaction?.status === "FOR_PROCESSING" && (userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
                             <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
                                 <div className="flex flex-col gap-1">
                                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Resident Fulfillment Preference</span>

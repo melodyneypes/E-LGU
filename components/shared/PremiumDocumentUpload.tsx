@@ -17,6 +17,7 @@ interface PremiumDocumentUploadProps {
     onView: () => void;
     error?: boolean | string;
     infoText?: string;
+    disabled?: boolean;
 }
 
 export default function PremiumDocumentUpload({
@@ -28,11 +29,13 @@ export default function PremiumDocumentUpload({
     onFileSelect,
     onView,
     error = false,
-    infoText = "PDF / IMAGE (MAX 5MB)"
+    infoText = "PDF / IMAGE (MAX 5MB)",
+    disabled = false
 }: PremiumDocumentUploadProps) {
     const inputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (disabled) return;
         const selectedFile = e.target.files?.[0] || null;
         if (selectedFile) {
             const maxBytes = 5 * 1024 * 1024; // 5MB limit
@@ -91,6 +94,7 @@ export default function PremiumDocumentUpload({
     };
 
     const triggerUpload = () => {
+        if (disabled) return;
         inputRef.current?.click();
     };
 
@@ -154,9 +158,9 @@ export default function PremiumDocumentUpload({
                 <div className="w-10 h-10 md:w-12 md:h-12 bg-white dark:bg-black/20 rounded-xl flex items-center justify-center shadow-sm shrink-0 border border-slate-100 dark:border-white/5">
                     <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                 </div>
-                <div className="space-y-0.5">
-                    <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-white italic flex items-center gap-1">
-                        {label} {required && <span className="text-red-500 font-black not-italic">*</span>}
+                <div className="space-y-0.5 flex-1 min-w-0">
+                    <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-wide text-slate-600 dark:text-white italic break-all whitespace-normal">
+                        {label} {required && <span className="text-red-500 font-black not-italic ml-0.5">*</span>}
                     </h4>
                     <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">
                         {infoText}
@@ -203,26 +207,33 @@ export default function PremiumDocumentUpload({
                         <button
                             type="button"
                             onClick={onView}
-                            className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border border-primary/20 text-primary hover:bg-primary/5 flex-1 transition-all duration-300"
+                            className={cn(
+                                "font-black italic uppercase tracking-wide text-[8px] md:text-[9px] px-2 md:px-4 h-8 rounded-full border border-primary/20 text-primary hover:bg-primary/5 transition-all duration-300 truncate",
+                                disabled ? "w-full flex-none" : "flex-1"
+                            )}
                         >
                             View Document
                         </button>
+                        {!disabled && (
+                            <button
+                                type="button"
+                                onClick={triggerUpload}
+                                className="font-black italic uppercase tracking-wide text-[8px] md:text-[9px] px-2 md:px-4 h-8 rounded-full border border-primary/20 text-primary hover:bg-primary/5 flex-1 transition-all duration-300 truncate"
+                            >
+                                Change
+                            </button>
+                        )}
+                     </>
+                ) : (
+                    !disabled && (
                         <button
                             type="button"
                             onClick={triggerUpload}
-                            className="font-black italic uppercase tracking-widest text-[8px] md:text-[9px] px-4 md:px-6 h-8 rounded-full border border-primary/20 text-primary hover:bg-primary/5 flex-1 transition-all duration-300"
+                            className="w-full h-8 rounded-full bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest italic text-[8px] md:text-[9px] transition-all duration-300 flex items-center justify-center shadow-lg shadow-primary/10"
                         >
-                            Change
+                            UPLOAD
                         </button>
-                     </>
-                ) : (
-                    <button
-                        type="button"
-                        onClick={triggerUpload}
-                        className="w-full h-8 rounded-full bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest italic text-[8px] md:text-[9px] transition-all duration-300 flex items-center justify-center shadow-lg shadow-primary/10"
-                    >
-                        UPLOAD
-                    </button>
+                    )
                 )}
             </div>
         </div>

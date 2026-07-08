@@ -391,6 +391,8 @@ export function Sidebar({
         { href: "/admin/treasury/payment-settings", label: "Payment Settings", icon: CreditCard, category: "Treasury" },
         { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury" },
         { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
+        { href: "/admin/zoning", label: "Zoning Hub", icon: LayoutDashboard, category: "Zoning" },
+        { href: "/admin/zoning/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Zoning" },
         { href: "/admin/users", label: "User Accounts", icon: UserCheck, category: "Security & Accounts" },
     ];
 
@@ -525,6 +527,11 @@ export function Sidebar({
             menuItems = [
                 { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" },
                 { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" }
+            ];
+        } else if (role === "MPDC_ZONING") {
+            menuItems = [
+                { href: "/admin/zoning", label: "Zoning Hub", icon: HardHat, category: "Zoning" },
+                { href: "/admin/zoning/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Zoning" }
             ];
         }
     }
@@ -833,6 +840,8 @@ export function Sidebar({
                                                         ? "Admin Aide"
                                                         : role === "ENGINEER"
                                                             ? "Municipal Engineer"
+                                                            : role === "MPDC_ZONING"
+                                                                ? "MPDC Zoning Officer"
                                                             : "Admin System"}
                                     </p>
                                 </div>

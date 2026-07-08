@@ -29,7 +29,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
     }
 
     // Redirect Engineer to their Building Permit hub
-    if (user?.role === "ENGINEER") {
+    if (user?.role === "ENGINEER" || user?.role === "MPDC_ZONING") {
         redirect("/admin/engineer");
     }
 

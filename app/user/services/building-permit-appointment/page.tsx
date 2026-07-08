@@ -80,6 +80,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
+import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
 import { getSecureUploadUrlAction } from "@/app/auth/actions";
 import SchedulePicker from "@/components/shared/SchedulePicker";
@@ -384,7 +385,6 @@ export default function BuildingPermitAppointmentPage() {
   }, []);
 
   const [currentStep, setCurrentStep] = useState("APPOINTMENT");
-  const [hasReadGuide, setHasReadGuide] = useState(false);
   const [existingApplications, setExistingApplications] = useState<any[]>([]);
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
   const [residentData, setResidentData] = useState<any>(null);
@@ -831,24 +831,7 @@ export default function BuildingPermitAppointmentPage() {
     }
   };
 
-  const handlePaymentFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      let fileToProcess = file;
-      if (file.type.startsWith("image/")) {
-        try {
-          toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-          fileToProcess = await compressImage(file);
-          toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-        } catch (err) {
-          console.error("Compression error:", err);
-          toast.dismiss("image-compress-toast");
-        }
-      }
-      setPaymentFile(fileToProcess);
-      setPaymentPreviewUrl(URL.createObjectURL(fileToProcess));
-    }
-  };
+
 
   const handleSubmitPaymentProof = async () => {
     if (!paymentFile || !selectedApplication) return;
@@ -1566,21 +1549,27 @@ export default function BuildingPermitAppointmentPage() {
             </div>
 
             <div className="max-w-2xl mx-auto">
-              <SchedulePicker
-                config={appointmentConfig}
-                bookedSlots={bookedSlots}
-                selectedDate={formData.appointmentDate ? (() => {
-                  const d = formData.appointmentDate;
-                  const year = d.getFullYear();
-                  const month = String(d.getMonth() + 1).padStart(2, '0');
-                  const day = String(d.getDate()).padStart(2, '0');
-                  return `${year}-${month}-${day}`;
-                })() : ""}
-                setSelectedDate={(dateStr) => setFormData(prev => ({ ...prev, appointmentDate: dateStr ? new Date(dateStr) : null }))}
-                selectedSlot={formData.appointmentSlot}
-                setSelectedSlot={(slot) => setFormData(prev => ({ ...prev, appointmentSlot: slot }))}
-                themeColor="var(--primary-theme)"
-              />
+              {appointmentConfig ? (
+                <SchedulePicker
+                  config={appointmentConfig}
+                  bookedSlots={bookedSlots}
+                  selectedDate={formData.appointmentDate ? (() => {
+                    const d = formData.appointmentDate;
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                  })() : ""}
+                  setSelectedDate={(dateStr) => setFormData(prev => ({ ...prev, appointmentDate: dateStr ? new Date(dateStr) : null }))}
+                  selectedSlot={formData.appointmentSlot}
+                  setSelectedSlot={(slot) => setFormData(prev => ({ ...prev, appointmentSlot: slot }))}
+                  themeColor="var(--primary-theme)"
+                />
+              ) : (
+                <div className="text-center py-12 text-slate-405 dark:text-slate-500 italic text-sm animate-pulse">
+                  Loading available schedules...
+                </div>
+              )}
             </div>
 
             <div className="mt-12 flex flex-col md:flex-row justify-end items-center gap-6">
@@ -1783,12 +1772,6 @@ export default function BuildingPermitAppointmentPage() {
 
             <div
               className="space-y-6 max-h-[600px] overflow-y-auto pr-2 md:pr-4 custom-scrollbar"
-              onScroll={(e) => {
-                const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-                if (Math.ceil(scrollTop + clientHeight) >= scrollHeight - 5) {
-                  setHasReadGuide(true);
-                }
-              }}
             >
               {requirements.map((req) => (
                 <div
@@ -1908,17 +1891,11 @@ export default function BuildingPermitAppointmentPage() {
                 </button>
               )}
               <button
-                disabled={!hasReadGuide}
                 onClick={() => {
                   setCurrentStep("PROFILE");
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
-                className={cn(
-                  "px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all w-full md:w-auto ml-auto",
-                  hasReadGuide
-                    ? "bg-primary text-white hover:bg-primary/90 shadow-xl shadow-primary/20"
-                    : "bg-slate-300 text-slate-500 cursor-not-allowed dark:bg-white/10 dark:text-slate-400"
-                )}
+                className="px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all w-full md:w-auto ml-auto bg-primary text-white hover:bg-primary/90 shadow-xl shadow-primary/20"
               >
                 Proceed to Profile & Purpose
                 <span className="text-xl leading-none">→</span>
@@ -2004,73 +1981,45 @@ export default function BuildingPermitAppointmentPage() {
                       <Book className="w-5 h-5 text-primary" />
                       <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-tighter text-lg md:text-xl italic">
                         Government ID <span className="text-red-500 text-xl">*</span>
-                      </h3>
-                    </div>
-                    {!isEditable ? (
-                      <div>
-                        {selectedApplication.additionalData?.documents?.newIdFile ? (
+                    </h3>
+                  </div>
+                  {!isEditable ? (
+                    <div>
+                      {selectedApplication.additionalData?.documents?.newIdFile ? (
                           <div className="flex flex-col md:flex-row gap-6">
-                            <div className="flex-1 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 p-6 flex flex-col items-center justify-center text-center relative overflow-hidden shadow-sm min-h-[180px]">
-                              {(() => {
-                                const url = selectedApplication.additionalData.documents.newIdFile;
-                                const isImage = /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(url);
-                                return (
-                                  <div className="space-y-4 w-full flex flex-col items-center">
-                                    {isImage ? (
-                                      <img src={url} alt="Uploaded Government ID Front" className="max-h-48 object-contain rounded-lg border border-slate-200 dark:border-white/10" />
-                                    ) : (
-                                      <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-                                        <FileText className="w-8 h-8" />
-                                      </div>
-                                    )}
-                                    <p className="text-xs font-semibold text-slate-500">Government ID - Front Side</p>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setViewerUrl(url);
-                                        setViewerTitle("Government ID - Front");
-                                        setViewerOpen(true);
-                                      }}
-                                      className="inline-flex items-center gap-2 text-xs font-bold text-primary hover:underline"
-                                    >
-                                      View Front ID ↗
-                                    </button>
-                                  </div>
-                                );
-                              })()}
+                            <div className="flex-1">
+                              <PremiumDocumentUpload
+                                label="Government ID - Front"
+                                file={null}
+                                existingUrl={selectedApplication.additionalData.documents.newIdFile}
+                                onFileSelect={() => {}}
+                                onView={() => {
+                                  setViewerUrl(selectedApplication.additionalData.documents.newIdFile);
+                                  setViewerFile(null);
+                                  setViewerTitle("Government ID - Front");
+                                  setViewerOpen(true);
+                                }}
+                                disabled={true}
+                              />
                             </div>
-                            <div className="flex-1 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 p-6 flex flex-col items-center justify-center text-center relative overflow-hidden shadow-sm min-h-[180px]">
+                            <div className="flex-1">
                               {selectedApplication.additionalData?.documents?.newIdFileBack ? (
-                                (() => {
-                                  const url = selectedApplication.additionalData.documents.newIdFileBack;
-                                  const isImage = /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(url);
-                                  return (
-                                    <div className="space-y-4 w-full flex flex-col items-center">
-                                      {isImage ? (
-                                        <img src={url} alt="Uploaded Government ID Back" className="max-h-48 object-contain rounded-lg border border-slate-200 dark:border-white/10" />
-                                      ) : (
-                                        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-                                          <FileText className="w-8 h-8" />
-                                        </div>
-                                      )}
-                                      <p className="text-xs font-semibold text-slate-500">Government ID - Back Side (Optional)</p>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setViewerUrl(url);
-                                          setViewerTitle("Government ID - Back");
-                                          setViewerOpen(true);
-                                        }}
-                                        className="inline-flex items-center gap-2 text-xs font-bold text-primary hover:underline"
-                                      >
-                                        View Back ID ↗
-                                      </button>
-                                    </div>
-                                  );
-                                })()
+                                <PremiumDocumentUpload
+                                  label="Government ID - Back"
+                                  file={null}
+                                  existingUrl={selectedApplication.additionalData.documents.newIdFileBack}
+                                  onFileSelect={() => {}}
+                                  onView={() => {
+                                    setViewerUrl(selectedApplication.additionalData.documents.newIdFileBack);
+                                    setViewerFile(null);
+                                    setViewerTitle("Government ID - Back");
+                                    setViewerOpen(true);
+                                  }}
+                                  disabled={true}
+                                />
                               ) : (
-                                <div className="text-center p-6 flex flex-col items-center justify-center h-full">
-                                  <FileWarning className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 flex flex-col items-center justify-center text-center min-h-[140px]">
+                                  <FileWarning className="w-6 h-6 text-slate-400 mb-2" />
                                   <p className="text-xs font-semibold text-slate-400 italic">No Back Side ID Uploaded</p>
                                 </div>
                               )}
@@ -2139,245 +2088,47 @@ export default function BuildingPermitAppointmentPage() {
                         ) : (
                           <div className="flex flex-col md:flex-row gap-6">
                             {/* Front Side Upload */}
-                            <div className="flex-1 flex flex-col gap-2">
-                              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Front Side <span className="text-slate-400">(Optional)</span></label>
-                              <div className="bg-white dark:bg-black/20 rounded-xl border border-dashed p-6 flex flex-col items-center justify-center text-center relative hover:bg-slate-50 dark:hover:bg-white/5 transition-colors overflow-hidden min-h-[160px] border-slate-300 dark:border-white/20">
-                                {(() => {
-                                  if (formData.newIdFile && formData.newIdFile.type.startsWith("image/")) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                        <img src={URL.createObjectURL(formData.newIdFile)} alt="Preview Front" className="w-full h-full object-contain" />
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.newIdFile); setViewerTitle("Government ID - Front"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Front
-                                          </button>
-                                          <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Front
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
-                                  } else if (isRevision && !formData.newIdFile && selectedApplication?.additionalData?.documents?.newIdFile && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(selectedApplication.additionalData.documents.newIdFile)) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                        <img src={selectedApplication.additionalData.documents.newIdFile} alt="Preview Front" className="w-full h-full object-contain" />
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.newIdFile); setViewerTitle("Government ID - Front"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Front
-                                          </button>
-                                          <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Front
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
-                                  } else if (formData.newIdFile) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                        <FileText className="w-10 h-10 text-primary mb-2" />
-                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">{formData.newIdFile.name}</p>
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.newIdFile); setViewerTitle("Government ID - Front"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Front
-                                          </button>
-                                          <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Front
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
-                                  } else if (isRevision && !formData.newIdFile && selectedApplication?.additionalData?.documents?.newIdFile) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                        <FileText className="w-10 h-10 text-primary mb-2" />
-                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">Government ID - Front</p>
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.newIdFile); setViewerTitle("Government ID - Front"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Front
-                                          </button>
-                                          <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Front
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
+                            <div className="flex-1">
+                              <PremiumDocumentUpload
+                                label="Front Side ID"
+                                required={true}
+                                file={formData.newIdFile}
+                                existingUrl={isRevision ? selectedApplication?.additionalData?.documents?.newIdFile : undefined}
+                                onFileSelect={(file) => setFormData({ ...formData, newIdFile: file })}
+                                onView={() => {
+                                  if (formData.newIdFile) {
+                                    setViewerFile(formData.newIdFile);
+                                    setViewerUrl(null);
+                                  } else {
+                                    setViewerUrl(selectedApplication?.additionalData?.documents?.newIdFile || null);
+                                    setViewerFile(null);
                                   }
-                                  return (
-                                    <label htmlFor="upload-newIdFile" className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20">
-                                      <Upload className="w-6 h-6 text-slate-400 mb-1.5 pointer-events-none" />
-                                      <p className="text-xs font-medium text-slate-600 dark:text-slate-400 pointer-events-none px-2">
-                                        Upload Front Side
-                                      </p>
-                                    </label>
-                                  );
-                                })()}
-                                <input
-                                  id="upload-newIdFile"
-                                  type="file"
-                                  accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
-                                  className="hidden"
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      if (file.size > 5 * 1024 * 1024) {
-                                        toast.error("File size exceeds 5MB limit.");
-                                        e.target.value = "";
-                                        setFormData({ ...formData, newIdFile: null });
-                                        return;
-                                      }
-                                      let fileToProcess = file;
-                                      if (file.type.startsWith("image/")) {
-                                        try {
-                                          toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-                                          fileToProcess = await compressImage(file);
-                                          toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-                                        } catch (err) {
-                                          console.error("Compression error:", err);
-                                          toast.dismiss("image-compress-toast");
-                                        }
-                                      }
-                                      setFormData({ ...formData, newIdFile: fileToProcess });
-                                    }
-                                  }}
-                                />
-                              </div>
+                                  setViewerTitle("Government ID - Front");
+                                  setViewerOpen(true);
+                                }}
+                              />
                             </div>
 
                             {/* Back Side Upload (Optional) */}
-                            <div className="flex-1 flex flex-col gap-2">
-                              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Back Side <span className="text-slate-400">(Optional)</span></label>
-                              <div className="bg-white dark:bg-black/20 rounded-xl border border-dashed border-slate-300 dark:border-white/20 p-6 flex flex-col items-center justify-center text-center relative hover:bg-slate-50 dark:hover:bg-white/5 transition-colors overflow-hidden min-h-[160px]">
-                                {(() => {
-                                  if (formData.newIdFileBack && formData.newIdFileBack.type.startsWith("image/")) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                        <img src={URL.createObjectURL(formData.newIdFileBack)} alt="Preview Back" className="w-full h-full object-contain" />
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.newIdFileBack); setViewerTitle("Government ID - Back"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Back
-                                          </button>
-                                          <label htmlFor="upload-newIdFileBack" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Back
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
-                                  } else if (isRevision && !formData.newIdFileBack && selectedApplication?.additionalData?.documents?.newIdFileBack && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(selectedApplication.additionalData.documents.newIdFileBack)) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                        <img src={selectedApplication.additionalData.documents.newIdFileBack} alt="Preview Back" className="w-full h-full object-contain" />
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.newIdFileBack); setViewerTitle("Government ID - Back"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Back
-                                          </button>
-                                          <label htmlFor="upload-newIdFileBack" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Back
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
-                                  } else if (formData.newIdFileBack) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                        <FileText className="w-10 h-10 text-primary mb-2" />
-                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">{formData.newIdFileBack.name}</p>
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.newIdFileBack); setViewerTitle("Government ID - Back"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Back
-                                          </button>
-                                          <label htmlFor="upload-newIdFileBack" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Back
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
-                                  } else if (isRevision && !formData.newIdFileBack && selectedApplication?.additionalData?.documents?.newIdFileBack) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                        <FileText className="w-10 h-10 text-primary mb-2" />
-                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">Government ID - Back</p>
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.newIdFileBack); setViewerTitle("Government ID - Back"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Back
-                                          </button>
-                                          <label htmlFor="upload-newIdFileBack" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Back
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
+                            <div className="flex-1">
+                              <PremiumDocumentUpload
+                                label="Back Side ID"
+                                required={false}
+                                file={formData.newIdFileBack}
+                                existingUrl={isRevision ? selectedApplication?.additionalData?.documents?.newIdFileBack : undefined}
+                                onFileSelect={(file) => setFormData({ ...formData, newIdFileBack: file })}
+                                onView={() => {
+                                  if (formData.newIdFileBack) {
+                                    setViewerFile(formData.newIdFileBack);
+                                    setViewerUrl(null);
+                                  } else {
+                                    setViewerUrl(selectedApplication?.additionalData?.documents?.newIdFileBack || null);
+                                    setViewerFile(null);
                                   }
-                                  return (
-                                    <label htmlFor="upload-newIdFileBack" className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20">
-                                      <Upload className="w-6 h-6 text-slate-400 mb-1.5 pointer-events-none" />
-                                      <p className="text-xs font-medium text-slate-600 dark:text-slate-400 pointer-events-none px-2">
-                                        Upload Back Side
-                                      </p>
-                                    </label>
-                                  );
-                                })()}
-                                <input
-                                  id="upload-newIdFileBack"
-                                  type="file"
-                                  accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
-                                  className="hidden"
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      if (file.size > 5 * 1024 * 1024) {
-                                        toast.error("File size exceeds 5MB limit.");
-                                        e.target.value = "";
-                                        setFormData({ ...formData, newIdFileBack: null });
-                                        return;
-                                      }
-                                      let fileToProcess = file;
-                                      if (file.type.startsWith("image/")) {
-                                        try {
-                                          toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-                                          fileToProcess = await compressImage(file);
-                                          toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-                                        } catch (err) {
-                                          console.error("Compression error:", err);
-                                          toast.dismiss("image-compress-toast");
-                                        }
-                                      }
-                                      setFormData({ ...formData, newIdFileBack: fileToProcess });
-                                    }
-                                  }}
-                                />
-                              </div>
+                                  setViewerTitle("Government ID - Back");
+                                  setViewerOpen(true);
+                                }}
+                              />
                             </div>
                           </div>
                         )}
@@ -2649,155 +2400,39 @@ export default function BuildingPermitAppointmentPage() {
                           b. Certified true copy of the TCT covering a lot on which the proposed work is to be done <span className="text-slate-400 font-medium">(Optional)</span>
                         </label>
                         {!isEditable ? (
-                          <div className="bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 p-6 flex flex-col items-center justify-center text-center relative overflow-hidden shadow-sm">
-                            {(() => {
-                              const url = selectedApplication.additionalData?.documents?.tctFile;
-                              if (!url) {
-                                return <p className="text-sm font-medium text-slate-500 italic">No TCT Document uploaded.</p>;
-                              }
-                              const isImage = /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(url);
-                              return (
-                                <div className="space-y-4 w-full flex flex-col items-center">
-                                  {isImage ? (
-                                    <img src={url} alt="TCT Document" className="max-h-48 object-contain rounded-lg border border-slate-200 dark:border-white/10" />
-                                  ) : (
-                                    <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-                                      <FileText className="w-8 h-8" />
-                                    </div>
-                                  )}
-                                  <p className="text-xs font-semibold text-slate-500">TCT Document is uploaded and verified</p>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setViewerUrl(url);
-                                      setViewerTitle("TCT Document");
-                                      setViewerOpen(true);
-                                    }}
-                                    className="inline-flex items-center gap-2 text-xs font-bold text-primary hover:underline"
-                                  >
-                                    View Full Document ↗
-                                  </button>
-                                </div>
-                              );
-                            })()}
-                          </div>
+                          <PremiumDocumentUpload
+                            label="TCT Document"
+                            required={false}
+                            file={null}
+                            existingUrl={selectedApplication.additionalData?.documents?.tctFile}
+                            onFileSelect={() => {}}
+                            onView={() => {
+                              setViewerUrl(selectedApplication.additionalData?.documents?.tctFile || null);
+                              setViewerFile(null);
+                              setViewerTitle("TCT Document");
+                              setViewerOpen(true);
+                            }}
+                            disabled={true}
+                          />
                         ) : (
-                          <div className="bg-white dark:bg-black/20 rounded-xl border border-dashed p-8 flex flex-col items-center justify-center text-center relative hover:bg-slate-50 dark:hover:bg-white/5 transition-colors overflow-hidden border-slate-300 dark:border-white/20">
-                            {(() => {
-                              if (formData.tctFile && formData.tctFile.type.startsWith("image/")) {
-                                return (
-                                  <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                    <img src={URL.createObjectURL(formData.tctFile)} alt="Preview" className="w-full h-full object-contain" />
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.tctFile); setViewerTitle("TCT Document"); setViewerOpen(true); }}
-                                        className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                      >
-                                        Preview Image
-                                      </button>
-                                      <label htmlFor="upload-tctFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                        Replace Image
-                                      </label>
-                                    </div>
-                                  </div>
-                                );
-                              } else if (isRevision && !formData.tctFile && selectedApplication?.additionalData?.documents?.tctFile && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(selectedApplication.additionalData.documents.tctFile)) {
-                                return (
-                                  <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                    <img src={selectedApplication.additionalData.documents.tctFile} alt="Preview" className="w-full h-full object-contain" />
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.tctFile); setViewerTitle("TCT Document"); setViewerOpen(true); }}
-                                        className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                      >
-                                        Preview Image
-                                      </button>
-                                      <label htmlFor="upload-tctFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                        Replace Image
-                                      </label>
-                                    </div>
-                                  </div>
-                                );
-                              } else if (formData.tctFile) {
-                                return (
-                                  <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                    <FileText className="w-10 h-10 text-primary mb-2" />
-                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">{formData.tctFile.name}</p>
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.tctFile); setViewerTitle("TCT Document"); setViewerOpen(true); }}
-                                        className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                      >
-                                        Preview Document
-                                      </button>
-                                      <label htmlFor="upload-tctFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                        Replace Document
-                                      </label>
-                                    </div>
-                                  </div>
-                                );
-                              } else if (isRevision && !formData.tctFile && selectedApplication?.additionalData?.documents?.tctFile) {
-                                return (
-                                  <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                    <FileText className="w-10 h-10 text-primary mb-2" />
-                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">Existing Document</p>
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.tctFile); setViewerTitle("TCT Document"); setViewerOpen(true); }}
-                                        className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                      >
-                                        Preview Document
-                                      </button>
-                                      <label htmlFor="upload-tctFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                        Replace Document
-                                      </label>
-                                    </div>
-                                  </div>
-                                );
+                          <PremiumDocumentUpload
+                            label="TCT Document"
+                            required={false}
+                            file={formData.tctFile}
+                            existingUrl={isRevision ? selectedApplication?.additionalData?.documents?.tctFile : undefined}
+                            onFileSelect={(file) => setFormData({ ...formData, tctFile: file })}
+                            onView={() => {
+                              if (formData.tctFile) {
+                                setViewerFile(formData.tctFile);
+                                setViewerUrl(null);
+                              } else {
+                                setViewerUrl(selectedApplication?.additionalData?.documents?.tctFile || null);
+                                setViewerFile(null);
                               }
-                              return (
-                                <label htmlFor="upload-tctFile" className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20">
-                                  <Upload className="w-8 h-8 text-slate-400 mb-2 pointer-events-none" />
-                                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400 pointer-events-none px-2">
-                                    Click to upload certified true copy of TCT (PDF/JPG/PNG)
-                                  </p>
-                                </label>
-                              );
-                            })()}
-                            <input
-                              id="upload-tctFile"
-                              type="file"
-                              accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
-                              className="hidden"
-                              onChange={async (e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  if (file.size > 5 * 1024 * 1024) {
-                                    toast.error("File size exceeds 5MB limit.");
-                                    e.target.value = "";
-                                    setFormData({ ...formData, tctFile: null });
-                                    return;
-                                  }
-                                  let fileToProcess = file;
-                                  if (file.type.startsWith("image/")) {
-                                    try {
-                                      toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-                                      fileToProcess = await compressImage(file);
-                                      toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-                                    } catch (err) {
-                                      console.error("Compression error:", err);
-                                      toast.dismiss("image-compress-toast");
-                                    }
-                                  }
-                                  setFormData({ ...formData, tctFile: fileToProcess });
-                                }
-                              }}
-                            />
-                          </div>
+                              setViewerTitle("TCT Document");
+                              setViewerOpen(true);
+                            }}
+                          />
                         )}
                       </div>
 
@@ -3258,7 +2893,6 @@ export default function BuildingPermitAppointmentPage() {
                 .map(({ docName, idx, kind }) => {
                   const baseKey = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;
                   const key = kind === "revision" ? `${activeDocTab.toLowerCase()}_revision_${idx}` : baseKey;
-                  const uploadId = `upload-${key}`;
                   const isRevisionItem = kind === "revision";
                   const isCustomItem = kind === "custom";
                   const revisionKey = `revision_${idx}`;
@@ -3277,41 +2911,6 @@ export default function BuildingPermitAppointmentPage() {
                     ? true
                     : false; // All initial requirements and permits are optional
                   const hasError = showValidationErrors && isRequired && !isUploaded;
-                  const isExistingImage = Boolean(fileUrl && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(fileUrl));
-                  const isNewImage = Boolean(uploadedFile?.type.startsWith("image/"));
-
-                  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-                    const file = event.target.files?.[0];
-                    if (!file) return;
-
-                    if (file.size > 5 * 1024 * 1024) {
-                      toast.error("File size exceeds the 5MB limit.");
-                      event.target.value = "";
-                      return;
-                    }
-
-                    let fileToProcess = file;
-                    if (file.type.startsWith("image/")) {
-                      try {
-                        toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-                        fileToProcess = await compressImage(file);
-                        toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-                      } catch (error) {
-                        console.error("Compression error:", error);
-                        toast.dismiss("image-compress-toast");
-                      }
-                    }
-
-                    if (isRevisionItem) {
-                      setUploadedRevisionDocs((previous) => ({ ...previous, [idx]: fileToProcess }));
-                    } else if (activeDocTab === "REQUIREMENTS") {
-                      setUploadedRequirements((previous) => ({ ...previous, [idx]: fileToProcess }));
-                    } else {
-                      setUploadedPermits((previous) => ({ ...previous, [idx]: fileToProcess }));
-                    }
-
-                    event.target.value = "";
-                  };
 
                   return (
                     <div
@@ -3324,203 +2923,75 @@ export default function BuildingPermitAppointmentPage() {
                           : "border-slate-200 dark:border-white/10 hover:border-primary/30"
                       )}
                     >
-                      <div className="flex justify-between items-start gap-4 mb-4">
-                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm min-w-0 flex-1">
-                          <span className="inline-flex items-center gap-1.5 flex-wrap">
-                            <span className="text-lg">📄</span>
-                            <span className="break-words">{docName}</span>
-                            {isRequired ? (
-                              <span className="text-red-500 ml-0.5 text-lg">*</span>
-                            ) : (
-                              <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1">Optional</span>
-                            )}
-                          </span>
-                        </h4>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span
-                            className={cn(
-                              "text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full",
-                              isUploaded
-                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
-                                : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                            )}
+                      {isCustomItem && isEditable && (
+                        <div className="flex justify-end items-center mb-4">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (activeDocTab === "REQUIREMENTS") {
+                                setCustomRequirements(prev => prev.filter((_, i) => i !== (idx - 10)));
+                                setUploadedRequirements(prev => {
+                                  const nextReqs: Record<number, File> = {};
+                                  Object.entries(prev).forEach(([kStr, file]) => {
+                                    const k = parseInt(kStr, 10);
+                                    if (k < idx) {
+                                      nextReqs[k] = file;
+                                    } else if (k > idx) {
+                                      nextReqs[k - 1] = file;
+                                    }
+                                  });
+                                  return nextReqs;
+                                });
+                              } else {
+                                setCustomPermits(prev => prev.filter((_, i) => i !== (idx - 7)));
+                                setUploadedPermits(prev => {
+                                  const nextPermits: Record<number, File> = {};
+                                  Object.entries(prev).forEach(([kStr, file]) => {
+                                    const k = parseInt(kStr, 10);
+                                    if (k < idx) {
+                                      nextPermits[k] = file;
+                                    } else if (k > idx) {
+                                      nextPermits[k - 1] = file;
+                                    }
+                                  });
+                                  return nextPermits;
+                                });
+                              }
+                            }}
+                            className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-[10px] font-bold transition-colors border border-red-200 dark:border-red-500/20 px-2 py-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10"
                           >
-                            {isUploaded ? "Uploaded" : "Pending"}
-                          </span>
-                          {isCustomItem && isEditable && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (activeDocTab === "REQUIREMENTS") {
-                                  setCustomRequirements(prev => prev.filter((_, i) => i !== (idx - 10)));
-                                  setUploadedRequirements(prev => {
-                                    const nextReqs: Record<number, File> = {};
-                                    Object.entries(prev).forEach(([kStr, file]) => {
-                                      const k = parseInt(kStr, 10);
-                                      if (k < idx) {
-                                        nextReqs[k] = file;
-                                      } else if (k > idx) {
-                                        nextReqs[k - 1] = file;
-                                      }
-                                    });
-                                    return nextReqs;
-                                  });
-                                } else {
-                                  setCustomPermits(prev => prev.filter((_, i) => i !== (idx - 7)));
-                                  setUploadedPermits(prev => {
-                                    const nextPermits: Record<number, File> = {};
-                                    Object.entries(prev).forEach(([kStr, file]) => {
-                                      const k = parseInt(kStr, 10);
-                                      if (k < idx) {
-                                        nextPermits[k] = file;
-                                      } else if (k > idx) {
-                                        nextPermits[k - 1] = file;
-                                      }
-                                    });
-                                    return nextPermits;
-                                  });
-                                }
-                              }}
-                              className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-[10px] font-bold transition-colors border border-red-200 dark:border-red-500/20 px-2 py-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10"
-                            >
-                              Remove
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {!isEditable ? (
-                        <div className="bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[140px] shadow-sm">
-                          {fileUrl ? (
-                            <div className="space-y-3 w-full flex flex-col items-center">
-                              {isExistingImage ? (
-                                <img
-                                  src={fileUrl}
-                                  alt={docName}
-                                  className="max-h-24 object-contain rounded border border-slate-200 dark:border-white/10"
-                                />
-                              ) : (
-                                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-                                  <FileText className="w-5 h-5" />
-                                </div>
-                              )}
-                              <p className="text-[10px] font-semibold text-slate-500">Document Uploaded</p>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setViewerUrl(fileUrl);
-                                  setViewerFile(null);
-                                  setViewerTitle(docName);
-                                  setViewerOpen(true);
-                                }}
-                                className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:underline bg-transparent border-0 cursor-pointer"
-                              >
-                                View Document ↗
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="text-center p-4">
-                              <FileWarning className="w-6 h-6 text-slate-400 mx-auto mb-2" />
-                              <p className="text-xs font-semibold text-slate-400 italic">Not Uploaded / Not Required</p>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="bg-slate-50 dark:bg-black/20 rounded-xl border border-dashed border-slate-300 dark:border-white/20 p-6 flex flex-col items-center justify-center text-center relative hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer group-hover:border-primary/40 overflow-hidden min-h-[140px]">
-                          {uploadedFile ? (
-                            <div className="w-full h-full absolute inset-0 z-0 flex flex-col justify-center items-center group/preview">
-                              {isNewImage ? (
-                                <img
-                                  src={URL.createObjectURL(uploadedFile)}
-                                  alt="Preview"
-                                  className="w-full h-full object-contain bg-slate-900"
-                                />
-                              ) : (
-                                <>
-                                  <FileText className="w-10 h-10 text-primary mb-2" />
-                                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">
-                                    {uploadedFile.name}
-                                  </p>
-                                </>
-                              )}
-                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    setViewerFile(uploadedFile);
-                                    setViewerUrl(null);
-                                    setViewerTitle(docName);
-                                    setViewerOpen(true);
-                                  }}
-                                  className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                >
-                                  Preview {isNewImage ? "Image" : "Document"}
-                                </button>
-                                <label
-                                  htmlFor={uploadId}
-                                  className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer"
-                                >
-                                  Replace {isNewImage ? "Image" : "Document"}
-                                </label>
-                              </div>
-                            </div>
-                          ) : fileUrl && isRevision ? (
-                            <div className="w-full h-full absolute inset-0 z-0 flex flex-col justify-center items-center group/preview">
-                              {isExistingImage ? (
-                                <img src={fileUrl} alt="Preview" className="w-full h-full object-contain bg-slate-900" />
-                              ) : (
-                                <>
-                                  <FileText className="w-10 h-10 text-primary mb-2" />
-                                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">Existing Document</p>
-                                </>
-                              )}
-                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    setViewerUrl(fileUrl);
-                                    setViewerFile(null);
-                                    setViewerTitle(docName);
-                                    setViewerOpen(true);
-                                  }}
-                                  className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                >
-                                  Preview {isExistingImage ? "Image" : "Document"}
-                                </button>
-                                <label
-                                  htmlFor={uploadId}
-                                  className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer"
-                                >
-                                  Replace {isExistingImage ? "Image" : "Document"}
-                                </label>
-                              </div>
-                            </div>
-                          ) : (
-                            <label
-                              htmlFor={uploadId}
-                              className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20"
-                            >
-                              <UploadCloud className="w-6 h-6 text-slate-400 mb-2 group-hover:text-primary transition-colors pointer-events-none" />
-                              <p className="text-xs font-medium text-slate-600 dark:text-slate-400 px-2 pointer-events-none">
-                                Click to upload document/image
-                              </p>
-                            </label>
-                          )}
-
-                          <input
-                            id={uploadId}
-                            type="file"
-                            accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
-                            className="hidden"
-                            onChange={handleFileChange}
-                          />
+                            Remove
+                          </button>
                         </div>
                       )}
+
+                      <PremiumDocumentUpload
+                        label={docName}
+                        required={isRequired}
+                        file={uploadedFile || null}
+                        existingUrl={fileUrl || undefined}
+                        onFileSelect={(file) => {
+                          if (isRevisionItem) {
+                            setUploadedRevisionDocs((previous) => ({ ...previous, [idx]: file }));
+                          } else if (activeDocTab === "REQUIREMENTS") {
+                            setUploadedRequirements((previous) => ({ ...previous, [idx]: file }));
+                          } else {
+                            setUploadedPermits((previous) => ({ ...previous, [idx]: file }));
+                          }
+                        }}
+                        onView={() => {
+                          if (uploadedFile) {
+                            setViewerFile(uploadedFile);
+                            setViewerUrl(null);
+                          } else {
+                            setViewerUrl(fileUrl || null);
+                            setViewerFile(null);
+                          }
+                          setViewerTitle(docName);
+                          setViewerOpen(true);
+                        }}
+                        disabled={!isEditable}
+                      />
                     </div>
                   );
                 })}
@@ -4273,26 +3744,20 @@ export default function BuildingPermitAppointmentPage() {
                         Please upload your official Fire Safety Clearance certificate issued by the Bureau of Fire Protection (BFP). The Engineering Department will review this document to process and approve your permit.
                       </p>
 
-                      {selectedApplication?.additionalData?.bfpClearanceUrl ? (
-                        <div className="relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 max-w-sm group">
-                          <img src={selectedApplication.additionalData.bfpClearanceUrl} alt="BFP Clearance" className="object-cover w-full h-full" />
-                          {selectedApplication.status === "PAID" && !selectedApplication.additionalData?.clearancesSubmitted && (
-                            <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer">
-                              <div className="flex flex-col items-center text-white">
-                                <UploadCloud className="w-8 h-8 mb-2" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Change Image</span>
-                              </div>
-                              <input type="file" onChange={(e) => handleUploadBfpClearance(e.target.files?.[0] || null)} className="hidden" />
-                            </label>
-                          )}
-                        </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center gap-2 aspect-[21/6] rounded-xl border-2 border-dashed border-purple-500/20 hover:border-purple-500/40 bg-purple-500/[0.02] cursor-pointer group transition-all">
-                          <UploadCloud className="w-6 h-6 text-purple-400 group-hover:scale-110 transition-transform" />
-                          <span className="text-[9px] font-black uppercase tracking-widest text-purple-400 italic">Attach BFP Clearance Certificate</span>
-                          <input type="file" onChange={(e) => handleUploadBfpClearance(e.target.files?.[0] || null)} className="hidden" />
-                        </label>
-                      )}
+                      <PremiumDocumentUpload
+                        label="BFP Fire Safety Clearance Certificate"
+                        required={true}
+                        file={null}
+                        existingUrl={selectedApplication?.additionalData?.bfpClearanceUrl}
+                        onFileSelect={handleUploadBfpClearance}
+                        onView={() => {
+                          setViewerUrl(selectedApplication?.additionalData?.bfpClearanceUrl || null);
+                          setViewerFile(null);
+                          setViewerTitle("BFP Fire Safety Clearance");
+                          setViewerOpen(true);
+                        }}
+                        disabled={!(selectedApplication?.status === "PAID" && !selectedApplication?.additionalData?.clearancesSubmitted)}
+                      />
                     </div>
 
                     {/* Zoning Clearance Upload Container */}
@@ -4313,26 +3778,20 @@ export default function BuildingPermitAppointmentPage() {
                         Please upload your official Locational/Zoning Clearance certificate issued by the Zoning Office / MPDC.
                       </p>
 
-                      {selectedApplication?.additionalData?.zoningClearanceUrl ? (
-                        <div className="relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 max-w-sm group">
-                          <img src={selectedApplication.additionalData.zoningClearanceUrl} alt="Zoning Clearance" className="object-cover w-full h-full" />
-                          {selectedApplication.status === "PAID" && !selectedApplication.additionalData?.clearancesSubmitted && (
-                            <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer">
-                              <div className="flex flex-col items-center text-white">
-                                <UploadCloud className="w-8 h-8 mb-2" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Change Image</span>
-                              </div>
-                              <input type="file" onChange={(e) => handleUploadZoningClearance(e.target.files?.[0] || null)} className="hidden" />
-                            </label>
-                          )}
-                        </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center gap-2 aspect-[21/6] rounded-xl border-2 border-dashed border-blue-500/20 hover:border-blue-500/40 bg-blue-500/[0.02] cursor-pointer group transition-all">
-                          <UploadCloud className="w-6 h-6 text-blue-400 group-hover:scale-110 transition-transform" />
-                          <span className="text-[9px] font-black uppercase tracking-widest text-blue-400 italic">Attach Zoning Clearance Certificate</span>
-                          <input type="file" onChange={(e) => handleUploadZoningClearance(e.target.files?.[0] || null)} className="hidden" />
-                        </label>
-                      )}
+                      <PremiumDocumentUpload
+                        label="Zoning Clearance Certificate"
+                        required={true}
+                        file={null}
+                        existingUrl={selectedApplication?.additionalData?.zoningClearanceUrl}
+                        onFileSelect={handleUploadZoningClearance}
+                        onView={() => {
+                          setViewerUrl(selectedApplication?.additionalData?.zoningClearanceUrl || null);
+                          setViewerFile(null);
+                          setViewerTitle("Zoning Clearance");
+                          setViewerOpen(true);
+                        }}
+                        disabled={!(selectedApplication?.status === "PAID" && !selectedApplication?.additionalData?.clearancesSubmitted)}
+                      />
                     </div>
 
                     {/* Submit Clearances Button */}
@@ -4512,7 +3971,7 @@ export default function BuildingPermitAppointmentPage() {
         <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
           <DialogHeader className="space-y-3">
             <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
-              Add Custom <span className="text-primary">{activeDocTab === "REQUIREMENTS" ? "Requirement" : "Permit"}</span>
+              Add Custom <span style={{ color: themeColor }}>{activeDocTab === "REQUIREMENTS" ? "Requirement" : "Permit"}</span>
             </DialogTitle>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Define a new document name for upload</p>
           </DialogHeader>
@@ -4563,54 +4022,59 @@ export default function BuildingPermitAppointmentPage() {
           </DialogHeader>
 
           <div className="space-y-6 py-6">
-            {!paymentPreviewUrl ? (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Hash className="w-3.5 h-3.5 text-primary" />
-                    <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-primary italic">Transaction Reference Number (Optional)</Label>
-                  </div>
-                  <Input
-                    type="text"
-                    placeholder="e.g. 5012 3456 78901 (GCash / Bank Transfer Ref No.)"
-                    value={gcashReferenceNo}
-                    onChange={(e) => setGcashReferenceNo(e.target.value)}
-                    className="h-10 md:h-12 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl font-bold italic text-[10px] md:text-sm text-slate-800 dark:text-white placeholder-slate-400 focus-visible:ring-primary focus-visible:border-primary transition-all"
-                  />
-                </div>
-                <label className="flex flex-col items-center justify-center gap-3 aspect-square rounded-2xl border-2 border-dashed border-emerald-500/20 hover:border-emerald-500/40 bg-emerald-500/[0.02] cursor-pointer group transition-all">
-                  <UploadCloud className="w-10 h-10 text-emerald-400 group-hover:scale-110 transition-transform" />
-                  <div className="text-center">
-                    <span className="text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 italic block">Select Image</span>
-                    <span className="text-[9px] text-slate-400 uppercase tracking-widest">JPG, PNG, PDF</span>
-                  </div>
-                  <input type="file" accept="image/*,application/pdf,.pdf" onChange={handlePaymentFileSelect} className="hidden" />
-                </label>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Hash className="w-3.5 h-3.5 text-primary" />
+                <Label className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-primary italic">Transaction Reference Number (Optional)</Label>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="relative aspect-[3/4] md:aspect-square rounded-2xl overflow-hidden border-2 border-emerald-500/20 bg-slate-50 dark:bg-black/20">
-                  <img src={paymentPreviewUrl} alt="Preview" className="object-contain w-full h-full" />
-                </div>
-                <div className="flex gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => { setPaymentFile(null); setPaymentPreviewUrl(null); }}
-                    disabled={isSubmitting}
-                    className="flex-1 h-12 rounded-xl border-2 border-red-500/20 text-red-500 hover:bg-red-500/5 font-black italic uppercase tracking-widest text-[10px]"
-                  >
-                    Change Image
-                  </Button>
-                  <Button
-                    onClick={handleSubmitPaymentProof}
-                    disabled={isSubmitting || !paymentFile}
-                    className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20"
-                  >
-                    {isSubmitting ? "Uploading..." : "Submit Receipt"}
-                  </Button>
-                </div>
-              </div>
-            )}
+              <Input
+                type="text"
+                placeholder="e.g. 5012 3456 78901 (GCash / Bank Transfer Ref No.)"
+                value={gcashReferenceNo}
+                onChange={(e) => setGcashReferenceNo(e.target.value)}
+                className="h-10 md:h-12 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl font-bold italic text-[10px] md:text-sm text-slate-800 dark:text-white placeholder-slate-400 focus-visible:ring-primary focus-visible:border-primary transition-all"
+              />
+            </div>
+
+            <PremiumDocumentUpload
+              label="Payment Receipt / Proof of Payment"
+              required={true}
+              file={paymentFile}
+              existingUrl={paymentPreviewUrl || undefined}
+              onFileSelect={(file) => {
+                setPaymentFile(file);
+                setPaymentPreviewUrl(URL.createObjectURL(file));
+              }}
+              onView={() => {
+                if (paymentFile) {
+                  setViewerFile(paymentFile);
+                  setViewerUrl(null);
+                } else {
+                  setViewerUrl(paymentPreviewUrl);
+                  setViewerFile(null);
+                }
+                setViewerTitle("Payment Receipt");
+                setViewerOpen(true);
+              }}
+            />
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => { setPaymentFile(null); setPaymentPreviewUrl(null); }}
+                disabled={isSubmitting || !paymentFile}
+                className="flex-1 h-12 rounded-xl border-2 border-red-500/20 text-red-500 hover:bg-red-500/5 font-black italic uppercase tracking-widest text-[10px]"
+              >
+                Clear Receipt
+              </Button>
+              <Button
+                onClick={handleSubmitPaymentProof}
+                disabled={isSubmitting || !paymentFile}
+                className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20"
+              >
+                {isSubmitting ? "Uploading..." : "Submit Receipt"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

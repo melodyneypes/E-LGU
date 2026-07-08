@@ -155,7 +155,7 @@ export async function verifyRfidUnlock(rfidCardId: string): Promise<{ success: b
             where: {
                 rfid: rfidCardId,
                 role: {
-                    in: ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"]
+                    in: ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "MPDC_ZONING"]
                 }
             }
         });
