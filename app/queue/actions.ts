@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db/prisma";
+import { unstable_noStore as noStore } from "next/cache";
 
 export interface QueueDepartmentData {
     department: string;
@@ -8,11 +9,13 @@ export interface QueueDepartmentData {
         queueNumber: string | null;
         residentName: string;
         counterName: string;
+        updatedAt?: string;
     }[];
     waiting: string[];
 }
 
 export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
+    noStore();
     try {
         const departments = [
             {
@@ -41,10 +44,16 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
         const queueData: QueueDepartmentData[] = [];
 
         for (const dept of departments) {
+            const isBplo = dept.name === "BPLO";
+
             // Find current serving transactions for this department (scheduled for today)
             const activeTxs = await prisma.transaction.findMany({
                 where: {
-                    status: "FOR_PROCESSING",
+                    status: {
+                        in: isBplo 
+                            ? ["FOR_PROCESSING", "FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION"]
+                            : ["FOR_PROCESSING"]
+                    },
                     isCancelled: false,
                     appointmentDate: {
                         gte: startOfDay,
@@ -70,7 +79,18 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             const nowServingList: { queueNumber: string | null; residentName: string; counterName: string }[] = [];
             const seenCounters = new Set<string>();
 
-            for (const tx of activeTxs) {
+            // Filter active transactions to only include currently active/called tickets
+            const servingTxs = activeTxs.filter(tx => {
+                if (tx.status === "FOR_PROCESSING") return true;
+                // For BPLO, we also count it as serving if it's in a queue status but counterName is set
+                if (isBplo) {
+                    const additionalData = tx.additionalData as any;
+                    return additionalData && typeof additionalData.counterName === "string" && additionalData.counterName.trim() !== "";
+                }
+                return false;
+            });
+
+            for (const tx of servingTxs) {
                 const additionalData = tx.additionalData as any;
                 const counterName = additionalData?.counterName || `${dept.name} Counter`;
 
@@ -86,12 +106,17 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
                     nowServingList.push({
                         queueNumber: tx.queueNumber,
                         residentName,
-                        counterName
+                        counterName,
+                        updatedAt: tx.updatedAt.toISOString()
                     });
                 }
             }
 
-            const allowedStatuses = ["FOR_REQUESTING", "FOR_INSPECTION"];
+            // Define allowed statuses for waiting queue
+            const allowedStatuses = isBplo 
+                ? ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION"]
+                : ["FOR_REQUESTING", "FOR_INSPECTION"];
+
             if (dept.name === "Treasury") {
                 allowedStatuses.push("UNPAID");
             }
@@ -121,8 +146,14 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
                 }
             });
 
+            // Filter out tickets that are already assigned to a counter (currently serving)
+            const filteredWaiting = waitingTxsRaw.filter(tx => {
+                const addData = tx.additionalData as any;
+                return !addData || !addData.counterName;
+            });
+
             // Sort in memory: Priority (Seniors/PWDs) first, then by checkedInAt physical timestamp (FIFO)
-            const sortedWaiting = waitingTxsRaw
+            const sortedWaiting = filteredWaiting
                 .sort((a, b) => {
                     if (a.isPriority && !b.isPriority) return -1;
                     if (!a.isPriority && b.isPriority) return 1;

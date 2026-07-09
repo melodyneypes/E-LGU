@@ -192,17 +192,27 @@ export default function AppointmentDetailsPage() {
             default: return { color: "text-white bg-primary border-transparent", label: status.replace("_", " "), icon: Clock };
         }
     }, [request]);
-
-    if (loading) {
+    if (loading || !request || !residentData) {
         return (
-            <div className="min-h-[80vh] flex flex-col items-center justify-center gap-4">
-                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 italic">Loading Appointment Ticket...</p>
+            <div className="min-h-screen bg-white dark:bg-[#0a0c10] pb-24">
+                <div className="max-w-4xl mx-auto px-4 md:px-0 pt-4 md:pt-10 space-y-6 md:space-y-10 animate-pulse">
+                    {/* Breadcrumbs Skeleton */}
+                    <div className="h-10 w-64 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/5" />
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-start">
+                        {/* Left Card Skeleton */}
+                        <div className="md:col-span-1 h-[450px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl" />
+                        
+                        {/* Right Content Skeleton */}
+                        <div className="md:col-span-2 space-y-6">
+                            <div className="h-[180px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl" />
+                            <div className="h-[250px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl" />
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     }
-
-    if (!request || !residentData) return null;
 
     const isCedula = request.type?.code?.startsWith("CEDULA");
     const isBuildingPermit = request.type?.code?.startsWith("BUILDING_PERMIT");

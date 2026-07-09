@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Search, RefreshCcw,
-    Archive, Clock, Volume2
+    Archive, Clock, Volume2, Users
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -202,14 +202,13 @@ export default function TreasuryDashboard() {
         fetchServices();
     }, []);
 
-    const fetchTransactions = useCallback(async () => {
-        setLoading(true);
+    const fetchTransactions = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const res = await getTreasuryTransactions(status);
             if (res.success) {
                 setTransactions(res.data || []);
             } else {
-                // Surface the server-side error — toast shows user message, console shows dev detail
                 console.error("[TreasuryDashboard] getTreasuryTransactions failed:", res.error);
                 setTransactions([]);
                 toast.error(res.error || "Failed to load transactions. Check your permissions.");
@@ -219,7 +218,7 @@ export default function TreasuryDashboard() {
             console.error("[TreasuryDashboard] Unexpected error:", err);
             toast.error("Failed to load transactions");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [status]);
 
@@ -232,7 +231,7 @@ export default function TreasuryDashboard() {
         setServiceFilter(null);
     }, [status]);
 
-    // Realtime Supabase Subscription for new transactions
+    // Realtime Supabase Subscription for transactions
     useEffect(() => {
         if (!supabase) return;
 
@@ -244,35 +243,42 @@ export default function TreasuryDashboard() {
                 .on(
                     "postgres_changes",
                     {
-                        event: "INSERT",
+                        event: "*",
                         schema: "public",
                         table: "Transaction",
                     },
                     async (payload: any) => {
-                        const newTx = payload.new;
-                        console.log("Realtime INSERT caught:", newTx);
+                        const newTx = payload.new as any;
+                        const oldTx = payload.old as any;
 
-                        // Fetch the latest transactions to hydrate client state fully with joins
-                        fetchTransactions();
+                        // Check if it's not a BPLO transaction (BPLO has its own dashboard/listener)
+                        const isBplo = (row: any) => 
+                            row && (!!row.businessName || !!row.businessPermitId || (row.additionalData && (row.additionalData as any).businessName));
 
-                        // Parse resident snapshot to show applicant's name
-                        let applicantName = "Someone";
-                        try {
-                            const snap = typeof newTx.residentSnapshot === "string"
-                                ? JSON.parse(newTx.residentSnapshot)
-                                : newTx.residentSnapshot;
-                            if (snap && (snap.firstName || snap.lastName)) {
-                                applicantName = `${snap.firstName || ""} ${snap.lastName || ""}`.trim();
-                            }
-                        } catch (e) {
-                            console.error("Failed to parse residentSnapshot from payload:", e);
+                        if (newTx && !isBplo(newTx)) {
+                            // Fetch the latest transactions silently to prevent table flickering
+                            fetchTransactions(true);
                         }
 
-                        // Display a premium notification
-                        toast.info(`A new request has been submitted by ${applicantName}!`, {
-                            description: `Reference ID: ${newTx.id.slice(-8).toUpperCase()}`,
-                            duration: 7000,
-                        });
+                        // Display a premium notification for new inserts
+                        if (payload.eventType === "INSERT" && newTx && !isBplo(newTx)) {
+                            let applicantName = "Someone";
+                            try {
+                                const snap = typeof newTx.residentSnapshot === "string"
+                                    ? JSON.parse(newTx.residentSnapshot)
+                                    : newTx.residentSnapshot;
+                                if (snap && (snap.firstName || snap.lastName)) {
+                                    applicantName = `${snap.firstName || ""} ${snap.lastName || ""}`.trim();
+                                }
+                            } catch (e) {
+                                console.error("Failed to parse residentSnapshot from payload:", e);
+                            }
+
+                            toast.info(`A new request has been submitted by ${applicantName}!`, {
+                                description: `Reference ID: ${newTx.id.slice(-8).toUpperCase()}`,
+                                duration: 7000,
+                            });
+                        }
                     }
                 )
                 .subscribe((status: string, err?: any) => {
@@ -529,6 +535,14 @@ export default function TreasuryDashboard() {
                                 >
                                     <Volume2 className="w-3.5 h-3.5" />
                                     <span>{callingNext ? "Calling..." : "Call Next in Queue"}</span>
+                                </Button>
+
+                                <Button
+                                    onClick={() => router.push("/admin/treasury/queue")}
+                                    className="h-11 px-5 rounded-xl text-white text-[10px] font-black uppercase tracking-wider gap-2 flex items-center bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 border-none transition-all active:scale-95 shadow-md"
+                                >
+                                    <Users className="w-3.5 h-3.5" />
+                                    <span>Live Queue</span>
                                 </Button>
 
                                 <Button

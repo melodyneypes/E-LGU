@@ -66,7 +66,11 @@ export async function confirmTransactionPayment(id: string, referenceNo?: string
                     amount: Number(updatedTransaction.totalAmount || 0),
                     method: updatedTransaction.paymentType || "CASH",
                     status: "PAID",
-                    reference: sanitizedReferenceNo || updatedTransaction.paymentReference || `manual_${sanitizedId}`
+                    reference: sanitizedReferenceNo || updatedTransaction.paymentReference || `manual_${sanitizedId}`,
+                    meta: {
+                        source: "treasury_confirmation",
+                        releasedBy: user.name || user.email || "Treasury Staff"
+                    }
                 },
                 create: {
                     transactionId: sanitizedId,
@@ -74,7 +78,10 @@ export async function confirmTransactionPayment(id: string, referenceNo?: string
                     method: updatedTransaction.paymentType || "CASH",
                     status: "PAID",
                     reference: sanitizedReferenceNo || updatedTransaction.paymentReference || `manual_${sanitizedId}`,
-                    meta: { source: "treasury_confirmation" }
+                    meta: {
+                        source: "treasury_confirmation",
+                        releasedBy: user.name || user.email || "Treasury Staff"
+                    }
                 }
             });
         }
@@ -193,6 +200,7 @@ export async function confirmTransactionPaymentWithReceipt(formData: FormData) {
                 orNumber: orSeriesNumber ? sanitizeString(orSeriesNumber) : undefined,
                 meta: {
                     source: "treasury_confirmation",
+                    releasedBy: user.name || user.email || "Treasury Staff",
                     ...(treasuryReceiptUrl && { treasuryReceiptUrl }),
                     ...(orDocumentUrl && { orDocumentUrl })
                 }
@@ -206,6 +214,7 @@ export async function confirmTransactionPaymentWithReceipt(formData: FormData) {
                 orNumber: orSeriesNumber ? sanitizeString(orSeriesNumber) : undefined,
                 meta: {
                     source: "treasury_confirmation",
+                    releasedBy: user.name || user.email || "Treasury Staff",
                     ...(treasuryReceiptUrl && { treasuryReceiptUrl }),
                     ...(orDocumentUrl && { orDocumentUrl })
                 }

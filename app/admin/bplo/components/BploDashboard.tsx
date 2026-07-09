@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Search, RefreshCcw,
-    Archive, Clock, Volume2
+    Archive, Clock, Volume2, Users
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -95,7 +95,7 @@ export default function BploDashboard() {
                 toast.success(`Calling next ticket: ${res.data.queueNumber} assigned to ${activeCounter}`);
                 fetchTransactions();
             } else {
-                toast.error(res.error || "No commercial applicants are currently waiting in line.");
+                toast.error("There is no one in the line yet");
             }
         } catch (err) {
             console.error("Queue calling error:", err);
@@ -152,8 +152,8 @@ export default function BploDashboard() {
         fetchServices();
     }, []);
 
-    const fetchTransactions = useCallback(async () => {
-        setLoading(true);
+    const fetchTransactions = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const res = await getBploTransactions(status);
             if (res.success) {
@@ -168,7 +168,7 @@ export default function BploDashboard() {
             console.error("[BploDashboard] Unexpected error:", err);
             toast.error("Failed to load transactions");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [status]);
 
@@ -191,59 +191,59 @@ export default function BploDashboard() {
                         table: "Transaction",
                     },
                     (payload: any) => {
-                        // Re-fetch transactions to reflect the realtime update instantly!
-                        fetchTransactions();
+                        const newRow = payload.new;
+                        const oldRow = payload.old;
+
+                        // Check if the transaction is BPLO (has businessName, businessPermitId, etc.)
+                        const isBplo = (row: any) => 
+                            row && (!!row.businessName || !!row.businessPermitId || (row.additionalData && (row.additionalData as any).businessName));
+
+                        if (isBplo(newRow) || isBplo(oldRow)) {
+                            // Re-fetch transactions silently without showing skeleton loading
+                            fetchTransactions(true);
+                        }
 
                         // If it's a new insert (new request), show a temporary 3-second slide-in alert
                         if (payload.eventType === "INSERT") {
-                            const newRow = payload.new;
-                            if (newRow) {
-                                const isBplo = !!newRow.businessName || !!newRow.businessPermitId || (newRow.additionalData && (newRow.additionalData as any).businessName);
-                                if (isBplo) {
-                                    const refId = String(newRow.id).slice(-8).toUpperCase();
-                                    const bizName = newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName) || "New Permit Request";
-                                    const applicant = newRow.residentSnapshot 
-                                        ? `${(newRow.residentSnapshot as any).firstName} ${(newRow.residentSnapshot as any).lastName}`
-                                        : "Resident Applicant";
+                            if (newRow && isBplo(newRow)) {
+                                const refId = String(newRow.id).slice(-8).toUpperCase();
+                                const bizName = newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName) || "New Permit Request";
+                                const applicant = newRow.residentSnapshot 
+                                    ? `${(newRow.residentSnapshot as any).firstName} ${(newRow.residentSnapshot as any).lastName}`
+                                    : "Resident Applicant";
 
-                                    setNewRequestAlert({
-                                        id: refId,
-                                        businessName: bizName,
-                                        applicantName: applicant
-                                    });
-                                    setShowAlert(true);
+                                setNewRequestAlert({
+                                    id: refId,
+                                    businessName: bizName,
+                                    applicantName: applicant
+                                });
+                                setShowAlert(true);
 
-                                    if (alertTimerRef.current) {
-                                        clearTimeout(alertTimerRef.current);
-                                    }
-                                    alertTimerRef.current = setTimeout(() => {
-                                        setShowAlert(false);
-                                    }, 3000);
+                                if (alertTimerRef.current) {
+                                    clearTimeout(alertTimerRef.current);
                                 }
+                                alertTimerRef.current = setTimeout(() => {
+                                    setShowAlert(false);
+                                }, 3000);
                             }
                         }
 
                         // Also detect transitions into FOR_INSPECTION or FOR_REINSPECTION for the toast alert
                         if (payload.eventType === "UPDATE") {
-                            const newRow = payload.new;
-                            if (newRow && (newRow.status === "FOR_INSPECTION" || newRow.status === "FOR_REINSPECTION")) {
-                                const isBplo = !!newRow.businessName || !!newRow.businessPermitId || (newRow.additionalData && (newRow.additionalData as any).businessName);
-                                if (isBplo) {
-                                    const refId = String(newRow.id).slice(-8).toUpperCase();
-                                    const bizName = newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName) || "New Commercial Application";
-                                    const statusText = newRow.status === "FOR_INSPECTION" ? "Inspection" : "Re-inspection";
+                            if (newRow && (newRow.status === "FOR_INSPECTION" || newRow.status === "FOR_REINSPECTION") && isBplo(newRow)) {
+                                const refId = String(newRow.id).slice(-8).toUpperCase();
+                                const bizName = newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName) || "New Commercial Application";
+                                const statusText = newRow.status === "FOR_INSPECTION" ? "Inspection" : "Re-inspection";
 
-                                    toast.info(`Application ${refId} (${bizName}) is now pending ${statusText.toLowerCase()}.`, {
-                                        duration: 10000,
-                                        // description: "The dashboard list has been updated in real-time.",
-                                        action: {
-                                            label: "Evaluate",
-                                            onClick: () => {
-                                                router.push(`/admin/bplo/${newRow.id}`);
-                                            }
+                                toast.info(`Application ${refId} (${bizName}) is now pending ${statusText.toLowerCase()}.`, {
+                                    duration: 10000,
+                                    action: {
+                                        label: "Evaluate",
+                                        onClick: () => {
+                                            router.push(`/admin/bplo/${newRow.id}`);
                                         }
-                                    });
-                                }
+                                    }
+                                });
                             }
                         }
                     }
@@ -414,6 +414,14 @@ export default function BploDashboard() {
                                 >
                                     <Volume2 className="w-3.5 h-3.5" />
                                     <span>{callingNext ? "Calling..." : "Call Next in Queue"}</span>
+                                </Button>
+
+                                <Button
+                                    onClick={() => router.push("/admin/bplo/queue")}
+                                    className="h-11 px-5 rounded-xl text-white text-[10px] font-black uppercase tracking-wider gap-2 flex items-center bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 border-none transition-all active:scale-95 shadow-md"
+                                >
+                                    <Users className="w-3.5 h-3.5" />
+                                    <span>Live Queue</span>
                                 </Button>
 
                                 <Button

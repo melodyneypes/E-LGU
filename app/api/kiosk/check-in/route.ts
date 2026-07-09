@@ -98,6 +98,13 @@ export async function POST(request: Request) {
 
         // 3. Mark as checked-in in additionalData metadata
         const currentAdditionalData = (transaction.additionalData as any) || {};
+        if (currentAdditionalData.checkedIn === true) {
+            return NextResponse.json(
+                { success: false, error: "This ticket has already been checked in!" },
+                { status: 400 }
+            );
+        }
+
         const updatedAdditionalData = {
             ...currentAdditionalData,
             checkedIn: true,

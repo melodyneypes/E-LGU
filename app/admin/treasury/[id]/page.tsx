@@ -789,7 +789,11 @@ export default function TreasuryDetailPage() {
                 setECopyFile(null);
                 setOrFile(null);
                 setStickerNumber("");
-                router.push(backUrl);
+                if (typeCode.includes("CEDULA")) {
+                    router.push("/admin/treasury/queue");
+                } else {
+                    router.push(backUrl);
+                }
             }
             else toast.error(res.error || "Failed");
         } finally { setActionLoading(false); }
@@ -1663,7 +1667,11 @@ export default function TreasuryDetailPage() {
             if (!rel.success) {
                 toast.error(rel.error || "Failed to release transaction");
             }
-            router.push(backUrl);
+            if (typeCode.includes("CEDULA")) {
+                router.push("/admin/treasury/queue");
+            } else {
+                router.push(backUrl);
+            }
 
         } catch (err: any) {
             console.error("Onsite payment processing error:", err);
