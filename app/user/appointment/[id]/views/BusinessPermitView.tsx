@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { Building2, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 
 interface BusinessPermitViewProps {
     request: any;
@@ -19,12 +19,6 @@ export default function BusinessPermitView({ additionalData }: BusinessPermitVie
 
     return (
         <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="flex items-center gap-3">
-                <Building2 className="w-5 h-5 text-primary" />
-                <h3 className="text-sm font-black uppercase tracking-widest italic text-slate-800 dark:text-white leading-none">Business Permit Details</h3>
-            </div>
-            
-            <div className="h-px bg-slate-100 dark:bg-white/5" />
 
             <div className="flex items-center gap-2">
                 <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase tracking-widest px-2 py-0.5">

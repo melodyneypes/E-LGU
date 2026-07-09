@@ -6,7 +6,7 @@ import Link from "next/link";
 
 import Image from "next/image";
 import { isValidUrl } from "@/utils/image";
-import { format } from "date-fns";
+
 import { cn } from "@/lib/utils";
 import {
     FileText,
@@ -39,7 +39,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import DocumentViewerModal from "@/app/admin/treasury/[id]/components/DocumentViewerModal";
-import ResidentIdentityProfile from "../../treasury/[id]/components/ResidentIdentityProfile";
+
 import TransactionInfoCard from "../../treasury/[id]/components/TransactionInfoCard";
 import {
     Dialog,
@@ -103,16 +103,7 @@ export default function BploDetailPage({ params }: PageProps) {
         setViewerOpen(true);
     };
 
-    const safeFormatDate = (dateStr: any) => {
-        if (!dateStr) return "—";
-        try {
-            const d = new Date(dateStr);
-            if (isNaN(d.getTime())) return "—";
-            return format(d, "MMMM d, yyyy");
-        } catch {
-            return "—";
-        }
-    };
+
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [remarks, setRemarks] = useState("");
@@ -876,12 +867,7 @@ export default function BploDetailPage({ params }: PageProps) {
                         </div>
                     </div>
 
-                    {/* RESIDENT IDENTITY PROFILE */}
-                    <ResidentIdentityProfile
-                        resident={resident}
-                        safeFormatDate={safeFormatDate}
-                        themeColor={themeColor}
-                    />
+
 
                     {/* BUSINESS RECORD ACCORDION */}
                     <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-10 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 animate-in fade-in duration-300">
@@ -1348,14 +1334,6 @@ export default function BploDetailPage({ params }: PageProps) {
 
                                 {transaction.status !== "FOR_REINSPECTION" && (
                                     <div className="flex gap-2">
-                                        {(transaction.revisionCount || 0) < 3 && (
-                                            <Button
-                                                                                        onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
-                                                                                        className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase"
-                                                                                    >
-                                                                                        Request Revision
-                                                                                    </Button>
-                                        )}
                                         <Button
                                             onClick={() => { setIsRejecting(true); setRemarks(""); }}
                                             className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase"

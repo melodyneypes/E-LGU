@@ -20,13 +20,15 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Search, RefreshCcw,
-    Archive, Clock
+    Archive, Clock, Volume2
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
+import { fetchAndCallNextBploTicket } from "@/app/admin/transactions/calling-actions";
+
 
 const STATUS_TABS = [
     { value: "ALL", label: "All Status", color: "text-slate-600", activeColor: "bg-slate-900 text-white dark:bg-white dark:text-slate-900" },
@@ -77,9 +79,35 @@ export default function BploDashboard() {
     const alertTimerRef = useRef<NodeJS.Timeout | null>(null);
     const serviceSearchInputRef = useRef<HTMLInputElement>(null);
     const statusSearchInputRef = useRef<HTMLInputElement>(null);
+    const [callingNext, setCallingNext] = useState(false);
+
+    const handleCallNextInQueue = async () => {
+        const activeCounter = localStorage.getItem("activeCounterName");
+        if (!activeCounter) {
+            toast.error("Please set your active counter/window first using the 'Set Counter' menu in the top bar!");
+            return;
+        }
+
+        setCallingNext(true);
+        try {
+            const res = await fetchAndCallNextBploTicket(activeCounter);
+            if (res.success && res.data) {
+                toast.success(`Calling next ticket: ${res.data.queueNumber} assigned to ${activeCounter}`);
+                fetchTransactions();
+            } else {
+                toast.error(res.error || "No commercial applicants are currently waiting in line.");
+            }
+        } catch (err) {
+            console.error("Queue calling error:", err);
+            toast.error("An error occurred while calling the next ticket.");
+        } finally {
+            setCallingNext(false);
+        }
+    };
 
     useEffect(() => {
         const timer = setTimeout(() => {
+
             if (serviceSearchInputRef.current) {
                 serviceSearchInputRef.current.focus();
             }
@@ -380,6 +408,15 @@ export default function BploDashboard() {
                                 </div>
 
                                 <Button
+                                    onClick={handleCallNextInQueue}
+                                    disabled={callingNext}
+                                    className="h-11 px-5 rounded-xl text-white text-[10px] font-black uppercase tracking-wider gap-2 flex items-center bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 border-none transition-all active:scale-95 shadow-md"
+                                >
+                                    <Volume2 className="w-3.5 h-3.5" />
+                                    <span>{callingNext ? "Calling..." : "Call Next in Queue"}</span>
+                                </Button>
+
+                                <Button
                                     onClick={fetchTransactions}
                                     variant="outline"
                                     className="h-11 w-11 rounded-xl p-0 border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117]"
@@ -387,6 +424,7 @@ export default function BploDashboard() {
                                     <RefreshCcw className={cn("w-4 h-4", loading && "animate-spin")} />
                                 </Button>
                             </div>
+
                         </div>
                     </div>
 
@@ -400,9 +438,9 @@ export default function BploDashboard() {
                                         <TableHead className="font-bold text-slate-700 dark:text-slate-300 py-5">
                                             <span>Permit Service</span>
                                         </TableHead>
-                                        <TableHead className="font-bold text-slate-700 dark:text-slate-300">Fulfillment</TableHead>
                                         <TableHead className="font-bold text-slate-700 dark:text-slate-300">Permit Status</TableHead>
                                         <TableHead className="font-bold text-slate-700 dark:text-slate-300">Processed By</TableHead>
+                                        <TableHead className="font-bold text-slate-700 dark:text-slate-300">Appointment Date</TableHead>
                                         <TableHead
                                             className="font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-primary transition-colors py-5"
                                             onClick={handleDateHeaderClick}
@@ -453,12 +491,6 @@ export default function BploDashboard() {
                                                     </span>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="flex flex-col gap-0.5">
-                                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">{tx.fulfillmentType}</span>
-                                                        <span className="text-[10px] text-slate-500 font-bold uppercase">{tx.paymentType?.replace("_", " ")}</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
                                                     <span className={cn(
                                                         "text-[10px] font-black uppercase italic tracking-wider",
                                                         tx.isCancelled ? "text-red-600" : ({
@@ -499,6 +531,25 @@ export default function BploDashboard() {
                                                     <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                                                         {tx.processorName || "Not Processed"}
                                                     </span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {tx.appointmentDate ? (
+                                                        <div className="flex flex-col">
+                                                            {(() => {
+                                                                const f = formatDateTime(tx.appointmentDate);
+                                                                return (
+                                                                    <>
+                                                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{f.date}</span>
+                                                                        {tx.appointmentSlot && (
+                                                                            <span className="text-[10px] text-slate-400 flex items-center gap-1 font-semibold uppercase">{tx.appointmentSlot}</span>
+                                                                        )}
+                                                                    </>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-400 font-semibold italic">Walk-in / None</span>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col">

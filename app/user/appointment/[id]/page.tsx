@@ -43,7 +43,6 @@ import {
 import { supabase } from "@/lib/supabase";
 import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
 import CedulaView from "./views/CedulaView";
-import BusinessPermitView from "./views/BusinessPermitView";
 
 // Display dates/times in Philippine Standard Time (Asia/Manila)
 function formatPHDate(date: string | Date): string {
@@ -207,7 +206,6 @@ export default function AppointmentDetailsPage() {
 
     const isCedula = request.type?.code?.startsWith("CEDULA");
     const isBuildingPermit = request.type?.code?.startsWith("BUILDING_PERMIT");
-    const isBusinessPermit = request.type?.code?.startsWith("BUSINESS_PERMIT");
 
     return (
         <div className="min-h-screen bg-white dark:bg-[#0a0c10] pb-24" style={{ "--primary-theme": themeColor } as React.CSSProperties}>
@@ -319,7 +317,7 @@ export default function AppointmentDetailsPage() {
                                 <Printer className="w-4 h-4 mr-2" /> Print Slip Receipt
                             </Button>
 
-                            {request.status === "FOR_REQUESTING" && !request.isCancelled && !additionalData?.checkedIn && (
+                            {(request.status === "FOR_REQUESTING" || request.status === "FOR_INSPECTION") && !request.isCancelled && !additionalData?.checkedIn && (
                                 <Button 
                                     onClick={() => setCancelConfirmOpen(true)} 
                                     variant="outline" 
@@ -335,7 +333,7 @@ export default function AppointmentDetailsPage() {
                     <div className="md:col-span-2 space-y-6">
                         
                         {/* Status Alert Banner */}
-                        {statusConfig && !isCedula && (
+                        {statusConfig && !isCedula && request.status !== "FOR_INSPECTION" && (
                             <div className={cn("p-5 border rounded-2xl flex items-start gap-4", statusConfig.color)}>
                                 <statusConfig.icon className="w-5 h-5 shrink-0 mt-0.5" />
                                 <div className="space-y-1">
@@ -392,10 +390,6 @@ export default function AppointmentDetailsPage() {
                                             <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Transaction Type</span>
                                             <p className="font-black text-slate-850 dark:text-white uppercase">{request.type?.name || "N/A"}</p>
                                         </div>
-                                        <div className="space-y-1">
-                                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Submission Reference</span>
-                                            <p className="font-black text-slate-850 dark:text-white font-mono select-all uppercase">{request.id.slice(0, 18)}...</p>
-                                        </div>
                                     </div>
                                 </>
                             )}
@@ -408,13 +402,7 @@ export default function AppointmentDetailsPage() {
                                 />
                             )}
 
-                            {/* CUSTOM BUSINESS PERMIT VIEW */}
-                            {isBusinessPermit && (
-                                <BusinessPermitView
-                                    request={request}
-                                    additionalData={additionalData}
-                                />
-                            )}
+
 
                             {/* CUSTOM BUILDING PERMIT VIEW */}
                             {isBuildingPermit && (
