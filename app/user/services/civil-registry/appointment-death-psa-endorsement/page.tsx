@@ -338,7 +338,7 @@ export default function AppointmentDeathPsaEndorsementPage() {
 
     const validateStep = (step: Step): boolean => {
         if (step === "INFORMANT") {
-            const isSpecifyEmpty = formData.relationship === "OTHER" && !formData.relationshipOther?.trim();
+            const isSpecifyEmpty = (formData.relationship === "OTHER" || formData.relationship === "RELATIVE") && !formData.relationshipOther?.trim();
             if (!formData.relationship || !formData.contactNumber || isSpecifyEmpty) {
                 setShowErrors(true);
                 toast.error("Please complete highlighted required fields.");
@@ -411,7 +411,7 @@ export default function AppointmentDeathPsaEndorsementPage() {
 
             data.append("residentSnapshot", JSON.stringify(residentSnapshot));
 
-            const finalRelationship = formData.relationship === "OTHER"
+            const finalRelationship = (formData.relationship === "OTHER" || formData.relationship === "RELATIVE")
                 ? `OTHER: ${formData.relationshipOther.toUpperCase()}`
                 : formData.relationship;
 
@@ -719,7 +719,7 @@ export default function AppointmentDeathPsaEndorsementPage() {
                                     <div className="space-y-6">
                                         <div className="space-y-2">
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Relationship to Deceased <span className="text-red-500">*</span></Label>
-                                            {formData.relationship === "OTHER" ? (
+                                            {(formData.relationship === "OTHER" || formData.relationship === "RELATIVE") ? (
                                                 <div className="relative flex items-center">
                                                     <Input
                                                         value={formData.relationshipOther || ""}
@@ -750,8 +750,6 @@ export default function AppointmentDeathPsaEndorsementPage() {
                                                         <SelectItem value="CHILD">CHILD</SelectItem>
                                                         <SelectItem value="PARENT">PARENT</SelectItem>
                                                         <SelectItem value="SIBLING">SIBLING</SelectItem>
-                                                        <SelectItem value="RELATIVE">OTHER RELATIVE</SelectItem>
-                                                        <SelectItem value="REPRESENTATIVE">AUTHORIZED REPRESENTATIVE</SelectItem>
                                                         <SelectItem value="OTHER">OTHER</SelectItem>
                                                     </SelectContent>
                                                 </Select>

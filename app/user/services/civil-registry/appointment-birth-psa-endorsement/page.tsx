@@ -15,7 +15,8 @@ import {
     CheckCircle2,
     FileText,
     ArrowLeft,
-    Calendar
+    Calendar,
+    X
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -99,6 +100,7 @@ export default function AppointmentBirthPsaEndorsementPage() {
     // Form State
     const [formData, setFormData] = useState({
         relationship: "",
+        relationshipOther: "",
         email: "",
         contactNumber: "",
         informantFirstName: "",
@@ -228,7 +230,8 @@ export default function AppointmentBirthPsaEndorsementPage() {
 
                         setFormData(prev => ({
                             ...prev,
-                            relationship: addData.relationship || prev.relationship,
+                            relationship: addData.relationship && addData.relationship.startsWith("OTHER:") ? "OTHER" : (addData.relationship || prev.relationship),
+                            relationshipOther: addData.relationship && addData.relationship.startsWith("OTHER:") ? addData.relationship.replace(/^OTHER:\s*/i, "") : "",
                             email: addData.email || resSnapshot.email || prev.email,
                             contactNumber: addData.contactNumber || resSnapshot.contactNumber || prev.contactNumber,
                             informantFirstName: addData.informantFirstName || resSnapshot.firstName || prev.informantFirstName,
@@ -307,6 +310,7 @@ export default function AppointmentBirthPsaEndorsementPage() {
                     next.subjectFullName = sName.toUpperCase();
                     next.subjectDateOfBirth = sDob;
                     next.mothersMaidenName = mName.toUpperCase();
+                    next.relationshipOther = "";
                 } else {
                     next.subjectFullName = "";
                     next.subjectDateOfBirth = "";
@@ -376,8 +380,13 @@ export default function AppointmentBirthPsaEndorsementPage() {
 
             data.append("residentSnapshot", JSON.stringify(residentSnapshot));
 
+            const finalRelationship = (formData.relationship === "OTHER" || formData.relationship === "RELATIVE")
+                ? `OTHER: ${formData.relationshipOther.toUpperCase()}`
+                : formData.relationship;
+
             const additionalData = {
                 ...formData,
+                relationship: finalRelationship,
                 subjectName: formData.subjectFullName,
                 psaEndorsementFee: miscFeeAmount,
             };
@@ -661,22 +670,41 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                     <div className="space-y-6">
                                         <div className="space-y-2">
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Relationship to Subject <span className="text-red-500">*</span></Label>
-                                            <Select
-                                                value={formData.relationship}
-                                                onValueChange={(v) => handleSelectChange("relationship", v)}
-                                            >
-                                                <SelectTrigger className={cn("h-12 rounded-xl focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold", (showErrors && !formData.relationship) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10")}>
-                                                    <SelectValue placeholder="SELECT RELATIONSHIP" />
-                                                </SelectTrigger>
-                                                <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
-                                                    <SelectItem value="SELF">SELF (I AM THE SUBJECT)</SelectItem>
-                                                    <SelectItem value="CHILD">CHILD</SelectItem>
-                                                    <SelectItem value="PARENT">PARENT</SelectItem>
-                                                    <SelectItem value="SIBLING">SIBLING</SelectItem>
-                                                    <SelectItem value="RELATIVE">OTHER RELATIVE</SelectItem>
-                                                    <SelectItem value="REPRESENTATIVE">AUTHORIZED REPRESENTATIVE</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                            {(formData.relationship === "OTHER" || formData.relationship === "RELATIVE") ? (
+                                                <div className="relative flex items-center">
+                                                    <Input
+                                                        value={formData.relationshipOther || ""}
+                                                        onChange={(e) => setFormData(p => ({ ...p, relationshipOther: e.target.value }))}
+                                                        className={cn("h-12 rounded-xl text-xs md:text-sm font-bold uppercase pr-10 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10", (showErrors && !formData.relationshipOther) && "!border-2 !border-red-500")}
+                                                        placeholder="Specify relationship (e.g. Aunt, Cousin)"
+                                                        autoFocus
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormData(p => ({ ...p, relationship: "", relationshipOther: "" }))}
+                                                        className="absolute right-3 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+                                                        title="Back to options"
+                                                    >
+                                                        <X className="w-4.5 h-4.5" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <Select
+                                                    value={formData.relationship}
+                                                    onValueChange={(v) => handleSelectChange("relationship", v)}
+                                                >
+                                                    <SelectTrigger className={cn("h-12 rounded-xl focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold", (showErrors && !formData.relationship) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10")}>
+                                                        <SelectValue placeholder="SELECT RELATIONSHIP" />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
+                                                        <SelectItem value="SELF">SELF (I AM THE SUBJECT)</SelectItem>
+                                                        <SelectItem value="CHILD">CHILD</SelectItem>
+                                                        <SelectItem value="PARENT">PARENT</SelectItem>
+                                                        <SelectItem value="SIBLING">SIBLING</SelectItem>
+                                                        <SelectItem value="OTHER">OTHER</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
                                             {(showErrors && !formData.relationship) && (
                                                 <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
                                             )}
@@ -760,7 +788,8 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                     <BackNextButton
                                         onBack={() => router.push("/user/services/civil-registry")}
                                         onNext={() => {
-                                            if (!formData.relationship || !formData.contactNumber) {
+                                            const isSpecifyEmpty = (formData.relationship === "OTHER" || formData.relationship === "RELATIVE") && !formData.relationshipOther?.trim();
+                                            if (!formData.relationship || !formData.contactNumber || isSpecifyEmpty) {
                                                 setShowErrors(true);
                                                 toast.error("Please fill in all required informant details.");
                                                 return;
