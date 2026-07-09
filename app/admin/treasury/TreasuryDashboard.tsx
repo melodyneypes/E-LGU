@@ -528,22 +528,7 @@ export default function TreasuryDashboard() {
                                     </Select>
                                 </div>
 
-                                <Button
-                                    onClick={handleCallNextInQueue}
-                                    disabled={callingNext}
-                                    className="h-11 px-5 rounded-xl text-white text-[10px] font-black uppercase tracking-wider gap-2 flex items-center bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 border-none transition-all active:scale-95 shadow-md"
-                                >
-                                    <Volume2 className="w-3.5 h-3.5" />
-                                    <span>{callingNext ? "Calling..." : "Call Next in Queue"}</span>
-                                </Button>
 
-                                <Button
-                                    onClick={() => router.push("/admin/treasury/queue")}
-                                    className="h-11 px-5 rounded-xl text-white text-[10px] font-black uppercase tracking-wider gap-2 flex items-center bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 border-none transition-all active:scale-95 shadow-md"
-                                >
-                                    <Users className="w-3.5 h-3.5" />
-                                    <span>Live Queue</span>
-                                </Button>
 
                                 <Button
                                     onClick={fetchTransactions}
