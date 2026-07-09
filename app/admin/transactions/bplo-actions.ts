@@ -8,7 +8,7 @@ import { sendEmail } from "@/lib/mail";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { sanitizeString, sanitizeUrl } from "@/lib/validation";
 
-const isUserAdminAide = (u: any) => u?.role === "ADMIN_AIDE" || (u?.role === "ADMIN" && u?.department?.toUpperCase() === "BPLO");
+const isUserAdminAide = (u: any) => u?.role === "ADMIN_AIDE";
 
 async function getSession() {
     return await getServerSession(authOptions);
@@ -128,6 +128,11 @@ export async function evaluateBusinessPermitTransaction(
             newStatus = "FOR_PROCESSING";
         }
 
+        const currentAdditionalData = (transaction.additionalData as any) || {};
+        const updatedAdditionalData = { ...currentAdditionalData };
+        delete updatedAdditionalData.counterName;
+        updatedAdditionalData.checkedIn = false;
+
         const updatedTransaction = await prisma.transaction.update({
             where: { id: sanitizedId },
             data: {
@@ -135,6 +140,7 @@ export async function evaluateBusinessPermitTransaction(
                 totalAmount: result.totalAmount,
                 processedBy: user.id,
                 rejectionRemarks: sanitizedAdminNotes,
+                additionalData: updatedAdditionalData,
                 fiscalSnapshot: {
                     basicTax: result.basicTax,
                     additionalTax: result.additionalTax,

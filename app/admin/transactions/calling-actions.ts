@@ -35,9 +35,11 @@ export async function callTicketToCounter(id: string, counterName: string) {
         }
 
         const currentAdditionalData = (transaction.additionalData as any) || {};
+        const isTreasury = user.role === "TREASURY_STAFF" || user.department?.toUpperCase() === "TREASURY";
         const updatedAdditionalData = {
             ...currentAdditionalData,
-            counterName: sanitizedCounterName
+            counterName: sanitizedCounterName,
+            servingDepartment: isTreasury ? "Treasury" : "BPLO"
         };
 
         const updated = await prisma.transaction.update({
@@ -79,13 +81,20 @@ export async function fetchAndCallNextTicket(counterName: string) {
         // Fetch all matching queue tickets waiting for Treasury
         const transactions = await prisma.transaction.findMany({
             where: {
-                type: {
-                    processorRole: "TREASURY_STAFF",
-                    category: "CEDULA"
-                },
-                status: {
-                    in: ["FOR_REQUESTING", "FOR_INSPECTION", "UNPAID"]
-                },
+                OR: [
+                    {
+                        type: {
+                            processorRole: "TREASURY_STAFF",
+                            category: "CEDULA"
+                        },
+                        status: {
+                            in: ["FOR_REQUESTING", "FOR_INSPECTION"]
+                        }
+                    },
+                    {
+                        status: "UNPAID"
+                    }
+                ],
                 isCancelled: false,
                 appointmentDate: {
                     gte: startOfDay,
@@ -118,7 +127,8 @@ export async function fetchAndCallNextTicket(counterName: string) {
         const currentAdditionalData = (nextTx.additionalData as any) || {};
         const updatedAdditionalData = {
             ...currentAdditionalData,
-            counterName: sanitizedCounterName
+            counterName: sanitizedCounterName,
+            servingDepartment: "Treasury"
         };
 
         const updated = await prisma.transaction.update({
@@ -164,7 +174,7 @@ export async function fetchAndCallNextBploTicket(counterName: string) {
                     code: { startsWith: "BUSINESS_PERMIT" }
                 },
                 status: {
-                    in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION"]
+                    in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM"]
                 },
                 isCancelled: false,
                 appointmentDate: {
@@ -197,7 +207,8 @@ export async function fetchAndCallNextBploTicket(counterName: string) {
         const currentAdditionalData = (nextTx.additionalData as any) || {};
         const updatedAdditionalData = {
             ...currentAdditionalData,
-            counterName: sanitizedCounterName
+            counterName: sanitizedCounterName,
+            servingDepartment: "BPLO"
         };
 
         const updated = await prisma.transaction.update({
@@ -239,7 +250,7 @@ export async function getBploQueueTickets(counterName: string) {
                     code: { startsWith: "BUSINESS_PERMIT" }
                 },
                 status: {
-                    in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION"]
+                    in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM"]
                 },
                 isCancelled: false,
                 appointmentDate: {
@@ -263,7 +274,7 @@ export async function getBploQueueTickets(counterName: string) {
                     code: { startsWith: "BUSINESS_PERMIT" }
                 },
                 status: {
-                    in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION"]
+                    in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM"]
                 },
                 isCancelled: false,
                 appointmentDate: {
@@ -330,7 +341,8 @@ export async function callSpecificBploTicket(ticketId: string, counterName: stri
         const currentAdditionalData = (tx.additionalData as any) || {};
         const updatedAdditionalData = {
             ...currentAdditionalData,
-            counterName: sanitizedCounterName
+            counterName: sanitizedCounterName,
+            servingDepartment: "BPLO"
         };
 
         const updated = await prisma.transaction.update({
@@ -368,13 +380,20 @@ export async function getTreasuryQueueTickets(counterName: string) {
         // Fetch waiting tickets
         const waiting = await prisma.transaction.findMany({
             where: {
-                type: {
-                    processorRole: "TREASURY_STAFF",
-                    category: "CEDULA"
-                },
-                status: {
-                    in: ["FOR_REQUESTING", "FOR_INSPECTION", "UNPAID"]
-                },
+                OR: [
+                    {
+                        type: {
+                            processorRole: "TREASURY_STAFF",
+                            category: "CEDULA"
+                        },
+                        status: {
+                            in: ["FOR_REQUESTING", "FOR_INSPECTION"]
+                        }
+                    },
+                    {
+                        status: "UNPAID"
+                    }
+                ],
                 isCancelled: false,
                 appointmentDate: {
                     gte: startOfDay,
@@ -397,10 +416,6 @@ export async function getTreasuryQueueTickets(counterName: string) {
         // Fetch currently serving at this counter
         const serving = await prisma.transaction.findMany({
             where: {
-                type: {
-                    processorRole: "TREASURY_STAFF",
-                    category: "CEDULA"
-                },
                 status: "FOR_PROCESSING",
                 isCancelled: false,
                 appointmentDate: {

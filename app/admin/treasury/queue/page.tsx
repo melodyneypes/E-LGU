@@ -319,7 +319,7 @@ export default function TreasuryQueuePage() {
                                                                 : (tx.residentSnapshot ? `${tx.residentSnapshot?.firstName} ${tx.residentSnapshot?.lastName}` : "UNKNOWN")}
                                                         </p>
                                                         <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider">
-                                                            Status: <span className="text-primary">{tx.status?.replace(/_/g, " ")}</span>
+                                                            Status: <span className="text-primary">{tx.status === "UNPAID" ? "FOR PAYMENT" : tx.status?.replace(/_/g, " ")}</span>
                                                         </p>
                                                     </div>
                                                 </div>
