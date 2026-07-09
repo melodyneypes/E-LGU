@@ -2,6 +2,48 @@ import { supabaseAdmin } from "./supabase";
 
 const DEFAULT_BUCKET = "system-assets";
 
+function isValidImageOrPdf(buffer: Buffer, filename: string, mimeType?: string): boolean {
+    const allowedExtensions = /\.(jpe?g|png|webp|pdf)$/i;
+    if (!allowedExtensions.test(filename)) {
+        return false;
+    }
+
+    if (buffer.length < 4) return false;
+    const hex = buffer.toString("hex", 0, 12).toUpperCase();
+
+    let isMagicValid = false;
+    let expectedMime = "";
+    if (hex.startsWith("FFD8FF")) {
+        isMagicValid = true;
+        expectedMime = "image/jpeg";
+    } else if (hex.startsWith("89504E470D0A1A0A")) {
+        isMagicValid = true;
+        expectedMime = "image/png";
+    } else if (hex.startsWith("25504446")) {
+        isMagicValid = true;
+        expectedMime = "application/pdf";
+    } else if (hex.startsWith("52494646") && hex.substring(16, 24) === "57454250") {
+        isMagicValid = true;
+        expectedMime = "image/webp";
+    }
+
+    if (!isMagicValid) {
+        return false;
+    }
+
+    if (mimeType && mimeType !== "application/octet-stream") {
+        const lowerMime = mimeType.toLowerCase();
+        const lowerExpected = expectedMime.toLowerCase();
+        
+        if (lowerExpected === "image/jpeg" && (lowerMime === "image/jpeg" || lowerMime === "image/jpg")) {
+            return true;
+        }
+        return lowerMime === lowerExpected;
+    }
+
+    return true;
+}
+
 /**
  * Uploads a file to Supabase Storage
  * @param file The file to upload
@@ -16,6 +58,37 @@ export async function uploadFile(
     contentType?: string
 ): Promise<string | null> {
     try {
+        // Convert to buffer for validation
+        let buffer: Buffer;
+        if (Buffer.isBuffer(file)) {
+            buffer = file;
+        } else if (file instanceof File) {
+            buffer = Buffer.from(await file.arrayBuffer());
+        } else if (typeof file === "string") {
+            if ((file as string).startsWith("data:")) {
+                const arr = (file as string).split(',');
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while (n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                buffer = Buffer.from(u8arr);
+            } else {
+                buffer = Buffer.from(file, "base64");
+            }
+        } else {
+            buffer = Buffer.from(file as any);
+        }
+
+        const name = (file as any).name || path.split('/').pop() || "";
+        const mimeType = contentType || (file as any).type || "";
+
+        if (!isValidImageOrPdf(buffer, name, mimeType)) {
+            console.error(`Blocked upload attempt: File ${name} has invalid signature/headers.`);
+            return null;
+        }
+
         // Sanitize path segments to replace special/non-ASCII characters with underscores
         const sanitizedPath = path
             .split('/')
@@ -24,7 +97,7 @@ export async function uploadFile(
 
         const { data, error } = await supabaseAdmin.storage
             .from(bucket)
-            .upload(sanitizedPath, file, {
+            .upload(sanitizedPath, buffer, {
                 upsert: true, // Overwrite if exists
                 contentType: contentType || (file as any).type || 'application/octet-stream'
             });

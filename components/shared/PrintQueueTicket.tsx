@@ -52,8 +52,8 @@ export default function PrintQueueTicket({
     serviceName,
     appointmentDate,
     appointmentSlot,
-    department,
     dateGenerated = new Date(),
+    branding,
     triggerPrint = false,
     onPrintCompleted
 }: PrintQueueTicketProps) {
@@ -89,8 +89,7 @@ export default function PrintQueueTicket({
 
     if (!mounted) return null;
 
-    // Resolve department default if not specified
-    const resolvedDepartment = department || (serviceName.toLowerCase().includes("cedula") ? "Treasury" : "Engineering");
+
 
     return createPortal(
         <>
@@ -148,78 +147,134 @@ export default function PrintQueueTicket({
                     style={{
                         display: 'flex',
                         flexDirection: 'column',
-                        fontFamily: 'Arial, Helvetica, sans-serif',
-                        lineHeight: 1.3,
+                        fontFamily: 'monospace, Courier, sans-serif',
+                        lineHeight: 1.25,
                         color: 'black',
                         background: 'white',
-                        padding: '16px',
+                        padding: '12px 8px',
+                        border: '2px solid black',
+                        borderRadius: '12px',
                         textAlign: 'center'
                     }}
                 >
-                    {/* Header */}
-                    <div style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 8px 0', textTransform: 'none' }}>
-                        Your Ticket Number is
+                    {/* Official LGU Logo & Header */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '4px' }}>
+                        {branding?.logo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                                src={branding.logo}
+                                alt="LGU Seal"
+                                style={{ width: '36px', height: '36px', filter: 'grayscale(1) contrast(1.2)', marginBottom: '4px' }}
+                            />
+                        ) : (
+                            <div style={{ width: '30px', height: '30px', border: '1.5px solid black', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '12px', marginBottom: '4px' }}>
+                                LGU
+                            </div>
+                        )}
+                        <span style={{ fontSize: '7px', fontWeight: 'bold', letterSpacing: '0.5px', textTransform: 'uppercase', color: '#333' }}>
+                            Republic of the Philippines
+                        </span>
+                        <span style={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '1px' }}>
+                            Municipality of Mapandan
+                        </span>
+                        <span style={{ fontSize: '6.5px', fontWeight: 'bold', letterSpacing: '0.5px', color: '#555' }}>
+                            Province of Pangasinan
+                        </span>
+                        <span style={{ fontSize: '7.5px', fontWeight: 'black', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '3px', border: '1px solid black', padding: '1px 4px', borderRadius: '3px' }}>
+                            EMapandan Queue Portal
+                        </span>
                     </div>
 
-                    {/* Thick line */}
-                    <div style={{ borderTop: '3px solid black', margin: '4px 0 8px 0' }}></div>
+                    {/* Dotted Divider */}
+                    <div style={{ borderTop: '1.5px dotted black', margin: '6px 0' }}></div>
 
-                    {/* Big Queue Number */}
-                    <div style={{ fontSize: '38px', fontWeight: '900', margin: '8px 0', letterSpacing: '1px' }}>
-                        {queueNumber}
+                    {/* Ticket Number Section */}
+                    <div style={{ padding: '2px 0' }}>
+                        <span style={{ fontSize: '8px', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>
+                            Queue Ticket Number
+                        </span>
+                        <div style={{ 
+                            border: '1.5px dashed black', 
+                            padding: '8px 4px', 
+                            borderRadius: '6px',
+                            display: 'inline-block',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            background: '#fcfcfc'
+                        }}>
+                            <span style={{ 
+                                fontSize: '20px', 
+                                fontWeight: '900', 
+                                letterSpacing: '0.5px',
+                                fontFamily: 'monospace',
+                                display: 'block'
+                            }}>
+                                {queueNumber}
+                            </span>
+                        </div>
                     </div>
 
-                    {/* Thick line */}
-                    <div style={{ borderTop: '3px solid black', margin: '8px 0 12px 0' }}></div>
+                    {/* Dotted Divider */}
+                    <div style={{ borderTop: '1.5px dotted black', margin: '6px 0' }}></div>
 
-                    {/* Service Name */}
-                    <div style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 16px 0', textTransform: 'none' }}>
-                        &lt;{serviceName}&gt;
-                    </div>
-
-                    {/* Meta Details */}
-                    <div style={{ textAlign: 'left', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '14px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ fontWeight: 'normal' }}>Date of Appointment:</span>
+                    {/* Transaction Details */}
+                    <div style={{ fontSize: '9px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '4px', margin: '2px 0 6px 0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dotted #ccc', paddingBottom: '2px' }}>
+                            <span style={{ fontWeight: 'normal', color: '#333' }}>Service Type:</span>
+                            <span style={{ fontWeight: 'bold', textAlign: 'right', maxWidth: '60%' }}>{serviceName}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dotted #ccc', paddingBottom: '2px' }}>
+                            <span style={{ fontWeight: 'normal', color: '#333' }}>Date:</span>
                             <span style={{ fontWeight: 'bold' }}>{formatDate(appointmentDate)}</span>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ fontWeight: 'normal' }}>Time of Appointment:</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dotted #ccc', paddingBottom: '2px' }}>
+                            <span style={{ fontWeight: 'normal', color: '#333' }}>Schedule:</span>
                             <span style={{ fontWeight: 'bold' }}>{appointmentSlot}</span>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ fontWeight: 'normal' }}>Department:</span>
-                            <span style={{ fontWeight: 'bold' }}>{resolvedDepartment}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '1px' }}>
+                            <span style={{ fontWeight: 'normal', color: '#555' }}>Created On:</span>
+                            <span style={{ fontWeight: 'bold', color: '#333' }}>{formatDateTime(dateGenerated)}</span>
                         </div>
                     </div>
 
-                    {/* Date Generated */}
-                    <div style={{ textAlign: 'left', fontSize: '11px', marginBottom: '22px' }}>
-                        <span>Date and Time Generated:</span>
-                        <span style={{ fontWeight: 'bold', marginLeft: '6px' }}>{formatDateTime(dateGenerated)}</span>
-                    </div>
+                    {/* Dotted Divider */}
+                    <div style={{ borderTop: '1.5px dotted black', margin: '4px 0 6px 0' }}></div>
 
-                    {/* Call to Actions / Waiting instructions */}
-                    <div style={{ fontSize: '10px', lineHeight: 1.4, marginBottom: '20px', textAlign: 'center' }}>
+                    {/* Waiting Instructions */}
+                    <div style={{ fontSize: '8px', lineHeight: 1.3, marginBottom: '10px', background: '#fafafa', padding: '6px', border: '1px solid #eee', borderRadius: '6px' }}>
                         <p style={{ margin: '0', fontWeight: 'bold' }}>Please wait for your number to be called.</p>
-                        <p style={{ margin: '0 0 10px 0', fontStyle: 'italic', fontSize: '9px', color: '#333' }}>
+                        <p style={{ margin: '0 0 4px 0', fontStyle: 'italic', color: '#555', fontSize: '7.5px' }}>
                             (Mangyaring hintayin na tawagin ang inyong numero.)
                         </p>
-                        <p style={{ margin: '0', fontWeight: 'bold' }}>Please have your documents ready.</p>
-                        <p style={{ margin: '0', fontStyle: 'italic', fontSize: '9px', color: '#333' }}>
+                        <p style={{ margin: '0', fontWeight: 'bold' }}>Please have your physical documents ready.</p>
+                        <p style={{ margin: '0', fontStyle: 'italic', color: '#555', fontSize: '7.5px' }}>
                             (Ihanda ang inyong mga kinakailangang dokumento.)
                         </p>
                     </div>
 
                     {/* QR Code */}
-                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '5px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                             src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${queueNumber}`}
                             alt="QR Code"
-                            style={{ width: '110px', height: '110px' }}
+                            style={{ width: '85px', height: '85px', border: '1px solid black', padding: '3px', borderRadius: '3px' }}
                             onLoad={() => setQrLoaded(true)}
                         />
+                        <span style={{ fontSize: '6.5px', fontWeight: 'bold', color: '#777', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            Scan QR Code at Counter
+                        </span>
+                    </div>
+
+                    {/* Dotted Divider */}
+                    <div style={{ borderTop: '1.5px dotted black', margin: '8px 0 4px 0' }}></div>
+
+                    {/* Footer Slogan */}
+                    <div style={{ fontSize: '7px', fontWeight: 'bold', color: '#333', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Serbisyong Tapat at Totoo
+                    </div>
+                    <div style={{ fontSize: '6px', color: '#666', marginTop: '1px' }}>
+                        Mapandan, Pangasinan
                     </div>
                 </div>
             </div>

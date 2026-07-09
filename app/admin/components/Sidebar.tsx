@@ -388,6 +388,7 @@ export function Sidebar({
         },
         { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury" },
         { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "Treasury", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
+        { href: "/admin/bplo/appointment-settings", label: "BPLO Appointment Settings", icon: Calendar, category: "Treasury" },
         { href: "/admin/treasury/payment-settings", label: "Payment Settings", icon: CreditCard, category: "Treasury" },
         { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury" },
         { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
@@ -488,7 +489,7 @@ export function Sidebar({
             if (department) {
                 const deptUpper = department.toUpperCase();
                 if (deptUpper === "BPLO") {
-                    menuItems = allMenuItems.filter(item => ["BPLO Permits"].includes(item.label));
+                    menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings"].includes(item.label));
                 } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
                     menuItems = allMenuItems.filter(item =>
                         ["Registrar Hub", "Transaction Ledger"].includes(item.label) ||
@@ -501,7 +502,7 @@ export function Sidebar({
                     );
                 } else if (deptUpper === "LGU") {
                     menuItems = allMenuItems.filter(item =>
-                        !["Registrar Hub", "Transaction Ledger", "Treasury Hub", "Payments Ledger", "BPLO Permits", "Payment Settings", "Appointment Settings"].includes(item.label)
+                        !["Registrar Hub", "Transaction Ledger", "Treasury Hub", "Payments Ledger", "BPLO Permits", "BPLO Appointment Settings", "Payment Settings", "Appointment Settings"].includes(item.label)
                     );
                 } else {
                     menuItems = [
@@ -522,7 +523,7 @@ export function Sidebar({
                 (item.label === "Appointment Settings" && item.category === "Treasury")
             );
         } else if (role === "ADMIN_AIDE") {
-            menuItems = allMenuItems.filter(item => ["BPLO Permits"].includes(item.label));
+            menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings"].includes(item.label));
         } else if (role === "ENGINEER") {
             menuItems = [
                 { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" },

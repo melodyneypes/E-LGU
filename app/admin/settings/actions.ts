@@ -467,6 +467,7 @@ export async function updateAppointmentConfig(
         });
 
         revalidatePath("/user/services/cedula-appointment");
+        revalidatePath("/user/services/business-permit-appointment");
         revalidatePath("/admin/treasury/payment-settings");
         revalidatePath("/admin/treasury/appointment-settings");
         revalidatePath("/user/services/civil-registry/appointment-birth-psa-endorsement");
