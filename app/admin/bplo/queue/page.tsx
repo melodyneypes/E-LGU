@@ -16,7 +16,8 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import {
     getBploQueueTickets,
-    fetchAndCallNextBploTicket
+    fetchAndCallNextBploTicket,
+    callSpecificBploTicket
 } from "@/app/admin/transactions/calling-actions";
 
 export default function BploQueuePage() {

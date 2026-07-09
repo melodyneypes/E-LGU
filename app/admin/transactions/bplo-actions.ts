@@ -123,8 +123,8 @@ export async function evaluateBusinessPermitTransaction(
             };
         }
 
-        let newStatus = isUserAdminAide(user) ? "FOR_REQUESTING" : "EVALUATED";
-        if (transaction.status === "FOR_REINSPECTION") {
+        let newStatus = "UNPAID";
+        if (transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION") {
             newStatus = "FOR_PROCESSING";
         }
 
@@ -149,7 +149,7 @@ export async function evaluateBusinessPermitTransaction(
 
         if (updatedTransaction.user?.email) {
             const resident = updatedTransaction.residentSnapshot as any;
-            if (newStatus === "EVALUATED") {
+            if (newStatus === "UNPAID") {
                 sendEmail({
                     type: "FOR_PAYMENT",
                     to: updatedTransaction.user.email,

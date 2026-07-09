@@ -196,8 +196,8 @@ export default function BploDetailPage({ params }: PageProps) {
     }, [fetchTransaction, id]);
 
     const handleEvaluate = async () => {
-        const isReinspection = transaction.status === "FOR_REINSPECTION";
-        if (!isReinspection) {
+        const isInspection = transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION";
+        if (!isInspection) {
             const hasIncompleteFee = feeItems.some(f => f.label.trim() && f.amount.trim() === "");
             const hasAmountWithoutLabel = feeItems.some(f => !f.label.trim() && f.amount.trim() !== "");
             if (hasIncompleteFee) {
@@ -223,12 +223,12 @@ export default function BploDetailPage({ params }: PageProps) {
             const res = await evaluateBusinessPermitTransaction(
                 transaction.id,
                 deliveryFee,
-                remarks || (isReinspection ? "Business Permit Re-inspection Approved" : "Business Permit Assessment"),
+                remarks || (isInspection ? "Business Permit Inspection Approved" : "Business Permit Assessment"),
                 itemsToSend
             );
             if (res.success) {
-                toast.success(isReinspection ? "Re-inspection approved! Transaction status is now FOR PROCESSING." : "Assessment details updated and submitted successfully!");
-                router.push("/admin/bplo");
+                toast.success(isInspection ? "Inspection approved! Transaction status is now FOR PROCESSING." : "Assessment details updated and submitted successfully!");
+                router.push("/admin/bplo/queue");
             } else {
                 toast.error(res.error || "Evaluation failed.");
             }
@@ -244,7 +244,7 @@ export default function BploDetailPage({ params }: PageProps) {
             const res = await rejectTransaction(transaction.id, remarks);
             if (res.success) {
                 toast.success("Permit request successfully declined.");
-                router.push("/admin/bplo");
+                router.push("/admin/bplo/queue");
             } else toast.error(res.error || "Decline failed.");
         } finally { setActionLoading(false); }
     };
@@ -256,7 +256,7 @@ export default function BploDetailPage({ params }: PageProps) {
             const res = await sendForRevision(transaction.id, remarks);
             if (res.success) {
                 toast.success("Permit application returned to citizen for revisions.");
-                router.push("/admin/bplo");
+                router.push("/admin/bplo/queue");
             } else toast.error(res.error || "Revision request failed.");
         } finally { setActionLoading(false); }
     };
@@ -294,7 +294,7 @@ export default function BploDetailPage({ params }: PageProps) {
                 toast.success(message);
                 setECopyFile(null);
                 setStickerNumber("");
-                router.push("/admin/bplo");
+                router.push("/admin/bplo/queue");
             } else toast.error(res.error || "Failed to release permit.");
         } finally { setActionLoading(false); }
     }, [transaction, permitNumberInput, eCopyFile, stickerNumber, router]);
@@ -589,11 +589,9 @@ export default function BploDetailPage({ params }: PageProps) {
 
     const baseSteps = [
         { id: "FOR_INSPECTION", label: "INSPECTION" },
-        { id: "FOR_REQUESTING", label: "EVALUATION" },
-        { id: "EVALUATED", label: "ASSESSMENT" },
+        { id: "FOR_PROCESSING", label: "ASSESSMENT" },
+        { id: "UNPAID", label: "PAYMENT" },
         { id: "PAID", label: "PAID" },
-        { id: "FOR_REINSPECTION", label: "RE-INSPECTION" },
-        { id: "FOR_PROCESSING", label: "PROCESSING" },
         {
             id: transaction.fulfillmentType === "DELIVERY" ? "FOR_PICKING" : "FOR_CLAIM",
             label: transaction.fulfillmentType === "DELIVERY" ? "FOR PICKING" : "CLAIMING"
@@ -609,12 +607,12 @@ export default function BploDetailPage({ params }: PageProps) {
 
     if (status === "REJECTED") {
         steps = [
-            { id: "FOR_REQUESTING", label: "EVALUATION" },
+            { id: "FOR_INSPECTION", label: "INSPECTION" },
             { id: "REJECTED", label: "REJECTED" }
         ];
     } else if (status === "FOR_REVISION") {
         steps = [
-            { id: "FOR_REQUESTING", label: "EVALUATION" },
+            { id: "FOR_INSPECTION", label: "INSPECTION" },
             { id: "FOR_REVISION", label: "REVISION REQ." }
         ];
     } else if (status.includes("RETURN") || status.includes("REFUND") || status === "DISPUTE_REJECTED") {
@@ -660,212 +658,212 @@ export default function BploDetailPage({ params }: PageProps) {
                 <div className="col-span-12 lg:col-span-8 space-y-8">
                     {/* TRANSACTION INFORMATION CARD */}
                     <TransactionInfoCard
-                        transactionName={transaction.type?.requiresBusinessName
-                            ? (transaction.businessName || additional?.businessName || "UNNAMED ENTITY")
-                            : `${resident?.firstName || ''} ${resident?.lastName || ''}`}
+                        transactionName={resident?.firstName ? `${resident.firstName} ${resident.lastName}` : (transaction.user?.name || "Unnamed Resident")}
                         themeColor={themeColor}
                         categoryLabel={transaction.type?.name || "Business Permit"}
                     />
 
                     {/* METRICS + BREAKDOWN CARD */}
-                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
-                        {/* TOP METRICS — 4-col white/grey grid */}
-                        {(() => {
-                            const declaredValue = Number(additional?.grossSales || additional?.capitalInvestment || 0);
-                            const declaredLabel = additional?.businessType === "NEW" ? "CAPITAL" : "DECLARED GROSS";
-                            const paymentType = transaction.paymentType?.replace(/_/g, " ") || "—";
-                            const fulfillment = transaction.fulfillmentType?.replace(/_/g, " ") || "—";
-                            const rawFiscal = transaction.fiscalSnapshot;
-                            const fiscalSnapshot = (typeof rawFiscal === "string" ? JSON.parse(rawFiscal) : rawFiscal) as any || {};
-
-                            // Use transaction.totalAmount as the authoritative total — it is always
-                            // written by evaluateCedulaTransaction regardless of fiscalSnapshot state.
-                            const totalAmountAssessed =
-                                Number(transaction.totalAmount) ||
-                                Number(fiscalSnapshot.totalAmount) ||
-                                (Array.isArray(transaction.type?.defaultFees)
-                                    ? transaction.type.defaultFees.reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0)
-                                    : 0);
-                            return (
-                                <div className="grid grid-cols-4 gap-3">
-                                    {/* Declared */}
-                                    <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/10 flex flex-col justify-between min-h-[100px]">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{declaredLabel}</span>
-                                        <p className="text-xl font-black italic tracking-tighter text-slate-900 dark:text-white mt-2">
-                                            ₱{declaredValue.toLocaleString()}
-                                        </p>
-                                    </div>
-                                    {/* Payment Mode */}
-                                    <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/10 flex flex-col justify-between min-h-[100px]">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">PAYMENT MODE</span>
-                                        <p className="text-xl font-black italic tracking-tighter text-slate-900 dark:text-white uppercase mt-2">
-                                            {paymentType === "—" ? <span className="w-6 h-1.5 bg-slate-400 rounded-sm inline-block" /> : paymentType}
-                                        </p>
-                                    </div>
-                                    {/* Fulfillment */}
-                                    <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/10 flex flex-col justify-between min-h-[100px]">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">FULFILLMENT</span>
-                                        <p className="text-xl font-black italic tracking-tighter text-slate-900 dark:text-white uppercase mt-2">
-                                            {fulfillment === "—" ? <span className="w-6 h-1.5 bg-slate-400 rounded-sm inline-block" /> : fulfillment}
-                                        </p>
-                                    </div>
-                                    {/* Total Amount */}
-                                    <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/10 flex flex-col justify-between min-h-[100px]">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500/80">Total Amount</span>
-                                        <p className="text-xl font-black italic tracking-tighter text-emerald-500 mt-2">
-                                            ₱{totalAmountAssessed.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                        </p>
-                                    </div>
-                                </div>
-                            );
-                        })()}
-
-                        {/* FEE ASSESSMENT BREAKDOWN — Accordion */}
-                        <div className="border-t border-slate-100 dark:border-white/5 pt-6">
-                            <button
-                                type="button"
-                                onClick={() => setIsBreakdownExpanded(!isBreakdownExpanded)}
-                                className="flex items-center justify-between w-full text-left focus:outline-none group"
-                            >
-                                <div>
-                                    <h2 className="text-xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
-                                        Permit <span className="text-primary">Assessment Breakdown</span>
-                                    </h2>
-                                    <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-1">
-                                        Approved and Assessed Fees
-                                    </p>
-                                </div>
-                                <div className="text-slate-400 group-hover:text-primary transition-colors">
-                                    <div className="w-9 h-9 rounded-full border border-slate-200 dark:border-white/10 flex items-center justify-center hover:border-primary/40 transition-all">
-                                        {isBreakdownExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                                    </div>
-                                </div>
-                            </button>
-
-                            {isBreakdownExpanded && (() => {
+                    {!["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION"].includes(transaction.status) && (
+                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
+                            {/* TOP METRICS — 4-col white/grey grid */}
+                            {(() => {
+                                const declaredValue = Number(additional?.grossSales || additional?.capitalInvestment || 0);
+                                const declaredLabel = additional?.businessType === "NEW" ? "CAPITAL" : "DECLARED GROSS";
+                                const paymentType = transaction.paymentType?.replace(/_/g, " ") || "—";
+                                const fulfillment = transaction.fulfillmentType?.replace(/_/g, " ") || "—";
                                 const rawFiscal = transaction.fiscalSnapshot;
                                 const fiscalSnapshot = (typeof rawFiscal === "string" ? JSON.parse(rawFiscal) : rawFiscal) as any || {};
-                                const isInspectionAssessment = transaction.status === "FOR_INSPECTION";
-                                const lineItems: any[] = fiscalSnapshot.lineItems || [];
-                                const defaultFees: any[] = transaction.type?.defaultFees || [];
-                                const positiveLineItems = lineItems.filter((i: any) => Number(i.amount) > 0);
-                                const positiveDefaultFees = defaultFees.filter((f: any) => Number(f.amount) > 0);
-                                const computedItems = [
-                                    { label: "Mayor's Permit Fee", amount: Number(fiscalSnapshot.basicTax) || 0 },
-                                    { label: "Business Tax", amount: Number(fiscalSnapshot.additionalTax) || 0 }
-                                ].filter(item => item.amount > 0);
 
-                                // Authoritative total: prefer transaction.totalAmount (always written by server),
-                                // then fiscalSnapshot.totalAmount, then sum of line items / defaultFees.
-                                const authTotal =
+                                // Use transaction.totalAmount as the authoritative total — it is always
+                                // written by evaluateCedulaTransaction regardless of fiscalSnapshot state.
+                                const totalAmountAssessed =
                                     Number(transaction.totalAmount) ||
                                     Number(fiscalSnapshot.totalAmount) ||
-                                    (positiveLineItems.length > 0
-                                        ? positiveLineItems.reduce((a: number, i: any) => a + (Number(i.amount) || 0), 0)
-                                        : (computedItems.length > 0
-                                            ? computedItems.reduce((a: number, item: any) => a + item.amount, 0)
-                                            : positiveDefaultFees.reduce((a: number, f: any) => a + (Number(f.amount) || 0), 0)));
-
-                                // Determine which set of line items to display
-                                const displayItems: { label: string; amount: number }[] =
-                                    positiveLineItems.length > 0
-                                        ? positiveLineItems.map((i: any) => ({ label: i.label, amount: Number(i.amount) || 0 }))
-                                        : computedItems.length > 0
-                                            ? computedItems
-                                            : positiveDefaultFees.map((f: any) => ({ label: f.label, amount: Number(f.amount) || 0 }));
-
-                                if (isInspectionAssessment) {
-                                    const editableTotal = feeItems.reduce((total, item) => total + (Number(item.amount) || 0), 0);
-
-                                    return (
-                                        <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                            <div className="rounded-2xl border border-slate-100 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] p-4 space-y-3">
-                                                {feeItems.map((item, idx) => (
-                                                    <div key={idx} className="grid grid-cols-12 gap-3 items-end">
-                                                        <div className="col-span-12 md:col-span-7 space-y-1.5">
-                                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                                                Fee label
-                                                            </Label>
-                                                            <Input
-                                                                value={item.label}
-                                                                onChange={(e) => updateFeeItem(idx, "label", e.target.value)}
-                                                                placeholder="Enter additional fee label"
-                                                                className="h-11 rounded-xl bg-white dark:bg-[#101725] text-xs font-black"
-                                                            />
-                                                        </div>
-                                                        <div className="col-span-9 md:col-span-4 space-y-1.5">
-                                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                                                Amount
-                                                            </Label>
-                                                            <Input
-                                                                type="number"
-                                                                min="0"
-                                                                step="0.01"
-                                                                value={item.amount}
-                                                                onChange={(e) => updateFeeItem(idx, "amount", e.target.value)}
-                                                                placeholder="0.00"
-                                                                className="h-11 rounded-xl bg-white dark:bg-[#101725] text-xs font-black"
-                                                            />
-                                                        </div>
-                                                        <div className="col-span-3 md:col-span-1">
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                size="icon"
-                                                                onClick={() => removeFeeItem(idx)}
-                                                                className="h-11 w-full rounded-xl border-slate-200 dark:border-white/10 text-slate-400 hover:text-red-500 hover:border-red-200"
-                                                                title="Remove fee"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    onClick={addFeeItem}
-                                                    className="w-full h-11 rounded-xl border-dashed border-slate-300 dark:border-white/15 text-xs font-black uppercase tracking-wider"
-                                                >
-                                                    <Plus className="w-4 h-4 mr-2" />
-                                                    Add Additional Fee
-                                                </Button>
-                                            </div>
-
-                                            <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-white/10 text-base font-black text-primary italic">
-                                                <span>Total Amount</span>
-                                                <span>₱{editableTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                            </div>
-                                        </div>
-                                    );
-                                }
-
+                                    (Array.isArray(transaction.type?.defaultFees)
+                                        ? transaction.type.defaultFees.reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0)
+                                        : 0);
                                 return (
-                                    <div className="mt-6 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                                        {displayItems.map((item, idx) => (
-                                            <div key={idx} className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
-                                                <span>{item.label}</span>
-                                                <span className="dark:text-slate-200">₱{item.amount.toFixed(2)}</span>
-                                            </div>
-                                        ))}
-
-                                        {Number(fiscalSnapshot.deliveryFee) > 0 && (
-                                            <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-white/5 text-sm font-bold text-slate-600 dark:text-slate-400 italic">
-                                                <span>Delivery Fee</span>
-                                                <span className="dark:text-slate-200">₱{Number(fiscalSnapshot.deliveryFee).toFixed(2)}</span>
-                                            </div>
-                                        )}
-
-                                        <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-white/10 text-base font-black text-primary italic">
-                                            <span>Total Amount Assessed</span>
-                                            <span>₱{authTotal.toFixed(2)}</span>
+                                    <div className="grid grid-cols-4 gap-3">
+                                        {/* Declared */}
+                                        <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/10 flex flex-col justify-between min-h-[100px]">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{declaredLabel}</span>
+                                            <p className="text-xl font-black italic tracking-tighter text-slate-900 dark:text-white mt-2">
+                                                ₱{declaredValue.toLocaleString()}
+                                            </p>
+                                        </div>
+                                        {/* Payment Mode */}
+                                        <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/10 flex flex-col justify-between min-h-[100px]">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">PAYMENT MODE</span>
+                                            <p className="text-xl font-black italic tracking-tighter text-slate-900 dark:text-white uppercase mt-2">
+                                                {paymentType === "—" ? <span className="w-6 h-1.5 bg-slate-400 rounded-sm inline-block" /> : paymentType}
+                                            </p>
+                                        </div>
+                                        {/* Fulfillment */}
+                                        <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/10 flex flex-col justify-between min-h-[100px]">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">FULFILLMENT</span>
+                                            <p className="text-xl font-black italic tracking-tighter text-slate-900 dark:text-white uppercase mt-2">
+                                                {fulfillment === "—" ? <span className="w-6 h-1.5 bg-slate-400 rounded-sm inline-block" /> : fulfillment}
+                                            </p>
+                                        </div>
+                                        {/* Total Amount */}
+                                        <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/10 flex flex-col justify-between min-h-[100px]">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500/80">Total Amount</span>
+                                            <p className="text-xl font-black italic tracking-tighter text-emerald-500 mt-2">
+                                                ₱{totalAmountAssessed.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </p>
                                         </div>
                                     </div>
                                 );
                             })()}
+
+                            {/* FEE ASSESSMENT BREAKDOWN — Accordion */}
+                            <div className="border-t border-slate-100 dark:border-white/5 pt-6">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsBreakdownExpanded(!isBreakdownExpanded)}
+                                    className="flex items-center justify-between w-full text-left focus:outline-none group"
+                                >
+                                    <div>
+                                        <h2 className="text-xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
+                                            Permit <span className="text-primary">Assessment Breakdown</span>
+                                        </h2>
+                                        <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-1">
+                                            Approved and Assessed Fees
+                                        </p>
+                                    </div>
+                                    <div className="text-slate-400 group-hover:text-primary transition-colors">
+                                        <div className="w-9 h-9 rounded-full border border-slate-200 dark:border-white/10 flex items-center justify-center hover:border-primary/40 transition-all">
+                                            {isBreakdownExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                        </div>
+                                    </div>
+                                </button>
+
+                                {isBreakdownExpanded && (() => {
+                                    const rawFiscal = transaction.fiscalSnapshot;
+                                    const fiscalSnapshot = (typeof rawFiscal === "string" ? JSON.parse(rawFiscal) : rawFiscal) as any || {};
+                                    const isInspectionAssessment = transaction.status === "FOR_PROCESSING";
+                                    const lineItems: any[] = fiscalSnapshot.lineItems || [];
+                                    const defaultFees: any[] = transaction.type?.defaultFees || [];
+                                    const positiveLineItems = lineItems.filter((i: any) => Number(i.amount) > 0);
+                                    const positiveDefaultFees = defaultFees.filter((f: any) => Number(f.amount) > 0);
+                                    const computedItems = [
+                                        { label: "Mayor's Permit Fee", amount: Number(fiscalSnapshot.basicTax) || 0 },
+                                        { label: "Business Tax", amount: Number(fiscalSnapshot.additionalTax) || 0 }
+                                    ].filter(item => item.amount > 0);
+
+                                    // Authoritative total: prefer transaction.totalAmount (always written by server),
+                                    // then fiscalSnapshot.totalAmount, then sum of line items / defaultFees.
+                                    const authTotal =
+                                        Number(transaction.totalAmount) ||
+                                        Number(fiscalSnapshot.totalAmount) ||
+                                        (positiveLineItems.length > 0
+                                            ? positiveLineItems.reduce((a: number, i: any) => a + (Number(i.amount) || 0), 0)
+                                            : (computedItems.length > 0
+                                                ? computedItems.reduce((a: number, item: any) => a + item.amount, 0)
+                                                : positiveDefaultFees.reduce((a: number, f: any) => a + (Number(f.amount) || 0), 0)));
+
+                                    // Determine which set of line items to display
+                                    const displayItems: { label: string; amount: number }[] =
+                                        positiveLineItems.length > 0
+                                            ? positiveLineItems.map((i: any) => ({ label: i.label, amount: Number(i.amount) || 0 }))
+                                            : computedItems.length > 0
+                                                ? computedItems
+                                                : positiveDefaultFees.map((f: any) => ({ label: f.label, amount: Number(f.amount) || 0 }));
+
+                                    if (isInspectionAssessment) {
+                                        const editableTotal = feeItems.reduce((total, item) => total + (Number(item.amount) || 0), 0);
+
+                                        return (
+                                            <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                <div className="rounded-2xl border border-slate-100 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] p-4 space-y-3">
+                                                    {feeItems.map((item, idx) => (
+                                                        <div key={idx} className="grid grid-cols-12 gap-3 items-end">
+                                                            <div className="col-span-12 md:col-span-7 space-y-1.5">
+                                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                                    Fee label
+                                                                </Label>
+                                                                <Input
+                                                                    value={item.label}
+                                                                    onChange={(e) => updateFeeItem(idx, "label", e.target.value)}
+                                                                    placeholder="Enter additional fee label"
+                                                                    className="h-11 rounded-xl bg-white dark:bg-[#101725] text-xs font-black"
+                                                                />
+                                                            </div>
+                                                            <div className="col-span-9 md:col-span-4 space-y-1.5">
+                                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                                    Amount
+                                                                </Label>
+                                                                <Input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    value={item.amount}
+                                                                    onChange={(e) => updateFeeItem(idx, "amount", e.target.value)}
+                                                                    placeholder="0.00"
+                                                                    className="h-11 rounded-xl bg-white dark:bg-[#101725] text-xs font-black"
+                                                                />
+                                                            </div>
+                                                            <div className="col-span-3 md:col-span-1">
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="icon"
+                                                                    onClick={() => removeFeeItem(idx)}
+                                                                    className="h-11 w-full rounded-xl border-slate-200 dark:border-white/10 text-slate-400 hover:text-red-500 hover:border-red-200"
+                                                                    title="Remove fee"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={addFeeItem}
+                                                        className="w-full h-11 rounded-xl border-dashed border-slate-300 dark:border-white/15 text-xs font-black uppercase tracking-wider"
+                                                    >
+                                                        <Plus className="w-4 h-4 mr-2" />
+                                                        Add Additional Fee
+                                                    </Button>
+                                                </div>
+
+                                                <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-white/10 text-base font-black text-primary italic">
+                                                    <span>Total Amount</span>
+                                                    <span>₱{editableTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div className="mt-6 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                                            {displayItems.map((item, idx) => (
+                                                <div key={idx} className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
+                                                    <span>{item.label}</span>
+                                                    <span className="dark:text-slate-200">₱{item.amount.toFixed(2)}</span>
+                                                </div>
+                                            ))}
+
+                                            {Number(fiscalSnapshot.deliveryFee) > 0 && (
+                                                <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-white/5 text-sm font-bold text-slate-600 dark:text-slate-400 italic">
+                                                    <span>Delivery Fee</span>
+                                                    <span className="dark:text-slate-200">₱{Number(fiscalSnapshot.deliveryFee).toFixed(2)}</span>
+                                                </div>
+                                            )}
+
+                                            <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-white/10 text-base font-black text-primary italic">
+                                                <span>Total Amount Assessed</span>
+                                                <span>₱{authTotal.toFixed(2)}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
 
 
@@ -1120,14 +1118,8 @@ export default function BploDetailPage({ params }: PageProps) {
 
                         <div className="relative pl-6 border-l-2 border-slate-100 dark:border-white/5 space-y-8">
                             {steps.map((step, idx) => {
-                                // When status is FOR_PROCESSING, mark PROCESSING as checked (green)
-                                // but do NOT highlight the next step — it stays grey as a future step.
-                                const isForProcessing = transaction.status === "FOR_PROCESSING";
-                                const effectiveStepIdx = isForProcessing
-                                    ? currentStepIdx + 1
-                                    : currentStepIdx;
-                                const isCompleted = idx < effectiveStepIdx;
-                                const isActive = !isForProcessing && idx === currentStepIdx;
+                                const isCompleted = idx < currentStepIdx;
+                                const isActive = idx === currentStepIdx;
                                 return (
                                     <div key={idx} className="relative">
                                         <div className={cn(
@@ -1238,8 +1230,8 @@ export default function BploDetailPage({ params }: PageProps) {
 
                     {/* EXECUTIVE ACTIONS */}
                     <div className="space-y-4 pt-4">
-                        {/* Inspection phase actions */}
-                        {(transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION") && (
+                        {/* Inspection/Processing phase actions */}
+                        {(transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION" || transaction.status === "FOR_PROCESSING") && (
                             <div className="space-y-4">
                                 {transaction.status === "FOR_REINSPECTION" && (() => {
                                     const orNo = additional?.orSeriesNumber || transaction.orSeriesNumber || additional?.orNumber || additional?.orNo;
@@ -1329,10 +1321,10 @@ export default function BploDetailPage({ params }: PageProps) {
                                     disabled={actionLoading}
                                     className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider"
                                 >
-                                    Process The Request
+                                    {transaction.status === "FOR_PROCESSING" ? "Proceed for Payment" : "Process The Request"}
                                 </Button>
 
-                                {transaction.status !== "FOR_REINSPECTION" && (
+                                {transaction.status !== "FOR_REINSPECTION" && transaction.status !== "FOR_PROCESSING" && (
                                     <div className="flex gap-2">
                                         <Button
                                             onClick={() => { setIsRejecting(true); setRemarks(""); }}
@@ -1345,7 +1337,7 @@ export default function BploDetailPage({ params }: PageProps) {
                             </div>
                         )}
 
-                        {["PAID", "FOR_CLAIM", "FOR_PICKING", "FOR_PROCESSING"].includes(transaction.status) && (
+                        {["PAID", "FOR_CLAIM", "FOR_PICKING"].includes(transaction.status) && (
                             <div className="space-y-4">
                                 <div className="bg-white dark:bg-[#151b28] rounded-[2.5rem] p-8 border border-slate-50 dark:border-white/5 shadow-2xl shadow-slate-900/5 space-y-6">
                                     {/* Card header */}
