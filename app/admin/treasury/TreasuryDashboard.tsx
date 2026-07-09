@@ -22,13 +22,12 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Search, RefreshCcw,
-    Archive, Clock, Volume2, Users
+    Archive, Clock
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { fetchAndCallNextTicket } from "@/app/admin/transactions/calling-actions";
 import { supabase } from "@/lib/supabase";
 
 const STATUS_TABS = [
@@ -125,31 +124,7 @@ export default function TreasuryDashboard() {
         }
     }, [isAdminAide]);
     const [transactions, setTransactions] = useState<any[]>([]);
-    const [callingNext, setCallingNext] = useState(false);
 
-    const handleCallNextInQueue = async () => {
-        const activeCounter = localStorage.getItem("activeCounterName");
-        if (!activeCounter) {
-            toast.error("Please set your active counter/window in the header first.");
-            return;
-        }
-
-        setCallingNext(true);
-        try {
-            const res = await fetchAndCallNextTicket(activeCounter);
-            if (res.success && res.data) {
-                toast.success(`Calling next ticket: ${res.data.queueNumber} assigned to ${activeCounter}`);
-                router.push(`/admin/treasury/${res.data.id}`);
-            } else {
-                toast.error(res.error || "Failed to fetch next ticket.");
-            }
-        } catch (err) {
-            console.error("Queue calling error:", err);
-            toast.error("An error occurred while calling the next ticket.");
-        } finally {
-            setCallingNext(false);
-        }
-    };
 
     const [serviceTypes, setServiceTypes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -249,7 +224,6 @@ export default function TreasuryDashboard() {
                     },
                     async (payload: any) => {
                         const newTx = payload.new as any;
-                        const oldTx = payload.old as any;
 
                         // Check if it's not a BPLO transaction (BPLO has its own dashboard/listener)
                         const isBplo = (row: any) => 

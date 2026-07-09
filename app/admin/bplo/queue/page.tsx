@@ -4,12 +4,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
     ArrowLeft,
-    UserCheck,
     Volume2,
     Users,
     Activity,
-    AlertCircle,
-    Building2,
     Smile,
     ShieldAlert
 } from "lucide-react";
@@ -19,7 +16,6 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import {
     getBploQueueTickets,
-    callSpecificBploTicket,
     fetchAndCallNextBploTicket
 } from "@/app/admin/transactions/calling-actions";
 
@@ -128,25 +124,7 @@ export default function BploQueuePage() {
         }
     };
 
-    // Action: Call Specific ticket
-    const handleCallSpecific = async (ticketId: string, ticketNum: string) => {
-        if (!counterName) return;
-        setActionLoading(true);
-        try {
-            const res = await callSpecificBploTicket(ticketId, counterName);
-            if (res.success && res.data) {
-                toast.success(`Calling ticket: ${ticketNum}`);
-                await fetchQueue();
-            } else {
-                toast.error(res.error || "Failed to call ticket.");
-            }
-        } catch (err) {
-            console.error(err);
-            toast.error("Failed to call specific ticket.");
-        } finally {
-            setActionLoading(false);
-        }
-    };
+
 
     // Action: Recall currently serving
     const handleRecall = async () => {

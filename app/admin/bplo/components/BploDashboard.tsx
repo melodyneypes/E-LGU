@@ -20,14 +20,13 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Search, RefreshCcw,
-    Archive, Clock, Volume2, Users
+    Archive, Clock
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
-import { fetchAndCallNextBploTicket } from "@/app/admin/transactions/calling-actions";
 
 
 const STATUS_TABS = [
@@ -79,31 +78,7 @@ export default function BploDashboard() {
     const alertTimerRef = useRef<NodeJS.Timeout | null>(null);
     const serviceSearchInputRef = useRef<HTMLInputElement>(null);
     const statusSearchInputRef = useRef<HTMLInputElement>(null);
-    const [callingNext, setCallingNext] = useState(false);
 
-    const handleCallNextInQueue = async () => {
-        const activeCounter = localStorage.getItem("activeCounterName");
-        if (!activeCounter) {
-            toast.error("Please set your active counter/window first using the 'Set Counter' menu in the top bar!");
-            return;
-        }
-
-        setCallingNext(true);
-        try {
-            const res = await fetchAndCallNextBploTicket(activeCounter);
-            if (res.success && res.data) {
-                toast.success(`Calling next ticket: ${res.data.queueNumber} assigned to ${activeCounter}`);
-                fetchTransactions();
-            } else {
-                toast.error("There is no one in the line yet");
-            }
-        } catch (err) {
-            console.error("Queue calling error:", err);
-            toast.error("An error occurred while calling the next ticket.");
-        } finally {
-            setCallingNext(false);
-        }
-    };
 
     useEffect(() => {
         const timer = setTimeout(() => {

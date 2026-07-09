@@ -124,25 +124,7 @@ export default function TreasuryQueuePage() {
         }
     };
 
-    // Action: Call Specific ticket
-    const handleCallSpecific = async (ticketId: string, ticketNum: string) => {
-        if (!counterName) return;
-        setActionLoading(true);
-        try {
-            const res = await callTicketToCounter(ticketId, counterName);
-            if (res.success && res.data) {
-                toast.success(`Calling ticket: ${ticketNum}`);
-                await fetchQueue();
-            } else {
-                toast.error(res.error || "Failed to call ticket.");
-            }
-        } catch (err) {
-            console.error(err);
-            toast.error("Failed to call specific ticket.");
-        } finally {
-            setActionLoading(false);
-        }
-    };
+
 
     // Action: Recall currently serving
     const handleRecall = async () => {
