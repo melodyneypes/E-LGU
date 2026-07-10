@@ -50,9 +50,9 @@ export function Navbar({
 
     const serviceCategories = React.useMemo(() => [
         { name: "Civil Registry", href: "/user/services/civil-registry", desc: "Birth, Marriage, Death Certs & Endorsements", icon: FileText, color: "text-blue-500 bg-blue-500/10" },
-        { name: "Business Permit", href: "/user/services/business-permit", desc: "Apply for New Business & Renewal Permits", icon: Building2, color: "text-emerald-500 bg-emerald-500/10" },
+        { name: "Business Permit", href: "/user/services/business-permit-appointment", desc: "Apply for New Business & Renewal Permits", icon: Building2, color: "text-emerald-500 bg-emerald-500/10" },
         { name: "Building Permit", href: "/user/services/building-permit", desc: "Construction, Electrical & Occupancy Permits", icon: Hammer, color: "text-amber-500 bg-amber-500/10" },
-        { name: "Cedula (CTC)", href: "/user/services/cedula", desc: "Community Tax Certificate Issuance", icon: CreditCard, color: "text-indigo-500 bg-indigo-500/10" },
+        { name: "Cedula (CTC)", href: "/user/services/cedula-appointment", desc: "Community Tax Certificate Issuance", icon: CreditCard, color: "text-indigo-500 bg-indigo-500/10" },
     ], []);
 
     const [activeCategories, setActiveCategories] = React.useState<string[]>([

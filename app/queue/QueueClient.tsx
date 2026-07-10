@@ -16,7 +16,7 @@ import {
     ShieldAlert,
     Loader2
 } from "lucide-react";
-import { getActiveQueueData, QueueDepartmentData, verifyRfidUnlock } from "./actions";
+import { QueueDepartmentData, verifyRfidUnlock } from "./actions";
 import { supabase } from "@/lib/supabase";
 
 interface QueueClientProps {
@@ -91,8 +91,8 @@ export default function QueueClient({
             const res = await verifyRfidUnlock(rfidCode);
             if (res.success) {
                 setIsLocked(false);
-                setIsVoiceEnabled(true);
-                setHasInteracted(true);
+                setIsVoiceEnabled(false);
+                setHasInteracted(false);
             } else {
                 setRfidError(res.error || "Access Denied: RFID not authorized");
             }
@@ -172,9 +172,16 @@ export default function QueueClient({
     // Real-time updates via Supabase WebSockets + Fallback Polling (10 seconds)
     useEffect(() => {
         const fetchUpdates = async () => {
-            const freshData = await getActiveQueueData();
-            if (freshData && freshData.length > 0) {
-                setQueueData(freshData);
+            try {
+                const res = await fetch(`/api/queue?t=${Date.now()}`);
+                if (res.ok) {
+                    const freshData = await res.json();
+                    if (freshData && freshData.length > 0) {
+                        setQueueData(freshData);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch queue updates:", err);
             }
         };
 
@@ -405,6 +412,35 @@ export default function QueueClient({
 
     return (
         <div className="min-h-screen bg-[#060813] text-white flex flex-col font-sans select-none overflow-hidden relative">
+            {/* Audio Autoplay Activation Overlay */}
+            {!hasInteracted && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 backdrop-blur-md select-none p-4">
+                    <motion.button
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        onClick={handleEnableVoice}
+                        className="w-full max-w-xl p-10 rounded-[3rem] border border-white/10 bg-slate-900/60 backdrop-blur-xl shadow-2xl flex flex-col items-center text-center space-y-6 cursor-pointer focus:outline-none transition-all active:scale-[0.98] group"
+                    >
+                        <div className="w-24 h-24 rounded-[2rem] bg-primary/10 text-primary flex items-center justify-center shadow-lg shadow-primary/20 animate-pulse group-hover:scale-105 transition-transform" style={{ color: themeColor, backgroundColor: `${themeColor}1a` }}>
+                            <Volume2 className="w-12 h-12" />
+                        </div>
+                        <div className="space-y-2">
+                            <h2 className="text-2xl font-black uppercase tracking-wider italic">
+                                Audio System Ready
+                            </h2>
+                            <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                                Please tap anywhere on the screen to initialize and activate voice queue announcements.
+                            </p>
+                        </div>
+                        <div className="pt-4 w-full">
+                            <div className="h-12 w-full rounded-2xl text-white font-black uppercase text-xs tracking-widest flex items-center justify-center animate-bounce shadow-lg shadow-primary/10" style={{ backgroundColor: themeColor }}>
+                                Tap to Activate Audio
+                            </div>
+                        </div>
+                    </motion.button>
+                </div>
+            )}
+
             {/* Ambient Background Glows */}
             <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-500/5 blur-[150px] pointer-events-none" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-500/5 blur-[150px] pointer-events-none" />
@@ -425,8 +461,8 @@ export default function QueueClient({
                         </div>
                     )}
                     <div>
-                        <h1 className="text-lg font-black uppercase tracking-wider italic flex items-center gap-2">
-                            {branding.word1} <span style={{ color: themeColor }}>{branding.word2}</span>
+                        <h1 className="text-lg font-black uppercase tracking-wider italic">
+                            {branding.word1}<span style={{ color: themeColor }}>{branding.word2}</span>
                         </h1>
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-1">Unified Queuing Display System</p>
                     </div>
@@ -509,7 +545,7 @@ export default function QueueClient({
                                 
                                 <AnimatePresence mode="popLayout">
                                     {dept.nowServing.length > 0 ? (
-                                        <div className="space-y-4 w-full">
+                                        <div className="space-y-2.5 w-full">
                                             {dept.nowServing.map((serving) => (
                                                 <motion.div 
                                                     key={serving.queueNumber}
@@ -517,20 +553,17 @@ export default function QueueClient({
                                                     animate={{ scale: 1, opacity: 1 }}
                                                     exit={{ scale: 0.95, opacity: 0 }}
                                                     transition={{ duration: 0.3 }}
-                                                    className="text-center w-full p-4 rounded-3xl bg-white/5 border border-white/5 shadow-md flex flex-col items-center justify-center"
+                                                    className="text-center w-full p-2.5 rounded-2xl bg-white/5 border border-white/5 shadow-md flex flex-col items-center justify-center"
                                                 >
-                                                    <h3 className={`text-3xl lg:text-4xl font-black tracking-tight font-mono ${theme.text} drop-shadow-[0_0_15px_rgba(var(--primary),0.3)] animate-pulse`}>
+                                                    <h3 className={`text-2xl lg:text-3xl font-black tracking-tight font-mono ${theme.text} drop-shadow-[0_0_15px_rgba(var(--primary),0.3)] animate-pulse`}>
                                                         {serving.queueNumber}
                                                     </h3>
-                                                    <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/5">
-                                                        <Activity className="w-3 h-3 text-slate-400" />
-                                                        <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">
+                                                    <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/5">
+                                                        <Activity className="w-2.5 h-2.5 text-slate-400" />
+                                                        <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest">
                                                             {serving.counterName}
                                                         </span>
                                                     </div>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-2 line-clamp-1">
-                                                        {serving.residentName}
-                                                    </p>
                                                 </motion.div>
                                             ))}
                                         </div>
@@ -580,7 +613,7 @@ export default function QueueClient({
                     📢 Advisory
                 </div>
                 <div className="flex-1 relative overflow-hidden h-full flex items-center">
-                    <div className="animate-[marquee_25s_linear_infinite] whitespace-nowrap flex items-center gap-16 absolute text-[10px] md:text-xs font-black uppercase tracking-widest italic text-slate-400">
+                    <div className="animate-[marquee_45s_linear_infinite] whitespace-nowrap flex items-center gap-16 absolute text-[10px] md:text-xs font-black uppercase tracking-widest italic text-slate-400">
                         <span>• Please prepare your valid ID and documents before approaching the counter</span>
                         <span>• Senior Citizens, PWDs, and Pregnant women can claim Priority Lane service</span>
                         <span>• EMapandan Smart Governance Portal - Empowering residents with fast digital transactions</span>

@@ -114,11 +114,17 @@ function MapContent({
         }
 
         return () => {
-            if (map.getLayer("boundary-stroke")) map.removeLayer("boundary-stroke");
-            if (map.getLayer("boundary-fill")) map.removeLayer("boundary-fill");
-            if (map.getSource("boundary")) map.removeSource("boundary");
-            if (map.getLayer("mask-layer")) map.removeLayer("mask-layer");
-            if (map.getSource("mask")) map.removeSource("mask");
+            if (map && (map as any).style) {
+                try {
+                    if (map.getLayer("boundary-stroke")) map.removeLayer("boundary-stroke");
+                    if (map.getLayer("boundary-fill")) map.removeLayer("boundary-fill");
+                    if (map.getSource("boundary")) map.removeSource("boundary");
+                    if (map.getLayer("mask-layer")) map.removeLayer("mask-layer");
+                    if (map.getSource("mask")) map.removeSource("mask");
+                } catch (e) {
+                    console.warn("Map cleanup skipped:", e);
+                }
+            }
         };
     }, [map, isLoaded, boundaryGeoJson, maskedGeoJson]);
 
