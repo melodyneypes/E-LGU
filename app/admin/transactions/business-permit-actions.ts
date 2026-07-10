@@ -122,10 +122,9 @@ export async function confirmBusinessPermitPayment(formData: FormData) {
         }
 
         const currentAdditionalData = (transaction.additionalData as any) || {};
-        const { counterName, servingDepartment, ...restAdditionalData } = currentAdditionalData;
 
         const updatedAdditionalData = {
-            ...restAdditionalData,
+            ...currentAdditionalData,
             checkedIn: true,
             checkedInAt: getPHTimeISOString(),
             ...(sanitizedRemarks && { treasuryRemarks: sanitizedRemarks }),
@@ -135,6 +134,9 @@ export async function confirmBusinessPermitPayment(formData: FormData) {
             ...(orDocumentUrl && { orDocumentUrl }), // Save in additionalData as well!
             releasedAt: getPHTimeISOString()
         };
+
+        delete (updatedAdditionalData as any).counterName;
+        delete (updatedAdditionalData as any).servingDepartment;
 
         const targetStatus = "FOR_CLAIM";
         const finalOrUrl = orDocumentUrl || transaction.orUrl;
