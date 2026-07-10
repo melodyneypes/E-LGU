@@ -75,6 +75,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const [engineerMunicipalCharges, setEngineerMunicipalCharges] = useState<{ name: string, amount: string }[]>([{ name: "", amount: "" }]);
     const [zoningMunicipalCharges, setZoningMunicipalCharges] = useState<{ name: string, amount: string }[]>([{ name: "", amount: "" }]);
     const [eCopyUrl, setECopyUrl] = useState<string>("");
+    const [, setECopyFile] = useState<File | null>(null);
     const [zoningClearanceUrl, setZoningClearanceUrl] = useState<string>("");
     const [uploading, setUploading] = useState(false);
 

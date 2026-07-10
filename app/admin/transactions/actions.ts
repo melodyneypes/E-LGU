@@ -4183,59 +4183,7 @@ export async function rejectReturnAction(id: string, rejectionReason: string) {
 }
 
 
-export async function saveZoningClearanceProofAction(id: string) {
-    try {
-        const session = await getSession();
-        const user = session?.user as any;
-        if (!user || (user.role !== "USER" && user.role !== "ADMIN" && user.role !== "ENGINEER" && user.role !== "MPDC_ZONING")) {
-            return { success: false, error: "Forbidden" };
-        }
 
-        const transaction = await prisma.transaction.findUnique({
-            where: { id }
-        });
-
-        if (!transaction) return { success: false, error: "Transaction not found" };
-
-        const additionalData = (transaction.additionalData as any) || {};
-
-        const updatedTransaction = await prisma.transaction.update({
-            where: { id },
-            data: {
-                additionalData: {
-                    ...additionalData,
-                    feeAssessment: {
-                        ...(additionalData.feeAssessment || {}),
-                        ...(isZoningEndorse ? {
-                            zoningEndorsed: true,
-                            zoningEndorsedAt: new Date(),
-                            zoningEndorsedBy: user.name || "MPDC Zoning Officer",
-                            zoningMunicipalCharges: fees.zoningMunicipalCharges || [],
-                            zoningClearanceUrl: fees.zoningClearanceUrl
-                        } : {
-                            endorsed: true,
-                            endorsedAt: new Date(),
-                            endorsedBy: user.name || "Municipal Engineer",
-                            buildingPermitFee: fees.buildingPermitFee || 0,
-                            engineerMunicipalCharges: fees.engineerMunicipalCharges || []
-                        })
-                    },
-                    ...(isZoningEndorse ? { zoningStatus: "RELEASED", zoningClearanceUrl: fees.zoningClearanceUrl } : {})
-                },
-                status: isZoningEndorse ? transaction.status : "EVALUATED",
-            }
-        });
-
-        revalidatePath("/admin/engineer");
-        revalidatePath("/admin/treasury");
-        revalidatePath("/user/services/building-permit");
-
-        return { success: true, data: updatedTransaction };
-    } catch (error) {
-        console.error("Save zoning clearance proof error:", error);
-        return { success: false, error: "Failed to save zoning clearance proof" };
-    }
-}
 
 export async function checkPaymongoPaymentStatus(id: string) {
     try {
