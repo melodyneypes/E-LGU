@@ -385,7 +385,7 @@ export default function BploDashboard() {
 
 
                                 <Button
-                                    onClick={fetchTransactions}
+                                    onClick={() => fetchTransactions()}
                                     variant="outline"
                                     className="h-11 w-11 rounded-xl p-0 border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117]"
                                 >

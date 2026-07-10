@@ -790,7 +790,7 @@ export default function MarriageLicenseView(props: TreasuryViewProps) {
 
                                 <div className="flex gap-2">
                                     <Button
-                                        onClick={handleConfirmPayment}
+                                        onClick={() => handleConfirmPayment()}
                                         disabled={actionLoading || !orSeriesNumber || !orFile}
                                         className={`flex-1 h-14 ${themeColor} text-white rounded-2xl font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-primary/10`}
                                     >
