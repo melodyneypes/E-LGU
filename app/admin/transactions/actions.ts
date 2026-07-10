@@ -2102,6 +2102,8 @@ export async function getBploTransactions(params?: string | {
                     processedBy: true,
                     residentSnapshot: true,
                     additionalData: true,
+                    appointmentDate: true,
+                    appointmentSlot: true,
                     type: {
                         select: {
                             id: true,

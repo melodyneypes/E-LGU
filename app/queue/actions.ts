@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db/prisma";
+import { unstable_noStore as noStore } from "next/cache";
 
 export interface QueueDepartmentData {
     department: string;
@@ -8,138 +9,172 @@ export interface QueueDepartmentData {
         queueNumber: string | null;
         residentName: string;
         counterName: string;
+        updatedAt?: string;
     }[];
     waiting: string[];
 }
-
 export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
+    noStore();
     try {
-        const departments = [
-            {
-                name: "Treasury",
-                categories: ["CEDULA", "Treasurer"]
-            },
-            {
-                name: "BPLO",
-                categories: ["Business Permit"]
-            },
-            {
-                name: "Registrar",
-                categories: ["Civil Registry"]
-            },
-            {
-                name: "Engineering",
-                categories: ["Building Permit", "Engineer"]
-            }
-        ];
-
         const startOfDay = new Date();
         startOfDay.setUTCHours(0, 0, 0, 0);
         const endOfDay = new Date();
         endOfDay.setUTCHours(23, 59, 59, 999);
 
-        const queueData: QueueDepartmentData[] = [];
-
-        for (const dept of departments) {
-            // Find current serving transactions for this department (scheduled for today)
-            const activeTxs = await prisma.transaction.findMany({
-                where: {
-                    status: "FOR_PROCESSING",
-                    isCancelled: false,
-                    appointmentDate: {
-                        gte: startOfDay,
-                        lte: endOfDay
-                    },
-                    type: {
-                        category: { in: dept.categories }
-                    }
-                },
-                orderBy: {
-                    updatedAt: "desc"
-                },
-                include: {
-                    user: {
-                        include: {
-                            residentProfile: true
-                        }
+        // Fetch all today's active transactions
+        const allTxs = await prisma.transaction.findMany({
+            where: {
+                isCancelled: false,
+                appointmentDate: {
+                    gte: startOfDay,
+                    lte: endOfDay
+                }
+            },
+            orderBy: {
+                updatedAt: "desc"
+            },
+            include: {
+                type: true,
+                user: {
+                    include: {
+                        residentProfile: true
                     }
                 }
-            });
+            }
+        });
 
-            // Group by counterName in memory to show the latest ticket per window
-            const nowServingList: { queueNumber: string | null; residentName: string; counterName: string }[] = [];
-            const seenCounters = new Set<string>();
+        const deptNames = ["Treasury", "BPLO", "Registrar", "Engineering"];
+        const queueData: QueueDepartmentData[] = deptNames.map(name => ({
+            department: name,
+            nowServing: [],
+            waiting: []
+        }));
 
-            for (const tx of activeTxs) {
-                const additionalData = tx.additionalData as any;
-                const counterName = additionalData?.counterName || `${dept.name} Counter`;
+        const getDeptIndex = (tx: any, isWaiting: boolean) => {
+            const category = tx.type?.category || "";
+            const status = tx.status;
+            const additionalData = tx.additionalData as any;
+            const counterName = (additionalData?.counterName || "").toUpperCase();
 
-                if (!seenCounters.has(counterName)) {
-                    seenCounters.add(counterName);
+            // If status is UNPAID, they are waiting to pay -> Treasury
+            if (isWaiting && status === "UNPAID") {
+                return 0; // Treasury index
+            }
 
-                    let residentName = "N/A";
-                    if (tx.user?.residentProfile) {
-                        const profile = tx.user.residentProfile;
-                        residentName = `${profile.firstName} ${profile.lastName}`;
-                    }
-
-                    nowServingList.push({
-                        queueNumber: tx.queueNumber,
-                        residentName,
-                        counterName
-                    });
+            // If serving (status: FOR_PROCESSING), determine by counterName or servingDepartment if available
+            if (!isWaiting && status === "FOR_PROCESSING") {
+                if (additionalData?.servingDepartment === "Treasury" || counterName.includes("TREASURY") || counterName.includes("CASHIER")) {
+                    return 0; // Treasury
+                }
+                if (additionalData?.servingDepartment === "BPLO" || counterName.includes("BPLO")) {
+                    return 1; // BPLO
+                }
+                if (additionalData?.servingDepartment === "Registrar" || counterName.includes("REGISTRAR") || counterName.includes("CIVIL")) {
+                    return 2; // Registrar
+                }
+                if (additionalData?.servingDepartment === "Engineering" || counterName.includes("ENGINEER")) {
+                    return 3; // Engineering
                 }
             }
 
-            const allowedStatuses = ["FOR_REQUESTING", "FOR_INSPECTION"];
-            if (dept.name === "Treasury") {
-                allowedStatuses.push("UNPAID");
+            // Fallback by original category
+            if (["CEDULA", "Treasurer"].includes(category)) return 0;
+            if (["Business Permit"].includes(category)) return 1;
+            if (["Civil Registry"].includes(category)) return 2;
+            if (["Building Permit", "Engineer"].includes(category)) return 3;
+
+            return -1;
+        };
+
+        // Partition serving tickets
+        const servingTxs = allTxs.filter(tx => {
+            if (tx.status === "FOR_PROCESSING") return true;
+            const category = tx.type?.category || "";
+            if (category === "Business Permit") {
+                const allowedBploServing = ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM"];
+                if (allowedBploServing.includes(tx.status)) {
+                    const additionalData = tx.additionalData as any;
+                    return additionalData && typeof additionalData.counterName === "string" && additionalData.counterName.trim() !== "";
+                }
+            }
+            return false;
+        });
+
+        const seenCountersByDept: Record<string, Set<string>> = {
+            Treasury: new Set(),
+            BPLO: new Set(),
+            Registrar: new Set(),
+            Engineering: new Set()
+        };
+
+        for (const tx of servingTxs) {
+            const deptIdx = getDeptIndex(tx, false);
+            if (deptIdx === -1) continue;
+
+            const deptName = deptNames[deptIdx];
+            const additionalData = tx.additionalData as any;
+            const counterName = additionalData?.counterName || `${deptName} Counter`;
+
+            if (!seenCountersByDept[deptName].has(counterName)) {
+                seenCountersByDept[deptName].add(counterName);
+
+                let residentName = "N/A";
+                if (tx.user?.residentProfile) {
+                    const profile = tx.user.residentProfile;
+                    residentName = `${profile.firstName} ${profile.lastName}`;
+                }
+
+                queueData[deptIdx].nowServing.push({
+                    queueNumber: tx.queueNumber,
+                    residentName,
+                    counterName,
+                    updatedAt: tx.updatedAt.toISOString()
+                });
+            }
+        }
+
+        // Partition waiting tickets
+        const waitingTxsRaw = allTxs.filter(tx => {
+            const additionalData = tx.additionalData as any;
+            const isCheckedIn = additionalData && additionalData.checkedIn === true;
+            if (!isCheckedIn) return false;
+
+            const hasCounter = additionalData && typeof additionalData.counterName === "string" && additionalData.counterName.trim() !== "";
+            if (hasCounter) return false;
+
+            const category = tx.type?.category || "";
+            if (category === "Business Permit") {
+                return ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM", "UNPAID"].includes(tx.status);
             }
 
-            // Find next waiting tickets (scheduled for today and physically checked-in)
-            const waitingTxsRaw = await prisma.transaction.findMany({
-                where: {
-                    status: { in: allowedStatuses as any },
-                    isCancelled: false,
-                    appointmentDate: {
-                        gte: startOfDay,
-                        lte: endOfDay
-                    },
-                    type: {
-                        category: { in: dept.categories }
-                    },
-                    additionalData: {
-                        path: ["checkedIn"],
-                        equals: true
-                    }
-                },
-                select: {
-                    queueNumber: true,
-                    isPriority: true,
-                    additionalData: true,
-                    createdAt: true
-                }
+            if (category === "CEDULA") {
+                return ["FOR_REQUESTING", "FOR_INSPECTION", "UNPAID"].includes(tx.status);
+            }
+
+            return ["FOR_REQUESTING", "FOR_INSPECTION"].includes(tx.status);
+        });
+
+        for (const tx of waitingTxsRaw) {
+            const deptIdx = getDeptIndex(tx, true);
+            if (deptIdx === -1) continue;
+
+            queueData[deptIdx].waiting.push(tx as any);
+        }
+
+        for (const data of queueData) {
+            const sorted = (data.waiting as any[]).sort((a, b) => {
+                if (a.isPriority && !b.isPriority) return -1;
+                if (!a.isPriority && b.isPriority) return 1;
+
+                const aCheckedInAt = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+                const bCheckedInAt = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+                return aCheckedInAt - bCheckedInAt;
             });
 
-            // Sort in memory: Priority (Seniors/PWDs) first, then by checkedInAt physical timestamp (FIFO)
-            const sortedWaiting = waitingTxsRaw
-                .sort((a, b) => {
-                    if (a.isPriority && !b.isPriority) return -1;
-                    if (!a.isPriority && b.isPriority) return 1;
-
-                    const aCheckedInAt = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
-                    const bCheckedInAt = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
-                    return aCheckedInAt - bCheckedInAt;
-                })
+            data.waiting = sorted
+                .map(tx => tx.queueNumber)
+                .filter((num): num is string => !!num)
                 .slice(0, 5);
-
-            queueData.push({
-                department: dept.name,
-                nowServing: nowServingList,
-                waiting: sortedWaiting
-                    .map(tx => tx.queueNumber)
-                    .filter((num): num is string => !!num)
-            });
         }
 
         return queueData;
@@ -148,7 +183,6 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
         return [];
     }
 }
-
 export async function verifyRfidUnlock(rfidCardId: string): Promise<{ success: boolean; role?: string; error?: string }> {
     try {
         const user = await prisma.user.findFirst({

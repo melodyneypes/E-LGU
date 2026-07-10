@@ -633,7 +633,7 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                                             </div>
                                                         </div>
                                                         <Button
-                                                            onClick={handleConfirmPayment}
+                                                            onClick={() => handleConfirmPayment()}
                                                             disabled={actionLoading}
                                                             className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-emerald-600/20 active:scale-95 transition-all"
                                                         >
@@ -776,7 +776,7 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                                          </div>
 
                                                          <Button
-                                                             onClick={handleConfirmPayment}
+                                                             onClick={() => handleConfirmPayment()}
                                                              disabled={actionLoading || (!receiptFile && !remarks)}
                                                              className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[10px] rounded-xl shadow-lg active:scale-95 transition-all"
                                                          >

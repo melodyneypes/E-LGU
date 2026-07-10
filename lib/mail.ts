@@ -135,6 +135,11 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
         </div>`;
     } else if (type === "FOR_PAYMENT") {
         const docName = serviceName || "Community Tax Certificate - Individual";
+        const isBp = docName.toLowerCase().includes("business permit");
+        const evaluatorOffice = isBp ? "BPLO Office" : "Municipal Treasury Office";
+        const remarksLabel = isBp ? "BPLO Officer's Remarks / Assessment Notes" : "Treasury Officer's Remarks / Assessment Notes";
+        const deptFooter = isBp ? "BPLO Department" : "Treasury Department";
+
         subject = `Action Required: Assessment Complete for ${docName} - LGU ${municipalityName}`;
         htmlBody = `
         <div style="font-family: Inter, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8fafc; padding: 40px 20px;">
@@ -146,7 +151,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Payment Ready</h1>
                 </div>
                 <p style="color: #475569; font-size: 15px; line-height: 1.6;">Dear <strong>${name}</strong>,</p>
-                <p style="color: #475569; font-size: 15px; line-height: 1.6;">Good news! Your service request for <strong>${docName}</strong> has been successfully evaluated by the Municipal Treasury Office. You may now proceed to payment to finalize your application.</p>
+                <p style="color: #475569; font-size: 15px; line-height: 1.6;">Good news! Your service request for <strong>${docName}</strong> has been successfully evaluated by the ${evaluatorOffice}. You may now proceed to payment to finalize your application.</p>
                 
                 <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 16px; padding: 24px; margin: 32px 0; text-align: center;">
                     <p style="color: #1e40af; font-size: 12px; font-weight: 800; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">Final Assessment</p>
@@ -156,18 +161,19 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
 
                 ${remarks ? `
                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; margin: 32px 0;">
-                    <p style="color: #475569; font-size: 11px; font-weight: 800; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">Treasury Officer's Remarks / Assessment Notes</p>
+                    <p style="color: #475569; font-size: 11px; font-weight: 800; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">${remarksLabel}</p>
                     <p style="color: #0f172a; font-size: 14px; margin: 0; line-height: 1.5; font-style: italic;">"${remarks}"</p>
                 </div>` : ""}
 
                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; margin-bottom: 32px;">
-                    <p style="color: #475569; font-size: 13px; margin: 0; line-height: 1.5;">
-                        <strong>Next Step:</strong> Log in to the Resident Portal, navigate to <strong>"My Requests"</strong>, and select your preferred payment and fulfillment method.
+                    <p style="color: #475569; font-size: 13px; margin: 0; line-height: 1.6;">
+                        <strong>Next Steps for Payment:</strong><br/>
+                        Please proceed to the <strong>Municipal Treasury Office</strong>. Upon arrival, scan your original transaction ticket at the Front Desk/Kiosk to secure your slot in the Treasury payment queue. At the counter, you may settle your payment using cash or by scanning the official Landbank / GCash QR codes available at the cashier.
                     </p>
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Treasury Department • Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} ${deptFooter} • Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "FOR_CLAIM") {

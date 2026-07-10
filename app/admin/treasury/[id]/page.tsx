@@ -258,6 +258,7 @@ export default function TreasuryDetailPage() {
         ? `/admin/treasury?category=${encodeURIComponent(activeCategory)}`
         : "/admin/treasury?category=CEDULA";
     const [loading, setLoading] = useState(true);
+    const [isNavigatingToQueue, setIsNavigatingToQueue] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [remarks, setRemarks] = useState("");
     const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -562,7 +563,7 @@ export default function TreasuryDetailPage() {
     }, [id]);
 
     useEffect(() => {
-        if (!supabase || !id) return;
+        if (!supabase || !id || isNavigatingToQueue) return;
 
         console.log(`Subscribing to Supabase Realtime for transaction ${id}...`);
         let channel: any;
@@ -607,10 +608,10 @@ export default function TreasuryDetailPage() {
             }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id]);
+    }, [id, isNavigatingToQueue]);
 
     useEffect(() => {
-        if (!id) return;
+        if (!id || isNavigatingToQueue) return;
         // Background polling fallback every 10 seconds to ensure updates are fetched
         const interval = setInterval(() => {
             console.log(`[Polling Treasury Detail] Fetching updates for ${id}...`);
@@ -621,7 +622,7 @@ export default function TreasuryDetailPage() {
 
         return () => clearInterval(interval);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id]);
+    }, [id, isNavigatingToQueue]);
 
     useEffect(() => {
         if (!session) return;
@@ -731,6 +732,7 @@ export default function TreasuryDetailPage() {
         }
 
         setActionLoading(true);
+        setIsNavigatingToQueue(true);
         try {
             // Strict Validation for Business Permit: OR attachment is also required!
             const isInitialRelease = transaction?.status === "FOR_PROCESSING" ||
@@ -738,6 +740,7 @@ export default function TreasuryDetailPage() {
             if (isBusinessPermit && isInitialRelease && !orFile && !transaction.orUrl) {
                 toast.error("Official Receipt (OR) copy is required for Business Permits before proceeding.");
                 setActionLoading(false);
+                setIsNavigatingToQueue(false);
                 return;
             }
 
@@ -747,7 +750,12 @@ export default function TreasuryDetailPage() {
                 formData.append("file", eCopyFile);
                 const uploadRes = await uploadECopyAction(formData);
                 if (uploadRes.success) eCopyUrl = uploadRes.data as string;
-                else { toast.error(uploadRes.error || "E-Copy upload failed"); setActionLoading(false); return; }
+                else { 
+                    toast.error(uploadRes.error || "E-Copy upload failed"); 
+                    setActionLoading(false); 
+                    setIsNavigatingToQueue(false);
+                    return; 
+                }
             }
 
             let orUrl = "";
@@ -756,7 +764,12 @@ export default function TreasuryDetailPage() {
                 formData.append("file", orFile);
                 const uploadRes = await uploadECopyAction(formData);
                 if (uploadRes.success) orUrl = uploadRes.data as string;
-                else { toast.error(uploadRes.error || "Official Receipt upload failed"); setActionLoading(false); return; }
+                else { 
+                    toast.error(uploadRes.error || "Official Receipt upload failed"); 
+                    setActionLoading(false); 
+                    setIsNavigatingToQueue(false);
+                    return; 
+                }
             }
 
             const res = isBusinessPermit
@@ -789,10 +802,24 @@ export default function TreasuryDetailPage() {
                 setECopyFile(null);
                 setOrFile(null);
                 setStickerNumber("");
-                router.push(backUrl);
+                setIsNavigatingToQueue(true);
+                if (typeCode.includes("CEDULA")) {
+                    router.push("/admin/treasury/queue");
+                } else {
+                    router.push(backUrl);
+                }
+                // Keep loading state active during redirect transition
+                return;
             }
-            else toast.error(res.error || "Failed");
-        } finally { setActionLoading(false); }
+            else {
+                toast.error(res.error || "Failed");
+                setActionLoading(false);
+            }
+        } catch (err) {
+            console.error("Release document error:", err);
+            toast.error("An error occurred while releasing the document.");
+            setActionLoading(false);
+        }
     }, [transaction, ctcNumber, eCopyFile, orFile, router, isBusinessPermit, isLCR, isLcrBirthCertifiedCopy, typeCode, backUrl]);
 
     const handleResolveDispute = async () => {
@@ -861,7 +888,7 @@ export default function TreasuryDetailPage() {
         }
     }, [transaction, loading, handleRelease]);
 
-    if (loading) {
+    if (loading || isNavigatingToQueue) {
         return (
             <div className="min-h-screen bg-[#f8fafd] dark:bg-[#0c111d] flex flex-col items-center justify-center gap-4">
                 <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
@@ -1111,10 +1138,9 @@ export default function TreasuryDetailPage() {
             const stepsList = [
                 { id: "FOR_INSPECTION", label: "INSPECTION" },
                 { id: "FOR_REQUESTING", label: "FOR EVALUATION" },
-                { id: "EVALUATED", label: "PENDING PAYMENT" },
-                { id: "PAID", label: "PAID" },
-                { id: "FOR_PROCESSING", label: "FOR PROCESSING" },
-                { id: "FOR_REINSPECTION", label: "FOR PROCESSING" },
+                { id: "UNPAID", label: "PENDING PAYMENT" },
+                { id: "FOR_PROCESSING", label: "PAYMENT PROCESSING" },
+                { id: "FOR_REINSPECTION", label: "PERMIT PROCESSING" },
             ];
             if (transaction.fulfillmentType === "DELIVERY") {
                 stepsList.push(
@@ -1558,6 +1584,7 @@ export default function TreasuryDetailPage() {
 
     const handleOnsitePayment = async (method: string, amountTendered?: number, paymentReference?: string) => {
         setActionLoading(true);
+        setIsNavigatingToQueue(true);
         try {
             let itemsToSend: { label: string; amount: number }[] | undefined = undefined;
 
@@ -1601,6 +1628,8 @@ export default function TreasuryDetailPage() {
 
             if (!evalRes.success) {
                 toast.error(evalRes.error || "Failed to evaluate transaction");
+                setActionLoading(false);
+                setIsNavigatingToQueue(false);
                 return;
             }
 
@@ -1627,6 +1656,8 @@ export default function TreasuryDetailPage() {
             const confirmRes = await confirmTransactionPaymentWithReceipt(formData);
             if (!confirmRes.success) {
                 toast.error(confirmRes.error || "Failed to confirm payment");
+                setActionLoading(false);
+                setIsNavigatingToQueue(false);
                 return;
             }
 
@@ -1663,17 +1694,24 @@ export default function TreasuryDetailPage() {
             if (!rel.success) {
                 toast.error(rel.error || "Failed to release transaction");
             }
-            router.push(backUrl);
+            setIsNavigatingToQueue(true);
+            if (typeCode.includes("CEDULA")) {
+                router.push("/admin/treasury/queue");
+            } else {
+                router.push(backUrl);
+            }
+            // Keep loading state active during redirect transition
+            return;
 
         } catch (err: any) {
             console.error("Onsite payment processing error:", err);
             toast.error("An error occurred while processing the onsite payment.");
-        } finally {
             setActionLoading(false);
+            setIsNavigatingToQueue(false);
         }
     };
 
-    const handleConfirmPayment = async () => {
+    const handleConfirmPayment = async (onsitePaymentMethod?: string, onsitePaymentRef?: string) => {
         setActionLoading(true);
         try {
             if (isBusinessPermit) {
@@ -1682,6 +1720,8 @@ export default function TreasuryDetailPage() {
                 if (remarks) formData.append("remarks", remarks);
                 if (orSeriesNumber) formData.append("orSeriesNumber", orSeriesNumber);
                 if (orFile) formData.append("orFile", orFile);
+                if (onsitePaymentMethod) formData.append("paymentMethod", onsitePaymentMethod);
+                if (onsitePaymentRef) formData.append("paymentReference", onsitePaymentRef);
 
                 const res = await confirmBusinessPermitPayment(formData);
                 if (res.success) {

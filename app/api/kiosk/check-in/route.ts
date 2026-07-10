@@ -73,42 +73,63 @@ export async function POST(request: Request) {
             );
         }
 
-        // Strictly check if the appointment is for today (local server timezone)
-        const appDate = new Date(transaction.appointmentDate);
+        const isPaymentOrClaiming = ["UNPAID", "PAID", "FOR_CLAIM"].includes(transaction.status);
         const today = new Date();
 
-        const isToday = appDate.getFullYear() === today.getFullYear() &&
-                        appDate.getMonth() === today.getMonth() &&
-                        appDate.getDate() === today.getDate();
+        if (!isPaymentOrClaiming) {
+            // Strictly check if the appointment is for today (local server timezone)
+            const appDate = new Date(transaction.appointmentDate);
 
-        if (!isToday) {
-            const formattedDate = appDate.toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric"
-            });
-            return NextResponse.json(
-                { 
-                    success: false, 
-                    error: `Wrong Date! Your appointment is scheduled on ${formattedDate}. Please return on that exact date.` 
-                },
-                { status: 400 }
-            );
+            const isToday = appDate.getFullYear() === today.getFullYear() &&
+                            appDate.getMonth() === today.getMonth() &&
+                            appDate.getDate() === today.getDate();
+
+            if (!isToday) {
+                const formattedDate = appDate.toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric"
+                });
+                return NextResponse.json(
+                    { 
+                        success: false, 
+                        error: `Wrong Date! Your appointment is scheduled on ${formattedDate}. Please return on that exact date.` 
+                    },
+                    { status: 400 }
+                );
+            }
         }
 
         // 3. Mark as checked-in in additionalData metadata
         const currentAdditionalData = (transaction.additionalData as any) || {};
+        if (currentAdditionalData.checkedIn === true && currentAdditionalData.lastCheckedInStatus === transaction.status) {
+            const lastCheckIn = currentAdditionalData.checkedInAt ? new Date(currentAdditionalData.checkedInAt) : null;
+            const checkedInToday = lastCheckIn &&
+                lastCheckIn.getFullYear() === today.getFullYear() &&
+                lastCheckIn.getMonth() === today.getMonth() &&
+                lastCheckIn.getDate() === today.getDate();
+
+            if (checkedInToday) {
+                return NextResponse.json(
+                    { success: false, error: "This ticket has already been checked in for this phase today!" },
+                    { status: 400 }
+                );
+            }
+        }
+
         const updatedAdditionalData = {
             ...currentAdditionalData,
             checkedIn: true,
-            checkedInAt: new Date().toISOString()
+            checkedInAt: today.toISOString(),
+            lastCheckedInStatus: transaction.status
         };
 
         const updated = await prisma.transaction.update({
             where: { id: transaction.id },
             data: {
+                appointmentDate: isPaymentOrClaiming ? today : undefined, // Update appointmentDate to today for payment/claim queue fetching
                 additionalData: updatedAdditionalData,
-                updatedAt: new Date()
+                updatedAt: today
             }
         });
 

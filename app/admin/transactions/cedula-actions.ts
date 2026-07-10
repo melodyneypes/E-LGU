@@ -66,7 +66,11 @@ export async function confirmTransactionPayment(id: string, referenceNo?: string
                     amount: Number(updatedTransaction.totalAmount || 0),
                     method: updatedTransaction.paymentType || "CASH",
                     status: "PAID",
-                    reference: sanitizedReferenceNo || updatedTransaction.paymentReference || `manual_${sanitizedId}`
+                    reference: sanitizedReferenceNo || updatedTransaction.paymentReference || `manual_${sanitizedId}`,
+                    meta: {
+                        source: "treasury_confirmation",
+                        releasedBy: user.name || user.email || "Treasury Staff"
+                    }
                 },
                 create: {
                     transactionId: sanitizedId,
@@ -74,21 +78,24 @@ export async function confirmTransactionPayment(id: string, referenceNo?: string
                     method: updatedTransaction.paymentType || "CASH",
                     status: "PAID",
                     reference: sanitizedReferenceNo || updatedTransaction.paymentReference || `manual_${sanitizedId}`,
-                    meta: { source: "treasury_confirmation" }
+                    meta: {
+                        source: "treasury_confirmation",
+                        releasedBy: user.name || user.email || "Treasury Staff"
+                    }
                 }
             });
         }
 
         if (nextStatus === "PAID" && updatedTransaction.user?.email) {
             const resident = updatedTransaction.residentSnapshot as any;
-            await sendEmail({
+            sendEmail({
                 type: "PAID",
                 to: updatedTransaction.user.email,
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : updatedTransaction.user.name || "Resident",
                 transactionId: sanitizedId.slice(-8).toUpperCase(),
                 serviceName: updatedTransaction.type?.name || "Service",
                 amount: updatedTransaction.totalAmount || 0
-            });
+            }).catch(err => console.error("Background email send error:", err));
         }
 
         revalidatePath("/admin/treasury");
@@ -193,6 +200,7 @@ export async function confirmTransactionPaymentWithReceipt(formData: FormData) {
                 orNumber: orSeriesNumber ? sanitizeString(orSeriesNumber) : undefined,
                 meta: {
                     source: "treasury_confirmation",
+                    releasedBy: user.name || user.email || "Treasury Staff",
                     ...(treasuryReceiptUrl && { treasuryReceiptUrl }),
                     ...(orDocumentUrl && { orDocumentUrl })
                 }
@@ -206,6 +214,7 @@ export async function confirmTransactionPaymentWithReceipt(formData: FormData) {
                 orNumber: orSeriesNumber ? sanitizeString(orSeriesNumber) : undefined,
                 meta: {
                     source: "treasury_confirmation",
+                    releasedBy: user.name || user.email || "Treasury Staff",
                     ...(treasuryReceiptUrl && { treasuryReceiptUrl }),
                     ...(orDocumentUrl && { orDocumentUrl })
                 }
@@ -214,14 +223,14 @@ export async function confirmTransactionPaymentWithReceipt(formData: FormData) {
 
         if (updatedTransaction.user?.email) {
             const resident = updatedTransaction.residentSnapshot as any;
-            await sendEmail({
+            sendEmail({
                 type: "PAID",
                 to: updatedTransaction.user.email,
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : updatedTransaction.user.name || "Resident",
                 transactionId: sanitizedId.slice(-8).toUpperCase(),
                 serviceName: updatedTransaction.type?.name || "Service",
                 amount: updatedTransaction.totalAmount || 0
-            });
+            }).catch(err => console.error("Background email send error:", err));
         }
 
         revalidatePath("/admin/treasury");
@@ -516,14 +525,14 @@ export async function releaseCedula(id: string, ctcNumber: string, eCopyUrl?: st
 
         if (transaction.user?.email) {
             const resident = transaction.residentSnapshot as any;
-            await sendEmail({
+            sendEmail({
                 type: targetStatus as any,
                 to: transaction.user.email,
                 name: `${resident.firstName} ${resident.lastName}`,
                 transactionId: id.slice(-8).toUpperCase(),
                 amount: transaction.totalAmount,
                 serviceName: transaction.type.name
-            });
+            }).catch(err => console.error("Background email send error:", err));
         }
 
         revalidatePath("/admin/treasury");

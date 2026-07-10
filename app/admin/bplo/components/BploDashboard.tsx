@@ -28,6 +28,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 
+
 const STATUS_TABS = [
     { value: "ALL", label: "All Status", color: "text-slate-600", activeColor: "bg-slate-900 text-white dark:bg-white dark:text-slate-900" },
     { value: "DRAFT", label: "Draft", color: "text-slate-400", activeColor: "bg-slate-400 text-white" },
@@ -78,8 +79,10 @@ export default function BploDashboard() {
     const serviceSearchInputRef = useRef<HTMLInputElement>(null);
     const statusSearchInputRef = useRef<HTMLInputElement>(null);
 
+
     useEffect(() => {
         const timer = setTimeout(() => {
+
             if (serviceSearchInputRef.current) {
                 serviceSearchInputRef.current.focus();
             }
@@ -124,8 +127,8 @@ export default function BploDashboard() {
         fetchServices();
     }, []);
 
-    const fetchTransactions = useCallback(async () => {
-        setLoading(true);
+    const fetchTransactions = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const res = await getBploTransactions(status);
             if (res.success) {
@@ -140,7 +143,7 @@ export default function BploDashboard() {
             console.error("[BploDashboard] Unexpected error:", err);
             toast.error("Failed to load transactions");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [status]);
 
@@ -163,59 +166,59 @@ export default function BploDashboard() {
                         table: "Transaction",
                     },
                     (payload: any) => {
-                        // Re-fetch transactions to reflect the realtime update instantly!
-                        fetchTransactions();
+                        const newRow = payload.new;
+                        const oldRow = payload.old;
+
+                        // Check if the transaction is BPLO (has businessName, businessPermitId, etc.)
+                        const isBplo = (row: any) => 
+                            row && (!!row.businessName || !!row.businessPermitId || (row.additionalData && (row.additionalData as any).businessName));
+
+                        if (isBplo(newRow) || isBplo(oldRow)) {
+                            // Re-fetch transactions silently without showing skeleton loading
+                            fetchTransactions(true);
+                        }
 
                         // If it's a new insert (new request), show a temporary 3-second slide-in alert
                         if (payload.eventType === "INSERT") {
-                            const newRow = payload.new;
-                            if (newRow) {
-                                const isBplo = !!newRow.businessName || !!newRow.businessPermitId || (newRow.additionalData && (newRow.additionalData as any).businessName);
-                                if (isBplo) {
-                                    const refId = String(newRow.id).slice(-8).toUpperCase();
-                                    const bizName = newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName) || "New Permit Request";
-                                    const applicant = newRow.residentSnapshot 
-                                        ? `${(newRow.residentSnapshot as any).firstName} ${(newRow.residentSnapshot as any).lastName}`
-                                        : "Resident Applicant";
+                            if (newRow && isBplo(newRow)) {
+                                const refId = String(newRow.id).slice(-8).toUpperCase();
+                                const bizName = newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName) || "New Permit Request";
+                                const applicant = newRow.residentSnapshot 
+                                    ? `${(newRow.residentSnapshot as any).firstName} ${(newRow.residentSnapshot as any).lastName}`
+                                    : "Resident Applicant";
 
-                                    setNewRequestAlert({
-                                        id: refId,
-                                        businessName: bizName,
-                                        applicantName: applicant
-                                    });
-                                    setShowAlert(true);
+                                setNewRequestAlert({
+                                    id: refId,
+                                    businessName: bizName,
+                                    applicantName: applicant
+                                });
+                                setShowAlert(true);
 
-                                    if (alertTimerRef.current) {
-                                        clearTimeout(alertTimerRef.current);
-                                    }
-                                    alertTimerRef.current = setTimeout(() => {
-                                        setShowAlert(false);
-                                    }, 3000);
+                                if (alertTimerRef.current) {
+                                    clearTimeout(alertTimerRef.current);
                                 }
+                                alertTimerRef.current = setTimeout(() => {
+                                    setShowAlert(false);
+                                }, 3000);
                             }
                         }
 
                         // Also detect transitions into FOR_INSPECTION or FOR_REINSPECTION for the toast alert
                         if (payload.eventType === "UPDATE") {
-                            const newRow = payload.new;
-                            if (newRow && (newRow.status === "FOR_INSPECTION" || newRow.status === "FOR_REINSPECTION")) {
-                                const isBplo = !!newRow.businessName || !!newRow.businessPermitId || (newRow.additionalData && (newRow.additionalData as any).businessName);
-                                if (isBplo) {
-                                    const refId = String(newRow.id).slice(-8).toUpperCase();
-                                    const bizName = newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName) || "New Commercial Application";
-                                    const statusText = newRow.status === "FOR_INSPECTION" ? "Inspection" : "Re-inspection";
+                            if (newRow && (newRow.status === "FOR_INSPECTION" || newRow.status === "FOR_REINSPECTION") && isBplo(newRow)) {
+                                const refId = String(newRow.id).slice(-8).toUpperCase();
+                                const bizName = newRow.businessName || (newRow.additionalData && (newRow.additionalData as any).businessName) || "New Commercial Application";
+                                const statusText = newRow.status === "FOR_INSPECTION" ? "Inspection" : "Re-inspection";
 
-                                    toast.info(`Application ${refId} (${bizName}) is now pending ${statusText.toLowerCase()}.`, {
-                                        duration: 10000,
-                                        // description: "The dashboard list has been updated in real-time.",
-                                        action: {
-                                            label: "Evaluate",
-                                            onClick: () => {
-                                                router.push(`/admin/bplo/${newRow.id}`);
-                                            }
+                                toast.info(`Application ${refId} (${bizName}) is now pending ${statusText.toLowerCase()}.`, {
+                                    duration: 10000,
+                                    action: {
+                                        label: "Evaluate",
+                                        onClick: () => {
+                                            router.push(`/admin/bplo/${newRow.id}`);
                                         }
-                                    });
-                                }
+                                    }
+                                });
                             }
                         }
                     }
@@ -379,14 +382,17 @@ export default function BploDashboard() {
                                     </Select>
                                 </div>
 
+
+
                                 <Button
-                                    onClick={fetchTransactions}
+                                    onClick={() => fetchTransactions()}
                                     variant="outline"
                                     className="h-11 w-11 rounded-xl p-0 border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117]"
                                 >
                                     <RefreshCcw className={cn("w-4 h-4", loading && "animate-spin")} />
                                 </Button>
                             </div>
+
                         </div>
                     </div>
 
@@ -400,9 +406,9 @@ export default function BploDashboard() {
                                         <TableHead className="font-bold text-slate-700 dark:text-slate-300 py-5">
                                             <span>Permit Service</span>
                                         </TableHead>
-                                        <TableHead className="font-bold text-slate-700 dark:text-slate-300">Fulfillment</TableHead>
                                         <TableHead className="font-bold text-slate-700 dark:text-slate-300">Permit Status</TableHead>
                                         <TableHead className="font-bold text-slate-700 dark:text-slate-300">Processed By</TableHead>
+                                        <TableHead className="font-bold text-slate-700 dark:text-slate-300">Appointment Date</TableHead>
                                         <TableHead
                                             className="font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-primary transition-colors py-5"
                                             onClick={handleDateHeaderClick}
@@ -453,12 +459,6 @@ export default function BploDashboard() {
                                                     </span>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="flex flex-col gap-0.5">
-                                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">{tx.fulfillmentType}</span>
-                                                        <span className="text-[10px] text-slate-500 font-bold uppercase">{tx.paymentType?.replace("_", " ")}</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
                                                     <span className={cn(
                                                         "text-[10px] font-black uppercase italic tracking-wider",
                                                         tx.isCancelled ? "text-red-600" : ({
@@ -499,6 +499,25 @@ export default function BploDashboard() {
                                                     <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                                                         {tx.processorName || "Not Processed"}
                                                     </span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {tx.appointmentDate ? (
+                                                        <div className="flex flex-col">
+                                                            {(() => {
+                                                                const f = formatDateTime(tx.appointmentDate);
+                                                                return (
+                                                                    <>
+                                                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{f.date}</span>
+                                                                        {tx.appointmentSlot && (
+                                                                            <span className="text-[10px] text-slate-400 flex items-center gap-1 font-semibold uppercase">{tx.appointmentSlot}</span>
+                                                                        )}
+                                                                    </>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-400 font-semibold italic">Walk-in / None</span>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col">

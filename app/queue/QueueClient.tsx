@@ -220,12 +220,14 @@ export default function QueueClient({
         queueData.forEach(dept => {
             dept.nowServing.forEach(active => {
                 const currentTicket = active.queueNumber;
+                const lastUpdated = active.updatedAt || "";
                 const trackerKey = `${dept.department}-${active.counterName}`;
-                const prevTicket = prevCalledRef.current[trackerKey];
+                const prevCallKey = prevCalledRef.current[trackerKey];
+                const currentCallKey = `${currentTicket}-${lastUpdated}`;
 
-                if (currentTicket && currentTicket !== prevTicket) {
+                if (currentTicket && currentCallKey !== prevCallKey) {
                     // Update tracker immediately to avoid double calls
-                    prevCalledRef.current[trackerKey] = currentTicket;
+                    prevCalledRef.current[trackerKey] = currentCallKey;
 
                     // Speech Synthesis
                     const counter = active.counterName;

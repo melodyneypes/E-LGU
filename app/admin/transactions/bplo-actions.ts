@@ -8,7 +8,7 @@ import { sendEmail } from "@/lib/mail";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { sanitizeString, sanitizeUrl } from "@/lib/validation";
 
-const isUserAdminAide = (u: any) => u?.role === "ADMIN_AIDE" || (u?.role === "ADMIN" && u?.department?.toUpperCase() === "BPLO");
+const isUserAdminAide = (u: any) => u?.role === "ADMIN_AIDE";
 
 async function getSession() {
     return await getServerSession(authOptions);
@@ -123,10 +123,15 @@ export async function evaluateBusinessPermitTransaction(
             };
         }
 
-        let newStatus = isUserAdminAide(user) ? "FOR_REQUESTING" : "EVALUATED";
-        if (transaction.status === "FOR_REINSPECTION") {
+        let newStatus = "UNPAID";
+        if (transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION") {
             newStatus = "FOR_PROCESSING";
         }
+
+        const currentAdditionalData = (transaction.additionalData as any) || {};
+        const updatedAdditionalData = { ...currentAdditionalData };
+        delete updatedAdditionalData.counterName;
+        updatedAdditionalData.checkedIn = false;
 
         const updatedTransaction = await prisma.transaction.update({
             where: { id: sanitizedId },
@@ -135,6 +140,7 @@ export async function evaluateBusinessPermitTransaction(
                 totalAmount: result.totalAmount,
                 processedBy: user.id,
                 rejectionRemarks: sanitizedAdminNotes,
+                additionalData: updatedAdditionalData,
                 fiscalSnapshot: {
                     basicTax: result.basicTax,
                     additionalTax: result.additionalTax,
@@ -149,8 +155,8 @@ export async function evaluateBusinessPermitTransaction(
 
         if (updatedTransaction.user?.email) {
             const resident = updatedTransaction.residentSnapshot as any;
-            if (newStatus === "EVALUATED") {
-                await sendEmail({
+            if (newStatus === "UNPAID") {
+                sendEmail({
                     type: "FOR_PAYMENT",
                     to: updatedTransaction.user.email,
                     name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : updatedTransaction.user.name || "Resident",
@@ -158,16 +164,16 @@ export async function evaluateBusinessPermitTransaction(
                     amount: result.totalAmount,
                     remarks: sanitizedAdminNotes,
                     serviceName: updatedTransaction.type?.name
-                });
+                }).catch(err => console.error("Background email send error:", err));
             } else if (newStatus === "FOR_PROCESSING") {
-                await sendEmail({
+                sendEmail({
                     type: "PROCESSING",
                     to: updatedTransaction.user.email,
                     name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : updatedTransaction.user.name || "Resident",
                     transactionId: sanitizedId.slice(-8).toUpperCase(),
                     remarks: sanitizedAdminNotes,
                     serviceName: updatedTransaction.type?.name || "Business Permit"
-                });
+                }).catch(err => console.error("Background email send error:", err));
             }
         }
 
@@ -328,14 +334,14 @@ export async function releaseBusinessPermit(id: string, permitNumber: string, eC
         // Trigger email notification for the NEW status
         if (transaction.user?.email) {
             const resident = transaction.residentSnapshot as any;
-            await sendEmail({
+            sendEmail({
                 type: targetStatus as any,
                 to: transaction.user.email,
                 name: `${resident.firstName} ${resident.lastName}`,
                 transactionId: id.slice(-8).toUpperCase(),
                 amount: transaction.totalAmount,
                 serviceName: transaction.type.name
-            });
+            }).catch(err => console.error("Background email send error:", err));
         }
 
         revalidatePath("/admin/treasury");

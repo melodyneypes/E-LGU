@@ -825,7 +825,7 @@ export default function DeathRegistrationView(props: TreasuryViewProps) {
                                         </div>
 
                                         <Button
-                                            onClick={handleConfirmPayment}
+                                            onClick={() => handleConfirmPayment()}
                                             disabled={actionLoading || !orSeriesNumber || !orFile}
                                             className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-green-500/10"
                                         >

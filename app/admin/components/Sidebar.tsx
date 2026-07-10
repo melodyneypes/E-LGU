@@ -389,8 +389,10 @@ export function Sidebar({
         { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury" },
         { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "Treasury", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
         { href: "/admin/bplo/appointment-settings", label: "BPLO Appointment Settings", icon: Calendar, category: "Treasury" },
+        { href: "/admin/bplo/queue", label: "BPLO Queue", icon: Users, category: "Treasury" },
         { href: "/admin/treasury/payment-settings", label: "Payment Settings", icon: CreditCard, category: "Treasury" },
         { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury" },
+        { href: "/admin/treasury/queue", label: "Treasury Queue", icon: Users, category: "Treasury" },
         { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
         { href: "/admin/zoning", label: "Zoning Hub", icon: LayoutDashboard, category: "Zoning" },
         { href: "/admin/zoning/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Zoning" },
@@ -489,7 +491,7 @@ export function Sidebar({
             if (department) {
                 const deptUpper = department.toUpperCase();
                 if (deptUpper === "BPLO") {
-                    menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings"].includes(item.label));
+                    menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue"].includes(item.label));
                 } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
                     menuItems = allMenuItems.filter(item =>
                         ["Registrar Hub", "Transaction Ledger"].includes(item.label) ||
@@ -497,12 +499,12 @@ export function Sidebar({
                     );
                 } else if (deptUpper === "TREASURY") {
                     menuItems = allMenuItems.filter(item =>
-                        ["Treasury Hub", "Payments Ledger", "Payment Settings"].includes(item.label) ||
+                        ["Treasury Hub", "Payments Ledger", "Payment Settings", "Treasury Queue"].includes(item.label) ||
                         (item.label === "Appointment Settings" && item.category === "Treasury")
                     );
                 } else if (deptUpper === "LGU") {
                     menuItems = allMenuItems.filter(item =>
-                        !["Registrar Hub", "Transaction Ledger", "Treasury Hub", "Payments Ledger", "BPLO Permits", "BPLO Appointment Settings", "Payment Settings", "Appointment Settings"].includes(item.label)
+                        !["Registrar Hub", "Transaction Ledger", "Treasury Hub", "Payments Ledger", "BPLO Permits", "BPLO Appointment Settings", "BPLO Queue", "Payment Settings", "Appointment Settings"].includes(item.label)
                     );
                 } else {
                     menuItems = [
@@ -519,11 +521,11 @@ export function Sidebar({
             menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
         } else if (role === "TREASURY_STAFF") {
             menuItems = allMenuItems.filter(item =>
-                ["Treasury Hub", "Payments Ledger", "Payment Settings"].includes(item.label) ||
+                ["Treasury Hub", "Payments Ledger", "Payment Settings", "Treasury Queue"].includes(item.label) ||
                 (item.label === "Appointment Settings" && item.category === "Treasury")
             );
         } else if (role === "ADMIN_AIDE") {
-            menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings"].includes(item.label));
+            menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue"].includes(item.label));
         } else if (role === "ENGINEER") {
             menuItems = [
                 { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" },
@@ -542,6 +544,7 @@ export function Sidebar({
         const isPageAccessible = (href: string) => {
             return accessiblePages.some(page => {
                 if (page === href) return true;
+                if (page.startsWith("/admin/treasury") && href.startsWith("/admin/treasury/")) return true;
                 if (page.includes("?") && href.includes("?")) {
                     const [pagePath, pageQuery] = page.split("?");
                     const [hrefPath, hrefQuery] = href.split("?");
