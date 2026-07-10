@@ -66,7 +66,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { getCurrentUserResident, cancelTransaction, uploadECopyAction, saveBfpClearanceProofAction, saveZoningClearanceProofAction, getSystemSettingAction } from "@/app/admin/transactions/actions";
+import { getCurrentUserResident, cancelTransaction, getSystemSettingAction } from "@/app/admin/transactions/actions";
 import { submitBuildingPermit, saveTransactionSignature, getExistingBuildingPermits, resubmitBuildingPermit, submitBuildingPermitPaymentProof, checkActivePropertyPermit, getBarangaysAction } from "./actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
