@@ -9,9 +9,6 @@ import {
     ArrowLeft,
     BadgeCheck,
     Check,
-    Upload,
-    FileText,
-    ExternalLink,
     ZoomIn
 } from "lucide-react";
 import Image from "next/image";
@@ -28,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import LightboxView from "../../../treasury/[id]/components/LightboxView";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
+import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -228,6 +226,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
                         </Button>
                     </div>
                 )}
+
 
                 {/* Left Column */}
                 <div className="col-span-12 lg:col-span-8 space-y-8">
@@ -454,54 +453,23 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
                             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">Upload the scanned or digital copy of the approved building permit. Supported formats: PDF, PNG, JPG.</p>
                         </div>
 
-                        {!isViewOnly ? (
-                            <div className="space-y-4">
-                                <div className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-8 text-center bg-slate-50/50 dark:bg-white/5 hover:bg-slate-100/50 dark:hover:bg-white/10 transition-all duration-300 relative group">
-                                    <input
-                                        type="file"
-                                        id="eCopyUpload"
-                                        onChange={handleFileChange}
-                                        accept="application/pdf,image/*"
-                                        disabled={uploading}
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
-                                    />
-                                    <div className="flex flex-col items-center justify-center gap-4">
-                                        <div className="p-4 bg-primary/10 rounded-2xl group-hover:scale-110 transition-transform">
-                                            <Upload className="w-8 h-8 text-primary" />
-                                        </div>
-                                        <div>
-                                            <span className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block">Drag & Drop or Click to Upload</span>
-                                            <span className="text-[10px] font-bold text-slate-400 block mt-1">PDF or Images up to 10MB</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : null}
-
-                        {eCopyUrl && (
-                            <div className="p-6 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-2xl flex items-center justify-between shadow-sm">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-emerald-500/10 rounded-xl">
-                                        <FileText className="w-6 h-6 text-emerald-500" />
-                                    </div>
-                                    <div>
-                                        <span className="text-xs font-black uppercase tracking-widest italic text-emerald-500">Permit E-Copy Loaded</span>
-                                        <span className="text-[11px] font-medium text-slate-400 block mt-0.5">Click preview to view the uploaded file.</span>
-                                    </div>
-                                </div>
-                                <Button
-                                    onClick={() => {
-                                        setViewerUrl(eCopyUrl);
-                                        setViewerTitle("Building Permit E-Copy");
-                                        setViewerOpen(true);
-                                    }}
-                                    variant="outline"
-                                    className="h-10 gap-2 font-black text-[10px] uppercase tracking-wider rounded-xl"
-                                >
-                                    Preview <ExternalLink className="w-3.5 h-3.5" />
-                                </Button>
-                            </div>
-                        )}
+                        <PremiumDocumentUpload
+                            label="Building Permit E-Copy"
+                            required={true}
+                            file={null}
+                            existingUrl={eCopyUrl}
+                            onFileSelect={(file) => {
+                                const fakeEvent = { target: { files: [file] } } as unknown as React.ChangeEvent<HTMLInputElement>;
+                                handleFileChange(fakeEvent);
+                            }}
+                            onView={() => {
+                                setViewerUrl(eCopyUrl);
+                                setViewerTitle("Building Permit E-Copy");
+                                setViewerOpen(true);
+                            }}
+                            disabled={isViewOnly || uploading}
+                            infoText={uploading ? "Uploading E-Copy..." : "PDF or Images up to 10MB"}
+                        />
                     </div>
                 </div>
 

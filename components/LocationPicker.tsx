@@ -29,8 +29,12 @@ function LocationMarker({ lat, lng, onChange }: LocationPickerProps) {
 
     // If coordinates are updated from parent, center the map there
     useEffect(() => {
-        if (lat && lng) {
-            map.setView([lat, lng], map.getZoom());
+        if (lat && lng && map) {
+            const center = map.getCenter();
+            const threshold = 0.0001; // approximately 11 meters
+            if (Math.abs(center.lat - lat) > threshold || Math.abs(center.lng - lng) > threshold) {
+                map.setView([lat, lng], map.getZoom());
+            }
         }
     }, [lat, lng, map]);
 

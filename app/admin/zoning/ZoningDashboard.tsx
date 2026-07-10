@@ -304,15 +304,13 @@ export default function ZoningDashboard() {
                                                     tx.isCancelled ? "text-red-600" : ({
                                                         "FOR_REQUESTING": "text-amber-600",
                                                         "FOR_REVISION": "text-amber-600",
-                                                        "EVALUATED": "text-blue-600",
-                                                        "FOR_CLAIM": "text-indigo-600",
-                                                        "FOR_PROCESSING": "text-sky-600",
-                                                        "PAID": "text-emerald-600",
-                                                        "RELEASED": "text-slate-600",
+                                                        "FOR_INSPECTION": "text-indigo-600",
+                                                        "FOR_REINSPECTION": "text-purple-600",
+                                                        "EVALUATED": "text-emerald-600",
                                                         "REJECTED": "text-red-600",
-                                                    } as Record<string, string>)[tx.status] || "text-slate-500"
+                                                    } as Record<string, string>)[tx.additionalData?.zoningStatus || "FOR_REQUESTING"] || "text-slate-500"
                                                 )}>
-                                                    {tx.isCancelled ? "CANCELLED" : tx.status?.replace(/_/g, " ")}
+                                                    {tx.isCancelled ? "CANCELLED" : (tx.additionalData?.zoningStatus || "FOR_REQUESTING").replace(/_/g, " ")}
                                                 </span>
                                             </TableCell>
                                             <TableCell>
