@@ -365,6 +365,7 @@ export function Sidebar({
             icon: Calendar,
             category: "Registrar"
         },
+        { href: "/admin/registrar/queue", label: "Registrar Queue", icon: Users, category: "Registrar" },
         {
             label: "Treasury Hub",
             icon: LayoutDashboard,
@@ -464,22 +465,7 @@ export function Sidebar({
             return { ...item, subItems: filteredSub };
         }
 
-        if (item.label === "Transaction Ledger" && item.subItems) {
-            const filteredSub = item.subItems.filter(sub => {
-                let code: string | string[] | undefined;
-                if (sub.label === "Birth Registration") code = ["LCR_BIRTH_REG", "LCR_BIRTH"];
-                else if (sub.label === "Death Registration") code = ["LCR_DEATH_REG", "LCR_DEATH"];
-                else if (sub.label === "Marriage Registration") code = ["LCR_MARRIAGE_REG", "LCR_MARRIAGE", "LCR_MARRIAGE_LICENSE"];
-                else if (sub.label === "PSA Endorsement") code = ["LCR_PSA_ENDORSEMENT", "LCR_DEATH_PSA_ENDORSEMENT", "LCR_MARRIAGE_PSA_ENDORSEMENT"];
-
-                if (!code) return true;
-                if (Array.isArray(code)) {
-                    return code.some(c => activeCodes.has(c));
-                }
-                return activeCodes.has(code);
-            });
-            return { ...item, subItems: filteredSub };
-        }
+        return item;
 
         return item;
     }) : baseMenuItems;
@@ -494,7 +480,7 @@ export function Sidebar({
                     menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue"].includes(item.label));
                 } else if (deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") {
                     menuItems = allMenuItems.filter(item =>
-                        ["Registrar Hub", "Transaction Ledger"].includes(item.label) ||
+                        ["Registrar Hub", "Transaction Ledger", "Registrar Queue"].includes(item.label) ||
                         (item.label === "Appointment Settings" && item.category === "Registrar")
                     );
                 } else if (deptUpper === "TREASURY") {
@@ -692,6 +678,11 @@ export function Sidebar({
                                                     <span className="text-sm">{item.label}</span>
                                                 </div>
                                                 <div className="flex items-center space-x-2">
+                                                    {item.label === "Registrar Hub" && Object.values(liveLcrCounts).reduce((a, b) => a + b, 0) > 0 && (
+                                                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">
+                                                            {Object.values(liveLcrCounts).reduce((a, b) => a + b, 0)}
+                                                        </span>
+                                                    )}
                                                     {item.isOpen ? <ChevronUp size={14} className="shrink-0" /> : <ChevronDown size={14} className="shrink-0" />}
                                                 </div>
                                             </button>

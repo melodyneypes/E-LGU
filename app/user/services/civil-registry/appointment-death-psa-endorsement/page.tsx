@@ -53,9 +53,6 @@ import {
     getBarangaysList
 } from "@/app/admin/transactions/actions";
 import SchedulePicker from "@/components/shared/SchedulePicker";
-import {
-    getLatestForm2AForCurrentUser
-} from "@/app/admin/transactions/death-endorsement-actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -301,29 +298,6 @@ export default function AppointmentDeathPsaEndorsementPage() {
 
     const handleSelectChange = (name: string, value: string) => {
         setFormData(prev => ({ ...prev, [name]: value }));
-
-        if (name === "relationship") {
-            const promise = (async () => {
-                const res = await getLatestForm2AForCurrentUser();
-                if (res.success && res.data) {
-                    const { subjectName, dateOfDeath, mothersMaidenName, fathersName, placeOfDeath, causeOfDeath } = res.data;
-                    setFormData(prev => ({
-                        ...prev,
-                        subjectFullName: subjectName ? subjectName.toUpperCase() : prev.subjectFullName,
-                        subjectDateOfDeath: dateOfDeath ? new Date(dateOfDeath).toISOString().split('T')[0] : prev.subjectDateOfDeath,
-                        mothersMaidenName: mothersMaidenName ? mothersMaidenName.toUpperCase() : prev.mothersMaidenName,
-                        fathersName: fathersName ? fathersName.toUpperCase() : prev.fathersName,
-                        placeOfDeath: placeOfDeath ? placeOfDeath.toUpperCase() : prev.placeOfDeath,
-                        causeOfDeath: causeOfDeath ? causeOfDeath.toUpperCase() : prev.causeOfDeath
-                    }));
-                }
-            })();
-            toast.promise(promise, {
-                loading: "Searching for your latest Form 2A record...",
-                success: "Form 2A check complete.",
-                error: "Error checking latest Form 2A."
-            });
-        }
     };
 
     const getNormalizedPlaceOfDeath = (val: string) => {
@@ -437,7 +411,7 @@ export default function AppointmentDeathPsaEndorsementPage() {
                 toast.success(revisionId ? "Revision resubmitted successfully!" : "Death PSA Appointment Endorsement submitted successfully!");
                 sessionStorage.removeItem("appointment-death-psa-endorsement-step");
                 sessionStorage.removeItem("appointment-death-psa-endorsement-form");
-                router.push(`/user/services/requests/${res.data.id}`);
+                router.push(`/user/appointment/${res.data.id}`);
             } else {
                 toast.error(res.error || "Failed to submit endorsement request");
             }

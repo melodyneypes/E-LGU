@@ -126,7 +126,11 @@ export default function UserAppointmentsPage() {
                 }
                 return { color: "text-white", bg: "bg-primary", border: "border-transparent", icon: Clock, label: "FOR EVALUATION", opacity: 0.8 };
             case "FOR_INSPECTION": return { color: "text-white", bg: "bg-blue-600", border: "border-transparent", icon: Search, label: "UNDER INSPECTION", opacity: 0.9 };
-            case "EVALUATED": return { color: "text-white", bg: "bg-primary", border: "border-transparent", icon: DollarSign, label: "EVALUATED", opacity: 0.9 };
+            case "EVALUATED":
+                if (req.type?.code?.startsWith("LCR_") || req.type?.code?.startsWith("CIVIL_REGISTRY")) {
+                    return { color: "text-white", bg: "bg-emerald-600", border: "border-transparent", icon: CheckCircle2, label: "APPOINTMENT CONFIRMED", opacity: 1 };
+                }
+                return { color: "text-white", bg: "bg-primary", border: "border-transparent", icon: DollarSign, label: "EVALUATED", opacity: 0.9 };
             case "PAID": return { color: "text-white", bg: "bg-emerald-500", border: "border-transparent", icon: CheckCircle2, label: "PAID", opacity: 1 };
             case "FOR_PROCESSING": return { color: "text-white", bg: "bg-blue-500", border: "border-transparent", icon: Activity, label: "FOR PROCESSING", opacity: 1 };
             case "FOR_REINSPECTION": return { color: "text-white", bg: "bg-blue-500", border: "border-transparent", icon: Activity, label: "FOR PROCESSING", opacity: 1 };
@@ -149,8 +153,10 @@ export default function UserAppointmentsPage() {
     };
 
     const filteredRequests = requests.filter(r => 
-        r.type?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.id.toLowerCase().includes(searchQuery.toLowerCase())
+        r.appointmentDate && (
+            r.type?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            r.id.toLowerCase().includes(searchQuery.toLowerCase())
+        )
     );
 
     const sortedRequests = [...filteredRequests].sort((a, b) => {

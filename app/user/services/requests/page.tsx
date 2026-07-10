@@ -173,8 +173,10 @@ export default function UserServiceRequestsPage() {
     };
 
     const filteredRequests = requests.filter(r => 
-        r.type?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.id.toLowerCase().includes(searchQuery.toLowerCase())
+        !r.appointmentDate && (
+            r.type?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            r.id.toLowerCase().includes(searchQuery.toLowerCase())
+        )
     );
 
     const sortedRequests = [...filteredRequests].sort((a, b) => {

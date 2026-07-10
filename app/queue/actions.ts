@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db/prisma";
+import { UserRole } from "@prisma/client";
 import { unstable_noStore as noStore } from "next/cache";
 
 export interface QueueDepartmentData {
@@ -21,14 +22,10 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
         const endOfDay = new Date();
         endOfDay.setUTCHours(23, 59, 59, 999);
 
-        // Fetch all today's active transactions
+        // Fetch all active transactions (no date restriction — rely on checkedIn flag for queue)
         const allTxs = await prisma.transaction.findMany({
             where: {
-                isCancelled: false,
-                appointmentDate: {
-                    gte: startOfDay,
-                    lte: endOfDay
-                }
+                isCancelled: false
             },
             orderBy: {
                 updatedAt: "desc"
@@ -52,6 +49,7 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
 
         const getDeptIndex = (tx: any, isWaiting: boolean) => {
             const category = tx.type?.category || "";
+            const code = tx.type?.code || "";
             const status = tx.status;
             const additionalData = tx.additionalData as any;
             const counterName = (additionalData?.counterName || "").toUpperCase();
@@ -77,11 +75,11 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
                 }
             }
 
-            // Fallback by original category
-            if (["CEDULA", "Treasurer"].includes(category)) return 0;
-            if (["Business Permit"].includes(category)) return 1;
-            if (["Civil Registry"].includes(category)) return 2;
-            if (["Building Permit", "Engineer"].includes(category)) return 3;
+            // Fallback by original category or code prefix
+            if (["CEDULA", "Treasurer"].includes(category) || code.startsWith("CEDULA")) return 0;
+            if (["Business Permit"].includes(category) || code.startsWith("BUSINESS_PERMIT")) return 1;
+            if (["Civil Registry"].includes(category) || code.startsWith("LCR_") || code.startsWith("CIVIL_REGISTRY")) return 2;
+            if (["Building Permit", "Engineer"].includes(category) || code.startsWith("ENGINEER") || code.startsWith("BUILDING")) return 3;
 
             return -1;
         };
@@ -89,6 +87,7 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
         // Partition serving tickets
         const servingTxs = allTxs.filter(tx => {
             const category = tx.type?.category || "";
+            const code = tx.type?.code || "";
             const additionalData = tx.additionalData as any;
             const hasCounter = additionalData && typeof additionalData.counterName === "string" && additionalData.counterName.trim() !== "";
 
@@ -103,7 +102,15 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             if (category === "Business Permit") {
                 const allowedBploServing = ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM"];
                 if (allowedBploServing.includes(tx.status)) {
-                    return hasCounter;
+                    const additionalData = tx.additionalData as any;
+                    return additionalData && typeof additionalData.counterName === "string" && additionalData.counterName.trim() !== "";
+                }
+            }
+            if (category === "Civil Registry" || code.startsWith("LCR_") || code.startsWith("CIVIL_REGISTRY")) {
+                const allowedRegistrarServing = ["FOR_REQUESTING", "FOR_INSPECTION"];
+                if (allowedRegistrarServing.includes(tx.status)) {
+                    const additionalData = tx.additionalData as any;
+                    return additionalData && typeof additionalData.counterName === "string" && additionalData.counterName.trim() !== "";
                 }
             }
             return false;
@@ -145,23 +152,29 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
         // Partition waiting tickets
         const waitingTxsRaw = allTxs.filter(tx => {
             const additionalData = tx.additionalData as any;
-            const isCheckedIn = additionalData && additionalData.checkedIn === true;
+            const isCheckedIn = additionalData && !!additionalData.checkedIn;
             if (!isCheckedIn) return false;
 
             const hasCounter = additionalData && typeof additionalData.counterName === "string" && additionalData.counterName.trim() !== "";
             if (hasCounter) return false;
 
             const category = tx.type?.category || "";
-            if (category === "Business Permit") {
+            const code = tx.type?.code || "";
+            if (category === "Business Permit" || code.startsWith("BUSINESS_PERMIT")) {
                 return ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM", "UNPAID"].includes(tx.status);
             }
 
-            if (category === "CEDULA") {
+            if (category === "CEDULA" || code.startsWith("CEDULA")) {
                 return ["FOR_REQUESTING", "FOR_INSPECTION", "UNPAID"].includes(tx.status);
+            }
+
+            if (category === "Civil Registry" || code.startsWith("LCR_") || code.startsWith("CIVIL_REGISTRY")) {
+                return ["FOR_REQUESTING", "FOR_INSPECTION"].includes(tx.status);
             }
 
             return ["FOR_REQUESTING", "FOR_INSPECTION"].includes(tx.status);
         });
+
 
         for (const tx of waitingTxsRaw) {
             const deptIdx = getDeptIndex(tx, true);
@@ -198,7 +211,13 @@ export async function verifyRfidUnlock(rfidCardId: string): Promise<{ success: b
             where: {
                 rfid: rfidCardId,
                 role: {
-                    in: ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "MPDC_ZONING"]
+                    in: [
+                        UserRole.ADMIN,
+                        UserRole.BARANGAY_ADMIN,
+                        UserRole.TREASURY_STAFF,
+                        UserRole.ADMIN_AIDE,
+                        UserRole.ENGINEER
+                    ]
                 }
             }
         });

@@ -19,7 +19,8 @@ import {
     ChevronDown,
     ChevronUp,
     Copy,
-    Hash
+    Hash,
+    CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -89,7 +90,8 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
         setMiscFee,
         handleProcessRequest,
         handlePrintWaybill,
-        handleMarkAppointmentAttended
+        handleMarkAppointmentAttended,
+        handleCollectPsaPayment
     } = props;
 
     const [isAssessmentOpen, setIsAssessmentOpen] = React.useState(true);
@@ -599,65 +601,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                             handleRequestRevision={handleRequestRevision}
                         />
 
-                        {transaction.status === "FOR_INSPECTION" && (
-                            <div className="space-y-6">
-                                <Button
-                                    onClick={handleEvaluate}
-                                    disabled={actionLoading}
-                                    className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-green-500/10"
-                                >
-                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                    Proceed to Payment
-                                </Button>
 
-                                <div className="flex gap-2">
-                                    {(transaction.revisionCount || 0) < 3 && (
-                                        <Button
-                                                                                onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
-                                                                                className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
-                                                                            >
-                                                                                Revision
-                                                                            </Button>
-                                    )}
-                                    <Button
-                                        onClick={() => { setIsRejecting(true); setRemarks(""); }}
-                                        className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
-                                    >
-                                        Reject
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-
-                        {!isTreasuryContext && (transaction.status === "FOR_REQUESTING" || transaction.status === "UNDER_REVIEW") && (
-                            <div className="space-y-6">
-                                <Button
-                                    onClick={handleEvaluate}
-                                    disabled={actionLoading}
-                                    className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-green-500/10"
-                                >
-                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                    Approve & Send Assessment
-                                </Button>
-
-                                <div className="flex gap-2">
-                                    {(transaction.revisionCount || 0) < 3 && (
-                                        <Button
-                                                                                onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
-                                                                                className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
-                                                                            >
-                                                                                Revision
-                                                                            </Button>
-                                    )}
-                                    <Button
-                                        onClick={() => { setIsRejecting(true); setRemarks(""); }}
-                                        className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
-                                    >
-                                        Reject
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
 
                         {/* AWAITING CITIZEN PAYMENT NOTICE */}
                         {transaction.status === "EVALUATED" && !isAppointmentEndorsement && (
@@ -1016,101 +960,123 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                             </div>
                         )}
 
-                        {(transaction.status === "EVALUATED" || transaction.status === "UNPAID") && (
+                        {(transaction.status === "EVALUATED" || transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REQUESTING" || transaction.status === "UNDER_REVIEW") && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
                                 <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
-                                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mx-auto">
-                                        <Clock className="w-6 h-6 animate-pulse" />
-                                    </div>
-                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Citizen Appointment</h4>
-                                    <p className="text-[10px] text-slate-400 italic">The citizen has scheduled their appointment. Once they arrive, click below to mark their appointment as attended.</p>
+                                    {additional?.checkedIn ? (
+                                        <>
+                                            <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mx-auto animate-bounce">
+                                                <CheckCircle2 className="w-6 h-6" />
+                                            </div>
+                                            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400 font-bold">Citizen Checked In</h4>
+                                            <p className="text-[10px] text-slate-400 italic">The citizen is now present in the municipal hall. Please verify their physical documents and requirements before clicking finish below.</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mx-auto">
+                                                <Clock className="w-6 h-6 animate-pulse" />
+                                            </div>
+                                            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Citizen Appointment</h4>
+                                            <p className="text-[10px] text-slate-400 italic">The citizen has scheduled their appointment. Once they arrive, click below to mark their appointment as attended.</p>
+                                        </>
+                                    )}
                                 </div>
                                 
                                 {!isTreasuryContext && handleMarkAppointmentAttended && (
                                     <Button
                                         onClick={handleMarkAppointmentAttended}
-                                        disabled={actionLoading}
-                                        className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all"
+                                        disabled={actionLoading || !additional?.checkedIn}
+                                        className={cn(
+                                            "w-full h-14 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all",
+                                            additional?.checkedIn
+                                                ? "bg-primary hover:bg-primary/90"
+                                                : "bg-slate-300 dark:bg-white/10 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none"
+                                        )}
                                     >
                                         {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                        Finish Appointment
+                                        {additional?.checkedIn ? "Finish Appointment" : "Awaiting Citizen Check-in"}
                                     </Button>
                                 )}
                             </div>
                         )}
 
+                        {/* PENDING PAYMENT STATE FOR REGISTRAR (READ-ONLY) */}
+                        {transaction.status === "UNPAID" && (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
+                                    <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
+                                        <Clock className="w-6 h-6 animate-pulse" />
+                                    </div>
+                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 font-bold">Pending Treasury Payment</h4>
+                                    <p className="text-[10px] text-slate-400 italic">The appointment has been marked as attended. The citizen is currently queued at the Treasury counter to settle the fees.</p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* REGISTRAR RELEASE PROCESSOR CONTROLLER */}
-                        {transaction.status === "FOR_PROCESSING" && !isTreasuryContext && (
+                        {transaction.status === "FOR_PROCESSING" && !isTreasuryContext && !isAppointmentEndorsement && (
                             <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-6">
                                 <h4 className="text-[10px] font-black uppercase tracking-widest text-[#1e293b] dark:text-slate-400">
-                                    {isAppointmentEndorsement ? "PSA Endorsement Submission" : "Endorsement Document Attachment"}
+                                    Endorsement Document Attachment
                                 </h4>
 
-                                {isAppointmentEndorsement ? (
-                                    <div className="space-y-4">
-                                        <p className="text-xs font-bold text-slate-650 dark:text-slate-405 italic leading-relaxed">
-                                            The citizen&apos;s appointment has been marked as attended. Click below to submit this endorsement to the PSA. The request will proceed to the Treasury counter for counter payment collection and O.R. issuance.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        <div className="space-y-1">
-                                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Upload Official Endorsement E-Copy *</span>
-                                            {eCopyPreview ? (
-                                                <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 aspect-[3/2] bg-[#f8fafd] dark:bg-white/5">
-                                                    <img src={eCopyPreview} alt="E-Copy Preview" className="w-full h-full object-cover" />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => { setECopyFile(null); setECopyPreview?.(null); }}
-                                                        className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black text-white rounded-full transition-colors"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <Label
-                                                    htmlFor="ecopy-upload-proc"
-                                                    className="flex flex-col items-center justify-center py-8 px-4 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-primary/50 transition-colors cursor-pointer text-center bg-white/50 dark:bg-[#151b28]/50"
+                                <div className="space-y-4">
+                                    <div className="space-y-1">
+                                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Upload Official Endorsement E-Copy *</span>
+                                        {eCopyPreview ? (
+                                            <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 aspect-[3/2] bg-[#f8fafd] dark:bg-white/5">
+                                                <img src={eCopyPreview} alt="E-Copy Preview" className="w-full h-full object-cover" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setECopyFile(null); setECopyPreview?.(null); }}
+                                                    className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black text-white rounded-full transition-colors"
                                                 >
-                                                    <Upload className="w-6 h-6 text-slate-400 mb-2" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">Click to Upload Final Document</span>
-                                                    <span className="text-[8px] text-slate-400 italic mt-0.5">PDF, JPG, PNG up to 5MB</span>
-                                                    <input
-                                                        id="ecopy-upload-proc"
-                                                        type="file"
-                                                        accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                                                        onChange={(e) => {
-                                                            const file = e.target.files?.[0];
-                                                            if (file && file.size > 5 * 1024 * 1024) {
-                                                                toast.error("File size exceeds 5MB limit.");
-                                                                if (e.target.parentElement) {
-                                                                    const parent = e.target.parentElement;
-                                                                    let errEl = parent.querySelector('.file-error-msg');
-                                                                    if (!errEl) {
-                                                                        errEl = document.createElement('div');
-                                                                        errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
-                                                                        parent.appendChild(errEl);
-                                                                    }
-                                                                    errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
-                                                                    setTimeout(() => errEl && errEl.remove(), 4000);
-                                                                }
-                                                                e.target.value = "";
-                                                                setECopyFile(null);
-                                                                setECopyPreview?.(null);
-                                                                return;
-                                                            }
-                                                            if (file) {
-                                                                setECopyFile(file);
-                                                                setECopyPreview?.(URL.createObjectURL(file));
-                                                            }
-                                                        }}
-                                                        className="hidden"
-                                                    />
-                                                </Label>
-                                            )}
-                                        </div>
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <Label
+                                                htmlFor="ecopy-upload-proc"
+                                                className="flex flex-col items-center justify-center py-8 px-4 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-primary/50 transition-colors cursor-pointer text-center bg-white/50 dark:bg-[#151b28]/50"
+                                            >
+                                                <Upload className="w-6 h-6 text-slate-400 mb-2" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">Click to Upload Final Document</span>
+                                                <span className="text-[8px] text-slate-400 italic mt-0.5">PDF, JPG, PNG up to 5MB</span>
+                                                <input
+                                                    id="ecopy-upload-proc"
+                                                    type="file"
+                                                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file && file.size > 5 * 1024 * 1024) {
+                                                            toast.error("File size exceeds 5MB limit.");
+                                                             if (e.target.parentElement) {
+                                                                 const parent = e.target.parentElement;
+                                                                 let errEl = parent.querySelector('.file-error-msg');
+                                                                 if (!errEl) {
+                                                                     errEl = document.createElement('div');
+                                                                     errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
+                                                                     parent.appendChild(errEl);
+                                                                 }
+                                                                 errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
+                                                                 setTimeout(() => errEl && errEl.remove(), 4000);
+                                                             }
+                                                            e.target.value = "";
+                                                            setECopyFile(null);
+                                                            setECopyPreview?.(null);
+                                                            return;
+                                                        }
+                                                        if (file) {
+                                                            setECopyFile(file);
+                                                            setECopyPreview?.(URL.createObjectURL(file));
+                                                        }
+                                                    }}
+                                                    className="hidden"
+                                                />
+                                            </Label>
+                                        )}
                                     </div>
-                                )}
+                                </div>
 
                                 <Button
                                     onClick={handleRelease}
@@ -1118,7 +1084,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                     className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
                                 >
                                     {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                    {isAppointmentEndorsement ? "Submit Endorsement to PSA" : "Release & Send to Citizen"}
+                                    Release & Send to Citizen
                                 </Button>
                             </div>
                         )}
@@ -1149,7 +1115,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                         )}
 
                         {/* PSA APPOINTMENT: WAITING FOR TREASURY COUNTER PAYMENT */}
-                        {(transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING") && isAppointmentEndorsement && (
+                        {(transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING" || transaction.status === "FOR_PROCESSING") && isAppointmentEndorsement && (
                             <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                                 <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
                                     <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">

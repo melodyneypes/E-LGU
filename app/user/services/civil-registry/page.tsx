@@ -55,7 +55,7 @@ const REGISTRY_TYPES = [
     },
     {
         id: "PSA_APPOINTMENT_ENDORSEMENT",
-        label: "Birth PSA Appointment Endorsement",
+        label: "Birth Certificate Endorsement",
         icon: FileSignature,
         description: "Schedule appointment and request endorsement of a verified local birth certificate record to the PSA.",
         color: "blue",
@@ -75,7 +75,7 @@ const REGISTRY_TYPES = [
     },
     {
         id: "DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-        label: "Death PSA Appointment Endorsement",
+        label: "Death Certificate Endorsement",
         icon: FileSignature,
         description: "Schedule an appointment and request endorsement of a verified local death certificate record to the PSA.",
         color: "slate",
@@ -125,7 +125,7 @@ const REGISTRY_TYPES = [
     },
     {
         id: "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT",
-        label: "Marriage PSA Appointment Endorsement",
+        label: "Marriage Certificate Endorsement",
         icon: FileSignature,
         description: "Schedule an appointment and request endorsement of a verified local marriage certificate record to the PSA.",
         color: "rose",

@@ -35,6 +35,7 @@ import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 
 import RegistrarDashboard from "./[id]/dashboard";
+import { fetchAndCallNextTicket } from "@/app/admin/transactions/calling-actions";
 
 // Helper: format exact date & time
 function formatDateTime(date: string | Date): { date: string; time: string } {
@@ -75,14 +76,14 @@ function getDisplayStatus(tx: any): string {
         switch (status) {
             case "FOR_INSPECTION":
             case "FOR_REQUESTING": return "AWAITING EVALUATION";
-            case "EVALUATED":      return "APPOINTMENT CONFIRMED";
-            case "UNPAID":         return "APPOINTMENT SCHEDULED";
+            case "EVALUATED": return "APPOINTMENT CONFIRMED";
+            case "UNPAID": return "APPOINTMENT SCHEDULED";
             case "FOR_PROCESSING": return "AWAITING REGISTRAR ENDORSEMENT";
             case "FOR_CLAIM":
-            case "FOR_PICKING":    return "PAYMENT DUE AT TREASURY";
+            case "FOR_PICKING": return "PAYMENT DUE AT TREASURY";
             case "FOR_REINSPECTION": return "FOR PROCESSING";
-            case "RELEASED":       return "ENDORSED TO PSA";
-            case "PAID":           return "PAID";
+            case "RELEASED": return "ENDORSED TO PSA";
+            case "PAID": return "PAID";
             default: break;
         }
     }
@@ -142,6 +143,32 @@ export default function RegistrarPage() {
     const lastActivityRef = useRef<number | null>(null);
     const [showUpdateModal, setShowUpdateModal] = useState(false);
     const [pendingUpdatesCount, setPendingUpdatesCount] = useState(0);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [callingNext, setCallingNext] = useState(false);
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const handleCallNextInQueue = async () => {
+        const activeCounter = localStorage.getItem("activeCounterName");
+        if (!activeCounter) {
+            toast.error("Please set your active counter/window in the header first.");
+            return;
+        }
+        setCallingNext(true);
+        try {
+            const res = await fetchAndCallNextTicket(activeCounter);
+            if (res.success && res.data) {
+                toast.success(`Calling next ticket: ${(res.data as any).queueNumber || (res.data as any).id?.slice(-6).toUpperCase()} assigned to ${activeCounter}`);
+                router.push(`/admin/registrar/${(res.data as any).id}`);
+            } else {
+                toast.error((res as any).error || "Failed to fetch next ticket.");
+            }
+        } catch (err) {
+            console.error("Queue calling error:", err);
+            toast.error("An error occurred while calling the next ticket.");
+        } finally {
+            setCallingNext(false);
+        }
+    };
 
     // Track user activity to determine idle state
     useEffect(() => {
@@ -211,7 +238,7 @@ export default function RegistrarPage() {
                     },
                     async (payload: any) => {
                         console.log("Realtime change caught on Transaction table for registrar queue:", payload);
-                        
+
                         const idleThreshold = 30000; // 30 seconds
                         const isCurrentlyIdle = Date.now() - (lastActivityRef.current ?? Date.now()) > idleThreshold;
 
@@ -273,6 +300,55 @@ export default function RegistrarPage() {
     }, [debouncedSearch, categoryParam, itemsPerPage]);
 
     // --- List Filtering and Sorting ---
+    const filteredTransactions = useMemo(() => {
+        if (!hasSelectedCategory) return [];
+
+        return transactions.filter(tx => {
+            const rs = getResidentSnapshot(tx);
+            const name = `${rs.firstName || ''} ${rs.lastName || ''}`.trim().toLowerCase();
+            const refId = tx.id.slice(-8).toUpperCase();
+            const searchUpper = search.toUpperCase();
+
+            const matchesSearch = name.includes(search.toLowerCase()) ||
+                tx.id.toLowerCase().includes(search.toLowerCase()) ||
+                refId.includes(searchUpper);
+
+            let matchesCategory = false;
+            if (categoryParam === "Birth Registration") {
+                matchesCategory = tx.type?.code === "LCR_BIRTH_REG";
+            } else if (categoryParam === "Birth Certificate") {
+                matchesCategory = tx.type?.code === "LCR_BIRTH";
+            } else if (categoryParam === "Death Registration") {
+                matchesCategory = tx.type?.code === "LCR_DEATH_REG";
+            } else if (categoryParam === "Death Certificate") {
+                matchesCategory = tx.type?.code === "LCR_DEATH";
+            } else if (categoryParam === "Marriage License") {
+                matchesCategory = tx.type?.code === "LCR_MARRIAGE_LICENSE";
+            } else if (categoryParam === "Marriage Registration") {
+                matchesCategory = tx.type?.code === "LCR_MARRIAGE_REG";
+            } else if (categoryParam === "Marriage Certificate") {
+                matchesCategory = tx.type?.code === "LCR_MARRIAGE";
+            } else if (categoryParam === "PSA Endorsement") {
+                matchesCategory = (
+                    tx.type?.code === "LCR_PSA_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
+            } else if (categoryParam === "PSA Appt. Endorsement") {
+                matchesCategory = (
+                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
+            }
+
+            return matchesSearch && matchesCategory;
+        });
+    }, [transactions, search, categoryParam, hasSelectedCategory]);
+
     const sortedTransactions = useMemo(() => {
         return [...transactions].sort((a, b) => {
             if (sortBy === "service") {
@@ -363,6 +439,7 @@ export default function RegistrarPage() {
                             </div>
 
                             <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+
                                 <Button
                                     onClick={() => fetchTransactions()}
                                     variant="outline"
@@ -454,7 +531,7 @@ export default function RegistrarPage() {
                                     ))
                                 ) : sortedTransactions.length > 0 ? (
                                     sortedTransactions.map((tx, index) => {
-                                        const isUnviewed = tx.status === "FOR_INSPECTION";
+                                        const isUnviewed = tx.status === "FOR_INSPECTION" && !tx.isCancelled;
 
                                         return (
                                             <TableRow
@@ -491,57 +568,57 @@ export default function RegistrarPage() {
                                                         </div>
                                                     </div>
                                                 </TableCell>
-                                            <TableCell>
-                                                <span className="text-xs font-bold uppercase text-blue-600 dark:text-blue-400">
-                                                    {tx.type?.name}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col gap-0.5">
-                                                    {tx.fulfillmentType && (
-                                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">
-                                                            {tx.fulfillmentType.replace(/_/g, " ")}
-                                                        </span>
-                                                    )}
-                                                    {tx.paymentType && (
-                                                        <span className="text-[10px] text-slate-500 font-bold uppercase leading-none">
-                                                            {tx.paymentType?.replace(/_/g, " ")}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className="font-bold text-slate-900 dark:text-white">
-                                                    {tx.totalAmount > 0 ? `₱${tx.totalAmount.toLocaleString()}` : "–"}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className={cn(
-                                                    "text-[10px] font-black uppercase italic tracking-wider px-2 py-1 rounded bg-slate-50 dark:bg-black/30 border border-current w-fit block",
-                                                    getStatusClassName(tx.status, tx.isCancelled)
-                                                )}>
-                                                    {getDisplayStatus(tx)}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col">
-                                                    {(() => {
-                                                        const source = tx.updatedAt;
-                                                        const f = formatDateTime(source);
-                                                        return (
-                                                            <>
-                                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{f.date}</span>
-                                                                <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                                                                    <Clock className="w-2.5 h-2.5" />{f.time}
-                                                                </span>
-                                                            </>
-                                                        );
-                                                    })()}
-                                                </div>
-                                        </TableCell>
-                                    </TableRow>
-                                    );
-                                })
+                                                <TableCell>
+                                                    <span className="text-xs font-bold uppercase text-blue-600 dark:text-blue-400">
+                                                        {tx.type?.name}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-col gap-0.5">
+                                                        {tx.fulfillmentType && (
+                                                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">
+                                                                {tx.fulfillmentType.replace(/_/g, " ")}
+                                                            </span>
+                                                        )}
+                                                        {tx.paymentType && (
+                                                            <span className="text-[10px] text-slate-500 font-bold uppercase leading-none">
+                                                                {tx.paymentType?.replace(/_/g, " ")}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className="font-bold text-slate-900 dark:text-white">
+                                                        {tx.totalAmount > 0 ? `₱${tx.totalAmount.toLocaleString()}` : "–"}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className={cn(
+                                                        "text-[10px] font-black uppercase italic tracking-wider px-2 py-1 rounded bg-slate-50 dark:bg-black/30 border border-current w-fit block",
+                                                        getStatusClassName(tx.status, tx.isCancelled)
+                                                    )}>
+                                                        {getDisplayStatus(tx)}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-col">
+                                                        {(() => {
+                                                            const source = tx.updatedAt;
+                                                            const f = formatDateTime(source);
+                                                            return (
+                                                                <>
+                                                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{f.date}</span>
+                                                                    <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                                                        <Clock className="w-2.5 h-2.5" />{f.time}
+                                                                    </span>
+                                                                </>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })
                                 ) : (
                                     <TableRow>
                                         <TableCell colSpan={7} className="h-[350px] text-center">
