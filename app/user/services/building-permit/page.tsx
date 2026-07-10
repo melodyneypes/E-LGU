@@ -728,79 +728,7 @@ export default function BuildingPermitPage() {
     setIsAddCustomDocOpen(false);
   };
 
-  const _handleUploadBfpClearance = async (file: File | null) => {
-    if (!file || !selectedApplication) return;
-    const toastId = toast.loading("Uploading BFP Clearance Proof...");
-    try {
-      let fileToProcess = file;
-      if (file.type.startsWith("image/")) {
-        try {
-          fileToProcess = await compressImage(file);
-        } catch (err) {
-          console.error("Compression error:", err);
-        }
-      }
-      const formData = new FormData();
-      formData.append("file", fileToProcess);
-      const uploadRes = await uploadECopyAction(formData);
-      if (uploadRes.success && uploadRes.data) {
-        const fileUrl = uploadRes.data as string;
-        const updateRes = await saveBfpClearanceProofAction(selectedApplication.id, fileUrl);
-        if (updateRes.success) {
-          toast.success("BFP Clearance Proof uploaded successfully!", { id: toastId });
-          const res = await getExistingBuildingPermits();
-          if (res.success && res.data) {
-            setExistingApplications(res.data);
-            const updated = res.data.find((a: any) => a.id === selectedApplication.id);
-            if (updated) setSelectedApplication(updated);
-          }
-        } else {
-          toast.error(updateRes.error || "Failed to save clearance proof", { id: toastId });
-        }
-      } else {
-        toast.error(uploadRes.error || "Upload failed", { id: toastId });
-      }
-    } catch {
-      toast.error("An error occurred during upload", { id: toastId });
-    }
-  };
 
-  const _handleUploadZoningClearance = async (file: File | null) => {
-    if (!file || !selectedApplication) return;
-    const toastId = toast.loading("Uploading Zoning Clearance Proof...");
-    try {
-      let fileToProcess = file;
-      if (file.type.startsWith("image/")) {
-        try {
-          fileToProcess = await compressImage(file);
-        } catch (err) {
-          console.error("Compression error:", err);
-        }
-      }
-      const formData = new FormData();
-      formData.append("file", fileToProcess);
-      const uploadRes = await uploadECopyAction(formData);
-      if (uploadRes.success && uploadRes.data) {
-        const fileUrl = uploadRes.data as string;
-        const updateRes = await saveZoningClearanceProofAction(selectedApplication.id, fileUrl);
-        if (updateRes.success) {
-          toast.success("Zoning Clearance Proof uploaded successfully!", { id: toastId });
-          const res = await getExistingBuildingPermits();
-          if (res.success && res.data) {
-            setExistingApplications(res.data);
-            const updated = res.data.find((a: any) => a.id === selectedApplication.id);
-            if (updated) setSelectedApplication(updated);
-          }
-        } else {
-          toast.error(updateRes.error || "Failed to save clearance proof", { id: toastId });
-        }
-      } else {
-        toast.error(uploadRes.error || "Upload failed", { id: toastId });
-      }
-    } catch {
-      toast.error("An error occurred during upload", { id: toastId });
-    }
-  };
 
   const handlePaymentFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

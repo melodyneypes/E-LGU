@@ -4183,7 +4183,7 @@ export async function rejectReturnAction(id: string, rejectionReason: string) {
 }
 
 
-export async function saveZoningClearanceProofAction(id: string, _url: string) {
+export async function saveZoningClearanceProofAction(id: string) {
     try {
         const session = await getSession();
         const user = session?.user as any;

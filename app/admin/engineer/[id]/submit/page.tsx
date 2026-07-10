@@ -9,9 +9,6 @@ import {
     ArrowLeft,
     BadgeCheck,
     Check,
-    Upload,
-    FileText,
-    ExternalLink,
     ZoomIn
 } from "lucide-react";
 import Image from "next/image";

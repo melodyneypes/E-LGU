@@ -8,11 +8,7 @@ import { useSession } from "next-auth/react";
 import {
     ArrowLeft,
     BadgeCheck,
-    Check,
-    ZoomIn,
-    ZoomOut,
-    RotateCw,
-    RefreshCcw
+    Check
 } from "lucide-react";
 
 import { toast } from "sonner";
