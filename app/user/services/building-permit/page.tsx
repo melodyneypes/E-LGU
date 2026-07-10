@@ -566,8 +566,6 @@ export default function BuildingPermitPage() {
     ...Object.keys(uploadedPermits).map(k => `permit_${k}`)
   ]);
   const uploadedPermitsCount = uploadedPermitKeys.size;
-  const permitsProgress = Math.min(uploadedPermitsCount, 4);
-
   const uploadedRequirementsCount = uploadedRequirementKeys.size;
   const totalRequiredItems = requiredRequirementsCount + requiredPermitsCount;
 

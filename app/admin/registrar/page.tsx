@@ -299,56 +299,6 @@ export default function RegistrarPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [debouncedSearch, categoryParam, itemsPerPage]);
 
-    // --- List Filtering and Sorting ---
-    const filteredTransactions = useMemo(() => {
-        if (!hasSelectedCategory) return [];
-
-        return transactions.filter(tx => {
-            const rs = getResidentSnapshot(tx);
-            const name = `${rs.firstName || ''} ${rs.lastName || ''}`.trim().toLowerCase();
-            const refId = tx.id.slice(-8).toUpperCase();
-            const searchUpper = search.toUpperCase();
-
-            const matchesSearch = name.includes(search.toLowerCase()) ||
-                tx.id.toLowerCase().includes(search.toLowerCase()) ||
-                refId.includes(searchUpper);
-
-            let matchesCategory = false;
-            if (categoryParam === "Birth Registration") {
-                matchesCategory = tx.type?.code === "LCR_BIRTH_REG";
-            } else if (categoryParam === "Birth Certificate") {
-                matchesCategory = tx.type?.code === "LCR_BIRTH";
-            } else if (categoryParam === "Death Registration") {
-                matchesCategory = tx.type?.code === "LCR_DEATH_REG";
-            } else if (categoryParam === "Death Certificate") {
-                matchesCategory = tx.type?.code === "LCR_DEATH";
-            } else if (categoryParam === "Marriage License") {
-                matchesCategory = tx.type?.code === "LCR_MARRIAGE_LICENSE";
-            } else if (categoryParam === "Marriage Registration") {
-                matchesCategory = tx.type?.code === "LCR_MARRIAGE_REG";
-            } else if (categoryParam === "Marriage Certificate") {
-                matchesCategory = tx.type?.code === "LCR_MARRIAGE";
-            } else if (categoryParam === "PSA Endorsement") {
-                matchesCategory = (
-                    tx.type?.code === "LCR_PSA_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
-                ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
-            } else if (categoryParam === "PSA Appt. Endorsement") {
-                matchesCategory = (
-                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
-                ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
-            }
-
-            return matchesSearch && matchesCategory;
-        });
-    }, [transactions, search, categoryParam, hasSelectedCategory]);
-
     const sortedTransactions = useMemo(() => {
         return [...transactions].sort((a, b) => {
             if (sortBy === "service") {

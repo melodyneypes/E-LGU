@@ -565,8 +565,6 @@ export default function BuildingPermitAppointmentPage() {
     ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("req_")),
     ...Object.keys(uploadedRequirements).map(k => `req_${k}`)
   ]);
-  const requiredPermitIndexes: number[] = [];
-  const requiredPermitsCount = 4;
   const uploadedPermitKeys = new Set([
     ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("permit_")),
     ...Object.keys(uploadedPermits).map(k => `permit_${k}`)

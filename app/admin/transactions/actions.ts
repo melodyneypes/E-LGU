@@ -3226,27 +3226,6 @@ export async function getEngineerTransactions(params?: string | {
                     }
                 },
                 {
-        const transactions = await prisma.transaction.findMany({
-            where,
-            select: {
-                id: true,
-                status: true,
-                createdAt: true,
-                updatedAt: true,
-                isCancelled: true,
-                totalAmount: true,
-                fulfillmentType: true,
-                paymentType: true,
-                residentSnapshot: true,
-                additionalData: true,
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true
-                    }
-                },
-                {
                     residentSnapshot: {
                         path: ["firstName"],
                         string_contains: cleanSearch
