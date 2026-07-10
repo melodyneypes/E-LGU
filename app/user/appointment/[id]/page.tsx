@@ -188,6 +188,7 @@ export default function AppointmentDetailsPage() {
             case "FOR_PROCESSING": return { color: "text-white bg-blue-500 border-transparent", label: "IN PROCESSING", icon: Activity };
             case "FOR_CLAIM": return { color: "text-white bg-amber-500 border-transparent", label: "READY FOR CLAIMING", icon: UserCheck };
             case "RELEASED": return { color: "text-white bg-emerald-600 border-transparent", label: "COMPLETED & RELEASED", icon: CheckCircle2 };
+            case "UNPAID": return { color: "text-white bg-amber-500 border-transparent", label: "FOR PAYMENT", icon: DollarSign };
             case "REJECTED": return { color: "text-red-500 bg-red-500/10 border-red-500/20", label: "DECLINED", icon: X };
             default: return { color: "text-white bg-primary border-transparent", label: status.replace("_", " "), icon: Clock };
         }
@@ -355,25 +356,18 @@ export default function AppointmentDetailsPage() {
                                             ? "Your booking is currently queued. Please wait for the municipal assessor/evaluation team to approve."
                                             : request.status === "PAID"
                                             ? "Payment received! Please proceed to the Municipal Office on your scheduled date to claim your document."
-                                            : "Your booking status has changed. Please read any evaluation comments below."
+                                            : request.status === "RELEASED"
+                                            ? "Thank you for transacting with the Municipality of Mapandan! Your requested document has been successfully released. We are glad to have served you."
+                                            : request.status === "UNPAID"
+                                            ? "Your application has been assessed and is now ready for payment. Please proceed to the Treasury Department at the Municipal Hall to settle your fees."
+                                            : null
                                         }
                                     </p>
                                 </div>
                             </div>
                         )}
 
-                        {/* Rejection / Evaluation Remarks */}
-                        {request.rejectionRemarks && (
-                            <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 p-5 rounded-2xl space-y-2">
-                                <div className="flex items-center gap-2 text-red-600">
-                                    <AlertTriangle className="w-4.5 h-4.5" />
-                                    <h5 className="font-black text-xs uppercase tracking-widest italic">Office Evaluation Notes</h5>
-                                </div>
-                                <p className="text-xs font-semibold text-red-800 dark:text-red-300 leading-relaxed">
-                                    {request.rejectionRemarks}
-                                </p>
-                            </div>
-                        )}
+
 
                         {/* Details Card */}
                         <Card className="border border-slate-200 dark:border-white/10 rounded-2xl md:rounded-3xl p-5 md:p-8 space-y-6">

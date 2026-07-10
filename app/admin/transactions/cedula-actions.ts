@@ -601,11 +601,83 @@ export async function getTreasuryTransactions(params?: string | {
             }
         }
 
-        where.NOT = [
+        const lcrUnionFilter = {
+            OR: [
+                { type: { category: "Civil Registry" } },
+                { type: { code: { startsWith: "LCR_" } } },
+                { type: { code: { startsWith: "CIVIL_REGISTRY" } } }
+            ]
+        };
+
+        const bpBuildingFilter = {
+            OR: [
+                { type: { code: { startsWith: "BUILDING_PERMIT" } } },
+                { type: { name: { contains: "BUILDING PERMIT", mode: "insensitive" } } }
+            ]
+        };
+
+        const bpBusinessFilter = {
+            OR: [
+                { type: { code: { startsWith: "BUSINESS_PERMIT" } } },
+                { type: { name: { contains: "BUSINESS PERMIT", mode: "insensitive" } } }
+            ]
+        };
+
+        where.AND = [
             {
-                AND: [
-                    { type: { code: { startsWith: "BUSINESS_PERMIT" } } },
-                    { status: { in: ["FOR_INSPECTION", "FOR_REINSPECTION"] } }
+                NOT: [
+                    {
+                        AND: [
+                            { type: { code: { startsWith: "BUSINESS_PERMIT" } } },
+                            { status: { in: ["FOR_INSPECTION", "FOR_REINSPECTION"] } }
+                        ]
+                    }
+                ]
+            },
+            // Civil Registry Conditions
+            {
+                OR: [
+                    { NOT: lcrUnionFilter },
+                    {
+                        AND: [
+                            lcrUnionFilter,
+                            {
+                                OR: [
+                                    { status: { in: ["FOR_REQUESTING", "PAID", "UNPAID"] } },
+                                    {
+                                        AND: [
+                                            { type: { code: { in: ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"] } } },
+                                            { status: { in: ["FOR_CLAIM", "FOR_PICKING"] } }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            // Building Permit Conditions
+            {
+                OR: [
+                    { NOT: bpBuildingFilter },
+                    {
+                        AND: [
+                            bpBuildingFilter,
+                            { status: { in: ["EVALUATED", "UNPAID", "PAID", "REJECTED"] } }
+                        ]
+                    }
+                ]
+            },
+            // Business Permit Conditions
+            {
+                OR: [
+                    { NOT: bpBusinessFilter },
+                    {
+                        AND: [
+                            bpBusinessFilter,
+                            { status: { in: ["FOR_REQUESTING", "EVALUATED", "PAID", "UNPAID"] } }
+                        ]
+                    }
                 ]
             }
         ];
@@ -638,6 +710,16 @@ export async function getTreasuryTransactions(params?: string | {
                 { id: { contains: cleanSearch, mode: "insensitive" } },
                 { businessName: { contains: cleanSearch, mode: "insensitive" } },
                 {
+                    user: {
+                        residentProfile: {
+                            OR: [
+                                { firstName: { contains: cleanSearch, mode: "insensitive" } },
+                                { lastName: { contains: cleanSearch, mode: "insensitive" } }
+                            ]
+                        }
+                    }
+                },
+                {
                     residentSnapshot: {
                         path: ["firstName"],
                         string_contains: cleanSearch
@@ -645,8 +727,32 @@ export async function getTreasuryTransactions(params?: string | {
                 },
                 {
                     residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch.toUpperCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch.toLowerCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
                         path: ["lastName"],
                         string_contains: cleanSearch
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch.toUpperCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch.toLowerCase()
                     }
                 }
             ];

@@ -435,6 +435,7 @@ export default function QueueClient({
             {!hasInteracted && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 backdrop-blur-md select-none p-4">
                     <motion.button
+                        autoFocus
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         onClick={handleEnableVoice}

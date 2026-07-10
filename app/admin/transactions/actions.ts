@@ -2071,6 +2071,16 @@ export async function getBploTransactions(params?: string | {
                 { id: { contains: cleanSearch, mode: "insensitive" } },
                 { businessName: { contains: cleanSearch, mode: "insensitive" } },
                 {
+                    user: {
+                        residentProfile: {
+                            OR: [
+                                { firstName: { contains: cleanSearch, mode: "insensitive" } },
+                                { lastName: { contains: cleanSearch, mode: "insensitive" } }
+                            ]
+                        }
+                    }
+                },
+                {
                     residentSnapshot: {
                         path: ["firstName"],
                         string_contains: cleanSearch
@@ -2078,8 +2088,32 @@ export async function getBploTransactions(params?: string | {
                 },
                 {
                     residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch.toUpperCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch.toLowerCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
                         path: ["lastName"],
                         string_contains: cleanSearch
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch.toUpperCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch.toLowerCase()
                     }
                 }
             ];

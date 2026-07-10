@@ -129,11 +129,20 @@ export default function TreasuryDashboard() {
     const [serviceTypes, setServiceTypes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [sortBy, setSortBy] = useState<"date" | "service">("date");
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
     const [serviceFilter, setServiceFilter] = useState<string | null>(null);
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 300);
+        return () => clearTimeout(handler);
+    }, [search]);
     const [serviceSearch, setServiceSearch] = useState("");
 
     // Listen to query param category filter changes
@@ -180,12 +189,21 @@ export default function TreasuryDashboard() {
     const fetchTransactions = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
-            const res = await getTreasuryTransactions(status);
+            const res = await getTreasuryTransactions({
+                status,
+                page: currentPage,
+                limit: itemsPerPage,
+                search: debouncedSearch,
+                category: categoryParam || undefined,
+                serviceFilter: serviceFilter
+            });
             if (res.success) {
                 setTransactions(res.data || []);
+                setTotalCount(res.totalCount || 0);
             } else {
                 console.error("[TreasuryDashboard] getTreasuryTransactions failed:", res.error);
                 setTransactions([]);
+                setTotalCount(0);
                 toast.error(res.error || "Failed to load transactions. Check your permissions.");
             }
             await getPendingTreasuryCount();
@@ -195,7 +213,7 @@ export default function TreasuryDashboard() {
         } finally {
             if (!silent) setLoading(false);
         }
-    }, [status]);
+    }, [status, currentPage, itemsPerPage, debouncedSearch, categoryParam, serviceFilter]);
 
     useEffect(() => {
         fetchTransactions();
@@ -282,124 +300,25 @@ export default function TreasuryDashboard() {
             setCurrentPage(1);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [search, status, itemsPerPage]);
+    }, [debouncedSearch, status, serviceFilter, categoryParam, itemsPerPage]);
 
-    const filteredTransactions = transactions.filter(tx => {
-        const rs = getResidentSnapshot(tx);
-        const name = `${rs.firstName || ''} ${rs.lastName || ''}`.trim().toLowerCase();
-        const refId = tx.id.slice(-8).toUpperCase();
-        const searchUpper = search.toUpperCase();
-
-        const matchesSearch = name.includes(search.toLowerCase()) ||
-            tx.id.toLowerCase().includes(search.toLowerCase()) ||
-            refId.includes(searchUpper);
-
-        // Category filter: match url category parameter if set
-        const matchesCategory = !categoryParam || categoryParam === "ALL" || tx.type?.category === categoryParam;
-
-        // Specific service name filter: match selected service from dropdown if set
-        let matchesService = !serviceFilter || serviceFilter === "ALL";
-        if (!matchesService && serviceFilter) {
-            const isStudentCedula = tx.isStudent === true && (tx.typeId === "cmpgkxwyz0011vpjk2arznkmt" || tx.type?.id === "cmpgkxwyz0011vpjk2arznkmt");
-            if (serviceFilter === "Student") {
-                matchesService = isStudentCedula;
+    const sortedTransactions = useMemo(() => {
+        return [...transactions].sort((a, b) => {
+            if (sortBy === "service") {
+                const serviceA = (a.type?.name || "").toLowerCase();
+                const serviceB = (b.type?.name || "").toLowerCase();
+                return sortDirection === "asc"
+                    ? serviceA.localeCompare(serviceB)
+                    : serviceB.localeCompare(serviceA);
             } else {
-                matchesService = tx.type?.name === serviceFilter && !isStudentCedula;
+                const dateA = new Date(a.updatedAt).getTime();
+                const dateB = new Date(b.updatedAt).getTime();
+                return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
             }
-        }
+        });
+    }, [transactions, sortBy, sortDirection]);
 
-        // For LCR Certified Copy / LCR Registration evaluation phases, only the Registrar department should see it
-        const isLcrBirthCertifiedCopy = tx.type?.code === "LCR_BIRTH" || tx.type?.code === "LCR_DEATH" || tx.type?.code === "LCR_MARRIAGE" || (tx.type?.name && (tx.type.name.includes("Birth Certificate") || tx.type.name.includes("Death Certificate") || tx.type.name.includes("Marriage Certificate"))) || false;
-        const isLcrBirthRegistration = tx.type?.code === "LCR_BIRTH_REG" || tx.type?.code === "LCR_DEATH_REG" || tx.type?.code === "LCR_MARRIAGE_REG" || tx.type?.code === "LCR_MARRIAGE_LICENSE" || (tx.type?.name && (tx.type.name.includes("Registration") || tx.type.name.includes("License"))) || false;
-        const isCivilRegistry = tx.type?.category === "Civil Registry" || tx.type?.code?.startsWith("LCR_") || tx.type?.code?.startsWith("CIVIL_REGISTRY") || isLcrBirthCertifiedCopy || isLcrBirthRegistration;
-        if (isCivilRegistry && ["FOR_REQUESTING", "EVALUATED", "FOR_PROCESSING"].includes(tx.status)) {
-            const isRegistrar = userRole === "REGISTRAR" || userDepartment?.toUpperCase() === "REGISTRAR";
-            if (!isRegistrar) {
-                // If Civil Registry category is active, Treasury needs to see FOR_REQUESTING (but NOT EVALUATED)
-                if (categoryParam === "Civil Registry" && ["FOR_REQUESTING"].includes(tx.status)) {
-                    // allow
-                } else {
-                    return false;
-                }
-            }
-        }
-
-        // PSA Appointment Endorsements in FOR_CLAIM/FOR_PICKING are for Treasury counter payment — always allow
-        // const isPsaApptEndorsement = [
-        //     "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-        //     "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-        //     "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
-        // ].includes(tx.type?.code || "");
-        // (no filter block needed here — handled below in categoryParam check)
-
-        // During the verify & issue O.R. phase (PAID/PENDING_PAYMENT_VERIFICATION), the Registrar department cannot see it yet
-        if (isLcrBirthCertifiedCopy && ["PAID", "PENDING_PAYMENT_VERIFICATION"].includes(tx.status)) {
-            const isRegistrar = userRole === "REGISTRAR" || userDepartment?.toUpperCase() === "REGISTRAR";
-            if (isRegistrar) {
-                return false;
-            }
-        }
-
-        // For the Birth Certificate (Certified Copy) only, if the status is FOR_PROCESSING, do not display it in treasury
-        if (isLcrBirthCertifiedCopy && tx.status === "FOR_PROCESSING") {
-            return false;
-        }
-
-        // For Building Permits, Treasury only needs to see EVALUATED, UNPAID, PAID, and REJECTED
-        const isBuildingPermitTx = tx.type?.code?.startsWith("BUILDING_PERMIT") || tx.type?.name?.toUpperCase().includes("BUILDING PERMIT");
-        if (isBuildingPermitTx) {
-            const allowedStatuses = ["EVALUATED", "UNPAID", "PAID", "REJECTED"];
-            if (!allowedStatuses.includes(tx.status)) {
-                return false;
-            }
-        }
-
-        // For Civil Registry, Treasury only needs to see FOR_REQUESTING, PAID, and UNPAID when active (EVALUATED is hidden)
-        // Exception: PSA Appointment Endorsements in FOR_CLAIM or FOR_PICKING need to be visible to Treasury for counter payment
-        if (categoryParam === "Civil Registry") {
-            const isPsaAppointmentTx = [
-                "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-                "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-                "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
-            ].includes(tx.type?.code || "");
-            const allowedStatuses = isPsaAppointmentTx
-                ? ["FOR_REQUESTING", "PAID", "UNPAID", "FOR_CLAIM", "FOR_PICKING"]
-                : ["FOR_REQUESTING", "PAID", "UNPAID"];
-            if (!allowedStatuses.includes(tx.status)) {
-                return false;
-            }
-        }
-
-        // For Business Permit, Treasury only needs to see FOR_REQUESTING, EVALUATED, PAID, and UNPAID when they are active
-        if (categoryParam === "Business Permit") {
-            const allowedStatuses = ["FOR_REQUESTING", "EVALUATED", "PAID", "UNPAID"];
-            if (!allowedStatuses.includes(tx.status)) {
-                return false;
-            }
-        }
-
-        return matchesSearch && matchesCategory && matchesService;
-    });
-
-    const sortedTransactions = [...filteredTransactions].sort((a, b) => {
-        if (sortBy === "service") {
-            const serviceA = (a.type?.name || "").toLowerCase();
-            const serviceB = (b.type?.name || "").toLowerCase();
-            return sortDirection === "asc"
-                ? serviceA.localeCompare(serviceB)
-                : serviceB.localeCompare(serviceA);
-        } else {
-            const dateA = new Date(a.updatedAt).getTime();
-            const dateB = new Date(b.updatedAt).getTime();
-            return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
-        }
-    });
-
-    const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
-    const paginatedTransactions = sortedTransactions.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
-    );
+    const totalPages = Math.ceil(totalCount / itemsPerPage);
 
     // Resets any dynamic service filtering when explicit date sorting is toggled
     const handleDateHeaderClick = () => {
@@ -557,8 +476,8 @@ export default function TreasuryDashboard() {
                                                     <TableCell colSpan={7} className="h-20 text-center"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded mx-8" /></TableCell>
                                                 </TableRow>
                                             ))
-                                        ) : paginatedTransactions.length > 0 ? (
-                                            paginatedTransactions.map((tx, index) => (
+                                        ) : sortedTransactions.length > 0 ? (
+                                            sortedTransactions.map((tx, index) => (
                                                 <TableRow
                                                     key={tx.id}
                                                     onClick={() => router.push(`/admin/treasury/${tx.id}?category=${categoryParam || "CEDULA"}`)}
@@ -698,7 +617,7 @@ export default function TreasuryDashboard() {
                                 </div>
                                 <div className="flex items-center space-x-4">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                                        Showing {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
+                                        Showing {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount}
                                     </span>
                                     <div className="flex items-center gap-2">
                                         <Button
