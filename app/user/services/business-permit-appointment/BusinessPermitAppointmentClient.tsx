@@ -166,6 +166,7 @@ interface BusinessPermitAppointmentClientProps {
     bookedSlots: { appointmentDate: Date; appointmentSlot: string }[];
     hasActiveNew: boolean;
     hasActiveRenew: boolean;
+    previousPermits: any[];
 }
 
 export function BusinessPermitAppointmentClient({
@@ -175,7 +176,8 @@ export function BusinessPermitAppointmentClient({
     config,
     bookedSlots,
     hasActiveNew,
-    hasActiveRenew
+    hasActiveRenew,
+    previousPermits
 }: BusinessPermitAppointmentClientProps) {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<Step>("PATHWAY");
@@ -184,6 +186,8 @@ export function BusinessPermitAppointmentClient({
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
     const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
     const [isPriorityLane, setIsPriorityLane] = useState(false);
+    const [showRenewalModal, setShowRenewalModal] = useState(false);
+    const [selectedPermitIndex, setSelectedPermitIndex] = useState(0);
 
     const [isOtherLine, setIsOtherLine] = useState(false);
 
@@ -247,6 +251,64 @@ export function BusinessPermitAppointmentClient({
             setIsOtherLine(false);
             handleInputChange("lineOfBusiness", val);
         }
+    };
+
+    const handleSelectPreviousPermit = () => {
+        const targetPermit = previousPermits[selectedPermitIndex];
+        if (!targetPermit) return;
+        const addData = targetPermit.additionalData || {};
+
+        setFormState(prev => ({
+            ...prev,
+            businessName: addData.businessName || "",
+            tradeName: addData.tradeName || "",
+            orgType: addData.orgType || "SOLE_PROPRIETORSHIP",
+            dtiSecNumber: addData.dtiSecNumber || "",
+            permitNumber: targetPermit.businessPermit?.permitNumber || addData.permitNumber || targetPermit.id.slice(-8).toUpperCase(),
+            lineOfBusiness: addData.lineOfBusiness || "",
+            barangay: addData.barangay || prev.barangay,
+            street: addData.street || "",
+            building: addData.building || "",
+            employeeCount: addData.employeeCount ? addData.employeeCount.toString() : "0",
+            businessArea: addData.businessArea ? addData.businessArea.toString() : "",
+            tinNumber: addData.tinNumber || "",
+            philhealthNumber: addData.philhealthNumber || "",
+            pagibigNumber: addData.pagibigNumber || "",
+            sssNumber: addData.sssNumber || "",
+            businessBranch: addData.businessBranch === "BRANCH" ? "BRANCH" : "MAIN",
+            registrationType: addData.registrationType === "SEC" ? "SEC" : addData.registrationType === "COA" ? "COA" : "DTI",
+            dtiSecDate: addData.dtiSecDate || "",
+        }));
+
+        setShowRenewalModal(false);
+        toast.success(`Business details auto-filled for ${addData.businessName || "selected business"}!`);
+    };
+
+    const handleDeclinePreviousPermit = () => {
+        setFormState(prev => ({
+            ...prev,
+            businessName: "",
+            tradeName: "",
+            orgType: "SOLE_PROPRIETORSHIP",
+            dtiSecNumber: "",
+            permitNumber: "",
+            lineOfBusiness: "",
+            barangay: prev.barangay,
+            street: "",
+            building: "",
+            capitalInvestment: "",
+            grossSales: "",
+            employeeCount: "0",
+            businessArea: "",
+            tinNumber: "",
+            philhealthNumber: "",
+            pagibigNumber: "",
+            sssNumber: "",
+            businessBranch: "MAIN",
+            registrationType: "DTI",
+            dtiSecDate: "",
+        }));
+        setShowRenewalModal(false);
     };
 
     // Appointment Schedule State
@@ -580,7 +642,12 @@ export function BusinessPermitAppointmentClient({
                                         return (
                                             <button
                                                 key={opt.id}
-                                                onClick={() => setBusinessType(opt.id as any)}
+                                                onClick={() => {
+                                                    setBusinessType(opt.id as any);
+                                                    if (opt.id === "RENEWAL" && previousPermits.length > 0) {
+                                                        setShowRenewalModal(true);
+                                                    }
+                                                }}
                                                 className={cn(
                                                     "p-6 md:p-10 rounded-2xl md:rounded-[3rem] border-2 md:border-4 transition-all duration-500 text-left relative group select-none overflow-hidden h-[240px] md:h-[300px] flex flex-col justify-between",
                                                     isSelected ? "bg-primary text-white border-primary shadow-2xl scale-[1.02]" : "bg-white/40 dark:bg-white/5 backdrop-blur-md border-slate-100 dark:border-white/10 hover:border-primary/30"
@@ -1311,6 +1378,165 @@ export function BusinessPermitAppointmentClient({
                 </AnimatePresence>
                 </div>
             </div>
+
+            {/* RENEWAL AUTOFILL CONFIRMATION MODAL */}
+            <AnimatePresence>
+                {showRenewalModal && previousPermits.length > 0 && (
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                        {/* Glass backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowRenewalModal(false)}
+                            className="absolute inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md"
+                        />
+
+                        {/* Modal card */}
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            transition={{ type: "spring", duration: 0.5 }}
+                            className="bg-white dark:bg-[#11131a] rounded-[2rem] border border-slate-200 dark:border-white/10 shadow-2xl p-6 md:p-8 max-w-lg w-full relative z-10 space-y-6 overflow-hidden"
+                        >
+                            {/* Decorative background gradient */}
+                            <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+
+                            <div className="flex items-start gap-4">
+                                <div className="p-3 bg-primary/10 rounded-2xl text-primary shrink-0" style={{ color: themeColor, backgroundColor: `${themeColor}1a` }}>
+                                    <Building2 className="w-6 h-6 animate-pulse" />
+                                </div>
+                                <div className="space-y-1 text-left">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-primary italic" style={{ color: themeColor }}>Record Detected</span>
+                                    <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
+                                        {previousPermits.length > 1 ? "Renew Which Business?" : "Renew Previous Business?"}
+                                    </h3>
+                                    <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wide italic">
+                                        {previousPermits.length > 1
+                                            ? "Select which of your registered businesses to renew!"
+                                            : "We found your last successful business permit record!"}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Card showing previous business details or list of businesses */}
+                            {previousPermits.length === 1 ? (
+                                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 space-y-4 text-left">
+                                    <div className="grid grid-cols-2 gap-y-3 gap-x-4">
+                                        <div className="col-span-2 space-y-0.5">
+                                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Business Name</span>
+                                            <span className="text-sm font-black text-slate-800 dark:text-white uppercase italic truncate block">
+                                                {previousPermits[0].additionalData?.businessName || "N/A"}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Trade Name</span>
+                                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase italic truncate block">
+                                                {previousPermits[0].additionalData?.tradeName || "N/A"}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Permit License No.</span>
+                                            <span className="text-xs font-mono font-bold text-primary block" style={{ color: themeColor }}>
+                                                {previousPermits[0].businessPermit?.permitNumber || previousPermits[0].additionalData?.permitNumber || previousPermits[0].id.slice(-8).toUpperCase()}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Barangay</span>
+                                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 block">
+                                                {previousPermits[0].additionalData?.barangay || "N/A"}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">Line of Business</span>
+                                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 block truncate font-sans">
+                                                {previousPermits[0].additionalData?.lineOfBusiness || "N/A"}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl flex items-center gap-2.5" style={{ borderColor: `${themeColor}33`, backgroundColor: `${themeColor}1a` }}>
+                                        <p className="text-[9px] text-primary font-bold uppercase tracking-wider leading-relaxed" style={{ color: themeColor }}>
+                                            Selecting yes autofills details to guarantee municipal compliance.
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-4 text-left">
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block px-1">Choose Business to Renew</span>
+                                    <div className="max-h-[260px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
+                                        {previousPermits.map((permit, idx) => {
+                                            const addData = permit.additionalData || {};
+                                            const isSelected = selectedPermitIndex === idx;
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={permit.id}
+                                                    onClick={() => setSelectedPermitIndex(idx)}
+                                                    className={cn(
+                                                        "w-full p-4 rounded-2xl border-2 text-left transition-all duration-300 relative overflow-hidden group select-none flex flex-col gap-1.5",
+                                                        isSelected
+                                                            ? "bg-primary/[0.04] dark:bg-primary/[0.02] border-primary shadow-md"
+                                                            : "bg-slate-50 dark:bg-white/[0.01] border-slate-100 dark:border-white/5 hover:border-slate-200 dark:hover:border-white/10"
+                                                    )}
+                                                    style={isSelected ? { borderColor: themeColor, backgroundColor: `${themeColor}0a` } : {}}
+                                                >
+                                                    <div className="flex justify-between items-start gap-2">
+                                                        <span className={cn("text-xs font-black uppercase italic truncate", isSelected ? "text-primary" : "text-slate-800 dark:text-white")} style={isSelected ? { color: themeColor } : {}}>
+                                                            {addData.businessName || "N/A"}
+                                                        </span>
+                                                        {isSelected && (
+                                                            <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center text-white shrink-0" style={{ backgroundColor: themeColor }}>
+                                                                <Check className="w-2.5 h-2.5 stroke-[4]" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-x-2 text-[9px] font-bold text-slate-400 uppercase tracking-wide">
+                                                        <div>
+                                                            <span className="text-[7px] text-slate-400 block">Trade Name</span>
+                                                            <span className="text-slate-600 dark:text-slate-300 truncate block">{addData.tradeName || "N/A"}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-[7px] text-slate-400 block">License Permit No.</span>
+                                                            <span className="text-primary font-mono truncate block" style={{ color: themeColor }}>{permit.businessPermit?.permitNumber || addData.permitNumber || permit.id.slice(-8).toUpperCase()}</span>
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl flex items-center gap-2.5" style={{ borderColor: `${themeColor}33`, backgroundColor: `${themeColor}1a` }}>
+                                        <p className="text-[9px] text-primary font-bold uppercase tracking-wider leading-relaxed" style={{ color: themeColor }}>
+                                            Selecting yes autofills details to guarantee municipal compliance.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Buttons */}
+                            <div className="grid grid-cols-2 gap-3 pt-2">
+                                <Button
+                                    type="button"
+                                    onClick={handleDeclinePreviousPermit}
+                                    variant="outline"
+                                    className="rounded-full py-6 font-black uppercase tracking-widest text-[10px] border-slate-200 hover:bg-slate-50 transition-all"
+                                >
+                                    No, Register Different
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={handleSelectPreviousPermit}
+                                    className="rounded-full py-6 font-black uppercase tracking-widest text-[10px] text-white bg-primary hover:opacity-90 shadow-lg shadow-primary/20 transition-all"
+                                    style={{ backgroundColor: themeColor }}
+                                >
+                                    Yes, Autofill Details
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
 
             <PrivacyTermsModal
                 isOpen={isPrivacyModalOpen}

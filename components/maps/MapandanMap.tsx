@@ -80,7 +80,7 @@ function MapContent({
                         type: "geojson",
                         data: boundaryGeoJson as any
                     });
-                    
+
                     // Fill Layer for inner color
                     map.addLayer({
                         id: "boundary-fill",
@@ -114,15 +114,16 @@ function MapContent({
         }
 
         return () => {
-            try {
-                if (!map.isStyleLoaded()) return;
-                if (map.getLayer("boundary-stroke")) map.removeLayer("boundary-stroke");
-                if (map.getLayer("boundary-fill")) map.removeLayer("boundary-fill");
-                if (map.getSource("boundary")) map.removeSource("boundary");
-                if (map.getLayer("mask-layer")) map.removeLayer("mask-layer");
-                if (map.getSource("mask")) map.removeSource("mask");
-            } catch {
-                // Map was destroyed before cleanup ran — safe to ignore
+            if (map && (map as any).style) {
+                try {
+                    if (map.getLayer("boundary-stroke")) map.removeLayer("boundary-stroke");
+                    if (map.getLayer("boundary-fill")) map.removeLayer("boundary-fill");
+                    if (map.getSource("boundary")) map.removeSource("boundary");
+                    if (map.getLayer("mask-layer")) map.removeLayer("mask-layer");
+                    if (map.getSource("mask")) map.removeSource("mask");
+                } catch (e) {
+                    console.warn("Map cleanup skipped:", e);
+                }
             }
         };
     }, [map, isLoaded, boundaryGeoJson, maskedGeoJson]);
@@ -147,7 +148,7 @@ function MapContent({
 
         const onError = (error: GeolocationPositionError) => {
             console.warn(`Primary geolocation failed (Code ${error.code}): ${error.message}. Retrying with low accuracy...`);
-            
+
             // Fallback to low accuracy
             navigator.geolocation.getCurrentPosition(
                 onSuccess,

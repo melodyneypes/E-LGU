@@ -86,10 +86,19 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
 
         // Partition serving tickets
         const servingTxs = allTxs.filter(tx => {
-            if (tx.status === "FOR_PROCESSING") return true;
             const category = tx.type?.category || "";
-            const code = tx.type?.code || "";
-            if (category === "Business Permit" || code.startsWith("BUSINESS_PERMIT")) {
+            const additionalData = tx.additionalData as any;
+            const hasCounter = additionalData && typeof additionalData.counterName === "string" && additionalData.counterName.trim() !== "";
+
+            if (tx.status === "FOR_PROCESSING") {
+                if (category === "Business Permit") {
+                    // For Business Permits (BPLO), background processing (FOR_PROCESSING without counter) should not show on queue TV
+                    return hasCounter;
+                }
+                return true;
+            }
+
+            if (category === "Business Permit") {
                 const allowedBploServing = ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM"];
                 if (allowedBploServing.includes(tx.status)) {
                     const additionalData = tx.additionalData as any;

@@ -88,6 +88,37 @@ export default async function BusinessPermitAppointmentPage() {
         }
     });
 
+    // Fetch successful business permits for autofill
+    const previousPermitsRaw = await prisma.transaction.findMany({
+        where: {
+            userId: session.user.id,
+            status: {
+                in: ["DELIVERED", "RELEASED"]
+            },
+            type: {
+                code: {
+                    in: ["BUSINESS_PERMIT_NEW", "BUSINESS_PERMIT_RENEW"]
+                }
+            }
+        },
+        include: {
+            type: true,
+            businessPermit: true
+        },
+        orderBy: {
+            createdAt: "desc"
+        }
+    });
+
+    const uniqueBusinessesMap: Record<string, any> = {};
+    previousPermitsRaw.forEach((tx: any) => {
+        const bizName = tx.additionalData?.businessName?.trim().toUpperCase();
+        if (bizName && !uniqueBusinessesMap[bizName]) {
+            uniqueBusinessesMap[bizName] = tx;
+        }
+    });
+    const previousPermits = Object.values(uniqueBusinessesMap);
+
     return (
         <BusinessPermitAppointmentClient
             resident={userWithResident?.residentProfile || null}
@@ -98,6 +129,7 @@ export default async function BusinessPermitAppointmentPage() {
             bookedSlots={bookedSlots as any[]}
             hasActiveNew={!!activeNew}
             hasActiveRenew={!!activeRenew}
+            previousPermits={previousPermits}
         />
     );
 }
