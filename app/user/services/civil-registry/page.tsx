@@ -269,6 +269,41 @@ export default function CivilRegistryPage() {
         return false;
     }, [resident]);
 
+    const sectionsToRender = React.useMemo(() => {
+        if (!activeCodes) return [];
+
+        const activeItems = REGISTRY_TYPES.filter(type => activeCodes.has(type.code));
+        const appointmentIds = ["PSA_APPOINTMENT_ENDORSEMENT", "DEATH_PSA_APPOINTMENT_ENDORSEMENT", "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"];
+        const activeAppointments = activeItems.filter(type => appointmentIds.includes(type.id));
+        const activeNonAppointments = activeItems.filter(type => !appointmentIds.includes(type.id));
+
+        if (activeNonAppointments.length === 0 && activeAppointments.length > 0) {
+            // Only appointments are active, render them in a single row
+            return [
+                {
+                    title: "PSA Appointment Endorsements",
+                    subtitle: "Schedule appointments for PSA Endorsement of your civil registry records",
+                    items: activeAppointments
+                }
+            ];
+        }
+
+        // Default layout: Grouped by Birth, Death, Marriage
+        return REGISTRY_SECTIONS.map((section) => {
+            const sectionItems = section.items
+                .map(id => REGISTRY_TYPES.find(t => t.id === id))
+                .filter(Boolean) as typeof REGISTRY_TYPES;
+
+            const activeSectionItems = sectionItems.filter(type => activeCodes.has(type.code));
+
+            return {
+                title: section.title,
+                subtitle: section.subtitle,
+                items: activeSectionItems
+            };
+        }).filter(section => section.items.length > 0);
+    }, [activeCodes]);
+
     return (
         <div className="container max-w-5xl mx-auto px-4 pt-0 pb-32 space-y-12">
             <style dangerouslySetInnerHTML={{
@@ -386,16 +421,7 @@ export default function CivilRegistryPage() {
                                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" style={{ borderColor: themeColor }} />
                             </div>
                         ) : (
-                            REGISTRY_SECTIONS.map((section) => {
-                                const sectionItems = section.items
-                                    .map(id => REGISTRY_TYPES.find(t => t.id === id))
-                                    .filter(Boolean) as typeof REGISTRY_TYPES;
-
-                                // Filter out inactive services
-                                const activeItems = sectionItems.filter(type => activeCodes.has(type.code));
-
-                                if (activeItems.length === 0) return null;
-
+                            sectionsToRender.map((section) => {
                                 return (
                                     <div key={section.title} className="space-y-6">
                                         {/* Section Header */}
@@ -413,7 +439,7 @@ export default function CivilRegistryPage() {
 
                                         {/* Cards Grid for Section */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                            {activeItems.map((type) => {
+                                            {section.items.map((type) => {
                                                 const Icon = type.icon;
                                                 const isMarriageService = type.id === "MARRIAGE" || type.id === "MARRIAGE_LICENSE";
                                                 const isBlockedForMinor = isMinor && isMarriageService;
