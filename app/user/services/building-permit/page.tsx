@@ -77,6 +77,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
+import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 import { getSecureUploadUrlAction } from "@/app/auth/actions";
 
 const STEPS = [
@@ -2031,244 +2032,45 @@ export default function BuildingPermitPage() {
                           <div className="flex flex-col md:flex-row gap-6">
                             {/* Front Side Upload */}
                             <div className="flex-1 flex flex-col gap-2">
-                              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Front Side <span className="text-red-500">*</span></label>
-                              <div className={cn("bg-white dark:bg-black/20 rounded-xl border border-dashed p-6 flex flex-col items-center justify-center text-center relative hover:bg-slate-50 dark:hover:bg-white/5 transition-colors overflow-hidden min-h-[160px]", (showValidationErrors && idChoice === "UPLOAD" && !formData.newIdFile && !selectedApplication?.additionalData?.documents?.newIdFile) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-300 dark:border-white/20")}>
-                                {(() => {
-                                  if (formData.newIdFile && formData.newIdFile.type.startsWith("image/")) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                        <img src={URL.createObjectURL(formData.newIdFile)} alt="Preview Front" className="w-full h-full object-contain" />
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.newIdFile); setViewerTitle("Government ID - Front"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Front
-                                          </button>
-                                          <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Front
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
-                                  } else if (isRevision && !formData.newIdFile && selectedApplication?.additionalData?.documents?.newIdFile && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(selectedApplication.additionalData.documents.newIdFile)) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                        <img src={selectedApplication.additionalData.documents.newIdFile} alt="Preview Front" className="w-full h-full object-contain" />
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.newIdFile); setViewerTitle("Government ID - Front"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Front
-                                          </button>
-                                          <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Front
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
-                                  } else if (formData.newIdFile) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                        <FileText className="w-10 h-10 text-primary mb-2" />
-                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">{formData.newIdFile.name}</p>
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.newIdFile); setViewerTitle("Government ID - Front"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Front
-                                          </button>
-                                          <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Front
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
-                                  } else if (isRevision && !formData.newIdFile && selectedApplication?.additionalData?.documents?.newIdFile) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                        <FileText className="w-10 h-10 text-primary mb-2" />
-                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">Government ID - Front</p>
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.newIdFile); setViewerTitle("Government ID - Front"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Front
-                                          </button>
-                                          <label htmlFor="upload-newIdFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Front
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
+                              <PremiumDocumentUpload
+                                label="Front Side"
+                                required={true}
+                                file={formData.newIdFile}
+                                existingUrl={selectedApplication?.additionalData?.documents?.newIdFile}
+                                onFileSelect={(file) => setFormData({ ...formData, newIdFile: file })}
+                                onView={() => {
+                                  if (formData.newIdFile) {
+                                    setViewerFile(formData.newIdFile);
+                                  } else if (selectedApplication?.additionalData?.documents?.newIdFile) {
+                                    setViewerUrl(selectedApplication.additionalData.documents.newIdFile);
                                   }
-                                  return (
-                                    <label htmlFor="upload-newIdFile" className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20">
-                                      <Upload className="w-6 h-6 text-slate-400 mb-1.5 pointer-events-none" />
-                                      <p className="text-xs font-medium text-slate-600 dark:text-slate-400 pointer-events-none px-2">
-                                        Upload Front Side
-                                      </p>
-                                    </label>
-                                  );
-                                })()}
-                                <input
-                                  id="upload-newIdFile"
-                                  type="file"
-                                  accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
-                                  className="hidden"
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      if (file.size > 5 * 1024 * 1024) {
-                                        toast.error("File size exceeds 5MB limit.");
-                                        e.target.value = "";
-                                        setFormData({ ...formData, newIdFile: null });
-                                        return;
-                                      }
-                                      let fileToProcess = file;
-                                      if (file.type.startsWith("image/")) {
-                                        try {
-                                          toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-                                          fileToProcess = await compressImage(file);
-                                          toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-                                        } catch (err) {
-                                          console.error("Compression error:", err);
-                                          toast.dismiss("image-compress-toast");
-                                        }
-                                      }
-                                      setFormData({ ...formData, newIdFile: fileToProcess });
-                                    }
-                                  }}
-                                />
-                              </div>
+                                  setViewerTitle("Government ID - Front");
+                                  setViewerOpen(true);
+                                }}
+                                error={showValidationErrors && idChoice === "UPLOAD" && !formData.newIdFile && !selectedApplication?.additionalData?.documents?.newIdFile}
+                                infoText="Upload Front Side (PDF/JPG/PNG)"
+                              />
                             </div>
 
                             {/* Back Side Upload (Optional) */}
                             <div className="flex-1 flex flex-col gap-2">
-                              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Back Side <span className="text-slate-400">(Optional)</span></label>
-                              <div className="bg-white dark:bg-black/20 rounded-xl border border-dashed border-slate-300 dark:border-white/20 p-6 flex flex-col items-center justify-center text-center relative hover:bg-slate-50 dark:hover:bg-white/5 transition-colors overflow-hidden min-h-[160px]">
-                                {(() => {
-                                  if (formData.newIdFileBack && formData.newIdFileBack.type.startsWith("image/")) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                        <img src={URL.createObjectURL(formData.newIdFileBack)} alt="Preview Back" className="w-full h-full object-contain" />
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.newIdFileBack); setViewerTitle("Government ID - Back"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Back
-                                          </button>
-                                          <label htmlFor="upload-newIdFileBack" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Back
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
-                                  } else if (isRevision && !formData.newIdFileBack && selectedApplication?.additionalData?.documents?.newIdFileBack && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(selectedApplication.additionalData.documents.newIdFileBack)) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                        <img src={selectedApplication.additionalData.documents.newIdFileBack} alt="Preview Back" className="w-full h-full object-contain" />
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.newIdFileBack); setViewerTitle("Government ID - Back"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Back
-                                          </button>
-                                          <label htmlFor="upload-newIdFileBack" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Back
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
-                                  } else if (formData.newIdFileBack) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                        <FileText className="w-10 h-10 text-primary mb-2" />
-                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">{formData.newIdFileBack.name}</p>
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.newIdFileBack); setViewerTitle("Government ID - Back"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Back
-                                          </button>
-                                          <label htmlFor="upload-newIdFileBack" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Back
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
-                                  } else if (isRevision && !formData.newIdFileBack && selectedApplication?.additionalData?.documents?.newIdFileBack) {
-                                    return (
-                                      <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                        <FileText className="w-10 h-10 text-primary mb-2" />
-                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">Government ID - Back</p>
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.newIdFileBack); setViewerTitle("Government ID - Back"); setViewerOpen(true); }}
-                                            className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                          >
-                                            Preview Back
-                                          </button>
-                                          <label htmlFor="upload-newIdFileBack" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                            Replace Back
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
+                              <PremiumDocumentUpload
+                                label="Back Side (Optional)"
+                                required={false}
+                                file={formData.newIdFileBack}
+                                existingUrl={selectedApplication?.additionalData?.documents?.newIdFileBack}
+                                onFileSelect={(file) => setFormData({ ...formData, newIdFileBack: file })}
+                                onView={() => {
+                                  if (formData.newIdFileBack) {
+                                    setViewerFile(formData.newIdFileBack);
+                                  } else if (selectedApplication?.additionalData?.documents?.newIdFileBack) {
+                                    setViewerUrl(selectedApplication.additionalData.documents.newIdFileBack);
                                   }
-                                  return (
-                                    <label htmlFor="upload-newIdFileBack" className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20">
-                                      <Upload className="w-6 h-6 text-slate-400 mb-1.5 pointer-events-none" />
-                                      <p className="text-xs font-medium text-slate-600 dark:text-slate-400 pointer-events-none px-2">
-                                        Upload Back Side
-                                      </p>
-                                    </label>
-                                  );
-                                })()}
-                                <input
-                                  id="upload-newIdFileBack"
-                                  type="file"
-                                  accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
-                                  className="hidden"
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      if (file.size > 5 * 1024 * 1024) {
-                                        toast.error("File size exceeds 5MB limit.");
-                                        e.target.value = "";
-                                        setFormData({ ...formData, newIdFileBack: null });
-                                        return;
-                                      }
-                                      let fileToProcess = file;
-                                      if (file.type.startsWith("image/")) {
-                                        try {
-                                          toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-                                          fileToProcess = await compressImage(file);
-                                          toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-                                        } catch (err) {
-                                          console.error("Compression error:", err);
-                                          toast.dismiss("image-compress-toast");
-                                        }
-                                      }
-                                      setFormData({ ...formData, newIdFileBack: fileToProcess });
-                                    }
-                                  }}
-                                />
-                              </div>
+                                  setViewerTitle("Government ID - Back");
+                                  setViewerOpen(true);
+                                }}
+                                infoText="Upload Back Side (PDF/JPG/PNG)"
+                              />
                             </div>
                           </div>
                         )}
@@ -2539,157 +2341,25 @@ export default function BuildingPermitPage() {
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                           b. Certified true copy of the TCT covering a lot on which the proposed work is to be done <span className="text-red-500 text-lg">*</span>
                         </label>
-                        {!isEditable ? (
-                          <div className="bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 p-6 flex flex-col items-center justify-center text-center relative overflow-hidden shadow-sm">
-                            {(() => {
-                              const url = selectedApplication.additionalData?.documents?.tctFile;
-                              if (!url) {
-                                return <p className="text-sm font-medium text-slate-500 italic">No TCT Document uploaded.</p>;
-                              }
-                              const isImage = /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(url);
-                              return (
-                                <div className="space-y-4 w-full flex flex-col items-center">
-                                  {isImage ? (
-                                    <img src={url} alt="TCT Document" className="max-h-48 object-contain rounded-lg border border-slate-200 dark:border-white/10" />
-                                  ) : (
-                                    <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-                                      <FileText className="w-8 h-8" />
-                                    </div>
-                                  )}
-                                  <p className="text-xs font-semibold text-slate-500">TCT Document is uploaded and verified</p>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setViewerUrl(url);
-                                      setViewerTitle("TCT Document");
-                                      setViewerOpen(true);
-                                    }}
-                                    className="inline-flex items-center gap-2 text-xs font-bold text-primary hover:underline"
-                                  >
-                                    View Full Document ↗
-                                  </button>
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        ) : (
-                          <div className={cn("bg-white dark:bg-black/20 rounded-xl border border-dashed p-8 flex flex-col items-center justify-center text-center relative hover:bg-slate-50 dark:hover:bg-white/5 transition-colors overflow-hidden", (showValidationErrors && !hasTctFile) ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-300 dark:border-white/20")}>
-                            {(() => {
-                              if (formData.tctFile && formData.tctFile.type.startsWith("image/")) {
-                                return (
-                                  <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                    <img src={URL.createObjectURL(formData.tctFile)} alt="Preview" className="w-full h-full object-contain" />
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.tctFile); setViewerTitle("TCT Document"); setViewerOpen(true); }}
-                                        className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                      >
-                                        Preview Image
-                                      </button>
-                                      <label htmlFor="upload-tctFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                        Replace Image
-                                      </label>
-                                    </div>
-                                  </div>
-                                );
-                              } else if (isRevision && !formData.tctFile && selectedApplication?.additionalData?.documents?.tctFile && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(selectedApplication.additionalData.documents.tctFile)) {
-                                return (
-                                  <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                    <img src={selectedApplication.additionalData.documents.tctFile} alt="Preview" className="w-full h-full object-contain" />
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.tctFile); setViewerTitle("TCT Document"); setViewerOpen(true); }}
-                                        className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                      >
-                                        Preview Image
-                                      </button>
-                                      <label htmlFor="upload-tctFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                        Replace Image
-                                      </label>
-                                    </div>
-                                  </div>
-                                );
-                              } else if (formData.tctFile) {
-                                return (
-                                  <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                    <FileText className="w-10 h-10 text-primary mb-2" />
-                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">{formData.tctFile.name}</p>
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerFile(formData.tctFile); setViewerTitle("TCT Document"); setViewerOpen(true); }}
-                                        className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                      >
-                                        Preview Document
-                                      </button>
-                                      <label htmlFor="upload-tctFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                        Replace Document
-                                      </label>
-                                    </div>
-                                  </div>
-                                );
-                              } else if (isRevision && !formData.tctFile && selectedApplication?.additionalData?.documents?.tctFile) {
-                                return (
-                                  <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                    <FileText className="w-10 h-10 text-primary mb-2" />
-                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">Existing Document</p>
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(selectedApplication.additionalData.documents.tctFile); setViewerTitle("TCT Document"); setViewerOpen(true); }}
-                                        className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                      >
-                                        Preview Document
-                                      </button>
-                                      <label htmlFor="upload-tctFile" className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                        Replace Document
-                                      </label>
-                                    </div>
-                                  </div>
-                                );
-                              }
-                              return (
-                                <label htmlFor="upload-tctFile" className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20">
-                                  <Upload className="w-8 h-8 text-slate-400 mb-2 pointer-events-none" />
-                                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400 pointer-events-none px-2">
-                                    Click to upload certified true copy of TCT (PDF/JPG/PNG)
-                                  </p>
-                                </label>
-                              );
-                            })()}
-                            <input
-                              id="upload-tctFile"
-                              type="file"
-                              accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
-                              className="hidden"
-                              onChange={async (e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  if (file.size > 5 * 1024 * 1024) {
-                                    toast.error("File size exceeds 5MB limit.");
-                                    e.target.value = "";
-                                    setFormData({ ...formData, tctFile: null });
-                                    return;
-                                  }
-                                  let fileToProcess = file;
-                                  if (file.type.startsWith("image/")) {
-                                    try {
-                                      toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-                                      fileToProcess = await compressImage(file);
-                                      toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-                                    } catch (err) {
-                                      console.error("Compression error:", err);
-                                      toast.dismiss("image-compress-toast");
-                                    }
-                                  }
-                                  setFormData({ ...formData, tctFile: fileToProcess });
-                                }
-                              }}
-                            />
-                          </div>
-                        )}
+                        <PremiumDocumentUpload
+                          label="Certified True Copy of TCT"
+                          required={true}
+                          file={formData.tctFile}
+                          existingUrl={selectedApplication?.additionalData?.documents?.tctFile}
+                          onFileSelect={(file) => setFormData({ ...formData, tctFile: file })}
+                          onView={() => {
+                            if (formData.tctFile) {
+                              setViewerFile(formData.tctFile);
+                            } else if (selectedApplication?.additionalData?.documents?.tctFile) {
+                              setViewerUrl(selectedApplication.additionalData.documents.tctFile);
+                            }
+                            setViewerTitle("TCT Document");
+                            setViewerOpen(true);
+                          }}
+                          error={showValidationErrors && !hasTctFile}
+                          infoText="Upload TCT Document (PDF/JPG/PNG)"
+                          disabled={!isEditable}
+                        />
                       </div>
 
                       <div>
@@ -3155,15 +2825,15 @@ export default function BuildingPermitPage() {
                   <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group", hasError ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
                     <div className="flex justify-between items-start gap-4 mb-4">
                       <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm min-w-0 flex-1">
-                        <span className="inline-flex items-center gap-1.5 flex-wrap">
-                          <span className="text-lg">📄</span>
+                        <div className="min-h-[40px] leading-tight">
+                          <span className="text-lg mr-1.5 align-bottom">📄</span>
                           <span className="break-words">{docName}</span>
                           {isRequired ? (
-                            <span className="text-red-500 ml-0.5 text-lg">*</span>
+                            <span className="text-red-500 ml-1 text-base align-top">*</span>
                           ) : (
-                            <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1">Optional</span>
+                            <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1 align-middle">Optional</span>
                           )}
-                        </span>
+                        </div>
                       </h4>
                       <div className="flex items-center gap-2 shrink-0">
                         {isUploaded ? (
@@ -3217,189 +2887,34 @@ export default function BuildingPermitPage() {
                       </div>
                     </div>
 
-                    {!isEditable ? (
-                      <div className="bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[140px] shadow-sm">
-                        {fileUrl ? (
-                          (() => {
-                            const isImage = /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(fileUrl);
-                            return (
-                              <div className="space-y-3 w-full flex flex-col items-center">
-                                {isImage ? (
-                                  <img src={fileUrl} alt={docName} className="max-h-24 object-contain rounded border border-slate-200 dark:border-white/10" />
-                                ) : (
-                                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-                                    <FileText className="w-5 h-5" />
-                                  </div>
-                                )}
-                                <p className="text-[10px] font-semibold text-slate-500">Document Uploaded</p>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setViewerUrl(fileUrl);
-                                    setViewerTitle(docName);
-                                    setViewerOpen(true);
-                                  }}
-                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:underline bg-transparent border-0 cursor-pointer"
-                                >
-                                  View Document ↗
-                                </button>
-                              </div>
-                            );
-                          })()
-                        ) : (
-                          <div className="text-center p-4">
-                            <FileWarning className="w-6 h-6 text-slate-400 mx-auto mb-2" />
-                            <p className="text-xs font-semibold text-slate-400 italic">Not Uploaded / Not Required</p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="bg-slate-50 dark:bg-black/20 rounded-xl border border-dashed border-slate-300 dark:border-white/20 p-6 flex flex-col items-center justify-center text-center relative hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer group-hover:border-primary/40 overflow-hidden min-h-[140px]">
-                        {(() => {
-                          const file = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
-                          if (file && file.type.startsWith("image/")) {
-                            return (
-                              <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-contain" />
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setViewerFile(file);
-                                      setViewerTitle(docName);
-                                      setViewerOpen(true);
-                                    }}
-                                    className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                  >
-                                    Preview Image
-                                  </button>
-                                  <label htmlFor={`upload-${activeDocTab}-${idx}`} className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                    Replace Image
-                                  </label>
-                                </div>
-                              </div>
-                            );
-                          } else if (isRevision && !file && fileUrl && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(fileUrl)) {
-                            return (
-                              <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 group/preview">
-                                <img src={fileUrl} alt="Preview" className="w-full h-full object-contain" />
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setViewerUrl(fileUrl);
-                                      setViewerTitle(docName);
-                                      setViewerOpen(true);
-                                    }}
-                                    className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                  >
-                                    Preview Image
-                                  </button>
-                                  <label htmlFor={`upload-${activeDocTab}-${idx}`} className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                    Replace Image
-                                  </label>
-                                </div>
-                              </div>
-                            );
-                          } else if (file) {
-                            return (
-                              <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                <FileText className="w-10 h-10 text-primary mb-2" />
-                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">{file.name}</p>
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setViewerFile(file);
-                                      setViewerTitle(docName);
-                                      setViewerOpen(true);
-                                    }}
-                                    className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                  >
-                                    Preview Document
-                                  </button>
-                                  <label htmlFor={`upload-${activeDocTab}-${idx}`} className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                    Replace Document
-                                  </label>
-                                </div>
-                              </div>
-                            );
-                          } else if (isRevision && !file && fileUrl) {
-                            return (
-                              <div className="w-full h-full absolute inset-0 z-0 bg-slate-100 dark:bg-black/40 flex flex-col justify-center items-center group/preview">
-                                <FileText className="w-10 h-10 text-primary mb-2" />
-                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[80%] truncate">Existing Document</p>
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/preview:opacity-100 transition-opacity flex flex-col justify-center items-center z-10 gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setViewerUrl(fileUrl);
-                                      setViewerTitle(docName);
-                                      setViewerOpen(true);
-                                    }}
-                                    className="px-4 py-1.5 bg-primary text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-primary/90"
-                                  >
-                                    Preview Document
-                                  </button>
-                                  <label htmlFor={`upload-${activeDocTab}-${idx}`} className="px-4 py-1.5 bg-slate-700 text-white text-[10px] uppercase font-bold rounded-full shadow-lg hover:bg-slate-600 cursor-pointer">
-                                    Replace Document
-                                  </label>
-                                </div>
-                              </div>
-                            );
+                    <div className="mt-2">
+                      <PremiumDocumentUpload
+                        label="Document File"
+                        required={isRequired}
+                        file={activeDocTab === "REQUIREMENTS" ? (uploadedRequirements[idx] || null) : (uploadedPermits[idx] || null)}
+                        existingUrl={fileUrl}
+                        onFileSelect={(file) => {
+                          if (activeDocTab === "REQUIREMENTS") {
+                            setUploadedRequirements(prev => ({ ...prev, [idx]: file }));
+                          } else {
+                            setUploadedPermits(prev => ({ ...prev, [idx]: file }));
                           }
-                          return (
-                            <label htmlFor={`upload-${activeDocTab}-${idx}`} className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20">
-                              <UploadCloud className="w-6 h-6 text-slate-400 mb-2 group-hover:text-primary transition-colors pointer-events-none" />
-                              <p className="text-xs font-medium text-slate-600 dark:text-slate-400 px-2 pointer-events-none">
-                                Click to upload document/image
-                              </p>
-                            </label>
-                          );
-                        })()}
-                        <input
-                          id={`upload-${activeDocTab}-${idx}`}
-                          type="file"
-                          accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              if (file.size > 5 * 1024 * 1024) {
-                                toast.error("File size exceeds 5MB limit.");
-                                e.target.value = "";
-                                return;
-                              }
-                              let fileToProcess = file;
-                              if (file.type.startsWith("image/")) {
-                                try {
-                                  toast.loading("Compressing and optimizing document...", { id: "image-compress-toast" });
-                                  fileToProcess = await compressImage(file);
-                                  toast.success("Image optimized successfully!", { id: "image-compress-toast" });
-                                } catch (err) {
-                                  console.error("Compression error:", err);
-                                  toast.dismiss("image-compress-toast");
-                                }
-                              }
-                              if (activeDocTab === "REQUIREMENTS") {
-                                setUploadedRequirements(prev => ({ ...prev, [idx]: fileToProcess }));
-                              } else {
-                                setUploadedPermits(prev => ({ ...prev, [idx]: fileToProcess }));
-                              }
-                              e.target.value = "";
-                            }
-                          }}
-                        />
-                      </div>
-                    )}
+                        }}
+                        onView={() => {
+                          const currentFile = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
+                          if (currentFile) {
+                            setViewerFile(currentFile);
+                          } else if (fileUrl) {
+                            setViewerUrl(fileUrl);
+                          }
+                          setViewerTitle(docName);
+                          setViewerOpen(true);
+                        }}
+                        error={hasError}
+                        infoText="PDF / Image (Max 5MB)"
+                        disabled={!isEditable}
+                      />
+                    </div>
                   </div>
                 );
               })}
@@ -3751,18 +3266,128 @@ export default function BuildingPermitPage() {
                 </div>
 
                 <div className="space-y-4">
+                  <h3 className="font-bold text-slate-700 dark:text-slate-300">MPDC Zoning Review</h3>
+                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+                      <div className="flex items-start gap-4">
+                        <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
+                          !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
+                            ? "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
+                            : "bg-blue-100 text-blue-500 dark:bg-blue-500/20"
+                        )}>
+                          {!["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") ? (
+                             <Clock className="w-5 h-5" />
+                          ) : selectedApplication?.additionalData?.zoningStatus === "EVALUATED" ? (
+                             <Check className="w-5 h-5" />
+                          ) : (
+                             <MapPin className="w-5 h-5" />
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">
+                            {!["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
+                              ? "Awaiting Engineering Approval"
+                              : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
+                                ? "Scheduled for Zoning Site Inspection"
+                                : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
+                                  ? "Scheduled for Zoning Site Re-inspection"
+                                  : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
+                                    ? "Zoning Clearance Approved"
+                                    : "Zoning Clearance Under Review"}
+                          </p>
+                          <p className="text-xs text-slate-500 leading-normal">
+                            {!["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
+                              ? "Zoning review will commence once the Engineering Department approves your documents."
+                              : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
+                                ? "Your application is scheduled for an upcoming zoning site inspection."
+                                : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
+                                  ? "Your application requires a zoning site re-inspection. Please check for updates."
+                                  : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
+                                    ? "Your zoning requirements have been evaluated and approved by MPDC."
+                                    : "Your documents are currently being reviewed by the MPDC Zoning Office."}
+                          </p>
+                        </div>
+                      </div>
+                      <span className={cn(
+                        "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
+                        selectedApplication?.isCancelled
+                          ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
+                          : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                            : selectedApplication?.additionalData?.zoningStatus === "REJECTED"
+                              ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
+                              : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
+                                ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                                : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
+                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
+                                  : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                      )}>
+                        {selectedApplication?.isCancelled
+                          ? "Cancelled"
+                          : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
+                            ? "Pending"
+                            : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
+                              ? "Approved"
+                              : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
+                                ? "For Inspection"
+                                : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
+                                  ? "For Revision"
+                                  : selectedApplication?.additionalData?.zoningStatus === "REJECTED"
+                                    ? "Rejected"
+                                    : "Pending Review"}
+                      </span>
+                    </div>
+
+                    {selectedApplication?.additionalData?.zoningStatus && (selectedApplication.additionalData.zoningStatus === "REJECTED" || selectedApplication.additionalData.zoningStatus === "FOR_REVISION") && selectedApplication.additionalData.zoningRejectionRemarks && (
+                      <div className="p-4 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-xl text-red-800 dark:text-red-400 text-sm">
+                        <p className="font-bold uppercase tracking-widest text-[10px] mb-1">
+                          {selectedApplication.additionalData.zoningStatus === "REJECTED" ? "Zoning Rejection Reason" : "Zoning Revision Remarks"}
+                        </p>
+                        <p className="whitespace-pre-wrap font-medium">{selectedApplication.additionalData.zoningRejectionRemarks}</p>
+                      </div>
+                    )}
+
+                    {(selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION") && (selectedApplication?.additionalData?.zoningInspectionSchedule || selectedApplication?.additionalData?.inspectionSchedule) && (
+                      <div className="p-5 bg-purple-50 dark:bg-purple-500/5 border border-purple-200 dark:border-purple-500/20 rounded-2xl space-y-4">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">
+                          {selectedApplication.additionalData.zoningStatus === "FOR_REINSPECTION" ? "Zoning Re-Inspection Details" : "Zoning Inspection Details"}
+                        </h4>
+                        <div className="grid grid-cols-2 gap-4 text-xs text-purple-800 dark:text-purple-300 font-bold">
+                          <div>
+                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Date & Time</span>
+                            {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).date} at {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).time}
+                          </div>
+                          <div>
+                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Inspector</span>
+                            {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).inspectorName}
+                          </div>
+                          <div className="col-span-2">
+                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Type</span>
+                            {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).type}
+                          </div>
+                          {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).notes && (
+                            <div className="col-span-2 mt-2 pt-3 border-t border-purple-200 dark:border-purple-500/20">
+                              <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-1">Notes / Instructions</span>
+                              <p className="italic text-purple-700 dark:text-purple-300 font-medium">"{(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).notes}"</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
                   <h3 className="font-bold text-slate-700 dark:text-slate-300">Endorsement Status</h3>
                   <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
                       <div className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
-                        selectedApplication?.status === "EVALUATED"
+                        ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
                           ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500"
-                          : ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(selectedApplication?.status || "")
-                            ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500"
-                            : "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
+                          : "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
                       )}>
-                        {["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(selectedApplication?.status || "") ? (
+                        {["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED") ? (
                           <Check className="w-5 h-5 text-emerald-500" />
                         ) : (
                           <Clock className="w-5 h-5 text-amber-500" />
@@ -3771,9 +3396,11 @@ export default function BuildingPermitPage() {
                       <div className="space-y-1">
                         <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">Endorsement to Treasury</p>
                         <p className="text-xs text-slate-500 leading-normal">
-                          {["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(selectedApplication?.status || "")
+                          {["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
                             ? "Endorsed successfully to Treasury"
-                            : "Awaiting Engineering approval"}
+                            : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
+                              ? "Awaiting Engineering and Zoning approval"
+                              : "Awaiting Zoning approval"}
                         </p>
                       </div>
                     </div>
@@ -3783,7 +3410,7 @@ export default function BuildingPermitPage() {
                         ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
                         : selectedApplication?.status === "UNPAID"
                           ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                          : ["EVALUATED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(selectedApplication?.status || "")
+                          : ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
                             ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
                             : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
                     )}>
@@ -3793,7 +3420,7 @@ export default function BuildingPermitPage() {
                           ? "Rejected"
                           : selectedApplication?.status === "UNPAID"
                             ? "Unpaid"
-                            : ["EVALUATED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(selectedApplication?.status || "")
+                            : ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
                               ? "Endorsed"
                               : "Pending"}
                     </span>
@@ -4034,167 +3661,8 @@ export default function BuildingPermitPage() {
                       </div>
                     )}
 
-                    {/* Info: Where to obtain clearances */}
-                    <div className="bg-sky-50 dark:bg-sky-500/5 border border-sky-200 dark:border-sky-500/10 rounded-2xl p-5 space-y-3 animate-in fade-in-50 duration-500">
-                      <div className="flex items-center gap-2 text-sky-700 dark:text-sky-400">
-                        <AlertCircle className="w-4.5 h-4.5 shrink-0" />
-                        <h4 className="font-black text-xs uppercase tracking-widest italic">Where to Obtain Your Clearances</h4>
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="flex items-start gap-3 bg-white/60 dark:bg-white/5 rounded-xl p-4 border border-sky-100 dark:border-sky-500/10">
-                          <div className="w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-500/10 flex items-center justify-center shrink-0">
-                            <Flame className="w-4.5 h-4.5 text-purple-600 dark:text-purple-400" />
-                          </div>
-                          <div>
-                            <p className="text-[11px] font-black uppercase tracking-wider text-purple-700 dark:text-purple-400 italic">BFP Fire Safety Clearance</p>
-                            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium mt-1 leading-relaxed">
-                              Go to the <span className="font-bold text-slate-800 dark:text-white">Bureau of Fire Protection (BFP) — Mapandan Fire Station</span> and apply for a Fire Safety Inspection Certificate.
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 bg-white/60 dark:bg-white/5 rounded-xl p-4 border border-sky-100 dark:border-sky-500/10">
-                          <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-500/10 flex items-center justify-center shrink-0">
-                            <MapPin className="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
-                          </div>
-                          <div>
-                            <p className="text-[11px] font-black uppercase tracking-wider text-blue-700 dark:text-blue-400 italic">Zoning / Locational Clearance</p>
-                            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium mt-1 leading-relaxed">
-                              Go to the <span className="font-bold text-slate-800 dark:text-white">Office of the Zoning Officer / MPDC</span> at the Municipal Hall and apply for a Locational/Zoning Clearance.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium italic">
-                        Once you have secured both clearances, upload them below to proceed with your Building Permit application.
-                      </p>
-                    </div>
 
-                    {/* BFP Fire Safety Clearance Upload Container */}
-                    <div className="p-6 rounded-2xl bg-purple-500/5 border border-purple-500/10 space-y-4 animate-in fade-in-50 duration-500">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-purple-700 dark:text-purple-400">
-                          <Flame className="w-5 h-5 animate-pulse" />
-                          <h4 className="font-black text-sm uppercase tracking-wider italic">BFP Fire Safety Clearance</h4>
-                        </div>
-                        {selectedApplication?.additionalData?.bfpClearanceUrl ? (
-                          <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full border border-emerald-500/20">Uploaded</span>
-                        ) : (
-                          <span className="text-[9px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-500 px-3 py-1 rounded-full border border-amber-500/20 animate-pulse">Required</span>
-                        )}
-                      </div>
 
-                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Please upload your official Fire Safety Clearance certificate issued by the Bureau of Fire Protection (BFP). The Engineering Department will review this document to process and approve your permit.
-                      </p>
-
-                      {selectedApplication?.additionalData?.bfpClearanceUrl ? (
-                        <div className="relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 max-w-sm group">
-                          <img src={selectedApplication.additionalData.bfpClearanceUrl} alt="BFP Clearance" className="object-cover w-full h-full" />
-                          {selectedApplication.status === "PAID" && !selectedApplication.additionalData?.clearancesSubmitted && (
-                            <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer">
-                              <div className="flex flex-col items-center text-white">
-                                <UploadCloud className="w-8 h-8 mb-2" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Change Image</span>
-                              </div>
-                              <input type="file" onChange={(e) => handleUploadBfpClearance(e.target.files?.[0] || null)} className="hidden" />
-                            </label>
-                          )}
-                        </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center gap-2 aspect-[21/6] rounded-xl border-2 border-dashed border-purple-500/20 hover:border-purple-500/40 bg-purple-500/[0.02] cursor-pointer group transition-all">
-                          <UploadCloud className="w-6 h-6 text-purple-400 group-hover:scale-110 transition-transform" />
-                          <span className="text-[9px] font-black uppercase tracking-widest text-purple-400 italic">Attach BFP Clearance Certificate</span>
-                          <input type="file" onChange={(e) => handleUploadBfpClearance(e.target.files?.[0] || null)} className="hidden" />
-                        </label>
-                      )}
-                    </div>
-
-                    {/* Zoning Clearance Upload Container */}
-                    <div className="p-6 rounded-2xl bg-blue-500/5 border border-blue-500/10 space-y-4 animate-in fade-in-50 duration-500">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-blue-700 dark:text-blue-400">
-                          <MapPin className="w-5 h-5 animate-pulse" />
-                          <h4 className="font-black text-sm uppercase tracking-wider italic">Zoning Clearance</h4>
-                        </div>
-                        {selectedApplication?.additionalData?.zoningClearanceUrl ? (
-                          <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full border border-emerald-500/20">Uploaded</span>
-                        ) : (
-                          <span className="text-[9px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-500 px-3 py-1 rounded-full border border-amber-500/20 animate-pulse">Required</span>
-                        )}
-                      </div>
-
-                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Please upload your official Locational/Zoning Clearance certificate issued by the Zoning Office / MPDC.
-                      </p>
-
-                      {selectedApplication?.additionalData?.zoningClearanceUrl ? (
-                        <div className="relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 max-w-sm group">
-                          <img src={selectedApplication.additionalData.zoningClearanceUrl} alt="Zoning Clearance" className="object-cover w-full h-full" />
-                          {selectedApplication.status === "PAID" && !selectedApplication.additionalData?.clearancesSubmitted && (
-                            <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer">
-                              <div className="flex flex-col items-center text-white">
-                                <UploadCloud className="w-8 h-8 mb-2" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Change Image</span>
-                              </div>
-                              <input type="file" onChange={(e) => handleUploadZoningClearance(e.target.files?.[0] || null)} className="hidden" />
-                            </label>
-                          )}
-                        </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center gap-2 aspect-[21/6] rounded-xl border-2 border-dashed border-blue-500/20 hover:border-blue-500/40 bg-blue-500/[0.02] cursor-pointer group transition-all">
-                          <UploadCloud className="w-6 h-6 text-blue-400 group-hover:scale-110 transition-transform" />
-                          <span className="text-[9px] font-black uppercase tracking-widest text-blue-400 italic">Attach Zoning Clearance Certificate</span>
-                          <input type="file" onChange={(e) => handleUploadZoningClearance(e.target.files?.[0] || null)} className="hidden" />
-                        </label>
-                      )}
-                    </div>
-
-                    {/* Submit Clearances Button */}
-                    {selectedApplication?.status === "PAID" &&
-                      selectedApplication?.additionalData?.bfpClearanceUrl &&
-                      selectedApplication?.additionalData?.zoningClearanceUrl && (
-                        <div className="pt-4 flex flex-col items-center gap-3">
-                          {selectedApplication.additionalData?.clearancesSubmitted ? (
-                            <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-6 py-4 rounded-2xl w-full text-center flex items-center justify-center gap-3 animate-in zoom-in duration-300">
-                              <CheckCircle2 className="w-5 h-5" />
-                              <div>
-                                <p className="text-xs font-black uppercase tracking-widest italic">Clearances Submitted</p>
-                                <p className="text-[10px] font-medium mt-1 text-emerald-600/70 dark:text-emerald-400/70">Wait for the Engineer to verify your documents</p>
-                              </div>
-                            </div>
-                          ) : (
-                            <button
-                              disabled={isSubmitting}
-                              onClick={async () => {
-                                setIsSubmitting(true);
-                                const toastId = toast.loading("Submitting clearances...");
-                                try {
-                                  const res = await submitClearancesForReviewAction(selectedApplication.id);
-                                  if (res.success) {
-                                    toast.success("Clearances submitted to Engineering!", { id: toastId });
-                                    const refreshRes = await getExistingBuildingPermits();
-                                    if (refreshRes.success && refreshRes.data) {
-                                      setExistingApplications(refreshRes.data);
-                                      const updated = refreshRes.data.find((a: any) => a.id === selectedApplication.id);
-                                      if (updated) setSelectedApplication(updated);
-                                    }
-                                  } else {
-                                    toast.error(res.error || "Submission failed", { id: toastId });
-                                  }
-                                } catch {
-                                  toast.error("An error occurred", { id: toastId });
-                                } finally {
-                                  setIsSubmitting(false);
-                                }
-                              }}
-                              className="w-full sm:w-auto px-8 py-4 bg-primary text-primary-foreground rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                            >
-                              <Upload className="w-4 h-4" />
-                              {isSubmitting ? "Submitting..." : "Submit Clearances for Review"}
-                            </button>
-                          )}
-                        </div>
-                      )}
                   </div>
                 ) : null}
               </div>
@@ -4213,8 +3681,7 @@ export default function BuildingPermitPage() {
 
               <button
                 disabled={
-                  selectedApplication?.status === "UNPAID" ||
-                  selectedApplication?.status === "PAID"
+                  selectedApplication?.status === "UNPAID"
                 }
                 onClick={() => {
                   setCurrentStep("SUBMIT");

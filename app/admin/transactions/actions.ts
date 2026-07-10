@@ -1130,7 +1130,7 @@ export async function submitBusinessPermitTransaction(formData: FormData) {
 export async function uploadECopyAction(formData: FormData) {
     try {
         const user = await assertSessionUser();
-        assertUserRoles(user, ["ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "USER"]);
+        assertUserRoles(user, ["ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "USER", "MPDC_ZONING"]);
         const file = formData.get("file") as File;
         if (!file) return { success: false, error: "No file provided" };
 
@@ -1652,6 +1652,13 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
         // New BPLO requests that pass inspection move to Treasury requesting.
         // Re-inspection keeps the existing later-phase flow and returns to processing.
         let newStatus = (isUserAdminAide(user) && isBusinessPermit) ? "FOR_REQUESTING" : "FOR_INSPECTION" as any;
+        if (isBuildingPermit) {
+            if (user.role === "MPDC_ZONING") {
+                newStatus = transaction.status;
+            } else if (transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION") {
+                newStatus = "EVALUATED";
+            }
+        }
         if (isLCR && transaction.status === "FOR_INSPECTION") {
             const typeCode = (transaction.type?.code || "").toUpperCase();
             const regType = (additionalData?.registrationType || "").toUpperCase();
@@ -1689,7 +1696,13 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
                     ...(sanitizedRegistryBookVerification ? { registryBookVerification: sanitizedRegistryBookVerification } : {}),
                     ...(sanitizedScannedDocUrl ? { scannedDocUrl: sanitizedScannedDocUrl } : {}),
                     ...(sanitizedOrSeriesNumber ? { orSeriesNumber: sanitizedOrSeriesNumber } : {}),
-                    ...(sanitizedMiscFeeOverride !== undefined ? { miscFee: sanitizedMiscFeeOverride } : {})
+                    ...(sanitizedMiscFeeOverride !== undefined ? { miscFee: sanitizedMiscFeeOverride } : {}),
+                    ...(isBuildingPermit && (user.role === "ENGINEER" || user.role === "ADMIN") && (transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION")
+                        ? { zoningStatus: "FOR_REQUESTING" }
+                        : {}),
+                    ...(isBuildingPermit && user.role === "MPDC_ZONING" && (additionalData?.zoningStatus === "FOR_INSPECTION" || additionalData?.zoningStatus === "FOR_REINSPECTION")
+                        ? { zoningStatus: "EVALUATED" }
+                        : {})
                 },
                 fiscalSnapshot: {
                     basicTax: result!.basicTax,
@@ -3091,6 +3104,7 @@ export async function getEngineerTransactions(status?: string) {
                 fulfillmentType: true,
                 paymentType: true,
                 residentSnapshot: true,
+                additionalData: true,
                 user: {
                     select: {
                         id: true,
@@ -3204,19 +3218,21 @@ export async function scheduleBuildingInspection(id: string, details: any) {
             return { success: false, error: "Not a Building Permit transaction" };
         }
 
-        if (transaction.status !== "FOR_REQUESTING") {
+        const existingAdditionalData = (transaction.additionalData as any) || {};
+        const isZoningRequest = user.role === "MPDC_ZONING" && transaction.status === "EVALUATED" && existingAdditionalData.zoningStatus === "FOR_REQUESTING";
+
+        if (transaction.status !== "FOR_REQUESTING" && !isZoningRequest) {
             return { success: false, error: "Inspection can only be scheduled after the resident resubmits and the application returns to evaluation." };
         }
-
-        const existingAdditionalData = (transaction.additionalData as any) || {};
 
         const updatedTransaction = await prisma.transaction.update({
             where: { id },
             data: {
-                status: "FOR_INSPECTION", // Move to inspection phase
+                status: isZoningRequest ? "EVALUATED" : "FOR_INSPECTION", // Move to inspection phase (or keep EVALUATED for zoning)
                 additionalData: {
                     ...existingAdditionalData,
-                    inspectionSchedule: details
+                    ...(isZoningRequest ? { zoningInspectionSchedule: details } : { inspectionSchedule: details }),
+                    ...(isZoningRequest ? { zoningStatus: "FOR_INSPECTION" } : {})
                 },
                 processedBy: user.id,
                 updatedAt: new Date()
@@ -3233,7 +3249,8 @@ export async function scheduleBuildingInspection(id: string, details: any) {
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : transaction.user.name || "Resident",
                 transactionId: id.slice(-8).toUpperCase(),
                 serviceName: transaction.type?.name || "Building Permit",
-                remarks: `Inspector: ${details.inspectorName} | Date: ${details.date} | Time: ${details.time} | Notes: ${details.notes || 'None'}`
+                remarks: `Inspector: ${details.inspectorName} | Date: ${details.date} | Time: ${details.time} | Notes: ${details.notes || 'None'}`,
+                department: isZoningRequest ? "ZONING" : "ENGINEERING"
             });
         }
 
@@ -3287,7 +3304,8 @@ export async function markForReinspection(id: string, reason: string, details?: 
 
         newHistory.push({ date: new Date().toISOString(), reason, count });
 
-        let newStatus = "FOR_REINSPECTION";
+        const isZoningRequest = user.role === "MPDC_ZONING" && transaction.status === "EVALUATED";
+        let newStatus = isZoningRequest ? "EVALUATED" : "FOR_REINSPECTION";
         let rejectionRemarks = null;
 
         if (count >= 3) {
@@ -3298,17 +3316,29 @@ export async function markForReinspection(id: string, reason: string, details?: 
         const newAdditionalData = {
             ...additionalData,
             reinspectionCount: count,
-            reinspectionHistory: newHistory
+            reinspectionHistory: newHistory,
+            ...(isZoningRequest && count < 3 ? { zoningStatus: "FOR_REINSPECTION" } : {}),
+            ...(isZoningRequest && count >= 3 ? { zoningStatus: "REJECTED" } : {})
         };
 
         if (details && count < 3) {
-            newAdditionalData.inspectionSchedule = {
-                type: details.type,
-                date: details.date,
-                time: details.time,
-                inspectorName: details.inspectorName,
-                notes: `Re-inspection Reason: ${reason}`
-            };
+            if (isZoningRequest) {
+                newAdditionalData.zoningInspectionSchedule = {
+                    type: details.type,
+                    date: details.date,
+                    time: details.time,
+                    inspectorName: details.inspectorName,
+                    notes: `Re-inspection Reason: ${reason}`
+                };
+            } else {
+                newAdditionalData.inspectionSchedule = {
+                    type: details.type,
+                    date: details.date,
+                    time: details.time,
+                    inspectorName: details.inspectorName,
+                    notes: `Re-inspection Reason: ${reason}`
+                };
+            }
         }
 
         const updatedTransaction = await prisma.transaction.update({
@@ -3334,7 +3364,8 @@ export async function markForReinspection(id: string, reason: string, details?: 
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : transaction.user.name || "Resident",
                 transactionId: id.slice(-8).toUpperCase(),
                 serviceName: transaction.type?.name || "Building Permit",
-                remarks: count >= 3 ? reason : `Attempt ${count} of 3. Reason: ${reason} ${details ? `| Date: ${details.date} | Time: ${details.time}` : ''}`
+                remarks: count >= 3 ? reason : `Attempt ${count} of 3. Reason: ${reason} ${details ? `| Date: ${details.date} | Time: ${details.time}` : ''}`,
+                department: isZoningRequest ? "ZONING" : "ENGINEERING"
             });
         }
 
@@ -3351,8 +3382,9 @@ export async function markForReinspection(id: string, reason: string, details?: 
 export async function endorseBuildingPermitFees(
     id: string,
     fees: {
-        buildingPermitFee: number;
-        engineerMunicipalCharges: { name: string, amount: number }[];
+        buildingPermitFee?: number;
+        engineerMunicipalCharges?: { name: string, amount: number }[];
+        zoningMunicipalCharges?: { name: string, amount: number }[];
     }
 ) {
     try {
@@ -3369,32 +3401,53 @@ export async function endorseBuildingPermitFees(
         if (!transaction) return { success: false, error: "Transaction not found" };
 
         const currentAdditionalData = (transaction.additionalData as any) || {};
+        const isZoningEndorse = user.role === "MPDC_ZONING";
+        const existingFeeAssessment = currentAdditionalData.feeAssessment || {};
 
         // Update with the fee assessment
         const updatedAdditionalData = {
             ...currentAdditionalData,
             feeAssessment: {
-                buildingPermitFee: Number(fees.buildingPermitFee || 0),
-                engineerMunicipalCharges: fees.engineerMunicipalCharges || [],
-                endorsed: true,
-                endorsedAt: new Date(),
-                endorsedBy: user.name || (user.role === "MPDC_ZONING" ? "MPDC Zoning Officer" : "Municipal Engineer")
+                ...existingFeeAssessment,
+                ...(isZoningEndorse ? {
+                    zoningMunicipalCharges: fees.zoningMunicipalCharges || [],
+                    zoningEndorsed: true,
+                    zoningEndorsedAt: new Date(),
+                    zoningEndorsedBy: user.name || "MPDC Zoning Officer"
+                } : {
+                    buildingPermitFee: Number(fees.buildingPermitFee || 0),
+                    engineerMunicipalCharges: fees.engineerMunicipalCharges || [],
+                    endorsed: true,
+                    endorsedAt: new Date(),
+                    endorsedBy: user.name || "Municipal Engineer"
+                })
             }
         };
+
 
         const updatedTransaction = await prisma.transaction.update({
             where: { id },
             data: {
-                additionalData: updatedAdditionalData
+                status: undefined, // Status stays EVALUATED until Treasury approves billing
+                additionalData: {
+                    ...updatedAdditionalData,
+                    ...(isZoningEndorse ? { zoningStatus: "ENDORSED" } : {})
+                }
             },
             include: { user: true, type: true }
         });
 
-        // Send EVALUATED email
+        // Send email notification
         if (updatedTransaction.user?.email) {
             const resident = updatedTransaction.residentSnapshot as any;
             const totalFees = Number(fees.buildingPermitFee || 0) +
-                (fees.engineerMunicipalCharges || []).reduce((sum, charge) => sum + Number(charge.amount || 0), 0);
+                (fees.engineerMunicipalCharges || []).reduce((sum, charge) => sum + Number(charge.amount || 0), 0) +
+                (fees.zoningMunicipalCharges || []).reduce((sum, charge) => sum + Number(charge.amount || 0), 0);
+
+            const feeBreakdown = [];
+            if (Number(fees.buildingPermitFee || 0) > 0) feeBreakdown.push({ label: "Building Permit Fee", amount: Number(fees.buildingPermitFee) });
+            (fees.engineerMunicipalCharges || []).forEach(c => { if(Number(c.amount) > 0) feeBreakdown.push({ label: c.name || "Engineering Fee", amount: Number(c.amount) }) });
+            (fees.zoningMunicipalCharges || []).forEach(c => { if(Number(c.amount) > 0) feeBreakdown.push({ label: c.name || "Zoning Fee", amount: Number(c.amount) }) });
 
             await sendEmail({
                 type: "EVALUATED",
@@ -3403,7 +3456,9 @@ export async function endorseBuildingPermitFees(
                 transactionId: id.slice(-8).toUpperCase(),
                 serviceName: updatedTransaction.type?.name || "Building Permit",
                 amount: totalFees,
-                remarks: "Assessment endorsed by the Municipal Engineer."
+                feeBreakdown,
+                remarks: isZoningEndorse ? "Assessment endorsed by the Zoning Officer. Awaiting final Treasury billing." : "Assessment endorsed by the Municipal Engineer.",
+                department: isZoningEndorse ? "ZONING" : "ENGINEERING"
             });
         }
 
@@ -3687,10 +3742,14 @@ export async function approveAndSendBuildingPermitBilling(id: string) {
         const engineerCharges = feeAssessment.engineerMunicipalCharges || [];
         const engineerTotal = engineerCharges.reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0);
 
+        const zoningCharges = feeAssessment.zoningMunicipalCharges || [];
+        const zoningTotal = zoningCharges.reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0);
+
         const baseTotal =
             Number(feeAssessment.buildingPermitFee || 0) +
             Number(feeAssessment.municipalCharges || 0) +
-            engineerTotal;
+            engineerTotal +
+            zoningTotal;
 
         const additionalFees = feeAssessment.additionalFees || [];
         const additionalTotal = additionalFees.reduce((sum: number, f: any) => sum + Number(f.amount || 0), 0);
@@ -3706,6 +3765,12 @@ export async function approveAndSendBuildingPermitBilling(id: string) {
             });
         } else {
             lineItems.push({ label: "Other Applicable Municipal Charges", amount: Number(feeAssessment.municipalCharges || 0) });
+        }
+
+        if (zoningCharges.length > 0) {
+            zoningCharges.forEach((c: any) => {
+                lineItems.push({ label: c.name || "Zoning & Locational Clearance", amount: Number(c.amount || 0) });
+            });
         }
 
         lineItems.push(...additionalFees.map((f: any) => ({ label: f.label, amount: Number(f.amount || 0) })));
@@ -3735,7 +3800,8 @@ export async function approveAndSendBuildingPermitBilling(id: string) {
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : updatedTransaction.user.name || "Resident",
                 transactionId: id.slice(-8).toUpperCase(),
                 serviceName: updatedTransaction.type?.name || "Building Permit",
-                amount: finalTotal
+                amount: finalTotal,
+                feeBreakdown: lineItems
             });
         }
 
@@ -4131,15 +4197,32 @@ export async function saveZoningClearanceProofAction(id: string, url: string) {
 
         if (!transaction) return { success: false, error: "Transaction not found" };
 
-        const currentAdditionalData = (transaction.additionalData as any) || {};
+        const additionalData = (transaction.additionalData as any) || {};
 
         const updatedTransaction = await prisma.transaction.update({
             where: { id },
             data: {
                 additionalData: {
-                    ...currentAdditionalData,
-                    zoningClearanceUrl: url
-                }
+                    ...additionalData,
+                    feeAssessment: {
+                        ...(additionalData.feeAssessment || {}),
+                        ...(isZoningEndorse ? {
+                            zoningEndorsed: true,
+                            zoningEndorsedAt: new Date(),
+                            zoningEndorsedBy: user.name || "MPDC Zoning Officer",
+                            zoningMunicipalCharges: fees.zoningMunicipalCharges || [],
+                            zoningClearanceUrl: fees.zoningClearanceUrl
+                        } : {
+                            endorsed: true,
+                            endorsedAt: new Date(),
+                            endorsedBy: user.name || "Municipal Engineer",
+                            buildingPermitFee: fees.buildingPermitFee || 0,
+                            engineerMunicipalCharges: fees.engineerMunicipalCharges || []
+                        })
+                    },
+                    ...(isZoningEndorse ? { zoningStatus: "RELEASED", zoningClearanceUrl: fees.zoningClearanceUrl } : {})
+                },
+                status: isZoningEndorse ? transaction.status : "EVALUATED",
             }
         });
 
@@ -5017,5 +5100,40 @@ export async function logDebugMessage(msg: string) {
     } catch (e) {
         console.error("Debug log failed:", e);
         return { success: false };
+    }
+}
+
+export async function submitZoningClearanceAction(id: string, url: string) {
+    try {
+        const user = await assertSessionUser();
+        assertUserRoles(user, ["MPDC_ZONING", "ADMIN"]);
+
+        const transaction = await prisma.transaction.findUnique({
+            where: { id }
+        });
+
+        if (!transaction) return { success: false, error: "Transaction not found" };
+
+        const currentAdditionalData = (transaction.additionalData as any) || {};
+
+        const updatedTransaction = await prisma.transaction.update({
+            where: { id },
+            data: {
+                additionalData: {
+                    ...currentAdditionalData,
+                    zoningClearanceUrl: url,
+                    zoningStatus: "RELEASED"
+                }
+            }
+        });
+
+        revalidatePath("/admin/zoning");
+        revalidatePath("/admin/engineer");
+        revalidatePath("/admin/treasury");
+        
+        return { success: true, data: updatedTransaction };
+    } catch (error: any) {
+        console.error("Submit zoning clearance error:", error);
+        return { success: false, error: error.message || "Failed to submit zoning clearance" };
     }
 }

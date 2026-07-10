@@ -3408,18 +3408,128 @@ export default function BuildingPermitAppointmentPage() {
                 </div>
 
                 <div className="space-y-4">
+                  <h3 className="font-bold text-slate-700 dark:text-slate-300">MPDC Zoning Review</h3>
+                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+                      <div className="flex items-start gap-4">
+                        <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
+                          !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
+                            ? "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
+                            : "bg-blue-100 text-blue-500 dark:bg-blue-500/20"
+                        )}>
+                          {!["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") ? (
+                             <Clock className="w-5 h-5" />
+                          ) : selectedApplication?.additionalData?.zoningStatus === "EVALUATED" ? (
+                             <Check className="w-5 h-5" />
+                          ) : (
+                             <MapPin className="w-5 h-5" />
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">
+                            {!["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
+                              ? "Awaiting Engineering Approval"
+                              : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
+                                ? "Scheduled for Zoning Site Inspection"
+                                : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
+                                  ? "Scheduled for Zoning Site Re-inspection"
+                                  : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
+                                    ? "Zoning Clearance Approved"
+                                    : "Zoning Clearance Under Review"}
+                          </p>
+                          <p className="text-xs text-slate-500 leading-normal">
+                            {!["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
+                              ? "Zoning review will commence once the Engineering Department approves your documents."
+                              : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
+                                ? "Your application is scheduled for an upcoming zoning site inspection."
+                                : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
+                                  ? "Your application requires a zoning site re-inspection. Please check for updates."
+                                  : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
+                                    ? "Your zoning requirements have been evaluated and approved by MPDC."
+                                    : "Your documents are currently being reviewed by the MPDC Zoning Office."}
+                          </p>
+                        </div>
+                      </div>
+                      <span className={cn(
+                        "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
+                        selectedApplication?.isCancelled
+                          ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
+                          : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                            : selectedApplication?.additionalData?.zoningStatus === "REJECTED"
+                              ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
+                              : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
+                                ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                                : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
+                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
+                                  : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
+                      )}>
+                        {selectedApplication?.isCancelled
+                          ? "Cancelled"
+                          : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
+                            ? "Pending"
+                            : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
+                              ? "Approved"
+                              : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
+                                ? "For Inspection"
+                                : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
+                                  ? "For Revision"
+                                  : selectedApplication?.additionalData?.zoningStatus === "REJECTED"
+                                    ? "Rejected"
+                                    : "Pending Review"}
+                      </span>
+                    </div>
+
+                    {selectedApplication?.additionalData?.zoningStatus && (selectedApplication.additionalData.zoningStatus === "REJECTED" || selectedApplication.additionalData.zoningStatus === "FOR_REVISION") && selectedApplication.additionalData.zoningRejectionRemarks && (
+                      <div className="p-4 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-xl text-red-800 dark:text-red-400 text-sm">
+                        <p className="font-bold uppercase tracking-widest text-[10px] mb-1">
+                          {selectedApplication.additionalData.zoningStatus === "REJECTED" ? "Zoning Rejection Reason" : "Zoning Revision Remarks"}
+                        </p>
+                        <p className="whitespace-pre-wrap font-medium">{selectedApplication.additionalData.zoningRejectionRemarks}</p>
+                      </div>
+                    )}
+
+                    {(selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION") && (selectedApplication?.additionalData?.zoningInspectionSchedule || selectedApplication?.additionalData?.inspectionSchedule) && (
+                      <div className="p-5 bg-purple-50 dark:bg-purple-500/5 border border-purple-200 dark:border-purple-500/20 rounded-2xl space-y-4">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">
+                          {selectedApplication.additionalData.zoningStatus === "FOR_REINSPECTION" ? "Zoning Re-Inspection Details" : "Zoning Inspection Details"}
+                        </h4>
+                        <div className="grid grid-cols-2 gap-4 text-xs text-purple-800 dark:text-purple-300 font-bold">
+                          <div>
+                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Date & Time</span>
+                            {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).date} at {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).time}
+                          </div>
+                          <div>
+                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Inspector</span>
+                            {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).inspectorName}
+                          </div>
+                          <div className="col-span-2">
+                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Type</span>
+                            {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).type}
+                          </div>
+                          {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).notes && (
+                            <div className="col-span-2 mt-2 pt-3 border-t border-purple-200 dark:border-purple-500/20">
+                              <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-1">Notes / Instructions</span>
+                              <p className="italic text-purple-700 dark:text-purple-300 font-medium">"{(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).notes}"</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
                   <h3 className="font-bold text-slate-700 dark:text-slate-300">Endorsement Status</h3>
                   <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
                       <div className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
-                        selectedApplication?.status === "EVALUATED"
+                        ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
                           ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500"
-                          : ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(selectedApplication?.status || "")
-                            ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500"
-                            : "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
+                          : "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
                       )}>
-                        {["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(selectedApplication?.status || "") ? (
+                        {["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED") ? (
                           <Check className="w-5 h-5 text-emerald-500" />
                         ) : (
                           <Clock className="w-5 h-5 text-amber-500" />
@@ -3428,9 +3538,11 @@ export default function BuildingPermitAppointmentPage() {
                       <div className="space-y-1">
                         <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">Endorsement to Treasury</p>
                         <p className="text-xs text-slate-500 leading-normal">
-                          {["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(selectedApplication?.status || "")
+                          {["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
                             ? "Endorsed successfully to Treasury"
-                            : "Awaiting Engineering approval"}
+                            : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
+                              ? "Awaiting Engineering and Zoning approval"
+                              : "Awaiting Zoning approval"}
                         </p>
                       </div>
                     </div>
@@ -3440,7 +3552,7 @@ export default function BuildingPermitAppointmentPage() {
                         ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
                         : selectedApplication?.status === "UNPAID"
                           ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                          : ["EVALUATED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(selectedApplication?.status || "")
+                          : ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
                             ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
                             : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
                     )}>
@@ -3450,7 +3562,7 @@ export default function BuildingPermitAppointmentPage() {
                           ? "Rejected"
                           : selectedApplication?.status === "UNPAID"
                             ? "Unpaid"
-                            : ["EVALUATED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(selectedApplication?.status || "")
+                            : ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
                               ? "Endorsed"
                               : "Pending"}
                     </span>
@@ -3691,155 +3803,8 @@ export default function BuildingPermitAppointmentPage() {
                       </div>
                     )}
 
-                    {/* Info: Where to obtain clearances */}
-                    <div className="bg-sky-50 dark:bg-sky-500/5 border border-sky-200 dark:border-sky-500/10 rounded-2xl p-5 space-y-3 animate-in fade-in-50 duration-500">
-                      <div className="flex items-center gap-2 text-sky-700 dark:text-sky-400">
-                        <AlertCircle className="w-4.5 h-4.5 shrink-0" />
-                        <h4 className="font-black text-xs uppercase tracking-widest italic">Where to Obtain Your Clearances</h4>
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="flex items-start gap-3 bg-white/60 dark:bg-white/5 rounded-xl p-4 border border-sky-100 dark:border-sky-500/10">
-                          <div className="w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-500/10 flex items-center justify-center shrink-0">
-                            <Flame className="w-4.5 h-4.5 text-purple-600 dark:text-purple-400" />
-                          </div>
-                          <div>
-                            <p className="text-[11px] font-black uppercase tracking-wider text-purple-700 dark:text-purple-400 italic">BFP Fire Safety Clearance</p>
-                            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium mt-1 leading-relaxed">
-                              Go to the <span className="font-bold text-slate-800 dark:text-white">Bureau of Fire Protection (BFP) — Mapandan Fire Station</span> and apply for a Fire Safety Inspection Certificate.
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3 bg-white/60 dark:bg-white/5 rounded-xl p-4 border border-sky-100 dark:border-sky-500/10">
-                          <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-500/10 flex items-center justify-center shrink-0">
-                            <MapPin className="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
-                          </div>
-                          <div>
-                            <p className="text-[11px] font-black uppercase tracking-wider text-blue-700 dark:text-blue-400 italic">Zoning / Locational Clearance</p>
-                            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium mt-1 leading-relaxed">
-                              Go to the <span className="font-bold text-slate-800 dark:text-white">Office of the Zoning Officer / MPDC</span> at the Municipal Hall and apply for a Locational/Zoning Clearance.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium italic">
-                        Once you have secured both clearances, upload them below to proceed with your Building Permit application.
-                      </p>
-                    </div>
 
-                    {/* BFP Fire Safety Clearance Upload Container */}
-                    <div className="p-6 rounded-2xl bg-purple-500/5 border border-purple-500/10 space-y-4 animate-in fade-in-50 duration-500">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-purple-700 dark:text-purple-400">
-                          <Flame className="w-5 h-5 animate-pulse" />
-                          <h4 className="font-black text-sm uppercase tracking-wider italic">BFP Fire Safety Clearance</h4>
-                        </div>
-                        {selectedApplication?.additionalData?.bfpClearanceUrl ? (
-                          <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full border border-emerald-500/20">Uploaded</span>
-                        ) : (
-                          <span className="text-[9px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-500 px-3 py-1 rounded-full border border-amber-500/20 animate-pulse">Required</span>
-                        )}
-                      </div>
 
-                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Please upload your official Fire Safety Clearance certificate issued by the Bureau of Fire Protection (BFP). The Engineering Department will review this document to process and approve your permit.
-                      </p>
-
-                      <PremiumDocumentUpload
-                        label="BFP Fire Safety Clearance Certificate"
-                        required={true}
-                        file={null}
-                        existingUrl={selectedApplication?.additionalData?.bfpClearanceUrl}
-                        onFileSelect={handleUploadBfpClearance}
-                        onView={() => {
-                          setViewerUrl(selectedApplication?.additionalData?.bfpClearanceUrl || null);
-                          setViewerFile(null);
-                          setViewerTitle("BFP Fire Safety Clearance");
-                          setViewerOpen(true);
-                        }}
-                        disabled={!(selectedApplication?.status === "PAID" && !selectedApplication?.additionalData?.clearancesSubmitted)}
-                      />
-                    </div>
-
-                    {/* Zoning Clearance Upload Container */}
-                    <div className="p-6 rounded-2xl bg-blue-500/5 border border-blue-500/10 space-y-4 animate-in fade-in-50 duration-500">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-blue-700 dark:text-blue-400">
-                          <MapPin className="w-5 h-5 animate-pulse" />
-                          <h4 className="font-black text-sm uppercase tracking-wider italic">Zoning Clearance</h4>
-                        </div>
-                        {selectedApplication?.additionalData?.zoningClearanceUrl ? (
-                          <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full border border-emerald-500/20">Uploaded</span>
-                        ) : (
-                          <span className="text-[9px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-500 px-3 py-1 rounded-full border border-amber-500/20 animate-pulse">Required</span>
-                        )}
-                      </div>
-
-                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Please upload your official Locational/Zoning Clearance certificate issued by the Zoning Office / MPDC.
-                      </p>
-
-                      <PremiumDocumentUpload
-                        label="Zoning Clearance Certificate"
-                        required={true}
-                        file={null}
-                        existingUrl={selectedApplication?.additionalData?.zoningClearanceUrl}
-                        onFileSelect={handleUploadZoningClearance}
-                        onView={() => {
-                          setViewerUrl(selectedApplication?.additionalData?.zoningClearanceUrl || null);
-                          setViewerFile(null);
-                          setViewerTitle("Zoning Clearance");
-                          setViewerOpen(true);
-                        }}
-                        disabled={!(selectedApplication?.status === "PAID" && !selectedApplication?.additionalData?.clearancesSubmitted)}
-                      />
-                    </div>
-
-                    {/* Submit Clearances Button */}
-                    {selectedApplication?.status === "PAID" &&
-                      selectedApplication?.additionalData?.bfpClearanceUrl &&
-                      selectedApplication?.additionalData?.zoningClearanceUrl && (
-                        <div className="pt-4 flex flex-col items-center gap-3">
-                          {selectedApplication.additionalData?.clearancesSubmitted ? (
-                            <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-6 py-4 rounded-2xl w-full text-center flex items-center justify-center gap-3 animate-in zoom-in duration-300">
-                              <CheckCircle2 className="w-5 h-5" />
-                              <div>
-                                <p className="text-xs font-black uppercase tracking-widest italic">Clearances Submitted</p>
-                                <p className="text-[10px] font-medium mt-1 text-emerald-600/70 dark:text-emerald-400/70">Wait for the Engineer to verify your documents</p>
-                              </div>
-                            </div>
-                          ) : (
-                            <button
-                              disabled={isSubmitting}
-                              onClick={async () => {
-                                setIsSubmitting(true);
-                                const toastId = toast.loading("Submitting clearances...");
-                                try {
-                                  const res = await submitClearancesForReviewAction(selectedApplication.id);
-                                  if (res.success) {
-                                    toast.success("Clearances submitted to Engineering!", { id: toastId });
-                                    const refreshRes = await getExistingBuildingPermits();
-                                    if (refreshRes.success && refreshRes.data) {
-                                      setExistingApplications(refreshRes.data);
-                                      const updated = refreshRes.data.find((a: any) => a.id === selectedApplication.id);
-                                      if (updated) setSelectedApplication(updated);
-                                    }
-                                  } else {
-                                    toast.error(res.error || "Submission failed", { id: toastId });
-                                  }
-                                } catch {
-                                  toast.error("An error occurred", { id: toastId });
-                                } finally {
-                                  setIsSubmitting(false);
-                                }
-                              }}
-                              className="w-full sm:w-auto px-8 py-4 bg-primary text-primary-foreground rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                            >
-                              <Upload className="w-4 h-4" />
-                              {isSubmitting ? "Submitting..." : "Submit Clearances for Review"}
-                            </button>
-                          )}
-                        </div>
-                      )}
                   </div>
                 ) : null}
               </div>
@@ -3858,8 +3823,7 @@ export default function BuildingPermitAppointmentPage() {
 
               <button
                 disabled={
-                  selectedApplication?.status === "UNPAID" ||
-                  selectedApplication?.status === "PAID"
+                  selectedApplication?.status === "UNPAID"
                 }
                 onClick={() => {
                   setCurrentStep("SUBMIT");

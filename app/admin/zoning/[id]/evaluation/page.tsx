@@ -1,0 +1,918 @@
+/* eslint-disable @next/next/no-img-element */
+"use client";
+
+import React, { useState, useRef, useEffect, use, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import Image from "next/image";
+import { isValidUrl } from "@/utils/image";
+import {
+    ArrowLeft,
+    ZoomIn,
+    ZoomOut,
+    RotateCw,
+    RefreshCcw,
+    Camera,
+    AlertCircle,
+    BadgeCheck,
+    FileText,
+    Trash2
+} from "lucide-react";
+import { toast } from "sonner";
+import {
+    getTransactionById,
+    rejectTransaction,
+    sendForRevision,
+    scheduleBuildingInspection,
+    getSystemSettingAction
+} from "@/app/admin/transactions/actions";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger
+} from "@/components/ui/dialog";
+
+type RevisionRequestItem = {
+    type: "REQUIREMENTS" | "PERMITS";
+    name: string;
+};
+
+interface PageProps {
+    params: Promise<{ id: string }>;
+}
+
+function LightboxView({ src, alt, label }: { src: string; alt: string; label: string }) {
+    const [scale, setScale] = useState(1);
+    const [rotate, setRotate] = useState(0);
+    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+    const handleWheel = (e: React.WheelEvent) => {
+        const delta = e.deltaY < 0 ? 0.15 : -0.15;
+        setScale(prev => Math.min(Math.max(prev + delta, 0.5), 5));
+    };
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+        setDragStart({
+            x: e.clientX - position.x,
+            y: e.clientY - position.y
+        });
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        setPosition({
+            x: e.clientX - dragStart.x,
+            y: e.clientY - dragStart.y
+        });
+    };
+
+    const handleMouseUp = () => {
+        setIsDragging(false);
+    };
+
+    const reset = () => {
+        setScale(1);
+        setRotate(0);
+        setPosition({ x: 0, y: 0 });
+    };
+
+    return (
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-transparent shadow-none flex flex-col items-center justify-center gap-6 outline-none">
+            <DialogHeader className="sr-only">
+                <DialogTitle>{label}</DialogTitle>
+            </DialogHeader>
+
+            <div
+                className="relative w-full h-[75vh] flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing select-none"
+                onWheel={handleWheel}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+            >
+                <div
+                    className="relative w-full h-full flex items-center justify-center"
+                    style={{
+                        transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotate}deg)`,
+                        transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+                    }}
+                >
+                    {src?.toLowerCase().includes('.pdf') ? (
+                        <iframe
+                            src={src}
+                            title={alt}
+                            className="w-full h-full bg-white rounded-xl"
+                        />
+                    ) : (
+                        <Image
+                            src={isValidUrl(src) ? src : "/placeholder.png"}
+                            alt={alt}
+                            fill
+                            className="object-contain"
+                            priority
+                            draggable={false}
+                        />
+                    )}
+                </div>
+            </div>
+
+            <div className="flex items-center gap-2 px-6 py-3 bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-4">
+                <div className="flex items-center gap-1 pr-4 border-r border-white/10">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white italic whitespace-nowrap">{label}</p>
+                </div>
+
+                <div className="flex items-center gap-1">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-10 h-10 rounded-full hover:bg-white/10 text-white transition-all"
+                        onClick={() => setScale(s => Math.max(s - 0.2, 0.5))}
+                    >
+                        <ZoomOut className="w-4 h-4" />
+                    </Button>
+                    <div className="w-12 text-center text-[10px] font-black text-white/50 italic">
+                        {Math.round(scale * 100)}%
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-10 h-10 rounded-full hover:bg-white/10 text-white transition-all"
+                        onClick={() => setScale(s => Math.min(s + 0.2, 5))}
+                    >
+                        <ZoomIn className="w-4 h-4" />
+                    </Button>
+                </div>
+
+                <div className="w-px h-4 bg-white/10 mx-2" />
+
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-10 h-10 rounded-full hover:bg-white/10 text-white transition-all"
+                    onClick={() => setRotate(r => (r + 90) % 360)}
+                    title="Rotate 90°"
+                >
+                    <RotateCw className="w-4 h-4" />
+                </Button>
+
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-10 h-10 rounded-full hover:bg-white/10 text-white transition-all"
+                    onClick={reset}
+                    title="Reset View"
+                >
+                    <RefreshCcw className="w-4 h-4" />
+                </Button>
+            </div>
+            <p className="text-[9px] font-bold text-white/40 uppercase tracking-[0.3em] italic">Scroll to Zoom • Drag to Pan Active</p>
+        </DialogContent>
+    );
+}
+
+export default function BuildingPermitEvaluationPage({ params }: PageProps) {
+    const { id } = use(params);
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const isForcedView = searchParams.get("view") === "true";
+    const { data: session } = useSession();
+    const userRole = (session?.user as any)?.role;
+    const backUrl = userRole === "MPDC_ZONING" ? "/admin/zoning" : userRole === "ENGINEER" ? "/admin/engineer" : "/admin/treasury";
+
+    const [transaction, setTransaction] = useState<any>(null);
+    const addData = (transaction?.additionalData as any) || {};
+    const zoningStatus = addData.zoningStatus;
+    const isZoningActive = userRole === "MPDC_ZONING" && transaction?.status === "EVALUATED";
+    
+    // Zoning is in read-only mode if the transaction is not yet passed to Zoning (i.e. not EVALUATED status)
+    const isZoningReadonly = userRole === "MPDC_ZONING" && !isZoningActive;
+
+    const isViewOnly = isForcedView || 
+        isZoningReadonly || 
+        (userRole === "MPDC_ZONING" && isZoningActive && zoningStatus !== "FOR_REQUESTING" && zoningStatus !== "FOR_REVISION") ||
+        (userRole !== "MPDC_ZONING" && transaction && transaction.status !== "FOR_REQUESTING" && transaction.status !== "FOR_REVISION");
+    
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [remarks, setRemarks] = useState("");
+    const [revisionRequests, setRevisionRequests] = useState<RevisionRequestItem[]>([
+        { type: "REQUIREMENTS", name: "" }
+    ]);
+    const remarksRef = useRef<HTMLTextAreaElement>(null);
+    const [isRejecting, setIsRejecting] = useState(false);
+    const [isRequestingRevision, setIsRequestingRevision] = useState(false);
+    const [themeColor, setThemeColor] = useState<string>("#2563eb");
+
+    // Schedule Inspection Form State
+    const [isSchedulingInspection, setIsSchedulingInspection] = useState(false);
+    const [inspectionType, setInspectionType] = useState("Structural Inspection");
+    const [inspectionDate, setInspectionDate] = useState("");
+    const [inspectionTime, setInspectionTime] = useState("");
+    const [inspectorName, setInspectorName] = useState("");
+    const [inspectionNotes, setInspectionNotes] = useState("");
+    const canScheduleInspection = userRole === "MPDC_ZONING" 
+        ? (isZoningActive && zoningStatus === "FOR_REQUESTING")
+        : (transaction?.status === "FOR_REQUESTING");
+    const canRequestRevision = userRole === "MPDC_ZONING" 
+        ? (isZoningActive && zoningStatus === "FOR_REQUESTING")
+        : (transaction?.status === "FOR_REQUESTING");
+
+    const fetchTransaction = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await getTransactionById(id);
+            if (res.success && res.data) {
+                setTransaction(res.data);
+            } else {
+                toast.error(res.error || "Failed to load transaction");
+            }
+        } catch {
+            toast.error("An error occurred while fetching details");
+        } finally {
+            setLoading(false);
+        }
+    }, [id]);
+
+    useEffect(() => {
+        fetchTransaction();
+        getSystemSettingAction("theme_color", "#2563eb").then(res => {
+            if (res.success && res.data) setThemeColor(res.data);
+        });
+    }, [fetchTransaction]);
+
+    const handleScheduleInspection = async () => {
+        if (!inspectionDate || !inspectionTime || !inspectorName) {
+            toast.error("Please fill in all required fields (Date, Time, Inspector Name)");
+            return;
+        }
+
+        setActionLoading(true);
+        const res = await scheduleBuildingInspection(id, {
+            type: inspectionType,
+            date: inspectionDate,
+            time: inspectionTime,
+            inspectorName: inspectorName,
+            notes: inspectionNotes
+        });
+
+        if (res.success) {
+            toast.success("Inspection scheduled successfully!");
+            router.push(backUrl);
+        } else {
+            toast.error(res.error || "Failed to schedule inspection");
+        }
+        setActionLoading(false);
+    };
+
+    const handleReject = async () => {
+        if (!remarks) { toast.error("Remarks required"); return; }
+        setActionLoading(true);
+        try {
+            const res = await rejectTransaction(id, remarks);
+            if (res.success) {
+                toast.success("Rejected successfully");
+                router.push(backUrl);
+            } else {
+                toast.error(res.error || "Failed");
+            }
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleRequestRevision = async () => {
+        const cleanedRequests = revisionRequests
+            .map((item) => ({ type: item.type, name: item.name.trim() }))
+            .filter((item) => item.name.length > 0);
+
+        if (!remarks.trim()) { toast.error("Remarks required"); return; }
+        setActionLoading(true);
+        try {
+            const res = await sendForRevision(id, remarks, cleanedRequests);
+            if (res.success) {
+                toast.success("Sent back for revision");
+                router.push(backUrl);
+            } else {
+                toast.error(res.error || "Failed");
+            }
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#f8fafd] dark:bg-[#0c111d] flex flex-col items-center justify-center gap-4">
+                <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+            </div>
+        );
+    }
+
+    if (!transaction) return <div className="p-20 text-center dark:text-white">Protocol Error: Transaction Inaccessible</div>;
+
+    const additional = transaction.additionalData || {};
+    const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
+
+    const renderRequirementsGrid = () => (
+        <div className="grid grid-cols-2 gap-4">
+            {[
+                { url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)" },
+                { url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)" },
+                { url: additional?.documents?.tctFile, label: "TCT / Land Title" },
+                ...[
+                    "Barangay Clearance/Certification",
+                    "Tax Declaration",
+                    "Land Title",
+                    "Community Tax Certificate",
+                    "Latest Tax Receipts",
+                    "Adjoining Owners Confirmation",
+                    "Locational Clearance",
+                    "Affidavit of Consent",
+                    "Affidavit of Adjoining Owners",
+                    "Signed & Sealed Plans"
+                ].map((label, idx) => ({ url: additional?.documents?.[`req_${idx}`], label })),
+                ...Object.keys(additional?.documents || {})
+                    .filter(key => key.startsWith("req_"))
+                    .map(key => {
+                        const idx = parseInt(key.replace("req_", ""), 10);
+                        if (idx >= 10) {
+                            const label = additional?.customLabels?.[key] || `Additional Document ${idx - 9}`;
+                            return { url: additional.documents[key], label };
+                        }
+                        return null;
+                    })
+                    .filter(Boolean) as { url: string; label: string }[],
+                ...[
+                    "1. Electrical Permit",
+                    "2. Plumbing Permit",
+                    "3. Sanitary Permit",
+                    "4. Excavation & Ground Preparation Permit",
+                    "5. Fencing Permit",
+                    "6. Scaffolding Permit",
+                    "7. Mechanical Permit"
+                ].map((label, idx) => ({ url: additional?.documents?.[`permit_${idx}`], label })),
+                ...Object.keys(additional?.documents || {})
+                    .filter(key => key.startsWith("permit_"))
+                    .map(key => {
+                        const idx = parseInt(key.replace("permit_", ""), 10);
+                        if (idx >= 7) {
+                            const label = additional?.customLabels?.[key] || `Additional Permit ${idx - 6}`;
+                            return { url: additional.documents[key], label };
+                        }
+                        return null;
+                    })
+                    .filter(Boolean) as { url: string; label: string }[]
+            ].filter(doc => doc.url).map((doc, i) => (
+                <Dialog key={i}>
+                    <DialogTrigger asChild>
+                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 flex items-center justify-center cursor-zoom-in">
+                            {doc.url?.toLowerCase().includes('.pdf') ? (
+                                <div className="flex flex-col items-center justify-center w-full h-full bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-primary transition-colors">
+                                    <FileText className="w-8 h-8 mb-1" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">PDF</span>
+                                </div>
+                            ) : (
+                                <Image src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} fill className="object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
+                            )}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                    <ZoomIn className="w-5 h-5 text-white" />
+                                </div>
+                            </div>
+                            <div className="absolute bottom-2 left-2 right-2 z-10">
+                                <span className="text-[8px] font-black uppercase tracking-wider text-white bg-slate-950/80 px-2.5 py-1 rounded-lg backdrop-blur-md truncate block max-w-full text-center italic shadow-sm">
+                                    {doc.label}
+                                </span>
+                            </div>
+                        </div>
+                    </DialogTrigger>
+                    <LightboxView src={doc.url} alt={doc.label} label={doc.label} />
+                </Dialog>
+            ))}
+        </div>
+    );
+
+    const steps = [
+        { id: "FOR_REQUESTING", label: "EVALUATION" },
+        { id: "FOR_INSPECTION", label: "INSPECTION" },
+        { id: "FOR_REINSPECTION", label: "RE-INSPECTION" },
+        { id: "EVALUATED", label: "FEE ASSESSMENT" }
+    ];
+    const getStepIndex = (status: string) => {
+        if (status === "FOR_REQUESTING" || status === "FOR_REVISION") return 0;
+        if (status === "FOR_INSPECTION") return 1;
+        if (status === "FOR_REINSPECTION") return 2;
+        if (status === "EVALUATED" || status === "UNPAID" || status === "PAYMENT_SUBMITTED" || status === "PAID") return 3;
+        return 4;
+    };
+    const currentStepIdx = getStepIndex(zoningStatus || "FOR_REQUESTING");
+
+    return (
+        <div
+            className="min-h-screen bg-[#f8fafd] dark:bg-[#0c111d] text-[#0f172a] dark:text-[#f8fafc] pb-20 font-sans transition-colors duration-500"
+            style={{ "--theme_color": themeColor, "--primary-theme": themeColor } as React.CSSProperties}
+        >
+            <header className="h-16 px-8 flex items-center justify-between border-b border-transparent dark:border-white/5">
+                <Link href={backUrl} prefetch={false}>
+                    <Button variant="ghost" className="gap-2 text-slate-400 dark:text-slate-500 font-bold hover:text-primary">
+                        <ArrowLeft className="w-4 h-4" /> BACK TO DASHBOARD
+                    </Button>
+                </Link>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 mr-2">
+                        <Badge className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 border border-orange-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
+                            Revision Count: {transaction?.revisionCount || 0} / 3
+                        </Badge>
+                        <Badge className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 border border-blue-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
+                            Re-inspection Count: {transaction?.additionalData?.reinspectionCount || 0} / 3
+                        </Badge>
+                    </div>
+                    <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
+                        Zoning Evaluation Portal Active
+                    </Badge>
+                </div>
+            </header>
+
+            <main className="max-w-[1400px] mx-auto px-8 grid grid-cols-12 gap-8 mt-4">
+                {isZoningReadonly && (
+                    <div className="col-span-12 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">⚠️ Awaiting Engineering Endorsement</p>
+                            <p className="text-[11px] font-medium opacity-90">This building permit application has not yet been endorsed by the Municipal Engineer. Currently viewing in read-only mode.</p>
+                        </div>
+                    </div>
+                )}
+
+                {isViewOnly && !isZoningReadonly && (
+                    <div className="col-span-12 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">📜 Archival Phase View Mode</p>
+                            <p className="text-[11px] font-medium opacity-90">{transaction?.status === "REJECTED" ? "This building permit application has been officially rejected." : "You are reviewing the historical Evaluation phase record in read-only mode."}</p>
+                        </div>
+                        {transaction?.status !== "REJECTED" && (
+                            <Button onClick={() => router.push(`/admin/zoning/${id}`)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">
+                                Return to Active Phase
+                            </Button>
+                        )}
+                    </div>
+                )}
+
+                {/* Left Column: Details */}
+                <div className="col-span-12 lg:col-span-8 space-y-8">
+                    {/* Header Banner */}
+                    <div className="bg-gradient-to-r from-[#0c4a6e]/10 to-teal-500/10 dark:from-[#0c4a6e]/5 dark:to-teal-500/5 border border-[#0c4a6e]/20 dark:border-[#0c4a6e]/10 rounded-[2rem] p-8 flex items-center justify-between shadow-sm relative overflow-hidden">
+                        <div className="space-y-2 relative z-10">
+                            <span className="text-[10px] font-black uppercase text-[#0c4a6e] dark:text-blue-400 tracking-[0.2em] italic">Phase 1: Initial Assessment</span>
+                            <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">ZONING PERMIT EVALUATION</h2>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Verify the applicant&apos;s architectural details and plans, then track the mandatory site inspection.</p>
+                        </div>
+                        <div className="text-5xl font-black italic text-blue-500/20 select-none hidden md:block">EVALUATION</div>
+                    </div>
+
+                    {/* Profile */}
+                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-500">
+                        <div>
+                            <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
+                                Resident <span className="text-primary">Identity Profile</span>
+                            </h2>
+                            <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">Verified Citizen Data Dossier</p>
+                        </div>
+                        <div className="grid grid-cols-12 gap-6">
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">First Name</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.firstName || "--"}</div>
+                            </div>
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Middle Name</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.middleName || "--"}</div>
+                            </div>
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Last Name</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.lastName || "--"}</div>
+                            </div>
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Suffix</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.suffix || "--"}</div>
+                            </div>
+
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Birth Date</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
+                                    {resident?.dateOfBirth ? new Date(resident.dateOfBirth).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "--"}
+                                </div>
+                            </div>
+                            <div className="col-span-12 md:col-span-2 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Age</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
+                                    {resident?.age ?? (resident?.dateOfBirth ? Math.floor((new Date().getTime() - new Date(resident.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : "--")}
+                                </div>
+                            </div>
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Civil Status</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 uppercase">{resident?.civilStatus || "--"}</div>
+                            </div>
+                            <div className="col-span-12 md:col-span-4 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Contact Number</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.contactNumber || "--"}</div>
+                            </div>
+
+                            <div className="col-span-12 md:col-span-6 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Occupation</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.occupation || "--"}</div>
+                            </div>
+                            <div className="col-span-12 md:col-span-6 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Barangay & Complete Address</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
+                                    {resident?.houseNumber || ""} {resident?.street || ""} {resident?.barangay ? `${resident.barangay}, Mapandan, Pangasinan` : "--"}
+                                </div>
+                            </div>
+
+                            {/* Government ID Section */}
+                            {(() => {
+                                const newIdFile = additional?.documents?.newIdFile;
+                                const newIdFileBack = additional?.documents?.newIdFileBack;
+                                if (newIdFile) {
+                                    return (
+                                        <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
+                                            <div className="flex items-center gap-2">
+                                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Uploaded Government ID</label>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-6 max-w-2xl">
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
+                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Front)</p>
+                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
+                                                                <Image src={isValidUrl(newIdFile) ? newIdFile : "/placeholder.png"} alt="Government ID Front" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                            </div>
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                                    <ZoomIn className="w-4 h-4 text-white" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </DialogTrigger>
+                                                    <LightboxView src={newIdFile} alt="Government ID Front" label="Government ID Front" />
+                                                </Dialog>
+
+                                                {newIdFileBack && (
+                                                    <Dialog>
+                                                        <DialogTrigger asChild>
+                                                            <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
+                                                                <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Back)</p>
+                                                                <div className="relative flex-1 w-full h-full min-h-[120px]">
+                                                                    <Image src={isValidUrl(newIdFileBack) ? newIdFileBack : "/placeholder.png"} alt="Government ID Back" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                                </div>
+                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                    <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                                        <ZoomIn className="w-4 h-4 text-white" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </DialogTrigger>
+                                                        <LightboxView src={newIdFileBack} alt="Government ID Back" label="Government ID Back" />
+                                                    </Dialog>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
+                                const idFront = additional?.validIdFront || additional?.idFrontUrl || resident?.idFrontUrl || resident?.idFileUrl;
+                                const idBack = additional?.validIdBack || additional?.idBackUrl || resident?.idBackUrl;
+                                if (!idFront && !idBack) return null;
+                                return (
+                                    <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Resident ID Verification Documents</label>
+                                            {resident?.idType && (
+                                                <Badge variant="outline" className="text-[9px] font-bold uppercase border-primary/20 text-primary py-0 px-2 h-5">
+                                                    ID Type: {resident.idType}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-6 max-w-2xl">
+                                            {idFront && (
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
+                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Front ID</p>
+                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
+                                                                <Image src={isValidUrl(idFront) ? idFront : "/placeholder.png"} alt="Front ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                            </div>
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                                    <ZoomIn className="w-4 h-4 text-white" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </DialogTrigger>
+                                                    <LightboxView src={idFront} alt="Front ID" label="Front ID" />
+                                                </Dialog>
+                                            )}
+                                            {idBack && (
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
+                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Back ID</p>
+                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
+                                                                <Image src={isValidUrl(idBack) ? idBack : "/placeholder.png"} alt="Back ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                            </div>
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                                    <ZoomIn className="w-4 h-4 text-white" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </DialogTrigger>
+                                                    <LightboxView src={idBack} alt="Back ID" label="Back ID" />
+                                                </Dialog>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Applicant E-Signature Section */}
+                            {additional?.signature && (
+                                <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
+                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Applicant Digital E-Signature</label>
+                                    <div className="max-w-[240px] bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 p-4">
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <div className="group relative aspect-video rounded-xl overflow-hidden flex items-center justify-center cursor-zoom-in bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5">
+                                                    <img src={additional.signature} alt="E-Signature" className="max-h-20 object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                                            <ZoomIn className="w-4 h-4 text-white" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </DialogTrigger>
+                                            <LightboxView src={additional.signature} alt="E-Signature" label="Applicant E-Signature" />
+                                        </Dialog>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Card 1: Application Details */}
+                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
+                        <div>
+                            <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
+                                Application <span className="text-primary">Details</span>
+                            </h2>
+                            <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">Zoning Permit Questionnaire</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Description of Work</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.descriptionOfWork || "--"}</div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Occupancy Use</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.occupancyUse || "--"}</div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Total Floor(s)</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.totalFloors || "--"}</div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Is applicant lot owner?</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.isLotOwner || "--"}</div>
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Location of Construction</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.locationOfConstruction || additional?.location || "--"}</div>
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Estimated Cost</label>
+                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-black text-sm text-primary min-h-[48px]">₱{Number(additional?.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Card 2: Requirements Plans & Submissions */}
+                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-lg"><Camera className="text-primary w-4 h-4" /></div>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Submitted Requirements</span>
+                        </div>
+                        {renderRequirementsGrid()}
+                    </div>
+                </div>
+
+                {/* Right Column: Workflow Tracking & Executive Actions */}
+                <div className="col-span-12 lg:col-span-4 space-y-8 sticky top-16 self-start">
+                    <div className="bg-[#151b28] rounded-[2rem] p-8 border border-white/5 space-y-6">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Workflow Tracking</h3>
+                        <div className="relative pl-8 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-white/10">
+                            {(() => {
+                                const handleStepClick = (stepId: string) => {
+                                    if (stepId === "FOR_REQUESTING") {
+                                        router.push(`/admin/zoning/${id}/evaluation?view=true`);
+                                    } else if (stepId === "FOR_INSPECTION") {
+                                        router.push(`/admin/zoning/${id}/inspection?view=true`);
+                                    } else if (stepId === "FOR_REINSPECTION") {
+                                        router.push(`/admin/zoning/${id}/reinspection?view=true`);
+                                    } else if (stepId === "EVALUATED") {
+                                        router.push(`/admin/zoning/${id}/fees?view=true`);
+                                    }
+                                };
+                                return steps.map((step, idx) => {
+                                    const isCompleted = idx < currentStepIdx;
+                                    const isActive = idx === currentStepIdx;
+                                    return (
+                                        <div
+                                            key={step.id}
+                                            onClick={() => { if (isCompleted) handleStepClick(step.id); }}
+                                            className={`relative flex items-center justify-between group ${isCompleted ? "cursor-pointer hover:bg-white/5 p-2 -mx-2 rounded-xl transition-all" : ""
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className={`absolute left-[-29px] w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isCompleted ? "bg-[#006A2E] border-[#006A2E] text-white shadow-lg shadow-green-500/20" :
+                                                    isActive ? "bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110" :
+                                                        "bg-slate-900 border-white/10 text-slate-500"
+                                                    }`}>
+                                                    {isCompleted ? <BadgeCheck className="w-3.5 h-3.5" /> : <span className="text-[10px] font-black">{idx + 1}</span>}
+                                                </div>
+                                                <div>
+                                                    <p className={`text-xs font-black uppercase tracking-widest italic transition-colors ${isActive ? "text-white" : "text-slate-400"}`}>{step.label}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                });
+                            })()}
+                        </div>
+                    </div>
+
+                    {/* Executive Actions */}
+                    <div className="space-y-4">
+                        {!isViewOnly && (userRole === "MPDC_ZONING" || userRole === "ENGINEER") && (
+                            <div className="space-y-3">
+                                <Dialog open={isSchedulingInspection} onOpenChange={setIsSchedulingInspection}>
+                                    <DialogTrigger asChild>
+                                        <Button disabled={actionLoading || !canScheduleInspection} className="w-full h-16 rounded-2xl bg-[#006A2E] text-white font-black italic uppercase tracking-widest text-xs hover:bg-[#005224] transition-all shadow-xl shadow-green-900/20 active:scale-95">
+                                            {actionLoading ? "Processing..." : "Schedule Inspection"}
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="max-w-2xl bg-[#f8e7eb] dark:bg-slate-900 border-none rounded-[1.5rem] shadow-2xl p-0 overflow-hidden">
+                                        <DialogTitle className="sr-only">Schedule Site Inspection</DialogTitle>
+                                        <div className="bg-white dark:bg-slate-950 p-6 m-4 rounded-[1.5rem] shadow-sm border border-slate-100 dark:border-white/5 space-y-6">
+                                            <div className="flex items-center justify-between">
+                                                <h2 className="text-xl font-bold text-[#0c4a6e] dark:text-blue-400 flex items-center gap-2">
+                                                    <AlertCircle className="w-5 h-5" /> Pending Inspection Scheduling
+                                                </h2>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <div className="space-y-2">
+                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Inspection Type:</Label>
+                                                    <select
+                                                        className="flex h-12 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c4a6e] dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:ring-blue-500 text-slate-800 dark:text-white"
+                                                        value={inspectionType}
+                                                        onChange={(e) => setInspectionType(e.target.value)}
+                                                    >
+                                                        <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Structural Inspection">Structural Inspection</option>
+                                                        <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Electrical Inspection">Electrical Inspection</option>
+                                                        <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Sanitary/Plumbing Inspection">Sanitary/Plumbing Inspection</option>
+                                                        <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Complete Site Inspection">Complete Site Inspection</option>
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Date <span className="text-red-500">*</span>:</Label>
+                                                    <Input type="date" value={inspectionDate} onChange={(e) => setInspectionDate(e.target.value)} className="h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none px-4 font-medium" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Time <span className="text-red-500">*</span>:</Label>
+                                                    <Input type="time" value={inspectionTime} onChange={(e) => setInspectionTime(e.target.value)} className="h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none px-4 font-medium" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Inspector Name <span className="text-red-500">*</span>:</Label>
+                                                    <Input placeholder="Engr. Santos" value={inspectorName} onChange={(e) => setInspectorName(e.target.value)} className="h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none px-4 font-medium" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Notes (optional):</Label>
+                                                    <Textarea placeholder="Instructions..." value={inspectionNotes} onChange={(e) => setInspectionNotes(e.target.value)} className="min-h-[80px] rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none p-4 font-medium" />
+                                                </div>
+                                                <Button onClick={handleScheduleInspection} disabled={actionLoading} className="h-12 bg-[#0c4a6e] hover:bg-[#082f49] text-white rounded-xl px-6 flex items-center gap-2">
+                                                    {actionLoading ? "Scheduling..." : "Schedule Inspection"}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </DialogContent>
+                                </Dialog>
+
+                                <div className="flex gap-2 w-full">
+                                    <Dialog open={isRequestingRevision} onOpenChange={(open) => { setIsRequestingRevision(open); if (!open) setRemarks(""); }}>
+                                        <DialogTrigger asChild>
+                                            {canRequestRevision && (transaction.revisionCount || 0) < 3 && (
+                                                <Button onClick={() => { setIsRequestingRevision(true); setRemarks(""); setRevisionRequests([{ type: "REQUIREMENTS", name: "" }]); }} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95">
+                                                    Request Revision
+                                                </Button>
+                                            )}
+                                        </DialogTrigger>
+                                        <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
+                                            <DialogHeader className="space-y-3">
+                                                <DialogTitle className="text-3xl font-black italic uppercase text-slate-900 dark:text-white leading-none">Request <span className="text-amber-500">Revision</span></DialogTitle>
+                                            </DialogHeader>
+                                            <div className="space-y-6 py-6">
+                                                <Label className="text-[10px] font-black uppercase text-slate-400">Corrections Needed *</Label>
+                                                <Textarea ref={remarksRef} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="min-h-[120px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 font-bold p-6 text-sm" required />
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <div className="space-y-1">
+                                                            <Label className="text-[10px] font-black uppercase text-slate-400">Requested Attachments</Label>
+                                                            <p className="text-[10px] text-slate-400">Optional. Add only if you want Citizen to upload more files.</p>
+                                                        </div>
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => setRevisionRequests((prev) => [...prev, { type: "REQUIREMENTS", name: "" }])}
+                                                            className="h-8 rounded-full text-[10px] font-black uppercase tracking-widest"
+                                                        >
+                                                            Add Item
+                                                        </Button>
+                                                    </div>
+                                                    <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
+                                                        {revisionRequests.map((item, index) => (
+                                                            <div key={`${index}-${item.type}`} className="space-y-2 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 p-4">
+                                                                <div className="flex items-center gap-2">
+                                                                    <select
+                                                                        value={item.type}
+                                                                        onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, type: e.target.value === "PERMITS" ? "PERMITS" : "REQUIREMENTS" } : entry))}
+                                                                        className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs font-bold uppercase tracking-widest text-slate-700 dark:text-slate-200"
+                                                                    >
+                                                                        <option value="REQUIREMENTS">Requirements</option>
+                                                                        <option value="PERMITS">Permits</option>
+                                                                    </select>
+                                                                    <Input
+                                                                        value={item.name}
+                                                                        onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, name: e.target.value } : entry))}
+                                                                        placeholder="e.g. Structural Plan"
+                                                                        className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-sm font-medium"
+                                                                    />
+                                                                    {revisionRequests.length > 1 && (
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            onClick={() => setRevisionRequests((prev) => prev.filter((_, idx) => idx !== index))}
+                                                                            className="h-10 w-10 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40"
+                                                                        >
+                                                                            <Trash2 className="w-4 h-4" />
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <Button onClick={handleRequestRevision} disabled={actionLoading || !remarks.trim()} className="w-full h-14 bg-amber-500 text-white font-black italic uppercase text-[11px] rounded-2xl">
+                                                Confirm Revision Request
+                                            </Button>
+                                        </DialogContent>
+                                    </Dialog>
+
+                                    <Dialog open={isRejecting} onOpenChange={(open) => { setIsRejecting(open); if (!open) setRemarks(""); }}>
+                                        <DialogTrigger asChild>
+                                            <Button onClick={() => { setIsRejecting(true); setRemarks(""); }} className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-red-600/20 transition-all active:scale-95">
+                                                Decline
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
+                                            <DialogHeader className="space-y-3">
+                                                <DialogTitle className="text-3xl font-black italic uppercase text-slate-900 dark:text-white leading-none">Decline <span className="text-red-600">Request</span></DialogTitle>
+                                            </DialogHeader>
+                                            <div className="space-y-6 py-6">
+                                                <Label className="text-[10px] font-black uppercase text-slate-400">Reason for Decline *</Label>
+                                                <Textarea ref={remarksRef} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="min-h-[120px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 font-bold p-6 text-sm" required />
+                                            </div>
+                                            <Button onClick={handleReject} disabled={actionLoading || !remarks.trim()} className="w-full h-14 bg-red-600 text-white font-black italic uppercase text-[11px] rounded-2xl">
+                                                Confirm Decline
+                                            </Button>
+                                        </DialogContent>
+                                    </Dialog>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </main>
+        </div>
+    );
+}
