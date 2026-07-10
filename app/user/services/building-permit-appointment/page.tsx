@@ -551,16 +551,22 @@ export default function BuildingPermitAppointmentPage() {
   }, [currentStep, maxStepIdx]);
 
   const isAffidavitOfConsentRequired = formData.isLotOwner === "No";
-  const requiredRequirementIndexes = Array.from({ length: 10 }, (_, index) => index)
-    .filter(index => ![2, 5, 8].includes(index) && (isAffidavitOfConsentRequired || index !== 7));
+  const hasMultipleFloors = parseInt(formData.totalFloors || "0", 10) > 1;
+  const requiredRequirementIndexes = Array.from({ length: 25 }, (_, index) => index)
+    .filter(index => {
+      if ([2, 5, 8, 13, 14].includes(index)) return false;
+      if (!isAffidavitOfConsentRequired && [7, 10, 11, 12, 13, 14].includes(index)) return false;
+      if (isAffidavitOfConsentRequired && [21, 22].includes(index)) return false;
+      if (!hasMultipleFloors && [23, 24].includes(index)) return false;
+      return true;
+    });
   const requiredRequirementsCount = requiredRequirementIndexes.length;
   const uploadedRequirementKeys = new Set([
     ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("req_")),
     ...Object.keys(uploadedRequirements).map(k => `req_${k}`)
   ]);
-  const requiredPermitIndexes = Array.from({ length: 7 }, (_, index) => index)
-    .filter(index => index !== 4);
-  const requiredPermitsCount = requiredPermitIndexes.length;
+  const requiredPermitIndexes: number[] = [];
+  const requiredPermitsCount = 4;
   const uploadedPermitKeys = new Set([
     ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("permit_")),
     ...Object.keys(uploadedPermits).map(k => `permit_${k}`)
@@ -603,7 +609,22 @@ export default function BuildingPermitAppointmentPage() {
     "Locational Clearance",
     "Affidavit of Consent",
     "Affidavit of Adjoining Owners",
-    "Signed & Sealed Plans"
+    "Signed & Sealed Plans",
+    "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
+    "Cedula of Lot Owner",
+    "ID of Lot Owner",
+    "Death Certificate of Lot Owner (Optional)",
+    "Birth Certificate of Heirs of Deceased Owner (Optional)",
+    "Valid Licenses (PRC I.D.) of Involved Professionals",
+    "Duly Notarized Estimated Value of Building/Structure",
+    "Duly Notarized Technical Specification",
+    "Construction Safety and Health Program From DOLE",
+    "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
+    "Affidavit of Undertaking",
+    "Cedula of Applicant",
+    "ID of applicant with 3 signatures",
+    "Structural Analysis and Design",
+    "Soil Boring Test"
   ];
 
   const permitTypesList = [
@@ -613,7 +634,12 @@ export default function BuildingPermitAppointmentPage() {
     "4. Excavation & Ground Preparation Permit",
     "5. Fencing Permit",
     "6. Scaffolding Permit",
-    "7. Mechanical Permit"
+    "7. Mechanical Permit",
+    "8. Architectural Documents",
+    "9. Civil/Structural Documents",
+    "10. Electronics Documents",
+    "11. Geodetic Documents",
+    "12. Fire Protection Plan"
   ];
 
   useEffect(() => {
@@ -707,9 +733,9 @@ export default function BuildingPermitAppointmentPage() {
       Object.keys(docs).forEach(key => {
         if (key.startsWith("req_")) {
           const idx = parseInt(key.replace("req_", ""), 10);
-          if (idx >= 10) {
-            const label = labels[key] || `Additional Document ${idx - 9}`;
-            loadedReqs[idx - 10] = { label };
+          if (idx >= 25) {
+            const label = labels[key] || `Additional Document ${idx - 24}`;
+            loadedReqs[idx - 25] = { label };
           }
         }
       });
@@ -2606,6 +2632,11 @@ export default function BuildingPermitAppointmentPage() {
                               setUploadedRequirements(prev => {
                                 const next = { ...prev };
                                 delete next[7];
+                                delete next[10];
+                                delete next[11];
+                                delete next[12];
+                                delete next[13];
+                                delete next[14];
                                 return next;
                               });
                             }
@@ -2773,7 +2804,7 @@ export default function BuildingPermitAppointmentPage() {
                 } : undefined}
               >
                 <FileSignature className="w-4 h-4" />
-                Permits ({requiredPermitsCount} items)
+                Permits (Upload 4 or more)
               </button>
             </div>
 
@@ -2801,8 +2832,15 @@ export default function BuildingPermitAppointmentPage() {
                   ? [
                       ...documentRequirementsList
                         .map((docName, idx) => ({ docName, idx, kind: "base" as const })),
-                      ...customRequirements.map((req, idx) => ({ docName: req.label, idx: 10 + idx, kind: "custom" as const }))
-                    ].filter(({ idx, kind }) => kind === "custom" || (idx !== 5 && (isAffidavitOfConsentRequired || idx !== 7)))
+                      ...customRequirements.map((req, idx) => ({ docName: req.label, idx: 25 + idx, kind: "custom" as const }))
+                    ].filter(({ idx, kind }) => {
+                      if (kind === "custom") return true;
+                      if (idx === 5) return false;
+                      if (!isAffidavitOfConsentRequired && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
+                      if (isAffidavitOfConsentRequired && [21, 22].includes(idx)) return false;
+                      if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
+                      return true;
+                    })
                   : [
                       ...permitTypesList.map((docName, idx) => ({ docName, idx, kind: "base" as const })),
                       ...customPermits.map((permit, idx) => ({ docName: permit.label, idx: 7 + idx, kind: "custom" as const }))
@@ -2853,7 +2891,7 @@ export default function BuildingPermitAppointmentPage() {
                             type="button"
                             onClick={() => {
                               if (activeDocTab === "REQUIREMENTS") {
-                                setCustomRequirements(prev => prev.filter((_, i) => i !== (idx - 10)));
+                                setCustomRequirements(prev => prev.filter((_, i) => i !== (idx - 25)));
                                 setUploadedRequirements(prev => {
                                   const nextReqs: Record<number, File> = {};
                                   Object.entries(prev).forEach(([kStr, file]) => {

@@ -312,19 +312,55 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                     "Land Title",
                     "Community Tax Certificate",
                     "Latest Tax Receipts",
-                    "Electrical & Sanitary Permit",
                     "Adjoining Owners Confirmation",
                     "Locational Clearance",
                     "Affidavit of Consent",
                     "Affidavit of Adjoining Owners",
-                    "Signed & Sealed Plans"
-                ].map((label, idx) => ({ url: additional?.documents?.[`req_${idx}`], label })),
+                    "Signed & Sealed Plans",
+                    "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
+                    "Cedula of Lot Owner",
+                    "ID of Lot Owner",
+                    "Death Certificate of Lot Owner (Optional)",
+                    "Birth Certificate of Heirs of Deceased Owner (Optional)",
+                    "Valid Licenses (PRC I.D.) of Involved Professionals",
+                    "Duly Notarized Estimated Value of Building/Structure",
+                    "Duly Notarized Technical Specification",
+                    "Construction Safety and Health Program From DOLE",
+                    "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
+                    "Affidavit of Undertaking",
+                    "Cedula of Applicant",
+                    "ID of applicant with 3 signatures",
+                    "Structural Analysis and Design",
+                    "Soil Boring Test"
+                ]
+                  .map((label, idx) => ({ url: additional?.documents?.[`req_${idx}`], label, idx }))
+                  .filter(({ idx }) => {
+                      if (additional?.isLotOwner === "Yes" && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
+                      if (additional?.isLotOwner === "No" && [21, 22].includes(idx)) return false;
+                      const hasMultipleFloors = parseInt(additional?.totalFloors || "0", 10) > 1;
+                      if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
+                      return true;
+                  }),
+                // Wait! Let's check indices in inspection:
+                // 0: Barangay Clearance
+                // 1: Tax Declaration
+                // 2: Land Title
+                // 3: Community Tax Certificate
+                // 4: Latest Tax Receipts
+                // 5: Electrical & Sanitary Permit (Wait, this is index 5!)
+                // 6: Adjoining Owners Confirmation (index 6)
+                // 7: Locational Clearance (index 7)
+                // 8: Affidavit of Consent (index 8)
+                // 9: Affidavit of Adjoining Owners (index 9)
+                // 10: Signed & Sealed Plans (index 10)
+                // Let's actually not worry about index mapping in commented out blocks if we don't want to break them, or we can update them cleanly.
+                // Wait, if it's commented out, we can just do a simple update to it. Let's do that!
                 ...Object.keys(additional?.documents || {})
                     .filter(key => key.startsWith("req_"))
                     .map(key => {
                         const idx = parseInt(key.replace("req_", ""), 10);
-                        if (idx >= 10) {
-                            const label = additional?.customLabels?.[key] || `Additional Document ${idx - 9}`;
+                        if (idx >= 25) {
+                            const label = additional?.customLabels?.[key] || `Additional Document ${idx - 24}`;
                             return { url: additional.documents[key], label };
                         }
                         return null;
@@ -337,14 +373,19 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                     "4. Excavation & Ground Preparation Permit",
                     "5. Fencing Permit",
                     "6. Scaffolding Permit",
-                    "7. Mechanical Permit"
+                    "7. Mechanical Permit",
+                    "8. Architectural Documents",
+                    "9. Civil/Structural Documents",
+                    "10. Electronics Documents",
+                    "11. Geodetic Documents",
+                    "12. Fire Protection Plan"
                 ].map((label, idx) => ({ url: additional?.documents?.[`permit_${idx}`], label })),
                 ...Object.keys(additional?.documents || {})
                     .filter(key => key.startsWith("permit_"))
                     .map(key => {
                         const idx = parseInt(key.replace("permit_", ""), 10);
-                        if (idx >= 7) {
-                            const label = additional?.customLabels?.[key] || `Additional Permit ${idx - 6}`;
+                        if (idx >= 12) {
+                            const label = additional?.customLabels?.[key] || `Additional Permit ${idx - 11}`;
                             return { url: additional.documents[key], label };
                         }
                         return null;

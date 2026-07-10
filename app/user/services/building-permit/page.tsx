@@ -542,8 +542,15 @@ export default function BuildingPermitPage() {
   }, [currentStep, maxStepIdx]);
 
   const isAffidavitOfConsentRequired = formData.isLotOwner === "No";
-  const requiredRequirementIndexes = Array.from({ length: 10 }, (_, index) => index)
-    .filter(index => ![2, 5, 8].includes(index) && (isAffidavitOfConsentRequired || index !== 7));
+  const hasMultipleFloors = parseInt(formData.totalFloors || "0", 10) > 1;
+  const requiredRequirementIndexes = Array.from({ length: 25 }, (_, index) => index)
+    .filter(index => {
+      if ([2, 5, 8, 13, 14].includes(index)) return false;
+      if (!isAffidavitOfConsentRequired && [7, 10, 11, 12, 13, 14].includes(index)) return false;
+      if (isAffidavitOfConsentRequired && [21, 22].includes(index)) return false;
+      if (!hasMultipleFloors && [23, 24].includes(index)) return false;
+      return true;
+    });
   const requiredRequirementsCount = requiredRequirementIndexes.length;
   const uploadedRequirementKeys = new Set([
     ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("req_")),
@@ -552,18 +559,16 @@ export default function BuildingPermitPage() {
   const requirementsProgress = requiredRequirementIndexes
     .filter(index => uploadedRequirementKeys.has(`req_${index}`)).length;
 
-  const requiredPermitIndexes = Array.from({ length: 7 }, (_, index) => index)
-    .filter(index => index !== 4);
-  const requiredPermitsCount = requiredPermitIndexes.length;
+  const requiredPermitIndexes: number[] = [];
+  const requiredPermitsCount = 4;
   const uploadedPermitKeys = new Set([
     ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("permit_")),
     ...Object.keys(uploadedPermits).map(k => `permit_${k}`)
   ]);
-  const permitsProgress = requiredPermitIndexes
-    .filter(index => uploadedPermitKeys.has(`permit_${index}`)).length;
+  const uploadedPermitsCount = uploadedPermitKeys.size;
+  const permitsProgress = Math.min(uploadedPermitsCount, 4);
 
   const uploadedRequirementsCount = uploadedRequirementKeys.size;
-  const uploadedPermitsCount = uploadedPermitKeys.size;
   const totalRequiredItems = requiredRequirementsCount + requiredPermitsCount;
 
   // UPDATED: Exclude CANCELLED and isCancelled from blocking new applications
@@ -581,7 +586,22 @@ export default function BuildingPermitPage() {
     "Locational Clearance",
     "Affidavit of Consent",
     "Affidavit of Adjoining Owners",
-    "Signed & Sealed Plans"
+    "Signed & Sealed Plans",
+    "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
+    "Cedula of Lot Owner",
+    "ID of Lot Owner",
+    "Death Certificate of Lot Owner (Optional)",
+    "Birth Certificate of Heirs of Deceased Owner (Optional)",
+    "Valid Licenses (PRC I.D.) of Involved Professionals",
+    "Duly Notarized Estimated Value of Building/Structure",
+    "Duly Notarized Technical Specification",
+    "Construction Safety and Health Program From DOLE",
+    "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
+    "Affidavit of Undertaking",
+    "Cedula of Applicant",
+    "ID of applicant with 3 signatures",
+    "Structural Analysis and Design",
+    "Soil Boring Test"
   ];
 
   const permitTypesList = [
@@ -591,7 +611,12 @@ export default function BuildingPermitPage() {
     "4. Excavation & Ground Preparation Permit",
     "5. Fencing Permit",
     "6. Scaffolding Permit",
-    "7. Mechanical Permit"
+    "7. Mechanical Permit",
+    "8. Architectural Documents",
+    "9. Civil/Structural Documents",
+    "10. Electronics Documents",
+    "11. Geodetic Documents",
+    "12. Fire Protection Plan"
   ];
 
   useEffect(() => {
@@ -678,9 +703,9 @@ export default function BuildingPermitPage() {
       Object.keys(docs).forEach(key => {
         if (key.startsWith("req_")) {
           const idx = parseInt(key.replace("req_", ""), 10);
-          if (idx >= 10) {
-            const label = labels[key] || `Additional Document ${idx - 9}`;
-            loadedReqs[idx - 10] = { label };
+          if (idx >= 25) {
+            const label = labels[key] || `Additional Document ${idx - 24}`;
+            loadedReqs[idx - 25] = { label };
           }
         }
       });
@@ -1092,13 +1117,13 @@ export default function BuildingPermitPage() {
   };
 
   const handleSubmit = async () => {
-    if (requirementsProgress < requiredRequirementsCount || permitsProgress < requiredPermitsCount || !signatureUrl || !privacyAccepted) {
+    if (requirementsProgress < requiredRequirementsCount || uploadedPermitsCount < 4 || !signatureUrl || !privacyAccepted) {
       setShowValidationErrors(true);
       if (requirementsProgress < requiredRequirementsCount) {
         toast.warning(`Please ensure ALL ${requiredRequirementsCount} required documents are provided.`);
         setActiveDocTab("REQUIREMENTS");
-      } else if (permitsProgress < requiredPermitsCount) {
-        toast.warning(`Please ensure ALL ${requiredPermitsCount} required permits are provided.`);
+      } else if (uploadedPermitsCount < 4) {
+        toast.warning(`Please upload 4 or more permits to proceed.`);
         setActiveDocTab("PERMITS");
       } else if (!signatureUrl) {
         toast.warning("Please provide your digital signature before submitting.");
@@ -1163,8 +1188,12 @@ export default function BuildingPermitPage() {
 
       // 3. Upload Requirements
       const finalReqUrls: Record<string, string> = {};
-      for (let i = 0; i < 10; i++) {
-        if (i === 5 || (i === 7 && !isAffidavitOfConsentRequired)) continue;
+      for (let i = 0; i < 25; i++) {
+        if (i === 5) continue;
+        if (!isAffidavitOfConsentRequired && [7, 10, 11, 12, 13, 14].includes(i)) continue;
+        if (isAffidavitOfConsentRequired && [21, 22].includes(i)) continue;
+        if (!hasMultipleFloors && [23, 24].includes(i)) continue;
+        
         const file = uploadedRequirements[i];
         if (file) {
           const url = await uploadFileClientSide(file, "requirements", `req_${i}`);
@@ -1174,10 +1203,10 @@ export default function BuildingPermitPage() {
           if (existingUrl) finalReqUrls[`req_${i}`] = existingUrl;
         }
       }
-      // Process custom requirements (index >= 10)
+      // Process custom requirements (index >= 25)
       for (const idxStr of Object.keys(uploadedRequirements)) {
         const idx = parseInt(idxStr, 10);
-        if (idx >= 10) {
+        if (idx >= 25) {
           const file = uploadedRequirements[idx];
           if (file) {
             const url = await uploadFileClientSide(file, "requirements", `req_${idx}`);
@@ -1189,7 +1218,7 @@ export default function BuildingPermitPage() {
         Object.entries(selectedApplication.additionalData.documents).forEach(([key, url]) => {
           if (key.startsWith("req_")) {
             const idx = parseInt(key.replace("req_", ""), 10);
-            if (idx >= 10 && !finalReqUrls[key] && url) {
+            if (idx >= 25 && !finalReqUrls[key] && url) {
               finalReqUrls[key] = url as string;
             }
           }
@@ -2536,6 +2565,11 @@ export default function BuildingPermitPage() {
                               setUploadedRequirements(prev => {
                                 const next = { ...prev };
                                 delete next[7];
+                                delete next[10];
+                                delete next[11];
+                                delete next[12];
+                                delete next[13];
+                                delete next[14];
                                 return next;
                               });
                             }
@@ -2704,7 +2738,7 @@ export default function BuildingPermitPage() {
                 } : undefined}
               >
                 <FileSignature className="w-4 h-4" />
-                Permits ({requiredPermitsCount} required)
+                Permits (Upload 4 or more)
               </button>
             </div>
 
@@ -2731,8 +2765,15 @@ export default function BuildingPermitPage() {
                 ? [
                     ...documentRequirementsList
                       .map((docName, idx) => ({ docName, idx, kind: "base" as const })),
-                    ...customRequirements.map((req, idx) => ({ docName: req.label, idx: 10 + idx, kind: "custom" as const }))
-                  ].filter(({ idx, kind }) => kind === "custom" || (idx !== 5 && (isAffidavitOfConsentRequired || idx !== 7)))
+                    ...customRequirements.map((req, idx) => ({ docName: req.label, idx: 25 + idx, kind: "custom" as const }))
+                  ].filter(({ idx, kind }) => {
+                    if (kind === "custom") return true;
+                    if (idx === 5) return false;
+                    if (!isAffidavitOfConsentRequired && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
+                    if (isAffidavitOfConsentRequired && [21, 22].includes(idx)) return false;
+                    if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
+                    return true;
+                  })
                 : [
                     ...permitTypesList.map((docName, idx) => ({ docName, idx, kind: "base" as const })),
                     ...customPermits.map((permit, idx) => ({ docName: permit.label, idx: 7 + idx, kind: "custom" as const }))
@@ -2778,7 +2819,7 @@ export default function BuildingPermitPage() {
                             type="button"
                             onClick={() => {
                               if (activeDocTab === "REQUIREMENTS") {
-                                setCustomRequirements(prev => prev.filter((_, i) => i !== (idx - 10)));
+                                setCustomRequirements(prev => prev.filter((_, i) => i !== (idx - 25)));
                                 setUploadedRequirements(prev => {
                                   const nextReqs: Record<number, File> = {};
                                   Object.entries(prev).forEach(([kStr, file]) => {
@@ -2867,7 +2908,7 @@ export default function BuildingPermitPage() {
                 >
                   {activeDocTab === "REQUIREMENTS"
                     ? `Requirements Progress: ${uploadedRequirementsCount}/${requiredRequirementsCount} documents uploaded`
-                    : `Permits Progress: ${uploadedPermitsCount}/${requiredPermitsCount} permits uploaded`}
+                    : `Permits Progress: ${uploadedPermitsCount} uploaded (min. 4 required)`}
                 </p>
               </div>
               <div className="bg-blue-50 dark:bg-blue-500/5 border-l-4 border-blue-500 p-4 rounded-r-xl flex items-center justify-between gap-3">
@@ -2878,7 +2919,7 @@ export default function BuildingPermitPage() {
                   </p>
                 </div>
                 {!selectedApplication && (
-                  <span className="text-[10px] text-blue-600/60 dark:text-blue-400/60 font-medium uppercase tracking-widest hidden sm:block">All {totalRequiredItems} items must be uploaded</span>
+                  <span className="text-[10px] text-blue-600/60 dark:text-blue-400/60 font-medium uppercase tracking-widest hidden sm:block">All requirements and at least 4 permits must be uploaded</span>
                 )}
               </div>
             </div>
