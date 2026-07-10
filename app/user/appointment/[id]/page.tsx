@@ -15,7 +15,6 @@ import {
     AlertCircle,
     QrCode,
     Printer,
-    ShieldAlert
     AlertTriangle,
     ShieldAlert,
     Loader2
