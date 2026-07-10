@@ -247,7 +247,8 @@ export default function RegistrarPage() {
     }, [fetchTransactions]);
 
     useEffect(() => {
-        // Background polling fallback every 15 seconds to ensure queue updates
+        // Background polling safety heartbeat every 60 seconds
+        // (realtime handles instant updates; this is only a fallback for idle state recovery)
         const interval = setInterval(() => {
             const idleThreshold = 30000; // 30 seconds
             const isCurrentlyIdle = Date.now() - (lastActivityRef.current ?? Date.now()) > idleThreshold;
@@ -258,7 +259,7 @@ export default function RegistrarPage() {
                 console.log("[Polling Registrar Queue] Fetching queue updates silently...");
                 fetchTransactions(true);
             }
-        }, 15000);
+        }, 60000);
 
         return () => clearInterval(interval);
     }, [fetchTransactions]);

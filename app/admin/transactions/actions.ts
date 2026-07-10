@@ -2707,8 +2707,10 @@ export async function getUserTransactions() {
         const session = await getSession();
         if (!session?.user?.id) return { success: false, error: "Unauthorized" };
 
-        // Automatically cancel/reject any past-due appointments before fetching
-        await cleanupPastDueCedulaAppointments(session.user.id);
+        // Automatically cancel/reject any past-due appointments in background before fetching
+        cleanupPastDueCedulaAppointments(session.user.id).catch(err => {
+            console.error("Failed to cleanup past due appointments in background:", err);
+        });
 
         const transactions = await prisma.transaction.findMany({
             where: { userId: session.user.id },

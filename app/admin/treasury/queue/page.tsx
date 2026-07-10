@@ -69,12 +69,20 @@ export default function TreasuryQueuePage() {
         fetchQueue();
     }, [fetchQueue]);
 
-    // Supabase Real-time updates + 5-second Polling Fallback
+    // Supabase Real-time updates + Adaptive Polling Fallback
     useEffect(() => {
-        // 1. Polling interval every 5 seconds (extremely reliable backup)
+        // Track realtime connection state without causing re-renders
+        const realtimeConnectedRef = { current: false };
+
+        // 1. Adaptive polling:
+        //    - When realtime CONNECTED → skip (realtime handles instantly)
+        //    - When realtime DISCONNECTED → poll every 10 seconds to recover
         const pollInterval = setInterval(() => {
-            fetchQueue();
-        }, 5000);
+            if (!realtimeConnectedRef.current) {
+                console.log("[Treasury Queue Polling] Realtime offline — fetching...");
+                fetchQueue();
+            }
+        }, 10000);
 
         // 2. Real-time WebSocket subscription
         let channel: any = null;
@@ -93,7 +101,16 @@ export default function TreasuryQueuePage() {
                         fetchQueue();
                     }
                 )
-                .subscribe();
+                .subscribe((status: string) => {
+                    const wasConnected = realtimeConnectedRef.current;
+                    realtimeConnectedRef.current = status === "SUBSCRIBED";
+
+                    // Fetch immediately when we detect a disconnect
+                    if (wasConnected && status === "CHANNEL_ERROR") {
+                        console.warn("[Treasury Queue] Realtime disconnected — syncing immediately");
+                        fetchQueue();
+                    }
+                });
         }
 
         return () => {

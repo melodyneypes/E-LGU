@@ -611,20 +611,6 @@ export default function TreasuryDetailPage() {
     }, [id, isNavigatingToQueue]);
 
     useEffect(() => {
-        if (!id || isNavigatingToQueue) return;
-        // Background polling fallback every 10 seconds to ensure updates are fetched
-        const interval = setInterval(() => {
-            console.log(`[Polling Treasury Detail] Fetching updates for ${id}...`);
-            fetchTransaction(true).catch(err => {
-                console.error("Polling fetchTransaction failed:", err);
-            });
-        }, 10000);
-
-        return () => clearInterval(interval);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, isNavigatingToQueue]);
-
-    useEffect(() => {
         if (!session) return;
         const role = (session?.user as any)?.role;
         const dept = (session?.user as any)?.department;
