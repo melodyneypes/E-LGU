@@ -1138,10 +1138,9 @@ export default function TreasuryDetailPage() {
             const stepsList = [
                 { id: "FOR_INSPECTION", label: "INSPECTION" },
                 { id: "FOR_REQUESTING", label: "FOR EVALUATION" },
-                { id: "EVALUATED", label: "PENDING PAYMENT" },
-                { id: "PAID", label: "PAID" },
-                { id: "FOR_PROCESSING", label: "FOR PROCESSING" },
-                { id: "FOR_REINSPECTION", label: "FOR PROCESSING" },
+                { id: "UNPAID", label: "PENDING PAYMENT" },
+                { id: "FOR_PROCESSING", label: "PAYMENT PROCESSING" },
+                { id: "FOR_REINSPECTION", label: "PERMIT PROCESSING" },
             ];
             if (transaction.fulfillmentType === "DELIVERY") {
                 stepsList.push(
@@ -1712,7 +1711,7 @@ export default function TreasuryDetailPage() {
         }
     };
 
-    const handleConfirmPayment = async () => {
+    const handleConfirmPayment = async (onsitePaymentMethod?: string, onsitePaymentRef?: string) => {
         setActionLoading(true);
         try {
             if (isBusinessPermit) {
@@ -1721,6 +1720,8 @@ export default function TreasuryDetailPage() {
                 if (remarks) formData.append("remarks", remarks);
                 if (orSeriesNumber) formData.append("orSeriesNumber", orSeriesNumber);
                 if (orFile) formData.append("orFile", orFile);
+                if (onsitePaymentMethod) formData.append("paymentMethod", onsitePaymentMethod);
+                if (onsitePaymentRef) formData.append("paymentReference", onsitePaymentRef);
 
                 const res = await confirmBusinessPermitPayment(formData);
                 if (res.success) {

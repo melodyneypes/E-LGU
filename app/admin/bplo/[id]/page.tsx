@@ -1371,112 +1371,114 @@ export default function BploDetailPage({ params }: PageProps) {
                                         </div>
                                     )}
 
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                            Digital Permit Upload {isProcessing ? <span className="text-rose-500 font-bold">*</span> : "(Optional)"}
-                                        </Label>
+                                    {transaction.status !== "FOR_CLAIM" && (
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                Digital Permit Upload {isProcessing ? <span className="text-rose-500 font-bold">*</span> : "(Optional)"}
+                                            </Label>
 
-                                        {isReadOnly && !hasFile ? (
-                                            <div className="border border-slate-100 dark:border-white/5 rounded-2xl p-4 bg-slate-50/50 dark:bg-white/[0.02] text-center text-xs text-slate-400 font-bold italic">
-                                                No digital permit copy uploaded.
-                                            </div>
-                                        ) : !hasFile ? (
-                                            <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-center">
-                                                <label className="cursor-pointer block space-y-2">
-                                                    <Upload className="w-6 h-6 text-slate-400 mx-auto" />
-                                                    <span className="text-xs font-bold text-slate-600 dark:text-slate-400 block">Select Digital PDF/Image</span>
-                                                    <Input
-                                                        type="file"
-                                                        accept="image/*,application/pdf"
-                                                        onChange={(e) => setECopyFile(e.target.files?.[0] || null)}
-                                                        className="hidden"
-                                                    />
-                                                </label>
-                                            </div>
-                                        ) : (
-                                            <div className="flex justify-end">
-                                                {!isReadOnly && transaction.status !== "FOR_CLAIM" && (
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            setECopyFile(null);
-                                                            setTransaction((prev: any) => prev ? { ...prev, eCopyUrl: "" } : null);
-                                                        }}
-                                                        className="text-xs font-black text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 px-3 py-1 rounded-xl h-auto"
-                                                    >
-                                                        ✕ Clear / Change File
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        )}
+                                            {isReadOnly && !hasFile ? (
+                                                <div className="border border-slate-100 dark:border-white/5 rounded-2xl p-4 bg-slate-50/50 dark:bg-white/[0.02] text-center text-xs text-slate-400 font-bold italic">
+                                                    No digital permit copy uploaded.
+                                                </div>
+                                            ) : !hasFile ? (
+                                                <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-center">
+                                                    <label className="cursor-pointer block space-y-2">
+                                                        <Upload className="w-6 h-6 text-slate-400 mx-auto" />
+                                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400 block">Select Digital PDF/Image</span>
+                                                        <Input
+                                                            type="file"
+                                                            accept="image/*,application/pdf"
+                                                            onChange={(e) => setECopyFile(e.target.files?.[0] || null)}
+                                                            className="hidden"
+                                                        />
+                                                    </label>
+                                                </div>
+                                            ) : (
+                                                <div className="flex justify-end">
+                                                    {!isReadOnly && transaction.status !== "FOR_CLAIM" && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                setECopyFile(null);
+                                                                setTransaction((prev: any) => prev ? { ...prev, eCopyUrl: "" } : null);
+                                                            }}
+                                                            className="text-xs font-black text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 px-3 py-1 rounded-xl h-auto"
+                                                        >
+                                                            ✕ Clear / Change File
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            )}
 
-                                        {/* PREVIEW CONTAINER */}
-                                        {hasFile && (
-                                            <div className="mt-4">
-                                                {(() => {
-                                                    const isPdf = eCopyFile
-                                                        ? (eCopyFile.type === "application/pdf" || eCopyFile.name.toLowerCase().endsWith(".pdf"))
-                                                        : (transaction.eCopyUrl?.toLowerCase()?.includes(".pdf") || false);
+                                            {/* PREVIEW CONTAINER */}
+                                            {hasFile && (
+                                                <div className="mt-4">
+                                                    {(() => {
+                                                        const isPdf = eCopyFile
+                                                            ? (eCopyFile.type === "application/pdf" || eCopyFile.name.toLowerCase().endsWith(".pdf"))
+                                                            : (transaction.eCopyUrl?.toLowerCase()?.includes(".pdf") || false);
 
-                                                    const targetUrl = eCopyPreview || transaction.eCopyUrl;
+                                                        const targetUrl = eCopyPreview || transaction.eCopyUrl;
 
-                                                    if (isPdf) {
+                                                        if (isPdf) {
+                                                            return (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        handleViewFile(targetUrl, "Digital Permit PDF");
+                                                                    }}
+                                                                    className="w-full flex items-center justify-between p-5 bg-slate-900/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-primary/50 hover:bg-primary/5 transition-all text-left animate-in fade-in duration-300 group"
+                                                                >
+                                                                    <div className="flex items-center gap-4">
+                                                                        <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 text-xl shrink-0 group-hover:scale-110 transition-transform">
+                                                                            📕
+                                                                        </div>
+                                                                        <div className="space-y-1">
+                                                                            <p className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 leading-none">Digital Permit PDF</p>
+                                                                            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic leading-none">Click to View Document in Modal</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div
+                                                                        style={{ color: themeColor, borderColor: `${themeColor}40` }}
+                                                                        className="h-9 px-4 rounded-xl border text-primary font-black italic uppercase tracking-widest text-[9px] group-hover:bg-primary/10 flex items-center gap-1.5 transition-all shrink-0"
+                                                                    >
+                                                                        Open PDF ➔
+                                                                    </div>
+                                                                </button>
+                                                            );
+                                                        }
                                                         return (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => {
-                                                                    handleViewFile(targetUrl, "Digital Permit PDF");
+                                                                    handleViewFile(targetUrl, "Digital Permit Document");
                                                                 }}
-                                                                className="w-full flex items-center justify-between p-5 bg-slate-900/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-primary/50 hover:bg-primary/5 transition-all text-left animate-in fade-in duration-300 group"
+                                                                className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all text-left block cursor-zoom-in"
                                                             >
-                                                                <div className="flex items-center gap-4">
-                                                                    <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 text-xl shrink-0 group-hover:scale-110 transition-transform">
-                                                                        📕
+                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                <img
+                                                                    src={targetUrl}
+                                                                    alt="Digital Permit Preview"
+                                                                    className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
+                                                                />
+                                                                <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 backdrop-blur-[2px]">
+                                                                    <div
+                                                                        style={{ backgroundColor: themeColor }}
+                                                                        className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px]"
+                                                                    >
+                                                                        <span>View</span>
                                                                     </div>
-                                                                    <div className="space-y-1">
-                                                                        <p className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 leading-none">Digital Permit PDF</p>
-                                                                        <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic leading-none">Click to View Document in Modal</p>
-                                                                    </div>
-                                                                </div>
-                                                                <div
-                                                                    style={{ color: themeColor, borderColor: `${themeColor}40` }}
-                                                                    className="h-9 px-4 rounded-xl border text-primary font-black italic uppercase tracking-widest text-[9px] group-hover:bg-primary/10 flex items-center gap-1.5 transition-all shrink-0"
-                                                                >
-                                                                    Open PDF ➔
                                                                 </div>
                                                             </button>
                                                         );
-                                                    }
-                                                    return (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                handleViewFile(targetUrl, "Digital Permit Document");
-                                                            }}
-                                                            className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all text-left block cursor-zoom-in"
-                                                        >
-                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                            <img
-                                                                src={targetUrl}
-                                                                alt="Digital Permit Preview"
-                                                                className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
-                                                            />
-                                                            <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 backdrop-blur-[2px]">
-                                                                <div
-                                                                    style={{ backgroundColor: themeColor }}
-                                                                    className="backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px]"
-                                                                >
-                                                                    <span>View</span>
-                                                                </div>
-                                                            </div>
-                                                        </button>
-                                                    );
-                                                })()}
-                                            </div>
-                                        )}
-                                    </div>
+                                                    })()}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-400">

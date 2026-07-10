@@ -200,7 +200,7 @@ export default function BploQueuePage() {
                             <Button 
                                 onClick={handleCallNext} 
                                 disabled={actionLoading}
-                                className="w-full h-16 rounded-2xl bg-primary text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-slate-900 transition-all shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 active:translate-y-0"
+                                className="w-full h-16 rounded-2xl bg-primary text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-primary transition-all shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 active:translate-y-0"
                             >
                                 <Volume2 className="w-5 h-5 animate-bounce" />
                                 Call Next in Queue

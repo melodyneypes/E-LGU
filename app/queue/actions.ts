@@ -91,7 +91,7 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             if (tx.status === "FOR_PROCESSING") return true;
             const category = tx.type?.category || "";
             if (category === "Business Permit") {
-                const allowedBploServing = ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION"];
+                const allowedBploServing = ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM"];
                 if (allowedBploServing.includes(tx.status)) {
                     const additionalData = tx.additionalData as any;
                     return additionalData && typeof additionalData.counterName === "string" && additionalData.counterName.trim() !== "";

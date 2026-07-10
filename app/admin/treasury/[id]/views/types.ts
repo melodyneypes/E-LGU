@@ -60,7 +60,7 @@ export interface TreasuryViewProps {
     setFeeLineItems: Dispatch<SetStateAction<{ label: string; amount: string; readonly?: boolean }[]>>;
     fetchTransaction: () => Promise<void>;
     handleEvaluate: () => Promise<void>;
-    handleConfirmPayment: () => Promise<void>;
+    handleConfirmPayment: (onsitePaymentMethod?: string, onsitePaymentRef?: string) => Promise<void>;
     handleDeclinePaymentProof: () => Promise<void>;
     handlePrintWaybill: () => void;
     handleRelease: () => Promise<void>;

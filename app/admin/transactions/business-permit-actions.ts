@@ -97,6 +97,8 @@ export async function confirmBusinessPermitPayment(formData: FormData) {
         const remarks = formData.get("remarks") as string;
         const orFile = formData.get("orFile") as File;
         const orSeriesNumber = formData.get("orSeriesNumber") as string;
+        const paymentMethod = formData.get("paymentMethod") as string;
+        const paymentReference = formData.get("paymentReference") as string;
 
         const sanitizedId = sanitizeString(id);
         const sanitizedRemarks = remarks ? sanitizeString(remarks) : undefined;
@@ -120,28 +122,78 @@ export async function confirmBusinessPermitPayment(formData: FormData) {
         }
 
         const currentAdditionalData = (transaction.additionalData as any) || {};
+        const { counterName, servingDepartment, ...restAdditionalData } = currentAdditionalData;
+
         const updatedAdditionalData = {
-            ...currentAdditionalData,
+            ...restAdditionalData,
+            checkedIn: true,
+            checkedInAt: getPHTimeISOString(),
             ...(sanitizedRemarks && { treasuryRemarks: sanitizedRemarks }),
             ...(orSeriesNumber && { orSeriesNumber: sanitizeString(orSeriesNumber) }),
+            ...(paymentMethod && { paymentType: paymentMethod }),
+            ...(paymentReference && { paymentReference: sanitizeString(paymentReference) }),
             ...(orDocumentUrl && { orDocumentUrl }), // Save in additionalData as well!
             releasedAt: getPHTimeISOString()
         };
 
-        const targetStatus = "FOR_REINSPECTION";
+        const targetStatus = "FOR_CLAIM";
         const finalOrUrl = orDocumentUrl || transaction.orUrl;
 
         console.log("[confirmBusinessPermitPayment] Updating transaction in database. finalOrUrl:", finalOrUrl);
+
+        let mappedPaymentType: any = transaction.paymentType;
+        if (paymentMethod) {
+            const methodUpper = paymentMethod.toUpperCase();
+            if (methodUpper === "CASH") mappedPaymentType = "CASH";
+            else if (methodUpper === "GCASH" || methodUpper === "QR" || methodUpper === "E_PAYMENT") mappedPaymentType = "E_PAYMENT";
+            else if (methodUpper === "LANDBANK" || methodUpper === "BANK_TRANSFER") mappedPaymentType = "BANK_TRANSFER";
+        }
+
+        const isCash = mappedPaymentType === "CASH";
+        const finalPaymentReference = isCash
+            ? null
+            : (paymentReference ? sanitizeString(paymentReference) : `manual_${sanitizedId}`);
 
         const updatedTransaction = await prisma.transaction.update({
             where: { id: sanitizedId },
             data: {
                 status: targetStatus as any,
                 orUrl: finalOrUrl,
+                paymentType: mappedPaymentType,
+                isPaid: true,
                 updatedAt: new Date(),
                 additionalData: updatedAdditionalData
             },
             include: { user: true, type: true }
+        });
+
+        await prisma.payment.upsert({
+            where: { transactionId: sanitizedId },
+            update: {
+                amount: Number(updatedTransaction.totalAmount || 0),
+                method: updatedTransaction.paymentType || "CASH",
+                status: "PAID",
+                reference: finalPaymentReference ? String(finalPaymentReference) : null,
+                orNumber: orSeriesNumber ? sanitizeString(orSeriesNumber) : undefined,
+                meta: {
+                    source: "treasury_confirmation",
+                    releasedBy: user.name || user.email || "Treasury Staff",
+                    ...(orDocumentUrl && { orDocumentUrl })
+                }
+            },
+            create: {
+                transactionId: sanitizedId,
+                amount: Number(updatedTransaction.totalAmount || 0),
+                method: updatedTransaction.paymentType || "CASH",
+                status: "PAID",
+                reference: finalPaymentReference ? String(finalPaymentReference) : null,
+                orNumber: orSeriesNumber ? sanitizeString(orSeriesNumber) : undefined,
+                meta: {
+                    source: "treasury_confirmation",
+                    releasedBy: user.name || user.email || "Treasury Staff",
+                    ...(orDocumentUrl && { orDocumentUrl })
+                }
+            }
         });
 
         if (updatedTransaction.user?.email) {
