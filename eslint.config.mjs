@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-explicit-any": "off",
       // Disable set-state-in-effect - too strict for common patterns
       "react-hooks/set-state-in-effect": "off",
+      // Disable immutability checking - too strict and has false positives with document.cookie/window.location
+      "react-hooks/immutability": "off",
     },
   },
   // Override default ignores of eslint-config-next.

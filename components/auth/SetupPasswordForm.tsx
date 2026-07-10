@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Lock, CheckCircle2, Loader2, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
@@ -44,8 +44,10 @@ export function SetupPasswordForm({ email, token, themeColor = "#2563eb" }: Setu
         defaultValues: { password: "", confirmPassword: "" },
     });
 
-    // eslint-disable-next-line react-hooks/incompatible-library
-    const passwordValue = form.watch("password") || "";
+    const passwordValue = useWatch({
+        control: form.control,
+        name: "password",
+    }) || "";
 
     const requirements = [
         { label: "At least one lowercase letter", met: /[a-z]/.test(passwordValue) },
