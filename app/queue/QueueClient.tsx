@@ -236,59 +236,70 @@ export default function QueueClient({
                     // Update tracker immediately to avoid double calls
                     prevCalledRef.current[trackerKey] = currentCallKey;
 
-                    // Speech Synthesis
+                    // Speech Synthesis (with Google Translate TTS fallback for Smart TVs)
                     const counter = active.counterName;
                     const phrase = `Ticket number, ${currentTicket.split("").join(" ")}, please proceed to ${counter}.`;
-                    
-                    const utterance = new SpeechSynthesisUtterance(phrase);
-                    utterance.rate = 0.85; // slightly slower for clarity
-                    utterance.pitch = 1.05; // slightly higher pitch for natural female tone
-                    
-                    // Find a high-quality female English voice from our loaded state
-                    const femaleVoice = voices.find(voice => {
-                        const name = voice.name.toLowerCase();
-                        const lang = voice.lang.toLowerCase();
-                        const isEnglish = lang.startsWith("en");
+
+                    if (typeof window !== "undefined" && window.speechSynthesis && voices.length > 0) {
+                        // Web Speech API Synthesis (Local Engine)
+                        console.log("Speech Engine: Using native Web Speech API");
+                        const utterance = new SpeechSynthesisUtterance(phrase);
+                        utterance.rate = 0.85; // slightly slower for clarity
+                        utterance.pitch = 1.05; // slightly higher pitch for natural female tone
                         
-                        const isFemaleName = 
-                            name.includes("zira") ||
-                            name.includes("samantha") ||
-                            name.includes("hazel") ||
-                            name.includes("aria") ||
-                            name.includes("susan") ||
-                            name.includes("female") ||
-                            name.includes("google us english") ||
-                            name.includes("en-us-language") ||
-                            name.includes("heera"); // Cortana/other standard female voices
+                        // Find a high-quality female English voice from our loaded state
+                        const femaleVoice = voices.find(voice => {
+                            const name = voice.name.toLowerCase();
+                            const lang = voice.lang.toLowerCase();
+                            const isEnglish = lang.startsWith("en");
+                            
+                            const isFemaleName = 
+                                name.includes("zira") ||
+                                name.includes("samantha") ||
+                                name.includes("hazel") ||
+                                name.includes("aria") ||
+                                name.includes("susan") ||
+                                name.includes("female") ||
+                                name.includes("google us english") ||
+                                name.includes("en-us-language") ||
+                                name.includes("heera"); // Cortana/other standard female voices
+                            
+                            const isMaleName = 
+                                name.includes("david") ||
+                                name.includes("mark") ||
+                                name.includes("george") ||
+                                name.includes("ravi") ||
+                                name.includes("male");
+
+                            return isEnglish && isFemaleName && !isMaleName;
+                        }) || voices.find(voice => {
+                            // Fallback to any voice that is English and doesn't contain a male name
+                            const name = voice.name.toLowerCase();
+                            const lang = voice.lang.toLowerCase();
+                            return lang.startsWith("en") && !(
+                                name.includes("david") ||
+                                name.includes("mark") ||
+                                name.includes("george") ||
+                                name.includes("male")
+                            );
+                        });
+
+                        console.log("Speech Engine: Selected voice -", femaleVoice?.name || "System Default");
+
+                        if (femaleVoice) {
+                            utterance.voice = femaleVoice;
+                        }
                         
-                        const isMaleName = 
-                            name.includes("david") ||
-                            name.includes("mark") ||
-                            name.includes("george") ||
-                            name.includes("ravi") ||
-                            name.includes("male");
-
-                        return isEnglish && isFemaleName && !isMaleName;
-                    }) || voices.find(voice => {
-                        // Fallback to any voice that is English and doesn't contain a male name
-                        const name = voice.name.toLowerCase();
-                        const lang = voice.lang.toLowerCase();
-                        return lang.startsWith("en") && !(
-                            name.includes("david") ||
-                            name.includes("mark") ||
-                            name.includes("george") ||
-                            name.includes("male")
-                        );
-                    });
-
-                    console.log("Speech Engine: Selected voice -", femaleVoice?.name || "System Default");
-
-                    if (femaleVoice) {
-                        utterance.voice = femaleVoice;
+                        window.speechSynthesis.speak(utterance);
+                    } else {
+                        // Fallback: Streaming MP3 from Google Translate TTS (for Smart TVs and mobile browsers with 0 native voices)
+                        console.log("Speech Engine: Using Google Translate TTS Fallback Audio Stream");
+                        const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodeURIComponent(phrase)}`;
+                        const audio = new Audio(audioUrl);
+                        audio.play().catch(err => {
+                            console.error("Fallback TTS Audio playback failed:", err);
+                        });
                     }
-                    
-                    // Add minor delays between queued voices if many change at once
-                    window.speechSynthesis.speak(utterance);
                 }
             });
         });
@@ -298,10 +309,18 @@ export default function QueueClient({
         setIsVoiceEnabled(true);
         setHasInteracted(true);
 
-        // Pre-warm audio engine for mobile browsers
-        const utterance = new SpeechSynthesisUtterance("Voice announcements enabled");
-        utterance.volume = 0;
-        window.speechSynthesis.speak(utterance);
+        // Pre-warm audio engine for mobile browsers / TVs
+        if (typeof window !== "undefined" && window.speechSynthesis && voices.length > 0) {
+            const utterance = new SpeechSynthesisUtterance("Voice announcements enabled");
+            utterance.volume = 0;
+            window.speechSynthesis.speak(utterance);
+        } else {
+            // Pre-warm Google TTS Audio
+            const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=Voice+announcements+enabled`;
+            const audio = new Audio(audioUrl);
+            audio.volume = 0;
+            audio.play().catch(() => {});
+        }
     };
 
     if (isLocked) {
