@@ -554,6 +554,8 @@ export async function getTreasuryTransactions(params?: string | {
     search?: string;
     category?: string;
     serviceFilter?: string | null;
+    lcrSubCategory?: string;
+    ledgerType?: string;
 }) {
     try {
         const session = await getSession();
@@ -569,6 +571,8 @@ export async function getTreasuryTransactions(params?: string | {
         let category = "";
         let serviceFilter: string | null = null;
         let status: string | undefined = undefined;
+        let lcrSubCategory: string | undefined = undefined;
+        let ledgerType: string | undefined = undefined;
 
         if (typeof params === "string") {
             status = params;
@@ -581,6 +585,8 @@ export async function getTreasuryTransactions(params?: string | {
             category = params.category || "";
             serviceFilter = params.serviceFilter || null;
             status = params.status;
+            lcrSubCategory = params.lcrSubCategory;
+            ledgerType = params.ledgerType;
         }
 
         const skip = limit === 999999 ? 0 : (page - 1) * limit;
@@ -700,6 +706,94 @@ export async function getTreasuryTransactions(params?: string | {
             } else {
                 where.type = { ...where.type, name: serviceFilter };
                 where.isStudent = false;
+            }
+        }
+
+        // LCR Sub-category filter mapping
+        if (lcrSubCategory) {
+            if (lcrSubCategory === "Birth Registration") {
+                where.type = { ...where.type, code: "LCR_BIRTH_REG" };
+            } else if (lcrSubCategory === "Birth Certificate") {
+                where.type = { ...where.type, code: "LCR_BIRTH" };
+            } else if (lcrSubCategory === "Death Registration") {
+                where.type = { ...where.type, code: "LCR_DEATH_REG" };
+                where.status = { not: "FOR_REQUESTING" };
+            } else if (lcrSubCategory === "Death Certificate") {
+                where.type = { ...where.type, code: "LCR_DEATH" };
+            } else if (lcrSubCategory === "Marriage License") {
+                where.type = { ...where.type, code: "LCR_MARRIAGE_LICENSE" };
+                where.status = { not: "FOR_REQUESTING" };
+            } else if (lcrSubCategory === "Marriage Registration") {
+                where.type = { ...where.type, code: "LCR_MARRIAGE_REG" };
+            } else if (lcrSubCategory === "Marriage Certificate") {
+                where.type = { ...where.type, code: "LCR_MARRIAGE" };
+            } else if (lcrSubCategory === "PSA Endorsement") {
+                where.type = {
+                    ...where.type,
+                    code: {
+                        in: [
+                            "LCR_PSA_ENDORSEMENT",
+                            "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+                            "LCR_DEATH_PSA_ENDORSEMENT",
+                            "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+                            "LCR_MARRIAGE_PSA_ENDORSEMENT",
+                            "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                        ]
+                    }
+                };
+                where.status = {
+                    notIn: ["RELEASED", "DELIVERED", "FOR_REQUESTING"]
+                };
+            } else if (lcrSubCategory === "PSA Appt. Endorsement") {
+                where.type = {
+                    ...where.type,
+                    code: {
+                        in: [
+                            "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+                            "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+                            "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                        ]
+                    }
+                };
+                where.status = {
+                    notIn: ["RELEASED", "DELIVERED", "FOR_REQUESTING"]
+                };
+            }
+        }
+        // LCR Ledger type filter mapping
+        if (ledgerType) {
+            where.status = { in: ["DELIVERED", "RELEASED"] };
+            where.isCancelled = false;
+
+            if (ledgerType === "BIRTH") {
+                where.type = {
+                    ...where.type,
+                    code: { in: ["LCR_BIRTH_REG", "LCR_BIRTH"] }
+                };
+            } else if (ledgerType === "DEATH") {
+                where.type = {
+                    ...where.type,
+                    code: { in: ["LCR_DEATH_REG", "LCR_DEATH"] }
+                };
+            } else if (ledgerType === "MARRIAGE") {
+                where.type = {
+                    ...where.type,
+                    code: { in: ["LCR_MARRIAGE_REG", "LCR_MARRIAGE", "LCR_MARRIAGE_LICENSE"] }
+                };
+            } else if (ledgerType === "PSA") {
+                where.type = {
+                    ...where.type,
+                    code: {
+                        in: [
+                            "LCR_PSA_ENDORSEMENT",
+                            "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+                            "LCR_DEATH_PSA_ENDORSEMENT",
+                            "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+                            "LCR_MARRIAGE_PSA_ENDORSEMENT",
+                            "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                        ]
+                    }
+                };
             }
         }
 

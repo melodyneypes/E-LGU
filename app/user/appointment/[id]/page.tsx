@@ -15,7 +15,6 @@ import {
     AlertCircle,
     QrCode,
     Printer,
-    AlertTriangle,
     ShieldAlert
 } from "lucide-react";
 import { cn } from "@/lib/utils";
