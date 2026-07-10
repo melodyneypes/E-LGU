@@ -611,20 +611,6 @@ export default function TreasuryDetailPage() {
     }, [id, isNavigatingToQueue]);
 
     useEffect(() => {
-        if (!id || isNavigatingToQueue) return;
-        // Background polling fallback every 10 seconds to ensure updates are fetched
-        const interval = setInterval(() => {
-            console.log(`[Polling Treasury Detail] Fetching updates for ${id}...`);
-            fetchTransaction(true).catch(err => {
-                console.error("Polling fetchTransaction failed:", err);
-            });
-        }, 10000);
-
-        return () => clearInterval(interval);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, isNavigatingToQueue]);
-
-    useEffect(() => {
         if (!session) return;
         const role = (session?.user as any)?.role;
         const dept = (session?.user as any)?.department;
@@ -634,13 +620,13 @@ export default function TreasuryDetailPage() {
     }, [session, id, router]);
 
     useEffect(() => {
-        if (!transaction || !session) return;
+        if (!transaction || !session || isNavigatingToQueue) return;
         const isBp = transaction?.type?.code?.startsWith("BUSINESS_PERMIT") ?? false;
-        if (isBp && isTreasuryStaff && transaction.status === "FOR_REINSPECTION") {
+        if (isBp && isTreasuryStaff && ["FOR_REINSPECTION", "FOR_CLAIM"].includes(transaction.status)) {
             toast.error("Access Forbidden: Treasury Staff cannot access this status");
             router.push("/admin/treasury?category=Business%20Permit");
         }
-    }, [transaction, session, isTreasuryStaff, router]);
+    }, [transaction, session, isTreasuryStaff, router, isNavigatingToQueue]);
 
     useEffect(() => {
         fetchTransaction();
@@ -806,7 +792,7 @@ export default function TreasuryDetailPage() {
                 setOrFile(null);
                 setStickerNumber("");
                 setIsNavigatingToQueue(true);
-                if (typeCode.includes("CEDULA")) {
+                if (typeCode.includes("CEDULA") || ["UNPAID", "FOR_PROCESSING", "PAID", "FOR_REINSPECTION", "FOR_CLAIM"].includes(transaction?.status)) {
                     router.push("/admin/treasury/queue");
                 } else {
                     router.push(backUrl);
@@ -1694,7 +1680,7 @@ export default function TreasuryDetailPage() {
                 toast.error(rel.error || "Failed to release transaction");
             }
             setIsNavigatingToQueue(true);
-            if (typeCode.includes("CEDULA")) {
+            if (typeCode.includes("CEDULA") || ["UNPAID", "FOR_PROCESSING", "PAID"].includes(transaction.status)) {
                 router.push("/admin/treasury/queue");
             } else {
                 router.push(backUrl);
@@ -1712,6 +1698,7 @@ export default function TreasuryDetailPage() {
 
     const handleConfirmPayment = async (onsitePaymentMethod?: string, onsitePaymentRef?: string) => {
         setActionLoading(true);
+        setIsNavigatingToQueue(true);
         try {
             if (isBusinessPermit) {
                 const formData = new FormData();
@@ -1727,9 +1714,15 @@ export default function TreasuryDetailPage() {
                     toast.success("Payment Received & Sent to BPLO for Re-Inspection");
                     setReceiptFile(null);
                     setReceiptPreview(null);
-                    router.push("/admin/treasury?category=Business%20Permit");
+                    setIsNavigatingToQueue(true);
+                    if (["UNPAID", "FOR_PROCESSING", "PAID"].includes(transaction.status)) {
+                        router.push("/admin/treasury/queue");
+                    } else {
+                        router.push("/admin/treasury?category=Business%20Permit");
+                    }
                 } else {
                     toast.error(res.error || "Failed to confirm payment");
+                    setIsNavigatingToQueue(false);
                 }
                 return;
             }
@@ -1814,9 +1807,15 @@ export default function TreasuryDetailPage() {
                 if (isLCR) {
                     if (rel.success) {
                         toast.success("Payment Received & Sent to Civil Registry for Re-Inspection");
-                        router.push("/admin/treasury?category=Civil%20Registry");
+                        setIsNavigatingToQueue(true);
+                        if (["UNPAID", "FOR_PROCESSING", "PAID"].includes(transaction.status)) {
+                            router.push("/admin/treasury/queue");
+                        } else {
+                            router.push("/admin/treasury?category=Civil%20Registry");
+                        }
                     } else {
                         toast.error(rel.error || "Failed to proceed to re-inspection");
+                        setIsNavigatingToQueue(false);
                     }
                     return;
                 }
@@ -1827,8 +1826,16 @@ export default function TreasuryDetailPage() {
                 } else {
                     toast.error(rel.error || (isBusinessPermit ? "Failed to proceed to re-inspection" : "Failed to proceed to processing"));
                 }
-                router.push(backUrl);
-            } else toast.error(res.error || "Failed");
+                setIsNavigatingToQueue(true);
+                if (["UNPAID", "FOR_PROCESSING", "PAID"].includes(transaction.status)) {
+                    router.push("/admin/treasury/queue");
+                } else {
+                    router.push(backUrl);
+                }
+            } else {
+                toast.error(res.error || "Failed");
+                setIsNavigatingToQueue(false);
+            }
         } finally { setActionLoading(false); }
     };
 

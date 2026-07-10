@@ -64,14 +64,14 @@ export async function treasuryReleaseBusinessPermit(id: string, orUrl?: string) 
 
         if (transaction.user?.email) {
             const resident = transaction.residentSnapshot as any;
-            await sendEmail({
+            sendEmail({
                 type: targetStatus as any,
                 to: transaction.user.email,
                 name: `${resident.firstName} ${resident.lastName}`,
                 transactionId: id.slice(-8).toUpperCase(),
                 amount: transaction.totalAmount,
                 serviceName: transaction.type.name
-            });
+            }).catch(err => console.error("Background email send error in treasuryReleaseBusinessPermit:", err));
         }
 
         revalidatePath("/admin/treasury");
@@ -200,14 +200,14 @@ export async function confirmBusinessPermitPayment(formData: FormData) {
 
         if (updatedTransaction.user?.email) {
             const resident = updatedTransaction.residentSnapshot as any;
-            await sendEmail({
+            sendEmail({
                 type: targetStatus as any,
                 to: updatedTransaction.user.email,
                 name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : updatedTransaction.user.name || "Resident",
                 transactionId: sanitizedId.slice(-8).toUpperCase(),
                 amount: updatedTransaction.totalAmount,
                 serviceName: updatedTransaction.type.name
-            });
+            }).catch(err => console.error("Background email send error in confirmBusinessPermitPayment:", err));
         }
 
         revalidatePath("/admin/treasury");

@@ -66,10 +66,19 @@ export default function BploDashboard() {
     const [allServices, setAllServices] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [sortBy, setSortBy] = useState<"date" | "service">("date");
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 300);
+        return () => clearTimeout(handler);
+    }, [search]);
     const [serviceFilter, setServiceFilter] = useState<string | null>(null);
     const [serviceSearch, setServiceSearch] = useState("");
     const [statusSearch, setStatusSearch] = useState("");
@@ -130,12 +139,20 @@ export default function BploDashboard() {
     const fetchTransactions = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
-            const res = await getBploTransactions(status);
+            const res = await getBploTransactions({
+                status,
+                page: currentPage,
+                limit: itemsPerPage,
+                search: debouncedSearch,
+                serviceFilter: serviceFilter
+            });
             if (res.success) {
                 setTransactions(res.data || []);
+                setTotalCount(res.totalCount || 0);
             } else {
                 console.error("[BploDashboard] getBploTransactions failed:", res.error);
                 setTransactions([]);
+                setTotalCount(0);
                 toast.error(res.error || "Failed to load transactions.");
             }
             await getPendingBploCount();
@@ -145,7 +162,7 @@ export default function BploDashboard() {
         } finally {
             if (!silent) setLoading(false);
         }
-    }, [status]);
+    }, [status, currentPage, itemsPerPage, debouncedSearch, serviceFilter]);
 
     useEffect(() => {
         fetchTransactions();
@@ -250,41 +267,25 @@ export default function BploDashboard() {
             setCurrentPage(1);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [search, status, itemsPerPage]);
+    }, [debouncedSearch, status, serviceFilter, itemsPerPage]);
 
-    const filteredTransactions = transactions.filter(tx => {
-        const name = `${tx.residentSnapshot?.firstName} ${tx.residentSnapshot?.lastName}`.toLowerCase();
-        const refId = tx.id.slice(-8).toUpperCase();
-        const searchUpper = search.toUpperCase();
+    const sortedTransactions = useMemo(() => {
+        return [...transactions].sort((a, b) => {
+            if (sortBy === "service") {
+                const serviceA = (a.type?.name || "").toLowerCase();
+                const serviceB = (b.type?.name || "").toLowerCase();
+                return sortDirection === "asc"
+                    ? serviceA.localeCompare(serviceB)
+                    : serviceB.localeCompare(serviceA);
+            } else {
+                const dateA = new Date(a.updatedAt).getTime();
+                const dateB = new Date(b.updatedAt).getTime();
+                return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
+            }
+        });
+    }, [transactions, sortBy, sortDirection]);
 
-        const matchesSearch = name.includes(search.toLowerCase()) ||
-            tx.id.toLowerCase().includes(search.toLowerCase()) ||
-            refId.includes(searchUpper);
-
-        const matchesService = !serviceFilter || tx.type?.name === serviceFilter;
-
-        return matchesSearch && matchesService;
-    });
-
-    const sortedTransactions = [...filteredTransactions].sort((a, b) => {
-        if (sortBy === "service") {
-            const serviceA = (a.type?.name || "").toLowerCase();
-            const serviceB = (b.type?.name || "").toLowerCase();
-            return sortDirection === "asc"
-                ? serviceA.localeCompare(serviceB)
-                : serviceB.localeCompare(serviceA);
-        } else {
-            const dateA = new Date(a.updatedAt).getTime();
-            const dateB = new Date(b.updatedAt).getTime();
-            return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
-        }
-    });
-
-    const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
-    const paginatedTransactions = sortedTransactions.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
-    );
+    const totalPages = Math.ceil(totalCount / itemsPerPage);
 
     const handleDateHeaderClick = () => {
         setServiceFilter(null);
@@ -434,8 +435,8 @@ export default function BploDashboard() {
                                                 </TableCell>
                                             </TableRow>
                                         ))
-                                    ) : paginatedTransactions.length > 0 ? (
-                                        paginatedTransactions.map((tx, index) => (
+                                    ) : sortedTransactions.length > 0 ? (
+                                        sortedTransactions.map((tx, index) => (
                                             <TableRow
                                                 key={tx.id}
                                                 onClick={() => router.push(`/admin/bplo/${tx.id}`)}
@@ -567,7 +568,7 @@ export default function BploDashboard() {
                             </div>
                             <div className="flex items-center space-x-4">
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                                    Showing {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
+                                    Showing {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount}
                                 </span>
                                 <div className="flex items-center gap-2">
                                     <Button
