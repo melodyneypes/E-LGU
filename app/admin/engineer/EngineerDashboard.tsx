@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { 
     getEngineerTransactions, 
     getEngineerPendingCount,
@@ -70,8 +70,17 @@ export default function EngineerDashboard() {
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 300);
+        return () => clearTimeout(handler);
+    }, [search]);
     const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
     const [sortBy, setSortBy] = useState<"date" | "service">("date");
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
@@ -79,12 +88,19 @@ export default function EngineerDashboard() {
     const fetchTransactions = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await getEngineerTransactions(status);
+            const res = await getEngineerTransactions({
+                status,
+                page: currentPage,
+                limit: itemsPerPage,
+                search: debouncedSearch
+            });
             if (res.success) {
                 setTransactions(res.data || []);
+                setTotalCount(res.totalCount || 0);
             } else {
                 console.error("[EngineerDashboard] getEngineerTransactions failed:", res.error);
                 setTransactions([]);
+                setTotalCount(0);
                 toast.error(res.error || "Failed to load transactions. Check your permissions.");
             }
             await getEngineerPendingCount();
@@ -94,7 +110,7 @@ export default function EngineerDashboard() {
         } finally {
             setLoading(false);
         }
-    }, [status]);
+    }, [status, currentPage, itemsPerPage, debouncedSearch]);
 
     const fetchStatusCounts = useCallback(async () => {
         try {
@@ -122,38 +138,22 @@ export default function EngineerDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loading]);
 
-    // Reset to page 1 when filters change
     useEffect(() => {
         if (currentPage !== 1) {
             setCurrentPage(1);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [search, status, itemsPerPage]);
+    }, [debouncedSearch, status, itemsPerPage]);
 
-    const filteredTransactions = transactions.filter(tx => {
-        const rs = getResidentSnapshot(tx);
-        const name = `${rs.firstName || ''} ${rs.lastName || ''}`.trim().toLowerCase();
-        const refId = tx.id.slice(-8).toUpperCase();
-        const searchUpper = search.toUpperCase();
-        
-        const matchesSearch = name.includes(search.toLowerCase()) || 
-                             tx.id.toLowerCase().includes(search.toLowerCase()) ||
-                             refId.includes(searchUpper);
-                             
-        return matchesSearch;
-    });
+    const sortedTransactions = useMemo(() => {
+        return [...transactions].sort((a, b) => {
+            const dateA = new Date(a.updatedAt).getTime();
+            const dateB = new Date(b.updatedAt).getTime();
+            return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
+        });
+    }, [transactions, sortDirection]);
 
-    const sortedTransactions = [...filteredTransactions].sort((a, b) => {
-        const dateA = new Date(a.updatedAt).getTime();
-        const dateB = new Date(b.updatedAt).getTime();
-        return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
-    });
-
-    const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
-    const paginatedTransactions = sortedTransactions.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
-    );
+    const totalPages = Math.ceil(totalCount / itemsPerPage);
 
     const handleDateHeaderClick = () => {
         if (sortBy === "date") {
@@ -264,8 +264,8 @@ export default function EngineerDashboard() {
                                             <TableCell colSpan={6} className="h-20 text-center"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded mx-8" /></TableCell>
                                         </TableRow>
                                     ))
-                                ) : paginatedTransactions.length > 0 ? (
-                                    paginatedTransactions.map((tx, index) => (
+                                ) : sortedTransactions.length > 0 ? (
+                                    sortedTransactions.map((tx: any, index: number) => (
                                         <TableRow 
                                             key={tx.id} 
                                             onClick={() => router.push(`/admin/engineer/${tx.id}`)}
@@ -364,7 +364,7 @@ export default function EngineerDashboard() {
                         </div>
                         <div className="flex items-center space-x-4">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                                Showing {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
+                                Showing {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount}
                             </span>
                             <div className="flex items-center gap-2">
                                 <Button

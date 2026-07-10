@@ -85,8 +85,7 @@ export default async function Home({
     }
 
 
-    // 0. Cinematic Delay - specifically for seeing the full animation as requested
-    await new Promise(resolve => setTimeout(resolve, 1000));
+
 
     const settings = await getMultipleSystemSettings([
         "maintenance_mode",

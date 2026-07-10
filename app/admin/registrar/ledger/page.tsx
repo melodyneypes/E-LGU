@@ -45,16 +45,7 @@ function getResidentSnapshot(tx: any): any {
     return tx.residentSnapshot;
 }
 
-// Helper: check if transaction is registrar civil registry request
-function isRegistrarLcrRequest(tx: any) {
-    const typeCode = tx.type?.code;
-    const typeCategory = tx.type?.category;
 
-    return (
-        typeCategory === "Civil Registry" ||
-        (typeCode && (typeCode.startsWith("LCR_") || typeCode.startsWith("CIVIL_REGISTRY")))
-    );
-}
 
 // Status coloring helper mapping
 const getStatusClassName = (status: string, isCancelled?: boolean) => {
@@ -78,22 +69,35 @@ export default function RegistrarLedgerPage() {
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [sortBy, setSortBy] = useState<"date" | "service" | "status">("date");
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 300);
+        return () => clearTimeout(handler);
+    }, [search]);
+
     // Fetch all requests for Civil Registry
     const fetchTransactions = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await getTreasuryTransactions("ALL");
+            const res = await getTreasuryTransactions({
+                status: "ALL",
+                page: currentPage,
+                limit: itemsPerPage,
+                search: debouncedSearch,
+                category: "Civil Registry",
+                ledgerType: selectedType
+            });
             if (res.success && res.data) {
-                // Filter only completed and successful transactions (DELIVERED and RELEASED)
-                const completedLcrTxs = res.data
-                    .filter(isRegistrarLcrRequest)
-                    .filter((tx: any) => (tx.status === "RELEASED" || tx.status === "DELIVERED") && !tx.isCancelled);
-                setTransactions(completedLcrTxs);
+                setTransactions(res.data);
+                setTotalCount(res.totalCount || 0);
             } else {
                 toast.error(res.error || "Failed to load transactions");
             }
@@ -103,7 +107,7 @@ export default function RegistrarLedgerPage() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [currentPage, itemsPerPage, debouncedSearch, selectedType]);
 
     // Load all transactions on mount
     useEffect(() => {
@@ -112,44 +116,15 @@ export default function RegistrarLedgerPage() {
 
     // Reset page numbers when search / type changes
     useEffect(() => {
-        setCurrentPage(1);
-    }, [search, selectedType, itemsPerPage]);
+        if (currentPage !== 1) {
+            setCurrentPage(1);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [debouncedSearch, selectedType, itemsPerPage]);
 
     // --- List Filtering and Sorting ---
-    const filteredTransactions = useMemo(() => {
-        return transactions.filter(tx => {
-            const rs = getResidentSnapshot(tx);
-            const name = `${rs.firstName || ''} ${rs.lastName || ''}`.trim().toLowerCase();
-            const refId = tx.id.slice(-8).toUpperCase();
-            const searchUpper = search.toUpperCase();
-
-            const matchesSearch = name.includes(search.toLowerCase()) ||
-                tx.id.toLowerCase().includes(search.toLowerCase()) ||
-                refId.includes(searchUpper);
-
-            let matchesType = false;
-            if (selectedType === "BIRTH") {
-                matchesType = tx.type?.code === "LCR_BIRTH_REG" || tx.type?.code === "LCR_BIRTH";
-            } else if (selectedType === "DEATH") {
-                matchesType = tx.type?.code === "LCR_DEATH_REG" || tx.type?.code === "LCR_DEATH";
-            } else if (selectedType === "MARRIAGE") {
-                matchesType = tx.type?.code === "LCR_MARRIAGE_REG" || tx.type?.code === "LCR_MARRIAGE" || tx.type?.code === "LCR_MARRIAGE_LICENSE";
-            } else if (selectedType === "PSA") {
-                matchesType = 
-                    tx.type?.code === "LCR_PSA_ENDORSEMENT" || 
-                    tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" || 
-                    tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
-            }
-
-            return matchesSearch && matchesType;
-        });
-    }, [transactions, search, selectedType]);
-
     const sortedTransactions = useMemo(() => {
-        return [...filteredTransactions].sort((a, b) => {
+        return [...transactions].sort((a, b) => {
             if (sortBy === "service") {
                 const serviceA = (a.type?.name || "").toLowerCase();
                 const serviceB = (b.type?.name || "").toLowerCase();
@@ -168,15 +143,9 @@ export default function RegistrarLedgerPage() {
                 return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
             }
         });
-    }, [filteredTransactions, sortBy, sortDirection]);
+    }, [transactions, sortBy, sortDirection]);
 
-    const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
-    const paginatedTransactions = useMemo(() => {
-        return sortedTransactions.slice(
-            (currentPage - 1) * itemsPerPage,
-            currentPage * itemsPerPage
-        );
-    }, [sortedTransactions, currentPage, itemsPerPage]);
+    const totalPages = Math.ceil(totalCount / itemsPerPage);
 
     // Header sort toggle handlers
     const handleDateHeaderClick = () => {
@@ -337,8 +306,8 @@ export default function RegistrarLedgerPage() {
                                         </TableCell>
                                     </TableRow>
                                 ))
-                            ) : paginatedTransactions.length > 0 ? (
-                                paginatedTransactions.map((tx, index) => (
+                            ) : sortedTransactions.length > 0 ? (
+                                sortedTransactions.map((tx, index) => (
                                     <TableRow
                                         key={tx.id}
                                         onClick={() => router.push(`/admin/registrar/${tx.id}`)}
@@ -445,7 +414,7 @@ export default function RegistrarLedgerPage() {
                     </div>
                     <div className="flex items-center space-x-4">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                            Showing {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
+                            Showing {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount}
                         </span>
                         <div className="flex items-center gap-2">
                             <Button

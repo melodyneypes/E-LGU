@@ -2071,6 +2071,16 @@ export async function getBploTransactions(params?: string | {
                 { id: { contains: cleanSearch, mode: "insensitive" } },
                 { businessName: { contains: cleanSearch, mode: "insensitive" } },
                 {
+                    user: {
+                        residentProfile: {
+                            OR: [
+                                { firstName: { contains: cleanSearch, mode: "insensitive" } },
+                                { lastName: { contains: cleanSearch, mode: "insensitive" } }
+                            ]
+                        }
+                    }
+                },
+                {
                     residentSnapshot: {
                         path: ["firstName"],
                         string_contains: cleanSearch
@@ -2078,8 +2088,32 @@ export async function getBploTransactions(params?: string | {
                 },
                 {
                     residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch.toUpperCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch.toLowerCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
                         path: ["lastName"],
                         string_contains: cleanSearch
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch.toUpperCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch.toLowerCase()
                     }
                 }
             ];
@@ -2673,8 +2707,10 @@ export async function getUserTransactions() {
         const session = await getSession();
         if (!session?.user?.id) return { success: false, error: "Unauthorized" };
 
-        // Automatically cancel/reject any past-due appointments before fetching
-        await cleanupPastDueCedulaAppointments(session.user.id);
+        // Automatically cancel/reject any past-due appointments in background before fetching
+        cleanupPastDueCedulaAppointments(session.user.id).catch(err => {
+            console.error("Failed to cleanup past due appointments in background:", err);
+        });
 
         const transactions = await prisma.transaction.findMany({
             where: { userId: session.user.id },
@@ -3058,10 +3094,34 @@ export async function getAllSuccessfulBusinessPermits() {
 /**
  * Fetch all Building Permit transactions for Engineer Hub
  */
-export async function getEngineerTransactions(status?: string) {
+export async function getEngineerTransactions(params?: string | {
+    status?: string;
+    page?: number;
+    limit?: number;
+    search?: string;
+}) {
     try {
         const user = await assertSessionUser();
         assertUserRoles(user, ["ENGINEER", "MPDC_ZONING", "ADMIN"]);
+
+        // Backward compatibility: handle old string parameter and undefined
+        let page = 1;
+        let limit = 10;
+        let search = "";
+        let status: string | undefined = undefined;
+
+        if (typeof params === "string") {
+            status = params;
+            // Disable page limit for backward compatibility (return all rows)
+            limit = 999999;
+        } else if (params && typeof params === "object") {
+            page = params.page || 1;
+            limit = params.limit || 10;
+            search = params.search || "";
+            status = params.status;
+        }
+
+        const skip = limit === 999999 ? 0 : (page - 1) * limit;
 
         const where: any = {
             type: { code: { startsWith: "BUILDING_PERMIT" } }
@@ -3079,43 +3139,102 @@ export async function getEngineerTransactions(status?: string) {
             }
         }
 
-        const transactions = await prisma.transaction.findMany({
-            where,
-            select: {
-                id: true,
-                status: true,
-                createdAt: true,
-                updatedAt: true,
-                isCancelled: true,
-                totalAmount: true,
-                fulfillmentType: true,
-                paymentType: true,
-                residentSnapshot: true,
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true
+        // Search query
+        if (search) {
+            const cleanSearch = search.trim();
+            where.OR = [
+                { id: { contains: cleanSearch, mode: "insensitive" } },
+                {
+                    user: {
+                        residentProfile: {
+                            OR: [
+                                { firstName: { contains: cleanSearch, mode: "insensitive" } },
+                                { lastName: { contains: cleanSearch, mode: "insensitive" } }
+                            ]
+                        }
                     }
                 },
-                type: {
-                    select: {
-                        id: true,
-                        name: true,
-                        code: true
+                {
+                    residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch
                     }
                 },
-                buildingPermit: {
-                    select: {
-                        id: true,
-                        documentUrl: true
+                {
+                    residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch.toUpperCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch.toLowerCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch.toUpperCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch.toLowerCase()
                     }
                 }
-            },
-            orderBy: { createdAt: "desc" }
-        });
+            ];
+        }
 
-        return { success: true, data: transactions as any[] };
+        const [transactions, totalCount] = await Promise.all([
+            prisma.transaction.findMany({
+                where,
+                select: {
+                    id: true,
+                    status: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    isCancelled: true,
+                    totalAmount: true,
+                    fulfillmentType: true,
+                    paymentType: true,
+                    residentSnapshot: true,
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true
+                        }
+                    },
+                    type: {
+                        select: {
+                            id: true,
+                            name: true,
+                            code: true
+                        }
+                    },
+                    buildingPermit: {
+                        select: {
+                            id: true,
+                            documentUrl: true
+                        }
+                    }
+                },
+                orderBy: { createdAt: "desc" },
+                take: limit === 999999 ? undefined : limit,
+                skip: skip
+            }),
+            prisma.transaction.count({ where })
+        ]);
+
+        return { success: true, data: transactions as any[], totalCount };
     } catch (error: any) {
         console.error("Fetch engineer transactions error:", error);
         return { success: false, error: error?.message || "Failed to fetch transactions" };

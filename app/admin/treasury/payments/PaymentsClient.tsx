@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, Copy, Check, RefreshCcw, DollarSign, Clock, AlertTriangle, CheckCircle2, CalendarIcon, X, FileDown, ChevronDown, FileSpreadsheet } from "lucide-react";
+import { Search, Copy, Check, RefreshCcw, DollarSign, CheckCircle2, CalendarIcon, X, FileDown, ChevronDown, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { getPaymentsLedger } from "./actions";
 import jsPDF from "jspdf";
@@ -645,10 +645,8 @@ export default function PaymentsClient({ initialPayments }: PaymentsClientProps)
             .reduce((acc, p) => acc + p.amount, 0);
 
         const paidCount = filteredPayments.filter(p => p.status === "PAID").length;
-        const pendingCount = filteredPayments.filter(p => p.status === "PENDING").length;
-        const failedCount = filteredPayments.filter(p => p.status === "FAILED").length;
 
-        return { totalPaid, paidCount, pendingCount, failedCount };
+        return { totalPaid, paidCount };
     }, [filteredPayments]);
 
     const formatDateTime = (dateStr: string) => {
@@ -662,7 +660,7 @@ export default function PaymentsClient({ initialPayments }: PaymentsClientProps)
     return (
         <div className="space-y-6">
             {/* Top Cards Statistics */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Total Collections */}
                 <div className="bg-white dark:bg-[#151b2b] p-6 rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex items-center justify-between">
                     <div>
@@ -686,32 +684,6 @@ export default function PaymentsClient({ initialPayments }: PaymentsClientProps)
                     </div>
                     <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-500">
                         <CheckCircle2 className="w-6 h-6" />
-                    </div>
-                </div>
-
-                {/* Pending Payments */}
-                <div className="bg-white dark:bg-[#151b2b] p-6 rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex items-center justify-between">
-                    <div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Pending Payments</span>
-                        <p className="text-2xl font-black italic tracking-tighter text-amber-500 mt-1">
-                            {stats.pendingCount}
-                        </p>
-                    </div>
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-amber-500/10 text-amber-500">
-                        <Clock className="w-6 h-6" />
-                    </div>
-                </div>
-
-                {/* Failed Payments */}
-                <div className="bg-white dark:bg-[#151b2b] p-6 rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex items-center justify-between">
-                    <div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Failed / Refunded</span>
-                        <p className="text-2xl font-black italic tracking-tighter text-red-500 mt-1">
-                            {stats.failedCount}
-                        </p>
-                    </div>
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-red-500/10 text-red-500">
-                        <AlertTriangle className="w-6 h-6" />
                     </div>
                 </div>
             </div>

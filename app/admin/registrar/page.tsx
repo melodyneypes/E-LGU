@@ -58,16 +58,7 @@ function getResidentSnapshot(tx: any): any {
     return tx.residentSnapshot;
 }
 
-// Helper: check if transaction is registrar civil registry request
-function isRegistrarLcrRequest(tx: any) {
-    const typeCode = tx.type?.code;
-    const typeCategory = tx.type?.category;
 
-    return (
-        typeCategory === "Civil Registry" ||
-        (typeCode && (typeCode.startsWith("LCR_") || typeCode.startsWith("CIVIL_REGISTRY")))
-    );
-}
 
 const PSA_APPOINTMENT_CODES = [
     "LCR_PSA_APPOINTMENT_ENDORSEMENT",
@@ -131,10 +122,19 @@ export default function RegistrarPage() {
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [sortBy, setSortBy] = useState<"date" | "service" | "status">("date");
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 300);
+        return () => clearTimeout(handler);
+    }, [search]);
     const searchParams = useSearchParams();
     const categoryParam = searchParams.get("category");
     const hasSelectedCategory = Boolean(categoryParam && categoryParam !== "ALL");
@@ -166,10 +166,17 @@ export default function RegistrarPage() {
     const fetchTransactions = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
-            const res = await getTreasuryTransactions("ALL");
+            const res = await getTreasuryTransactions({
+                status: "ALL",
+                page: currentPage,
+                limit: itemsPerPage,
+                search: debouncedSearch,
+                category: "Civil Registry",
+                lcrSubCategory: categoryParam || undefined
+            });
             if (res.success && res.data) {
-                const lcrTxs = res.data.filter(isRegistrarLcrRequest);
-                setTransactions(lcrTxs);
+                setTransactions(res.data);
+                setTotalCount(res.totalCount || 0);
             } else {
                 if (!silent) toast.error(res.error || "Failed to load transactions");
             }
@@ -179,7 +186,7 @@ export default function RegistrarPage() {
         } finally {
             if (!silent) setLoading(false);
         }
-    }, []);
+    }, [currentPage, itemsPerPage, debouncedSearch, categoryParam]);
 
     // Load all transactions on mount
     useEffect(() => {
@@ -240,7 +247,8 @@ export default function RegistrarPage() {
     }, [fetchTransactions]);
 
     useEffect(() => {
-        // Background polling fallback every 15 seconds to ensure queue updates
+        // Background polling safety heartbeat every 60 seconds
+        // (realtime handles instant updates; this is only a fallback for idle state recovery)
         const interval = setInterval(() => {
             const idleThreshold = 30000; // 30 seconds
             const isCurrentlyIdle = Date.now() - (lastActivityRef.current ?? Date.now()) > idleThreshold;
@@ -251,67 +259,22 @@ export default function RegistrarPage() {
                 console.log("[Polling Registrar Queue] Fetching queue updates silently...");
                 fetchTransactions(true);
             }
-        }, 15000);
+        }, 60000);
 
         return () => clearInterval(interval);
     }, [fetchTransactions]);
 
     // Reset page numbers when search / layout changes
     useEffect(() => {
-        setCurrentPage(1);
-    }, [search, itemsPerPage]);
+        if (currentPage !== 1) {
+            setCurrentPage(1);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [debouncedSearch, categoryParam, itemsPerPage]);
 
     // --- List Filtering and Sorting ---
-    const filteredTransactions = useMemo(() => {
-        if (!hasSelectedCategory) return [];
-
-        return transactions.filter(tx => {
-            const rs = getResidentSnapshot(tx);
-            const name = `${rs.firstName || ''} ${rs.lastName || ''}`.trim().toLowerCase();
-            const refId = tx.id.slice(-8).toUpperCase();
-            const searchUpper = search.toUpperCase();
-
-            const matchesSearch = name.includes(search.toLowerCase()) ||
-                tx.id.toLowerCase().includes(search.toLowerCase()) ||
-                refId.includes(searchUpper);
-
-            let matchesCategory = false;
-            if (categoryParam === "Birth Registration") {
-                matchesCategory = tx.type?.code === "LCR_BIRTH_REG";
-            } else if (categoryParam === "Birth Certificate") {
-                matchesCategory = tx.type?.code === "LCR_BIRTH";
-            } else if (categoryParam === "Death Registration") {
-                matchesCategory = tx.type?.code === "LCR_DEATH_REG" && tx.status !== "FOR_REQUESTING";
-            } else if (categoryParam === "Death Certificate") {
-                matchesCategory = tx.type?.code === "LCR_DEATH";
-            } else if (categoryParam === "Marriage License") {
-                matchesCategory = tx.type?.code === "LCR_MARRIAGE_LICENSE" && tx.status !== "FOR_REQUESTING";
-            } else if (categoryParam === "Marriage Registration") {
-                matchesCategory = tx.type?.code === "LCR_MARRIAGE_REG";
-            } else if (categoryParam === "Marriage Certificate") {
-                matchesCategory = tx.type?.code === "LCR_MARRIAGE";
-            } else if (categoryParam === "PSA Endorsement") {
-                matchesCategory = (
-                    tx.type?.code === "LCR_PSA_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    ((tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" || tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") && tx.status !== "FOR_REQUESTING") ||
-                    tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
-                ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
-            } else if (categoryParam === "PSA Appt. Endorsement") {
-                matchesCategory = (
-                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    (tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" && tx.status !== "FOR_REQUESTING") ||
-                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
-                ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
-            }
-
-            return matchesSearch && matchesCategory;
-        });
-    }, [transactions, search, categoryParam, hasSelectedCategory]);
-
     const sortedTransactions = useMemo(() => {
-        return [...filteredTransactions].sort((a, b) => {
+        return [...transactions].sort((a, b) => {
             if (sortBy === "service") {
                 const serviceA = (a.type?.name || "").toLowerCase();
                 const serviceB = (b.type?.name || "").toLowerCase();
@@ -330,15 +293,9 @@ export default function RegistrarPage() {
                 return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
             }
         });
-    }, [filteredTransactions, sortBy, sortDirection]);
+    }, [transactions, sortBy, sortDirection]);
 
-    const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
-    const paginatedTransactions = useMemo(() => {
-        return sortedTransactions.slice(
-            (currentPage - 1) * itemsPerPage,
-            currentPage * itemsPerPage
-        );
-    }, [sortedTransactions, currentPage, itemsPerPage]);
+    const totalPages = Math.ceil(totalCount / itemsPerPage);
 
     // Header sort toggle handlers
     const handleDateHeaderClick = () => {
@@ -495,8 +452,8 @@ export default function RegistrarPage() {
                                             </TableCell>
                                         </TableRow>
                                     ))
-                                ) : paginatedTransactions.length > 0 ? (
-                                    paginatedTransactions.map((tx, index) => {
+                                ) : sortedTransactions.length > 0 ? (
+                                    sortedTransactions.map((tx, index) => {
                                         const isUnviewed = tx.status === "FOR_INSPECTION";
 
                                         return (
@@ -618,7 +575,7 @@ export default function RegistrarPage() {
                         </div>
                         <div className="flex items-center space-x-4">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                                Showing {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
+                                Showing {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount}
                             </span>
                             <div className="flex items-center gap-2">
                                 <Button

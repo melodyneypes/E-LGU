@@ -70,12 +70,20 @@ export default function BploQueuePage() {
     useEffect(() => {
         fetchQueue();
     }, [fetchQueue]);
-    // Supabase Real-time updates + 5-second Polling Fallback
+    // Supabase Real-time updates + Adaptive Polling Fallback
     useEffect(() => {
-        // 1. Polling interval every 5 seconds (extremely reliable backup)
+        // Track realtime connection state without causing re-renders
+        const realtimeConnectedRef = { current: false };
+
+        // 1. Adaptive polling:
+        //    - When realtime CONNECTED → skip (realtime handles instantly)
+        //    - When realtime DISCONNECTED → poll every 10 seconds to recover
         const pollInterval = setInterval(() => {
-            fetchQueue();
-        }, 5000);
+            if (!realtimeConnectedRef.current) {
+                console.log("[BPLO Queue Polling] Realtime offline — fetching...");
+                fetchQueue();
+            }
+        }, 10000);
 
         // 2. Real-time WebSocket subscription
         let channel: any = null;
@@ -94,7 +102,16 @@ export default function BploQueuePage() {
                         fetchQueue();
                     }
                 )
-                .subscribe();
+                .subscribe((status: string) => {
+                    const wasConnected = realtimeConnectedRef.current;
+                    realtimeConnectedRef.current = status === "SUBSCRIBED";
+
+                    // Fetch immediately when we detect a disconnect
+                    if (wasConnected && status === "CHANNEL_ERROR") {
+                        console.warn("[BPLO Queue] Realtime disconnected — syncing immediately");
+                        fetchQueue();
+                    }
+                });
         }
 
         return () => {
@@ -190,6 +207,23 @@ export default function BploQueuePage() {
                             Please configure your active counter/window first using the **&quot;Set Counter&quot;** selector located in the top navigation bar.
                         </p>
                     </Card>
+                ) : loading ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 items-start animate-pulse">
+                        {/* LEFT COLUMN SKELETON */}
+                        <div className="lg:col-span-2 space-y-6">
+                            {/* Call Next Button Skeleton */}
+                            <div className="w-full h-16 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10" />
+                            {/* Serving Card Skeleton */}
+                            <div className="w-full h-[450px] rounded-3xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10" />
+                        </div>
+                        {/* RIGHT COLUMN SKELETON */}
+                        <div className="space-y-4">
+                            {/* Title Skeleton */}
+                            <div className="h-6 w-32 bg-slate-100 dark:bg-white/5 rounded-lg" />
+                            {/* List Card Skeleton */}
+                            <div className="w-full h-[500px] rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10" />
+                        </div>
+                    </div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 items-start">
                         
@@ -285,16 +319,7 @@ export default function BploQueuePage() {
 
                              <Card className="rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm bg-white dark:bg-white/5 overflow-hidden">
                                 <CardContent className="p-2 space-y-1.5 divide-y divide-slate-100 dark:divide-white/5">
-                                    {loading ? (
-                                        Array(3).fill(0).map((_, i) => (
-                                            <div key={i} className="animate-pulse flex items-center justify-between py-1.5">
-                                                <div className="space-y-1">
-                                                    <div className="h-6 w-16 bg-slate-100 dark:bg-slate-800 rounded" />
-                                                    <div className="h-3.5 w-24 bg-slate-100 dark:bg-slate-800 rounded" />
-                                                </div>
-                                            </div>
-                                        ))
-                                    ) : waitingQueue.length > 0 ? (
+                                    {waitingQueue.length > 0 ? (
                                         waitingQueue.map((tx, idx) => {
                                             const queueNum = tx.queueNumber ? tx.queueNumber.split("-").pop() : "BP-XXX";
                                             const isPriority = tx.isPriority;

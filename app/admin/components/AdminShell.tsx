@@ -35,13 +35,48 @@ export function AdminShell({
     brandWord1,
     brandWord2,
     themeColor,
-    pendingReportsCount,
-    pendingResidentsCount,
-    pendingTransactionsCount,
-    unviewedLcrCounts = {},
+    pendingReportsCount: initialPendingReportsCount = 0,
+    pendingResidentsCount: initialPendingResidentsCount = 0,
+    pendingTransactionsCount: initialPendingTransactionsCount = 0,
+    unviewedLcrCounts: initialUnviewedLcrCounts = {},
 }: AdminShellProps) {
     const router = useRouter();
     const pathname = usePathname();
+
+    const [reportsCount, setReportsCount] = React.useState(initialPendingReportsCount);
+    const [residentsCount, setResidentsCount] = React.useState(initialPendingResidentsCount);
+    const [transactionsCount, setTransactionsCount] = React.useState(initialPendingTransactionsCount);
+    const [lcrCounts, setLcrCounts] = React.useState<Record<string, number>>(initialUnviewedLcrCounts);
+
+    React.useEffect(() => {
+        let active = true;
+        const fetchCounts = async () => {
+            try {
+                const res = await fetch("/api/admin/sidebar-counts");
+                if (res.ok) {
+                    const data = await res.json();
+                    if (active) {
+                        setReportsCount(data.pendingReportsCount || 0);
+                        setResidentsCount(data.pendingResidentsCount || 0);
+                        setTransactionsCount(data.pendingTransactionsCount || 0);
+                        setLcrCounts(data.unviewedLcrCounts || {});
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch sidebar counts:", err);
+            }
+        };
+
+        fetchCounts();
+
+        // Refresh counts every 30 seconds
+        const interval = setInterval(fetchCounts, 30000);
+
+        return () => {
+            active = false;
+            clearInterval(interval);
+        };
+    }, []);
 
     const role = session.user?.role || "ADMIN";
     const department = session.user?.department || "";
@@ -159,10 +194,10 @@ export function AdminShell({
                 brandWord1={brandWord1}
                 brandWord2={brandWord2}
                 themeColor={themeColor}
-                pendingReportsCount={pendingReportsCount}
-                pendingResidentsCount={pendingResidentsCount}
-                pendingTransactionsCount={pendingTransactionsCount}
-                unviewedLcrCounts={unviewedLcrCounts}
+                pendingReportsCount={reportsCount}
+                pendingResidentsCount={residentsCount}
+                pendingTransactionsCount={transactionsCount}
+                unviewedLcrCounts={lcrCounts}
             />
             <div className="flex-1 flex flex-col overflow-hidden">
                 <TopNav
