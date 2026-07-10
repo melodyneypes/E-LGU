@@ -35,6 +35,7 @@ import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 
 import RegistrarDashboard from "./[id]/dashboard";
+import { fetchAndCallNextTicket } from "@/app/admin/transactions/calling-actions";
 
 // Helper: format exact date & time
 function formatDateTime(date: string | Date): { date: string; time: string } {
@@ -58,16 +59,7 @@ function getResidentSnapshot(tx: any): any {
     return tx.residentSnapshot;
 }
 
-// Helper: check if transaction is registrar civil registry request
-function isRegistrarLcrRequest(tx: any) {
-    const typeCode = tx.type?.code;
-    const typeCategory = tx.type?.category;
 
-    return (
-        typeCategory === "Civil Registry" ||
-        (typeCode && (typeCode.startsWith("LCR_") || typeCode.startsWith("CIVIL_REGISTRY")))
-    );
-}
 
 const PSA_APPOINTMENT_CODES = [
     "LCR_PSA_APPOINTMENT_ENDORSEMENT",
@@ -84,14 +76,14 @@ function getDisplayStatus(tx: any): string {
         switch (status) {
             case "FOR_INSPECTION":
             case "FOR_REQUESTING": return "AWAITING EVALUATION";
-            case "EVALUATED":      return "APPOINTMENT CONFIRMED";
-            case "UNPAID":         return "APPOINTMENT SCHEDULED";
+            case "EVALUATED": return "APPOINTMENT CONFIRMED";
+            case "UNPAID": return "APPOINTMENT SCHEDULED";
             case "FOR_PROCESSING": return "AWAITING REGISTRAR ENDORSEMENT";
             case "FOR_CLAIM":
-            case "FOR_PICKING":    return "PAYMENT DUE AT TREASURY";
+            case "FOR_PICKING": return "PAYMENT DUE AT TREASURY";
             case "FOR_REINSPECTION": return "FOR PROCESSING";
-            case "RELEASED":       return "ENDORSED TO PSA";
-            case "PAID":           return "PAID";
+            case "RELEASED": return "ENDORSED TO PSA";
+            case "PAID": return "PAID";
             default: break;
         }
     }
@@ -131,10 +123,19 @@ export default function RegistrarPage() {
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [sortBy, setSortBy] = useState<"date" | "service" | "status">("date");
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 300);
+        return () => clearTimeout(handler);
+    }, [search]);
     const searchParams = useSearchParams();
     const categoryParam = searchParams.get("category");
     const hasSelectedCategory = Boolean(categoryParam && categoryParam !== "ALL");
@@ -142,6 +143,32 @@ export default function RegistrarPage() {
     const lastActivityRef = useRef<number | null>(null);
     const [showUpdateModal, setShowUpdateModal] = useState(false);
     const [pendingUpdatesCount, setPendingUpdatesCount] = useState(0);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [callingNext, setCallingNext] = useState(false);
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const handleCallNextInQueue = async () => {
+        const activeCounter = localStorage.getItem("activeCounterName");
+        if (!activeCounter) {
+            toast.error("Please set your active counter/window in the header first.");
+            return;
+        }
+        setCallingNext(true);
+        try {
+            const res = await fetchAndCallNextTicket(activeCounter);
+            if (res.success && res.data) {
+                toast.success(`Calling next ticket: ${(res.data as any).queueNumber || (res.data as any).id?.slice(-6).toUpperCase()} assigned to ${activeCounter}`);
+                router.push(`/admin/registrar/${(res.data as any).id}`);
+            } else {
+                toast.error((res as any).error || "Failed to fetch next ticket.");
+            }
+        } catch (err) {
+            console.error("Queue calling error:", err);
+            toast.error("An error occurred while calling the next ticket.");
+        } finally {
+            setCallingNext(false);
+        }
+    };
 
     // Track user activity to determine idle state
     useEffect(() => {
@@ -166,10 +193,17 @@ export default function RegistrarPage() {
     const fetchTransactions = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
-            const res = await getTreasuryTransactions("ALL");
+            const res = await getTreasuryTransactions({
+                status: "ALL",
+                page: currentPage,
+                limit: itemsPerPage,
+                search: debouncedSearch,
+                category: "Civil Registry",
+                lcrSubCategory: categoryParam || undefined
+            });
             if (res.success && res.data) {
-                const lcrTxs = res.data.filter(isRegistrarLcrRequest);
-                setTransactions(lcrTxs);
+                setTransactions(res.data);
+                setTotalCount(res.totalCount || 0);
             } else {
                 if (!silent) toast.error(res.error || "Failed to load transactions");
             }
@@ -179,7 +213,7 @@ export default function RegistrarPage() {
         } finally {
             if (!silent) setLoading(false);
         }
-    }, []);
+    }, [currentPage, itemsPerPage, debouncedSearch, categoryParam]);
 
     // Load all transactions on mount
     useEffect(() => {
@@ -204,7 +238,7 @@ export default function RegistrarPage() {
                     },
                     async (payload: any) => {
                         console.log("Realtime change caught on Transaction table for registrar queue:", payload);
-                        
+
                         const idleThreshold = 30000; // 30 seconds
                         const isCurrentlyIdle = Date.now() - (lastActivityRef.current ?? Date.now()) > idleThreshold;
 
@@ -240,7 +274,8 @@ export default function RegistrarPage() {
     }, [fetchTransactions]);
 
     useEffect(() => {
-        // Background polling fallback every 15 seconds to ensure queue updates
+        // Background polling safety heartbeat every 60 seconds
+        // (realtime handles instant updates; this is only a fallback for idle state recovery)
         const interval = setInterval(() => {
             const idleThreshold = 30000; // 30 seconds
             const isCurrentlyIdle = Date.now() - (lastActivityRef.current ?? Date.now()) > idleThreshold;
@@ -251,15 +286,18 @@ export default function RegistrarPage() {
                 console.log("[Polling Registrar Queue] Fetching queue updates silently...");
                 fetchTransactions(true);
             }
-        }, 15000);
+        }, 60000);
 
         return () => clearInterval(interval);
     }, [fetchTransactions]);
 
     // Reset page numbers when search / layout changes
     useEffect(() => {
-        setCurrentPage(1);
-    }, [search, itemsPerPage]);
+        if (currentPage !== 1) {
+            setCurrentPage(1);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [debouncedSearch, categoryParam, itemsPerPage]);
 
     // --- List Filtering and Sorting ---
     const filteredTransactions = useMemo(() => {
@@ -281,11 +319,11 @@ export default function RegistrarPage() {
             } else if (categoryParam === "Birth Certificate") {
                 matchesCategory = tx.type?.code === "LCR_BIRTH";
             } else if (categoryParam === "Death Registration") {
-                matchesCategory = tx.type?.code === "LCR_DEATH_REG" && tx.status !== "FOR_REQUESTING";
+                matchesCategory = tx.type?.code === "LCR_DEATH_REG";
             } else if (categoryParam === "Death Certificate") {
                 matchesCategory = tx.type?.code === "LCR_DEATH";
             } else if (categoryParam === "Marriage License") {
-                matchesCategory = tx.type?.code === "LCR_MARRIAGE_LICENSE" && tx.status !== "FOR_REQUESTING";
+                matchesCategory = tx.type?.code === "LCR_MARRIAGE_LICENSE";
             } else if (categoryParam === "Marriage Registration") {
                 matchesCategory = tx.type?.code === "LCR_MARRIAGE_REG";
             } else if (categoryParam === "Marriage Certificate") {
@@ -294,14 +332,15 @@ export default function RegistrarPage() {
                 matchesCategory = (
                     tx.type?.code === "LCR_PSA_ENDORSEMENT" ||
                     tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    ((tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" || tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") && tx.status !== "FOR_REQUESTING") ||
+                    tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
                     tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
                     tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
                 ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
             } else if (categoryParam === "PSA Appt. Endorsement") {
                 matchesCategory = (
                     tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    (tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" && tx.status !== "FOR_REQUESTING") ||
+                    tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
                     tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
                 ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
             }
@@ -311,7 +350,7 @@ export default function RegistrarPage() {
     }, [transactions, search, categoryParam, hasSelectedCategory]);
 
     const sortedTransactions = useMemo(() => {
-        return [...filteredTransactions].sort((a, b) => {
+        return [...transactions].sort((a, b) => {
             if (sortBy === "service") {
                 const serviceA = (a.type?.name || "").toLowerCase();
                 const serviceB = (b.type?.name || "").toLowerCase();
@@ -330,15 +369,9 @@ export default function RegistrarPage() {
                 return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
             }
         });
-    }, [filteredTransactions, sortBy, sortDirection]);
+    }, [transactions, sortBy, sortDirection]);
 
-    const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
-    const paginatedTransactions = useMemo(() => {
-        return sortedTransactions.slice(
-            (currentPage - 1) * itemsPerPage,
-            currentPage * itemsPerPage
-        );
-    }, [sortedTransactions, currentPage, itemsPerPage]);
+    const totalPages = Math.ceil(totalCount / itemsPerPage);
 
     // Header sort toggle handlers
     const handleDateHeaderClick = () => {
@@ -406,6 +439,7 @@ export default function RegistrarPage() {
                             </div>
 
                             <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+
                                 <Button
                                     onClick={() => fetchTransactions()}
                                     variant="outline"
@@ -495,9 +529,9 @@ export default function RegistrarPage() {
                                             </TableCell>
                                         </TableRow>
                                     ))
-                                ) : paginatedTransactions.length > 0 ? (
-                                    paginatedTransactions.map((tx, index) => {
-                                        const isUnviewed = tx.status === "FOR_INSPECTION";
+                                ) : sortedTransactions.length > 0 ? (
+                                    sortedTransactions.map((tx, index) => {
+                                        const isUnviewed = tx.status === "FOR_INSPECTION" && !tx.isCancelled;
 
                                         return (
                                             <TableRow
@@ -534,57 +568,57 @@ export default function RegistrarPage() {
                                                         </div>
                                                     </div>
                                                 </TableCell>
-                                            <TableCell>
-                                                <span className="text-xs font-bold uppercase text-blue-600 dark:text-blue-400">
-                                                    {tx.type?.name}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col gap-0.5">
-                                                    {tx.fulfillmentType && (
-                                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">
-                                                            {tx.fulfillmentType.replace(/_/g, " ")}
-                                                        </span>
-                                                    )}
-                                                    {tx.paymentType && (
-                                                        <span className="text-[10px] text-slate-500 font-bold uppercase leading-none">
-                                                            {tx.paymentType?.replace(/_/g, " ")}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className="font-bold text-slate-900 dark:text-white">
-                                                    {tx.totalAmount > 0 ? `₱${tx.totalAmount.toLocaleString()}` : "–"}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className={cn(
-                                                    "text-[10px] font-black uppercase italic tracking-wider px-2 py-1 rounded bg-slate-50 dark:bg-black/30 border border-current w-fit block",
-                                                    getStatusClassName(tx.status, tx.isCancelled)
-                                                )}>
-                                                    {getDisplayStatus(tx)}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col">
-                                                    {(() => {
-                                                        const source = tx.updatedAt;
-                                                        const f = formatDateTime(source);
-                                                        return (
-                                                            <>
-                                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{f.date}</span>
-                                                                <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                                                                    <Clock className="w-2.5 h-2.5" />{f.time}
-                                                                </span>
-                                                            </>
-                                                        );
-                                                    })()}
-                                                </div>
-                                        </TableCell>
-                                    </TableRow>
-                                    );
-                                })
+                                                <TableCell>
+                                                    <span className="text-xs font-bold uppercase text-blue-600 dark:text-blue-400">
+                                                        {tx.type?.name}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-col gap-0.5">
+                                                        {tx.fulfillmentType && (
+                                                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">
+                                                                {tx.fulfillmentType.replace(/_/g, " ")}
+                                                            </span>
+                                                        )}
+                                                        {tx.paymentType && (
+                                                            <span className="text-[10px] text-slate-500 font-bold uppercase leading-none">
+                                                                {tx.paymentType?.replace(/_/g, " ")}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className="font-bold text-slate-900 dark:text-white">
+                                                        {tx.totalAmount > 0 ? `₱${tx.totalAmount.toLocaleString()}` : "–"}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className={cn(
+                                                        "text-[10px] font-black uppercase italic tracking-wider px-2 py-1 rounded bg-slate-50 dark:bg-black/30 border border-current w-fit block",
+                                                        getStatusClassName(tx.status, tx.isCancelled)
+                                                    )}>
+                                                        {getDisplayStatus(tx)}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-col">
+                                                        {(() => {
+                                                            const source = tx.updatedAt;
+                                                            const f = formatDateTime(source);
+                                                            return (
+                                                                <>
+                                                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{f.date}</span>
+                                                                    <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                                                        <Clock className="w-2.5 h-2.5" />{f.time}
+                                                                    </span>
+                                                                </>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })
                                 ) : (
                                     <TableRow>
                                         <TableCell colSpan={7} className="h-[350px] text-center">
@@ -618,7 +652,7 @@ export default function RegistrarPage() {
                         </div>
                         <div className="flex items-center space-x-4">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                                Showing {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
+                                Showing {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount}
                             </span>
                             <div className="flex items-center gap-2">
                                 <Button

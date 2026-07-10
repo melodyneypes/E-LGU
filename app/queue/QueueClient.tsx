@@ -169,7 +169,7 @@ export default function QueueClient({
         return () => clearInterval(timer);
     }, []);
 
-    // Real-time updates via Supabase WebSockets + Fallback Polling (10 seconds)
+    // Real-time updates via Supabase WebSockets + Adaptive Polling Fallback
     useEffect(() => {
         const fetchUpdates = async () => {
             try {
@@ -184,6 +184,9 @@ export default function QueueClient({
                 console.error("Failed to fetch queue updates:", err);
             }
         };
+
+        // Track realtime connection state without causing re-renders
+        const realtimeConnectedRef = { current: false };
 
         // 1. WebSocket Realtime subscription to postgres changes on Transaction table
         let channel: any = null;
@@ -204,12 +207,25 @@ export default function QueueClient({
                 )
                 .subscribe((status: string) => {
                     console.log(`Realtime Channel status: ${status}`);
+                    const wasConnected = realtimeConnectedRef.current;
+                    realtimeConnectedRef.current = status === "SUBSCRIBED";
+
+                    // If we just lost connection, fetch immediately to recover state
+                    if (wasConnected && status === "CHANNEL_ERROR") {
+                        console.warn("[Queue] Realtime disconnected — fetching immediately to sync state");
+                        fetchUpdates();
+                    }
                 });
         }
 
-        // 2. Fallback polling (updates every 10 seconds to sync if connection drops)
+        // 2. Adaptive polling fallback:
+        //    - When realtime is CONNECTED → skip fetch (realtime handles it)
+        //    - When realtime is DISCONNECTED → fetch every 10 seconds to recover
         const fallbackInterval = setInterval(async () => {
-            await fetchUpdates();
+            if (!realtimeConnectedRef.current) {
+                console.log("[Queue Fallback Polling] Realtime offline — fetching queue data...");
+                await fetchUpdates();
+            }
         }, 10000);
 
         return () => {
@@ -435,6 +451,7 @@ export default function QueueClient({
             {!hasInteracted && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 backdrop-blur-md select-none p-4">
                     <motion.button
+                        autoFocus
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         onClick={handleEnableVoice}

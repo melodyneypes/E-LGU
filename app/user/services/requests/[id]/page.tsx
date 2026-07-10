@@ -746,6 +746,9 @@ export default function RequestHubPage() {
                 }
                 return { label: "FOR CLAIM", color: "bg-blue-600 text-white border-blue-600", icon: Clock };
             case "EVALUATED":
+                if (request?.type?.code?.startsWith("LCR_") || request?.type?.code?.startsWith("CIVIL_REGISTRY")) {
+                    return { label: "APPOINTMENT CONFIRMED", color: "bg-emerald-600 text-white border-transparent", icon: CheckCircle2 };
+                }
                 if (request?.type?.code?.startsWith("BUILDING_PERMIT") && !request?.fiscalSnapshot) {
                     return { label: "AWAITING TREASURY ASSESSMENT", color: "bg-amber-500 text-white border-amber-500", icon: Clock };
                 }
@@ -1599,7 +1602,7 @@ export default function RequestHubPage() {
                             </TabsList>
 
                             <TabsContent value="overview" className="mt-0 space-y-3 md:space-y-4">
-                                {(((isBusinessPermit && request.status === "FOR_INSPECTION") || (isCedula && request.status === "FOR_REQUESTING") || (isCivilRegistry && request.status === "FOR_INSPECTION")) && !request.isCancelled) && (
+                                {(((isBusinessPermit && request.status === "FOR_INSPECTION") || (isCedula && request.status === "FOR_REQUESTING") || (isCivilRegistry && (request.status === "FOR_REQUESTING" || request.status === "FOR_INSPECTION"))) && !request.isCancelled && !request.additionalData?.checkedIn) && (
                                     <div className="w-full flex justify-end animate-in fade-in duration-300">
                                         <button
                                             id="cancel-request-btn"

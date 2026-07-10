@@ -612,20 +612,6 @@ export default function TreasuryDetailPage() {
     }, [id, isNavigatingToQueue]);
 
     useEffect(() => {
-        if (!id || isNavigatingToQueue) return;
-        // Background polling fallback every 10 seconds to ensure updates are fetched
-        const interval = setInterval(() => {
-            console.log(`[Polling Treasury Detail] Fetching updates for ${id}...`);
-            fetchTransaction(true).catch(err => {
-                console.error("Polling fetchTransaction failed:", err);
-            });
-        }, 10000);
-
-        return () => clearInterval(interval);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, isNavigatingToQueue]);
-
-    useEffect(() => {
         if (!session) return;
         const role = (session?.user as any)?.role;
         const dept = (session?.user as any)?.department;
@@ -635,13 +621,13 @@ export default function TreasuryDetailPage() {
     }, [session, id, router]);
 
     useEffect(() => {
-        if (!transaction || !session) return;
+        if (!transaction || !session || isNavigatingToQueue) return;
         const isBp = transaction?.type?.code?.startsWith("BUSINESS_PERMIT") ?? false;
-        if (isBp && isTreasuryStaff && transaction.status === "FOR_REINSPECTION") {
+        if (isBp && isTreasuryStaff && ["FOR_REINSPECTION", "FOR_CLAIM"].includes(transaction.status)) {
             toast.error("Access Forbidden: Treasury Staff cannot access this status");
             router.push("/admin/treasury?category=Business%20Permit");
         }
-    }, [transaction, session, isTreasuryStaff, router]);
+    }, [transaction, session, isTreasuryStaff, router, isNavigatingToQueue]);
 
     useEffect(() => {
         fetchTransaction();
@@ -726,8 +712,11 @@ export default function TreasuryDetailPage() {
             toast.error("CTC Number Required");
             return;
         }
-        // Require E-Copy for LCR releases
-        if (isLCR && !eCopyFile && !transaction.eCopyUrl) {
+        // Require E-Copy for LCR releases (except PSA Appointment Endorsements)
+        const isAppointmentPsa = typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
+        if (isLCR && !isAppointmentPsa && !eCopyFile && !transaction.eCopyUrl) {
             toast.error("Official Digital E-Copy registry record is required before releasing.");
             return;
         }
@@ -781,11 +770,11 @@ export default function TreasuryDetailPage() {
                         ? await releaseBirthRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
                         : typeCode === "LCR_MARRIAGE_LICENSE"
                             ? await releaseMarriageLicense(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                            : typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT"
+                            : (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT")
                                 ? await releaseMarriagePsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                : typeCode === "LCR_PSA_ENDORSEMENT"
+                                : (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT")
                                     ? await releaseBirthPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                    : typeCode === "LCR_DEATH_PSA_ENDORSEMENT"
+                                    : (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT")
                                         ? await releaseDeathPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
                                         : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
             if (res.success) {
@@ -804,7 +793,7 @@ export default function TreasuryDetailPage() {
                 setOrFile(null);
                 setStickerNumber("");
                 setIsNavigatingToQueue(true);
-                if (typeCode.includes("CEDULA")) {
+                if (typeCode.includes("CEDULA") || ["UNPAID", "FOR_PROCESSING", "PAID", "FOR_REINSPECTION", "FOR_CLAIM"].includes(transaction?.status)) {
                     router.push("/admin/treasury/queue");
                 } else {
                     router.push(backUrl);
@@ -960,7 +949,7 @@ export default function TreasuryDetailPage() {
         (typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
             typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
             typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT") &&
-        !["FOR_CLAIM", "FOR_PICKING", "RELEASED", "PAID"].includes(transaction?.status || "")
+        !["FOR_CLAIM", "FOR_PICKING", "RELEASED", "PAID", "FOR_PROCESSING", "UNPAID"].includes(transaction?.status || "")
     ) {
         return (
             <div className="min-h-screen bg-white dark:bg-[#0c111d] flex flex-col items-center justify-center p-8 text-center space-y-8 animate-in fade-in duration-700">
@@ -972,10 +961,10 @@ export default function TreasuryDetailPage() {
                 </div>
                 <div className="space-y-3">
                     <h1 className="text-4xl font-black italic tracking-tighter text-slate-900 dark:text-white uppercase leading-none">Awaiting Appointment</h1>
-                    <p className="text-[11px] font-black uppercase tracking-[0.4em] text-blue-500 italic">Registrar Release Required First</p>
+                    <p className="text-[11px] font-black uppercase tracking-[0.4em] text-blue-500 italic">Registrar Attendance Confirmation Required First</p>
                 </div>
                 <p className="text-slate-500 dark:text-slate-400 font-medium italic max-w-md">
-                    This is a PSA Appointment Endorsement. The citizen must first attend their appointment and the Registrar must verify and endorse the document to the PSA before Treasury can collect the counter payment and issue an Official Receipt.
+                    This is a PSA Appointment Endorsement. The citizen must first attend their appointment and the Registrar must mark the appointment as finished/attended before Treasury can collect the counter payment and issue an Official Receipt.
                 </p>
                 <Link href={backUrl} prefetch={false}>
                     <Button variant="outline" className="h-12 px-6 rounded-xl border-2 font-black italic uppercase text-xs tracking-wider transition-all active:scale-95">
@@ -1171,10 +1160,9 @@ export default function TreasuryDetailPage() {
             typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
         ) {
             return [
-                { id: "VERIFY_BILL", label: "Registrar: Verify & Schedule" },
                 { id: "ATTEND_APPOINTMENT", label: "Attend Appointment" },
-                { id: "REGISTRAR_RELEASE", label: "Registrar: Endorse to PSA" },
-                { id: "TREASURY_OR", label: "Treasury: Issue O.R." }
+                { id: "TREASURY_OR", label: "Treasury: Issue O.R." },
+                { id: "TREASURY_RELEASE", label: "Treasury: Release" }
             ];
         }
         return [
@@ -1244,16 +1232,13 @@ export default function TreasuryDetailPage() {
             typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
             typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
         ) {
-            if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED"].includes(s)) {
-                return "VERIFY_BILL";
-            }
-            if (["EVALUATED", "UNPAID"].includes(s)) {
+            if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED", "EVALUATED"].includes(s)) {
                 return "ATTEND_APPOINTMENT";
             }
-            if (["FOR_PROCESSING", "PAID", "PENDING_PAYMENT_VERIFICATION"].includes(s) && !transaction.eCopyUrl) {
-                return "REGISTRAR_RELEASE";
+            if (s === "UNPAID" || s === "FOR_PROCESSING") {
+                return "TREASURY_OR";
             }
-            return "TREASURY_OR";
+            return "TREASURY_RELEASE";
         }
         if (isLcrBirthCertifiedCopy && (s === "PAID" || s === "PENDING_PAYMENT_VERIFICATION")) {
             return "VERIFY_OR";
@@ -1696,7 +1681,7 @@ export default function TreasuryDetailPage() {
                 toast.error(rel.error || "Failed to release transaction");
             }
             setIsNavigatingToQueue(true);
-            if (typeCode.includes("CEDULA")) {
+            if (typeCode.includes("CEDULA") || ["UNPAID", "FOR_PROCESSING", "PAID"].includes(transaction.status)) {
                 router.push("/admin/treasury/queue");
             } else {
                 router.push(backUrl);
@@ -1714,6 +1699,7 @@ export default function TreasuryDetailPage() {
 
     const handleConfirmPayment = async (arg1?: string, arg2?: string) => {
         setActionLoading(true);
+        setIsNavigatingToQueue(true);
         try {
             if (isBusinessPermit) {
                 const formData = new FormData();
@@ -1729,9 +1715,15 @@ export default function TreasuryDetailPage() {
                     toast.success("Payment Received & Sent to BPLO for Re-Inspection");
                     setReceiptFile(null);
                     setReceiptPreview(null);
-                    router.push("/admin/treasury?category=Business%20Permit");
+                    setIsNavigatingToQueue(true);
+                    if (["UNPAID", "FOR_PROCESSING", "PAID"].includes(transaction.status)) {
+                        router.push("/admin/treasury/queue");
+                    } else {
+                        router.push("/admin/treasury?category=Business%20Permit");
+                    }
                 } else {
                     toast.error(res.error || "Failed to confirm payment");
+                    setIsNavigatingToQueue(false);
                 }
                 return;
             }
@@ -1817,9 +1809,15 @@ export default function TreasuryDetailPage() {
                 if (isLCR) {
                     if (rel.success) {
                         toast.success("Payment Received & Sent to Civil Registry for Re-Inspection");
-                        router.push("/admin/treasury?category=Civil%20Registry");
+                        setIsNavigatingToQueue(true);
+                        if (["UNPAID", "FOR_PROCESSING", "PAID"].includes(transaction.status)) {
+                            router.push("/admin/treasury/queue");
+                        } else {
+                            router.push("/admin/treasury?category=Civil%20Registry");
+                        }
                     } else {
                         toast.error(rel.error || "Failed to proceed to re-inspection");
+                        setIsNavigatingToQueue(false);
                     }
                     return;
                 }
@@ -1830,8 +1828,16 @@ export default function TreasuryDetailPage() {
                 } else {
                     toast.error(rel.error || (isBusinessPermit ? "Failed to proceed to re-inspection" : "Failed to proceed to processing"));
                 }
-                router.push(backUrl);
-            } else toast.error(res.error || "Failed");
+                setIsNavigatingToQueue(true);
+                if (["UNPAID", "FOR_PROCESSING", "PAID"].includes(transaction.status)) {
+                    router.push("/admin/treasury/queue");
+                } else {
+                    router.push(backUrl);
+                }
+            } else {
+                toast.error(res.error || "Failed");
+                setIsNavigatingToQueue(false);
+            }
         } finally { setActionLoading(false); }
     };
 
@@ -2179,11 +2185,11 @@ export default function TreasuryDetailPage() {
         renderView = <BusinessPermitView {...viewProps} />;
     } else if (isBuildingPermit) {
         renderView = <BuildingPermitView {...viewProps} />;
-    } else if (typeCode === "LCR_PSA_ENDORSEMENT") {
+    } else if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT") {
         renderView = <BirthPsaEndorsementView {...viewProps} />;
-    } else if (typeCode === "LCR_DEATH_PSA_ENDORSEMENT") {
+    } else if (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") {
         renderView = <DeathPsaEndorsementView {...viewProps} />;
-    } else if (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT") {
+    } else if (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT") {
         renderView = <MarriagePsaEndorsementView {...viewProps} />;
     } else if (typeCode === "LCR_MARRIAGE") {
         renderView = <MarraigeCertificateView {...viewProps} />;

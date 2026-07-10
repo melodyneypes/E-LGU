@@ -155,7 +155,9 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
 
   const isControlled = viewport !== undefined && onViewportChange !== undefined;
   const onViewportChangeRef = useRef(onViewportChange);
-  onViewportChangeRef.current = onViewportChange;
+  useEffect(() => {
+    onViewportChangeRef.current = onViewportChange;
+  }, [onViewportChange]);
 
   const mapStyles = useMemo(() => {
     if (styles) {

@@ -193,14 +193,15 @@ export async function markPsaAppointmentAttended(id: string) {
             return { success: false, error: "This action is only valid for PSA Appointment Endorsement types." };
         }
 
-        if ((transaction.status as string) !== "EVALUATED" && (transaction.status as string) !== "UNPAID") {
-            return { success: false, error: "Transaction must be in EVALUATED or UNPAID (Awaiting Appointment) status." };
+        const validStatuses = ["EVALUATED", "UNPAID", "FOR_INSPECTION", "FOR_REQUESTING"];
+        if (!validStatuses.includes(transaction.status as string)) {
+            return { success: false, error: "Transaction must be in EVALUATED, UNPAID, FOR_INSPECTION, or FOR_REQUESTING status." };
         }
 
         await prisma.transaction.update({
             where: { id },
             data: {
-                status: "FOR_PROCESSING" as any,
+                status: "UNPAID",
                 isPaid: false,
                 updatedAt: new Date()
             }
@@ -210,7 +211,7 @@ export async function markPsaAppointmentAttended(id: string) {
             try {
                 const resident = (transaction.residentSnapshot as any) || {};
                 await sendEmail({
-                    type: "FOR_PROCESSING" as any,
+                    type: "UNPAID" as any,
                     to: transaction.user.email,
                     name: `${resident.firstName || ""} ${resident.lastName || ""}`.trim() || transaction.user.name || "Resident",
                     transactionId: id.slice(-8).toUpperCase(),
@@ -225,7 +226,7 @@ export async function markPsaAppointmentAttended(id: string) {
         revalidatePath("/admin/registrar");
         revalidatePath("/admin/treasury");
         revalidatePath("/user/services");
-        return { success: true, data: { status: "FOR_PROCESSING" } };
+        return { success: true, data: { status: "UNPAID" } };
     } catch (error: any) {
         console.error("Mark PSA appointment attended error:", error);
         return { success: false, error: error?.message || "Failed to mark appointment as attended." };
@@ -270,22 +271,26 @@ export async function collectPsaAppointmentPayment(id: string, orNumber: string)
             return { success: false, error: "This action is only valid for PSA Appointment Endorsement types." };
         }
 
-        if (!["FOR_CLAIM", "FOR_PICKING"].includes(transaction.status as string)) {
-            return { success: false, error: "Transaction must be in FOR_CLAIM or FOR_PICKING status to collect payment." };
+        if (!["UNPAID", "FOR_CLAIM", "FOR_PICKING", "FOR_PROCESSING"].includes(transaction.status as string)) {
+            return { success: false, error: "Transaction must be in UNPAID, FOR_CLAIM, FOR_PICKING, or FOR_PROCESSING status to collect payment." };
         }
 
         const existingAdditional = (transaction.additionalData as Record<string, unknown>) || {};
 
+        const collectorName = user.name || user.email || "Treasury Staff";
+        const collectorSource = "treasury_counter_payment";
+
+        const targetStatus = transaction.fulfillmentType === "DELIVERY" ? "FOR_PICKING" : "FOR_CLAIM";
         const updatedTransaction = await prisma.transaction.update({
             where: { id },
             data: {
-                status: "RELEASED" as any,
+                status: targetStatus as any,
                 isPaid: true,
                 additionalData: {
                     ...existingAdditional,
                     orSeriesNumber: orNumber.trim(),
                     orCollectedAt: new Date().toISOString(),
-                    orCollectedBy: user.name || user.email || "Treasury Staff"
+                    orCollectedBy: collectorName
                 },
                 updatedAt: new Date()
             },
@@ -303,9 +308,9 @@ export async function collectPsaAppointmentPayment(id: string, orNumber: string)
                 reference: paymentReference,
                 orNumber: orNumber.trim(),
                 meta: {
-                    source: "treasury_counter_payment",
+                    source: collectorSource,
                     collectedAt: new Date().toISOString(),
-                    collectedBy: user.name || user.email || "Treasury Staff"
+                    collectedBy: collectorName
                 }
             },
             create: {
@@ -316,9 +321,9 @@ export async function collectPsaAppointmentPayment(id: string, orNumber: string)
                 reference: paymentReference,
                 orNumber: orNumber.trim(),
                 meta: {
-                    source: "treasury_counter_payment",
+                    source: collectorSource,
                     collectedAt: new Date().toISOString(),
-                    collectedBy: user.name || user.email || "Treasury Staff"
+                    collectedBy: collectorName
                 }
             }
         });

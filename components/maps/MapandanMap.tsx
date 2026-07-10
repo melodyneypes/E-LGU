@@ -80,7 +80,7 @@ function MapContent({
                         type: "geojson",
                         data: boundaryGeoJson as any
                     });
-                    
+
                     // Fill Layer for inner color
                     map.addLayer({
                         id: "boundary-fill",
@@ -148,7 +148,7 @@ function MapContent({
 
         const onError = (error: GeolocationPositionError) => {
             console.warn(`Primary geolocation failed (Code ${error.code}): ${error.message}. Retrying with low accuracy...`);
-            
+
             // Fallback to low accuracy
             navigator.geolocation.getCurrentPosition(
                 onSuccess,

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Lock, CheckCircle2, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -35,8 +35,10 @@ export function ResetPasswordForm({ token, themeColor = "#2563eb" }: ResetPasswo
         defaultValues: { password: "", confirmPassword: "" },
     });
 
-    // eslint-disable-next-line react-hooks/incompatible-library
-    const passwordValue = form.watch("password") || "";
+    const passwordValue = useWatch({
+        control: form.control,
+        name: "password",
+    }) || "";
 
     const requirements = [
         { label: "At least 8 characters", met: passwordValue.length >= 8 },

@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { calculateCedula } from "@/lib/cedula";
 import { calculateBusinessPermit } from "@/lib/business-permit";
+import { generateQueueNumber } from "@/lib/queue";
 
 import { sendEmail } from "@/lib/mail";
 import { uploadFile, validatePayloadFiles } from "@/lib/storage";
@@ -798,12 +799,50 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
             }
         }
 
+        let queueNumber = existingTx?.queueNumber || null;
+        let isPriority = existingTx?.isPriority || false;
+
+        if (appointmentDateVal && appointmentSlotVal) {
+            isPriority = additionalData.isPriorityLane === true || 
+                         additionalData.isPriorityLane === "true" || 
+                         additionalData.isPriority === true || 
+                         additionalData.isPriority === "true" ||
+                         residentSnapshot.isPriority === true ||
+                         residentSnapshot.isPriority === "true";
+
+            const dateChanged = existingTx?.appointmentDate 
+                ? new Date(existingTx.appointmentDate).getTime() !== appointmentDateVal.getTime()
+                : true;
+            const slotChanged = existingTx?.appointmentSlot !== appointmentSlotVal;
+
+            if (!queueNumber || dateChanged || slotChanged) {
+                const startOfDay = new Date(appointmentDateVal);
+                startOfDay.setUTCHours(0, 0, 0, 0);
+
+                queueNumber = await generateQueueNumber({
+                    source: "web",
+                    isPriority,
+                    appointmentDate: startOfDay,
+                    appointmentSlot: appointmentSlotVal,
+                });
+            }
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const isPsaAppointment = [
+            "PSA_APPOINTMENT_ENDORSEMENT",
+            "BIRTH_PSA_APPOINTMENT_ENDORSEMENT",
+            "DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+            "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+        ].includes(registryType);
+        const initialStatus = "FOR_REQUESTING";
+
         const transaction = await prisma.$transaction(async (tx: any) => {
             const t = revisionId
                 ? await tx.transaction.update({
                     where: { id: revisionId },
                     data: {
-                        status: "FOR_INSPECTION",
+                        status: initialStatus as any,
                         fulfillmentType: additionalData.fulfillmentType || null,
                         paymentType: null,
                         residentSnapshot,
@@ -813,6 +852,8 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
                         updatedAt: new Date(),
                         appointmentDate: appointmentDateVal,
                         appointmentSlot: appointmentSlotVal,
+                        queueNumber,
+                        isPriority,
                         ...(initialFiscalSnapshot ? { fiscalSnapshot: initialFiscalSnapshot } : {})
                     }
                 })
@@ -820,7 +861,7 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
                     data: {
                         userId: session.user.id,
                         typeId,
-                        status: "FOR_INSPECTION",
+                        status: initialStatus as any,
                         fulfillmentType: additionalData.fulfillmentType || null,
                         paymentType: null,
                         residentSnapshot,
@@ -829,6 +870,8 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
                         businessName: null,
                         appointmentDate: appointmentDateVal,
                         appointmentSlot: appointmentSlotVal,
+                        queueNumber,
+                        isPriority,
                         ...(initialFiscalSnapshot ? { fiscalSnapshot: initialFiscalSnapshot } : {})
                     }
                 });
@@ -2084,6 +2127,16 @@ export async function getBploTransactions(params?: string | {
                 { id: { contains: cleanSearch, mode: "insensitive" } },
                 { businessName: { contains: cleanSearch, mode: "insensitive" } },
                 {
+                    user: {
+                        residentProfile: {
+                            OR: [
+                                { firstName: { contains: cleanSearch, mode: "insensitive" } },
+                                { lastName: { contains: cleanSearch, mode: "insensitive" } }
+                            ]
+                        }
+                    }
+                },
+                {
                     residentSnapshot: {
                         path: ["firstName"],
                         string_contains: cleanSearch
@@ -2091,8 +2144,32 @@ export async function getBploTransactions(params?: string | {
                 },
                 {
                     residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch.toUpperCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch.toLowerCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
                         path: ["lastName"],
                         string_contains: cleanSearch
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch.toUpperCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch.toLowerCase()
                     }
                 }
             ];
@@ -2657,13 +2734,18 @@ export async function resubmitTransaction(id: string, formData: FormData) {
         }
 
         const isLCR = tx?.type?.code?.startsWith("LCR_") || tx?.type?.code?.startsWith("CIVIL_REGISTRY");
+        const isPsaAppointment = [
+            "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+            "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+            "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+        ].includes(tx?.type?.code || "");
 
         const transaction = await prisma.transaction.update({
             where: { id },
             data: {
                 additionalData: sanitizeObject(additionalData),
                 residentSnapshot: residentSnapshot ? sanitizeObject(residentSnapshot as any) : null,
-                status: isLCR ? "FOR_INSPECTION" : "FOR_REQUESTING",
+                status: isPsaAppointment ? "EVALUATED" : (isLCR ? "FOR_INSPECTION" : "FOR_REQUESTING"),
                 rejectionRemarks: null
             }
         });
@@ -2686,8 +2768,10 @@ export async function getUserTransactions() {
         const session = await getSession();
         if (!session?.user?.id) return { success: false, error: "Unauthorized" };
 
-        // Automatically cancel/reject any past-due appointments before fetching
-        await cleanupPastDueCedulaAppointments(session.user.id);
+        // Automatically cancel/reject any past-due appointments in background before fetching
+        cleanupPastDueCedulaAppointments(session.user.id).catch(err => {
+            console.error("Failed to cleanup past due appointments in background:", err);
+        });
 
         const transactions = await prisma.transaction.findMany({
             where: { userId: session.user.id },
@@ -2697,6 +2781,7 @@ export async function getUserTransactions() {
                 createdAt: true,
                 isCancelled: true,
                 totalAmount: true,
+                appointmentDate: true,
                 type: {
                     select: {
                         id: true,
@@ -2831,6 +2916,13 @@ export async function cancelTransaction(id: string) {
         if (tx.userId !== session.user.id) return { success: false, error: "Forbidden" };
         if (tx.isCancelled) return { success: false, error: "This request is already cancelled." };
 
+        const additionalData = (typeof tx.additionalData === "string"
+            ? JSON.parse(tx.additionalData || "{}")
+            : tx.additionalData) || {};
+        if (additionalData.checkedIn) {
+            return { success: false, error: "Cannot cancel a transaction that has already been checked in at the kiosk." };
+        }
+
         // Only allow cancellation if the request is still in DRAFT or FOR_REQUESTING phase
         const restrictedStatuses = [
             "FOR_PROCESSING",
@@ -2855,6 +2947,8 @@ export async function cancelTransaction(id: string) {
 
         revalidatePath("/user/services/requests");
         revalidatePath(`/user/services/requests/${id}`);
+        revalidatePath("/user/appointment");
+        revalidatePath(`/user/appointment/${id}`);
         return { success: true };
     } catch (error) {
         console.error("Cancel transaction error:", error);
@@ -3071,10 +3165,34 @@ export async function getAllSuccessfulBusinessPermits() {
 /**
  * Fetch all Building Permit transactions for Engineer Hub
  */
-export async function getEngineerTransactions(status?: string) {
+export async function getEngineerTransactions(params?: string | {
+    status?: string;
+    page?: number;
+    limit?: number;
+    search?: string;
+}) {
     try {
         const user = await assertSessionUser();
         assertUserRoles(user, ["ENGINEER", "MPDC_ZONING", "ADMIN"]);
+
+        // Backward compatibility: handle old string parameter and undefined
+        let page = 1;
+        let limit = 10;
+        let search = "";
+        let status: string | undefined = undefined;
+
+        if (typeof params === "string") {
+            status = params;
+            // Disable page limit for backward compatibility (return all rows)
+            limit = 999999;
+        } else if (params && typeof params === "object") {
+            page = params.page || 1;
+            limit = params.limit || 10;
+            search = params.search || "";
+            status = params.status;
+        }
+
+        const skip = limit === 999999 ? 0 : (page - 1) * limit;
 
         const where: any = {
             type: { code: { startsWith: "BUILDING_PERMIT" } }
@@ -3092,6 +3210,22 @@ export async function getEngineerTransactions(status?: string) {
             }
         }
 
+        // Search query
+        if (search) {
+            const cleanSearch = search.trim();
+            where.OR = [
+                { id: { contains: cleanSearch, mode: "insensitive" } },
+                {
+                    user: {
+                        residentProfile: {
+                            OR: [
+                                { firstName: { contains: cleanSearch, mode: "insensitive" } },
+                                { lastName: { contains: cleanSearch, mode: "insensitive" } }
+                            ]
+                        }
+                    }
+                },
+                {
         const transactions = await prisma.transaction.findMany({
             where,
             select: {
@@ -3112,24 +3246,87 @@ export async function getEngineerTransactions(status?: string) {
                         email: true
                     }
                 },
-                type: {
-                    select: {
-                        id: true,
-                        name: true,
-                        code: true
+                {
+                    residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch
                     }
                 },
-                buildingPermit: {
-                    select: {
-                        id: true,
-                        documentUrl: true
+                {
+                    residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch.toUpperCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["firstName"],
+                        string_contains: cleanSearch.toLowerCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch.toUpperCase()
+                    }
+                },
+                {
+                    residentSnapshot: {
+                        path: ["lastName"],
+                        string_contains: cleanSearch.toLowerCase()
                     }
                 }
-            },
-            orderBy: { createdAt: "desc" }
-        });
+            ];
+        }
 
-        return { success: true, data: transactions as any[] };
+        const [transactions, totalCount] = await Promise.all([
+            prisma.transaction.findMany({
+                where,
+                select: {
+                    id: true,
+                    status: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    isCancelled: true,
+                    totalAmount: true,
+                    fulfillmentType: true,
+                    paymentType: true,
+                    residentSnapshot: true,
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true
+                        }
+                    },
+                    type: {
+                        select: {
+                            id: true,
+                            name: true,
+                            code: true
+                        }
+                    },
+                    buildingPermit: {
+                        select: {
+                            id: true,
+                            documentUrl: true
+                        }
+                    }
+                },
+                orderBy: { createdAt: "desc" },
+                take: limit === 999999 ? undefined : limit,
+                skip: skip
+            }),
+            prisma.transaction.count({ where })
+        ]);
+
+        return { success: true, data: transactions as any[], totalCount };
     } catch (error: any) {
         console.error("Fetch engineer transactions error:", error);
         return { success: false, error: error?.message || "Failed to fetch transactions" };
@@ -4991,7 +5188,7 @@ export async function getUnviewedLcrCounts() {
 
         const lcrTransactions = await prisma.transaction.findMany({
             where: {
-                status: "FOR_INSPECTION",
+                status: { in: ["FOR_INSPECTION", "FOR_REQUESTING"] },
                 isCancelled: false,
                 type: {
                     OR: [
@@ -5012,11 +5209,11 @@ export async function getUnviewedLcrCounts() {
             LCR_BIRTH_REG: "Birth Registration",
             LCR_BIRTH: "Birth Certificate",
             LCR_PSA_ENDORSEMENT: "PSA Endorsement",
-            LCR_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appt. Endorsement",
+            LCR_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appointment Endorsement",
             LCR_DEATH_PSA_ENDORSEMENT: "PSA Endorsement",
-            LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appt. Endorsement",
+            LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appointment Endorsement",
             LCR_MARRIAGE_PSA_ENDORSEMENT: "PSA Endorsement",
-            LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appt. Endorsement",
+            LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appointment Endorsement",
             LCR_DEATH_REG: "Death Registration",
             LCR_DEATH: "Death Certificate",
             LCR_MARRIAGE_LICENSE: "Marriage License",

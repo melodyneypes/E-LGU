@@ -16,7 +16,8 @@ import {
     QrCode,
     Printer,
     AlertTriangle,
-    ShieldAlert
+    ShieldAlert,
+    Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -26,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
     Breadcrumb,
     BreadcrumbList,
@@ -43,6 +44,8 @@ import {
 import { supabase } from "@/lib/supabase";
 import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
 import CedulaView from "./views/CedulaView";
+import BusinessPermitView from "./views/BusinessPermitView";
+import CivilRegistry from "./views/CivilRegistry";
 
 // Display dates/times in Philippine Standard Time (Asia/Manila)
 function formatPHDate(date: string | Date): string {
@@ -168,8 +171,8 @@ export default function AppointmentDetailsPage() {
 
     const additionalData = useMemo(() => {
         if (!request) return {};
-        return (typeof request.additionalData === "string" 
-            ? JSON.parse(request.additionalData || "{}") 
+        return (typeof request.additionalData === "string"
+            ? JSON.parse(request.additionalData || "{}")
             : request.additionalData) || {};
     }, [request]);
 
@@ -183,11 +186,16 @@ export default function AppointmentDetailsPage() {
             case "FOR_REVISION": return { color: "text-amber-500 bg-amber-500/10 border-amber-500/20", label: "REVISION REQUIRED", icon: AlertCircle };
             case "FOR_REQUESTING": return { color: "text-white bg-primary border-transparent", label: "AWAITING EVALUATION", icon: Clock };
             case "FOR_INSPECTION": return { color: "text-white bg-blue-600 border-transparent", label: "UNDER INSPECTION", icon: Search };
-            case "EVALUATED": return { color: "text-white bg-primary border-transparent", label: "EVALUATED / PENDING PAYMENT", icon: DollarSign };
+            case "EVALUATED":
+                if (request?.type?.code?.startsWith("LCR_") || request?.type?.code?.startsWith("CIVIL_REGISTRY")) {
+                    return { color: "text-white bg-emerald-600 border-transparent", label: "APPOINTMENT CONFIRMED", icon: CheckCircle2 };
+                }
+                return { color: "text-white bg-primary border-transparent", label: "EVALUATED / PENDING PAYMENT", icon: DollarSign };
             case "PAID": return { color: "text-white bg-emerald-500 border-transparent", label: "PAID / AWAITING CLAIM", icon: CheckCircle2 };
             case "FOR_PROCESSING": return { color: "text-white bg-blue-500 border-transparent", label: "IN PROCESSING", icon: Activity };
             case "FOR_CLAIM": return { color: "text-white bg-amber-500 border-transparent", label: "READY FOR CLAIMING", icon: UserCheck };
             case "RELEASED": return { color: "text-white bg-emerald-600 border-transparent", label: "COMPLETED & RELEASED", icon: CheckCircle2 };
+            case "UNPAID": return { color: "text-white bg-amber-500 border-transparent", label: "FOR PAYMENT", icon: DollarSign };
             case "REJECTED": return { color: "text-red-500 bg-red-500/10 border-red-500/20", label: "DECLINED", icon: X };
             default: return { color: "text-white bg-primary border-transparent", label: status.replace("_", " "), icon: Clock };
         }
@@ -202,7 +210,7 @@ export default function AppointmentDetailsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-start">
                         {/* Left Card Skeleton */}
                         <div className="md:col-span-1 h-[450px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl" />
-                        
+
                         {/* Right Content Skeleton */}
                         <div className="md:col-span-2 space-y-6">
                             <div className="h-[180px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl" />
@@ -216,11 +224,13 @@ export default function AppointmentDetailsPage() {
 
     const isCedula = request.type?.code?.startsWith("CEDULA");
     const isBuildingPermit = request.type?.code?.startsWith("BUILDING_PERMIT");
+    const isBusinessPermit = request.type?.code?.startsWith("BUSINESS_PERMIT");
+    const isCivilRegistry = request.type?.code?.startsWith("LCR_") || request.type?.code?.startsWith("CIVIL_REGISTRY");
 
     return (
         <div className="min-h-screen bg-white dark:bg-[#0a0c10] pb-24" style={{ "--primary-theme": themeColor } as React.CSSProperties}>
             <div className="max-w-4xl mx-auto px-4 md:px-0 pt-4 md:pt-10 space-y-6 md:space-y-10 animate-in fade-in duration-300">
-                
+
                 {/* Breadcrumbs */}
                 <div className="flex items-center justify-between">
                     <Breadcrumb>
@@ -248,11 +258,11 @@ export default function AppointmentDetailsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-start">
-                    
+
                     {/* LEFT COLUMN: Premium Kiosk Ticket Card */}
                     <div className="md:col-span-1 space-y-6">
                         <Card className="relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-950 dark:from-[#0d1017] dark:to-[#05070a] border border-slate-800 rounded-3xl p-6 shadow-2xl text-white">
-                            
+
                             {/* Watermark Logo */}
                             <div className="absolute right-[-20%] bottom-[-10%] opacity-[0.03] select-none pointer-events-none transform rotate-12">
                                 <QrCode className="w-64 h-64" />
@@ -319,8 +329,8 @@ export default function AppointmentDetailsPage() {
                         )}
 
                         <div className="flex flex-col gap-2">
-                            <Button 
-                                onClick={() => setPrintTriggered(true)} 
+                            <Button
+                                onClick={() => setPrintTriggered(true)}
                                 className="w-full h-11 text-white font-bold uppercase tracking-widest text-xs rounded-xl shadow-lg"
                                 style={{ backgroundColor: themeColor }}
                             >
@@ -328,9 +338,9 @@ export default function AppointmentDetailsPage() {
                             </Button>
 
                             {(request.status === "FOR_REQUESTING" || request.status === "FOR_INSPECTION") && !request.isCancelled && !additionalData?.checkedIn && (
-                                <Button 
-                                    onClick={() => setCancelConfirmOpen(true)} 
-                                    variant="outline" 
+                                <Button
+                                    onClick={() => setCancelConfirmOpen(true)}
+                                    variant="outline"
                                     className="w-full h-11 border-red-500/20 text-red-500 hover:bg-red-500/10 rounded-xl font-bold uppercase tracking-widest text-xs"
                                 >
                                     <X className="w-4 h-4 mr-2" /> Cancel Booking
@@ -341,7 +351,7 @@ export default function AppointmentDetailsPage() {
 
                     {/* RIGHT COLUMN: Custom Detailed Information */}
                     <div className="md:col-span-2 space-y-6">
-                        
+
                         {/* Status Alert Banner */}
                         {statusConfig && !isCedula && request.status !== "FOR_INSPECTION" && (
                             <div className={cn("p-5 border rounded-2xl flex items-start gap-4", statusConfig.color)}>
@@ -349,31 +359,20 @@ export default function AppointmentDetailsPage() {
                                 <div className="space-y-1">
                                     <h4 className="text-xs font-black uppercase tracking-widest italic leading-none">{statusConfig.label}</h4>
                                     <p className="text-xs leading-relaxed font-medium opacity-85">
-                                        {request.isCancelled 
+                                        {request.isCancelled
                                             ? `This appointment was cancelled on ${request.updatedAt ? formatPHDate(request.updatedAt) : "N/A"}.`
                                             : request.status === "FOR_REQUESTING"
-                                            ? "Your booking is currently queued. Please wait for the municipal assessor/evaluation team to approve."
-                                            : request.status === "PAID"
-                                            ? "Payment received! Please proceed to the Municipal Office on your scheduled date to claim your document."
-                                            : "Your booking status has changed. Please read any evaluation comments below."
+                                                ? "Your booking is currently queued. Please wait for the municipal assessor/evaluation team to approve."
+                                                : request.status === "PAID"
+                                                    ? "Payment received! Please proceed to the Municipal Office on your scheduled date to claim your document."
+                                                    : "Your booking status has changed. Please read any evaluation comments below."
                                         }
                                     </p>
                                 </div>
                             </div>
                         )}
 
-                        {/* Rejection / Evaluation Remarks */}
-                        {request.rejectionRemarks && (
-                            <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 p-5 rounded-2xl space-y-2">
-                                <div className="flex items-center gap-2 text-red-600">
-                                    <AlertTriangle className="w-4.5 h-4.5" />
-                                    <h5 className="font-black text-xs uppercase tracking-widest italic">Office Evaluation Notes</h5>
-                                </div>
-                                <p className="text-xs font-semibold text-red-800 dark:text-red-300 leading-relaxed">
-                                    {request.rejectionRemarks}
-                                </p>
-                            </div>
-                        )}
+
 
                         {/* Details Card */}
                         <Card className="border border-slate-200 dark:border-white/10 rounded-2xl md:rounded-3xl p-5 md:p-8 space-y-6">
@@ -406,13 +405,27 @@ export default function AppointmentDetailsPage() {
 
                             {/* CUSTOM CEDULA VIEW */}
                             {isCedula && (
-                                <CedulaView 
-                                    request={request} 
-                                    additionalData={additionalData} 
+                                <CedulaView
+                                    request={request}
+                                    additionalData={additionalData}
                                 />
                             )}
 
+                            {/* CUSTOM CIVIL REGISTRY VIEW */}
+                            {isCivilRegistry && (
+                                <CivilRegistry
+                                    request={request}
+                                    additionalData={additionalData}
+                                />
+                            )}
 
+                            {/* CUSTOM BUSINESS PERMIT VIEW */}
+                            {isBusinessPermit && (
+                                <BusinessPermitView
+                                    request={request}
+                                    additionalData={additionalData}
+                                />
+                            )}
 
                             {/* CUSTOM BUILDING PERMIT VIEW */}
                             {isBuildingPermit && (
@@ -467,19 +480,63 @@ export default function AppointmentDetailsPage() {
 
                 {/* Cancel Confirmation Modal */}
                 <Dialog open={cancelConfirmOpen} onOpenChange={setCancelConfirmOpen}>
-                    <DialogContent className="rounded-2xl max-w-sm">
-                        <DialogHeader className="text-center space-y-2">
-                            <DialogTitle className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Cancel Booking?</DialogTitle>
-                            <DialogDescription className="text-xs font-semibold text-slate-500">
-                                Are you sure you want to cancel this appointment? This action cannot be undone.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter className="flex-col sm:flex-row gap-2 mt-4">
-                            <Button variant="outline" onClick={() => setCancelConfirmOpen(false)} className="w-full font-bold uppercase tracking-widest text-xs h-11 rounded-xl">No, Keep</Button>
-                            <Button onClick={handleCancel} disabled={isCancelling} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-widest text-xs h-11 rounded-xl">
-                                {isCancelling ? "Cancelling..." : "Yes, Cancel"}
-                            </Button>
-                        </DialogFooter>
+                    <DialogContent
+                        showCloseButton={false}
+                        className="p-0 border-none bg-transparent shadow-none w-[92vw] sm:max-w-[380px] z-[150] overflow-hidden"
+                    >
+                        <div className="w-full bg-gradient-to-b from-slate-900 to-slate-950 dark:from-slate-950 dark:to-black text-white border border-white/10 rounded-[2rem] shadow-2xl p-8 relative overflow-hidden flex flex-col items-center">
+
+                            {/* Ambient glow in background */}
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-red-500/10 rounded-full blur-[80px] pointer-events-none" />
+
+                            <DialogHeader className="space-y-4 text-center flex flex-col items-center">
+                                {/* Animated Warning Icon with Glow */}
+                                <div className="relative flex items-center justify-center w-16 h-16 rounded-3xl bg-red-500/10 border border-red-500/20 text-red-500 shadow-inner transition-transform duration-500 mb-2">
+                                    <AlertTriangle className="w-8 h-8 animate-pulse text-red-500" />
+                                    <div className="absolute inset-0 rounded-3xl bg-red-500/5 animate-ping opacity-75" style={{ animationDuration: '3s' }} />
+                                </div>
+
+                                <div className="space-y-2 flex flex-col items-center">
+                                    <DialogTitle className="text-xl font-black uppercase italic tracking-tight text-white leading-none">
+                                        Cancel <span className="text-red-500">Booking?</span>
+                                    </DialogTitle>
+
+                                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-red-500/70 italic bg-red-500/5 border border-red-500/10 px-3 py-1 rounded-full w-fit mx-auto">
+                                        Action Cannot Be Undone
+                                    </p>
+                                </div>
+
+                                <DialogDescription className="text-xs font-bold text-slate-400 italic leading-relaxed text-center px-2">
+                                    Are you sure you want to cancel this appointment? This will release your selected time slot and remove your queue ticket from the system.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            {/* Staggered Action Buttons */}
+                            <div className="flex flex-col gap-3 pt-6 w-full relative z-10">
+                                <button
+                                    onClick={handleCancel}
+                                    disabled={isCancelling}
+                                    className="w-full h-12 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black italic uppercase tracking-widest text-[10px] transition-all duration-300 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-red-600/20 border border-red-500/20"
+                                >
+                                    {isCancelling ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin text-white" />
+                                            <span>Cancelling...</span>
+                                        </>
+                                    ) : (
+                                        <span>Yes, Cancel Booking</span>
+                                    )}
+                                </button>
+
+                                <button
+                                    onClick={() => setCancelConfirmOpen(false)}
+                                    disabled={isCancelling}
+                                    className="w-full h-12 rounded-2xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white font-black italic uppercase tracking-widest text-[10px] transition-all duration-300 active:scale-[0.98] flex items-center justify-center"
+                                >
+                                    Keep My Booking
+                                </button>
+                            </div>
+                        </div>
                     </DialogContent>
                 </Dialog>
             </div>

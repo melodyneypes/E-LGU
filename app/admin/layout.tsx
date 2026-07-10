@@ -22,9 +22,9 @@ export default async function AdminLayout({
     }
 
     const settings = await getMultipleSystemSettings([
-        "site_logo", 
-        "brand_word_1", 
-        "brand_word_2", 
+        "site_logo",
+        "brand_word_1",
+        "brand_word_2",
         "theme_color"
     ]);
 
@@ -48,7 +48,7 @@ export default async function AdminLayout({
         prisma.transaction.count({ where: { status: { in: ["FOR_REQUESTING", "PAID"] } } }),
         prisma.transaction.findMany({
             where: {
-                status: "FOR_INSPECTION",
+                status: { in: ["FOR_INSPECTION", "FOR_REQUESTING"] },
                 isCancelled: false,
                 type: {
                     OR: [
@@ -71,8 +71,11 @@ export default async function AdminLayout({
         LCR_BIRTH_REG: "Birth Registration",
         LCR_BIRTH: "Birth Certificate",
         LCR_PSA_ENDORSEMENT: "PSA Endorsement",
+        LCR_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appointment Endorsement",
         LCR_DEATH_PSA_ENDORSEMENT: "PSA Endorsement",
+        LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appointment Endorsement",
         LCR_MARRIAGE_PSA_ENDORSEMENT: "PSA Endorsement",
+        LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appointment Endorsement",
         LCR_DEATH_REG: "Death Registration",
         LCR_DEATH: "Death Certificate",
         LCR_MARRIAGE_LICENSE: "Marriage License",
@@ -92,7 +95,7 @@ export default async function AdminLayout({
     }
 
     return (
-        <div 
+        <div
             className="flex h-screen overflow-hidden bg-slate-50 dark:bg-[#0f1117] text-slate-900 dark:text-slate-200 font-sans transition-colors duration-300"
             style={{ "--primary-theme": settings.get("theme_color") || "#2563eb" } as React.CSSProperties}
         >
@@ -102,10 +105,10 @@ export default async function AdminLayout({
                 brandWord1={settings.get("brand_word_1")}
                 brandWord2={settings.get("brand_word_2")}
                 themeColor={settings.get("theme_color")}
-                pendingReportsCount={pendingReportsCount}
-                pendingResidentsCount={pendingResidentsCount}
-                pendingTransactionsCount={pendingTransactionsCount}
-                unviewedLcrCounts={unviewedLcrCounts}
+                pendingReportsCount={0}
+                pendingResidentsCount={0}
+                pendingTransactionsCount={0}
+                unviewedLcrCounts={{}}
             >
                 {children}
             </AdminShell>

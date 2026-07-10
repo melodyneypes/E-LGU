@@ -13,7 +13,7 @@ export async function callTicketToCounter(id: string, counterName: string) {
 
         const session = await getServerSession(authOptions);
         const user = session?.user as any;
-        
+
         const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
         if (!user || !allowedRoles.includes(user.role)) {
             return { success: false, error: "Forbidden: Unauthorized role" };
@@ -67,7 +67,7 @@ export async function fetchAndCallNextTicket(counterName: string) {
 
         const session = await getServerSession(authOptions);
         const user = session?.user as any;
-        
+
         const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
         if (!user || !allowedRoles.includes(user.role)) {
             return { success: false, error: "Forbidden: Unauthorized role" };
@@ -156,7 +156,7 @@ export async function fetchAndCallNextBploTicket(counterName: string) {
 
         const session = await getServerSession(authOptions);
         const user = session?.user as any;
-        
+
         const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
         if (!user || !allowedRoles.includes(user.role)) {
             return { success: false, error: "Forbidden: Unauthorized role" };
@@ -459,3 +459,173 @@ export async function getTreasuryQueueTickets(counterName: string) {
     }
 }
 
+export async function getRegistrarQueueTickets(counterName: string) {
+    try {
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        // Fetch all Civil Registry tickets that are in a waiting status
+        const allCivilTxs = await prisma.transaction.findMany({
+            where: {
+                OR: [
+                    { type: { category: "Civil Registry" } },
+                    { type: { code: { startsWith: "LCR_" } } },
+                    { type: { code: { startsWith: "CIVIL_REGISTRY" } } }
+                ],
+                status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] },
+                isCancelled: false,
+            },
+            include: {
+                type: true,
+                user: { include: { residentProfile: true } }
+            }
+        });
+
+        // Filter in JS: only checked-in tickets with no counter assigned yet
+        // Accept any truthy checkedIn value to handle potential type inconsistencies
+        console.log("[Registrar Queue DEBUG] allCivilTxs count:", allCivilTxs.length);
+        allCivilTxs.forEach(tx => {
+            const ad = tx.additionalData as any;
+            console.log(`  TX ${tx.id.slice(-6)} | status=${tx.status} | checkedIn=${ad?.checkedIn} | counterName=${ad?.counterName} | category=${tx.type?.category}`);
+        });
+
+        const filteredWaiting = allCivilTxs.filter(tx => {
+            const addData = tx.additionalData as any;
+            return addData && !!addData.checkedIn && !addData.counterName;
+        });
+        console.log("[Registrar Queue DEBUG] filteredWaiting count:", filteredWaiting.length);
+
+        // Fetch currently serving at this counter (all Civil Registry FOR_PROCESSING)
+        const allServing = await prisma.transaction.findMany({
+            where: {
+                OR: [
+                    { type: { category: "Civil Registry" } },
+                    { type: { code: { startsWith: "LCR_" } } },
+                    { type: { code: { startsWith: "CIVIL_REGISTRY" } } }
+                ],
+                status: "FOR_PROCESSING",
+                isCancelled: false,
+            },
+            include: {
+                type: true,
+                user: { include: { residentProfile: true } }
+            }
+        });
+
+        // Filter in JS: only tickets at this specific counter
+        const serving = allServing.filter(tx => {
+            const addData = tx.additionalData as any;
+            return addData?.counterName === counterName;
+        });
+
+        const sortedWaiting = filteredWaiting.sort((a, b) => {
+            if (a.isPriority && !b.isPriority) return -1;
+            if (!a.isPriority && b.isPriority) return 1;
+            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+            return aCheckedIn - bCheckedIn;
+        });
+
+        return { success: true, data: { waiting: sortedWaiting, serving } };
+    } catch (error) {
+        console.error("Failed to fetch Registrar queue tickets:", error);
+        return { success: false, error: "Internal server error" };
+    }
+}
+
+export async function fetchAndCallNextRegistrarTicket(counterName: string) {
+    try {
+        const sanitizedCounterName = sanitizeString(counterName);
+
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Forbidden: Unauthorized role" };
+        }
+
+        const allCivilTxs = await prisma.transaction.findMany({
+            where: {
+                OR: [
+                    { type: { category: "Civil Registry" } },
+                    { type: { code: { startsWith: "LCR_" } } },
+                    { type: { code: { startsWith: "CIVIL_REGISTRY" } } }
+                ],
+                status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] },
+                isCancelled: false,
+            }
+        });
+
+        // Filter in JS: checked-in and no counter assigned yet
+        const unassigned = allCivilTxs.filter(tx => {
+            const addData = tx.additionalData as any;
+            return addData && !!addData.checkedIn && !addData.counterName;
+        });
+
+        if (unassigned.length === 0) {
+            return { success: false, error: "No citizens are currently waiting in the Civil Registry queue." };
+        }
+
+        const sorted = unassigned.sort((a, b) => {
+            if (a.isPriority && !b.isPriority) return -1;
+            if (!a.isPriority && b.isPriority) return 1;
+            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+            return aCheckedIn - bCheckedIn;
+        });
+
+        const nextTx = sorted[0];
+        const currentAdditionalData = (nextTx.additionalData as any) || {};
+        const updated = await prisma.transaction.update({
+            where: { id: nextTx.id },
+            data: {
+                status: "FOR_PROCESSING",
+                additionalData: { ...currentAdditionalData, counterName: sanitizedCounterName, servingDepartment: "Registrar" },
+                updatedAt: new Date()
+            }
+        });
+
+        revalidatePath("/admin/registrar");
+        revalidatePath("/queue");
+        return { success: true, data: updated };
+    } catch (error) {
+        console.error("Failed to fetch and call next Registrar ticket:", error);
+        return { success: false, error: "Internal server error" };
+    }
+}
+
+export async function callSpecificRegistrarTicket(ticketId: string, counterName: string) {
+    try {
+        const sanitizedCounterName = sanitizeString(counterName);
+
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const tx = await prisma.transaction.findUnique({ where: { id: ticketId } });
+        if (!tx) return { success: false, error: "Ticket not found" };
+
+        const currentAdditionalData = (tx.additionalData as any) || {};
+        const updated = await prisma.transaction.update({
+            where: { id: ticketId },
+            data: {
+                additionalData: { ...currentAdditionalData, counterName: sanitizedCounterName, servingDepartment: "Registrar" },
+                updatedAt: new Date()
+            }
+        });
+
+        revalidatePath("/admin/registrar");
+        revalidatePath("/queue");
+        return { success: true, data: updated };
+    } catch (error) {
+        console.error("Failed to call specific Registrar ticket:", error);
+        return { success: false, error: "Internal server error" };
+    }
+}

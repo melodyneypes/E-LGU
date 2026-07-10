@@ -46,7 +46,6 @@ import {
     submitCivilRegistryTransaction,
     getTransactionTypes,
     getSystemSettingAction,
-    getLatestForm1AForCurrentUser,
     getTransactionById,
     logDebugMessage,
     getRegistrarAppointmentConfig
@@ -319,27 +318,6 @@ export default function AppointmentBirthPsaEndorsementPage() {
             }
             return next;
         });
-
-        if (name === "relationship" && value === "SELF") {
-            const promise = (async () => {
-                const res = await getLatestForm1AForCurrentUser();
-                if (res.success && res.data) {
-                    const { subjectName, dateOfBirth, mothersMaidenName } = res.data;
-
-                    setFormData(prev => ({
-                        ...prev,
-                        subjectFullName: subjectName ? subjectName.toUpperCase() : prev.subjectFullName,
-                        subjectDateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString().split('T')[0] : prev.subjectDateOfBirth,
-                        mothersMaidenName: mothersMaidenName ? mothersMaidenName.toUpperCase() : prev.mothersMaidenName
-                    }));
-                }
-            })();
-            toast.promise(promise, {
-                loading: "Checking for your latest issued Form 1A in transactions...",
-                success: "Form 1A status checked.",
-                error: "Failed to check or fetch Form 1A details."
-            });
-        }
     };
 
 
@@ -398,7 +376,7 @@ export default function AppointmentBirthPsaEndorsementPage() {
                 toast.success(revisionId ? "Revision resubmitted successfully!" : "Birth PSA Appointment Endorsement submitted successfully!");
                 sessionStorage.removeItem("appointment-birth-psa-endorsement-step");
                 sessionStorage.removeItem("appointment-birth-psa-endorsement-form");
-                router.push(`/user/services/requests/${res.data.id}`);
+                router.push(`/user/appointment/${res.data.id}`);
             } else {
                 toast.error(res.error || "Failed to submit endorsement request");
             }
