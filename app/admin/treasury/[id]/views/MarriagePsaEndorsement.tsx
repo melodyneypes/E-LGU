@@ -576,7 +576,7 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                                      </Button>
                                  ) : (
                                      <Button
-                                         onClick={handleConfirmPayment}
+                                         onClick={() => handleConfirmPayment()}
                                          disabled={actionLoading || !orSeriesNumber}
                                          className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
                                      >

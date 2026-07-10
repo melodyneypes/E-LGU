@@ -78,6 +78,11 @@ export default withAuth(
           return true;
         }
 
+        // Special case: allow treasury sub-routes if treasury access is enabled
+        if (page.startsWith("/admin/treasury") && url.pathname.startsWith("/admin/treasury/")) {
+          return true;
+        }
+
         return false;
       });
 

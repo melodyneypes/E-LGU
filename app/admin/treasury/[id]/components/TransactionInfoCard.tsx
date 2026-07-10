@@ -9,7 +9,7 @@ interface TransactionInfoCardProps {
     themeColor: string;
 }
 
-export default function TransactionInfoCard({ transactionName, themeColor }: TransactionInfoCardProps) {
+export default function TransactionInfoCard({ transactionName, categoryLabel, themeColor }: TransactionInfoCardProps) {
     return (
         <div className="bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800 rounded-[2rem] p-8 shadow-xl flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -33,6 +33,11 @@ export default function TransactionInfoCard({ transactionName, themeColor }: Tra
                     <h2 className="text-3xl font-black italic uppercase tracking-tighter text-slate-800 dark:text-white mt-1 leading-none">
                         {transactionName}
                     </h2>
+                    {categoryLabel && (
+                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-1 block">
+                            {categoryLabel}
+                        </p>
+                    )}
                 </div>
             </div>
         </div>

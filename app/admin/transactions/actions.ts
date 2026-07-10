@@ -568,18 +568,27 @@ export async function ensureCivilRegistryTransactionTypes() {
             }
         ];
 
-        for (const t of types) {
-            await prisma.transactionType.upsert({
-                where: { code: t.code },
-                update: {
-                    name: t.name,
-                    description: t.description,
-                    requiredDocs: t.requiredDocs,
-                    formSchema: t.formSchema,
-                    supportsECopy: t.supportsECopy,
-                },
-                create: t as any
-            });
+        const codes = types.map(t => t.code);
+        const existingCount = await prisma.transactionType.count({
+            where: {
+                code: { in: codes }
+            }
+        });
+
+        if (existingCount !== types.length) {
+            for (const t of types) {
+                await prisma.transactionType.upsert({
+                    where: { code: t.code },
+                    update: {
+                        name: t.name,
+                        description: t.description,
+                        requiredDocs: t.requiredDocs,
+                        formSchema: t.formSchema,
+                        supportsECopy: t.supportsECopy,
+                    },
+                    create: t as any
+                });
+            }
         }
 
         return { success: true };
@@ -2093,6 +2102,8 @@ export async function getBploTransactions(params?: string | {
                     processedBy: true,
                     residentSnapshot: true,
                     additionalData: true,
+                    appointmentDate: true,
+                    appointmentSlot: true,
                     type: {
                         select: {
                             id: true,

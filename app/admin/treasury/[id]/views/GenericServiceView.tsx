@@ -811,7 +811,7 @@ export default function GenericServiceView(props: TreasuryViewProps) {
 
                             {transaction.status === "PAID" && (
                                 <Button
-                                    onClick={handleConfirmPayment}
+                                    onClick={() => handleConfirmPayment()}
                                     disabled={actionLoading}
                                     className="w-full h-14 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
                                 >

@@ -124,7 +124,8 @@ export default function BusinessPermitView({
     handleRequestRevision,
     handleViewFile,
     orSeriesNumber,
-    setOrSeriesNumber
+    setOrSeriesNumber,
+    handleOnsitePayment
 }: TreasuryViewProps) {
     const additional = transaction.additionalData || {};
     const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
@@ -138,6 +139,8 @@ export default function BusinessPermitView({
     const [isAssessmentOpen, setIsAssessmentOpen] = useState(true);
     const [isBusinessRecordOpen, setIsBusinessRecordOpen] = useState(true);
     const [isRequirementsOpen, setIsRequirementsOpen] = useState(true);
+    const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'GCASH' | 'LANDBANK'>('CASH');
+    const [paymentReference, setPaymentReference] = useState('');
 
     const isBusinessPermitRenewal = (
         transaction?.type?.code === "BUSINESS_PERMIT_RENEW" ||
@@ -198,7 +201,7 @@ export default function BusinessPermitView({
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-3">
                                         <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary italic">
-                                            Registered Business Name
+                                            Name of the Requester
                                         </span>
                                         {transaction.revisionCount > 0 ? (
                                             <Badge className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 border border-orange-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-0.5 rounded-full">
@@ -211,7 +214,7 @@ export default function BusinessPermitView({
                                         )}
                                     </div>
                                     <h1 className="text-5xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
-                                        {transaction.businessName || additional.businessName || "UNNAMED ENTITY"}
+                                        {resident?.firstName ? `${resident.firstName} ${resident.lastName}` : (transaction.user?.name || "Unnamed Resident")}
                                     </h1>
                                 </div>
                                 <div className="w-10 h-10 rounded-full hover:bg-slate-50 dark:hover:bg-white/5 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-primary dark:hover:text-white transition-all focus:outline-none shrink-0">
@@ -352,14 +355,17 @@ export default function BusinessPermitView({
                     )}
 
                     {/* RESIDENT IDENTITY PROFILE ACCORDION */}
-                    <ResidentIdentityProfile
-                        resident={resident}
-                        safeFormatDate={safeFormatDate}
-                        themeColor={themeColor}
-                    />
+                    {!["UNPAID", "FOR_PROCESSING"].includes(transaction.status) && (
+                        <ResidentIdentityProfile
+                            resident={resident}
+                            safeFormatDate={safeFormatDate}
+                            themeColor={themeColor}
+                        />
+                    )}
 
                     {/* BUSINESS RECORD CARD */}
-                    <div className="bg-white dark:bg-[#151b28] rounded-[2.5rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-10">
+                    {!["UNPAID", "FOR_PROCESSING"].includes(transaction.status) && (
+                        <div className="bg-white dark:bg-[#151b28] rounded-[2.5rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-10">
                         {/* Business Profile Accordion Header */}
                         <div
                             className="flex justify-between items-center cursor-pointer select-none"
@@ -500,9 +506,11 @@ export default function BusinessPermitView({
                             </div>
                         )}
                     </div>
+                    )}
 
                     {/* EVIDENCE VAULT */}
-                    <div className="grid grid-cols-1 gap-8">
+                    {!["UNPAID", "FOR_PROCESSING"].includes(transaction.status) && (
+                        <div className="grid grid-cols-1 gap-8">
                         {/* Core Requirements */}
                         <div className="bg-white dark:bg-[#151b28] p-10 rounded-[2.5rem] border border-slate-50 dark:border-white/5 shadow-2xl shadow-slate-900/5 space-y-6 md:col-span-2">
                             <div
@@ -580,6 +588,7 @@ export default function BusinessPermitView({
                             )}
                         </div>
                     </div>
+                    )}
                 </div>
 
                 {/* RIGHT COLUMN */}
@@ -725,66 +734,52 @@ export default function BusinessPermitView({
                                         )}
 
                                         {transaction.status === "FOR_PROCESSING" && (
-                                            <div className="bg-slate-50 dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-white/5 space-y-3">
-                                                <Label className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 italic">Upload Official Receipt (OR) <span className="text-rose-500">*</span></Label>
-                                                <Input
-                                                    type="file"
-                                                    accept="image/*,.pdf"
-                                                    onChange={(e) => setOrFile(e.target.files?.[0] || null)}
-                                                    className="h-12 rounded-xl border-slate-100 dark:border-white/5 text-xs focus:ring-primary/10 dark:bg-slate-950 dark:text-white"
-                                                />
-                                                {(orPreview || (transaction.orUrl && transaction.orUrl !== "null" && transaction.orUrl !== "undefined" && transaction.orUrl !== "")) && (
-                                                    <div className="mt-2">
-                                                        {(() => {
-                                                            const isOrPdf = orFile
-                                                                ? (orFile.type === "application/pdf" || orFile.name.toLowerCase().endsWith(".pdf"))
-                                                                : (transaction.orUrl?.toLowerCase()?.includes(".pdf") || false);
+                                            <div className="space-y-4 bg-slate-50 dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-white/5">
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Payment Method</Label>
+                                                    <div className="grid grid-cols-3 gap-3">
+                                                        {(["CASH", "GCASH", "LANDBANK"] as const).map((method) => (
+                                                            <button
+                                                                key={method}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setPaymentMethod(method);
+                                                                }}
+                                                                className={cn(
+                                                                    "h-12 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all active:scale-95",
+                                                                    paymentMethod === method
+                                                                        ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
+                                                                        : "bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-white/10"
+                                                                )}
+                                                            >
+                                                                {method}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
 
-                                                            if (isOrPdf) {
-                                                                return (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleViewFile?.(orPreview || transaction.orUrl, "Official Receipt PDF")}
-                                                                        className="w-full flex items-center justify-between p-5 bg-slate-900/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl hover:border-primary/50 hover:bg-primary/5 transition-all text-left animate-in fade-in duration-300 group"
-                                                                    >
-                                                                        <div className="flex items-center gap-4">
-                                                                            <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 text-xl shrink-0 group-hover:scale-110 transition-transform">
-                                                                                📕
-                                                                            </div>
-                                                                            <div className="space-y-1">
-                                                                                <p className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 leading-none">Official Receipt PDF</p>
-                                                                                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest italic leading-none">Click to View Document in Modal</p>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="h-9 px-4 rounded-xl border border-primary/20 text-primary font-black italic uppercase tracking-widest text-[9px] group-hover:bg-primary/10 flex items-center gap-1.5 transition-all shrink-0">
-                                                                            Open PDF ➔
-                                                                        </div>
-                                                                    </button>
-                                                                );
-                                                            }
-                                                            return (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleViewFile?.(orPreview || transaction.orUrl, "Official Receipt Document")}
-                                                                    className="relative aspect-[16/9] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-100 dark:border-white/5 group hover:border-primary/50 transition-all text-left block"
-                                                                >
-                                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                                    <img
-                                                                        src={orPreview || transaction.orUrl}
-                                                                        alt="OR Preview"
-                                                                        className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
-                                                                    />
-                                                                    <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 backdrop-blur-[2px]">
-                                                                        <div
-                                                                            style={{ backgroundColor: themeColor }}
-                                                                            className="backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px]"
-                                                                        >
-                                                                            <span>View</span>
-                                                                        </div>
-                                                                    </div>
-                                                                </button>
-                                                            );
-                                                        })()}
+                                                {/* OR Number Input */}
+                                                <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-white/5">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">OR Number (Official Receipt)</Label>
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Enter OR Series Number..."
+                                                        value={orSeriesNumber || ""}
+                                                        onChange={(e) => setOrSeriesNumber && setOrSeriesNumber(e.target.value)}
+                                                        className="h-12 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm font-bold"
+                                                    />
+                                                </div>
+
+                                                {paymentMethod !== "CASH" && (
+                                                    <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-white/5">
+                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{paymentMethod} Reference Number</Label>
+                                                        <Input
+                                                            type="text"
+                                                            placeholder={`Enter ${paymentMethod} Transaction Reference...`}
+                                                            value={paymentReference}
+                                                            onChange={(e) => setPaymentReference(e.target.value)}
+                                                            className="h-12 rounded-xl border-slate-200 focus:ring-primary shadow-sm text-xs md:text-sm font-bold"
+                                                        />
                                                     </div>
                                                 )}
                                             </div>
@@ -804,7 +799,7 @@ export default function BusinessPermitView({
                                         ) : (
                                             <div className="space-y-6">
                                                 {/* Digital Copy Upload Warning */}
-                                                {(transaction.status === "FOR_PROCESSING" || transaction.status === "PAID") && !orFile && !transaction.orUrl && (
+                                                {transaction.status === "PAID" && !orFile && !transaction.orUrl && (
                                                     <div className="p-6 rounded-3xl bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 text-center space-y-2">
                                                         <Upload className="w-5 h-5 text-amber-600 dark:text-amber-500 mx-auto" />
                                                         <p className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-500 italic">Official Receipt (OR) Required</p>
@@ -856,14 +851,23 @@ export default function BusinessPermitView({
                                                 <>
                                                     {transaction.status !== "PAID" && (
                                                         <Button
-                                                            onClick={["FOR_PROCESSING", "PAID"].includes(transaction.status) ? handleConfirmPayment : handleRelease}
+                                                            onClick={() => {
+                                                                if (transaction.status === "FOR_PROCESSING") {
+                                                                    handleConfirmPayment(paymentMethod, paymentMethod !== "CASH" ? paymentReference : undefined);
+                                                                } else if (transaction.status === "PAID") {
+                                                                    handleConfirmPayment();
+                                                                } else {
+                                                                    handleRelease();
+                                                                }
+                                                            }}
                                                             disabled={
                                                                 actionLoading ||
                                                                 (isBusinessPermitRenewal && transaction.status === "FOR_REINSPECTION" && !stickerNumber) ||
                                                                 (!isBusinessPermitRenewal && transaction.status === "FOR_REINSPECTION" && (!ctcNumber && !transaction.businessPermit?.permitNumber)) ||
                                                                 (!isBusinessPermitRenewal && transaction.status === "FOR_REINSPECTION" && !stickerNumber) ||
                                                                 (transaction.status === "FOR_REINSPECTION" && !eCopyFile && !transaction.eCopyUrl) ||
-                                                                ((transaction.status === "FOR_PROCESSING" || transaction.status === "PAID") && !orFile && !transaction.orUrl)
+                                                                (transaction.status === "PAID" && !orFile && !transaction.orUrl) ||
+                                                                (transaction.status === "FOR_PROCESSING" && (!orSeriesNumber || (paymentMethod !== "CASH" && !paymentReference)))
                                                             }
                                                             className="w-full h-16 rounded-2xl bg-primary text-white font-black italic uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20"
                                                         >

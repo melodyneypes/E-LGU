@@ -159,14 +159,6 @@ export default function UserAppointmentsPage() {
         return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
     });
 
-    if (loading) {
-        return (
-            <div className="min-h-[70vh] flex flex-col items-center justify-center gap-6">
-                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 italic">Synchronizing Records...</p>
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen bg-white dark:bg-[#0a0c10] pb-32">
@@ -246,7 +238,11 @@ export default function UserAppointmentsPage() {
 
                 {/* Wide Appointment List */}
                 <div className="space-y-4">
-                    {sortedRequests.length > 0 ? sortedRequests.map((req) => {
+                    {loading ? (
+                        Array(3).fill(0).map((_, i) => (
+                            <div key={i} className="animate-pulse bg-slate-50 dark:bg-white/5 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-white/10 p-5 flex flex-col md:flex-row items-center gap-8 h-24" />
+                        ))
+                    ) : sortedRequests.length > 0 ? sortedRequests.map((req) => {
                         const style = getStatusStyle(req);
                         
                         return (
