@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element */
+
 "use client";
 
 import React, { useState, useRef, useEffect, use, useCallback } from "react";
@@ -14,8 +14,7 @@ import {
     RotateCw,
     RefreshCcw
 } from "lucide-react";
-import Image from "next/image";
-import { isValidUrl } from "@/utils/image";
+
 import { toast } from "sonner";
 import {
     getTransactionById,
@@ -43,131 +42,7 @@ interface PageProps {
     params: Promise<{ id: string }>;
 }
 
-function LightboxView({ src, alt, label }: { src: string; alt: string; label: string }) {
-    const [scale, setScale] = useState(1);
-    const [rotate, setRotate] = useState(0);
-    const [position, setPosition] = useState({ x: 0, y: 0 });
-    const [isDragging, setIsDragging] = useState(false);
-    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-    const handleWheel = (e: React.WheelEvent) => {
-        const delta = e.deltaY < 0 ? 0.15 : -0.15;
-        setScale(prev => Math.min(Math.max(prev + delta, 0.5), 5));
-    };
-
-    const handleMouseDown = (e: React.MouseEvent) => {
-        e.preventDefault();
-        setIsDragging(true);
-        setDragStart({
-            x: e.clientX - position.x,
-            y: e.clientY - position.y
-        });
-    };
-
-    const handleMouseMove = (e: React.MouseEvent) => {
-        if (!isDragging) return;
-        e.preventDefault();
-        setPosition({
-            x: e.clientX - dragStart.x,
-            y: e.clientY - dragStart.y
-        });
-    };
-
-    const handleMouseUp = () => {
-        setIsDragging(false);
-    };
-
-    const reset = () => {
-        setScale(1);
-        setRotate(0);
-        setPosition({ x: 0, y: 0 });
-    };
-
-    return (
-        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-transparent shadow-none flex flex-col items-center justify-center gap-6 outline-none">
-            <DialogHeader className="sr-only">
-                <DialogTitle>{label}</DialogTitle>
-            </DialogHeader>
-
-            <div
-                className="relative w-full h-[75vh] flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing select-none"
-                onWheel={handleWheel}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-            >
-                <div
-                    className="relative w-full h-full flex items-center justify-center"
-                    style={{ 
-                        transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotate}deg)`,
-                        transition: isDragging ? 'none' : 'transform 0.3s ease-out'
-                    }}
-                >
-                    <Image
-                        src={isValidUrl(src) ? src : "/placeholder.png"}
-                        alt={alt}
-                        fill
-                        className="object-contain"
-                        priority
-                        draggable={false}
-                    />
-                </div>
-            </div>
-
-            <div className="flex items-center gap-2 px-6 py-3 bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-4">
-                <div className="flex items-center gap-1 pr-4 border-r border-white/10">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white italic whitespace-nowrap">{label}</p>
-                </div>
-
-                <div className="flex items-center gap-1">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-10 h-10 rounded-full hover:bg-white/10 text-white transition-all"
-                        onClick={() => setScale(s => Math.max(s - 0.2, 0.5))}
-                    >
-                        <ZoomOut className="w-4 h-4" />
-                    </Button>
-                    <div className="w-12 text-center text-[10px] font-black text-white/50 italic">
-                        {Math.round(scale * 100)}%
-                    </div>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-10 h-10 rounded-full hover:bg-white/10 text-white transition-all"
-                        onClick={() => setScale(s => Math.min(s + 0.2, 5))}
-                    >
-                        <ZoomIn className="w-4 h-4" />
-                    </Button>
-                </div>
-
-                <div className="w-px h-4 bg-white/10 mx-2" />
-
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-10 h-10 rounded-full hover:bg-white/10 text-white transition-all"
-                    onClick={() => setRotate(r => (r + 90) % 360)}
-                    title="Rotate 90°"
-                >
-                    <RotateCw className="w-4 h-4" />
-                </Button>
-
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-10 h-10 rounded-full hover:bg-white/10 text-white transition-all"
-                    onClick={reset}
-                    title="Reset View"
-                >
-                    <RefreshCcw className="w-4 h-4" />
-                </Button>
-            </div>
-            <p className="text-[9px] font-bold text-white/40 uppercase tracking-[0.3em] italic">Scroll to Zoom • Drag to Pan Active</p>
-        </DialogContent>
-    );
-}
 
 export default function BuildingPermitReinspectionPage({ params }: PageProps) {
     const { id } = use(params);

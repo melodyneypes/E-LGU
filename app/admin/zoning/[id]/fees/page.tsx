@@ -19,8 +19,7 @@ import {
     RefreshCw
 } from "lucide-react";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
-import Image from "next/image";
-import { isValidUrl } from "@/utils/image";
+
 import { toast } from "sonner";
 import {
     getTransactionById,
@@ -76,7 +75,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const [engineerMunicipalCharges, setEngineerMunicipalCharges] = useState<{ name: string, amount: string }[]>([{ name: "", amount: "" }]);
     const [zoningMunicipalCharges, setZoningMunicipalCharges] = useState<{ name: string, amount: string }[]>([{ name: "", amount: "" }]);
     const [eCopyUrl, setECopyUrl] = useState<string>("");
-    const [eCopyFile, setECopyFile] = useState<File | null>(null);
+    const [eCopyFile, _setECopyFile] = useState<File | null>(null);
     const [zoningClearanceUrl, setZoningClearanceUrl] = useState<string>("");
     const [uploading, setUploading] = useState(false);
 
@@ -92,7 +91,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const zoningStatus = addData.zoningStatus;
     const isZoningActive = userRole === "MPDC_ZONING" && transaction?.status === "EVALUATED";
 
-    const feeAssessment = transaction?.additionalData?.feeAssessment || null;
+    const _feeAssessment = transaction?.additionalData?.feeAssessment || null;
     const isEndorsed = zoningStatus === "ENDORSED" || ["UNPAID", "PAYMENT_SUBMITTED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction?.status || "");
 
     // ViewOnly for Zoning: if not active phase, if already endorsed, or if zoningStatus is not EVALUATED.

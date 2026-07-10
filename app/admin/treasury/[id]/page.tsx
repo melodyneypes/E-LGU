@@ -281,8 +281,8 @@ export default function TreasuryDetailPage() {
     const [birthRegDocPreview, setBirthRegDocPreview] = useState<string | null>(null);
     const [orSeriesNumber, setOrSeriesNumber] = useState<string>("");
     const [miscFee, setMiscFee] = useState<string>("0");
-    const [onsitePaymentMethod, setOnsitePaymentMethod] = useState("");
-    const [onsitePaymentRef, setOnsitePaymentRef] = useState("");
+    const [onsitePaymentMethod, _setOnsitePaymentMethod] = useState("");
+    const [onsitePaymentRef, _setOnsitePaymentRef] = useState("");
 
     useEffect(() => {
         if (!birthRegDocFile) {

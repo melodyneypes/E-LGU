@@ -70,7 +70,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { getCurrentUserResident, cancelTransaction, uploadECopyAction, saveBfpClearanceProofAction, saveZoningClearanceProofAction, getSystemSettingAction } from "@/app/admin/transactions/actions";
-import { submitBuildingPermit, saveTransactionSignature, getExistingBuildingPermits, resubmitBuildingPermit, submitBuildingPermitPaymentProof, submitClearancesForReviewAction, checkActivePropertyPermit, getBarangaysAction, getEngineeringAppointmentConfig } from "./actions";
+import { submitBuildingPermit, saveTransactionSignature, getExistingBuildingPermits, resubmitBuildingPermit, submitBuildingPermitPaymentProof, checkActivePropertyPermit, getBarangaysAction, getEngineeringAppointmentConfig } from "./actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { compressImage } from "@/lib/image-compression";
@@ -757,7 +757,7 @@ export default function BuildingPermitAppointmentPage() {
     setIsAddCustomDocOpen(false);
   };
 
-  const handleUploadBfpClearance = async (file: File | null) => {
+  const _handleUploadBfpClearance = async (file: File | null) => {
     if (!file || !selectedApplication) return;
     const toastId = toast.loading("Uploading BFP Clearance Proof...");
     try {
@@ -794,7 +794,7 @@ export default function BuildingPermitAppointmentPage() {
     }
   };
 
-  const handleUploadZoningClearance = async (file: File | null) => {
+  const _handleUploadZoningClearance = async (file: File | null) => {
     if (!file || !selectedApplication) return;
     const toastId = toast.loading("Uploading Zoning Clearance Proof...");
     try {

@@ -12,7 +12,7 @@ interface PageProps {
 export default function ZoningDetailPage({ params }: PageProps) {
     const { id } = use(params);
     const router = useRouter();
-    const [loading, setLoading] = useState(true);
+    const [_loading, setLoading] = useState(true);
 
     const fetchTransaction = useCallback(async () => {
         setLoading(true);
