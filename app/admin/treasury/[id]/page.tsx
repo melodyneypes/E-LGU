@@ -281,8 +281,7 @@ export default function TreasuryDetailPage() {
     const [birthRegDocPreview, setBirthRegDocPreview] = useState<string | null>(null);
     const [orSeriesNumber, setOrSeriesNumber] = useState<string>("");
     const [miscFee, setMiscFee] = useState<string>("0");
-    const [onsitePaymentMethod] = useState("");
-    const [onsitePaymentRef] = useState("");
+
 
     useEffect(() => {
         if (!birthRegDocFile) {
@@ -1779,7 +1778,7 @@ export default function TreasuryDetailPage() {
             if (receiptFile) formData.append("receiptFile", receiptFile);
             if (orSeriesNumber) formData.append("orSeriesNumber", orSeriesNumber);
             if (orFile) formData.append("orFile", orFile);
-            if (amountPaid) formData.append("amountPaid", amountPaid);
+            if (isBuildingPermit && arg1) formData.append("amountPaid", arg1);
 
             const res = await confirmTransactionPaymentWithReceipt(formData);
             if (res.success) {
