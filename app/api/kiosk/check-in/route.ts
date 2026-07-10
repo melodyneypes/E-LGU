@@ -77,18 +77,26 @@ export async function POST(request: Request) {
         const today = new Date();
 
         if (!isPaymentOrClaiming) {
-            // Strictly check if the appointment is for today (local server timezone)
-            const appDate = new Date(transaction.appointmentDate);
+            // Compare dates in Philippine Time (UTC+8) to avoid timezone mismatch
+            const PH_OFFSET = 8 * 60; // minutes
+            const toPhDate = (d: Date) => {
+                const phMs = d.getTime() + PH_OFFSET * 60 * 1000;
+                return new Date(phMs);
+            };
 
-            const isToday = appDate.getFullYear() === today.getFullYear() &&
-                            appDate.getMonth() === today.getMonth() &&
-                            appDate.getDate() === today.getDate();
+            const appDatePh = toPhDate(new Date(transaction.appointmentDate));
+            const todayPh = toPhDate(today);
+
+            const isToday = appDatePh.getUTCFullYear() === todayPh.getUTCFullYear() &&
+                            appDatePh.getUTCMonth() === todayPh.getUTCMonth() &&
+                            appDatePh.getUTCDate() === todayPh.getUTCDate();
 
             if (!isToday) {
-                const formattedDate = appDate.toLocaleDateString("en-US", {
+                const formattedDate = appDatePh.toLocaleDateString("en-US", {
                     month: "long",
                     day: "numeric",
-                    year: "numeric"
+                    year: "numeric",
+                    timeZone: "Asia/Manila"
                 });
                 return NextResponse.json(
                     { 

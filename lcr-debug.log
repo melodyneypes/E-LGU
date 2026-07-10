@@ -606,3 +606,195 @@
 2026-07-09T03:36:08.087Z - Client: init() try block successfully finished
 2026-07-09T03:36:08.127Z - Client: init() finally block (setting loading=false)
 2026-07-09T03:36:08.168Z - Client: init() finally block (setting loading=false)
+2026-07-09T06:31:33.759Z - Client: init() started
+2026-07-09T06:31:34.607Z - Client: init() started
+2026-07-09T06:31:34.632Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-09T06:31:34.674Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-09T06:31:35.486Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-09T06:31:35.509Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-09T06:31:35.546Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-09T06:31:35.582Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-09T06:31:39.730Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-09T06:31:39.767Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-09T06:31:39.806Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-09T06:31:39.840Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-09T06:31:39.862Z - Client: init() try block successfully finished
+2026-07-09T06:31:39.899Z - Client: init() try block successfully finished
+2026-07-09T06:31:39.929Z - Client: init() finally block (setting loading=false)
+2026-07-09T06:31:39.968Z - Client: init() finally block (setting loading=false)
+2026-07-09T06:37:45.282Z - Client: init() started
+2026-07-09T06:37:45.970Z - Client: init() started
+2026-07-09T06:37:46.005Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-09T06:37:46.043Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-09T06:37:46.481Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-09T06:37:46.525Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-09T06:37:46.539Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-09T06:37:47.630Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-09T06:37:48.664Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-09T06:37:48.705Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-09T06:37:48.741Z - Client: init() try block successfully finished
+2026-07-09T06:37:48.765Z - Client: init() finally block (setting loading=false)
+2026-07-09T06:37:48.920Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-09T06:37:48.952Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-09T06:37:49.001Z - Client: init() try block successfully finished
+2026-07-09T06:37:49.033Z - Client: init() finally block (setting loading=false)
+2026-07-09T13:03:12.158Z - Client: init() started
+2026-07-09T13:03:13.261Z - Client: init() started
+2026-07-09T13:03:14.047Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-09T13:03:14.090Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-09T13:03:14.986Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-09T13:03:15.018Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-09T13:03:15.119Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-09T13:03:15.147Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-09T13:03:19.410Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-09T13:03:19.501Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-09T13:03:19.573Z - Client: init() try block successfully finished
+2026-07-09T13:03:19.658Z - Client: init() finally block (setting loading=false)
+2026-07-09T13:03:19.733Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-09T13:03:19.869Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-09T13:03:19.962Z - Client: init() try block successfully finished
+2026-07-09T13:03:20.042Z - Client: init() finally block (setting loading=false)
+2026-07-09T13:16:13.222Z - Client: init() started
+2026-07-09T13:16:14.265Z - Client: init() started
+2026-07-09T13:16:14.999Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-09T13:16:15.099Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-09T13:16:15.906Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-09T13:16:16.014Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-09T13:16:16.047Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-09T13:16:16.142Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-09T13:16:20.241Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-09T13:16:20.329Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-09T13:16:20.419Z - Client: init() try block successfully finished
+2026-07-09T13:16:20.515Z - Client: init() finally block (setting loading=false)
+2026-07-09T13:16:20.813Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-09T13:16:20.958Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-09T13:16:21.062Z - Client: init() try block successfully finished
+2026-07-09T13:16:21.142Z - Client: init() finally block (setting loading=false)
+2026-07-10T01:24:27.451Z - Client: init() started
+2026-07-10T01:24:27.762Z - Client: init() started
+2026-07-10T01:24:27.806Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T01:24:27.853Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T01:24:28.188Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T01:24:28.229Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T01:24:28.272Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T01:24:28.311Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T01:24:29.858Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T01:24:29.897Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T01:24:29.941Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T01:24:29.998Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T01:24:30.038Z - Client: init() try block successfully finished
+2026-07-10T01:24:30.085Z - Client: init() try block successfully finished
+2026-07-10T01:24:30.128Z - Client: init() finally block (setting loading=false)
+2026-07-10T01:24:30.175Z - Client: init() finally block (setting loading=false)
+2026-07-10T05:18:29.669Z - Client: init() started
+2026-07-10T05:18:30.325Z - Client: init() started
+2026-07-10T05:18:30.390Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T05:18:30.436Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T05:18:30.862Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T05:18:30.919Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T05:18:30.957Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T05:18:31.021Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T05:18:33.226Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T05:18:33.298Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T05:18:33.364Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T05:18:33.421Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T05:18:33.476Z - Client: init() try block successfully finished
+2026-07-10T05:18:33.556Z - Client: init() try block successfully finished
+2026-07-10T05:18:33.611Z - Client: init() finally block (setting loading=false)
+2026-07-10T05:18:33.671Z - Client: init() finally block (setting loading=false)
+2026-07-10T05:28:36.386Z - Client: init() started
+2026-07-10T05:28:37.082Z - Client: init() started
+2026-07-10T05:28:37.510Z - Client: init() started
+2026-07-10T05:28:38.104Z - Client: init() started
+2026-07-10T05:28:38.206Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T05:28:38.310Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T05:28:38.413Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T05:28:38.496Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T05:28:39.696Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T05:28:39.784Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T05:28:39.877Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T05:28:39.983Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T05:28:40.046Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T05:28:40.115Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T05:28:40.202Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T05:28:40.267Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T05:28:45.079Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T05:28:45.143Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T05:28:45.225Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T05:28:45.300Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T05:28:45.372Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T05:28:45.449Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T05:28:45.525Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T05:28:45.617Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T05:28:45.705Z - Client: init() try block successfully finished
+2026-07-10T05:28:45.797Z - Client: init() try block successfully finished
+2026-07-10T05:28:45.870Z - Client: init() try block successfully finished
+2026-07-10T05:28:45.934Z - Client: init() try block successfully finished
+2026-07-10T05:28:46.002Z - Client: init() finally block (setting loading=false)
+2026-07-10T05:28:46.049Z - Client: init() finally block (setting loading=false)
+2026-07-10T05:28:46.114Z - Client: init() finally block (setting loading=false)
+2026-07-10T05:28:46.179Z - Client: init() finally block (setting loading=false)
+2026-07-10T08:31:03.596Z - Client: init() started
+2026-07-10T08:31:03.967Z - Client: init() started
+2026-07-10T08:31:04.014Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T08:31:04.102Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T08:31:04.422Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T08:31:04.476Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T08:31:04.555Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T08:31:04.603Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T08:31:06.627Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T08:31:06.677Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T08:31:06.766Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T08:31:06.825Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T08:31:06.926Z - Client: init() try block successfully finished
+2026-07-10T08:31:07.004Z - Client: init() try block successfully finished
+2026-07-10T08:31:07.078Z - Client: init() finally block (setting loading=false)
+2026-07-10T08:31:07.206Z - Client: init() finally block (setting loading=false)
+2026-07-10T10:28:48.533Z - Client: init() started
+2026-07-10T10:28:49.191Z - Client: init() started
+2026-07-10T10:28:49.282Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T10:28:49.401Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T10:28:50.186Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T10:28:50.320Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T10:28:50.466Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T10:28:50.635Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T10:28:58.499Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T10:28:58.579Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T10:28:58.662Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T10:28:58.748Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T10:28:58.826Z - Client: init() try block successfully finished
+2026-07-10T10:28:58.945Z - Client: init() try block successfully finished
+2026-07-10T10:28:59.024Z - Client: init() finally block (setting loading=false)
+2026-07-10T10:28:59.104Z - Client: init() finally block (setting loading=false)
+2026-07-10T12:31:01.255Z - Client: init() started
+2026-07-10T12:31:01.760Z - Client: init() started
+2026-07-10T12:31:01.920Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T12:31:01.955Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T12:31:02.249Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T12:31:02.279Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T12:31:03.101Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T12:31:03.133Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T12:31:03.695Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T12:31:03.725Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T12:31:03.766Z - Client: init() try block successfully finished
+2026-07-10T12:31:03.810Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T12:31:03.832Z - Client: init() finally block (setting loading=false)
+2026-07-10T12:31:03.881Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T12:31:03.946Z - Client: init() try block successfully finished
+2026-07-10T12:31:03.988Z - Client: init() finally block (setting loading=false)
+2026-07-10T13:03:50.443Z - Client: init() started
+2026-07-10T13:03:51.133Z - Client: init() started
+2026-07-10T13:03:51.498Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T13:03:51.568Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-10T13:03:52.377Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T13:03:52.434Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-10T13:03:52.468Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T13:03:52.540Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-10T13:03:55.111Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T13:03:55.151Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T13:03:55.217Z - Client: init() try block successfully finished
+2026-07-10T13:03:55.250Z - Client: init() finally block (setting loading=false)
+2026-07-10T13:03:56.641Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-10T13:03:56.708Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-10T13:03:56.761Z - Client: init() try block successfully finished
+2026-07-10T13:03:56.795Z - Client: init() finally block (setting loading=false)

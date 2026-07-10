@@ -35,6 +35,7 @@ import { useSession } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 
 import RegistrarDashboard from "./[id]/dashboard";
+import { fetchAndCallNextTicket } from "@/app/admin/transactions/calling-actions";
 
 // Helper: format exact date & time
 function formatDateTime(date: string | Date): { date: string; time: string } {
@@ -142,6 +143,32 @@ export default function RegistrarPage() {
     const lastActivityRef = useRef<number | null>(null);
     const [showUpdateModal, setShowUpdateModal] = useState(false);
     const [pendingUpdatesCount, setPendingUpdatesCount] = useState(0);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [callingNext, setCallingNext] = useState(false);
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const handleCallNextInQueue = async () => {
+        const activeCounter = localStorage.getItem("activeCounterName");
+        if (!activeCounter) {
+            toast.error("Please set your active counter/window in the header first.");
+            return;
+        }
+        setCallingNext(true);
+        try {
+            const res = await fetchAndCallNextTicket(activeCounter);
+            if (res.success && res.data) {
+                toast.success(`Calling next ticket: ${(res.data as any).queueNumber || (res.data as any).id?.slice(-6).toUpperCase()} assigned to ${activeCounter}`);
+                router.push(`/admin/registrar/${(res.data as any).id}`);
+            } else {
+                toast.error((res as any).error || "Failed to fetch next ticket.");
+            }
+        } catch (err) {
+            console.error("Queue calling error:", err);
+            toast.error("An error occurred while calling the next ticket.");
+        } finally {
+            setCallingNext(false);
+        }
+    };
 
     // Track user activity to determine idle state
     useEffect(() => {
@@ -281,11 +308,11 @@ export default function RegistrarPage() {
             } else if (categoryParam === "Birth Certificate") {
                 matchesCategory = tx.type?.code === "LCR_BIRTH";
             } else if (categoryParam === "Death Registration") {
-                matchesCategory = tx.type?.code === "LCR_DEATH_REG" && tx.status !== "FOR_REQUESTING";
+                matchesCategory = tx.type?.code === "LCR_DEATH_REG";
             } else if (categoryParam === "Death Certificate") {
                 matchesCategory = tx.type?.code === "LCR_DEATH";
             } else if (categoryParam === "Marriage License") {
-                matchesCategory = tx.type?.code === "LCR_MARRIAGE_LICENSE" && tx.status !== "FOR_REQUESTING";
+                matchesCategory = tx.type?.code === "LCR_MARRIAGE_LICENSE";
             } else if (categoryParam === "Marriage Registration") {
                 matchesCategory = tx.type?.code === "LCR_MARRIAGE_REG";
             } else if (categoryParam === "Marriage Certificate") {
@@ -294,14 +321,15 @@ export default function RegistrarPage() {
                 matchesCategory = (
                     tx.type?.code === "LCR_PSA_ENDORSEMENT" ||
                     tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    ((tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" || tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") && tx.status !== "FOR_REQUESTING") ||
+                    tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" || 
+                    tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
                     tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
                     tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
                 ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
             } else if (categoryParam === "PSA Appt. Endorsement") {
                 matchesCategory = (
                     tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    (tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" && tx.status !== "FOR_REQUESTING") ||
+                    tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
                     tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
                 ) && tx.status !== "RELEASED" && tx.status !== "DELIVERED";
             }
@@ -406,6 +434,7 @@ export default function RegistrarPage() {
                             </div>
 
                             <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+
                                 <Button
                                     onClick={() => fetchTransactions()}
                                     variant="outline"
@@ -497,7 +526,7 @@ export default function RegistrarPage() {
                                     ))
                                 ) : paginatedTransactions.length > 0 ? (
                                     paginatedTransactions.map((tx, index) => {
-                                        const isUnviewed = tx.status === "FOR_INSPECTION";
+                                        const isUnviewed = tx.status === "FOR_INSPECTION" && !tx.isCancelled;
 
                                         return (
                                             <TableRow

@@ -501,7 +501,7 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                             </div>
                         </div>
 
-                        {((isAppointmentPsa ? (transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING") : (transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION")) && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && (
+                        {((isAppointmentPsa ? (transaction.status === "UNPAID") : (transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION")) && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && (
                             <div className="space-y-4">
                                 {transaction.paymentReference && additional?.gcashReferenceNo && (
                                     <div className="space-y-3">
@@ -598,6 +598,32 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                                  )}
                             </div>
                         ))}
+
+                        {/* TREASURY RELEASE ACTION FOR APPOINTMENT PSA (FOR_CLAIM / FOR_PICKING) */}
+                        {isTreasuryContext && isAppointmentPsa && (transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING") && (
+                            <div className="space-y-6">
+                                <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-6">
+                                    <div className="text-center space-y-3">
+                                        <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 mx-auto">
+                                            <Check className="w-8 h-8" />
+                                        </div>
+                                        <h4 className="text-sm font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200 font-bold">Document Ready for Release</h4>
+                                        <p className="text-xs text-slate-400 italic max-w-sm mx-auto">
+                                            Official Receipt has been issued and payment is verified. Please click below to officially release the PSA document to the citizen.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <Button
+                                    onClick={handleRelease}
+                                    disabled={actionLoading}
+                                    className={`w-full h-14 rounded-2xl text-xs font-black uppercase tracking-wider italic text-white ${themeColor} shadow-lg active:scale-95 transition-all shadow-emerald-500/10`}
+                                >
+                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                    Release the Document
+                                </Button>
+                            </div>
+                        )}
 
                         {isTreasuryContext && transaction.status === "FOR_REQUESTING" && (
                             <div className="space-y-6">

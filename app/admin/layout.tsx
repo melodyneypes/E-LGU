@@ -48,7 +48,7 @@ export default async function AdminLayout({
         prisma.transaction.count({ where: { status: { in: ["FOR_REQUESTING", "PAID"] } } }),
         prisma.transaction.findMany({
             where: {
-                status: "FOR_INSPECTION",
+                status: { in: ["FOR_INSPECTION", "FOR_REQUESTING"] },
                 isCancelled: false,
                 type: {
                     OR: [
@@ -71,8 +71,11 @@ export default async function AdminLayout({
         LCR_BIRTH_REG: "Birth Registration",
         LCR_BIRTH: "Birth Certificate",
         LCR_PSA_ENDORSEMENT: "PSA Endorsement",
+        LCR_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appointment Endorsement",
         LCR_DEATH_PSA_ENDORSEMENT: "PSA Endorsement",
+        LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appointment Endorsement",
         LCR_MARRIAGE_PSA_ENDORSEMENT: "PSA Endorsement",
+        LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appointment Endorsement",
         LCR_DEATH_REG: "Death Registration",
         LCR_DEATH: "Death Certificate",
         LCR_MARRIAGE_LICENSE: "Marriage License",

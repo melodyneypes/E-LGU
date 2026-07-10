@@ -19,7 +19,8 @@ import {
     ChevronDown,
     ChevronUp,
     Copy,
-    Hash
+    Hash,
+    CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -90,7 +91,8 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
         setMiscFee,
         handleProcessRequest,
         handlePrintWaybill,
-        handleMarkAppointmentAttended
+        handleMarkAppointmentAttended,
+        handleCollectPsaPayment
     } = props;
 
     const [isAssessmentOpen, setIsAssessmentOpen] = React.useState(true);
@@ -590,67 +592,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                             handleRequestRevision={handleRequestRevision}
                         />
 
-                        {/* SPECIFIC REGISTRAR OPERATION STEP CONTROLLER */}
-                        {transaction.status === "FOR_INSPECTION" && (
-                            <div className="space-y-6">
-                                <Button
-                                    onClick={handleEvaluate}
-                                    disabled={actionLoading}
-                                    className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-green-500/10"
-                                >
-                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                    Proceed to Payment
-                                </Button>
 
-                                <div className="flex gap-2">
-                                    {(transaction.revisionCount || 0) < 3 && (
-                                        <Button
-                                                                                onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
-                                                                                className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
-                                                                            >
-                                                                                Revision
-                                                                            </Button>
-                                    )}
-                                    <Button
-                                        onClick={() => { setIsRejecting(true); setRemarks(""); }}
-                                        className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
-                                    >
-                                        Reject
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* REGISTRAR FOR_REQUESTING / UNDER_REVIEW CONTROLLER */}
-                        {!isTreasuryContext && (transaction.status === "FOR_REQUESTING" || transaction.status === "UNDER_REVIEW") && (
-                            <div className="space-y-6">
-                                <Button
-                                    onClick={handleEvaluate}
-                                    disabled={actionLoading}
-                                    className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-green-500/10"
-                                >
-                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                    Approve & Send Assessment
-                                </Button>
-
-                                <div className="flex gap-2">
-                                    {(transaction.revisionCount || 0) < 3 && (
-                                        <Button
-                                                                                onClick={() => { setIsRequestingRevision(true); setRemarks(""); }}
-                                                                                className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
-                                                                            >
-                                                                                Revision
-                                                                            </Button>
-                                    )}
-                                    <Button
-                                        onClick={() => { setIsRejecting(true); setRemarks(""); }}
-                                        className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all"
-                                    >
-                                        Reject
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
 
                         {/* REGISTRAR FOR_REINSPECTION CONTROLLER */}
                         {transaction.status === "FOR_REINSPECTION" && (
@@ -791,26 +733,56 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                         )}
 
                         {/* AWAITING CITIZEN APPOINTMENT / ATTENDANCE CONTROLLER */}
-                        {(transaction.status === "EVALUATED" || transaction.status === "UNPAID") && (
+                        {(transaction.status === "EVALUATED" || transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REQUESTING" || transaction.status === "UNDER_REVIEW") && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
                                 <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
-                                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mx-auto">
-                                        <Clock className="w-6 h-6 animate-pulse" />
-                                    </div>
-                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Citizen Appointment</h4>
-                                    <p className="text-[10px] text-slate-400 italic">The citizen has scheduled their appointment. Once they arrive, click below to mark their appointment as attended.</p>
+                                    {additional?.checkedIn ? (
+                                        <>
+                                            <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mx-auto animate-bounce">
+                                                <CheckCircle2 className="w-6 h-6" />
+                                            </div>
+                                            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400 font-bold">Citizen Checked In</h4>
+                                            <p className="text-[10px] text-slate-400 italic">The citizen is now present in the municipal hall. Please verify their physical documents and requirements before clicking finish below.</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mx-auto">
+                                                <Clock className="w-6 h-6 animate-pulse" />
+                                            </div>
+                                            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200 font-bold">Awaiting Citizen Appointment</h4>
+                                            <p className="text-[10px] text-slate-400 italic">The citizen has scheduled their appointment. Once they arrive, click below to mark their appointment as attended.</p>
+                                        </>
+                                    )}
                                 </div>
                                 
                                 {!isTreasuryContext && handleMarkAppointmentAttended && (
                                     <Button
                                         onClick={handleMarkAppointmentAttended}
-                                        disabled={actionLoading}
-                                        className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all"
+                                        disabled={actionLoading || !additional?.checkedIn}
+                                        className={cn(
+                                            "w-full h-14 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all",
+                                            additional?.checkedIn
+                                                ? "bg-primary hover:bg-primary/90"
+                                                : "bg-slate-300 dark:bg-white/10 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none"
+                                        )}
                                     >
                                         {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                        Finish Appointment
+                                        {additional?.checkedIn ? "Finish Appointment" : "Awaiting Citizen Check-in"}
                                     </Button>
                                 )}
+                            </div>
+                        )}
+
+                        {/* PENDING PAYMENT STATE FOR REGISTRAR (READ-ONLY) */}
+                        {transaction.status === "UNPAID" && (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
+                                    <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
+                                        <Clock className="w-6 h-6 animate-pulse" />
+                                    </div>
+                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 font-bold">Pending Treasury Payment</h4>
+                                    <p className="text-[10px] text-slate-400 italic">The appointment has been marked as attended. The citizen is currently queued at the Treasury counter to settle the fees.</p>
+                                </div>
                             </div>
                         )}
 
@@ -1020,88 +992,80 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                         )}
 
                         {/* REGISTRAR RELEASE PROCESSOR CONTROLLER */}
-                        {transaction.status === "FOR_PROCESSING" && !isTreasuryContext && (
+                        {transaction.status === "FOR_PROCESSING" && !isTreasuryContext && !isAppointmentEndorsement && (
                             <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-6">
                                 <h4 className="text-[10px] font-black uppercase tracking-widest text-[#1e293b] dark:text-slate-400">
-                                    {isAppointmentEndorsement ? "PSA Endorsement Submission" : "Endorsement Document Attachment"}
+                                    Endorsement Document Attachment
                                 </h4>
 
-                                {isAppointmentEndorsement ? (
-                                    <div className="space-y-4">
-                                        <p className="text-xs font-bold text-slate-650 dark:text-slate-405 italic leading-relaxed">
-                                            The citizen&apos;s appointment has been marked as attended. Click below to submit this endorsement to the PSA. The request will proceed to the Treasury counter for counter payment collection and O.R. issuance.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        <div className="space-y-1">
-                                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Upload Official Endorsement E-Copy *</span>
-                                            {eCopyPreview ? (
-                                                <div className="bg-[#f8fafd] dark:bg-[#0c111d] border border-slate-200 dark:border-[#2a3040] rounded-3xl p-3 flex items-center justify-between shadow-sm animate-in fade-in duration-300">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center shrink-0">
-                                                            <Check className="w-5 h-5 text-emerald-500" />
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 truncate max-w-[120px]">
-                                                                {eCopyFile ? eCopyFile.name : "Uploaded"}
-                                                            </span>
-                                                            <span className="text-[8px] text-slate-400 italic">Ready for Release</span>
-                                                        </div>
+                                <div className="space-y-4">
+                                    <div className="space-y-1">
+                                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Upload Official Endorsement E-Copy *</span>
+                                        {eCopyPreview ? (
+                                            <div className="bg-[#f8fafd] dark:bg-[#0c111d] border border-slate-200 dark:border-[#2a3040] rounded-3xl p-3 flex items-center justify-between shadow-sm animate-in fade-in duration-300">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center shrink-0">
+                                                        <Check className="w-5 h-5 text-emerald-500" />
                                                     </div>
-                                                    <Button
-                                                        onClick={() => setECopyFile(null)}
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="w-8 h-8 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 truncate max-w-[120px]">
+                                                            {eCopyFile ? eCopyFile.name : "Uploaded"}
+                                                        </span>
+                                                        <span className="text-[8px] text-slate-400 italic">Ready for Release</span>
+                                                    </div>
                                                 </div>
-                                            ) : (
-                                                <label className="flex flex-col items-center justify-center py-6 px-4 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-primary/50 dark:hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-white/[0.01] transition-all cursor-pointer text-center group/ecopy animate-in fade-in duration-300">
-                                                    <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center mb-2 group-hover/ecopy:scale-105 transition-transform">
-                                                        <Upload className="w-4 h-4 text-slate-400" />
-                                                    </div>
-                                                    <span className="text-[10px] font-black uppercase tracking-wider text-primary">Upload Official Registry Document</span>
-                                                    <span className="text-[7px] text-slate-400 dark:text-slate-500 italic mt-0.5">PDF or Image up to 5MB</span>
-                                                    <input
-                                                        type="file"
-                                                        className="hidden"
-                                                        accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                                                        onChange={(e) => {
-                                                            const file = e.target.files?.[0] || null;
-                                                            if (file && file.size > 5 * 1024 * 1024) {
-                                                                toast.error("File size exceeds 5MB limit.");
-                                                                if (e.target.parentElement) {
-                                                                    const parent = e.target.parentElement;
-                                                                    let errEl = parent.querySelector('.file-error-msg');
-                                                                    if (!errEl) {
-                                                                        errEl = document.createElement('div');
-                                                                        errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
-                                                                        parent.appendChild(errEl);
-                                                                    }
-                                                                    errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
-                                                                    setTimeout(() => errEl && errEl.remove(), 4000);
-                                                                }
-                                                                e.target.value = "";
-                                                                setECopyFile(null);
-                                                                setECopyPreview(null);
-                                                                return;
-                                                            }
-                                                            setECopyFile(file);
-                                                            if (file) {
-                                                                setECopyPreview(URL.createObjectURL(file));
-                                                            } else {
-                                                                setECopyPreview(null);
-                                                            }
-                                                        }}
-                                                    />
-                                                </label>
-                                            )}
-                                        </div>
+                                                <Button
+                                                    onClick={() => setECopyFile(null)}
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="w-8 h-8 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <label className="flex flex-col items-center justify-center py-6 px-4 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-primary/50 dark:hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-white/[0.01] transition-all cursor-pointer text-center group/ecopy animate-in fade-in duration-300">
+                                                <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center mb-2 group-hover/ecopy:scale-105 transition-transform">
+                                                    <Upload className="w-4 h-4 text-slate-400" />
+                                                </div>
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-primary">Upload Official Registry Document</span>
+                                                <span className="text-[7px] text-slate-400 dark:text-slate-500 italic mt-0.5">PDF or Image up to 5MB</span>
+                                                <input
+                                                    type="file"
+                                                    className="hidden"
+                                                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0] || null;
+                                                        if (file && file.size > 5 * 1024 * 1024) {
+                                                            toast.error("File size exceeds 5MB limit.");
+                                                             if (e.target.parentElement) {
+                                                                 const parent = e.target.parentElement;
+                                                                 let errEl = parent.querySelector('.file-error-msg');
+                                                                 if (!errEl) {
+                                                                     errEl = document.createElement('div');
+                                                                     errEl.className = 'file-error-msg text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 text-center animate-pulse mt-2 z-50';
+                                                                     parent.appendChild(errEl);
+                                                                 }
+                                                                 errEl.textContent = 'LIMIT UPLOAD ERROR: MAX 5MB ALLOWED';
+                                                                 setTimeout(() => errEl && errEl.remove(), 4000);
+                                                             }
+                                                            e.target.value = "";
+                                                            setECopyFile(null);
+                                                            setECopyPreview(null);
+                                                            return;
+                                                        }
+                                                        setECopyFile(file);
+                                                        if (file) {
+                                                            setECopyPreview(URL.createObjectURL(file));
+                                                        } else {
+                                                            setECopyPreview(null);
+                                                        }
+                                                    }}
+                                                />
+                                            </label>
+                                        )}
                                     </div>
-                                )}
+                                </div>
 
                                 <Button
                                     onClick={handleRelease}
@@ -1109,7 +1073,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                     className="w-full h-14 bg-[#10b981] hover:bg-[#0d9488] text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
                                 >
                                     {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                    {isAppointmentEndorsement ? "Submit Endorsement to PSA" : "Release & Send to Citizen"}
+                                    Release & Send to Citizen
                                 </Button>
                             </div>
                         )}
@@ -1141,7 +1105,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                         )}
 
                         {/* PSA APPOINTMENT: WAITING FOR TREASURY COUNTER PAYMENT */}
-                        {(transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING") && isAppointmentEndorsement && (
+                        {(transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING" || transaction.status === "FOR_PROCESSING") && isAppointmentEndorsement && (
                             <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                                 <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
                                     <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">

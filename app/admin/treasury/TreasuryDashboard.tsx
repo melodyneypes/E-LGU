@@ -312,7 +312,13 @@ export default function TreasuryDashboard() {
         const isLcrBirthCertifiedCopy = tx.type?.code === "LCR_BIRTH" || tx.type?.code === "LCR_DEATH" || tx.type?.code === "LCR_MARRIAGE" || (tx.type?.name && (tx.type.name.includes("Birth Certificate") || tx.type.name.includes("Death Certificate") || tx.type.name.includes("Marriage Certificate"))) || false;
         const isLcrBirthRegistration = tx.type?.code === "LCR_BIRTH_REG" || tx.type?.code === "LCR_DEATH_REG" || tx.type?.code === "LCR_MARRIAGE_REG" || tx.type?.code === "LCR_MARRIAGE_LICENSE" || (tx.type?.name && (tx.type.name.includes("Registration") || tx.type.name.includes("License"))) || false;
         const isCivilRegistry = tx.type?.category === "Civil Registry" || tx.type?.code?.startsWith("LCR_") || tx.type?.code?.startsWith("CIVIL_REGISTRY") || isLcrBirthCertifiedCopy || isLcrBirthRegistration;
-        if (isCivilRegistry && ["FOR_REQUESTING", "EVALUATED", "FOR_PROCESSING"].includes(tx.status)) {
+        const isPsaAppointmentTx = [
+            "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+            "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+            "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+        ].includes(tx.type?.code || "");
+
+        if (isCivilRegistry && ["FOR_REQUESTING", "EVALUATED", "FOR_PROCESSING"].includes(tx.status) && !isPsaAppointmentTx) {
             const isRegistrar = userRole === "REGISTRAR" || userDepartment?.toUpperCase() === "REGISTRAR";
             if (!isRegistrar) {
                 // If Civil Registry category is active, Treasury needs to see FOR_REQUESTING (but NOT EVALUATED)
@@ -357,13 +363,8 @@ export default function TreasuryDashboard() {
         // For Civil Registry, Treasury only needs to see FOR_REQUESTING, PAID, and UNPAID when active (EVALUATED is hidden)
         // Exception: PSA Appointment Endorsements in FOR_CLAIM or FOR_PICKING need to be visible to Treasury for counter payment
         if (categoryParam === "Civil Registry") {
-            const isPsaAppointmentTx = [
-                "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-                "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-                "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
-            ].includes(tx.type?.code || "");
             const allowedStatuses = isPsaAppointmentTx
-                ? ["FOR_REQUESTING", "PAID", "UNPAID", "FOR_CLAIM", "FOR_PICKING"]
+                ? ["FOR_REQUESTING", "PAID", "UNPAID", "FOR_CLAIM", "FOR_PICKING", "FOR_PROCESSING"]
                 : ["FOR_REQUESTING", "PAID", "UNPAID"];
             if (!allowedStatuses.includes(tx.status)) {
                 return false;

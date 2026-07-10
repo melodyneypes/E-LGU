@@ -424,7 +424,7 @@ export default function AppointmentMarriagePsaEndorsementPage() {
                 toast.success(revisionId ? "Revision resubmitted successfully!" : "Marriage PSA Appointment Endorsement submitted successfully!");
                 sessionStorage.removeItem("appointment-marriage-psa-endorsement-step");
                 sessionStorage.removeItem("appointment-marriage-psa-endorsement-form");
-                router.push(`/user/services/requests/${res.data.id}`);
+                router.push(`/user/appointment/${res.data.id}`);
             } else {
                 toast.error(res.error || "Failed to submit endorsement request");
             }
