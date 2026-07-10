@@ -87,6 +87,7 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
         // Partition serving tickets
         const servingTxs = allTxs.filter(tx => {
             const category = tx.type?.category || "";
+            const code = tx.type?.code || "";
             const additionalData = tx.additionalData as any;
             const hasCounter = additionalData && typeof additionalData.counterName === "string" && additionalData.counterName.trim() !== "";
 
