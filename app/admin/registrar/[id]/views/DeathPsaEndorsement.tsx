@@ -23,6 +23,7 @@ import {
     CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
+import { callSpecificRegistrarTicket } from "@/app/admin/transactions/calling-actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -73,12 +74,6 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
         currentStepIdx,
         branding,
         calcResult,
-        registryBookVerification,
-        setRegistryBookVerification,
-        birthRegDocFile,
-        setBirthRegDocFile,
-        birthRegDocPreview,
-        setBirthRegDocPreview,
         orSeriesNumber,
         setOrSeriesNumber,
         handleViewFile,
@@ -95,6 +90,26 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
     } = props;
 
     const [isAssessmentOpen, setIsAssessmentOpen] = React.useState(true);
+    const handleCallInQueue = async () => {
+        const activeCounter = typeof window !== "undefined" ? localStorage.getItem("activeCounterName") : null;
+        if (!activeCounter) {
+            toast.error("Please configure your active counter/window first using the Set Counter selector.");
+            return;
+        }
+
+        try {
+            const res = await callSpecificRegistrarTicket(transaction.id, activeCounter);
+            if (res.success) {
+                toast.success(`Successfully called ticket: ${transaction.queueNumber}`);
+                window.location.href = "/admin/registrar/queue";
+            } else {
+                toast.error(res.error || "Failed to call ticket.");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to call ticket.");
+        }
+    };
     const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
     const additional = transaction.additionalData || {};
 
@@ -1089,7 +1104,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                             </div>
                         )}
 
-                        {transaction.status === "FOR_CLAIM" && !isAppointmentEndorsement && (
+                        {transaction.status === "FOR_CLAIM" && (
                             <div className="space-y-6">
                                 <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-6">
                                     <div className="text-center space-y-3">
@@ -1098,24 +1113,36 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                         </div>
                                         <h4 className="text-sm font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200 font-bold">Document Ready for Claiming</h4>
                                         <p className="text-xs text-slate-400 italic max-w-sm mx-auto">
-                                            The document has been verified and processed. Please click below to officially release the document and notify the resident.
+                                            {additional.servingDepartment === "Registrar" && additional.counterName
+                                                ? "The document has been verified and processed. Please click below to officially release the document and notify the resident."
+                                                : "The document has been verified and processed. Please call the resident in the queue to release the document."}
                                         </p>
                                     </div>
                                 </div>
 
-                                <Button
-                                    onClick={handleRelease}
-                                    disabled={actionLoading}
-                                    className={`w-full h-14 rounded-2xl text-xs font-black uppercase tracking-wider italic text-white ${themeColor} shadow-lg active:scale-95 transition-all shadow-emerald-500/10`}
-                                >
-                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                    Release the Document
-                                </Button>
+                                {additional.servingDepartment === "Registrar" && additional.counterName ? (
+                                    <Button
+                                        onClick={handleRelease}
+                                        disabled={actionLoading}
+                                        className={`w-full h-14 rounded-2xl text-xs font-black uppercase tracking-wider italic text-white ${themeColor} shadow-lg active:scale-95 transition-all shadow-emerald-500/10`}
+                                    >
+                                        {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                        Release the Document
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        onClick={handleCallInQueue}
+                                        disabled={actionLoading}
+                                        className={`w-full h-14 rounded-2xl text-xs font-black uppercase tracking-wider italic text-white ${themeColor} shadow-lg active:scale-95 transition-all shadow-emerald-500/10`}
+                                    >
+                                        Call in the Queue
+                                    </Button>
+                                )}
                             </div>
                         )}
 
                         {/* PSA APPOINTMENT: WAITING FOR TREASURY COUNTER PAYMENT */}
-                        {(transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING" || transaction.status === "FOR_PROCESSING") && isAppointmentEndorsement && (
+                        {transaction.status === "FOR_PROCESSING" && isAppointmentEndorsement && (
                             <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                                 <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
                                     <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">

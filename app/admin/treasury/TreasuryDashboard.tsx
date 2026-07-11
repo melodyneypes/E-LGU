@@ -95,8 +95,8 @@ export default function TreasuryDashboard() {
             return STATUS_TABS.filter(tab => ["ALL", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM", "FOR_PICKING", "RETURN_REQUESTED", "REFUND_REQUESTED", "RELEASED", "DELIVERED", "REJECTED"].includes(tab.value));
         }
         if (categoryParam === "Civil Registry") {
-            // Civil Registry category should only show evaluation, paid, and unpaid statuses (EVALUATED is hidden)
-            return STATUS_TABS.filter(tab => ["ALL", "FOR_REQUESTING", "PAID", "UNPAID"].includes(tab.value));
+            // Civil Registry category should show evaluation, processing, paid, and unpaid statuses (EVALUATED is hidden)
+            return STATUS_TABS.filter(tab => ["ALL", "FOR_REQUESTING", "FOR_PROCESSING", "PAID", "UNPAID"].includes(tab.value));
         }
         if (categoryParam === "Business Permit") {
             // Business Permit category should show evaluation, assessment, paid, and unpaid statuses
@@ -646,11 +646,15 @@ export default function TreasuryDashboard() {
                                                                             "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
                                                                         ].includes(tc);
                                                                         if (isPsaAppt) {
-                                                                            if (s === "FOR_INSPECTION" || s === "FOR_REQUESTING") return "AWAITING EVALUATION";
+                                                                            if (s === "FOR_INSPECTION" || s === "FOR_REQUESTING") {
+                                                                                const addData = (tx.additionalData as any) || {};
+                                                                                return addData.checkedIn ? "AWAITING EVALUATION" : "AWAITING CHECK-IN";
+                                                                            }
                                                                             if (s === "EVALUATED") return "APPOINTMENT CONFIRMED";
-                                                                            if (s === "UNPAID") return "APPOINTMENT SCHEDULED";
+                                                                            if (s === "UNPAID") return "PAYMENT DUE AT TREASURY";
                                                                             if (s === "FOR_PROCESSING") return "AWAITING REGISTRAR ENDORSEMENT";
-                                                                            if (s === "FOR_CLAIM" || s === "FOR_PICKING") return "PAYMENT DUE AT TREASURY";
+                                                                            if (s === "FOR_CLAIM") return "READY FOR CLAIMING";
+                                                                            if (s === "FOR_PICKING") return "READY FOR DELIVERY";
                                                                             if (s === "RELEASED") return "ENDORSED TO PSA";
                                                                         }
                                                                         return ({

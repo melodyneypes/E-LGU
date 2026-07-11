@@ -218,14 +218,11 @@ export default function QueueClient({
                 });
         }
 
-        // 2. Adaptive polling fallback:
-        //    - When realtime is CONNECTED → skip fetch (realtime handles it)
-        //    - When realtime is DISCONNECTED → fetch every 10 seconds to recover
+        // 2. Queue polling fallback (always active):
+        //    Fetch every 10 seconds to ensure the display stays in sync even if WebSockets experience lag or replication delays.
         const fallbackInterval = setInterval(async () => {
-            if (!realtimeConnectedRef.current) {
-                console.log("[Queue Fallback Polling] Realtime offline — fetching queue data...");
-                await fetchUpdates();
-            }
+            console.log("[Queue Polling] Fetching latest queue data to sync display...");
+            await fetchUpdates();
         }, 10000);
 
         return () => {

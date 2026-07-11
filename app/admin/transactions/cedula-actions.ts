@@ -560,7 +560,10 @@ export async function getTreasuryTransactions(params?: string | {
     try {
         const session = await getSession();
         const user = session?.user as any;
-        if (!user || (user.role !== "TREASURY_STAFF" && user.role !== "ADMIN")) {
+        const userDepartment = (user?.department || "").toUpperCase();
+        const isRegistrarUser = userDepartment === "REGISTRAR" || userDepartment === "CIVIL_REGISTRY";
+
+        if (!user || (user.role !== "TREASURY_STAFF" && user.role !== "ADMIN" && user.role !== "REGISTRAR" && !isRegistrarUser)) {
             return { success: false, error: "Forbidden" };
         }
 
@@ -629,64 +632,79 @@ export async function getTreasuryTransactions(params?: string | {
             ]
         };
 
-        where.AND = [
-            {
-                NOT: [
-                    {
-                        AND: [
-                            { type: { code: { startsWith: "BUSINESS_PERMIT" } } },
-                            { status: { in: ["FOR_INSPECTION", "FOR_REINSPECTION"] } }
-                        ]
-                    }
-                ]
-            },
-            // Civil Registry Conditions
-            {
-                OR: [
-                    { NOT: lcrUnionFilter },
-                    {
-                        AND: [
-                            lcrUnionFilter,
-                            {
-                                OR: [
-                                    { status: { in: ["FOR_REQUESTING", "PAID", "UNPAID"] } },
-                                    {
-                                        AND: [
-                                            { type: { code: { in: ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"] } } },
-                                            { status: { in: ["FOR_CLAIM", "FOR_PICKING"] } }
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            },
-            // Building Permit Conditions
-            {
-                OR: [
-                    { NOT: bpBuildingFilter },
-                    {
-                        AND: [
-                            bpBuildingFilter,
-                            { status: { in: ["EVALUATED", "UNPAID", "PAID", "REJECTED"] } }
-                        ]
-                    }
-                ]
-            },
-            // Business Permit Conditions
-            {
-                OR: [
-                    { NOT: bpBusinessFilter },
-                    {
-                        AND: [
-                            bpBusinessFilter,
-                            { status: { in: ["FOR_REQUESTING", "EVALUATED", "PAID", "UNPAID"] } }
-                        ]
-                    }
-                ]
-            }
-        ];
+        if (!ledgerType) {
+            where.AND = [
+                {
+                    NOT: [
+                        {
+                            AND: [
+                                { type: { code: { startsWith: "BUSINESS_PERMIT" } } },
+                                { status: { in: ["FOR_INSPECTION", "FOR_REINSPECTION"] } }
+                            ]
+                        }
+                    ]
+                },
+                // Civil Registry Conditions
+                {
+                    OR: [
+                        { NOT: lcrUnionFilter },
+                        {
+                            AND: [
+                                lcrUnionFilter,
+                                {
+                                    OR: [
+                                        // For non-appointment LCRs: allow FOR_REQUESTING, PAID, UNPAID, FOR_PROCESSING
+                                        {
+                                            AND: [
+                                                { type: { code: { notIn: ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"] } } },
+                                                { status: { in: ["FOR_REQUESTING", "PAID", "UNPAID", "FOR_PROCESSING"] } }
+                                            ]
+                                        },
+                                        // For appointment LCRs: Registrar sees FOR_REQUESTING, EVALUATED, FOR_PROCESSING, FOR_CLAIM, FOR_PICKING
+                                        {
+                                            AND: [
+                                                { type: { code: { in: ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"] } } },
+                                                {
+                                                    status: {
+                                                        in: isRegistrarUser
+                                                            ? ["FOR_REQUESTING", "EVALUATED", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING"]
+                                                            : ["PAID", "UNPAID", "FOR_CLAIM", "FOR_PICKING", "FOR_PROCESSING"]
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                // Building Permit Conditions
+                {
+                    OR: [
+                        { NOT: bpBuildingFilter },
+                        {
+                            AND: [
+                                bpBuildingFilter,
+                                { status: { in: ["EVALUATED", "UNPAID", "PAID", "REJECTED"] } }
+                            ]
+                        }
+                    ]
+                },
+                // Business Permit Conditions
+                {
+                    OR: [
+                        { NOT: bpBusinessFilter },
+                        {
+                            AND: [
+                                bpBusinessFilter,
+                                { status: { in: ["FOR_REQUESTING", "EVALUATED", "PAID", "UNPAID"] } }
+                            ]
+                        }
+                    ]
+                }
+            ];
+        }
 
         // Category filter
         if (category && category !== "ALL") {
@@ -742,8 +760,23 @@ export async function getTreasuryTransactions(params?: string | {
                     }
                 };
                 where.status = {
-                    notIn: ["RELEASED", "DELIVERED", "FOR_REQUESTING"]
+                    notIn: isRegistrarUser
+                        ? ["RELEASED", "DELIVERED", "UNPAID"]
+                        : ["RELEASED", "DELIVERED", "FOR_REQUESTING"]
                 };
+                if (isRegistrarUser) {
+                    where.AND = [
+                        ...(where.AND || []),
+                        {
+                            NOT: {
+                                AND: [
+                                    { type: { code: { in: ["LCR_DEATH_PSA_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT"] } } },
+                                    { status: { in: ["FOR_CLAIM", "UNPAID", "RELEASED", "DELIVERED"] } }
+                                ]
+                            }
+                        }
+                    ];
+                }
             } else if (lcrSubCategory === "PSA Appt. Endorsement") {
                 where.type = {
                     ...where.type,
@@ -756,13 +789,27 @@ export async function getTreasuryTransactions(params?: string | {
                     }
                 };
                 where.status = {
-                    notIn: ["RELEASED", "DELIVERED", "FOR_REQUESTING"]
+                    notIn: isRegistrarUser
+                        ? ["RELEASED", "DELIVERED", "UNPAID"]
+                        : ["RELEASED", "DELIVERED", "FOR_REQUESTING"]
                 };
+                if (isRegistrarUser) {
+                    where.AND = [
+                        ...(where.AND || []),
+                        {
+                            NOT: {
+                                AND: [
+                                    { type: { code: { in: ["LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT"] } } },
+                                    { status: { in: ["FOR_CLAIM", "UNPAID", "RELEASED", "DELIVERED"] } }
+                                ]
+                            }
+                        }
+                    ];
+                }
             }
         }
-        // LCR Ledger type filter mapping
         if (ledgerType) {
-            where.status = { in: ["DELIVERED", "RELEASED"] };
+            where.status = { in: ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"] };
             where.isCancelled = false;
 
             if (ledgerType === "BIRTH") {

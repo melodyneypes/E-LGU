@@ -42,7 +42,7 @@ export default async function AdminLayout({
         residentsWhere.barangay = managedBarangay;
     }
 
-    const [pendingReportsCount, pendingResidentsCount, pendingTransactionsCount, lcrTransactions] = await Promise.all([
+    const [, , , lcrTransactions] = await Promise.all([
         prisma.report.count({ where: reportsWhere }),
         prisma.resident.count({ where: residentsWhere }),
         prisma.transaction.count({ where: { status: { in: ["FOR_REQUESTING", "PAID"] } } }),
