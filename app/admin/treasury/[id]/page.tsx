@@ -239,7 +239,7 @@ export default function TreasuryDetailPage() {
     const categoryQuery = searchParams.get("category");
     const [transaction, setTransaction] = useState<any>(null);
     const typeCodeForBack = (transaction?.type?.code || "").toUpperCase();
-    const isLcrTx = typeCodeForBack.startsWith("LCR_") || typeCodeForBack.startsWith("CIVIL_REGISTRY") || (transaction?.type?.name && (transaction.type.name.includes("Certificate") || transaction.type.name.includes("Registration")));
+    const isLcrTx = !typeCodeForBack.includes("CEDULA") && (typeCodeForBack.startsWith("LCR_") || typeCodeForBack.startsWith("CIVIL_REGISTRY") || (transaction?.type?.name && (transaction.type.name.includes("Certificate") || transaction.type.name.includes("Registration"))));
 
     const fallbackCategory = isLcrTx
         ? "Civil Registry"
@@ -561,53 +561,7 @@ export default function TreasuryDetailPage() {
         }
     }, [id]);
 
-    useEffect(() => {
-        if (!supabase || !id || isNavigatingToQueue) return;
 
-        console.log(`Subscribing to Supabase Realtime for transaction ${id}...`);
-        let channel: any;
-        try {
-            channel = supabase
-                .channel(`realtime-treasury-transaction-${id}`)
-                .on(
-                    "postgres_changes",
-                    {
-                        event: "*",
-                        schema: "public",
-                        table: "Transaction",
-                        filter: `id=eq.${id}`,
-                    },
-                    (payload: any) => {
-                        console.log(`[Realtime Treasury Detail] Change detected on Transaction table:`, payload);
-                        if (payload.new?.id === id || payload.old?.id === id) {
-                            console.log(`[Realtime Treasury Detail] Match found for transaction ${id}, refreshing...`);
-                            fetchTransaction(true).catch(err => {
-                                console.error("Realtime fetchTransaction failed:", err);
-                            });
-                        }
-                    }
-                )
-                .subscribe((status: string, err?: any) => {
-                    console.log(`[Realtime Treasury Detail] Subscription status for ${id}:`, status);
-                    if (err) {
-                        console.warn("Supabase Realtime subscription notice:", err);
-                    }
-                    if (status === "CHANNEL_ERROR") {
-                        console.warn("Supabase Realtime channel reconnecting/idle");
-                    }
-                });
-        } catch (error) {
-            console.warn("Failed to initialize Supabase Realtime subscription:", error);
-        }
-
-        return () => {
-            console.log(`Unsubscribing from Supabase Realtime for transaction ${id}...`);
-            if (channel) {
-                supabase.removeChannel(channel);
-            }
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, isNavigatingToQueue]);
 
     useEffect(() => {
         if (!session) return;
@@ -2184,6 +2138,8 @@ export default function TreasuryDetailPage() {
         renderView = <BusinessPermitView {...viewProps} />;
     } else if (isBuildingPermit) {
         renderView = <BuildingPermitView {...viewProps} />;
+    } else if (typeCode.includes("CEDULA")) {
+        renderView = <GenericServiceView {...viewProps} />;
     } else if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT") {
         renderView = <BirthPsaEndorsementView {...viewProps} />;
     } else if (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") {
