@@ -3,10 +3,14 @@ import prisma from "@/lib/db/prisma";
 import bcrypt from "bcryptjs";
 
 export async function POST(request: Request) {
+    console.log("[DEBUG KIOSK LOGIN] Request received at /api/kiosk/login");
     try {
-        const { email, password } = await request.json();
+        const body = await request.json();
+        const { email, password } = body;
+        console.log("[DEBUG KIOSK LOGIN] Parsed body for email:", email);
 
         if (!email || !password) {
+            console.log("[DEBUG KIOSK LOGIN] Missing email or password");
             return NextResponse.json(
                 { success: false, error: "Email and password are required" },
                 { status: 400 }
@@ -14,11 +18,14 @@ export async function POST(request: Request) {
         }
 
         // Find the user in the database
+        console.log("[DEBUG KIOSK LOGIN] Querying database for user...");
         const user = await prisma.user.findUnique({
             where: { email: email.toLowerCase().trim() }
         });
+        console.log("[DEBUG KIOSK LOGIN] Database query finished. User found:", !!user);
 
         if (!user || !user.password) {
+            console.log("[DEBUG KIOSK LOGIN] User not found or password empty");
             return NextResponse.json(
                 { success: false, error: "Invalid email or password" },
                 { status: 401 }
@@ -26,8 +33,12 @@ export async function POST(request: Request) {
         }
 
         // Verify password
+        console.log("[DEBUG KIOSK LOGIN] Verifying password with bcrypt...");
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
+        console.log("[DEBUG KIOSK LOGIN] Password verification result:", isPasswordCorrect);
+        
         if (!isPasswordCorrect) {
+            console.log("[DEBUG KIOSK LOGIN] Password incorrect");
             return NextResponse.json(
                 { success: false, error: "Invalid email or password" },
                 { status: 401 }
@@ -36,7 +47,10 @@ export async function POST(request: Request) {
 
         // Verify role and department (must be ADMIN and department FRONTDESK)
         const isFrontDesk = user.role === "ADMIN" && user.department?.toUpperCase() === "FRONTDESK";
+        console.log("[DEBUG KIOSK LOGIN] Authorization check - Role:", user.role, "Department:", user.department, "isFrontDesk:", isFrontDesk);
+        
         if (!isFrontDesk) {
+            console.log("[DEBUG KIOSK LOGIN] Access denied (not FRONTDESK admin)");
             return NextResponse.json(
                 { success: false, error: "Access Denied: Only FRONTDESK admins are authorized" },
                 { status: 403 }
@@ -52,8 +66,9 @@ export async function POST(request: Request) {
             timestamp: Date.now()
         };
         const token = Buffer.from(JSON.stringify(tokenPayload)).toString("base64");
+        console.log("[DEBUG KIOSK LOGIN] Token generated successfully");
 
-        return NextResponse.json({
+        const responseObj = {
             success: true,
             token,
             user: {
@@ -62,9 +77,11 @@ export async function POST(request: Request) {
                 role: user.role,
                 department: user.department
             }
-        });
+        };
+        console.log("[DEBUG KIOSK LOGIN] Returning 200 OK response");
+        return NextResponse.json(responseObj);
     } catch (error) {
-        console.error("Kiosk login API error:", error);
+        console.error("[DEBUG KIOSK LOGIN] CRITICAL ERROR occurred:", error);
         return NextResponse.json(
             { success: false, error: "Internal server error" },
             { status: 500 }

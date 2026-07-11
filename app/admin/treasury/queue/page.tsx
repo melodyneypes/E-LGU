@@ -87,6 +87,7 @@ export default function TreasuryQueuePage() {
         // 2. Real-time WebSocket subscription
         let channel: any = null;
         if (supabase) {
+            console.log("[DEBUG REALTIME] Supabase client initialized. Setting up subscription channel...");
             channel = supabase
                 .channel("realtime-treasury-queue-page")
                 .on(
@@ -97,11 +98,12 @@ export default function TreasuryQueuePage() {
                         table: "Transaction"
                     },
                     (payload: any) => {
-                        console.log("Treasury Realtime Update: Transaction change detected", payload);
+                        console.log("[DEBUG REALTIME] Realtime update detected on 'Transaction' table! Payload:", payload);
                         fetchQueue();
                     }
                 )
                 .subscribe((status: string) => {
+                    console.log("[DEBUG REALTIME] Channel subscription status changed to:", status);
                     const wasConnected = realtimeConnectedRef.current;
                     realtimeConnectedRef.current = status === "SUBSCRIBED";
 
@@ -111,11 +113,14 @@ export default function TreasuryQueuePage() {
                         fetchQueue();
                     }
                 });
+        } else {
+            console.error("[DEBUG REALTIME] Supabase client is NULL. Realtime subscription skipped.");
         }
 
         return () => {
             clearInterval(pollInterval);
             if (supabase && channel) {
+                console.log("[DEBUG REALTIME] Cleaning up subscription channel...");
                 supabase.removeChannel(channel);
             }
         };
@@ -207,20 +212,56 @@ export default function TreasuryQueuePage() {
                         </p>
                     </Card>
                 ) : loading ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 items-start animate-pulse">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 items-start">
                         {/* LEFT COLUMN SKELETON */}
                         <div className="lg:col-span-2 space-y-6">
                             {/* Call Next Button Skeleton */}
-                            <div className="w-full h-16 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10" />
+                            <div className="w-full h-16 rounded-2xl bg-slate-200/30 dark:bg-white/5 border border-slate-200/30 dark:border-white/10 animate-pulse" />
+                            
                             {/* Serving Card Skeleton */}
-                            <div className="w-full h-[450px] rounded-3xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10" />
+                            <Card className="rounded-3xl border border-slate-200/50 dark:border-white/10 shadow-xl overflow-hidden bg-white/40 dark:bg-white/5 relative">
+                                <div className="absolute top-0 left-0 right-0 h-1.5 bg-slate-200/50 dark:bg-white/10" />
+                                <CardContent className="p-8 space-y-8 flex flex-col items-center">
+                                    {/* Subtitle placeholder */}
+                                    <div className="h-3 w-48 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                                    {/* Serving badge placeholder */}
+                                    <div className="h-6 w-24 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                                    {/* Number placeholder */}
+                                    <div className="h-20 w-64 bg-slate-200/60 dark:bg-white/10 rounded-3xl animate-pulse" />
+                                    {/* Name placeholder */}
+                                    <div className="space-y-2 w-full max-w-xs flex flex-col items-center">
+                                        <div className="h-2 w-20 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                                        <div className="h-5 w-48 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                                    </div>
+                                    {/* Service placeholder */}
+                                    <div className="h-5 w-32 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                                    {/* Buttons placeholder */}
+                                    <div className="pt-6 border-t border-slate-100 dark:border-white/5 w-full flex justify-center gap-4">
+                                        <div className="h-12 w-32 bg-slate-200/60 dark:bg-white/10 rounded-xl animate-pulse" />
+                                        <div className="h-12 w-44 bg-slate-200/60 dark:bg-white/10 rounded-xl animate-pulse" />
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
+                        
                         {/* RIGHT COLUMN SKELETON */}
                         <div className="space-y-4">
-                            {/* Title Skeleton */}
-                            <div className="h-6 w-32 bg-slate-100 dark:bg-white/5 rounded-lg" />
-                            {/* List Card Skeleton */}
-                            <div className="w-full h-[500px] rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10" />
+                            {/* Title placeholder */}
+                            <div className="h-4 w-36 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                            {/* List Card Placeholder */}
+                            <Card className="rounded-2xl border border-slate-200/50 dark:border-[#2a3040] shadow-sm bg-white/40 dark:bg-white/5 overflow-hidden">
+                                <CardContent className="p-3 space-y-3">
+                                    {[1, 2, 3, 4].map((i) => (
+                                        <div key={i} className="flex items-center justify-between p-3.5 bg-slate-50/30 dark:bg-white/[0.02] rounded-xl border border-slate-100/50 dark:border-white/5">
+                                            <div className="space-y-2">
+                                                <div className="h-5 w-16 bg-slate-200/60 dark:bg-white/10 rounded-lg animate-pulse" />
+                                                <div className="h-2.5 w-24 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                                            </div>
+                                            <div className="h-4 w-28 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                                        </div>
+                                    ))}
+                                </CardContent>
+                            </Card>
                         </div>
                     </div>
                 ) : (
@@ -238,7 +279,7 @@ export default function TreasuryQueuePage() {
                                 <Volume2 className="w-5 h-5 animate-bounce" />
                                 Call Next in Queue
                             </Button>
-
+ 
                             {/* Currently Serving Terminal Display */}
                             <Card className="rounded-3xl border border-slate-200 dark:border-white/10 shadow-xl overflow-hidden bg-white dark:bg-white/5 relative">
                                 <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary to-blue-600" />
@@ -247,7 +288,7 @@ export default function TreasuryQueuePage() {
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Now Processing at {counterName}</p>
                                     </div>
-
+ 
                                     {currentlyServing ? (
                                         <div className="space-y-6">
                                             <div className="space-y-2">
@@ -259,7 +300,7 @@ export default function TreasuryQueuePage() {
                                                     {currentlyServing.queueNumber ? currentlyServing.queueNumber.split("-").pop() : "TR-XXX"}
                                                 </h2>
                                             </div>
-
+ 
                                             <div className="space-y-1 max-w-md mx-auto">
                                                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Resident Name</p>
                                                 <h3 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white uppercase leading-tight">
@@ -268,14 +309,14 @@ export default function TreasuryQueuePage() {
                                                         : (currentlyServing.residentSnapshot ? `${currentlyServing.residentSnapshot?.firstName} ${currentlyServing.residentSnapshot?.lastName}` : "UNKNOWN")}
                                                 </h3>
                                             </div>
-
+ 
                                             <div className="space-y-1">
                                                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Service Requested</p>
                                                 <span className="text-xs font-bold text-primary uppercase bg-primary/5 px-3 py-1 rounded-full border border-primary/10 inline-block">
                                                     {currentlyServing.type?.name}
                                                 </span>
                                             </div>
-
+ 
                                             <div className="pt-6 border-t border-slate-100 dark:border-white/5 flex items-center justify-center gap-4">
                                                 <Button 
                                                     variant="outline" 
@@ -308,7 +349,7 @@ export default function TreasuryQueuePage() {
                                 </CardContent>
                             </Card>
                         </div>
-
+ 
                         {/* RIGHT COLUMN: Waiting List (Next in Line) */}
                         <div className="space-y-4">
                             <div className="flex items-center justify-between px-2">
@@ -317,34 +358,39 @@ export default function TreasuryQueuePage() {
                                     Next in Line ({waitingQueue.length})
                                 </h3>
                             </div>
-
+ 
                             <Card className="rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm bg-white dark:bg-white/5 overflow-hidden">
-                                <CardContent className="p-2 space-y-1.5 divide-y divide-slate-100 dark:divide-white/5">
+                                <CardContent className="p-3 space-y-3">
                                     {waitingQueue.length > 0 ? (
-                                        waitingQueue.map((tx, idx) => {
+                                        waitingQueue.map((tx) => {
                                             const queueNum = tx.queueNumber ? tx.queueNumber.split("-").pop() : "TR-XXX";
                                             const isPriority = tx.isPriority;
                                             
                                             return (
-                                                <div key={tx.id} className={`flex flex-col items-center justify-center text-center py-2 ${idx === 0 ? "pt-1" : ""}`}>
-                                                    <div className="space-y-0.5 min-w-0 flex flex-col items-center">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <span className="text-2xl font-black font-mono tracking-tighter text-slate-900 dark:text-white uppercase italic">
+                                                <div 
+                                                    key={tx.id} 
+                                                    className="flex items-center justify-between p-3.5 bg-slate-50/50 dark:bg-white/[0.02] rounded-xl border border-slate-100 dark:border-white/5 transition-all hover:bg-slate-100/50 dark:hover:bg-white/[0.04]"
+                                                >
+                                                    <div className="flex flex-col items-start gap-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-lg font-black font-mono tracking-tighter text-slate-900 dark:text-white uppercase italic">
                                                                 {queueNum}
                                                             </span>
                                                             {isPriority && (
-                                                                <span className="text-[7px] font-black tracking-widest uppercase bg-rose-500/10 text-rose-500 border border-rose-500/20 px-2 py-0.5 rounded-full italic animate-pulse">
+                                                                <span className="text-[8px] font-black tracking-widest uppercase bg-rose-500/10 text-rose-500 border border-rose-500/20 px-2 py-0.5 rounded-full italic animate-pulse">
                                                                     Priority
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate max-w-[220px] leading-tight">
+                                                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+                                                            Status: <span className="text-primary">{tx.status === "UNPAID" ? "FOR PAYMENT" : tx.status?.replace(/_/g, " ")}</span>
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase truncate max-w-[180px] leading-tight">
                                                             {tx.user?.residentProfile 
                                                                 ? `${tx.user.residentProfile.firstName} ${tx.user.residentProfile.lastName}` 
                                                                 : (tx.residentSnapshot ? `${tx.residentSnapshot?.firstName} ${tx.residentSnapshot?.lastName}` : "UNKNOWN")}
-                                                        </p>
-                                                        <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider">
-                                                            Status: <span className="text-primary">{tx.status === "UNPAID" ? "FOR PAYMENT" : tx.status?.replace(/_/g, " ")}</span>
                                                         </p>
                                                     </div>
                                                 </div>

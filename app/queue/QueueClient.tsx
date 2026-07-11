@@ -591,6 +591,9 @@ export default function QueueClient({
                                                     <h3 className={`text-2xl lg:text-3xl font-black tracking-tight font-mono ${theme.text} drop-shadow-[0_0_15px_rgba(var(--primary),0.3)] animate-pulse`}>
                                                         {serving.queueNumber}
                                                     </h3>
+                                                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-wide truncate max-w-[90%] mt-1">
+                                                        {serving.residentName || "UNKNOWN CITIZEN"}
+                                                    </p>
                                                     <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/5">
                                                         <Activity className="w-2.5 h-2.5 text-slate-400" />
                                                         <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest">
@@ -619,7 +622,7 @@ export default function QueueClient({
                                 <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic block mb-4">Up Next in Line</span>
                                 <div className="space-y-2.5">
                                     {dept.waiting.length > 0 ? (
-                                        dept.waiting.slice(0, 3).map((num, idx) => (
+                                        dept.waiting.slice(0, 6).map((num, idx) => (
                                             <div 
                                                 key={num}
                                                 className="flex items-center justify-between px-4 py-3 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 transition-all font-mono"
