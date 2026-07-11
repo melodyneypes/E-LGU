@@ -280,6 +280,7 @@ export default function TreasuryDetailPage() {
     const [orSeriesNumber, setOrSeriesNumber] = useState<string>("");
     const [miscFee, setMiscFee] = useState<string>("0");
 
+
     useEffect(() => {
         if (!birthRegDocFile) {
             setBirthRegDocPreview(null);
@@ -1695,7 +1696,7 @@ export default function TreasuryDetailPage() {
         }
     };
 
-    const handleConfirmPayment = async (onsitePaymentMethod?: string, onsitePaymentRef?: string) => {
+    const handleConfirmPayment = async (arg1?: string, arg2?: string) => {
         setActionLoading(true);
         setIsNavigatingToQueue(true);
         try {
@@ -1705,8 +1706,8 @@ export default function TreasuryDetailPage() {
                 if (remarks) formData.append("remarks", remarks);
                 if (orSeriesNumber) formData.append("orSeriesNumber", orSeriesNumber);
                 if (orFile) formData.append("orFile", orFile);
-                if (onsitePaymentMethod) formData.append("paymentMethod", onsitePaymentMethod);
-                if (onsitePaymentRef) formData.append("paymentReference", onsitePaymentRef);
+                if (arg1) formData.append("paymentMethod", arg1);
+                if (arg2) formData.append("paymentReference", arg2);
 
                 const res = await confirmBusinessPermitPayment(formData);
                 if (res.success) {
@@ -1768,6 +1769,7 @@ export default function TreasuryDetailPage() {
             if (receiptFile) formData.append("receiptFile", receiptFile);
             if (orSeriesNumber) formData.append("orSeriesNumber", orSeriesNumber);
             if (orFile) formData.append("orFile", orFile);
+            if (isBuildingPermit && arg1) formData.append("amountPaid", arg1);
 
             const res = await confirmTransactionPaymentWithReceipt(formData);
             if (res.success) {

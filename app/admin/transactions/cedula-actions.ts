@@ -185,15 +185,15 @@ export async function confirmTransactionPaymentWithReceipt(formData: FormData) {
         const paymentReference = isCash
             ? null
             : (paymentReferenceInput ? sanitizeString(paymentReferenceInput) :
-              (currentAdditionalData.gcashReferenceNo ||
-              currentAdditionalData.referenceNo ||
-              transaction.paymentReference ||
-              `manual_${sanitizedId}`));
+                (currentAdditionalData.gcashReferenceNo ||
+                    currentAdditionalData.referenceNo ||
+                    transaction.paymentReference ||
+                    `manual_${sanitizedId}`));
 
         await (prisma.payment.upsert as any)({
             where: { transactionId: sanitizedId },
             update: {
-                amount: Number(updatedTransaction.totalAmount || 0),
+                amount: formData.get("amountPaid") ? Number(formData.get("amountPaid")) : Number(updatedTransaction.totalAmount || 0),
                 method: updatedTransaction.paymentType || "CASH",
                 status: "PAID",
                 reference: paymentReference ? String(paymentReference) : null,
@@ -207,7 +207,7 @@ export async function confirmTransactionPaymentWithReceipt(formData: FormData) {
             } as any,
             create: {
                 transactionId: sanitizedId,
-                amount: Number(updatedTransaction.totalAmount || 0),
+                amount: formData.get("amountPaid") ? Number(formData.get("amountPaid")) : Number(updatedTransaction.totalAmount || 0),
                 method: updatedTransaction.paymentType || "CASH",
                 status: "PAID",
                 reference: paymentReference ? String(paymentReference) : null,
@@ -700,6 +700,20 @@ export async function getTreasuryTransactions(params?: string | {
                                 bpBusinessFilter,
                                 { status: { in: ["FOR_REQUESTING", "EVALUATED", "PAID", "UNPAID"] } }
                             ]
+                        }
+                    ]
+                },
+                {
+                    AND: [
+                        { type: { code: { startsWith: "BUILDING_PERMIT" } } },
+                        { status: "EVALUATED" },
+                        {
+                            NOT: {
+                                additionalData: {
+                                    path: ["zoningStatus"],
+                                    string_contains: "EVALUATED"
+                                }
+                            }
                         }
                     ]
                 }

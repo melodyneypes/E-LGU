@@ -5,24 +5,26 @@ import React, { useState, useRef, useEffect, use, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import Image from "next/image";
+import { isValidUrl } from "@/utils/image";
 import {
     ArrowLeft,
-    BadgeCheck,
-    Check,
     ZoomIn,
     ZoomOut,
     RotateCw,
-    RefreshCcw
+    RefreshCcw,
+    Camera,
+    AlertCircle,
+    BadgeCheck,
+    FileText,
+    Trash2
 } from "lucide-react";
-import Image from "next/image";
-import { isValidUrl } from "@/utils/image";
 import { toast } from "sonner";
 import {
     getTransactionById,
     rejectTransaction,
     sendForRevision,
-    evaluateCedulaTransaction,
-    markForReinspection,
+    scheduleBuildingInspection,
     getSystemSettingAction
 } from "@/app/admin/transactions/actions";
 import { Button } from "@/components/ui/button";
@@ -37,6 +39,11 @@ import {
     DialogTitle,
     DialogTrigger
 } from "@/components/ui/dialog";
+
+type RevisionRequestItem = {
+    type: "REQUIREMENTS" | "PERMITS";
+    name: string;
+};
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -98,19 +105,27 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
             >
                 <div
                     className="relative w-full h-full flex items-center justify-center"
-                    style={{ 
+                    style={{
                         transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotate}deg)`,
                         transition: isDragging ? 'none' : 'transform 0.3s ease-out'
                     }}
                 >
-                    <Image
-                        src={isValidUrl(src) ? src : "/placeholder.png"}
-                        alt={alt}
-                        fill
-                        className="object-contain"
-                        priority
-                        draggable={false}
-                    />
+                    {src?.toLowerCase().includes('.pdf') ? (
+                        <iframe
+                            src={src}
+                            title={alt}
+                            className="w-full h-full bg-white rounded-xl"
+                        />
+                    ) : (
+                        <Image
+                            src={isValidUrl(src) ? src : "/placeholder.png"}
+                            alt={alt}
+                            fill
+                            className="object-contain"
+                            priority
+                            draggable={false}
+                        />
+                    )}
                 </div>
             </div>
 
@@ -168,32 +183,52 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
     );
 }
 
-export default function BuildingPermitInspectionPage({ params }: PageProps) {
+export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     const { id } = use(params);
     const router = useRouter();
     const searchParams = useSearchParams();
     const isForcedView = searchParams.get("view") === "true";
     const { data: session } = useSession();
     const userRole = (session?.user as any)?.role;
-    const backUrl = userRole === "ENGINEER" ? "/admin/engineer" : userRole === "MPDC_ZONING" ? "/admin/zoning" : "/admin/treasury";
+    const backUrl = userRole === "MPDC_ZONING" ? "/admin/zoning" : userRole === "ENGINEER" ? "/admin/engineer" : "/admin/treasury";
 
     const [transaction, setTransaction] = useState<any>(null);
-    const isViewOnly = isForcedView || (transaction && transaction.status !== "FOR_INSPECTION");
+    const addData = (transaction?.additionalData as any) || {};
+    const zoningStatus = addData.zoningStatus;
+    const isZoningActive = userRole === "MPDC_ZONING" && transaction?.status === "EVALUATED";
+    
+    // Zoning is in read-only mode if the transaction is not yet passed to Zoning (i.e. not EVALUATED status)
+    const isZoningReadonly = userRole === "MPDC_ZONING" && !isZoningActive;
+
+    const isViewOnly = isForcedView || 
+        isZoningReadonly || 
+        (userRole === "MPDC_ZONING" && isZoningActive && zoningStatus !== "FOR_REQUESTING" && zoningStatus !== "FOR_REVISION") ||
+        (userRole !== "MPDC_ZONING" && transaction && transaction.status !== "FOR_REQUESTING" && transaction.status !== "FOR_REVISION");
+    
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [remarks, setRemarks] = useState("");
+    const [revisionRequests, setRevisionRequests] = useState<RevisionRequestItem[]>([
+        { type: "REQUIREMENTS", name: "" }
+    ]);
     const remarksRef = useRef<HTMLTextAreaElement>(null);
     const [isRejecting, setIsRejecting] = useState(false);
     const [isRequestingRevision, setIsRequestingRevision] = useState(false);
     const [themeColor, setThemeColor] = useState<string>("#2563eb");
 
-    // Re-inspection State
-    const [isReinspecting, setIsReinspecting] = useState(false);
-    const [reinspectReason, setReinspectReason] = useState("");
-    const [reinspectDate, setReinspectDate] = useState("");
-    const [reinspectTime, setReinspectTime] = useState("");
-    const [reinspectInspector, setReinspectInspector] = useState("");
-    const [reinspectType, setReinspectType] = useState("Structural Inspection");
+    // Schedule Inspection Form State
+    const [isSchedulingInspection, setIsSchedulingInspection] = useState(false);
+    const [inspectionType, setInspectionType] = useState("Structural Inspection");
+    const [inspectionDate, setInspectionDate] = useState("");
+    const [inspectionTime, setInspectionTime] = useState("");
+    const [inspectorName, setInspectorName] = useState("");
+    const [inspectionNotes, setInspectionNotes] = useState("");
+    const canScheduleInspection = userRole === "MPDC_ZONING" 
+        ? (isZoningActive && zoningStatus === "FOR_REQUESTING")
+        : (transaction?.status === "FOR_REQUESTING");
+    const canRequestRevision = userRole === "MPDC_ZONING" 
+        ? (isZoningActive && zoningStatus === "FOR_REQUESTING")
+        : (transaction?.status === "FOR_REQUESTING");
 
     const fetchTransaction = useCallback(async () => {
         setLoading(true);
@@ -218,41 +253,28 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
         });
     }, [fetchTransaction]);
 
-    const handleEvaluate = async () => {
-        setActionLoading(true);
-        try {
-            const res = await evaluateCedulaTransaction(id, 0, remarks);
-            if (res.success) {
-                toast.success("Inspection Approved Successfully");
-                router.push(`/admin/engineer/${id}/fees`);
-            } else {
-                toast.error(res.error || "Failed");
-            }
-        } finally {
-            setActionLoading(false);
+    const handleScheduleInspection = async () => {
+        if (!inspectionDate || !inspectionTime || !inspectorName) {
+            toast.error("Please fill in all required fields (Date, Time, Inspector Name)");
+            return;
         }
-    };
 
-    const handleReinspect = async () => {
-        if (!reinspectReason) { toast.error("Reason required"); return; }
-        if (!reinspectDate || !reinspectTime || !reinspectInspector) { toast.error("Please fill in Date, Time, and Inspector"); return; }
         setActionLoading(true);
-        try {
-            const res = await markForReinspection(id, reinspectReason, {
-                date: reinspectDate,
-                time: reinspectTime,
-                inspectorName: reinspectInspector,
-                type: reinspectType
-            });
-            if (res.success) {
-                toast.success("Application marked for Re-Inspection");
-                router.push(backUrl);
-            } else {
-                toast.error(res.error || "Failed");
-            }
-        } finally {
-            setActionLoading(false);
+        const res = await scheduleBuildingInspection(id, {
+            type: inspectionType,
+            date: inspectionDate,
+            time: inspectionTime,
+            inspectorName: inspectorName,
+            notes: inspectionNotes
+        });
+
+        if (res.success) {
+            toast.success("Inspection scheduled successfully!");
+            router.push(backUrl);
+        } else {
+            toast.error(res.error || "Failed to schedule inspection");
         }
+        setActionLoading(false);
     };
 
     const handleReject = async () => {
@@ -272,10 +294,14 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
     };
 
     const handleRequestRevision = async () => {
-        if (!remarks) { toast.error("Remarks required"); return; }
+        const cleanedRequests = revisionRequests
+            .map((item) => ({ type: item.type, name: item.name.trim() }))
+            .filter((item) => item.name.length > 0);
+
+        if (!remarks.trim()) { toast.error("Remarks required"); return; }
         setActionLoading(true);
         try {
-            const res = await sendForRevision(id, remarks);
+            const res = await sendForRevision(id, remarks, cleanedRequests);
             if (res.success) {
                 toast.success("Sent back for revision");
                 router.push(backUrl);
@@ -300,11 +326,11 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
     const additional = transaction.additionalData || {};
     const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
 
-    /*
     const renderRequirementsGrid = () => (
         <div className="grid grid-cols-2 gap-4">
             {[
-                { url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID" },
+                { url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)" },
+                { url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)" },
                 { url: additional?.documents?.tctFile, label: "TCT / Land Title" },
                 ...[
                     "Barangay Clearance/Certification",
@@ -341,20 +367,6 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                       if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
                       return true;
                   }),
-                // Wait! Let's check indices in inspection:
-                // 0: Barangay Clearance
-                // 1: Tax Declaration
-                // 2: Land Title
-                // 3: Community Tax Certificate
-                // 4: Latest Tax Receipts
-                // 5: Electrical & Sanitary Permit (Wait, this is index 5!)
-                // 6: Adjoining Owners Confirmation (index 6)
-                // 7: Locational Clearance (index 7)
-                // 8: Affidavit of Consent (index 8)
-                // 9: Affidavit of Adjoining Owners (index 9)
-                // 10: Signed & Sealed Plans (index 10)
-                // Let's actually not worry about index mapping in commented out blocks if we don't want to break them, or we can update them cleanly.
-                // Wait, if it's commented out, we can just do a simple update to it. Let's do that!
                 ...Object.keys(additional?.documents || {})
                     .filter(key => key.startsWith("req_"))
                     .map(key => {
@@ -395,7 +407,14 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                 <Dialog key={i}>
                     <DialogTrigger asChild>
                         <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 flex items-center justify-center cursor-zoom-in">
-                            <Image src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} fill className="object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
+                            {doc.url?.toLowerCase().includes('.pdf') ? (
+                                <div className="flex flex-col items-center justify-center w-full h-full bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-primary transition-colors">
+                                    <FileText className="w-8 h-8 mb-1" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">PDF</span>
+                                </div>
+                            ) : (
+                                <Image src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} fill className="object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
+                            )}
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                 <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
                                     <ZoomIn className="w-5 h-5 text-white" />
@@ -413,7 +432,6 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
             ))}
         </div>
     );
-    */
 
     const steps = [
         { id: "FOR_REQUESTING", label: "EVALUATION" },
@@ -426,9 +444,9 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
         if (status === "FOR_INSPECTION") return 1;
         if (status === "FOR_REINSPECTION") return 2;
         if (status === "EVALUATED" || status === "UNPAID" || status === "PAYMENT_SUBMITTED" || status === "PAID") return 3;
-        return 4; // PAID, FOR_PROCESSING, FOR_CLAIM, RELEASED
+        return 4;
     };
-    const currentStepIdx = getStepIndex(transaction.status);
+    const currentStepIdx = getStepIndex(zoningStatus || "FOR_REQUESTING");
 
     return (
         <div
@@ -436,19 +454,11 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
             style={{ "--theme_color": themeColor, "--primary-theme": themeColor } as React.CSSProperties}
         >
             <header className="h-16 px-8 flex items-center justify-between border-b border-transparent dark:border-white/5">
-                <div className="flex items-center gap-4">
-                    <Link href={backUrl} prefetch={false}>
-                        <Button variant="ghost" className="gap-2 text-slate-400 dark:text-slate-500 font-bold hover:text-primary">
-                            <ArrowLeft className="w-4 h-4" /> BACK TO DASHBOARD
-                        </Button>
-                    </Link>
-                    <div className="w-px h-4 bg-slate-200 dark:bg-white/10" />
-                    <Link href={`/admin/engineer/${id}/evaluation?view=true`} prefetch={false}>
-                        <Button variant="outline" className="h-9 gap-2 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/5 font-black text-[10px] uppercase tracking-wider rounded-xl">
-                            <ArrowLeft className="w-3.5 h-3.5" /> View Evaluation Phase
-                        </Button>
-                    </Link>
-                </div>
+                <Link href={backUrl} prefetch={false}>
+                    <Button variant="ghost" className="gap-2 text-slate-400 dark:text-slate-500 font-bold hover:text-primary">
+                        <ArrowLeft className="w-4 h-4" /> BACK TO DASHBOARD
+                    </Button>
+                </Link>
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 mr-2">
                         <Badge className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 border border-orange-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
@@ -459,78 +469,54 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                         </Badge>
                     </div>
                     <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
-                        Inspection Portal Active
+                        Zoning Evaluation Portal Active
                     </Badge>
                 </div>
             </header>
 
             <main className="max-w-[1400px] mx-auto px-8 grid grid-cols-12 gap-8 mt-4">
-                {isViewOnly && (
+                {isZoningReadonly && (
+                    <div className="col-span-12 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">⚠️ Awaiting Engineering Endorsement</p>
+                            <p className="text-[11px] font-medium opacity-90">This building permit application has not yet been endorsed by the Municipal Engineer. Currently viewing in read-only mode.</p>
+                        </div>
+                    </div>
+                )}
+
+                {isViewOnly && !isZoningReadonly && (
                     <div className="col-span-12 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
                         <div>
                             <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">📜 Archival Phase View Mode</p>
-                            <p className="text-[11px] font-medium opacity-90">{transaction?.status === "REJECTED" ? "This building permit application has been officially rejected." : "You are reviewing the historical Site Inspection phase record in read-only mode."}</p>
+                            <p className="text-[11px] font-medium opacity-90">{transaction?.status === "REJECTED" ? "This building permit application has been officially rejected." : "You are reviewing the historical Evaluation phase record in read-only mode."}</p>
                         </div>
                         {transaction?.status !== "REJECTED" && (
-                            <Button onClick={() => router.push(`/admin/engineer/${id}`)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">
+                            <Button onClick={() => router.push(`/admin/zoning/${id}`)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">
                                 Return to Active Phase
                             </Button>
                         )}
                     </div>
                 )}
 
-                {/* Left Column */}
+                {/* Left Column: Details */}
                 <div className="col-span-12 lg:col-span-8 space-y-8">
                     {/* Header Banner */}
-                    <div className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 dark:from-purple-500/5 dark:to-indigo-500/5 border border-purple-500/20 dark:border-purple-500/10 rounded-[2rem] p-8 flex items-center justify-between shadow-sm relative overflow-hidden">
+                    <div className="bg-gradient-to-r from-[#0c4a6e]/10 to-teal-500/10 dark:from-[#0c4a6e]/5 dark:to-teal-500/5 border border-[#0c4a6e]/20 dark:border-[#0c4a6e]/10 rounded-[2rem] p-8 flex items-center justify-between shadow-sm relative overflow-hidden">
                         <div className="space-y-2 relative z-10">
-                            <span className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 tracking-[0.2em] italic">Phase 2: Site Verification</span>
-                            <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">SITE INSPECTION CENTER</h2>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Verify structural, electrical, and sanitary parameters on-site. Record results or schedule re-inspection if necessary.</p>
+                            <span className="text-[10px] font-black uppercase text-[#0c4a6e] dark:text-blue-400 tracking-[0.2em] italic">Phase 1: Initial Assessment</span>
+                            <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">ZONING PERMIT EVALUATION</h2>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Verify the applicant&apos;s architectural details and plans, then track the mandatory site inspection.</p>
                         </div>
-                        <div className="text-5xl font-black italic text-purple-500/20 select-none hidden md:block">INSPECTION</div>
+                        <div className="text-5xl font-black italic text-blue-500/20 select-none hidden md:block">EVALUATION</div>
                     </div>
 
-                    {/* Card 1: Active Schedule Details */}
-                    {additional?.inspectionSchedule && (
-                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-purple-500/20 dark:border-purple-500/10 space-y-8 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-bl-[100px] pointer-events-none" />
-                            <div>
-                                <h2 className="text-2xl font-black italic uppercase tracking-tighter text-purple-600 dark:text-purple-400 leading-none">
-                                    Scheduled <span className="text-[#1e293b] dark:text-white">Visit Details</span>
-                                </h2>
-                                <p className="text-[9px] font-black uppercase text-purple-400 dark:text-purple-500 tracking-[0.2em] italic mt-2">Active Field Assessment</p>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Inspection Type</label>
-                                    <div className="h-12 flex items-center px-5 bg-purple-50 dark:bg-purple-500/5 border border-purple-100 dark:border-purple-500/10 rounded-xl font-bold text-sm text-purple-900 dark:text-purple-100">{additional.inspectionSchedule.type || "--"}</div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Date & Time</label>
-                                    <div className="h-12 flex items-center px-5 bg-purple-50 dark:bg-purple-500/5 border border-purple-100 dark:border-purple-500/10 rounded-xl font-bold text-sm text-purple-900 dark:text-purple-100">{additional.inspectionSchedule.date} @ {additional.inspectionSchedule.time}</div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Assigned Inspector</label>
-                                    <div className="h-12 flex items-center px-5 bg-purple-50 dark:bg-purple-500/5 border border-purple-100 dark:border-purple-500/10 rounded-xl font-bold text-sm text-purple-900 dark:text-purple-100">{additional.inspectionSchedule.inspectorName || "--"}</div>
-                                </div>
-                                {additional.inspectionSchedule.notes && (
-                                    <div className="space-y-2 md:col-span-3">
-                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Engineer&apos;s Instructions</label>
-                                        <div className="p-5 bg-purple-50 dark:bg-purple-500/5 border border-purple-100 dark:border-purple-500/10 rounded-xl font-medium italic text-sm text-purple-800 dark:text-purple-200 min-h-[48px]">&quot;{additional.inspectionSchedule.notes}&quot;</div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
                     {/* Profile */}
-                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
+                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-500">
                         <div>
                             <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
                                 Resident <span className="text-primary">Identity Profile</span>
                             </h2>
-                            <p className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] italic mt-2">Verified Citizen Data Dossier</p>
+                            <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">Verified Citizen Data Dossier</p>
                         </div>
                         <div className="grid grid-cols-12 gap-6">
                             <div className="col-span-12 md:col-span-3 space-y-2">
@@ -712,20 +698,21 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                         </div>
                     </div>
 
-                    {/* Card 2: Application Details */}
+                    {/* Card 1: Application Details */}
                     <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
                         <div>
                             <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
                                 Application <span className="text-primary">Details</span>
                             </h2>
+                            <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">Zoning Permit Questionnaire</p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Description of Work</label>
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Description of Work</label>
                                 <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.descriptionOfWork || "--"}</div>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Occupancy Use</label>
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Occupancy Use</label>
                                 <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.occupancyUse || "--"}</div>
                             </div>
                             <div className="space-y-2">
@@ -747,6 +734,14 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                         </div>
                     </div>
 
+                    {/* Card 2: Requirements Plans & Submissions */}
+                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-lg"><Camera className="text-primary w-4 h-4" /></div>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Submitted Requirements</span>
+                        </div>
+                        {renderRequirementsGrid()}
+                    </div>
                 </div>
 
                 {/* Right Column: Workflow Tracking & Executive Actions */}
@@ -757,13 +752,13 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                             {(() => {
                                 const handleStepClick = (stepId: string) => {
                                     if (stepId === "FOR_REQUESTING") {
-                                        router.push(`/admin/engineer/${id}/evaluation?view=true`);
+                                        router.push(`/admin/zoning/${id}/evaluation?view=true`);
                                     } else if (stepId === "FOR_INSPECTION") {
-                                        router.push(`/admin/engineer/${id}/inspection?view=true`);
+                                        router.push(`/admin/zoning/${id}/inspection?view=true`);
                                     } else if (stepId === "FOR_REINSPECTION") {
-                                        router.push(`/admin/engineer/${id}/reinspection?view=true`);
+                                        router.push(`/admin/zoning/${id}/reinspection?view=true`);
                                     } else if (stepId === "EVALUATED") {
-                                        router.push(`/admin/engineer/${id}/fees?view=true`);
+                                        router.push(`/admin/zoning/${id}/fees?view=true`);
                                     }
                                 };
                                 return steps.map((step, idx) => {
@@ -796,66 +791,67 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
 
                     {/* Executive Actions */}
                     <div className="space-y-4">
-                        {!isViewOnly && (userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
+                        {!isViewOnly && (userRole === "MPDC_ZONING" || userRole === "ENGINEER") && (
                             <div className="space-y-3">
-                                <Button onClick={handleEvaluate} disabled={actionLoading} className="w-full h-16 rounded-2xl bg-primary text-white font-black italic uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20">
-                                    <Check className="w-4 h-4 mr-2" /> Approve Inspection
-                                </Button>
-
-                                <Dialog open={isReinspecting} onOpenChange={setIsReinspecting}>
+                                <Dialog open={isSchedulingInspection} onOpenChange={setIsSchedulingInspection}>
                                     <DialogTrigger asChild>
-                                        <Button className="w-full h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-blue-600/20 active:scale-95">
-                                            For Re-Inspection
+                                        <Button disabled={actionLoading || !canScheduleInspection} className="w-full h-16 rounded-2xl bg-[#006A2E] text-white font-black italic uppercase tracking-widest text-xs hover:bg-[#005224] transition-all shadow-xl shadow-green-900/20 active:scale-95">
+                                            {actionLoading ? "Processing..." : "Schedule Inspection"}
                                         </Button>
                                     </DialogTrigger>
-                                    <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
-                                        <DialogHeader className="space-y-3">
-                                            <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
-                                                Mark for <span className="text-blue-600">Re-Inspection</span>
-                                            </DialogTitle>
-                                        </DialogHeader>
-                                        <div className="space-y-6 py-6">
-                                            <div className="space-y-3">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Reason for Re-Inspection <span className="text-red-500">*</span></Label>
-                                                <Textarea placeholder="State reason..." value={reinspectReason} onChange={(e) => setReinspectReason(e.target.value)} className="min-h-[80px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-white font-bold p-6 text-sm" required />
+                                    <DialogContent className="max-w-2xl bg-[#f8e7eb] dark:bg-slate-900 border-none rounded-[1.5rem] shadow-2xl p-0 overflow-hidden">
+                                        <DialogTitle className="sr-only">Schedule Site Inspection</DialogTitle>
+                                        <div className="bg-white dark:bg-slate-950 p-6 m-4 rounded-[1.5rem] shadow-sm border border-slate-100 dark:border-white/5 space-y-6">
+                                            <div className="flex items-center justify-between">
+                                                <h2 className="text-xl font-bold text-[#0c4a6e] dark:text-blue-400 flex items-center gap-2">
+                                                    <AlertCircle className="w-5 h-5" /> Pending Inspection Scheduling
+                                                </h2>
                                             </div>
-                                            <div className="space-y-3">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Inspection Type <span className="text-red-500">*</span></Label>
-                                                <select className="flex h-12 w-full rounded-2xl border-none bg-slate-50 px-4 py-2 text-sm font-bold dark:bg-white/5 text-slate-800 dark:text-white focus:outline-none" value={reinspectType} onChange={(e) => setReinspectType(e.target.value)}>
-                                                    <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Structural Inspection">Structural Inspection</option>
-                                                    <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Electrical Inspection">Electrical Inspection</option>
-                                                    <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Sanitary/Plumbing Inspection">Sanitary/Plumbing Inspection</option>
-                                                    <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Complete Site Inspection">Complete Site Inspection</option>
-                                                </select>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-3">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Date <span className="text-red-500">*</span></Label>
-                                                    <Input type="date" value={reinspectDate} onChange={(e) => setReinspectDate(e.target.value)} className="h-12 rounded-2xl border-none bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-white font-bold px-4" />
+                                            <div className="space-y-4">
+                                                <div className="space-y-2">
+                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Inspection Type:</Label>
+                                                    <select
+                                                        className="flex h-12 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c4a6e] dark:border-slate-800 dark:bg-slate-950 dark:focus-visible:ring-blue-500 text-slate-800 dark:text-white"
+                                                        value={inspectionType}
+                                                        onChange={(e) => setInspectionType(e.target.value)}
+                                                    >
+                                                        <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Structural Inspection">Structural Inspection</option>
+                                                        <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Electrical Inspection">Electrical Inspection</option>
+                                                        <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Sanitary/Plumbing Inspection">Sanitary/Plumbing Inspection</option>
+                                                        <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Complete Site Inspection">Complete Site Inspection</option>
+                                                    </select>
                                                 </div>
-                                                <div className="space-y-3">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Time <span className="text-red-500">*</span></Label>
-                                                    <Input type="time" value={reinspectTime} onChange={(e) => setReinspectTime(e.target.value)} className="h-12 rounded-2xl border-none bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-white font-bold px-4" />
+                                                <div className="space-y-2">
+                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Date <span className="text-red-500">*</span>:</Label>
+                                                    <Input type="date" value={inspectionDate} onChange={(e) => setInspectionDate(e.target.value)} className="h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none px-4 font-medium" />
                                                 </div>
-                                            </div>
-                                            <div className="space-y-3">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Assigned Inspector <span className="text-red-500">*</span></Label>
-                                                <Input placeholder="Engr. Santos" value={reinspectInspector} onChange={(e) => setReinspectInspector(e.target.value)} className="h-12 rounded-2xl border-none bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-white font-bold px-4" />
+                                                <div className="space-y-2">
+                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Time <span className="text-red-500">*</span>:</Label>
+                                                    <Input type="time" value={inspectionTime} onChange={(e) => setInspectionTime(e.target.value)} className="h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none px-4 font-medium" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Inspector Name <span className="text-red-500">*</span>:</Label>
+                                                    <Input placeholder="Engr. Santos" value={inspectorName} onChange={(e) => setInspectorName(e.target.value)} className="h-12 rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none px-4 font-medium" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-xs font-bold text-slate-600 dark:text-slate-300">Notes (optional):</Label>
+                                                    <Textarea placeholder="Instructions..." value={inspectionNotes} onChange={(e) => setInspectionNotes(e.target.value)} className="min-h-[80px] rounded-xl text-slate-800 dark:text-white bg-slate-50 dark:bg-white/5 border-none p-4 font-medium" />
+                                                </div>
+                                                <Button onClick={handleScheduleInspection} disabled={actionLoading} className="h-12 bg-[#0c4a6e] hover:bg-[#082f49] text-white rounded-xl px-6 flex items-center gap-2">
+                                                    {actionLoading ? "Scheduling..." : "Schedule Inspection"}
+                                                </Button>
                                             </div>
                                         </div>
-                                        <Button onClick={handleReinspect} disabled={actionLoading || !reinspectReason.trim() || !reinspectDate || !reinspectTime || !reinspectInspector} className="w-full h-14 bg-blue-600 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl">
-                                            {actionLoading ? "Processing..." : "Confirm Re-Inspection"}
-                                        </Button>
                                     </DialogContent>
                                 </Dialog>
 
                                 <div className="flex gap-2 w-full">
                                     <Dialog open={isRequestingRevision} onOpenChange={(open) => { setIsRequestingRevision(open); if (!open) setRemarks(""); }}>
                                         <DialogTrigger asChild>
-                                            {(transaction.revisionCount || 0) < 3 && (
-                                                <Button onClick={() => { setIsRequestingRevision(true); setRemarks(""); }} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95">
-                                                                                                Request Revision
-                                                                                            </Button>
+                                            {canRequestRevision && (transaction.revisionCount || 0) < 3 && (
+                                                <Button onClick={() => { setIsRequestingRevision(true); setRemarks(""); setRevisionRequests([{ type: "REQUIREMENTS", name: "" }]); }} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95">
+                                                    Request Revision
+                                                </Button>
                                             )}
                                         </DialogTrigger>
                                         <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
@@ -865,6 +861,54 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                                             <div className="space-y-6 py-6">
                                                 <Label className="text-[10px] font-black uppercase text-slate-400">Corrections Needed *</Label>
                                                 <Textarea ref={remarksRef} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="min-h-[120px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 font-bold p-6 text-sm" required />
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <div className="space-y-1">
+                                                            <Label className="text-[10px] font-black uppercase text-slate-400">Requested Attachments</Label>
+                                                            <p className="text-[10px] text-slate-400">Optional. Add only if you want Citizen to upload more files.</p>
+                                                        </div>
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => setRevisionRequests((prev) => [...prev, { type: "REQUIREMENTS", name: "" }])}
+                                                            className="h-8 rounded-full text-[10px] font-black uppercase tracking-widest"
+                                                        >
+                                                            Add Item
+                                                        </Button>
+                                                    </div>
+                                                    <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
+                                                        {revisionRequests.map((item, index) => (
+                                                            <div key={`${index}-${item.type}`} className="space-y-2 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 p-4">
+                                                                <div className="flex items-center gap-2">
+                                                                    <select
+                                                                        value={item.type}
+                                                                        onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, type: e.target.value === "PERMITS" ? "PERMITS" : "REQUIREMENTS" } : entry))}
+                                                                        className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs font-bold uppercase tracking-widest text-slate-700 dark:text-slate-200"
+                                                                    >
+                                                                        <option value="REQUIREMENTS">Requirements</option>
+                                                                        <option value="PERMITS">Permits</option>
+                                                                    </select>
+                                                                    <Input
+                                                                        value={item.name}
+                                                                        onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, name: e.target.value } : entry))}
+                                                                        placeholder="e.g. Structural Plan"
+                                                                        className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-sm font-medium"
+                                                                    />
+                                                                    {revisionRequests.length > 1 && (
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            onClick={() => setRevisionRequests((prev) => prev.filter((_, idx) => idx !== index))}
+                                                                            className="h-10 w-10 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40"
+                                                                        >
+                                                                            <Trash2 className="w-4 h-4" />
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
                                             </div>
                                             <Button onClick={handleRequestRevision} disabled={actionLoading || !remarks.trim()} className="w-full h-14 bg-amber-500 text-white font-black italic uppercase text-[11px] rounded-2xl">
                                                 Confirm Revision Request

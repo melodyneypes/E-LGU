@@ -342,9 +342,9 @@ export default function RegistrarPage() {
                     tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
                 ) && !isExcludedStatus;
             } else if (categoryParam === "PSA Appt. Endorsement") {
-                const isExcludedStatus = tx.status === "RELEASED" || 
-                                         tx.status === "DELIVERED" || 
-                                         tx.status === "UNPAID";
+                const isExcludedStatus = tx.status === "RELEASED" ||
+                    tx.status === "DELIVERED" ||
+                    tx.status === "UNPAID";
                 matchesCategory = (
                     tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
                     tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||

@@ -9,15 +9,17 @@ interface SendEmailProps {
     remarks?: string | null;
     transactionId?: string;
     amount?: number;
+    feeBreakdown?: { label: string, amount: number }[];
     resetLink?: string;
     serviceName?: string;
+    department?: "ZONING" | "ENGINEERING" | "TREASURY" | "BPLO" | "MAYOR" | "LOGISTICS" | "ADMIN";
 }
 
 /**
  * Centered Email Utility for LGU ${municipalityName}
  * Reuses existing Gmail SMTP configuration from .env
  */
-export async function sendEmail({ type, to, name, remarks, transactionId, amount, resetLink, serviceName }: SendEmailProps) {
+export async function sendEmail({ type, to, name, remarks, transactionId, amount, feeBreakdown, resetLink, serviceName, department }: SendEmailProps) {
     const emailUser = process.env.EMAIL_USER;
     const emailPass = process.env.EMAIL_PASS;
     const senderEmail = process.env.SENDER_EMAIL || emailUser;
@@ -156,7 +158,18 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 16px; padding: 24px; margin: 32px 0; text-align: center;">
                     <p style="color: #1e40af; font-size: 12px; font-weight: 800; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">Final Assessment</p>
                     <p style="color: #1e40af; font-size: 36px; font-weight: 900; margin: 0; letter-spacing: -0.04em;">₱${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || "0.00"}</p>
-                    <p style="color: #3b82f6; font-size: 11px; margin: 8px 0 0 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;">Reference ID: ${transactionId || "N/A"}</p>
+                    ${feeBreakdown && feeBreakdown.length > 0 ? `
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #bfdbfe; text-align: left;">
+                        <p style="color: #1e40af; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">Breakdown:</p>
+                        <table style="width: 100%; font-size: 13px; color: #1e40af;">
+                            ${feeBreakdown.map(fee => `
+                            <tr>
+                                <td style="padding: 4px 0;">${fee.label}</td>
+                                <td style="padding: 4px 0; text-align: right; font-weight: 600;">₱${fee.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                            </tr>`).join('')}
+                        </table>
+                    </div>` : ''}
+                    <p style="color: #3b82f6; font-size: 11px; margin: 16px 0 0 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; text-align: center;">Reference ID: ${transactionId || "N/A"}</p>
                 </div>
 
                 ${remarks ? `
@@ -510,21 +523,21 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">For ${inspectionType}</h1>
                 </div>
                 <p style="color: #475569; font-size: 15px; line-height: 1.6;">Dear <strong>${name}</strong>,</p>
-                <p style="color: #475569; font-size: 15px; line-height: 1.6;">Your request for **${serviceName || "Building Permit"}** (Ref ID: <strong style="font-family: monospace;">${transactionId || "N/A"}</strong>) has been queued for ${inspectionType.toLowerCase()} by the Municipal Engineering Office.</p>
+                <p style="color: #475569; font-size: 15px; line-height: 1.6;">Your request for **${serviceName || "Building Permit"}** (Ref ID: <strong style="font-family: monospace;">${transactionId || "N/A"}</strong>) has been queued for ${inspectionType.toLowerCase()} by the ${department === "ZONING" ? "Zoning Administrator Office" : "Municipal Engineering Office"}.</p>
                 
                 <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 16px; padding: 24px; margin: 32px 0; text-align: center;">
                     <p style="color: #b45309; font-size: 14px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">Current Status: ${inspectionType}</p>
-                    <p style="color: #b45309; font-size: 13px; margin: 8px 0 0 0; opacity: 0.8;">Our engineers will visit your site. Please ensure that all necessary documents and personnel are available on site during the inspection.</p>
+                    <p style="color: #b45309; font-size: 13px; margin: 8px 0 0 0; opacity: 0.8;">${department === "ZONING" ? "Our Zoning Administrators" : "Our engineers"} will visit your site. Please ensure that all necessary documents and personnel are available on site during the inspection.</p>
                 </div>
 
                 ${remarks ? `
                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; margin-bottom: 32px;">
-                    <p style="color: #475569; font-size: 11px; font-weight: 800; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">Engineer's Notes / Schedule</p>
+                    <p style="color: #475569; font-size: 11px; font-weight: 800; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">${department === "ZONING" ? "Zoning Administrator's Notes / Schedule" : "Engineer's Notes / Schedule"}</p>
                     <p style="color: #475569; font-size: 13px; margin: 0; line-height: 1.5; font-style: italic;">"${remarks}"</p>
                 </div>` : ""}
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Engineering Office • Official Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} ${department === "ZONING" ? "Zoning Administrator Office" : "Engineering Office"} • Official Notification</p>
             </div>
         </div>`;
     } else if (type === "EVALUATED") {
@@ -539,22 +552,33 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Evaluation Complete</h1>
                 </div>
                 <p style="color: #475569; font-size: 15px; line-height: 1.6;">Dear <strong>${name}</strong>,</p>
-                <p style="color: #475569; font-size: 15px; line-height: 1.6;">Good news! Your request for **${serviceName || "Building Permit"}** has been successfully evaluated by the Municipal Engineering Office.</p>
+                <p style="color: #475569; font-size: 15px; line-height: 1.6;">Good news! Your request for **${serviceName || "Building Permit"}** has been successfully evaluated by the ${department === "ZONING" ? "Zoning Administrator Office" : "Municipal Engineering Office"}.</p>
                 
                 <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 16px; padding: 24px; margin: 32px 0; text-align: center;">
                     <p style="color: #1e40af; font-size: 12px; font-weight: 800; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">Final Assessment</p>
                     <p style="color: #1e40af; font-size: 36px; font-weight: 900; margin: 0; letter-spacing: -0.04em;">₱${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || "0.00"}</p>
-                    <p style="color: #3b82f6; font-size: 11px; margin: 8px 0 0 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;">Reference ID: ${transactionId || "N/A"}</p>
+                    ${feeBreakdown && feeBreakdown.length > 0 ? `
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #bfdbfe; text-align: left;">
+                        <p style="color: #1e40af; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">Breakdown:</p>
+                        <table style="width: 100%; font-size: 13px; color: #1e40af;">
+                            ${feeBreakdown.map(fee => `
+                            <tr>
+                                <td style="padding: 4px 0;">${fee.label}</td>
+                                <td style="padding: 4px 0; text-align: right; font-weight: 600;">₱${fee.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                            </tr>`).join('')}
+                        </table>
+                    </div>` : ''}
+                    <p style="color: #3b82f6; font-size: 11px; margin: 16px 0 0 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; text-align: center;">Reference ID: ${transactionId || "N/A"}</p>
                 </div>
 
                 ${remarks ? `
                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; margin: 32px 0;">
-                    <p style="color: #475569; font-size: 11px; font-weight: 800; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">Engineer's Remarks / Assessment Notes</p>
+                    <p style="color: #475569; font-size: 11px; font-weight: 800; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">${department === "ZONING" ? "Zoning Administrator's Remarks / Assessment Notes" : "Engineer's Remarks / Assessment Notes"}</p>
                     <p style="color: #0f172a; font-size: 14px; margin: 0; line-height: 1.5; font-style: italic;">"${remarks}"</p>
                 </div>` : ""}
 
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} Engineering Office • Automated Notification</p>
+                <p style="color: #94a3b8; font-size: 11px; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">${municipalityName} ${department === "ZONING" ? "Zoning Administrator Office" : "Engineering Office"} • Automated Notification</p>
             </div>
         </div>`;
     } else if (type === "UNPAID") {
@@ -574,7 +598,18 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 16px; padding: 24px; margin: 32px 0; text-align: center;">
                     <p style="color: #991b1b; font-size: 12px; font-weight: 800; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">Amount Due</p>
                     <p style="color: #991b1b; font-size: 36px; font-weight: 900; margin: 0; letter-spacing: -0.04em;">₱${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || "0.00"}</p>
-                    <p style="color: #dc2626; font-size: 11px; margin: 8px 0 0 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;">Reference ID: ${transactionId || "N/A"}</p>
+                    ${feeBreakdown && feeBreakdown.length > 0 ? `
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #fecaca; text-align: left;">
+                        <p style="color: #991b1b; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">Breakdown:</p>
+                        <table style="width: 100%; font-size: 13px; color: #991b1b;">
+                            ${feeBreakdown.map(fee => `
+                            <tr>
+                                <td style="padding: 4px 0;">${fee.label}</td>
+                                <td style="padding: 4px 0; text-align: right; font-weight: 600;">₱${fee.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                            </tr>`).join('')}
+                        </table>
+                    </div>` : ''}
+                    <p style="color: #dc2626; font-size: 11px; margin: 16px 0 0 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; text-align: center;">Reference ID: ${transactionId || "N/A"}</p>
                 </div>
 
                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; margin-bottom: 32px;">

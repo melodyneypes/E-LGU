@@ -106,7 +106,9 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
         setReceiptFile,
         receiptPreview,
         setReceiptPreview,
-        handleReceiptFileSelect
+        handleReceiptFileSelect,
+        orSeriesNumber,
+        setOrSeriesNumber
     } = props;
 
     const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
@@ -119,10 +121,16 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
             (sum: number, c: any) => sum + Number(c.amount || 0),
             0
         ) +
+        (additional.feeAssessment?.zoningMunicipalCharges || []).reduce(
+            (sum: number, c: any) => sum + Number(c.amount || 0),
+            0
+        ) +
         (additional.feeAssessment?.additionalFees || []).reduce(
             (sum: number, f: any) => sum + Number(f.amount || 0),
             0
         );
+
+    const [amountPaid, setAmountPaid] = React.useState(totalEndorsedAmount.toString());
 
     const paymentSrc = transaction.paymentReference || transaction.paymentProofUrl;
     const isValidPaymentSrc =
@@ -200,37 +208,7 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                             themeColor={themeColor}
                         />
 
-                        {/* Q&A Block */}
-                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 md:p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
-                            <div>
-                                <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
-                                    Application <span className="text-primary">Details</span>
-                                </h2>
-                                <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">
-                                    Building Permit Questionnaire
-                                </p>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Description of Work</label>
-                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">
-                                        {additional?.descriptionOfWork || "--"}
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Occupancy Use</label>
-                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">
-                                        {additional?.occupancyUse || "--"}
-                                    </div>
-                                </div>
-                                <div className="space-y-2 md:col-span-2">
-                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Estimated Cost</label>
-                                    <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-black text-sm text-primary min-h-[48px]">
-                                        ₱{Number(additional?.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+
 
                         {/* FEES SET BY ENGINEER */}
                         <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 md:p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
@@ -241,13 +219,13 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                     </div>
                                     <div>
                                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                            Endorsed Fees Set by {additional?.feeAssessment?.endorsedBy || 'Engineer'}
+                                            Endorsed Fees Set by Engineering & Zoning
                                         </span>
                                     </div>
                                 </div>
 
-                                {/* Add Fee Button */}
-                                {!showAdditionalFeeForm && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && transaction.status === "EVALUATED" && additional.feeAssessment?.endorsed === true && (
+                                {/* Add Fee Button (Disabled for Building Permit) */}
+                                {false && !showAdditionalFeeForm && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && transaction.status === "EVALUATED" && additional.feeAssessment?.endorsed === true && (
                                     <Button
                                         onClick={() => setShowAdditionalFeeForm(true)}
                                         size="sm"
@@ -294,7 +272,20 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                         </div>
                                     </div>
                                 )}
+                                
+                                {additional?.feeAssessment?.zoningMunicipalCharges && additional.feeAssessment.zoningMunicipalCharges.length > 0 && (
+                                    additional.feeAssessment.zoningMunicipalCharges.map((charge: any, idx: number) => (
+                                        <div key={`zoning-${idx}`} className="space-y-2">
+                                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">{charge.name || "Zoning & Locational Clearance"}</label>
+                                            <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
+                                                ₱{Number(charge.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                             </div>
+
+
 
                             {/* ADDITIONAL TREASURY FEES LIST */}
                             {additional?.feeAssessment?.additionalFees && additional.feeAssessment.additionalFees.length > 0 && (
@@ -307,7 +298,7 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                             <div key={idx} className="space-y-2 relative group">
                                                 <div className="flex justify-between items-center ml-1">
                                                     <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">{fee.label}</label>
-                                                    {transaction.status === "EVALUATED" && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && additional.feeAssessment?.endorsed === true && (
+                                                    {false && transaction.status === "EVALUATED" && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && additional.feeAssessment?.endorsed === true && (
                                                         <button
                                                             onClick={() => handleRemoveAdditionalFee(idx)}
                                                             disabled={actionLoading}
@@ -326,8 +317,8 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                 </div>
                             )}
 
-                            {/* ADD ADDITIONAL FEE INLINE FORM */}
-                            {showAdditionalFeeForm && additional.feeAssessment?.endorsed === true && (
+                            {/* ADD ADDITIONAL FEE INLINE FORM (Disabled for Building Permit) */}
+                            {false && showAdditionalFeeForm && additional.feeAssessment?.endorsed === true && (
                                 <div className="p-6 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 space-y-4 animate-in slide-in-from-top-4 duration-300">
                                     <p className="text-[10px] font-black uppercase tracking-widest text-primary italic">Create New Additional Charge</p>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -524,11 +515,11 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                 </div>
 
                                 {transaction.status === "EVALUATED" && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && (
-                                    additional.feeAssessment?.endorsed === true ? (
+                                    additional.feeAssessment?.endorsed === true && additional.feeAssessment?.zoningEndorsed === true ? (
                                         <div className="space-y-4">
                                             <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
                                                 <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                                                    Review the building permit details and the endorsed fees set by the engineer. You can add additional treasury charges if needed before endorsing this billing statement to the resident.
+                                                    Review the building permit details and the endorsed fees set by the Engineer and Zoning Officer. Once verified, you can approve and send the final billing statement to the resident.
                                                 </p>
                                             </div>
                                             <Button
@@ -546,9 +537,13 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                                     <AlertCircle className="w-5 h-5" />
                                                 </div>
                                                 <div className="space-y-1">
-                                                    <p className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-500 tracking-wider">Engineering Evaluation Pending</p>
+                                                    <p className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-500 tracking-wider">
+                                                        {!additional.feeAssessment?.endorsed ? "Engineering Evaluation Pending" : "Zoning Endorsement Pending"}
+                                                    </p>
                                                     <p className="text-[11px] font-bold text-slate-550 dark:text-slate-400 leading-relaxed uppercase tracking-tight">
-                                                        This building permit record has not yet been endorsed by the Engineering department. Treasury actions are currently restricted to view-only.
+                                                        {!additional.feeAssessment?.endorsed 
+                                                            ? "This building permit record has not yet been endorsed by the Engineering department. Treasury actions are currently restricted to view-only."
+                                                            : "This building permit record has been endorsed by Engineering, but is still awaiting the Zoning & Locational Clearance fees endorsement from the Zoning department."}
                                                     </p>
                                                 </div>
                                             </div>
@@ -576,8 +571,7 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                                 <Dialog>
                                                     <DialogTrigger asChild>
                                                         <Button
-                                                            className="w-full h-12 rounded-2xl bg-green-500 hover:bg-green-600 text-white font-black italic uppercase tracking-wider shadow-lg shadow-green-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                            disabled={!transaction.paymentReference && !transaction.paymentProofUrl}
+                                                            className="w-full h-12 rounded-2xl bg-green-500 hover:bg-green-600 text-white font-black italic uppercase tracking-wider shadow-lg shadow-green-500/20 transition-all flex items-center justify-center gap-2"
                                                         >
                                                             Approve payment (Move to Paid)
                                                         </Button>
@@ -587,9 +581,28 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                                             <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
                                                                 Treasury <span className="text-emerald-500">Receipt</span>
                                                             </DialogTitle>
-                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Upload Official Receipt</p>
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Process Payment / Upload Receipt</p>
                                                         </DialogHeader>
                                                         <div className="space-y-6 py-4">
+                                                            <div className="space-y-3">
+                                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">O.R. Number / Reference No. (Required for Cash)</Label>
+                                                                <Input 
+                                                                    placeholder="Enter O.R. or Reference Number" 
+                                                                    value={orSeriesNumber || ""} 
+                                                                    onChange={(e) => setOrSeriesNumber?.(e.target.value)}
+                                                                    className="h-12 rounded-xl text-sm border-slate-200 dark:border-white/10"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-3">
+                                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount Paid (₱)</Label>
+                                                                <Input 
+                                                                    type="number"
+                                                                    placeholder="Enter Amount" 
+                                                                    value={amountPaid} 
+                                                                    onChange={(e) => setAmountPaid(e.target.value)}
+                                                                    className="h-12 rounded-xl text-sm border-slate-200 dark:border-white/10"
+                                                                />
+                                                            </div>
                                                             <div className="space-y-3">
                                                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Scanned Receipt (Optional)</Label>
                                                                 {receiptPreview ? (
@@ -633,8 +646,8 @@ export default function BuildingPermitView(props: TreasuryViewProps) {
                                                             </div>
                                                         </div>
                                                         <Button
-                                                            onClick={() => handleConfirmPayment()}
-                                                            disabled={actionLoading}
+                                                            onClick={() => handleConfirmPayment(amountPaid)}
+                                                            disabled={actionLoading || (!orSeriesNumber && !receiptFile)}
                                                             className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-emerald-600/20 active:scale-95 transition-all"
                                                         >
                                                             {actionLoading ? "Processing..." : "Confirm & Save Receipt"}

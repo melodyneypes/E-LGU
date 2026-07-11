@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useState, useEffect, use, useCallback } from "react";
@@ -15,11 +16,10 @@ import {
     ExternalLink,
     X,
     FileWarning,
-    RefreshCw,
-    ZoomIn
+    RefreshCw
 } from "lucide-react";
-import Image from "next/image";
-import { isValidUrl } from "@/utils/image";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+
 import { toast } from "sonner";
 import {
     getTransactionById,
@@ -30,13 +30,13 @@ import {
     submitBuildingPermitAction,
     reviseBuildingPermitClearancesAction,
     declineBuildingPermitAction,
-    releaseBuildingPermitAction
+    releaseBuildingPermitAction,
+    submitZoningClearanceAction
 } from "@/app/admin/transactions/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import LightboxView from "../../../treasury/[id]/components/LightboxView";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 
@@ -63,7 +63,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const isForcedView = searchParams.get("view") === "true";
     const { data: session } = useSession();
     const userRole = (session?.user as any)?.role;
-    const backUrl = userRole === "ENGINEER" ? "/admin/engineer" : userRole === "MPDC_ZONING" ? "/admin/zoning" : "/admin/treasury";
+    const backUrl = userRole === "MPDC_ZONING" ? "/admin/zoning" : userRole === "ENGINEER" ? "/admin/engineer" : "/admin/treasury";
 
     const [transaction, setTransaction] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -73,8 +73,10 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     // Fee form state
     const [buildingFee, setBuildingFee] = useState<string>("");
     const [engineerMunicipalCharges, setEngineerMunicipalCharges] = useState<{ name: string, amount: string }[]>([{ name: "", amount: "" }]);
-    const [, setECopyFile] = useState<File | null>(null);
+    const [zoningMunicipalCharges, setZoningMunicipalCharges] = useState<{ name: string, amount: string }[]>([{ name: "", amount: "" }]);
     const [eCopyUrl, setECopyUrl] = useState<string>("");
+    const [, setECopyFile] = useState<File | null>(null);
+    const [zoningClearanceUrl, setZoningClearanceUrl] = useState<string>("");
     const [uploading, setUploading] = useState(false);
 
     // Modals state
@@ -85,9 +87,18 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const [viewerUrl, setViewerUrl] = useState<string | null>(null);
     const [viewerTitle, setViewerTitle] = useState("");
 
-    const feeAssessment = transaction?.additionalData?.feeAssessment || null;
-    const isEndorsed = feeAssessment?.endorsed === true;
-    const isViewOnly = isForcedView || isEndorsed || (transaction && transaction.status !== "EVALUATED");
+    const addData = (transaction?.additionalData as any) || {};
+    const zoningStatus = addData.zoningStatus;
+    const isZoningActive = userRole === "MPDC_ZONING" && transaction?.status === "EVALUATED";
+
+    const isEndorsed = zoningStatus === "ENDORSED" || ["UNPAID", "PAYMENT_SUBMITTED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction?.status || "");
+
+    // ViewOnly for Zoning: if not active phase, if already endorsed, or if zoningStatus is not EVALUATED.
+    // ViewOnly for others (Engineer/Admin): if not EVALUATED status, or if already endorsed.
+    const isViewOnly = isForcedView || 
+        isEndorsed || 
+        (userRole === "MPDC_ZONING" && (!isZoningActive || zoningStatus !== "EVALUATED")) ||
+        (userRole !== "MPDC_ZONING" && transaction && transaction.status !== "EVALUATED");
 
     const fetchTransaction = useCallback(async () => {
         setLoading(true);
@@ -99,6 +110,9 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                 if (tx.eCopyUrl) {
                     setECopyUrl(tx.eCopyUrl);
                 }
+                if (tx.additionalData?.zoningClearanceUrl) {
+                    setZoningClearanceUrl(tx.additionalData.zoningClearanceUrl);
+                }
 
                 // Pre-populate if already assessed
                 const assessed = tx.additionalData?.feeAssessment;
@@ -108,6 +122,9 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                         setEngineerMunicipalCharges(assessed.engineerMunicipalCharges.map((c: any) => ({ name: c.name, amount: String(c.amount) })));
                     } else if (assessed.municipalCharges) {
                         setEngineerMunicipalCharges([{ name: "Other Applicable Municipal Charges", amount: String(assessed.municipalCharges) }]);
+                    }
+                    if (assessed.zoningMunicipalCharges && assessed.zoningMunicipalCharges.length > 0) {
+                        setZoningMunicipalCharges(assessed.zoningMunicipalCharges.map((c: any) => ({ name: c.name, amount: String(c.amount) })));
                     }
                 }
             } else {
@@ -128,18 +145,25 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     }, [fetchTransaction]);
 
     const handleEndorse = async () => {
-        if (!buildingFee) {
+        const isZoning = userRole === "MPDC_ZONING";
+        
+        if (!isZoning && !buildingFee) {
             toast.error("Please fill in all required fee fields.");
             return;
         }
 
         const validCharges = engineerMunicipalCharges.filter(c => c.name.trim() && c.amount);
+        const validZoningCharges = zoningMunicipalCharges.filter(c => c.name.trim() && c.amount);
 
         setActionLoading(true);
         try {
             const res = await endorseBuildingPermitFees(id, {
-                buildingPermitFee: Number(buildingFee),
-                engineerMunicipalCharges: validCharges.map(c => ({ name: c.name, amount: Number(c.amount) }))
+                ...(isZoning ? {
+                    zoningMunicipalCharges: validZoningCharges.map(c => ({ name: c.name, amount: Number(c.amount) }))
+                } : {
+                    buildingPermitFee: Number(buildingFee),
+                    engineerMunicipalCharges: validCharges.map(c => ({ name: c.name, amount: Number(c.amount) }))
+                })
             });
 
             if (res.success) {
@@ -243,6 +267,50 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         }
     };
 
+    const handleZoningClearanceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        const file = e.target.files[0];
+
+        setUploading(true);
+        const toastId = toast.loading("Uploading Zoning Clearance...");
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const res = await uploadECopyAction(formData); // reuse this for generic file upload
+            if (res.success && res.data) {
+                setZoningClearanceUrl(res.data);
+                toast.success("Zoning Clearance uploaded successfully!", { id: toastId });
+            } else {
+                toast.error(res.error || "Failed to upload file", { id: toastId });
+            }
+        } catch {
+            toast.error("Error uploading file", { id: toastId });
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleSubmitZoningClearance = async () => {
+        if (!zoningClearanceUrl) {
+            toast.error("Please upload the Zoning Clearance first.");
+            return;
+        }
+        setActionLoading(true);
+        try {
+            const res = await submitZoningClearanceAction(id, zoningClearanceUrl);
+            if (res.success) {
+                toast.success("Zoning Clearance submitted to Engineer successfully!");
+                fetchTransaction();
+            } else {
+                toast.error(res.error || "Failed to submit Zoning Clearance");
+            }
+        } catch {
+            toast.error("An error occurred while submitting Zoning Clearance");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const handleSubmitPermit = async () => {
         if (!eCopyUrl) {
             toast.error("Please upload the building permit E-copy first.");
@@ -307,9 +375,9 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         if (status === "FOR_INSPECTION") return 1;
         if (status === "FOR_REINSPECTION") return 2;
         if (status === "EVALUATED" || status === "UNPAID" || status === "PAYMENT_SUBMITTED" || status === "PAID") return 3;
-        return 4; // SUBMIT phase (FOR_PROCESSING, FOR_CLAIM, FOR_PICKING, RELEASED)
+        return 4;
     };
-    const currentStepIdx = getStepIndex(transaction.status);
+    const currentStepIdx = getStepIndex(zoningStatus || "FOR_REQUESTING");
 
     return (
         <div
@@ -332,17 +400,17 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                         </Button>
                     </Link>
                     <div className="w-px h-4 bg-slate-200 dark:bg-white/10" />
-                    <Link href={`/admin/engineer/${id}/evaluation?view=true`}>
+                    <Link href={`/admin/zoning/${id}/evaluation?view=true`}>
                         <Button variant="outline" className="h-9 gap-2 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/5 font-black text-[10px] uppercase tracking-wider rounded-xl">
                             <ArrowLeft className="w-3.5 h-3.5" /> View Evaluation Phase
                         </Button>
                     </Link>
-                    <Link href={`/admin/engineer/${id}/inspection?view=true`}>
+                    <Link href={`/admin/zoning/${id}/inspection?view=true`}>
                         <Button variant="outline" className="h-9 gap-2 border-purple-500/20 text-purple-600 dark:text-purple-400 hover:bg-purple-500/5 font-black text-[10px] uppercase tracking-wider rounded-xl">
                             <ArrowLeft className="w-3.5 h-3.5" /> View Site Inspection Phase
                         </Button>
                     </Link>
-                    <Link href={`/admin/engineer/${id}/reinspection?view=true`}>
+                    <Link href={`/admin/zoning/${id}/reinspection?view=true`}>
                         <Button variant="outline" className="h-9 gap-2 border-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/5 font-black text-[10px] uppercase tracking-wider rounded-xl">
                             <ArrowLeft className="w-3.5 h-3.5" /> View Re-Inspection Phase
                         </Button>
@@ -358,12 +426,21 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                         </Badge>
                     </div>
                     <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
-                        Fees Assessment Portal Active
+                        Zoning Fees Assessment Active
                     </Badge>
                 </div>
             </header>
 
             <main className="max-w-[1400px] mx-auto px-8 grid grid-cols-12 gap-8 mt-4">
+                {!isEndorsed && (
+                    <div className="col-span-12 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">⚠️ Awaiting Zoning Endorsement</p>
+                            <p className="text-[11px] font-medium opacity-90">Please specify the Zoning & Locational Clearance charges. The application will be forwarded to Treasury once endorsed.</p>
+                        </div>
+                    </div>
+                )}
+
                 {isEndorsed && !["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status) && (
                     <div className="col-span-12 bg-[#006A2E]/10 border border-[#006A2E]/20 text-[#006A2E] dark:text-green-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
                         <div>
@@ -383,7 +460,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                             <p className="text-[11px] font-medium opacity-90">{transaction?.status === "REJECTED" ? "This building permit application has been officially rejected." : "You are reviewing the historical Fee Assessment phase record in read-only mode."}</p>
                         </div>
                         {transaction?.status !== "REJECTED" && (
-                            <Button onClick={() => router.push(`/admin/engineer/${id}`)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">Return to Active Phase
+                            <Button onClick={() => router.push(`/admin/zoning/${id}`)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">Return to Active Phase
                             </Button>
                         )}
                     </div>
@@ -392,7 +469,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                 {/* Left Column */}
                 <div className="col-span-12 lg:col-span-8 space-y-8">
                     {/* Header Banner */}
-                    <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/5 dark:to-teal-500/5 border border-emerald-500/20 dark:border-emerald-500/10 rounded-[2rem] p-8 flex items-center justify-between shadow-sm relative overflow-hidden">
+                    <div className="bg-gradient-to-r from-emerald-500/10 to-[#0c4a6e]/10 dark:from-emerald-500/5 dark:to-[#0c4a6e]/5 border border-emerald-500/20 dark:border-emerald-500/10 rounded-[2rem] p-8 flex items-center justify-between shadow-sm relative overflow-hidden">
                         <div className="space-y-2 relative z-10">
                             <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-[0.2em] italic">Phase 4: Fee & Charges Assessment</span>
                             <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">TREASURY ENDORSEMENT</h2>
@@ -458,135 +535,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                     {resident?.houseNumber || ""} {resident?.street || ""} {resident?.barangay ? `${resident.barangay}, Mapandan, Pangasinan` : "--"}
                                 </div>
                             </div>
-
-                            {/* Government ID Section */}
-                            {(() => {
-                                const newIdFile = additional?.documents?.newIdFile;
-                                const newIdFileBack = additional?.documents?.newIdFileBack;
-                                if (newIdFile) {
-                                    return (
-                                        <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
-                                            <div className="flex items-center gap-2">
-                                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Uploaded Government ID</label>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-6 max-w-2xl">
-                                                <Dialog>
-                                                    <DialogTrigger asChild>
-                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
-                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Front)</p>
-                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(newIdFile) ? newIdFile : "/placeholder.png"} alt="Government ID Front" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                            </div>
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                                    <ZoomIn className="w-4 h-4 text-white" />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </DialogTrigger>
-                                                    <LightboxView src={newIdFile} alt="Government ID Front" label="Government ID Front" />
-                                                </Dialog>
-
-                                                {newIdFileBack && (
-                                                    <Dialog>
-                                                        <DialogTrigger asChild>
-                                                            <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
-                                                                <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Back)</p>
-                                                                <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                    <Image src={isValidUrl(newIdFileBack) ? newIdFileBack : "/placeholder.png"} alt="Government ID Back" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                                </div>
-                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                    <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                                        <ZoomIn className="w-4 h-4 text-white" />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </DialogTrigger>
-                                                        <LightboxView src={newIdFileBack} alt="Government ID Back" label="Government ID Back" />
-                                                    </Dialog>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                }
-
-                                const idFront = additional?.validIdFront || additional?.idFrontUrl || resident?.idFrontUrl || resident?.idFileUrl;
-                                const idBack = additional?.validIdBack || additional?.idBackUrl || resident?.idBackUrl;
-                                if (!idFront && !idBack) return null;
-                                return (
-                                    <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
-                                        <div className="flex items-center gap-2">
-                                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Resident ID Verification Documents</label>
-                                            {resident?.idType && (
-                                                <Badge variant="outline" className="text-[9px] font-bold uppercase border-primary/20 text-primary py-0 px-2 h-5">
-                                                    ID Type: {resident.idType}
-                                                </Badge>
-                                            )}
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-6 max-w-2xl">
-                                            {idFront && (
-                                                <Dialog>
-                                                    <DialogTrigger asChild>
-                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
-                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Front ID</p>
-                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(idFront) ? idFront : "/placeholder.png"} alt="Front ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                            </div>
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                                    <ZoomIn className="w-4 h-4 text-white" />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </DialogTrigger>
-                                                    <LightboxView src={idFront} alt="Front ID" label="Front ID" />
-                                                </Dialog>
-                                            )}
-                                            {idBack && (
-                                                <Dialog>
-                                                    <DialogTrigger asChild>
-                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
-                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Back ID</p>
-                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(idBack) ? idBack : "/placeholder.png"} alt="Back ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                            </div>
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                                    <ZoomIn className="w-4 h-4 text-white" />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </DialogTrigger>
-                                                    <LightboxView src={idBack} alt="Back ID" label="Back ID" />
-                                                </Dialog>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* Applicant E-Signature Section */}
-                            {additional?.signature && (
-                                <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
-                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Applicant Digital E-Signature</label>
-                                    <div className="max-w-[240px] bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 p-4">
-                                        <Dialog>
-                                            <DialogTrigger asChild>
-                                                <div className="group relative aspect-video rounded-xl overflow-hidden flex items-center justify-center cursor-zoom-in bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5">
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img src={additional.signature} alt="E-Signature" className="max-h-20 object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                        <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                            <ZoomIn className="w-4 h-4 text-white" />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </DialogTrigger>
-                                            <LightboxView src={additional.signature} alt="E-Signature" label="Applicant E-Signature" />
-                                        </Dialog>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -596,15 +544,14 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                             <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
                                 Application <span className="text-primary">Details</span>
                             </h2>
-                            <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">Building Permit Questionnaire</p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Description of Work</label>
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Description of Work</label>
                                 <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.descriptionOfWork || "--"}</div>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Occupancy Use</label>
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Occupancy Use</label>
                                 <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.occupancyUse || "--"}</div>
                             </div>
                             <div className="space-y-2">
@@ -625,6 +572,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                             </div>
                         </div>
                     </div>
+
                     {/* Specify Official Endorsement Fees Block */}
                     <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
                         <div className="flex items-center gap-3">
@@ -645,7 +593,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                         if (decimalCount > 1) return;
                                         setBuildingFee(cleanVal);
                                     }}
-                                    disabled={isViewOnly}
+                                    disabled={isViewOnly || userRole === "MPDC_ZONING"}
                                     className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100"
                                 />
                             </div>
@@ -653,21 +601,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                             <div className="col-span-1 md:col-span-2 space-y-4">
                                 <div className="flex items-center justify-between">
                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Other Applicable Municipal Charges</Label>
-                                    {!isViewOnly && (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                setEngineerMunicipalCharges([...engineerMunicipalCharges, { name: "", amount: "" }]);
-                                            }}
-                                            className="h-8 rounded-lg text-[10px] font-bold uppercase tracking-wider text-primary border-primary/20 hover:bg-primary/10"
-                                        >
-                                            + Add Additional Fee
-                                        </Button>
-                                    )}
                                 </div>
 
                                 {engineerMunicipalCharges.map((charge, index) => (
@@ -681,7 +614,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                                 newCharges[index].name = e.target.value;
                                                 setEngineerMunicipalCharges(newCharges);
                                             }}
-                                            disabled={isViewOnly}
+                                            disabled={isViewOnly || userRole === "MPDC_ZONING"}
                                             className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 flex-1"
                                         />
                                         <Input
@@ -696,46 +629,62 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                                 newCharges[index].amount = cleanVal;
                                                 setEngineerMunicipalCharges(newCharges);
                                             }}
-                                            disabled={isViewOnly}
+                                            disabled={isViewOnly || userRole === "MPDC_ZONING"}
                                             className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 w-[150px]"
                                         />
-                                        {!isViewOnly && engineerMunicipalCharges.length > 1 && (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    const newCharges = [...engineerMunicipalCharges];
-                                                    newCharges.splice(index, 1);
-                                                    setEngineerMunicipalCharges(newCharges);
-                                                }}
-                                                className="h-12 w-12 rounded-xl text-red-500 hover:text-red-600 hover:bg-red-50"
-                                            >
-                                                <X className="w-5 h-5" />
-                                            </Button>
-                                        )}
                                     </div>
                                 ))}
                             </div>
 
-                            {/* ZONING FEES LIST */}
-                            {transaction.additionalData?.feeAssessment?.zoningMunicipalCharges && transaction.additionalData.feeAssessment.zoningMunicipalCharges.length > 0 && (
-                                <div className="space-y-4 pt-6 border-t border-dashed border-slate-100 dark:border-white/5 col-span-2">
-                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary italic block">
-                                        Zoning & Locational Clearance Charges
-                                    </span>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {transaction.additionalData.feeAssessment.zoningMunicipalCharges.map((fee: any, idx: number) => (
-                                            <div key={idx} className="space-y-2 relative group">
-                                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 block">{fee.name || "Zoning Fee"}</label>
-                                                <div className="h-12 flex items-center px-5 bg-primary/5 border border-primary/10 rounded-xl font-black text-sm text-slate-700 dark:text-slate-100">
-                                                    ₱{Number(fee.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                </div>
-                                            </div>
-                                        ))}
+                            {/* ZONING CHARGES BLOCK */}
+                            {(userRole === "MPDC_ZONING" || zoningMunicipalCharges.some(c => c.name || c.amount) || transaction.additionalData?.feeAssessment?.zoningMunicipalCharges?.length > 0) && (
+                                <div className="col-span-1 md:col-span-2 space-y-4 pt-6 border-t border-dashed border-slate-100 dark:border-white/5">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1">Zoning & Locational Clearance Charges</Label>
                                     </div>
+
+                                    {zoningMunicipalCharges.map((charge, index) => (
+                                        <div key={index} className="flex items-center gap-4">
+                                            <Input
+                                                type="text"
+                                                placeholder="Fee Name (e.g. Zoning Fee)"
+                                                value={charge.name}
+                                                onChange={(e) => {
+                                                    const newCharges = [...zoningMunicipalCharges];
+                                                    newCharges[index].name = e.target.value;
+                                                    setZoningMunicipalCharges(newCharges);
+                                                }}
+                                                disabled={isViewOnly || userRole !== "MPDC_ZONING"}
+                                                className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 flex-1 border-primary/20 bg-primary/5 focus-visible:ring-primary/20"
+                                            />
+                                            <Input
+                                                type="text"
+                                                placeholder="0.00"
+                                                value={formatNumberWithCommas(charge.amount)}
+                                                onChange={(e) => {
+                                                    const cleanVal = cleanCommaNumber(e.target.value);
+                                                    const decimalCount = (cleanVal.match(/\./g) || []).length;
+                                                    if (decimalCount > 1) return;
+                                                    const newCharges = [...zoningMunicipalCharges];
+                                                    newCharges[index].amount = cleanVal;
+                                                    setZoningMunicipalCharges(newCharges);
+                                                }}
+                                                disabled={isViewOnly || userRole !== "MPDC_ZONING"}
+                                                className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 w-[150px] border-primary/20 bg-primary/5 focus-visible:ring-primary/20"
+                                            />
+                                        </div>
+                                    ))}
+                                    {!isViewOnly && userRole === "MPDC_ZONING" && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setZoningMunicipalCharges([...zoningMunicipalCharges, { name: "", amount: "" }])}
+                                            className="mt-2 text-[10px] font-bold uppercase tracking-wider h-8 rounded-lg"
+                                        >
+                                            + Add Zoning Fee
+                                        </Button>
+                                    )}
                                 </div>
                             )}
 
@@ -765,13 +714,82 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                     ₱{Number(
                                         (Number(buildingFee) || 0) +
                                         engineerMunicipalCharges.reduce((sum, c) => sum + (Number(c.amount) || 0), 0) +
-                                        (transaction.additionalData?.feeAssessment?.zoningMunicipalCharges || []).reduce((sum: number, f: any) => sum + Number(f.amount || 0), 0) +
+                                        zoningMunicipalCharges.reduce((sum, c) => sum + (Number(c.amount) || 0), 0) +
                                         (transaction.additionalData?.feeAssessment?.additionalFees || []).reduce((sum: number, f: any) => sum + Number(f.amount || 0), 0)
                                     ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                 </span>
                             </div>
                         </div>
                     </div>
+
+                    {/* Zoning Clearance Upload Block for MPDC_ZONING */}
+                    {userRole === "MPDC_ZONING" && isEndorsed && transaction?.additionalData?.zoningStatus === "ENDORSED" && (
+                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
+                            <div>
+                                <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
+                                    Upload Zoning <span className="text-primary">Clearance</span>
+                                </h2>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">Upload the scanned or digital copy of the approved Zoning/Locational Clearance to send to the Engineer.</p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-8 text-center bg-slate-50/50 dark:bg-white/5 hover:bg-slate-100/50 dark:hover:bg-white/10 transition-all duration-300 relative group">
+                                    <input
+                                        type="file"
+                                        id="zoningClearanceUpload"
+                                        onChange={handleZoningClearanceUpload}
+                                        accept="application/pdf,image/*"
+                                        disabled={uploading}
+                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                    />
+                                    <div className="flex flex-col items-center justify-center gap-4">
+                                        <div className="p-4 bg-primary/10 rounded-2xl group-hover:scale-110 transition-transform">
+                                            <Upload className="w-8 h-8 text-primary" />
+                                        </div>
+                                        <div>
+                                            <span className="text-xs font-black uppercase tracking-wider text-slate-600 block dark:text-slate-300">Drag & Drop or Click to Upload</span>
+                                            <span className="text-[10px] font-bold text-slate-400 block mt-1">PDF or Images up to 10MB</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {zoningClearanceUrl && (
+                                <div className="flex flex-col gap-6">
+                                    <div className="p-6 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-2xl flex items-center justify-between shadow-sm">
+                                        <div className="flex items-center gap-4">
+                                            <div className="p-3 bg-emerald-500/10 rounded-xl">
+                                                <Check className="w-6 h-6 text-emerald-500" />
+                                            </div>
+                                            <div>
+                                                <span className="text-xs font-black uppercase tracking-widest italic text-emerald-500">Clearance Ready</span>
+                                                <span className="text-[11px] font-medium text-slate-400 block mt-0.5">Click preview to view the uploaded file.</span>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            onClick={() => {
+                                                setViewerUrl(zoningClearanceUrl);
+                                                setViewerTitle("Zoning Clearance");
+                                                setViewerOpen(true);
+                                            }}
+                                            variant="outline"
+                                            className="h-10 gap-2 font-black text-[10px] uppercase tracking-wider rounded-xl"
+                                        >
+                                            Preview <ExternalLink className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </div>
+                                    
+                                    <Button
+                                        onClick={handleSubmitZoningClearance}
+                                        disabled={actionLoading || !zoningClearanceUrl}
+                                        className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5"
+                                    >
+                                        {actionLoading ? "Submitting..." : "Submit Zoning Clearance to Engineer"}
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* BFP Clearance Vault */}
                     {transaction.additionalData?.bfpClearanceUrl && (
@@ -780,12 +798,11 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                 <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
                                     BFP Fire Safety <span className="text-primary">Clearance Certificate</span>
                                 </h2>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">The resident has uploaded their BFP Fire Safety Clearance certificate. Please verify this document before approving the permit.</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">The resident has uploaded their BFP Fire Safety Clearance certificate.</p>
                             </div>
                             <Dialog>
                                 <DialogTrigger asChild>
                                     <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-white/5 group max-w-lg shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img src={transaction.additionalData.bfpClearanceUrl} alt="BFP Clearance" className="object-cover w-full h-full" />
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                             <span className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-2xl hover:scale-105 active:scale-95 transition-all">
@@ -806,12 +823,11 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                 <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
                                     Zoning / Locational <span className="text-primary">Clearance Certificate</span>
                                 </h2>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">The resident has uploaded their Zoning/Locational Clearance certificate issued by the Zoning Officer / MPDC. Please verify this document before approving the permit.</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">The resident has uploaded their Zoning/Locational Clearance certificate issued by the Zoning Officer / MPDC.</p>
                             </div>
                             <Dialog>
                                 <DialogTrigger asChild>
                                     <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-white/5 group max-w-lg shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img src={transaction.additionalData.zoningClearanceUrl} alt="Zoning Clearance" className="object-cover w-full h-full" />
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                             <span className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-2xl hover:scale-105 active:scale-95 transition-all">
@@ -887,22 +903,19 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
                 {/* Right Column: Workflow Tracking & Executive Actions */}
                 <div className="col-span-12 lg:col-span-4 space-y-8 sticky top-16 self-start">
-                    {/* Workflow Step Tracker */}
                     <div className="bg-[#151b28] rounded-[2rem] p-8 border border-white/5 space-y-6">
                         <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Workflow Tracking</h3>
                         <div className="relative pl-8 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-white/10">
                             {(() => {
                                 const handleStepClick = (stepId: string) => {
                                     if (stepId === "FOR_REQUESTING") {
-                                        router.push(`/admin/engineer/${id}/evaluation?view=true`);
+                                        router.push(`/admin/zoning/${id}/evaluation?view=true`);
                                     } else if (stepId === "FOR_INSPECTION") {
-                                        router.push(`/admin/engineer/${id}/inspection?view=true`);
+                                        router.push(`/admin/zoning/${id}/inspection?view=true`);
                                     } else if (stepId === "FOR_REINSPECTION") {
-                                        router.push(`/admin/engineer/${id}/reinspection?view=true`);
+                                        router.push(`/admin/zoning/${id}/reinspection?view=true`);
                                     } else if (stepId === "EVALUATED") {
-                                        router.push(`/admin/engineer/${id}/fees?view=true`);
-                                    } else if (stepId === "FOR_PROCESSING") {
-                                        router.push(`/admin/engineer/${id}/submit?view=true`);
+                                        router.push(`/admin/zoning/${id}/fees?view=true`);
                                     }
                                 };
                                 return steps.map((step, idx) => {
@@ -917,8 +930,8 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                         >
                                             <div className="flex items-center gap-4">
                                                 <div className={`absolute left-[-29px] w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isCompleted ? "bg-[#006A2E] border-[#006A2E] text-white shadow-lg shadow-green-500/20" :
-                                                        isActive ? "bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110" :
-                                                            "bg-slate-900 border-white/10 text-slate-500"
+                                                    isActive ? "bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110" :
+                                                        "bg-slate-900 border-white/10 text-slate-500"
                                                     }`}>
                                                     {isCompleted ? <BadgeCheck className="w-3.5 h-3.5" /> : <span className="text-[10px] font-black">{idx + 1}</span>}
                                                 </div>
@@ -935,17 +948,16 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
                     {/* Executive Actions */}
                     <div className="space-y-4">
-                        {!isEndorsed && (userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
+                        {!isViewOnly && userRole === "MPDC_ZONING" && (
                             <Button
                                 onClick={handleEndorse}
-                                disabled={actionLoading || !buildingFee}
+                                disabled={actionLoading}
                                 className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95"
                             >
-                                <Check className="w-4 h-4 mr-2" /> Endorse to Zoning
+                                <Check className="w-4 h-4 mr-2" /> Endorse Payment Assessment
                             </Button>
                         )}
-
-                        {isEndorsed && (
+                        {isEndorsed && userRole !== "MPDC_ZONING" && (
                             <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
                                 <div className="flex flex-col gap-1">
                                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Treasury Payment Status</span>

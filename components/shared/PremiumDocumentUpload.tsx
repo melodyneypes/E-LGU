@@ -159,7 +159,7 @@ export default function PremiumDocumentUpload({
                     <Upload className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                 </div>
                 <div className="space-y-0.5 flex-1 min-w-0">
-                    <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-wide text-slate-600 dark:text-white italic break-all whitespace-normal">
+                    <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-wide text-slate-600 dark:text-white italic break-words whitespace-normal">
                         {label} {required && <span className="text-red-500 font-black not-italic ml-0.5">*</span>}
                     </h4>
                     <p className="text-[8px] md:text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter line-clamp-1">

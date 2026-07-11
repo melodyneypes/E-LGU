@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element */
+
 "use client";
 
 import React, { useState, useRef, useEffect, use, useCallback } from "react";
@@ -8,14 +8,9 @@ import { useSession } from "next-auth/react";
 import {
     ArrowLeft,
     BadgeCheck,
-    Check,
-    ZoomIn,
-    ZoomOut,
-    RotateCw,
-    RefreshCcw
+    Check
 } from "lucide-react";
-import Image from "next/image";
-import { isValidUrl } from "@/utils/image";
+
 import { toast } from "sonner";
 import {
     getTransactionById,
@@ -42,132 +37,6 @@ interface PageProps {
     params: Promise<{ id: string }>;
 }
 
-function LightboxView({ src, alt, label }: { src: string; alt: string; label: string }) {
-    const [scale, setScale] = useState(1);
-    const [rotate, setRotate] = useState(0);
-    const [position, setPosition] = useState({ x: 0, y: 0 });
-    const [isDragging, setIsDragging] = useState(false);
-    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-
-    const handleWheel = (e: React.WheelEvent) => {
-        const delta = e.deltaY < 0 ? 0.15 : -0.15;
-        setScale(prev => Math.min(Math.max(prev + delta, 0.5), 5));
-    };
-
-    const handleMouseDown = (e: React.MouseEvent) => {
-        e.preventDefault();
-        setIsDragging(true);
-        setDragStart({
-            x: e.clientX - position.x,
-            y: e.clientY - position.y
-        });
-    };
-
-    const handleMouseMove = (e: React.MouseEvent) => {
-        if (!isDragging) return;
-        e.preventDefault();
-        setPosition({
-            x: e.clientX - dragStart.x,
-            y: e.clientY - dragStart.y
-        });
-    };
-
-    const handleMouseUp = () => {
-        setIsDragging(false);
-    };
-
-    const reset = () => {
-        setScale(1);
-        setRotate(0);
-        setPosition({ x: 0, y: 0 });
-    };
-
-    return (
-        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-transparent shadow-none flex flex-col items-center justify-center gap-6 outline-none">
-            <DialogHeader className="sr-only">
-                <DialogTitle>{label}</DialogTitle>
-            </DialogHeader>
-
-            <div
-                className="relative w-full h-[75vh] flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing select-none"
-                onWheel={handleWheel}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-            >
-                <div
-                    className="relative w-full h-full flex items-center justify-center"
-                    style={{ 
-                        transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotate}deg)`,
-                        transition: isDragging ? 'none' : 'transform 0.3s ease-out'
-                    }}
-                >
-                    <Image
-                        src={isValidUrl(src) ? src : "/placeholder.png"}
-                        alt={alt}
-                        fill
-                        className="object-contain"
-                        priority
-                        draggable={false}
-                    />
-                </div>
-            </div>
-
-            <div className="flex items-center gap-2 px-6 py-3 bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-4">
-                <div className="flex items-center gap-1 pr-4 border-r border-white/10">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white italic whitespace-nowrap">{label}</p>
-                </div>
-
-                <div className="flex items-center gap-1">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-10 h-10 rounded-full hover:bg-white/10 text-white transition-all"
-                        onClick={() => setScale(s => Math.max(s - 0.2, 0.5))}
-                    >
-                        <ZoomOut className="w-4 h-4" />
-                    </Button>
-                    <div className="w-12 text-center text-[10px] font-black text-white/50 italic">
-                        {Math.round(scale * 100)}%
-                    </div>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-10 h-10 rounded-full hover:bg-white/10 text-white transition-all"
-                        onClick={() => setScale(s => Math.min(s + 0.2, 5))}
-                    >
-                        <ZoomIn className="w-4 h-4" />
-                    </Button>
-                </div>
-
-                <div className="w-px h-4 bg-white/10 mx-2" />
-
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-10 h-10 rounded-full hover:bg-white/10 text-white transition-all"
-                    onClick={() => setRotate(r => (r + 90) % 360)}
-                    title="Rotate 90°"
-                >
-                    <RotateCw className="w-4 h-4" />
-                </Button>
-
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-10 h-10 rounded-full hover:bg-white/10 text-white transition-all"
-                    onClick={reset}
-                    title="Reset View"
-                >
-                    <RefreshCcw className="w-4 h-4" />
-                </Button>
-            </div>
-            <p className="text-[9px] font-bold text-white/40 uppercase tracking-[0.3em] italic">Scroll to Zoom • Drag to Pan Active</p>
-        </DialogContent>
-    );
-}
-
 export default function BuildingPermitInspectionPage({ params }: PageProps) {
     const { id } = use(params);
     const router = useRouter();
@@ -175,10 +44,19 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
     const isForcedView = searchParams.get("view") === "true";
     const { data: session } = useSession();
     const userRole = (session?.user as any)?.role;
-    const backUrl = userRole === "ENGINEER" ? "/admin/engineer" : userRole === "MPDC_ZONING" ? "/admin/zoning" : "/admin/treasury";
+    const backUrl = userRole === "MPDC_ZONING" ? "/admin/zoning" : userRole === "ENGINEER" ? "/admin/engineer" : "/admin/treasury";
 
     const [transaction, setTransaction] = useState<any>(null);
-    const isViewOnly = isForcedView || (transaction && transaction.status !== "FOR_INSPECTION");
+    const addData = (transaction?.additionalData as any) || {};
+    const zoningStatus = addData.zoningStatus;
+    const isZoningActive = userRole === "MPDC_ZONING" && transaction?.status === "EVALUATED";
+    const isZoningReadonly = userRole === "MPDC_ZONING" && !isZoningActive;
+
+    const isViewOnly = isForcedView || 
+        isZoningReadonly || 
+        (userRole === "MPDC_ZONING" && isZoningActive && zoningStatus !== "FOR_INSPECTION") ||
+        (userRole !== "MPDC_ZONING" && transaction && transaction.status !== "FOR_INSPECTION");
+    
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [remarks, setRemarks] = useState("");
@@ -224,7 +102,7 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
             const res = await evaluateCedulaTransaction(id, 0, remarks);
             if (res.success) {
                 toast.success("Inspection Approved Successfully");
-                router.push(`/admin/engineer/${id}/fees`);
+                router.push(`/admin/zoning/${id}/fees`);
             } else {
                 toast.error(res.error || "Failed");
             }
@@ -300,121 +178,6 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
     const additional = transaction.additionalData || {};
     const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
 
-    /*
-    const renderRequirementsGrid = () => (
-        <div className="grid grid-cols-2 gap-4">
-            {[
-                { url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID" },
-                { url: additional?.documents?.tctFile, label: "TCT / Land Title" },
-                ...[
-                    "Barangay Clearance/Certification",
-                    "Tax Declaration",
-                    "Land Title",
-                    "Community Tax Certificate",
-                    "Latest Tax Receipts",
-                    "Adjoining Owners Confirmation",
-                    "Locational Clearance",
-                    "Affidavit of Consent",
-                    "Affidavit of Adjoining Owners",
-                    "Signed & Sealed Plans",
-                    "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
-                    "Cedula of Lot Owner",
-                    "ID of Lot Owner",
-                    "Death Certificate of Lot Owner (Optional)",
-                    "Birth Certificate of Heirs of Deceased Owner (Optional)",
-                    "Valid Licenses (PRC I.D.) of Involved Professionals",
-                    "Duly Notarized Estimated Value of Building/Structure",
-                    "Duly Notarized Technical Specification",
-                    "Construction Safety and Health Program From DOLE",
-                    "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
-                    "Affidavit of Undertaking",
-                    "Cedula of Applicant",
-                    "ID of applicant with 3 signatures",
-                    "Structural Analysis and Design",
-                    "Soil Boring Test"
-                ]
-                  .map((label, idx) => ({ url: additional?.documents?.[`req_${idx}`], label, idx }))
-                  .filter(({ idx }) => {
-                      if (additional?.isLotOwner === "Yes" && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
-                      if (additional?.isLotOwner === "No" && [21, 22].includes(idx)) return false;
-                      const hasMultipleFloors = parseInt(additional?.totalFloors || "0", 10) > 1;
-                      if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
-                      return true;
-                  }),
-                // Wait! Let's check indices in inspection:
-                // 0: Barangay Clearance
-                // 1: Tax Declaration
-                // 2: Land Title
-                // 3: Community Tax Certificate
-                // 4: Latest Tax Receipts
-                // 5: Electrical & Sanitary Permit (Wait, this is index 5!)
-                // 6: Adjoining Owners Confirmation (index 6)
-                // 7: Locational Clearance (index 7)
-                // 8: Affidavit of Consent (index 8)
-                // 9: Affidavit of Adjoining Owners (index 9)
-                // 10: Signed & Sealed Plans (index 10)
-                // Let's actually not worry about index mapping in commented out blocks if we don't want to break them, or we can update them cleanly.
-                // Wait, if it's commented out, we can just do a simple update to it. Let's do that!
-                ...Object.keys(additional?.documents || {})
-                    .filter(key => key.startsWith("req_"))
-                    .map(key => {
-                        const idx = parseInt(key.replace("req_", ""), 10);
-                        if (idx >= 25) {
-                            const label = additional?.customLabels?.[key] || `Additional Document ${idx - 24}`;
-                            return { url: additional.documents[key], label };
-                        }
-                        return null;
-                    })
-                    .filter(Boolean) as { url: string; label: string }[],
-                ...[
-                    "1. Electrical Permit",
-                    "2. Plumbing Permit",
-                    "3. Sanitary Permit",
-                    "4. Excavation & Ground Preparation Permit",
-                    "5. Fencing Permit",
-                    "6. Scaffolding Permit",
-                    "7. Mechanical Permit",
-                    "8. Architectural Documents",
-                    "9. Civil/Structural Documents",
-                    "10. Electronics Documents",
-                    "11. Geodetic Documents",
-                    "12. Fire Protection Plan"
-                ].map((label, idx) => ({ url: additional?.documents?.[`permit_${idx}`], label })),
-                ...Object.keys(additional?.documents || {})
-                    .filter(key => key.startsWith("permit_"))
-                    .map(key => {
-                        const idx = parseInt(key.replace("permit_", ""), 10);
-                        if (idx >= 12) {
-                            const label = additional?.customLabels?.[key] || `Additional Permit ${idx - 11}`;
-                            return { url: additional.documents[key], label };
-                        }
-                        return null;
-                    })
-                    .filter(Boolean) as { url: string; label: string }[]
-            ].filter(doc => doc.url).map((doc, i) => (
-                <Dialog key={i}>
-                    <DialogTrigger asChild>
-                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 flex items-center justify-center cursor-zoom-in">
-                            <Image src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} fill className="object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                    <ZoomIn className="w-5 h-5 text-white" />
-                                </div>
-                            </div>
-                            <div className="absolute bottom-2 left-2 right-2 z-10">
-                                <span className="text-[8px] font-black uppercase tracking-wider text-white bg-slate-950/80 px-2.5 py-1 rounded-lg backdrop-blur-md truncate block max-w-full text-center italic shadow-sm">
-                                    {doc.label}
-                                </span>
-                            </div>
-                        </div>
-                    </DialogTrigger>
-                    <LightboxView src={doc.url} alt={doc.label} label={doc.label} />
-                </Dialog>
-            ))}
-        </div>
-    );
-    */
-
     const steps = [
         { id: "FOR_REQUESTING", label: "EVALUATION" },
         { id: "FOR_INSPECTION", label: "INSPECTION" },
@@ -426,9 +189,9 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
         if (status === "FOR_INSPECTION") return 1;
         if (status === "FOR_REINSPECTION") return 2;
         if (status === "EVALUATED" || status === "UNPAID" || status === "PAYMENT_SUBMITTED" || status === "PAID") return 3;
-        return 4; // PAID, FOR_PROCESSING, FOR_CLAIM, RELEASED
+        return 4;
     };
-    const currentStepIdx = getStepIndex(transaction.status);
+    const currentStepIdx = getStepIndex(zoningStatus || "FOR_REQUESTING");
 
     return (
         <div
@@ -443,7 +206,7 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                         </Button>
                     </Link>
                     <div className="w-px h-4 bg-slate-200 dark:bg-white/10" />
-                    <Link href={`/admin/engineer/${id}/evaluation?view=true`} prefetch={false}>
+                    <Link href={`/admin/zoning/${id}/evaluation?view=true`} prefetch={false}>
                         <Button variant="outline" className="h-9 gap-2 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/5 font-black text-[10px] uppercase tracking-wider rounded-xl">
                             <ArrowLeft className="w-3.5 h-3.5" /> View Evaluation Phase
                         </Button>
@@ -459,20 +222,29 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                         </Badge>
                     </div>
                     <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
-                        Inspection Portal Active
+                        Zoning Inspection Portal Active
                     </Badge>
                 </div>
             </header>
 
             <main className="max-w-[1400px] mx-auto px-8 grid grid-cols-12 gap-8 mt-4">
-                {isViewOnly && (
+                {isZoningReadonly && (
+                    <div className="col-span-12 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">⚠️ Awaiting Engineering Endorsement</p>
+                            <p className="text-[11px] font-medium opacity-90">This building permit application has not yet been endorsed by the Municipal Engineer. Currently viewing in read-only mode.</p>
+                        </div>
+                    </div>
+                )}
+
+                {isViewOnly && !isZoningReadonly && (
                     <div className="col-span-12 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
                         <div>
                             <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">📜 Archival Phase View Mode</p>
                             <p className="text-[11px] font-medium opacity-90">{transaction?.status === "REJECTED" ? "This building permit application has been officially rejected." : "You are reviewing the historical Site Inspection phase record in read-only mode."}</p>
                         </div>
                         {transaction?.status !== "REJECTED" && (
-                            <Button onClick={() => router.push(`/admin/engineer/${id}`)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">
+                            <Button onClick={() => router.push(`/admin/zoning/${id}`)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">
                                 Return to Active Phase
                             </Button>
                         )}
@@ -482,11 +254,11 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                 {/* Left Column */}
                 <div className="col-span-12 lg:col-span-8 space-y-8">
                     {/* Header Banner */}
-                    <div className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 dark:from-purple-500/5 dark:to-indigo-500/5 border border-purple-500/20 dark:border-purple-500/10 rounded-[2rem] p-8 flex items-center justify-between shadow-sm relative overflow-hidden">
+                    <div className="bg-gradient-to-r from-purple-500/10 to-[#0c4a6e]/10 dark:from-purple-500/5 dark:to-[#0c4a6e]/5 border border-purple-500/20 dark:border-purple-500/10 rounded-[2rem] p-8 flex items-center justify-between shadow-sm relative overflow-hidden">
                         <div className="space-y-2 relative z-10">
                             <span className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 tracking-[0.2em] italic">Phase 2: Site Verification</span>
-                            <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">SITE INSPECTION CENTER</h2>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Verify structural, electrical, and sanitary parameters on-site. Record results or schedule re-inspection if necessary.</p>
+                            <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">ZONING INSPECTION CENTER</h2>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Verify structural, electrical, and sanitary parameters on-site. Record results or track re-inspection if necessary.</p>
                         </div>
                         <div className="text-5xl font-black italic text-purple-500/20 select-none hidden md:block">INSPECTION</div>
                     </div>
@@ -581,134 +353,6 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                                     {resident?.houseNumber || ""} {resident?.street || ""} {resident?.barangay ? `${resident.barangay}, Mapandan, Pangasinan` : "--"}
                                 </div>
                             </div>
-
-                            {/* Government ID Section */}
-                            {(() => {
-                                const newIdFile = additional?.documents?.newIdFile;
-                                const newIdFileBack = additional?.documents?.newIdFileBack;
-                                if (newIdFile) {
-                                    return (
-                                        <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
-                                            <div className="flex items-center gap-2">
-                                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Uploaded Government ID</label>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-6 max-w-2xl">
-                                                <Dialog>
-                                                    <DialogTrigger asChild>
-                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
-                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Front)</p>
-                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(newIdFile) ? newIdFile : "/placeholder.png"} alt="Government ID Front" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                            </div>
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                                    <ZoomIn className="w-4 h-4 text-white" />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </DialogTrigger>
-                                                    <LightboxView src={newIdFile} alt="Government ID Front" label="Government ID Front" />
-                                                </Dialog>
-
-                                                {newIdFileBack && (
-                                                    <Dialog>
-                                                        <DialogTrigger asChild>
-                                                            <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
-                                                                <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Back)</p>
-                                                                <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                    <Image src={isValidUrl(newIdFileBack) ? newIdFileBack : "/placeholder.png"} alt="Government ID Back" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                                </div>
-                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                    <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                                        <ZoomIn className="w-4 h-4 text-white" />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </DialogTrigger>
-                                                        <LightboxView src={newIdFileBack} alt="Government ID Back" label="Government ID Back" />
-                                                    </Dialog>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                }
-
-                                const idFront = additional?.validIdFront || additional?.idFrontUrl || resident?.idFrontUrl || resident?.idFileUrl;
-                                const idBack = additional?.validIdBack || additional?.idBackUrl || resident?.idBackUrl;
-                                if (!idFront && !idBack) return null;
-                                return (
-                                    <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
-                                        <div className="flex items-center gap-2">
-                                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Resident ID Verification Documents</label>
-                                            {resident?.idType && (
-                                                <Badge variant="outline" className="text-[9px] font-bold uppercase border-primary/20 text-primary py-0 px-2 h-5">
-                                                    ID Type: {resident.idType}
-                                                </Badge>
-                                            )}
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-6 max-w-2xl">
-                                            {idFront && (
-                                                <Dialog>
-                                                    <DialogTrigger asChild>
-                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
-                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Front ID</p>
-                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(idFront) ? idFront : "/placeholder.png"} alt="Front ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                            </div>
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                                    <ZoomIn className="w-4 h-4 text-white" />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </DialogTrigger>
-                                                    <LightboxView src={idFront} alt="Front ID" label="Front ID" />
-                                                </Dialog>
-                                            )}
-                                            {idBack && (
-                                                <Dialog>
-                                                    <DialogTrigger asChild>
-                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
-                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Back ID</p>
-                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(idBack) ? idBack : "/placeholder.png"} alt="Back ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                            </div>
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                                    <ZoomIn className="w-4 h-4 text-white" />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </DialogTrigger>
-                                                    <LightboxView src={idBack} alt="Back ID" label="Back ID" />
-                                                </Dialog>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* Applicant E-Signature Section */}
-                            {additional?.signature && (
-                                <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
-                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Applicant Digital E-Signature</label>
-                                    <div className="max-w-[240px] bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 p-4">
-                                        <Dialog>
-                                            <DialogTrigger asChild>
-                                                <div className="group relative aspect-video rounded-xl overflow-hidden flex items-center justify-center cursor-zoom-in bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5">
-                                                    <img src={additional.signature} alt="E-Signature" className="max-h-20 object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                        <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                            <ZoomIn className="w-4 h-4 text-white" />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </DialogTrigger>
-                                            <LightboxView src={additional.signature} alt="E-Signature" label="Applicant E-Signature" />
-                                        </Dialog>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -746,7 +390,6 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                             </div>
                         </div>
                     </div>
-
                 </div>
 
                 {/* Right Column: Workflow Tracking & Executive Actions */}
@@ -757,13 +400,13 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                             {(() => {
                                 const handleStepClick = (stepId: string) => {
                                     if (stepId === "FOR_REQUESTING") {
-                                        router.push(`/admin/engineer/${id}/evaluation?view=true`);
+                                        router.push(`/admin/zoning/${id}/evaluation?view=true`);
                                     } else if (stepId === "FOR_INSPECTION") {
-                                        router.push(`/admin/engineer/${id}/inspection?view=true`);
+                                        router.push(`/admin/zoning/${id}/inspection?view=true`);
                                     } else if (stepId === "FOR_REINSPECTION") {
-                                        router.push(`/admin/engineer/${id}/reinspection?view=true`);
+                                        router.push(`/admin/zoning/${id}/reinspection?view=true`);
                                     } else if (stepId === "EVALUATED") {
-                                        router.push(`/admin/engineer/${id}/fees?view=true`);
+                                        router.push(`/admin/zoning/${id}/fees?view=true`);
                                     }
                                 };
                                 return steps.map((step, idx) => {
@@ -796,7 +439,7 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
 
                     {/* Executive Actions */}
                     <div className="space-y-4">
-                        {!isViewOnly && (userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
+                        {!isViewOnly && (userRole === "MPDC_ZONING" || userRole === "ENGINEER") && (
                             <div className="space-y-3">
                                 <Button onClick={handleEvaluate} disabled={actionLoading} className="w-full h-16 rounded-2xl bg-primary text-white font-black italic uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20">
                                     <Check className="w-4 h-4 mr-2" /> Approve Inspection
@@ -825,7 +468,7 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                                                     <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Structural Inspection">Structural Inspection</option>
                                                     <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Electrical Inspection">Electrical Inspection</option>
                                                     <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Sanitary/Plumbing Inspection">Sanitary/Plumbing Inspection</option>
-                                                    <option className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white" value="Complete Site Inspection">Complete Site Inspection</option>
+                                                    <option className="bg-white dark:bg-slate-950 text-slate-800 dark:text-white" value="Complete Site Inspection">Complete Site Inspection</option>
                                                 </select>
                                             </div>
                                             <div className="grid grid-cols-2 gap-4">
@@ -854,8 +497,8 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
                                         <DialogTrigger asChild>
                                             {(transaction.revisionCount || 0) < 3 && (
                                                 <Button onClick={() => { setIsRequestingRevision(true); setRemarks(""); }} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95">
-                                                                                                Request Revision
-                                                                                            </Button>
+                                                    Request Revision
+                                                </Button>
                                             )}
                                         </DialogTrigger>
                                         <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
