@@ -233,7 +233,7 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             data.waiting = sorted
                 .map(tx => tx.queueNumber)
                 .filter((num): num is string => !!num)
-                .slice(0, 5);
+                .slice(0, 8);
         }
 
         return queueData;

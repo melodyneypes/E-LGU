@@ -96,9 +96,10 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
 
     // Dynamically fetch transaction details if we are on a detail page
     React.useEffect(() => {
-        const hasId = segments.length === 3 && (segments[1] === "treasury" || segments[1] === "registrar") && isId(segments[2]);
+        const localSegments = (pathname || "").split("/").filter(Boolean);
+        const hasId = localSegments.length === 3 && (localSegments[1] === "treasury" || localSegments[1] === "registrar") && isId(localSegments[2]);
         if (hasId) {
-            const transactionId = segments[2];
+            const transactionId = localSegments[2];
             getTransactionById(transactionId).then((res) => {
                 if (res.success && res.data) {
                     setTxData(res.data);
@@ -111,7 +112,7 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
         } else {
             setTxData(null);
         }
-    }, [pathname, segments]);
+    }, [pathname]);
 
     // Check route type
     const isTreasuryDetail = segments.length === 3 && segments[0] === "admin" && segments[1] === "treasury" && isId(segments[2]);

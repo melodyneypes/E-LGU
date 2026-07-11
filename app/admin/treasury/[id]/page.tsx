@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -28,7 +27,8 @@ import {
 } from "@/app/admin/transactions/business-permit-actions";
 import {
     confirmTransactionPaymentWithReceipt,
-    releaseCedula
+    releaseCedula,
+    processOnsitePaymentAndReleaseAction
 } from "@/app/admin/transactions/cedula-actions";
 import { releaseBirthRegistry } from "@/app/admin/transactions/birth-regis-actions";
 import { releaseBirthCertificate } from "@/app/admin/transactions/birth-cert-actions";
@@ -239,7 +239,7 @@ export default function TreasuryDetailPage() {
     const categoryQuery = searchParams.get("category");
     const [transaction, setTransaction] = useState<any>(null);
     const typeCodeForBack = (transaction?.type?.code || "").toUpperCase();
-    const isLcrTx = typeCodeForBack.startsWith("LCR_") || typeCodeForBack.startsWith("CIVIL_REGISTRY") || (transaction?.type?.name && (transaction.type.name.includes("Certificate") || transaction.type.name.includes("Registration")));
+    const isLcrTx = !typeCodeForBack.includes("CEDULA") && (typeCodeForBack.startsWith("LCR_") || typeCodeForBack.startsWith("CIVIL_REGISTRY") || (transaction?.type?.name && (transaction.type.name.includes("Certificate") || transaction.type.name.includes("Registration"))));
 
     const fallbackCategory = isLcrTx
         ? "Civil Registry"
@@ -561,53 +561,7 @@ export default function TreasuryDetailPage() {
         }
     }, [id]);
 
-    useEffect(() => {
-        if (!supabase || !id || isNavigatingToQueue) return;
 
-        console.log(`Subscribing to Supabase Realtime for transaction ${id}...`);
-        let channel: any;
-        try {
-            channel = supabase
-                .channel(`realtime-treasury-transaction-${id}`)
-                .on(
-                    "postgres_changes",
-                    {
-                        event: "*",
-                        schema: "public",
-                        table: "Transaction",
-                        filter: `id=eq.${id}`,
-                    },
-                    (payload: any) => {
-                        console.log(`[Realtime Treasury Detail] Change detected on Transaction table:`, payload);
-                        if (payload.new?.id === id || payload.old?.id === id) {
-                            console.log(`[Realtime Treasury Detail] Match found for transaction ${id}, refreshing...`);
-                            fetchTransaction(true).catch(err => {
-                                console.error("Realtime fetchTransaction failed:", err);
-                            });
-                        }
-                    }
-                )
-                .subscribe((status: string, err?: any) => {
-                    console.log(`[Realtime Treasury Detail] Subscription status for ${id}:`, status);
-                    if (err) {
-                        console.warn("Supabase Realtime subscription notice:", err);
-                    }
-                    if (status === "CHANNEL_ERROR") {
-                        console.warn("Supabase Realtime channel reconnecting/idle");
-                    }
-                });
-        } catch (error) {
-            console.warn("Failed to initialize Supabase Realtime subscription:", error);
-        }
-
-        return () => {
-            console.log(`Unsubscribing from Supabase Realtime for transaction ${id}...`);
-            if (channel) {
-                supabase.removeChannel(channel);
-            }
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, isNavigatingToQueue]);
 
     useEffect(() => {
         if (!session) return;
@@ -1597,95 +1551,42 @@ export default function TreasuryDetailPage() {
                 }
             }
 
-            const uploadedDocUrl = "";
             const lcrMiscFee = isLCR && additional.miscFee !== undefined ? Number(additional.miscFee) : undefined;
-
-            // 1. Run evaluation logic
-            const evalRes = transaction.isStudent
-                ? await evaluateStudentCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber)
-                : typeCode === "LCR_DEATH"
-                    ? await evaluateDeathCertificateTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee)
-                    : typeCode === "LCR_MARRIAGE_REG"
-                        ? await evaluateMarriageRegistrationTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee, true)
-                        : typeCode === "LCR_MARRIAGE_LICENSE"
-                            ? await evaluateMarriageLicenseTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee)
-                            : await evaluateCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee);
-
-            if (!evalRes.success) {
-                toast.error(evalRes.error || "Failed to evaluate transaction");
-                setActionLoading(false);
-                setIsNavigatingToQueue(false);
-                return;
-            }
-
-            // Calculate live sum
             const itemsSum = feeLineItems.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
             const totalDue = displayTotal + itemsSum;
 
-            // 2. Build payment confirmation formData
-            const formData = new FormData();
-            formData.append("id", transaction.id);
-            formData.append("paymentMethod", method);
-            
-            let paymentRemarks = remarks || "";
-            if (method === "CASH" && amountTendered !== undefined) {
-                const changeAmt = Math.max(0, amountTendered - totalDue);
-                paymentRemarks = `[Onsite Cash Payment] Tendered: ₱${amountTendered.toFixed(2)} | Change: ₱${changeAmt.toFixed(2)}${remarks ? ` | Remarks: ${remarks}` : ""}`;
-            } else {
-                paymentRemarks = `[Onsite ${method} Payment]${remarks ? ` | Remarks: ${remarks}` : ""}`;
-            }
-            formData.append("remarks", paymentRemarks);
-            if (orSeriesNumber) formData.append("orSeriesNumber", orSeriesNumber);
-            if (paymentReference) formData.append("paymentReference", paymentReference);
+            const res = await processOnsitePaymentAndReleaseAction({
+                transactionId: transaction.id,
+                typeCode,
+                isStudent: !!transaction.isStudent,
+                deliveryFee,
+                remarks,
+                itemsToSend,
+                registryBookVerification,
+                orSeriesNumber,
+                miscFee: lcrMiscFee,
+                paymentMethod: method,
+                amountTendered,
+                paymentReference,
+                totalDue,
+                ctcNumber: ctcNumber || transaction?.cedula?.ctcNumber || ""
+            });
 
-            const confirmRes = await confirmTransactionPaymentWithReceipt(formData);
-            if (!confirmRes.success) {
-                toast.error(confirmRes.error || "Failed to confirm payment");
+            if (!res.success) {
+                toast.error(res.error || "Failed to process payment and release");
                 setActionLoading(false);
                 setIsNavigatingToQueue(false);
                 return;
             }
 
             toast.success("Transaction Marked as Paid & Released successfully!");
-
-            // 3. Transition to processing
-            const releaseFn = typeCode === "LCR_BIRTH"
-                ? releaseBirthCertificate
-                : typeCode === "LCR_BIRTH_REG"
-                    ? releaseBirthRegistry
-                    : typeCode === "LCR_DEATH"
-                        ? releaseDeathCertificate
-                        : typeCode === "LCR_DEATH_REG"
-                            ? releaseDeathRegistry
-                            : typeCode === "LCR_MARRIAGE_REG"
-                                ? releaseMarriageRegistry
-                                : typeCode === "LCR_MARRIAGE_LICENSE"
-                                    ? releaseMarriageLicense
-                                    : typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT"
-                                        ? releaseMarriagePsaEndorsement
-                                        : typeCode === "LCR_PSA_ENDORSEMENT"
-                                            ? releaseBirthPsaEndorsement
-                                            : typeCode === "LCR_DEATH_PSA_ENDORSEMENT"
-                                                ? releaseDeathPsaEndorsement
-                                                : releaseCedula;
-
-            const rel = await releaseFn(
-                transaction.id, 
-                ctcNumber || transaction?.cedula?.ctcNumber || "",
-                undefined,
-                (confirmRes.data?.additionalData as any)?.orDocumentUrl
-            );
-
-            if (!rel.success) {
-                toast.error(rel.error || "Failed to release transaction");
-            }
             setIsNavigatingToQueue(true);
+
             if (typeCode.includes("CEDULA") || ["UNPAID", "FOR_PROCESSING", "PAID"].includes(transaction.status)) {
                 router.push("/admin/treasury/queue");
             } else {
                 router.push(backUrl);
             }
-            // Keep loading state active during redirect transition
             return;
 
         } catch (err: any) {
@@ -2184,6 +2085,8 @@ export default function TreasuryDetailPage() {
         renderView = <BusinessPermitView {...viewProps} />;
     } else if (isBuildingPermit) {
         renderView = <BuildingPermitView {...viewProps} />;
+    } else if (typeCode.includes("CEDULA")) {
+        renderView = <GenericServiceView {...viewProps} />;
     } else if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT") {
         renderView = <BirthPsaEndorsementView {...viewProps} />;
     } else if (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") {
