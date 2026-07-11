@@ -98,4 +98,5 @@ export interface TreasuryViewProps {
     handleProcessRequest?: () => Promise<void>;
     handleMarkAppointmentAttended?: () => Promise<void>;
     handleCollectPsaPayment?: () => Promise<void>;
+    handleFinishAppointmentToTreasury?: () => Promise<void>;
 }

@@ -82,6 +82,7 @@ export async function fetchAndCallNextTicket(counterName: string) {
         const transactions = await prisma.transaction.findMany({
             where: {
                 OR: [
+                    // CEDULA walk-ins
                     {
                         type: {
                             processorRole: "TREASURY_STAFF",
@@ -91,8 +92,24 @@ export async function fetchAndCallNextTicket(counterName: string) {
                             in: ["FOR_REQUESTING", "FOR_INSPECTION"]
                         }
                     },
+                    // Standard UNPAID transactions
                     {
                         status: "UNPAID"
+                    },
+                    // PSA Appointment Endorsements awaiting Treasury counter payment
+                    {
+                        type: {
+                            code: {
+                                in: [
+                                    "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+                                    "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+                                    "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                                ]
+                            }
+                        },
+                        status: {
+                            in: ["FOR_CLAIM", "FOR_PICKING"]
+                        }
                     }
                 ],
                 isCancelled: false,
@@ -381,6 +398,7 @@ export async function getTreasuryQueueTickets(counterName: string) {
         const waiting = await prisma.transaction.findMany({
             where: {
                 OR: [
+                    // CEDULA walk-ins waiting at treasury
                     {
                         type: {
                             processorRole: "TREASURY_STAFF",
@@ -390,15 +408,42 @@ export async function getTreasuryQueueTickets(counterName: string) {
                             in: ["FOR_REQUESTING", "FOR_INSPECTION"]
                         }
                     },
+                    // Standard UNPAID transactions waiting to pay
                     {
-                        status: "UNPAID"
+                        status: "UNPAID",
+                        NOT: {
+                            type: {
+                                code: {
+                                    in: [
+                                        "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+                                        "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+                                        "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    // PSA Appointment Endorsements awaiting Treasury counter payment
+                    {
+                        type: {
+                            code: {
+                                in: [
+                                    "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+                                    "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+                                    "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                                ]
+                            }
+                        },
+                        status: {
+                            in: ["UNPAID", "FOR_CLAIM", "FOR_PICKING"]
+                        },
+                        appointmentDate: {
+                            gte: startOfDay,
+                            lte: endOfDay
+                        }
                     }
                 ],
                 isCancelled: false,
-                appointmentDate: {
-                    gte: startOfDay,
-                    lte: endOfDay
-                },
                 additionalData: {
                     path: ["checkedIn"],
                     equals: true
@@ -418,10 +463,6 @@ export async function getTreasuryQueueTickets(counterName: string) {
             where: {
                 status: "FOR_PROCESSING",
                 isCancelled: false,
-                appointmentDate: {
-                    gte: startOfDay,
-                    lte: endOfDay
-                },
                 additionalData: {
                     path: ["counterName"],
                     equals: counterName
@@ -476,7 +517,7 @@ export async function getRegistrarQueueTickets(counterName: string) {
                     { type: { code: { startsWith: "LCR_" } } },
                     { type: { code: { startsWith: "CIVIL_REGISTRY" } } }
                 ],
-                status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] },
+                status: { in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_CLAIM", "FOR_PICKING"] },
                 isCancelled: false,
             },
             include: {
@@ -507,7 +548,7 @@ export async function getRegistrarQueueTickets(counterName: string) {
                     { type: { code: { startsWith: "LCR_" } } },
                     { type: { code: { startsWith: "CIVIL_REGISTRY" } } }
                 ],
-                status: "FOR_PROCESSING",
+                status: { in: ["FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING"] },
                 isCancelled: false,
             },
             include: {
@@ -555,7 +596,7 @@ export async function fetchAndCallNextRegistrarTicket(counterName: string) {
                     { type: { code: { startsWith: "LCR_" } } },
                     { type: { code: { startsWith: "CIVIL_REGISTRY" } } }
                 ],
-                status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] },
+                status: { in: ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_CLAIM", "FOR_PICKING"] },
                 isCancelled: false,
             }
         });

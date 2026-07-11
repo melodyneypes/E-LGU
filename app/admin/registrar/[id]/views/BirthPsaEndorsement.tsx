@@ -23,6 +23,7 @@ import {
     CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
+import { callSpecificRegistrarTicket } from "@/app/admin/transactions/calling-actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -74,12 +75,6 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
         currentStepIdx,
         branding,
         calcResult,
-        registryBookVerification,
-        setRegistryBookVerification,
-        birthRegDocFile,
-        setBirthRegDocFile,
-        birthRegDocPreview,
-        setBirthRegDocPreview,
         orSeriesNumber,
         setOrSeriesNumber,
         handleViewFile,
@@ -92,10 +87,31 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
         handleProcessRequest,
         handlePrintWaybill,
         handleMarkAppointmentAttended,
-        handleCollectPsaPayment
+        handleCollectPsaPayment,
+        handleFinishAppointmentToTreasury
     } = props;
 
     const [isAssessmentOpen, setIsAssessmentOpen] = React.useState(true);
+    const handleCallInQueue = async () => {
+        const activeCounter = typeof window !== "undefined" ? localStorage.getItem("activeCounterName") : null;
+        if (!activeCounter) {
+            toast.error("Please configure your active counter/window first using the Set Counter selector.");
+            return;
+        }
+
+        try {
+            const res = await callSpecificRegistrarTicket(transaction.id, activeCounter);
+            if (res.success) {
+                toast.success(`Successfully called ticket: ${transaction.queueNumber}`);
+                window.location.href = "/admin/registrar/queue";
+            } else {
+                toast.error(res.error || "Failed to call ticket.");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to call ticket.");
+        }
+    };
     const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
     const additional = transaction.additionalData || {};
 
@@ -339,6 +355,25 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                     Birth PSA Endorsement Information
                                 </h3>
                             </div>
+                            {isAppointmentEndorsement && (transaction.appointmentDate || transaction.appointmentSlot) && (
+                                <div className="p-6 rounded-3xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100/70 dark:border-amber-900/50 flex flex-col gap-1.5 animate-in fade-in duration-300">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 italic">
+                                        📅 Scheduled Appointment
+                                    </span>
+                                    <div className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                        {transaction.appointmentDate && (
+                                            <span>
+                                                {new Date(transaction.appointmentDate).toLocaleDateString("en-PH", { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                                            </span>
+                                        )}
+                                        {transaction.appointmentSlot && (
+                                            <span className="text-slate-500 dark:text-slate-400">
+                                                {transaction.appointmentDate ? " • " : ""}{transaction.appointmentSlot}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                 <div className="space-y-6">
@@ -401,7 +436,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                         </div>
 
                         {/* ATTACHMENT CARD FOR EVIDENCE */}
-                        {((psaNegativeCertUrl || form1aUrl) && (
+                        {(psaNegativeCertUrl || form1aUrl) && (
                             <div className="bg-white dark:bg-[#151b28] rounded-[2.5rem] p-12 shadow-xl dark:shadow-2xl border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e293b] dark:text-white leading-none">
                                     Submitted Identifications & Requirements
@@ -475,7 +510,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                     })()}
                                 </div>
                             </div>
-                        ))}
+                        )}
                     </div>
 
                     {/* Right Column: Workflow Actions Controls */}
@@ -1079,7 +1114,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                         )}
 
                         {/* REGISTRAR RELEASE FOR CLAIM ACTION */}
-                        {transaction.status === "FOR_CLAIM" && !isAppointmentEndorsement && (
+                        {transaction.status === "FOR_CLAIM" && (
                             <div className="space-y-6">
                                 <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-6">
                                     <div className="text-center space-y-3">
@@ -1088,24 +1123,36 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                         </div>
                                         <h4 className="text-sm font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200 font-bold">Document Ready for Claiming</h4>
                                         <p className="text-xs text-slate-400 italic max-w-sm mx-auto">
-                                            The document has been verified and processed. Please click below to officially release the document and notify the resident.
+                                            {additional.servingDepartment === "Registrar" && additional.counterName
+                                                ? "The document has been verified and processed. Please click below to officially release the document and notify the resident."
+                                                : "The document has been verified and processed. Please call the resident in the queue to release the document."}
                                         </p>
                                     </div>
                                 </div>
 
-                                <Button
-                                    onClick={handleRelease}
-                                    disabled={actionLoading}
-                                    className={`w-full h-14 rounded-2xl text-xs font-black uppercase tracking-wider italic text-white ${themeColor} shadow-lg active:scale-95 transition-all shadow-emerald-500/10`}
-                                >
-                                    {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                    Release the Document
-                                </Button>
+                                {additional.servingDepartment === "Registrar" && additional.counterName ? (
+                                    <Button
+                                        onClick={handleRelease}
+                                        disabled={actionLoading}
+                                        className={`w-full h-14 rounded-2xl text-xs font-black uppercase tracking-wider italic text-white ${themeColor} shadow-lg active:scale-95 transition-all shadow-emerald-500/10`}
+                                    >
+                                        {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                        Release the Document
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        onClick={handleCallInQueue}
+                                        disabled={actionLoading}
+                                        className={`w-full h-14 rounded-2xl text-xs font-black uppercase tracking-wider italic text-white ${themeColor} shadow-lg active:scale-95 transition-all shadow-emerald-500/10`}
+                                    >
+                                        Call in the Queue
+                                    </Button>
+                                )}
                             </div>
                         )}
 
                         {/* PSA APPOINTMENT: WAITING FOR TREASURY COUNTER PAYMENT */}
-                        {(transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING" || transaction.status === "FOR_PROCESSING") && isAppointmentEndorsement && (
+                        {transaction.status === "FOR_PROCESSING" && isAppointmentEndorsement && (
                             <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                                 <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
                                     <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
@@ -1116,6 +1163,16 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                         The application has been endorsed to the PSA. The citizen will pay the counter fee at the Treasury Office. Treasury staff will issue the Official Receipt to complete the transaction.
                                     </p>
                                 </div>
+                                {transaction.status === "FOR_PROCESSING" && handleFinishAppointmentToTreasury && (
+                                    <Button
+                                        onClick={handleFinishAppointmentToTreasury}
+                                        disabled={actionLoading}
+                                        className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all shadow-emerald-500/20"
+                                    >
+                                        {actionLoading && <RotateCw className="w-4 h-4 animate-spin" />}
+                                        ✓ Finish Appointment — Transfer to Treasury
+                                    </Button>
+                                )}
                             </div>
                         )}
 

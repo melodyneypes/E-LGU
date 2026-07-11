@@ -61,9 +61,9 @@ export default function RegistrarLedgerPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
-    // Get selected type from search params: BIRTH, DEATH, MARRIAGE, or PSA. Defaults to BIRTH.
+    // Get selected type from search params: BIRTH, DEATH, MARRIAGE, or PSA. Defaults to PSA.
     const queryType = searchParams.get("type");
-    const selectedType = (queryType === "DEATH" || queryType === "MARRIAGE" || queryType === "PSA") ? queryType : "BIRTH";
+    const selectedType = (queryType === "BIRTH" || queryType === "DEATH" || queryType === "MARRIAGE") ? queryType : "PSA";
 
     // --- Unified Transactions States ---
     const [transactions, setTransactions] = useState<any[]>([]);

@@ -46,7 +46,7 @@ import { releaseMarriageLicense, evaluateMarriageLicenseTransaction, processMarr
 import { releaseMarriageRegistry, evaluateMarriageRegistrationTransaction } from "@/app/admin/transactions/marriage-regis-actions";
 import { releaseMarriageCertificate, evaluateMarriageCertificateTransaction } from "@/app/admin/transactions/marriage-cert-actions";
 import { releaseMarriagePsaEndorsement } from "@/app/admin/transactions/marriage-endorsement-actions";
-import { releaseBirthPsaEndorsement, markPsaAppointmentAttended, collectPsaAppointmentPayment } from "@/app/admin/transactions/birth-endorsement-actions";
+import { releaseBirthPsaEndorsement, markPsaAppointmentAttended, collectPsaAppointmentPayment, finishPsaAppointmentToTreasury } from "@/app/admin/transactions/birth-endorsement-actions";
 import { releaseDeathPsaEndorsement } from "@/app/admin/transactions/death-endorsement-actions";
 import { calculateCedula } from "@/lib/cedula";
 import { calculateBusinessPermit } from "@/lib/business-permit";
@@ -832,6 +832,21 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         }
     };
 
+    const handleFinishAppointmentToTreasury = async () => {
+        setActionLoading(true);
+        try {
+            const res = await finishPsaAppointmentToTreasury(transaction.id);
+            if (res.success) {
+                toast.success("Appointment finished! Transaction transferred to Treasury queue.");
+                router.push(backUrl);
+            } else {
+                toast.error(res.error || "Failed to transfer to Treasury.");
+            }
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const handleEvaluate = async () => {
         setActionLoading(true);
         try {
@@ -1476,8 +1491,9 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         ) {
             return [
                 { id: "ATTEND_APPOINTMENT", label: "Attend Appointment" },
+                { id: "RESIDENT_CHECKIN", label: "Resident Check-In" },
                 { id: "TREASURY_OR", label: "Treasury: Issue O.R." },
-                { id: "TREASURY_RELEASE", label: "Treasury: Release" }
+                { id: "TREASURY_RELEASE", label: "Registrar: Release" }
             ];
         }
         const stepsList = [
@@ -1571,10 +1587,10 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
             typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
         ) {
-            if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED", "EVALUATED", "UNPAID"].includes(s)) {
-                return "ATTEND_APPOINTMENT";
+            if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED", "EVALUATED", "FOR_PROCESSING"].includes(s)) {
+                return "RESIDENT_CHECKIN";
             }
-            if (s === "FOR_PROCESSING") {
+            if (s === "UNPAID") {
                 return "TREASURY_OR";
             }
             return "TREASURY_RELEASE";
@@ -1915,7 +1931,8 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         setMiscFee,
         handleProcessRequest,
         handleMarkAppointmentAttended,
-        handleCollectPsaPayment
+        handleCollectPsaPayment,
+        handleFinishAppointmentToTreasury
     };
 
     if (typeCode === "LCR_MARRIAGE") {

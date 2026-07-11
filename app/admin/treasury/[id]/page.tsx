@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
@@ -1161,8 +1159,9 @@ export default function TreasuryDetailPage() {
         ) {
             return [
                 { id: "ATTEND_APPOINTMENT", label: "Attend Appointment" },
+                { id: "RESIDENT_CHECKIN", label: "Resident Check-In" },
                 { id: "TREASURY_OR", label: "Treasury: Issue O.R." },
-                { id: "TREASURY_RELEASE", label: "Treasury: Release" }
+                { id: "TREASURY_RELEASE", label: "Registrar: Release" }
             ];
         }
         return [
@@ -1232,10 +1231,10 @@ export default function TreasuryDetailPage() {
             typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
             typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
         ) {
-            if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED", "EVALUATED"].includes(s)) {
-                return "ATTEND_APPOINTMENT";
+            if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED", "EVALUATED", "FOR_PROCESSING"].includes(s)) {
+                return "RESIDENT_CHECKIN";
             }
-            if (s === "UNPAID" || s === "FOR_PROCESSING") {
+            if (s === "UNPAID") {
                 return "TREASURY_OR";
             }
             return "TREASURY_RELEASE";

@@ -1953,13 +1953,24 @@ export async function getPendingTreasuryCount() {
             isCancelled: false
         };
 
-        // TREASURY_STAFF should not count Business Permits in pre-screening status
-        where.NOT = {
-            AND: [
-                { type: { code: { startsWith: "BUSINESS_PERMIT" } } },
-                { status: { in: ["FOR_INSPECTION"] } }
-            ]
-        };
+        where.AND = [
+            {
+                NOT: {
+                    AND: [
+                        { type: { code: { startsWith: "BUSINESS_PERMIT" } } },
+                        { status: { in: ["FOR_INSPECTION"] } }
+                    ]
+                }
+            },
+            {
+                NOT: {
+                    AND: [
+                        { type: { code: { in: ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"] } } },
+                        { status: "FOR_REQUESTING" }
+                    ]
+                }
+            }
+        ];
 
         const count = await prisma.transaction.count({
             where
@@ -1988,12 +1999,24 @@ export async function getTreasuryStatusCounts() {
             isCancelled: false
         };
 
-        where.NOT = {
-            AND: [
-                { type: { code: { startsWith: "BUSINESS_PERMIT" } } },
-                { status: { in: ["FOR_INSPECTION"] } }
-            ]
-        };
+        where.AND = [
+            {
+                NOT: {
+                    AND: [
+                        { type: { code: { startsWith: "BUSINESS_PERMIT" } } },
+                        { status: { in: ["FOR_INSPECTION"] } }
+                    ]
+                }
+            },
+            {
+                NOT: {
+                    AND: [
+                        { type: { code: { in: ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"] } } },
+                        { status: "FOR_REQUESTING" }
+                    ]
+                }
+            }
+        ];
 
         const grouped = await prisma.transaction.groupBy({
             by: ["status"],
