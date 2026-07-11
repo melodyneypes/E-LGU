@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -28,7 +27,8 @@ import {
 } from "@/app/admin/transactions/business-permit-actions";
 import {
     confirmTransactionPaymentWithReceipt,
-    releaseCedula
+    releaseCedula,
+    processOnsitePaymentAndReleaseAction
 } from "@/app/admin/transactions/cedula-actions";
 import { releaseBirthRegistry } from "@/app/admin/transactions/birth-regis-actions";
 import { releaseBirthCertificate } from "@/app/admin/transactions/birth-cert-actions";
@@ -1551,95 +1551,42 @@ export default function TreasuryDetailPage() {
                 }
             }
 
-            const uploadedDocUrl = "";
             const lcrMiscFee = isLCR && additional.miscFee !== undefined ? Number(additional.miscFee) : undefined;
-
-            // 1. Run evaluation logic
-            const evalRes = transaction.isStudent
-                ? await evaluateStudentCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber)
-                : typeCode === "LCR_DEATH"
-                    ? await evaluateDeathCertificateTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee)
-                    : typeCode === "LCR_MARRIAGE_REG"
-                        ? await evaluateMarriageRegistrationTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee, true)
-                        : typeCode === "LCR_MARRIAGE_LICENSE"
-                            ? await evaluateMarriageLicenseTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee)
-                            : await evaluateCedulaTransaction(transaction.id, deliveryFee, remarks, itemsToSend, registryBookVerification, uploadedDocUrl, orSeriesNumber, lcrMiscFee);
-
-            if (!evalRes.success) {
-                toast.error(evalRes.error || "Failed to evaluate transaction");
-                setActionLoading(false);
-                setIsNavigatingToQueue(false);
-                return;
-            }
-
-            // Calculate live sum
             const itemsSum = feeLineItems.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
             const totalDue = displayTotal + itemsSum;
 
-            // 2. Build payment confirmation formData
-            const formData = new FormData();
-            formData.append("id", transaction.id);
-            formData.append("paymentMethod", method);
-            
-            let paymentRemarks = remarks || "";
-            if (method === "CASH" && amountTendered !== undefined) {
-                const changeAmt = Math.max(0, amountTendered - totalDue);
-                paymentRemarks = `[Onsite Cash Payment] Tendered: ₱${amountTendered.toFixed(2)} | Change: ₱${changeAmt.toFixed(2)}${remarks ? ` | Remarks: ${remarks}` : ""}`;
-            } else {
-                paymentRemarks = `[Onsite ${method} Payment]${remarks ? ` | Remarks: ${remarks}` : ""}`;
-            }
-            formData.append("remarks", paymentRemarks);
-            if (orSeriesNumber) formData.append("orSeriesNumber", orSeriesNumber);
-            if (paymentReference) formData.append("paymentReference", paymentReference);
+            const res = await processOnsitePaymentAndReleaseAction({
+                transactionId: transaction.id,
+                typeCode,
+                isStudent: !!transaction.isStudent,
+                deliveryFee,
+                remarks,
+                itemsToSend,
+                registryBookVerification,
+                orSeriesNumber,
+                miscFee: lcrMiscFee,
+                paymentMethod: method,
+                amountTendered,
+                paymentReference,
+                totalDue,
+                ctcNumber: ctcNumber || transaction?.cedula?.ctcNumber || ""
+            });
 
-            const confirmRes = await confirmTransactionPaymentWithReceipt(formData);
-            if (!confirmRes.success) {
-                toast.error(confirmRes.error || "Failed to confirm payment");
+            if (!res.success) {
+                toast.error(res.error || "Failed to process payment and release");
                 setActionLoading(false);
                 setIsNavigatingToQueue(false);
                 return;
             }
 
             toast.success("Transaction Marked as Paid & Released successfully!");
-
-            // 3. Transition to processing
-            const releaseFn = typeCode === "LCR_BIRTH"
-                ? releaseBirthCertificate
-                : typeCode === "LCR_BIRTH_REG"
-                    ? releaseBirthRegistry
-                    : typeCode === "LCR_DEATH"
-                        ? releaseDeathCertificate
-                        : typeCode === "LCR_DEATH_REG"
-                            ? releaseDeathRegistry
-                            : typeCode === "LCR_MARRIAGE_REG"
-                                ? releaseMarriageRegistry
-                                : typeCode === "LCR_MARRIAGE_LICENSE"
-                                    ? releaseMarriageLicense
-                                    : typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT"
-                                        ? releaseMarriagePsaEndorsement
-                                        : typeCode === "LCR_PSA_ENDORSEMENT"
-                                            ? releaseBirthPsaEndorsement
-                                            : typeCode === "LCR_DEATH_PSA_ENDORSEMENT"
-                                                ? releaseDeathPsaEndorsement
-                                                : releaseCedula;
-
-            const rel = await releaseFn(
-                transaction.id, 
-                ctcNumber || transaction?.cedula?.ctcNumber || "",
-                undefined,
-                (confirmRes.data?.additionalData as any)?.orDocumentUrl
-            );
-
-            if (!rel.success) {
-                toast.error(rel.error || "Failed to release transaction");
-            }
             setIsNavigatingToQueue(true);
+
             if (typeCode.includes("CEDULA") || ["UNPAID", "FOR_PROCESSING", "PAID"].includes(transaction.status)) {
                 router.push("/admin/treasury/queue");
             } else {
                 router.push(backUrl);
             }
-            // Keep loading state active during redirect transition
             return;
 
         } catch (err: any) {
