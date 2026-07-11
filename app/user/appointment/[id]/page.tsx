@@ -184,8 +184,22 @@ export default function AppointmentDetailsPage() {
         const status = request.status;
         switch (status) {
             case "FOR_REVISION": return { color: "text-amber-500 bg-amber-500/10 border-amber-500/20", label: "REVISION REQUIRED", icon: AlertCircle };
-            case "FOR_REQUESTING": return { color: "text-white bg-primary border-transparent", label: "AWAITING EVALUATION", icon: Clock };
-            case "FOR_INSPECTION": return { color: "text-white bg-blue-600 border-transparent", label: "UNDER INSPECTION", icon: Search };
+            case "FOR_REQUESTING": {
+                const addData = (request.additionalData as any) || {};
+                return {
+                    color: "text-white bg-primary border-transparent",
+                    label: addData.checkedIn ? "AWAITING EVALUATION" : "AWAITING CHECK-IN",
+                    icon: Clock
+                };
+            }
+            case "FOR_INSPECTION": {
+                const addData = (request.additionalData as any) || {};
+                return {
+                    color: "text-white bg-blue-600 border-transparent",
+                    label: addData.checkedIn ? "AWAITING EVALUATION" : "AWAITING CHECK-IN",
+                    icon: Search
+                };
+            }
             case "EVALUATED":
                 if (request?.type?.code?.startsWith("LCR_") || request?.type?.code?.startsWith("CIVIL_REGISTRY")) {
                     return { color: "text-white bg-emerald-600 border-transparent", label: "APPOINTMENT CONFIRMED", icon: CheckCircle2 };
@@ -226,6 +240,9 @@ export default function AppointmentDetailsPage() {
     const isBuildingPermit = request.type?.code?.startsWith("BUILDING_PERMIT");
     const isBusinessPermit = request.type?.code?.startsWith("BUSINESS_PERMIT");
     const isCivilRegistry = request.type?.code?.startsWith("LCR_") || request.type?.code?.startsWith("CIVIL_REGISTRY");
+    const isAppointmentPsa = request.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+        request.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+        request.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
 
     return (
         <div className="min-h-screen bg-white dark:bg-[#0a0c10] pb-24" style={{ "--primary-theme": themeColor } as React.CSSProperties}>
@@ -362,7 +379,9 @@ export default function AppointmentDetailsPage() {
                                         {request.isCancelled
                                             ? `This appointment was cancelled on ${request.updatedAt ? formatPHDate(request.updatedAt) : "N/A"}.`
                                             : request.status === "FOR_REQUESTING"
-                                                ? "Your booking is currently queued. Please wait for the municipal assessor/evaluation team to approve."
+                                                ? (isAppointmentPsa
+                                                    ? "Please proceed to the Civil Registrar's office at your scheduled date and time for document verification."
+                                                    : "Your booking is currently queued. Please wait for the municipal assessor/evaluation team to approve.")
                                                 : request.status === "PAID"
                                                     ? "Payment received! Please proceed to the Municipal Office on your scheduled date to claim your document."
                                                     : "Your booking status has changed. Please read any evaluation comments below."

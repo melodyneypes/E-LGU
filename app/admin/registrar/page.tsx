@@ -75,12 +75,15 @@ function getDisplayStatus(tx: any): string {
     if (PSA_APPOINTMENT_CODES.includes(typeCode)) {
         switch (status) {
             case "FOR_INSPECTION":
-            case "FOR_REQUESTING": return "AWAITING EVALUATION";
+            case "FOR_REQUESTING": {
+                const addData = (tx.additionalData as any) || {};
+                return addData.checkedIn ? "AWAITING EVALUATION" : "AWAITING CHECK-IN";
+            }
             case "EVALUATED": return "APPOINTMENT CONFIRMED";
-            case "UNPAID": return "APPOINTMENT SCHEDULED";
+            case "UNPAID": return "PAYMENT DUE AT TREASURY";
             case "FOR_PROCESSING": return "AWAITING REGISTRAR ENDORSEMENT";
-            case "FOR_CLAIM":
-            case "FOR_PICKING": return "PAYMENT DUE AT TREASURY";
+            case "FOR_CLAIM": return "READY FOR CLAIMING";
+            case "FOR_PICKING": return "READY FOR DELIVERY";
             case "FOR_REINSPECTION": return "FOR PROCESSING";
             case "RELEASED": return "ENDORSED TO PSA";
             case "PAID": return "PAID";
@@ -299,8 +302,62 @@ export default function RegistrarPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [debouncedSearch, categoryParam, itemsPerPage]);
 
+    // --- List Filtering and Sorting ---
+    const filteredTransactions = useMemo(() => {
+        if (!hasSelectedCategory) return [];
+
+        return transactions.filter(tx => {
+            const rs = getResidentSnapshot(tx);
+            const name = `${rs.firstName || ''} ${rs.lastName || ''}`.trim().toLowerCase();
+            const refId = tx.id.slice(-8).toUpperCase();
+            const searchUpper = search.toUpperCase();
+
+            const matchesSearch = name.includes(search.toLowerCase()) ||
+                tx.id.toLowerCase().includes(search.toLowerCase()) ||
+                refId.includes(searchUpper);
+
+            let matchesCategory = false;
+            if (categoryParam === "Birth Registration") {
+                matchesCategory = tx.type?.code === "LCR_BIRTH_REG";
+            } else if (categoryParam === "Birth Certificate") {
+                matchesCategory = tx.type?.code === "LCR_BIRTH";
+            } else if (categoryParam === "Death Registration") {
+                matchesCategory = tx.type?.code === "LCR_DEATH_REG";
+            } else if (categoryParam === "Death Certificate") {
+                matchesCategory = tx.type?.code === "LCR_DEATH";
+            } else if (categoryParam === "Marriage License") {
+                matchesCategory = tx.type?.code === "LCR_MARRIAGE_LICENSE";
+            } else if (categoryParam === "Marriage Registration") {
+                matchesCategory = tx.type?.code === "LCR_MARRIAGE_REG";
+            } else if (categoryParam === "Marriage Certificate") {
+                matchesCategory = tx.type?.code === "LCR_MARRIAGE";
+            } else if (categoryParam === "PSA Endorsement") {
+                const isExcludedStatus = tx.status === "RELEASED" || tx.status === "DELIVERED" || tx.status === "UNPAID";
+                matchesCategory = (
+                    tx.type?.code === "LCR_PSA_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                ) && !isExcludedStatus;
+            } else if (categoryParam === "PSA Appt. Endorsement") {
+                const isExcludedStatus = tx.status === "RELEASED" ||
+                    tx.status === "DELIVERED" ||
+                    tx.status === "UNPAID";
+                matchesCategory = (
+                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                ) && !isExcludedStatus;
+            }
+
+            return matchesSearch && matchesCategory;
+        });
+    }, [transactions, search, categoryParam, hasSelectedCategory]);
+
     const sortedTransactions = useMemo(() => {
-        return [...transactions].sort((a, b) => {
+        return [...filteredTransactions].sort((a, b) => {
             if (sortBy === "service") {
                 const serviceA = (a.type?.name || "").toLowerCase();
                 const serviceB = (b.type?.name || "").toLowerCase();
@@ -319,7 +376,7 @@ export default function RegistrarPage() {
                 return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
             }
         });
-    }, [transactions, sortBy, sortDirection]);
+    }, [filteredTransactions, sortBy, sortDirection]);
 
     const totalPages = Math.ceil(totalCount / itemsPerPage);
 
@@ -519,9 +576,17 @@ export default function RegistrarPage() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <span className="text-xs font-bold uppercase text-blue-600 dark:text-blue-400">
-                                                        {tx.type?.name}
-                                                    </span>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-bold uppercase text-blue-600 dark:text-blue-400">
+                                                            {tx.type?.name}
+                                                        </span>
+                                                        {(tx.appointmentDate || tx.appointmentSlot) && (
+                                                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-1 inline-flex items-center gap-1">
+                                                                📅 {tx.appointmentDate ? new Date(tx.appointmentDate).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : ""}
+                                                                {tx.appointmentSlot && ` • ${tx.appointmentSlot}`}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col gap-0.5">

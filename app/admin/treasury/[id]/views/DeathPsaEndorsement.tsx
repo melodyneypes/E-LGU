@@ -511,7 +511,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                             </div>
                         </div>
 
-                        {((isAppointmentPsa ? (transaction.status === "UNPAID") : (transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION")) && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && (
+                        {((isAppointmentPsa ? (transaction.status === "UNPAID" || transaction.status === "FOR_PROCESSING") : (transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION" || transaction.status === "FOR_PROCESSING")) && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && (
                             <div className="space-y-4">
                                 {transaction.paymentReference && additional?.gcashReferenceNo && (
                                     <div className="space-y-3">
@@ -611,27 +611,16 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
 
                         {/* TREASURY RELEASE ACTION FOR APPOINTMENT PSA (FOR_CLAIM / FOR_PICKING) */}
                         {isTreasuryContext && isAppointmentPsa && (transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING") && (
-                            <div className="space-y-6">
-                                <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-6">
-                                    <div className="text-center space-y-3">
-                                        <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 mx-auto">
-                                            <Check className="w-8 h-8" />
-                                        </div>
-                                        <h4 className="text-sm font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200 font-bold">Document Ready for Release</h4>
-                                        <p className="text-xs text-slate-400 italic max-w-sm mx-auto">
-                                            Official Receipt has been issued and payment is verified. Please click below to officially release the PSA document to the citizen.
-                                        </p>
+                            <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
+                                    <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mx-auto">
+                                        <Check className="w-7 h-7" />
                                     </div>
+                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">Payment Collected & Confirmed</h4>
+                                    <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
+                                        Official Receipt has been successfully issued. The transaction is now in the Civil Registrar&apos;s queue for final release of the endorsed document.
+                                    </p>
                                 </div>
-
-                                <Button
-                                    onClick={handleRelease}
-                                    disabled={actionLoading}
-                                    className={`w-full h-14 rounded-2xl text-xs font-black uppercase tracking-wider italic text-white ${themeColor} shadow-lg active:scale-95 transition-all shadow-emerald-500/10`}
-                                >
-                                    {actionLoading && <RotateCw className="w-4.5 h-4.5 animate-spin mr-2" />}
-                                    Release the Document
-                                </Button>
                             </div>
                         )}
 

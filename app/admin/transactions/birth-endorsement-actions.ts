@@ -276,6 +276,10 @@ export async function collectPsaAppointmentPayment(id: string, orNumber: string)
         }
 
         const existingAdditional = (transaction.additionalData as Record<string, unknown>) || {};
+        const updatedAdditional = { ...existingAdditional };
+        delete updatedAdditional.counterName;
+        delete updatedAdditional.servingDepartment;
+        delete updatedAdditional.calledAt;
 
         const collectorName = user.name || user.email || "Treasury Staff";
         const collectorSource = "treasury_counter_payment";
@@ -287,7 +291,7 @@ export async function collectPsaAppointmentPayment(id: string, orNumber: string)
                 status: targetStatus as any,
                 isPaid: true,
                 additionalData: {
-                    ...existingAdditional,
+                    ...updatedAdditional,
                     orSeriesNumber: orNumber.trim(),
                     orCollectedAt: new Date().toISOString(),
                     orCollectedBy: collectorName
@@ -351,5 +355,72 @@ export async function collectPsaAppointmentPayment(id: string, orNumber: string)
     } catch (error: any) {
         console.error("Collect PSA appointment payment error:", error);
         return { success: false, error: error?.message || "Failed to collect payment." };
+    }
+}
+
+export async function finishPsaAppointmentToTreasury(id: string) {
+    try {
+        const session = await getSession();
+        const user = session?.user as any;
+        const userDepartment = (user?.department || "").toUpperCase();
+        const isRegistrarUser = userDepartment === "REGISTRAR" || userDepartment === "CIVIL_REGISTRY";
+
+        if (!user || (user.role !== "REGISTRAR" && user.role !== "ADMIN" && !isRegistrarUser)) {
+            return { success: false, error: "Forbidden: Only Civil Registrar staff can perform this action." };
+        }
+
+        const transaction = await prisma.transaction.findUnique({
+            where: { id },
+            include: { type: true }
+        });
+
+        if (!transaction) {
+            return { success: false, error: "Transaction not found" };
+        }
+
+        const PSA_APPT_CODES = [
+            "LCR_PSA_APPOINTMENT_ENDORSEMENT",
+            "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+            "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+        ];
+
+        if (!PSA_APPT_CODES.includes(transaction.type.code)) {
+            return { success: false, error: "This action is only valid for PSA Appointment Endorsement types." };
+        }
+
+        if (transaction.status === "UNPAID") {
+            return { success: true };
+        }
+
+        if (transaction.status !== "FOR_PROCESSING") {
+            return { success: false, error: "Transaction must be in FOR_PROCESSING status to transfer to Treasury." };
+        }
+
+        const existingAdditional = (transaction.additionalData as Record<string, unknown>) || {};
+
+        await prisma.transaction.update({
+            where: { id },
+            data: {
+                status: "UNPAID" as any,
+                additionalData: {
+                    ...existingAdditional,
+                    appointmentAttended: true,
+                    checkedIn: true,
+                    checkedInAt: new Date().toISOString(),
+                    transferredToTreasuryAt: new Date().toISOString(),
+                    transferredToTreasuryBy: user.name || user.email || "Registrar"
+                },
+                updatedAt: new Date()
+            }
+        });
+
+        revalidatePath("/admin/registrar");
+        revalidatePath("/admin/treasury");
+        revalidatePath("/user/services");
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Finish appointment error:", error);
+        return { success: false, error: error?.message || "Failed to finish appointment" };
     }
 }

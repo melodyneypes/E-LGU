@@ -70,6 +70,21 @@ async function main() {
             console.error("Publication alter error:", err.message);
         }
     }
+
+    console.log("Adding Transaction table to Realtime publication...");
+    try {
+        // Add Transaction to supabase_realtime publication
+        await prisma.$executeRawUnsafe(`
+            ALTER PUBLICATION supabase_realtime ADD TABLE "Transaction";
+        `);
+        console.log("Successfully added 'Transaction' to supabase_realtime publication.");
+    } catch (err: any) {
+        if (err.message.includes("already member of publication")) {
+            console.log("'Transaction' is already a member of publication 'supabase_realtime'.");
+        } else {
+            console.error("Publication alter error for Transaction:", err.message);
+        }
+    }
 }
 
 main()

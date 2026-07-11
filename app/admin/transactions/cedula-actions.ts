@@ -185,10 +185,10 @@ export async function confirmTransactionPaymentWithReceipt(formData: FormData) {
         const paymentReference = isCash
             ? null
             : (paymentReferenceInput ? sanitizeString(paymentReferenceInput) :
-              (currentAdditionalData.gcashReferenceNo ||
-              currentAdditionalData.referenceNo ||
-              transaction.paymentReference ||
-              `manual_${sanitizedId}`));
+                (currentAdditionalData.gcashReferenceNo ||
+                    currentAdditionalData.referenceNo ||
+                    transaction.paymentReference ||
+                    `manual_${sanitizedId}`));
 
         await (prisma.payment.upsert as any)({
             where: { transactionId: sanitizedId },
@@ -560,7 +560,10 @@ export async function getTreasuryTransactions(params?: string | {
     try {
         const session = await getSession();
         const user = session?.user as any;
-        if (!user || (user.role !== "TREASURY_STAFF" && user.role !== "ADMIN")) {
+        const userDepartment = (user?.department || "").toUpperCase();
+        const isRegistrarUser = userDepartment === "REGISTRAR" || userDepartment === "CIVIL_REGISTRY";
+
+        if (!user || (user.role !== "TREASURY_STAFF" && user.role !== "ADMIN" && user.role !== "REGISTRAR" && !isRegistrarUser)) {
             return { success: false, error: "Forbidden" };
         }
 
@@ -629,78 +632,93 @@ export async function getTreasuryTransactions(params?: string | {
             ]
         };
 
-        where.AND = [
-            {
-                NOT: [
-                    {
-                        AND: [
-                            { type: { code: { startsWith: "BUSINESS_PERMIT" } } },
-                            { status: { in: ["FOR_INSPECTION", "FOR_REINSPECTION"] } }
-                        ]
-                    }
-                ]
-            },
-            // Civil Registry Conditions
-            {
-                OR: [
-                    { NOT: lcrUnionFilter },
-                    {
-                        AND: [
-                            lcrUnionFilter,
-                            {
-                                OR: [
-                                    { status: { in: ["FOR_REQUESTING", "PAID", "UNPAID"] } },
-                                    {
-                                        AND: [
-                                            { type: { code: { in: ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"] } } },
-                                            { status: { in: ["FOR_CLAIM", "FOR_PICKING"] } }
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            },
-            // Building Permit Conditions
-            {
-                OR: [
-                    { NOT: bpBuildingFilter },
-                    {
-                        AND: [
-                            bpBuildingFilter,
-                            { status: { in: ["EVALUATED", "UNPAID", "PAID", "REJECTED"] } }
-                        ]
-                    }
-                ]
-            },
-            // Business Permit Conditions
-            {
-                OR: [
-                    { NOT: bpBusinessFilter },
-                    {
-                        AND: [
-                            bpBusinessFilter,
-                            { status: { in: ["FOR_REQUESTING", "EVALUATED", "PAID", "UNPAID"] } }
-                        ]
-                    }
-                ]
-            },
-            {
-                AND: [
-                    { type: { code: { startsWith: "BUILDING_PERMIT" } } },
-                    { status: "EVALUATED" },
-                    {
-                        NOT: {
-                            additionalData: {
-                                path: ["zoningStatus"],
-                                string_contains: "EVALUATED"
+        if (!ledgerType) {
+            where.AND = [
+                {
+                    NOT: [
+                        {
+                            AND: [
+                                { type: { code: { startsWith: "BUSINESS_PERMIT" } } },
+                                { status: { in: ["FOR_INSPECTION", "FOR_REINSPECTION"] } }
+                            ]
+                        }
+                    ]
+                },
+                // Civil Registry Conditions
+                {
+                    OR: [
+                        { NOT: lcrUnionFilter },
+                        {
+                            AND: [
+                                lcrUnionFilter,
+                                {
+                                    OR: [
+                                        // For non-appointment LCRs: allow FOR_REQUESTING, PAID, UNPAID, FOR_PROCESSING
+                                        {
+                                            AND: [
+                                                { type: { code: { notIn: ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"] } } },
+                                                { status: { in: ["FOR_REQUESTING", "PAID", "UNPAID", "FOR_PROCESSING"] } }
+                                            ]
+                                        },
+                                        // For appointment LCRs: Registrar sees FOR_REQUESTING, EVALUATED, FOR_PROCESSING, FOR_CLAIM, FOR_PICKING
+                                        {
+                                            AND: [
+                                                { type: { code: { in: ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"] } } },
+                                                {
+                                                    status: {
+                                                        in: isRegistrarUser
+                                                            ? ["FOR_REQUESTING", "EVALUATED", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING"]
+                                                            : ["PAID", "UNPAID", "FOR_CLAIM", "FOR_PICKING", "FOR_PROCESSING"]
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                // Building Permit Conditions
+                {
+                    OR: [
+                        { NOT: bpBuildingFilter },
+                        {
+                            AND: [
+                                bpBuildingFilter,
+                                { status: { in: ["EVALUATED", "UNPAID", "PAID", "REJECTED"] } }
+                            ]
+                        }
+                    ]
+                },
+                // Business Permit Conditions
+                {
+                    OR: [
+                        { NOT: bpBusinessFilter },
+                        {
+                            AND: [
+                                bpBusinessFilter,
+                                { status: { in: ["FOR_REQUESTING", "EVALUATED", "PAID", "UNPAID"] } }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    AND: [
+                        { type: { code: { startsWith: "BUILDING_PERMIT" } } },
+                        { status: "EVALUATED" },
+                        {
+                            NOT: {
+                                additionalData: {
+                                    path: ["zoningStatus"],
+                                    string_contains: "EVALUATED"
+                                }
                             }
                         }
-                    }
-                ]
-            }
-        ];
+                    ]
+                }
+            ];
+        }
 
         // Category filter
         if (category && category !== "ALL") {
@@ -756,8 +774,23 @@ export async function getTreasuryTransactions(params?: string | {
                     }
                 };
                 where.status = {
-                    notIn: ["RELEASED", "DELIVERED", "FOR_REQUESTING"]
+                    notIn: isRegistrarUser
+                        ? ["RELEASED", "DELIVERED", "UNPAID"]
+                        : ["RELEASED", "DELIVERED", "FOR_REQUESTING"]
                 };
+                if (isRegistrarUser) {
+                    where.AND = [
+                        ...(where.AND || []),
+                        {
+                            NOT: {
+                                AND: [
+                                    { type: { code: { in: ["LCR_DEATH_PSA_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT"] } } },
+                                    { status: { in: ["FOR_CLAIM", "UNPAID", "RELEASED", "DELIVERED"] } }
+                                ]
+                            }
+                        }
+                    ];
+                }
             } else if (lcrSubCategory === "PSA Appt. Endorsement") {
                 where.type = {
                     ...where.type,
@@ -770,13 +803,27 @@ export async function getTreasuryTransactions(params?: string | {
                     }
                 };
                 where.status = {
-                    notIn: ["RELEASED", "DELIVERED", "FOR_REQUESTING"]
+                    notIn: isRegistrarUser
+                        ? ["RELEASED", "DELIVERED", "UNPAID"]
+                        : ["RELEASED", "DELIVERED", "FOR_REQUESTING"]
                 };
+                if (isRegistrarUser) {
+                    where.AND = [
+                        ...(where.AND || []),
+                        {
+                            NOT: {
+                                AND: [
+                                    { type: { code: { in: ["LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT"] } } },
+                                    { status: { in: ["FOR_CLAIM", "UNPAID", "RELEASED", "DELIVERED"] } }
+                                ]
+                            }
+                        }
+                    ];
+                }
             }
         }
-        // LCR Ledger type filter mapping
         if (ledgerType) {
-            where.status = { in: ["DELIVERED", "RELEASED"] };
+            where.status = { in: ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"] };
             where.isCancelled = false;
 
             if (ledgerType === "BIRTH") {
@@ -930,5 +977,131 @@ export async function getTreasuryTransactions(params?: string | {
     } catch (error: any) {
         console.error("Fetch treasury transactions error:", error);
         return { success: false, error: error?.message || "Failed to fetch transactions" };
+    }
+}
+
+/**
+ * Consolidated Onsite Payment and Release Action.
+ * Runs evaluation, payment confirmation, and document release in a single server call.
+ */
+export async function processOnsitePaymentAndReleaseAction(params: {
+    transactionId: string;
+    typeCode: string;
+    isStudent: boolean;
+    deliveryFee: number;
+    remarks: string;
+    itemsToSend?: { label: string; amount: number }[];
+    registryBookVerification?: string;
+    orSeriesNumber?: string;
+    miscFee?: number;
+    paymentMethod: string;
+    amountTendered?: number;
+    paymentReference?: string;
+    totalDue: number;
+    ctcNumber?: string;
+}) {
+    try {
+        const {
+            transactionId,
+            typeCode,
+            isStudent,
+            deliveryFee,
+            remarks,
+            itemsToSend,
+            registryBookVerification,
+            orSeriesNumber,
+            miscFee,
+            paymentMethod,
+            amountTendered,
+            paymentReference,
+            totalDue,
+            ctcNumber
+        } = params;
+
+        // 1. Run evaluation logic
+        let evalRes;
+        if (isStudent) {
+            const { evaluateStudentCedulaTransaction } = await import("./student-actions");
+            evalRes = await evaluateStudentCedulaTransaction(transactionId, deliveryFee, remarks, itemsToSend, registryBookVerification, "", orSeriesNumber);
+        } else if (typeCode === "LCR_DEATH") {
+            const { evaluateDeathCertificateTransaction } = await import("./death-cert-actions");
+            evalRes = await evaluateDeathCertificateTransaction(transactionId, deliveryFee, remarks, itemsToSend, registryBookVerification, "", orSeriesNumber, miscFee);
+        } else if (typeCode === "LCR_MARRIAGE_REG") {
+            const { evaluateMarriageRegistrationTransaction } = await import("./marriage-regis-actions");
+            evalRes = await evaluateMarriageRegistrationTransaction(transactionId, deliveryFee, remarks, itemsToSend, registryBookVerification, "", orSeriesNumber, miscFee, true);
+        } else if (typeCode === "LCR_MARRIAGE_LICENSE") {
+            const { evaluateMarriageLicenseTransaction } = await import("./marriage-license-actions");
+            evalRes = await evaluateMarriageLicenseTransaction(transactionId, deliveryFee, remarks, itemsToSend, registryBookVerification, "", orSeriesNumber, miscFee);
+        } else {
+            const { evaluateCedulaTransaction } = await import("./actions");
+            evalRes = await evaluateCedulaTransaction(transactionId, deliveryFee, remarks, itemsToSend, registryBookVerification, "", orSeriesNumber, miscFee);
+        }
+
+        if (!evalRes.success) {
+            return { success: false, error: evalRes.error || "Evaluation failed" };
+        }
+
+        // 2. Build payment confirmation formData
+        const formData = new FormData();
+        formData.append("id", transactionId);
+        formData.append("paymentMethod", paymentMethod);
+        
+        let paymentRemarks = remarks || "";
+        if (paymentMethod === "CASH" && amountTendered !== undefined) {
+            const changeAmt = Math.max(0, amountTendered - totalDue);
+            paymentRemarks = `[Onsite Cash Payment] Tendered: ₱${amountTendered.toFixed(2)} | Change: ₱${changeAmt.toFixed(2)}${remarks ? ` | Remarks: ${remarks}` : ""}`;
+        } else {
+            paymentRemarks = `[Onsite ${paymentMethod} Payment]${remarks ? ` | Remarks: ${remarks}` : ""}`;
+        }
+        formData.append("remarks", paymentRemarks);
+        if (orSeriesNumber) formData.append("orSeriesNumber", orSeriesNumber);
+        if (paymentReference) formData.append("paymentReference", paymentReference);
+
+        const confirmRes = await confirmTransactionPaymentWithReceipt(formData);
+        if (!confirmRes.success) {
+            return { success: false, error: confirmRes.error || "Payment confirmation failed" };
+        }
+
+        // 3. Transition to processing / release
+        let releaseRes;
+        if (typeCode === "LCR_BIRTH") {
+            const { releaseBirthCertificate } = await import("./birth-cert-actions");
+            releaseRes = await releaseBirthCertificate(transactionId, ctcNumber || "", undefined, (confirmRes.data?.additionalData as any)?.orDocumentUrl);
+        } else if (typeCode === "LCR_BIRTH_REG") {
+            const { releaseBirthRegistry } = await import("./birth-regis-actions");
+            releaseRes = await releaseBirthRegistry(transactionId, ctcNumber || "", undefined, (confirmRes.data?.additionalData as any)?.orDocumentUrl);
+        } else if (typeCode === "LCR_DEATH") {
+            const { releaseDeathCertificate } = await import("./death-cert-actions");
+            releaseRes = await releaseDeathCertificate(transactionId, ctcNumber || "", undefined, (confirmRes.data?.additionalData as any)?.orDocumentUrl);
+        } else if (typeCode === "LCR_DEATH_REG") {
+            const { releaseDeathRegistry } = await import("./death-regis-actions");
+            releaseRes = await releaseDeathRegistry(transactionId, ctcNumber || "", undefined, (confirmRes.data?.additionalData as any)?.orDocumentUrl);
+        } else if (typeCode === "LCR_MARRIAGE_REG") {
+            const { releaseMarriageRegistry } = await import("./marriage-regis-actions");
+            releaseRes = await releaseMarriageRegistry(transactionId, ctcNumber || "", undefined, (confirmRes.data?.additionalData as any)?.orDocumentUrl);
+        } else if (typeCode === "LCR_MARRIAGE_LICENSE") {
+            const { releaseMarriageLicense } = await import("./marriage-license-actions");
+            releaseRes = await releaseMarriageLicense(transactionId, ctcNumber || "", undefined, (confirmRes.data?.additionalData as any)?.orDocumentUrl);
+        } else if (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT") {
+            const { releaseMarriagePsaEndorsement } = await import("./marriage-endorsement-actions");
+            releaseRes = await releaseMarriagePsaEndorsement(transactionId, ctcNumber || "", undefined, (confirmRes.data?.additionalData as any)?.orDocumentUrl);
+        } else if (typeCode === "LCR_PSA_ENDORSEMENT") {
+            const { releaseBirthPsaEndorsement } = await import("./birth-endorsement-actions");
+            releaseRes = await releaseBirthPsaEndorsement(transactionId, ctcNumber || "", undefined, (confirmRes.data?.additionalData as any)?.orDocumentUrl);
+        } else if (typeCode === "LCR_DEATH_PSA_ENDORSEMENT") {
+            const { releaseDeathPsaEndorsement } = await import("./death-endorsement-actions");
+            releaseRes = await releaseDeathPsaEndorsement(transactionId, ctcNumber || "", undefined, (confirmRes.data?.additionalData as any)?.orDocumentUrl);
+        } else {
+            releaseRes = await releaseCedula(transactionId, ctcNumber || "", undefined, (confirmRes.data?.additionalData as any)?.orDocumentUrl);
+        }
+
+        if (!releaseRes.success) {
+            return { success: false, error: releaseRes.error || "Release/Processing transition failed" };
+        }
+
+        return { success: true, data: confirmRes.data };
+    } catch (error: any) {
+        console.error("processOnsitePaymentAndReleaseAction error:", error);
+        return { success: false, error: error?.message || "Failed to process payment and release" };
     }
 }

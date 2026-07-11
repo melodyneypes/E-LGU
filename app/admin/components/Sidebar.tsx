@@ -63,7 +63,7 @@ export function Sidebar({
     const [isBarangaysOpen, setIsBarangaysOpen] = React.useState(pathname.startsWith("/admin/barangays"));
     const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
     const [isRegistrarOpen, setIsRegistrarOpen] = React.useState(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger") && !pathname.startsWith("/admin/registrar/appointment-settings"));
-    const [isLedgerOpen, setIsLedgerOpen] = React.useState(pathname.startsWith("/admin/registrar/ledger"));
+
     const [searchQuery, setSearchQuery] = React.useState("");
     const [isEntranceComplete, setIsEntranceComplete] = React.useState(false);
     const [mounted, setMounted] = React.useState(false);
@@ -210,7 +210,7 @@ export function Sidebar({
         setIsBarangaysOpen(pathname.startsWith("/admin/barangays"));
         setIsTreasuryOpen(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
         setIsRegistrarOpen(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger") && !pathname.startsWith("/admin/registrar/appointment-settings"));
-        setIsLedgerOpen(pathname.startsWith("/admin/registrar/ledger"));
+
     }, [pathname]);
 
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
@@ -339,25 +339,10 @@ export function Sidebar({
             ]
         },
         {
+            href: "/admin/registrar/ledger?type=PSA",
             label: "Transaction Ledger",
             icon: FileText,
-            category: "Registrar",
-            isDropdown: true,
-            isOpen: isLedgerOpen,
-            onToggle: () => {
-                if (isLedgerOpen) {
-                    setIsLedgerOpen(false);
-                } else {
-                    setIsLedgerOpen(true);
-                    router.push("/admin/registrar/ledger?type=BIRTH");
-                }
-            },
-            subItems: [
-                { href: "/admin/registrar/ledger?type=BIRTH", label: "Birth Registration" },
-                { href: "/admin/registrar/ledger?type=DEATH", label: "Death Registration" },
-                { href: "/admin/registrar/ledger?type=MARRIAGE", label: "Marriage Registration" },
-                { href: "/admin/registrar/ledger?type=PSA", label: "PSA Endorsement" },
-            ]
+            category: "Registrar"
         },
         {
             href: "/admin/registrar/appointment-settings",
@@ -766,7 +751,7 @@ export function Sidebar({
                                     );
                                 }
 
-                                const isActive = pathname === item.href;
+                                const isActive = pathname === item.href || (item.href && pathname === item.href.split("?")[0]);
                                 return (
                                     <React.Fragment key={item.href || idx}>
                                         {showCategory && (
