@@ -79,7 +79,7 @@ export function AdminShell({
     }, []);
 
     React.useEffect(() => {
-        const handleWheel = (e: WheelEvent) => {
+        const handleWheel = () => {
             const activeEl = document.activeElement as HTMLElement | null;
             if (activeEl && activeEl.tagName === "INPUT" && (activeEl as HTMLInputElement).type === "number") {
                 activeEl.blur();

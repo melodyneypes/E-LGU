@@ -14,8 +14,6 @@ import {
     Upload,
     Camera,
     Hash,
-    Plus,
-    Trash2,
     ChevronDown,
     ChevronUp,
     Copy
@@ -383,7 +381,16 @@ export default function BploDetailPage({ params }: PageProps) {
                 transaction.id,
                 deliveryFee,
                 remarks || (isInspection ? "Business Permit Inspection Approved" : "Business Permit Assessment"),
-                itemsToSend
+                itemsToSend,
+                isInspection ? {
+                    lineOfBusiness: evalLineOfBusiness,
+                    assets: evalAssets,
+                    employeeCount: evalEmployees,
+                    businessArea: evalFloorArea,
+                    capitalInvestment: evalType === "NEW" ? evalCapitalization : undefined,
+                    grossSales: evalType === "RENEWAL" ? evalGrossSales : undefined,
+                    healthCardCount: evalHealthCards,
+                } : undefined
             );
             if (res.success) {
                 toast.success(isInspection ? "Inspection approved! Transaction status is now FOR PROCESSING." : "Assessment details updated and submitted successfully!");
@@ -688,17 +695,7 @@ export default function BploDetailPage({ params }: PageProps) {
         }
     };
 
-    const updateFeeItem = (index: number, field: keyof Pick<FeeItem, "label" | "amount">, value: string) => {
-        setFeeItems(items => items.map((item, i) => i === index ? { ...item, [field]: value } : item));
-    };
 
-    const addFeeItem = () => {
-        setFeeItems(items => [...items, { label: "", amount: "" }]);
-    };
-
-    const removeFeeItem = (index: number) => {
-        setFeeItems(items => items.filter((_, i) => i !== index));
-    };
 
     useEffect(() => {
         if (isRejecting || isRequestingRevision) {
@@ -1069,18 +1066,6 @@ export default function BploDetailPage({ params }: PageProps) {
                                 const declaredValue = Number(additional?.grossSales || additional?.capitalInvestment || 0);
                                 const declaredLabel = additional?.businessType === "NEW" ? "CAPITAL" : "DECLARED GROSS";
                                 const paymentType = transaction.paymentType?.replace(/_/g, " ") || "—";
-                                const fulfillment = transaction.fulfillmentType?.replace(/_/g, " ") || "—";
-                                const rawFiscal = transaction.fiscalSnapshot;
-                                const fiscalSnapshot = (typeof rawFiscal === "string" ? JSON.parse(rawFiscal) : rawFiscal) as any || {};
-
-                                // Use transaction.totalAmount as the authoritative total — it is always
-                                // written by evaluateCedulaTransaction regardless of fiscalSnapshot state.
-                                const totalAmountAssessed =
-                                    Number(transaction.totalAmount) ||
-                                    Number(fiscalSnapshot.totalAmount) ||
-                                    (Array.isArray(transaction.type?.defaultFees)
-                                        ? transaction.type.defaultFees.reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0)
-                                        : 0);
                                 return (
                                     <div className="grid grid-cols-2 gap-3">
                                         {/* Declared */}
@@ -1156,7 +1141,6 @@ export default function BploDetailPage({ params }: PageProps) {
                                                 : positiveDefaultFees.map((f: any) => ({ label: f.label, amount: Number(f.amount) || 0 }));
 
                                     if (isInspectionAssessment) {
-                                        const editableTotal = feeItems.reduce((total, item) => total + (Number(item.amount) || 0), 0);
 
                                         return (
                                             <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">

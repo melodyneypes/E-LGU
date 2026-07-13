@@ -1,10 +1,8 @@
 import React from "react";
 import PaymentSettingsClient from "@/app/admin/treasury/payment-settings/PaymentSettingsClient";
 import { Metadata } from "next";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 
 export const metadata: Metadata = {
     title: "Payment Settings | Mapandan Portal",

@@ -1391,7 +1391,7 @@ export function BusinessPermitAppointmentClient({
                                         </div>
                                         <div className="space-y-2.5">
                                             <div className="flex justify-between items-center">
-                                                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Mayor's Permit Fee</span>
+                                                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Mayor&apos;s Permit Fee</span>
                                                 <span className="font-mono font-bold">₱{assessment.baseFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                             </div>
                                             <div className="flex justify-between items-center">
@@ -1731,7 +1731,7 @@ export function BusinessPermitAppointmentClient({
                                 </div>
 
                                 <div className="space-y-2">
-                                    <h4 className="font-black uppercase tracking-wider text-[10px] text-primary" style={{ color: themeColor }}>2. Mayor's Permit Fee</h4>
+                                    <h4 className="font-black uppercase tracking-wider text-[10px] text-primary" style={{ color: themeColor }}>2. Mayor&apos;s Permit Fee</h4>
                                     <p className="font-medium text-slate-500 dark:text-slate-400">The base license permit fee is looked up in the municipal schedule according to the business line and classification size. For example:</p>
                                     <ul className="list-disc list-inside space-y-1 pl-1.5 text-slate-500 dark:text-slate-400">
                                         <li><strong className="text-slate-700 dark:text-slate-200">Contractors / Service / Wholesalers / Retailers:</strong> ranges from ₱500.00 (Micro) up to ₱1,600.00 (Large).</li>
@@ -1750,7 +1750,7 @@ export function BusinessPermitAppointmentClient({
                                         </li>
                                         <li>
                                             <strong className="text-slate-700 dark:text-slate-200">Renewing Businesses:</strong>
-                                            <p className="pl-5 mt-0.5">Calculated using graduated tax brackets corresponding to the preceding calendar year's declared gross sales (Retailers pay 2.2% if gross is &lt;= ₱400k, and 1.1% if gross is &gt; ₱400k).</p>
+                                            <p className="pl-5 mt-0.5">Calculated using graduated tax brackets corresponding to the preceding calendar year&apos;s declared gross sales (Retailers pay 2.2% if gross is &lt;= ₱400k, and 1.1% if gross is &gt; ₱400k).</p>
                                         </li>
                                     </ul>
                                 </div>

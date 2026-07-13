@@ -61,14 +61,13 @@ export function Sidebar({
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(pathname.startsWith("/admin/settings"));
     const [isAboutOpen, setIsAboutOpen] = React.useState(pathname.startsWith("/admin/about"));
     const [isBarangaysOpen, setIsBarangaysOpen] = React.useState(pathname.startsWith("/admin/barangays"));
-    const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
     const [isRegistrarOpen, setIsRegistrarOpen] = React.useState(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger") && !pathname.startsWith("/admin/registrar/appointment-settings"));
-    const [isPaymentSettingsOpen, setIsPaymentSettingsOpen] = React.useState(pathname.includes("/payment-settings") || pathname.includes("/settings/bplo"));
 
     const [searchQuery, setSearchQuery] = React.useState("");
     const [isEntranceComplete, setIsEntranceComplete] = React.useState(false);
     const [mounted, setMounted] = React.useState(false);
     const [liveLcrCounts, setLiveLcrCounts] = React.useState<Record<string, number>>(unviewedLcrCounts);
+    const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
 
     const { theme, setTheme } = useTheme();
     React.useEffect(() => {
@@ -211,7 +210,6 @@ export function Sidebar({
         setIsBarangaysOpen(pathname.startsWith("/admin/barangays"));
         setIsTreasuryOpen(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
         setIsRegistrarOpen(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger") && !pathname.startsWith("/admin/registrar/appointment-settings"));
-        setIsPaymentSettingsOpen(pathname.includes("/payment-settings") || pathname.includes("/settings/bplo"));
     }, [pathname]);
 
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);

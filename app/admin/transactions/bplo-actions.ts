@@ -27,7 +27,16 @@ export async function evaluateBusinessPermitTransaction(
     id: string,
     deliveryFeeOverride?: number,
     adminNotes?: string,
-    bpFeeLineItems?: { label: string; amount: number }[]
+    bpFeeLineItems?: { label: string; amount: number }[],
+    updatedFields?: {
+        lineOfBusiness?: string;
+        assets?: number;
+        employeeCount?: number;
+        businessArea?: number;
+        capitalInvestment?: number;
+        grossSales?: number;
+        healthCardCount?: number;
+    }
 ) {
     try {
         const sanitizedId = sanitizeString(id);
@@ -63,7 +72,23 @@ export async function evaluateBusinessPermitTransaction(
             return { success: false, error: "Forbidden: Admin Aides can only process Business Permits in the inspection phase." };
         }
 
-        const additionalData = transaction.additionalData as any;
+        const additionalData = { ...((transaction.additionalData as any) || {}) };
+
+        if (updatedFields) {
+            if (updatedFields.lineOfBusiness !== undefined) additionalData.lineOfBusiness = updatedFields.lineOfBusiness;
+            if (updatedFields.assets !== undefined) {
+                additionalData.assets = updatedFields.assets;
+                additionalData.totalAssets = updatedFields.assets;
+            }
+            if (updatedFields.employeeCount !== undefined) additionalData.employeeCount = updatedFields.employeeCount;
+            if (updatedFields.businessArea !== undefined) additionalData.businessArea = updatedFields.businessArea;
+            if (updatedFields.capitalInvestment !== undefined) additionalData.capitalInvestment = updatedFields.capitalInvestment;
+            if (updatedFields.grossSales !== undefined) additionalData.grossSales = updatedFields.grossSales;
+            if (updatedFields.healthCardCount !== undefined) {
+                additionalData.healthCardCount = updatedFields.healthCardCount;
+                additionalData.healthCertificateCount = updatedFields.healthCardCount;
+            }
+        }
 
         let dynamicDeliveryFee = transaction.type.deliveryFee;
         if (transaction.fulfillmentType === "DELIVERY" && (transaction.deliveryAddress || (transaction as any).residentSnapshot)) {
@@ -159,8 +184,7 @@ export async function evaluateBusinessPermitTransaction(
             newStatus = "FOR_PROCESSING";
         }
 
-        const currentAdditionalData = (transaction.additionalData as any) || {};
-        const updatedAdditionalData = { ...currentAdditionalData };
+        const updatedAdditionalData = { ...additionalData };
         delete updatedAdditionalData.counterName;
         updatedAdditionalData.checkedIn = false;
 

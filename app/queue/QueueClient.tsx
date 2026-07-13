@@ -70,8 +70,8 @@ export default function QueueClient({
 }: QueueClientProps) {
     const [queueData, setQueueData] = useState<QueueDepartmentData[]>(initialQueueData);
     const [currentTime, setCurrentTime] = useState<Date | null>(null);
-    const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
-    const [hasInteracted, setHasInteracted] = useState(false);
+    const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+    const [hasInteracted, setHasInteracted] = useState(true);
     const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
     
     // RFID Lock Screen States
@@ -91,8 +91,8 @@ export default function QueueClient({
             const res = await verifyRfidUnlock(rfidCode);
             if (res.success) {
                 setIsLocked(false);
-                setIsVoiceEnabled(false);
-                setHasInteracted(false);
+                setIsVoiceEnabled(true);
+                setHasInteracted(true);
             } else {
                 setRfidError(res.error || "Access Denied: RFID not authorized");
             }

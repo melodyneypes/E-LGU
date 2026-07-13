@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
 import { Building2, Save, ArrowLeft, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -246,7 +245,7 @@ export function BploSettingsClient({ initialSettings, themeColor }: BploSettings
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8">
+        <div className="max-w-[1400px] mx-auto w-full px-6 space-y-8">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-white/5 pb-6">
                 <div className="flex items-center gap-3">
@@ -379,10 +378,10 @@ export function BploSettingsClient({ initialSettings, themeColor }: BploSettings
                     <div className="bg-white dark:bg-[#11131a] rounded-[2rem] border border-slate-200 dark:border-white/10 p-6 md:p-8 space-y-6 shadow-xl relative overflow-hidden">
                         <div className="flex items-center gap-2 border-b border-slate-100 dark:border-white/5 pb-3">
                             <Building2 className="w-5 h-5 text-primary" style={{ color: themeColor }} />
-                            <h3 className="text-sm font-black uppercase italic tracking-wider text-slate-800 dark:text-white">Mayor's Permit Scale Fee Brackets</h3>
+                            <h3 className="text-sm font-black uppercase italic tracking-wider text-slate-800 dark:text-white">Mayor&apos;s Permit Scale Fee Brackets</h3>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                             {/* Manufacturers */}
                             <div className="border border-slate-100 dark:border-white/5 rounded-2xl p-4 bg-slate-50/50 dark:bg-black/20 space-y-4">
                                 <h4 className="text-xs font-black uppercase tracking-wider text-primary" style={{ color: themeColor }}>Manufacturers & Producers</h4>
