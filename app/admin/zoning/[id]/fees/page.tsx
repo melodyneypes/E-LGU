@@ -12,7 +12,6 @@ import {
     Coins,
     Check,
     Upload,
-    FileText,
     ExternalLink,
     X,
     FileWarning,
@@ -242,30 +241,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         }
     };
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0) return;
-        const file = e.target.files[0];
-        setECopyFile(file);
 
-        // Auto-upload
-        setUploading(true);
-        const toastId = toast.loading("Uploading building permit E-copy...");
-        try {
-            const formData = new FormData();
-            formData.append("file", file);
-            const res = await uploadECopyAction(formData);
-            if (res.success && res.data) {
-                setECopyUrl(res.data);
-                toast.success("E-copy uploaded successfully!", { id: toastId });
-            } else {
-                toast.error(res.error || "Failed to upload E-copy", { id: toastId });
-            }
-        } catch {
-            toast.error("Error uploading E-copy", { id: toastId });
-        } finally {
-            setUploading(false);
-        }
-    };
 
     const handleZoningClearanceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
@@ -311,44 +287,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         }
     };
 
-    const handleSubmitPermit = async () => {
-        if (!eCopyUrl) {
-            toast.error("Please upload the building permit E-copy first.");
-            return;
-        }
 
-        setActionLoading(true);
-        try {
-            const res = await submitBuildingPermitAction(id, eCopyUrl);
-            if (res.success) {
-                toast.success("Building Permit submitted and released successfully!");
-                fetchTransaction();
-            } else {
-                toast.error(res.error || "Failed to submit permit");
-            }
-        } catch {
-            toast.error("An error occurred while submitting permit");
-        } finally {
-            setActionLoading(false);
-        }
-    };
-
-    const handleRelease = async () => {
-        setActionLoading(true);
-        try {
-            const res = await releaseBuildingPermitAction(id);
-            if (res.success) {
-                toast.success("Building Permit released successfully!");
-                fetchTransaction();
-            } else {
-                toast.error(res.error || "Failed to release permit");
-            }
-        } catch {
-            toast.error("An error occurred while releasing permit");
-        } finally {
-            setActionLoading(false);
-        }
-    };
 
     if (loading) {
         return (

@@ -15,8 +15,7 @@ import {
     RefreshCcw,
     Camera,
     BadgeCheck,
-    FileText,
-    ShieldCheck
+    FileText
 } from "lucide-react";
 import { toast } from "sonner";
 import {

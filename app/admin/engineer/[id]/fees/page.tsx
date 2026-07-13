@@ -92,8 +92,8 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const isEndorsed = feeAssessment?.endorsed === true;
     const isViewOnly = isForcedView || isEndorsed || (transaction && transaction.status !== "EVALUATED");
 
-    const additional = transaction?.additionalData || {};
-    const resident = transaction?.user?.residentProfile || transaction?.residentSnapshot || {};
+    const additional = useMemo(() => transaction?.additionalData || {}, [transaction]);
+    const resident = useMemo(() => transaction?.user?.residentProfile || transaction?.residentSnapshot || {}, [transaction]);
 
     const vaultDocs = useMemo(() => {
         if (!transaction) return [];

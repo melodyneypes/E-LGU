@@ -13,7 +13,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -61,7 +61,7 @@ export default function BFPDashboard() {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
-    const [sortBy, setSortBy] = useState<"date" | "service">("date");
+
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
     const fetchTransactions = useCallback(async () => {
@@ -74,7 +74,7 @@ export default function BFPDashboard() {
                 setTransactions([]);
                 toast.error(res.error || "Failed to load transactions.");
             }
-        } catch (err) {
+        } catch {
             toast.error("Failed to load transactions");
         } finally {
             setLoading(false);
@@ -104,6 +104,7 @@ export default function BFPDashboard() {
 
     useEffect(() => {
         if (currentPage !== 1) setCurrentPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search, status, itemsPerPage]);
 
     const filteredTransactions = transactions.filter(tx => {

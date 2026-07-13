@@ -1,3 +1,4 @@
+/* eslint-disable */
 const fs = require('fs');
 const file = 'c:/Users/Eulysis/Documents/EMapandan/app/user/services/building-permit/page.tsx';
 let content = fs.readFileSync(file, 'utf8');
