@@ -23,7 +23,7 @@ import {
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
-import { getUserReports } from "@/app/admin/actions";
+import { getUserReports, getUserTransactions } from "@/app/admin/actions";
 import { useRouter } from "next/navigation";
 
 interface Report {
@@ -31,6 +31,8 @@ interface Report {
     status: string;
     category: string;
     createdAt: string | Date;
+    isTransaction?: boolean;
+    transactionCode?: string;
 }
 
 export default function UserReportsPage() {
@@ -39,19 +41,40 @@ export default function UserReportsPage() {
     const router = useRouter();
 
     useEffect(() => {
-        async function fetchReports() {
+        async function fetchData() {
             try {
-                const res = await getUserReports();
-                if (res.success) {
-                    setReports(res.reports || []);
+                const [reportsRes, transactionsRes] = await Promise.all([
+                    getUserReports(),
+                    getUserTransactions()
+                ]);
+
+                const combined: Report[] = [];
+
+                if (reportsRes.success && reportsRes.reports) {
+                    combined.push(...reportsRes.reports);
                 }
+
+                if (transactionsRes.success && transactionsRes.transactions) {
+                    const mappedTxs = transactionsRes.transactions.map((t: any) => ({
+                        id: t.id,
+                        status: t.status,
+                        category: t.type.name,
+                        createdAt: t.createdAt,
+                        isTransaction: true,
+                        transactionCode: t.type.code
+                    }));
+                    combined.push(...mappedTxs);
+                }
+
+                combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                setReports(combined);
             } catch (err) {
-                console.error("Failed to load reports:", err);
+                console.error("Failed to load data:", err);
             } finally {
                 setLoading(false);
             }
         }
-        fetchReports();
+        fetchData();
     }, []);
 
     const getStatusStyle = (status: string) => {
@@ -115,7 +138,19 @@ export default function UserReportsPage() {
                     return (
                         <div
                             key={report.id}
-                            onClick={() => router.push(`/user/reports/${report.id}`)}
+                            onClick={() => {
+                                if (report.isTransaction) {
+                                    if (report.transactionCode === "BUILDING_PERMIT") {
+                                        router.push(`/user/services/building-permit`);
+                                    } else if (report.transactionCode === "BUSINESS_PERMIT") {
+                                        router.push(`/user/services/business-permit`);
+                                    } else {
+                                        router.push(`/user/services`);
+                                    }
+                                } else {
+                                    router.push(`/user/reports/${report.id}`);
+                                }
+                            }}
                             className="bg-white dark:bg-[#0d0f14] rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/5 p-3 md:p-5 hover:border-primary/40 group transition-all cursor-pointer select-none active:scale-[0.99] relative overflow-hidden"
                         >
                             <div className="flex items-center gap-3 md:gap-6 justify-between relative z-10">

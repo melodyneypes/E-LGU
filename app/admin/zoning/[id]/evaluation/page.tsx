@@ -195,7 +195,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     const [transaction, setTransaction] = useState<any>(null);
     const addData = (transaction?.additionalData as any) || {};
     const zoningStatus = addData.zoningStatus;
-    const isZoningActive = userRole === "MPDC_ZONING" && transaction?.status === "EVALUATED";
+    const isZoningActive = userRole === "MPDC_ZONING" && transaction?.status === "EVALUATED" && transaction?.additionalData?.feeAssessment?.endorsed === true;
     
     // Zoning is in read-only mode if the transaction is not yet passed to Zoning (i.e. not EVALUATED status)
     const isZoningReadonly = userRole === "MPDC_ZONING" && !isZoningActive;
@@ -329,9 +329,9 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     const renderRequirementsGrid = () => (
         <div className="grid grid-cols-2 gap-4">
             {[
-                { url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)" },
-                { url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)" },
-                { url: additional?.documents?.tctFile, label: "TCT / Land Title" },
+                { key: "newIdFile", url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)" },
+                { key: "newIdFileBack", url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)" },
+                { key: "tctFile", url: additional?.documents?.tctFile, label: "TCT / Land Title" },
                 ...[
                     "Barangay Clearance/Certification",
                     "Tax Declaration",
@@ -359,7 +359,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                     "Structural Analysis and Design",
                     "Soil Boring Test"
                 ]
-                  .map((label, idx) => ({ url: additional?.documents?.[`req_${idx}`], label, idx }))
+                  .map((label, idx) => ({ key: `req_${idx}`, url: additional?.documents?.[`req_${idx}`], label, idx }))
                   .filter(({ idx }) => {
                       if (additional?.isLotOwner === "Yes" && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
                       if (additional?.isLotOwner === "No" && [21, 22].includes(idx)) return false;
@@ -373,11 +373,11 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                         const idx = parseInt(key.replace("req_", ""), 10);
                         if (idx >= 25) {
                             const label = additional?.customLabels?.[key] || `Additional Document ${idx - 24}`;
-                            return { url: additional.documents[key], label };
+                            return { key, url: additional.documents[key], label };
                         }
                         return null;
                     })
-                    .filter(Boolean) as { url: string; label: string }[],
+                    .filter(Boolean) as { key: string; url: string; label: string }[],
                 ...[
                     "1. Electrical Permit",
                     "2. Plumbing Permit",
@@ -391,19 +391,19 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                     "10. Electronics Documents",
                     "11. Geodetic Documents",
                     "12. Fire Protection Plan"
-                ].map((label, idx) => ({ url: additional?.documents?.[`permit_${idx}`], label })),
+                ].map((label, idx) => ({ key: `permit_${idx}`, url: additional?.documents?.[`permit_${idx}`], label })),
                 ...Object.keys(additional?.documents || {})
                     .filter(key => key.startsWith("permit_"))
                     .map(key => {
                         const idx = parseInt(key.replace("permit_", ""), 10);
                         if (idx >= 12) {
                             const label = additional?.customLabels?.[key] || `Additional Permit ${idx - 11}`;
-                            return { url: additional.documents[key], label };
+                            return { key, url: additional.documents[key], label };
                         }
                         return null;
                     })
-                    .filter(Boolean) as { url: string; label: string }[]
-            ].filter(doc => doc.url).map((doc, i) => (
+                    .filter(Boolean) as { key: string; url: string; label: string }[]
+            ].filter(doc => doc.url && (!additional?.zoningVisibleDocs || additional.zoningVisibleDocs.includes(doc.key))).map((doc, i) => (
                 <Dialog key={i}>
                     <DialogTrigger asChild>
                         <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 flex items-center justify-center cursor-zoom-in">

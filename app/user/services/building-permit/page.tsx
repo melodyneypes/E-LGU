@@ -419,15 +419,30 @@ export default function BuildingPermitPage() {
 
   const isEditable = !selectedApplication || isRevision;
 
+  const isFieldRequested = (key: string) => {
+    if (!isRevision) return true;
+    if (!selectedApplication?.additionalData?.revisionRequests) return true;
+    return selectedApplication.additionalData.revisionRequests.some((req: any) => req.key === key);
+  };
+
+  const effectiveDocuments = (() => {
+    const docs = selectedApplication?.additionalData?.documents || {};
+    if (!isRevision) return docs;
+    const filtered: Record<string, string> = {};
+    const revisionKeys = new Set(selectedApplication?.additionalData?.revisionRequests?.map((r: any) => r.key) || []);
+    for (const [k, v] of Object.entries(docs)) {
+      if (!revisionKeys.has(k)) {
+        filtered[k] = v as string;
+      }
+    }
+    return filtered;
+  })();
+
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [idChoice, setIdChoice] = useState<"PROFILE" | "UPLOAD">("PROFILE");
   const [activeDocTab, setActiveDocTab] = useState<"REQUIREMENTS" | "PERMITS">("REQUIREMENTS");
   const [uploadedRequirements, setUploadedRequirements] = useState<Record<number, File>>({});
-  const [uploadedPermits, setUploadedPermits] = useState<Record<number, File>>({});
-  const [customRequirements, setCustomRequirements] = useState<{ label: string }[]>([]);
-  const [customPermits, setCustomPermits] = useState<{ label: string }[]>([]);
-  const [isAddCustomDocOpen, setIsAddCustomDocOpen] = useState(false);
-  const [customDocName, setCustomDocName] = useState("");
+
   const [formData, setFormData] = useState({
     descriptionOfWork: "",
     scopeNewConstruction: false,
@@ -455,13 +470,20 @@ export default function BuildingPermitPage() {
     locationStreet: "",
     locationBarangay: "",
     isLotOwner: "",
+    totalFloors: "",
     newIdFile: null as File | null,
     newIdFileBack: null as File | null,
     tctFile: null as File | null,
-    occupancyUse: "",
+    occupancyUse: "Residential (Single Family)",
     otherOccupancyUse: "",
-    totalFloors: "",
   });
+
+  const [uploadedPermits, setUploadedPermits] = useState<Record<number, File>>({});
+  const [customRequirements, setCustomRequirements] = useState<{ label: string }[]>([]);
+  const [customPermits, setCustomPermits] = useState<{ label: string }[]>([]);
+  const [isAddCustomDocOpen, setIsAddCustomDocOpen] = useState(false);
+  const [customDocName, setCustomDocName] = useState("");
+
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [duplicatePropertyWarning, setDuplicatePropertyWarning] = useState<{ isProcessing: boolean; applicantName?: string } | null>(null);
 
@@ -512,9 +534,9 @@ export default function BuildingPermitPage() {
 
   const hasTctFile = !!(
     formData.tctFile ||
-    selectedApplication?.additionalData?.documents?.tctFile ||
+    effectiveDocuments?.tctFile ||
     (uploadedRequirements && uploadedRequirements[2]) ||
-    selectedApplication?.additionalData?.documents?.req_2
+    effectiveDocuments?.req_2
   );
 
   const [maxStepIdx, setMaxStepIdx] = useState(0);
@@ -553,7 +575,7 @@ export default function BuildingPermitPage() {
     });
   const requiredRequirementsCount = requiredRequirementIndexes.length;
   const uploadedRequirementKeys = new Set([
-    ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("req_")),
+    ...Object.keys(effectiveDocuments || {}).filter(k => k.startsWith("req_")),
     ...Object.keys(uploadedRequirements).map(k => `req_${k}`)
   ]);
   const requirementsProgress = requiredRequirementIndexes
@@ -562,13 +584,12 @@ export default function BuildingPermitPage() {
   const requiredPermitIndexes: number[] = [];
   const requiredPermitsCount = 4;
   const uploadedPermitKeys = new Set([
-    ...Object.keys(selectedApplication?.additionalData?.documents || {}).filter(k => k.startsWith("permit_")),
+    ...Object.keys(effectiveDocuments || {}).filter(k => k.startsWith("permit_")),
     ...Object.keys(uploadedPermits).map(k => `permit_${k}`)
   ]);
   const uploadedPermitsCount = uploadedPermitKeys.size;
   const uploadedRequirementsCount = uploadedRequirementKeys.size;
   const totalRequiredItems = requiredRequirementsCount + requiredPermitsCount;
-
   // UPDATED: Exclude CANCELLED and isCancelled from blocking new applications
   const hasActiveApplication = existingApplications.some(app =>
     !["RELEASED", "REJECTED", "DELIVERED", "CANCELLED"].includes(app.status) && !app.isCancelled
@@ -1134,7 +1155,6 @@ export default function BuildingPermitPage() {
     setIsSubmitting(true);
     try {
       toast.loading("Submitting application...", { id: "bp-upload-toast" });
-
       const displayResident = selectedApplication?.residentSnapshot || residentData;
 
       // 1. Upload ID
@@ -1143,13 +1163,13 @@ export default function BuildingPermitPage() {
       if (idChoice === "UPLOAD") {
         if (formData.newIdFile) {
           idFileUrl = await uploadFileClientSide(formData.newIdFile, "ids", "newIdFile");
-        } else if (selectedApplication?.additionalData?.documents?.newIdFile) {
-          idFileUrl = selectedApplication.additionalData.documents.newIdFile;
+        } else if (effectiveDocuments?.newIdFile) {
+          idFileUrl = effectiveDocuments.newIdFile;
         }
         if (formData.newIdFileBack) {
           idBackFileUrl = await uploadFileClientSide(formData.newIdFileBack, "ids", "newIdFileBack");
-        } else if (selectedApplication?.additionalData?.documents?.newIdFileBack) {
-          idBackFileUrl = selectedApplication.additionalData.documents.newIdFileBack;
+        } else if (effectiveDocuments?.newIdFileBack) {
+          idBackFileUrl = effectiveDocuments.newIdFileBack;
         }
       } else if (idChoice === "PROFILE") {
         const profileIdUrl = displayResident?.idFrontUrl || displayResident?.idBackUrl;
@@ -1180,8 +1200,8 @@ export default function BuildingPermitPage() {
       let tctFileUrl: string | null = null;
       if (formData.tctFile) {
         tctFileUrl = await uploadFileClientSide(formData.tctFile, "tct", "tctFile");
-      } else if (selectedApplication?.additionalData?.documents?.tctFile) {
-        tctFileUrl = selectedApplication.additionalData.documents.tctFile;
+      } else if (effectiveDocuments?.tctFile) {
+        tctFileUrl = effectiveDocuments.tctFile;
       }
 
       // 3. Upload Requirements
@@ -1197,7 +1217,7 @@ export default function BuildingPermitPage() {
           const url = await uploadFileClientSide(file, "requirements", `req_${i}`);
           if (url) finalReqUrls[`req_${i}`] = url;
         } else {
-          const existingUrl = selectedApplication?.additionalData?.documents?.[`req_${i}`];
+          const existingUrl = effectiveDocuments?.[`req_${i}`];
           if (existingUrl) finalReqUrls[`req_${i}`] = existingUrl;
         }
       }
@@ -1212,8 +1232,8 @@ export default function BuildingPermitPage() {
           }
         }
       }
-      if (selectedApplication?.additionalData?.documents) {
-        Object.entries(selectedApplication.additionalData.documents).forEach(([key, url]) => {
+      if (effectiveDocuments) {
+        Object.entries(effectiveDocuments).forEach(([key, url]) => {
           if (key.startsWith("req_")) {
             const idx = parseInt(key.replace("req_", ""), 10);
             if (idx >= 25 && !finalReqUrls[key] && url) {
@@ -1231,7 +1251,7 @@ export default function BuildingPermitPage() {
           const url = await uploadFileClientSide(file, "permits", `permit_${i}`);
           if (url) finalPermitUrls[`permit_${i}`] = url;
         } else {
-          const existingUrl = selectedApplication?.additionalData?.documents?.[`permit_${i}`];
+          const existingUrl = effectiveDocuments?.[`permit_${i}`];
           if (existingUrl) finalPermitUrls[`permit_${i}`] = existingUrl;
         }
       }
@@ -1246,8 +1266,8 @@ export default function BuildingPermitPage() {
           }
         }
       }
-      if (selectedApplication?.additionalData?.documents) {
-        Object.entries(selectedApplication.additionalData.documents).forEach(([key, url]) => {
+      if (effectiveDocuments) {
+        Object.entries(effectiveDocuments).forEach(([key, url]) => {
           if (key.startsWith("permit_")) {
             const idx = parseInt(key.replace("permit_", ""), 10);
             if (idx >= 7 && !finalPermitUrls[key] && url) {
@@ -1991,19 +2011,20 @@ export default function BuildingPermitPage() {
                                 label="Front Side"
                                 required={true}
                                 file={formData.newIdFile}
-                                existingUrl={selectedApplication?.additionalData?.documents?.newIdFile}
+                                existingUrl={effectiveDocuments?.newIdFile}
                                 onFileSelect={(file) => setFormData({ ...formData, newIdFile: file })}
                                 onView={() => {
                                   if (formData.newIdFile) {
                                     setViewerFile(formData.newIdFile);
-                                  } else if (selectedApplication?.additionalData?.documents?.newIdFile) {
-                                    setViewerUrl(selectedApplication.additionalData.documents.newIdFile);
+                                  } else if (effectiveDocuments?.newIdFile) {
+                                    setViewerUrl(effectiveDocuments.newIdFile);
                                   }
                                   setViewerTitle("Government ID - Front");
                                   setViewerOpen(true);
                                 }}
-                                error={showValidationErrors && idChoice === "UPLOAD" && !formData.newIdFile && !selectedApplication?.additionalData?.documents?.newIdFile}
+                                error={showValidationErrors && idChoice === "UPLOAD" && !formData.newIdFile && !effectiveDocuments?.newIdFile}
                                 infoText="Upload Front Side (PDF/JPG/PNG)"
+                                disabled={!isEditable || (isRevision && !isFieldRequested("newIdFile"))}
                               />
                             </div>
 
@@ -2013,18 +2034,19 @@ export default function BuildingPermitPage() {
                                 label="Back Side (Optional)"
                                 required={false}
                                 file={formData.newIdFileBack}
-                                existingUrl={selectedApplication?.additionalData?.documents?.newIdFileBack}
+                                existingUrl={effectiveDocuments?.newIdFileBack}
                                 onFileSelect={(file) => setFormData({ ...formData, newIdFileBack: file })}
                                 onView={() => {
                                   if (formData.newIdFileBack) {
                                     setViewerFile(formData.newIdFileBack);
-                                  } else if (selectedApplication?.additionalData?.documents?.newIdFileBack) {
-                                    setViewerUrl(selectedApplication.additionalData.documents.newIdFileBack);
+                                  } else if (effectiveDocuments?.newIdFileBack) {
+                                    setViewerUrl(effectiveDocuments.newIdFileBack);
                                   }
                                   setViewerTitle("Government ID - Back");
                                   setViewerOpen(true);
                                 }}
                                 infoText="Upload Back Side (PDF/JPG/PNG)"
+                                disabled={!isEditable || (isRevision && !isFieldRequested("newIdFileBack"))}
                               />
                             </div>
                           </div>
@@ -2300,20 +2322,20 @@ export default function BuildingPermitPage() {
                           label="Certified True Copy of TCT"
                           required={true}
                           file={formData.tctFile}
-                          existingUrl={selectedApplication?.additionalData?.documents?.tctFile}
+                          existingUrl={effectiveDocuments?.tctFile}
                           onFileSelect={(file) => setFormData({ ...formData, tctFile: file })}
                           onView={() => {
                             if (formData.tctFile) {
                               setViewerFile(formData.tctFile);
-                            } else if (selectedApplication?.additionalData?.documents?.tctFile) {
-                              setViewerUrl(selectedApplication.additionalData.documents.tctFile);
+                            } else if (effectiveDocuments?.tctFile) {
+                              setViewerUrl(effectiveDocuments.tctFile);
                             }
                             setViewerTitle("TCT Document");
                             setViewerOpen(true);
                           }}
                           error={showValidationErrors && !hasTctFile}
                           infoText="Upload TCT Document (PDF/JPG/PNG)"
-                          disabled={!isEditable}
+                          disabled={!isEditable || (isRevision && !isFieldRequested("tctFile"))}
                         />
                       </div>
 
@@ -2779,7 +2801,7 @@ export default function BuildingPermitPage() {
               ).map(({ docName, idx, kind }) => {
                 const isCustomItem = kind === "custom";
                 const key = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;
-                const fileUrl = selectedApplication?.additionalData?.documents?.[key];
+                const fileUrl = effectiveDocuments?.[key];
                 const newlyUploaded = activeDocTab === "REQUIREMENTS" ? !!uploadedRequirements[idx] : !!uploadedPermits[idx];
                 const isUploaded = !isEditable ? !!fileUrl : (!!fileUrl || newlyUploaded);
                 const isRequired = isCustomItem
@@ -2879,7 +2901,7 @@ export default function BuildingPermitPage() {
                         }}
                         error={hasError}
                         infoText="PDF / Image (Max 5MB)"
-                        disabled={!isEditable}
+                        disabled={!isEditable || (isRevision && !isFieldRequested(key))}
                       />
                     </div>
                   </div>
@@ -3244,7 +3266,7 @@ export default function BuildingPermitPage() {
                         )}>
                           {!["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") ? (
                              <Clock className="w-5 h-5" />
-                          ) : selectedApplication?.additionalData?.zoningStatus === "EVALUATED" ? (
+                          ) : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed ? (
                              <Check className="w-5 h-5" />
                           ) : (
                              <MapPin className="w-5 h-5" />
@@ -3258,8 +3280,8 @@ export default function BuildingPermitPage() {
                                 ? "Scheduled for Zoning Site Inspection"
                                 : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
                                   ? "Scheduled for Zoning Site Re-inspection"
-                                  : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
-                                    ? "Zoning Clearance Approved"
+                                  : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
+                                    ? "Zoning Assessment Endorsed"
                                     : "Zoning Clearance Under Review"}
                           </p>
                           <p className="text-xs text-slate-500 leading-normal">
@@ -3269,8 +3291,8 @@ export default function BuildingPermitPage() {
                                 ? "Your application is scheduled for an upcoming zoning site inspection."
                                 : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
                                   ? "Your application requires a zoning site re-inspection. Please check for updates."
-                                  : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
-                                    ? "Your zoning requirements have been evaluated and approved by MPDC."
+                                  : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
+                                    ? "Your zoning requirements have been evaluated and endorsed by MPDC."
                                     : "Your documents are currently being reviewed by the MPDC Zoning Office."}
                           </p>
                         </div>
@@ -3285,7 +3307,7 @@ export default function BuildingPermitPage() {
                               ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
                               : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
                                 ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                                : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
+                                : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
                                   ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
                                   : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
                       )}>
@@ -3293,7 +3315,7 @@ export default function BuildingPermitPage() {
                           ? "Cancelled"
                           : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
                             ? "Pending"
-                            : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
+                            : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
                               ? "Approved"
                               : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
                                 ? "For Inspection"
@@ -3687,35 +3709,96 @@ export default function BuildingPermitPage() {
               </p>
 
               {selectedApplication?.eCopyUrl ? (
-                <div className="max-w-2xl mx-auto border-2 border-emerald-500/50 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 bg-emerald-500/5 mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
-                      <FileText className="w-6 h-6" />
+                <div className="max-w-2xl mx-auto space-y-4 mb-6">
+                  {/* Official Permit */}
+                  <div className="border-2 border-emerald-500/50 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 bg-emerald-500/5">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                      <div className="text-center md:text-left">
+                        <p className="text-sm text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-widest">
+                          Official Permit E-Copy
+                        </p>
+                        <p className="text-xs text-slate-500 font-medium mt-1">
+                          Your approved building permit is ready for download.
+                          {selectedApplication?.updatedAt && (
+                            <span className="block mt-1.5 text-[9px] text-emerald-600/80 dark:text-emerald-400/80 font-bold uppercase tracking-widest">
+                              Released on: {new Date(selectedApplication.updatedAt).toLocaleDateString()} {new Date(selectedApplication.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          )}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-center md:text-left">
-                      <p className="text-sm text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-widest">
-                        Official Permit E-Copy
-                      </p>
-                      <p className="text-xs text-slate-500 font-medium mt-1">
-                        Your approved building permit is ready for download.
-                        {selectedApplication?.updatedAt && (
-                          <span className="block mt-1.5 text-[9px] text-emerald-600/80 dark:text-emerald-400/80 font-bold uppercase tracking-widest">
-                            Released on: {new Date(selectedApplication.updatedAt).toLocaleDateString()} {new Date(selectedApplication.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        )}
-                      </p>
-                    </div>
+                    <button
+                      onClick={() => {
+                        setViewerUrl(selectedApplication.eCopyUrl);
+                        setViewerTitle("Official Permit E-Copy");
+                        setViewerOpen(true);
+                      }}
+                      className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 transition-all flex items-center gap-2 shrink-0"
+                    >
+                      <FileText className="w-4 h-4" /> Preview & Download
+                    </button>
                   </div>
-                  <button
-                    onClick={() => {
-                      setViewerUrl(selectedApplication.eCopyUrl);
-                      setViewerTitle("Official Permit E-Copy");
-                      setViewerOpen(true);
-                    }}
-                    className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 transition-all flex items-center gap-2 shrink-0"
-                  >
-                    <FileText className="w-4 h-4" /> Preview & Download
-                  </button>
+
+                  {/* Zoning Clearance */}
+                  {selectedApplication?.additionalData?.zoningClearanceUrl && (
+                    <div className="border-2 border-emerald-500/50 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 bg-emerald-500/5">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
+                          <FileText className="w-6 h-6" />
+                        </div>
+                        <div className="text-center md:text-left">
+                          <p className="text-sm text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-widest">
+                            Zoning / Locational Clearance
+                          </p>
+                          <p className="text-xs text-slate-500 font-medium mt-1">
+                            Your approved zoning clearance is ready for download.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setViewerUrl(selectedApplication.additionalData.zoningClearanceUrl);
+                          setViewerTitle("Zoning Clearance");
+                          setViewerOpen(true);
+                        }}
+                        className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 transition-all flex items-center gap-2 shrink-0"
+                      >
+                        <FileText className="w-4 h-4" /> Preview & Download
+                      </button>
+                    </div>
+                  )}
+
+                  {/* BFP Clearance */}
+                  {selectedApplication?.additionalData?.bfpClearanceUrl && (
+                    <div className="border-2 border-emerald-500/50 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 bg-emerald-500/5">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
+                          <FileText className="w-6 h-6" />
+                        </div>
+                        <div className="text-center md:text-left">
+                          <p className="text-sm text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-widest">
+                            BFP Fire Safety Clearance
+                          </p>
+                          <p className="text-xs text-slate-500 font-medium mt-1">
+                            Your approved fire safety clearance is ready for download.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setViewerUrl(selectedApplication.additionalData.bfpClearanceUrl);
+                          setViewerTitle("BFP Clearance");
+                          setViewerOpen(true);
+                        }}
+                        className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 transition-all flex items-center gap-2 shrink-0"
+                      >
+                        <FileText className="w-4 h-4" /> Preview & Download
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="max-w-2xl mx-auto border-2 border-dashed border-[#1e293b] dark:border-white/50 rounded-xl p-6 flex flex-col md:flex-row items-center justify-center gap-4 bg-slate-50/50 dark:bg-white/5 mb-6">

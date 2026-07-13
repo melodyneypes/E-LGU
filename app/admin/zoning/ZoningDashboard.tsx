@@ -299,19 +299,45 @@ export default function ZoningDashboard() {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <span className={cn(
-                                                    "text-[10px] font-black uppercase italic tracking-wider",
-                                                    tx.isCancelled ? "text-red-600" : ({
-                                                        "FOR_REQUESTING": "text-amber-600",
-                                                        "FOR_REVISION": "text-amber-600",
-                                                        "FOR_INSPECTION": "text-indigo-600",
-                                                        "FOR_REINSPECTION": "text-purple-600",
-                                                        "EVALUATED": "text-emerald-600",
-                                                        "REJECTED": "text-red-600",
-                                                    } as Record<string, string>)[tx.additionalData?.zoningStatus || "FOR_REQUESTING"] || "text-slate-500"
-                                                )}>
-                                                    {tx.isCancelled ? "CANCELLED" : (tx.additionalData?.zoningStatus || "FOR_REQUESTING").replace(/_/g, " ")}
-                                                </span>
+                                                {(() => {
+                                                    const isPendingEngineering = !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED", "REJECTED", "CANCELLED"].includes(tx.status || "");
+                                                    
+                                                    let displayStatus = "";
+                                                    let colorClass = "text-slate-500";
+                                                    
+                                                    if (tx.isCancelled) {
+                                                        displayStatus = "CANCELLED";
+                                                        colorClass = "text-red-600";
+                                                    } else if (tx.status === "REJECTED") {
+                                                        displayStatus = "ENG. REJECTED";
+                                                        colorClass = "text-red-600";
+                                                    } else if (isPendingEngineering) {
+                                                        displayStatus = "PENDING ENGINEERING";
+                                                        colorClass = "text-amber-600 opacity-70";
+                                                    } else {
+                                                        const zStatus = tx.status || "FOR_REQUESTING";
+                                                        displayStatus = zStatus.replace(/_/g, " ");
+                                                        colorClass = ({
+                                                            "FOR_REQUESTING": "text-amber-600",
+                                                            "FOR_REVISION": "text-amber-600",
+                                                            "FOR_INSPECTION": "text-indigo-600",
+                                                            "FOR_REINSPECTION": "text-purple-600",
+                                                            "EVALUATED": "text-emerald-600",
+                                                            "UNPAID": "text-orange-600",
+                                                            "PAID": "text-emerald-600",
+                                                            "FOR_PROCESSING": "text-sky-600",
+                                                            "FOR_CLAIM": "text-indigo-600",
+                                                            "RELEASED": "text-blue-600",
+                                                            "REJECTED": "text-red-600",
+                                                        } as Record<string, string>)[zStatus] || "text-slate-500";
+                                                    }
+
+                                                    return (
+                                                        <span className={cn("text-[10px] font-black uppercase italic tracking-wider", colorClass)}>
+                                                            {displayStatus}
+                                                        </span>
+                                                    );
+                                                })()}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col">
