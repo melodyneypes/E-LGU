@@ -1037,21 +1037,26 @@ export default function BploDetailPage({ params }: PageProps) {
                                         </div>
                                     </div>
 
-                                    {additional?.businessType === "NEW" && (
-                                        <>
-                                            <div className="col-span-12 md:col-span-4 space-y-2">
-                                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">{additional?.registrationType || "DTI"} Registration Number</label>
-                                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-primary truncate">
-                                                    {additional?.dtiSecNumber || "--"}
-                                                </div>
+                                    <div className="col-span-12 md:col-span-4 space-y-2">
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">{additional?.registrationType || "DTI"} Registration Number</label>
+                                        <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
+                                            {additional?.dtiSecNumber || "--"}
+                                        </div>
+                                    </div>
+                                    <div className="col-span-12 md:col-span-4 space-y-2">
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">{additional?.registrationType || "DTI"} Registration Date</label>
+                                        <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
+                                            {additional?.dtiSecDate || "--"}
+                                        </div>
+                                    </div>
+
+                                    {additional?.businessType !== "NEW" && (
+                                        <div className="col-span-12 md:col-span-4 space-y-2">
+                                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Existing Permit License No.</label>
+                                            <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-primary truncate">
+                                                {additional?.permitNumber || "--"}
                                             </div>
-                                            <div className="col-span-12 md:col-span-4 space-y-2">
-                                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">{additional?.registrationType || "DTI"} Registration Date</label>
-                                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
-                                                    {additional?.dtiSecDate || "--"}
-                                                </div>
-                                            </div>
-                                        </>
+                                        </div>
                                     )}
                                 </div>
                             </div>

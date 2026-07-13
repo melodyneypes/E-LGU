@@ -17,7 +17,7 @@ export default function BusinessPermitView({ additionalData }: BusinessPermitVie
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="space-y-4 animate-in fade-in duration-300">
 
             <div className="flex items-center gap-2">
                 <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase tracking-widest px-2 py-0.5">
@@ -30,7 +30,7 @@ export default function BusinessPermitView({ additionalData }: BusinessPermitVie
                 )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs leading-relaxed">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3.5 text-xs leading-relaxed">
                 <div className="space-y-1">
                     <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Business Name</span>
                     <p className="font-black uppercase text-slate-800 dark:text-white">
@@ -77,6 +77,20 @@ export default function BusinessPermitView({ additionalData }: BusinessPermitVie
                     <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Store Area & Employees</span>
                     <p className="font-black text-slate-850 dark:text-white">
                         {additionalData.businessArea || "0"} SQM / {additionalData.employeeCount || "0"} Employees
+                    </p>
+                </div>
+
+                <div className="space-y-1">
+                    <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Total Business Assets</span>
+                    <p className="font-black text-slate-850 dark:text-white font-mono">
+                        {formatCurrency(additionalData.assets || additionalData.totalAssets)}
+                    </p>
+                </div>
+
+                <div className="space-y-1">
+                    <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Health Cards Needed</span>
+                    <p className="font-black text-slate-850 dark:text-white">
+                        {additionalData.healthCardCount || additionalData.healthCertificateCount || 0} Card(s)
                     </p>
                 </div>
 
