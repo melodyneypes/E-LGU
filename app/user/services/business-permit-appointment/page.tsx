@@ -13,12 +13,38 @@ export default async function BusinessPermitAppointmentPage() {
         redirect("/auth/login");
     }
 
-    const settings = await getMultipleSystemSettings(["theme_color", "logo", "brand_word_1", "brand_word_2"]);
+    const settings = await getMultipleSystemSettings([
+        "theme_color", 
+        "logo", 
+        "brand_word_1", 
+        "brand_word_2",
+        "bplo_tax_rate_new",
+        "bplo_health_card_fee",
+        "bplo_retail_tax_rate_low",
+        "bplo_retail_tax_rate_high",
+        "bplo_manufacturer_tax_rate",
+        "bplo_wholesaler_tax_rate",
+        "bplo_mayors_permit_matrix",
+        "bplo_sanitary_fee_matrix",
+        "bplo_garbage_fee_matrix"
+    ]);
     const themeColor = settings.get("theme_color") || "#2563eb";
     const branding = {
         logo: settings.get("logo") || null,
         word1: settings.get("brand_word_1") || "MUNICIPALITY",
         word2: settings.get("brand_word_2") || "PORTAL",
+    };
+
+    const bploSettings = {
+        bplo_tax_rate_new: settings.get("bplo_tax_rate_new") || "0.0005",
+        bplo_health_card_fee: settings.get("bplo_health_card_fee") || "100.00",
+        bplo_retail_tax_rate_low: settings.get("bplo_retail_tax_rate_low") || "0.022",
+        bplo_retail_tax_rate_high: settings.get("bplo_retail_tax_rate_high") || "0.011",
+        bplo_manufacturer_tax_rate: settings.get("bplo_manufacturer_tax_rate") || "0.004125",
+        bplo_wholesaler_tax_rate: settings.get("bplo_wholesaler_tax_rate") || "0.0055",
+        bplo_mayors_permit_matrix: settings.get("bplo_mayors_permit_matrix") || "",
+        bplo_sanitary_fee_matrix: settings.get("bplo_sanitary_fee_matrix") || "",
+        bplo_garbage_fee_matrix: settings.get("bplo_garbage_fee_matrix") || ""
     };
 
     // Fetch user's resident profile
@@ -130,6 +156,7 @@ export default async function BusinessPermitAppointmentPage() {
             hasActiveNew={!!activeNew}
             hasActiveRenew={!!activeRenew}
             previousPermits={previousPermits}
+            bploSettings={bploSettings}
         />
     );
 }

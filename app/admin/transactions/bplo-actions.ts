@@ -107,6 +107,28 @@ export async function evaluateBusinessPermitTransaction(
         } else {
             const cap = Number(additionalData.capitalInvestment || 0);
             const sales = Number(additionalData.grossSales || 0);
+            const settingsList = await prisma.systemSetting.findMany({
+                where: {
+                    key: {
+                        in: [
+                            "bplo_tax_rate_new",
+                            "bplo_health_card_fee",
+                            "bplo_retail_tax_rate_low",
+                            "bplo_retail_tax_rate_high",
+                            "bplo_manufacturer_tax_rate",
+                            "bplo_wholesaler_tax_rate",
+                            "bplo_mayors_permit_matrix",
+                            "bplo_sanitary_fee_matrix",
+                            "bplo_garbage_fee_matrix"
+                        ]
+                    }
+                }
+            });
+            const settingsMap: Record<string, string> = {};
+            settingsList.forEach(s => {
+                settingsMap[s.key] = s.value;
+            });
+
             const bploCalc = calculateBusinessPermit({
                 type: additionalData.businessType === "NEW" ? "NEW" : "RENEWAL",
                 capitalization: cap,
@@ -117,7 +139,8 @@ export async function evaluateBusinessPermitTransaction(
                 floorArea: Number(additionalData.businessArea || 0),
                 healthCardCount: Number(additionalData.healthCardCount || 0),
                 fulfillmentType: transaction.fulfillmentType,
-                deliveryFee: deliveryFeeOverride !== undefined ? deliveryFeeOverride : dynamicDeliveryFee
+                deliveryFee: deliveryFeeOverride !== undefined ? deliveryFeeOverride : dynamicDeliveryFee,
+                settings: settingsMap
             });
             result = {
                 basicTax: bploCalc.baseFee,

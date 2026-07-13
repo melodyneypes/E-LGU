@@ -167,6 +167,7 @@ interface BusinessPermitAppointmentClientProps {
     hasActiveNew: boolean;
     hasActiveRenew: boolean;
     previousPermits: any[];
+    bploSettings: Record<string, string>;
 }
 
 export function BusinessPermitAppointmentClient({
@@ -177,7 +178,8 @@ export function BusinessPermitAppointmentClient({
     bookedSlots,
     hasActiveNew,
     hasActiveRenew,
-    previousPermits
+    previousPermits,
+    bploSettings
 }: BusinessPermitAppointmentClientProps) {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<Step>("PATHWAY");
@@ -1325,7 +1327,8 @@ export function BusinessPermitAppointmentClient({
                             workforceCount: parsedWorkforce,
                             lineOfBusiness: formState.lineOfBusiness,
                             floorArea: parsedArea,
-                            healthCardCount: parsedHealth
+                            healthCardCount: parsedHealth,
+                            settings: bploSettings
                         });
 
                         return (
