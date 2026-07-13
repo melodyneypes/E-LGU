@@ -373,11 +373,11 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                         const idx = parseInt(key.replace("req_", ""), 10);
                         if (idx >= 25) {
                             const label = additional?.customLabels?.[key] || `Additional Document ${idx - 24}`;
-                            return { url: additional.documents[key], label };
+                            return { key, url: additional.documents[key], label };
                         }
                         return null;
                     })
-                    .filter(Boolean) as { url: string; label: string }[],
+                    .filter(Boolean) as { key: string; url: string; label: string }[],
                 ...[
                     "1. Electrical Permit",
                     "2. Plumbing Permit",

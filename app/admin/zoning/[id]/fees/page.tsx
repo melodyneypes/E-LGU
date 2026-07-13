@@ -103,9 +103,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
             if (res.success && res.data) {
                 const tx = res.data;
                 setTransaction(tx);
-                if (tx.eCopyUrl) {
-                    setECopyUrl(tx.eCopyUrl);
-                }
+
                 if (tx.additionalData?.zoningClearanceUrl) {
                     setZoningClearanceUrl(tx.additionalData.zoningClearanceUrl);
                 }
