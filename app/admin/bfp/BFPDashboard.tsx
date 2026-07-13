@@ -185,7 +185,7 @@ export default function BFPDashboard() {
                             <TableRow className="border-slate-100 dark:border-white/5 hover:bg-transparent">
                                 <TableHead className="py-5 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Reference ID</TableHead>
                                 <TableHead className="py-5 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Applicant Info</TableHead>
-                                <TableHead className="py-5 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 cursor-pointer hover:text-slate-700 dark:hover:text-slate-200 transition-colors" onClick={() => { setSortBy("date"); setSortDirection(prev => prev === "asc" ? "desc" : "asc"); }}>
+                                <TableHead className="py-5 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 cursor-pointer hover:text-slate-700 dark:hover:text-slate-200 transition-colors" onClick={() => { setSortDirection(prev => prev === "asc" ? "desc" : "asc"); }}>
                                     <div className="flex items-center gap-2">
                                         Date & Time
                                         <Clock className="w-3 h-3" />
