@@ -117,14 +117,16 @@ const MAPANDAN_BARANGAYS = [
 ];
 
 const LINE_OF_BUSINESS_OPTIONS = [
-    "Manufacturers/Importers/Producers",
-    "Banks (Universal)",
-    "Banks (Commercial/Development)",
-    "Banks (Rural/Thrift/Savings)",
-    "Other Financial Institutions",
-    "Contractors/Service Establishments",
-    "Wholesalers/Retailers/Dealers",
-    "Other Businesses"
+    "Retail Store",
+    "Wholesaler / Distributor",
+    "Eatery / Restaurant / Food Service",
+    "Services / Contractors",
+    "Banking / Financial Institution",
+    "Manufacturers / Producers",
+    "Agriculture / Farming / Fishery",
+    "Amusement / Recreation",
+    "Real Estate / Rental",
+    "Others / General Services"
 ];
 
 type Step = "PATHWAY" | "PROFILE" | "SCHEDULE" | "CHECKLIST" | "SUBMIT" | "SUCCESS";
@@ -880,6 +882,9 @@ export function BusinessPermitAppointmentClient({
 
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Number of Health Card Applications</Label>
+                                        <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold italic -mt-1 leading-normal">
+                                            Required for all food-handling, hospitality, and medical personnel.
+                                        </p>
                                         <Input
                                             type="number"
                                             value={formState.healthCardCount}

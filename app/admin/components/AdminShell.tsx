@@ -78,6 +78,19 @@ export function AdminShell({
         };
     }, []);
 
+    React.useEffect(() => {
+        const handleWheel = (e: WheelEvent) => {
+            const activeEl = document.activeElement as HTMLElement | null;
+            if (activeEl && activeEl.tagName === "INPUT" && (activeEl as HTMLInputElement).type === "number") {
+                activeEl.blur();
+            }
+        };
+        document.addEventListener("wheel", handleWheel, { passive: true });
+        return () => {
+            document.removeEventListener("wheel", handleWheel);
+        };
+    }, []);
+
     const role = session.user?.role || "ADMIN";
     const department = session.user?.department || "";
     const deptUpper = department.toUpperCase();

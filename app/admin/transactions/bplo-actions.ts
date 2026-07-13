@@ -391,3 +391,40 @@ export async function releaseBusinessPermit(id: string, permitNumber: string, eC
         return { success: false, error: error?.message || "Failed to release business permit." };
     }
 }
+
+export async function getBploSettingsAction() {
+    try {
+        const session = await getSession();
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const settingsList = await prisma.systemSetting.findMany({
+            where: {
+                key: {
+                    in: [
+                        "bplo_tax_rate_new",
+                        "bplo_health_card_fee",
+                        "bplo_retail_tax_rate_low",
+                        "bplo_retail_tax_rate_high",
+                        "bplo_manufacturer_tax_rate",
+                        "bplo_wholesaler_tax_rate",
+                        "bplo_mayors_permit_matrix",
+                        "bplo_sanitary_fee_matrix",
+                        "bplo_garbage_fee_matrix"
+                    ]
+                }
+            }
+        });
+
+        const settingsMap: Record<string, string> = {};
+        settingsList.forEach(s => {
+            settingsMap[s.key] = s.value;
+        });
+
+        return { success: true, data: settingsMap };
+    } catch (err: any) {
+        console.error("Error getting BPLO Settings:", err);
+        return { success: false, error: err.message || "Failed to load settings." };
+    }
+}
