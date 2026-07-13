@@ -87,6 +87,8 @@ export default function BploDetailPage({ params }: PageProps) {
     const { id } = use(params);
     const router = useRouter();
 
+    const activeCounter = typeof window !== "undefined" ? localStorage.getItem("activeCounterName") : null;
+    const redirectPath = activeCounter ? "/admin/bplo/queue" : "/admin/bplo";
 
     const [transaction, setTransaction] = useState<any>(null);
     const [viewerOpen, setViewerOpen] = useState(false);
@@ -394,7 +396,7 @@ export default function BploDetailPage({ params }: PageProps) {
             );
             if (res.success) {
                 toast.success(isInspection ? "Inspection approved! Transaction status is now FOR PROCESSING." : "Assessment details updated and submitted successfully!");
-                router.push("/admin/bplo/queue");
+                router.push(redirectPath);
             } else {
                 toast.error(res.error || "Evaluation failed.");
             }
@@ -410,7 +412,7 @@ export default function BploDetailPage({ params }: PageProps) {
             const res = await rejectTransaction(transaction.id, remarks);
             if (res.success) {
                 toast.success("Permit request successfully declined.");
-                router.push("/admin/bplo/queue");
+                router.push(redirectPath);
             } else toast.error(res.error || "Decline failed.");
         } finally { setActionLoading(false); }
     };
@@ -422,7 +424,7 @@ export default function BploDetailPage({ params }: PageProps) {
             const res = await sendForRevision(transaction.id, remarks);
             if (res.success) {
                 toast.success("Permit application returned to citizen for revisions.");
-                router.push("/admin/bplo/queue");
+                router.push(redirectPath);
             } else toast.error(res.error || "Revision request failed.");
         } finally { setActionLoading(false); }
     };
@@ -460,10 +462,10 @@ export default function BploDetailPage({ params }: PageProps) {
                 toast.success(message);
                 setECopyFile(null);
                 setStickerNumber("");
-                router.push("/admin/bplo/queue");
+                router.push(redirectPath);
             } else toast.error(res.error || "Failed to release permit.");
         } finally { setActionLoading(false); }
-    }, [transaction, permitNumberInput, eCopyFile, stickerNumber, router]);
+    }, [transaction, permitNumberInput, eCopyFile, stickerNumber, router, redirectPath]);
 
     const handlePrintWaybill = () => {
         const iframe = document.createElement('iframe');

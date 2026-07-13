@@ -371,8 +371,7 @@ export default function AppointmentDetailsPage() {
 
                         {/* Status Alert Banner */}
                         {statusConfig && !isCedula && request.status !== "FOR_INSPECTION" && (
-                            <div className={cn("p-5 border rounded-2xl flex items-start gap-4", statusConfig.color)}>
-                                <statusConfig.icon className="w-5 h-5 shrink-0 mt-0.5" />
+                            <div className={cn("p-5 border rounded-2xl", statusConfig.color)}>
                                 <div className="space-y-1">
                                     <h4 className="text-xs font-black uppercase tracking-widest italic leading-none">{statusConfig.label}</h4>
                                     <p className="text-xs leading-relaxed font-medium opacity-85">
@@ -384,7 +383,11 @@ export default function AppointmentDetailsPage() {
                                                     : "Your booking is currently queued. Please wait for the municipal assessor/evaluation team to approve.")
                                                 : request.status === "PAID"
                                                     ? "Payment received! Please proceed to the Municipal Office on your scheduled date to claim your document."
-                                                    : "Your booking status has changed. Please read any evaluation comments below."
+                                                    : request.status === "UNPAID"
+                                                    ? "Your application has been evaluated. Please proceed to the Municipal Hall, scan your queue ticket at the kiosk to check in, and present it to the front desk to complete your payment."
+                                                    : (request.status === "RELEASED" || request.status === "DELIVERED")
+                                                        ? "Transaction completed! Thank you for trusting the Local Government Unit of Mapandan. Your document has been successfully processed and released."
+                                                        : "Your booking status has changed. Please read any evaluation comments below."
                                         }
                                     </p>
                                 </div>
