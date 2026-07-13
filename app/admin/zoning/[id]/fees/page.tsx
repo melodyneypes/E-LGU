@@ -26,10 +26,8 @@ import {
     getSystemSettingAction,
     approveBuildingPermit,
     uploadECopyAction,
-    submitBuildingPermitAction,
     reviseBuildingPermitClearancesAction,
     declineBuildingPermitAction,
-    releaseBuildingPermitAction,
     submitZoningClearanceAction
 } from "@/app/admin/transactions/actions";
 import { Button } from "@/components/ui/button";
@@ -73,8 +71,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const [buildingFee, setBuildingFee] = useState<string>("");
     const [engineerMunicipalCharges, setEngineerMunicipalCharges] = useState<{ name: string, amount: string }[]>([{ name: "", amount: "" }]);
     const [zoningMunicipalCharges, setZoningMunicipalCharges] = useState<{ name: string, amount: string }[]>([{ name: "", amount: "" }]);
-    const [eCopyUrl, setECopyUrl] = useState<string>("");
-    const [, setECopyFile] = useState<File | null>(null);
+
     const [zoningClearanceUrl, setZoningClearanceUrl] = useState<string>("");
     const [uploading, setUploading] = useState(false);
 
