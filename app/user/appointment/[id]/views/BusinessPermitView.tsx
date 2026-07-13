@@ -2,7 +2,6 @@
 
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink } from "lucide-react";
 
 interface BusinessPermitViewProps {
     request: any;
@@ -136,38 +135,6 @@ export default function BusinessPermitView({ additionalData }: BusinessPermitVie
                         )}
                     </div>
                 )}
-            </div>
-
-            {/* Document Links if they exist */}
-            <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-white/5">
-                <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Uploaded Documents</span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {[
-                        { label: "Valid ID Certificate", url: additionalData.ownerIdUrl },
-                        { label: "Community Tax Certificate (CTC)", url: additionalData.ctcUrl },
-                        { label: "DTI/SEC/COA Registration", url: additionalData.dtiSecUrl },
-                        { label: "Barangay Clearance", url: additionalData.brgyClearanceUrl },
-                        { label: "Sanitary Permit", url: additionalData.sanitaryPermitUrl },
-                        { label: "Fire Safety Certificate (FSIC)", url: additionalData.fireSafetyUrl },
-                        { label: "Previous Business Permit", url: additionalData.previousPermitUrl },
-                        { label: "BIR COR Certificate", url: additionalData.birCorUrl },
-                        { label: "Photo of Location", url: additionalData.locationPhotoUrl }
-                    ].map((doc, i) => {
-                        if (!doc.url) return null;
-                        return (
-                            <a
-                                key={i}
-                                href={doc.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.01] hover:bg-slate-50 dark:hover:bg-white/[0.02] hover:border-primary/20 transition-all text-[11px] font-bold text-slate-700 dark:text-slate-300"
-                            >
-                                <span>{doc.label}</span>
-                                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-                            </a>
-                        );
-                    })}
-                </div>
             </div>
         </div>
     );
