@@ -111,16 +111,24 @@ export async function evaluateBusinessPermitTransaction(
                 type: additionalData.businessType === "NEW" ? "NEW" : "RENEWAL",
                 capitalization: cap,
                 grossSales: sales,
+                assets: Number(additionalData.assets || 0),
+                workforceCount: Number(additionalData.employeeCount || 0),
+                lineOfBusiness: additionalData.lineOfBusiness,
+                floorArea: Number(additionalData.businessArea || 0),
+                healthCardCount: Number(additionalData.healthCardCount || 0),
                 fulfillmentType: transaction.fulfillmentType,
                 deliveryFee: deliveryFeeOverride !== undefined ? deliveryFeeOverride : dynamicDeliveryFee
             });
             result = {
                 basicTax: bploCalc.baseFee,
                 additionalTax: bploCalc.taxAmount,
-                penalty: 0,
+                penalty: bploCalc.sanitaryInspectionFee + bploCalc.garbageFee + bploCalc.healthCertificateFee, // Store subtotal of surcharges here for default audit fields
                 deliveryFee: bploCalc.deliveryFee,
                 totalAmount: bploCalc.totalAmount
             };
+
+            // Store the calculation details in the scope for fiscalSnapshot
+            (transaction as any).bploCalc = bploCalc;
         }
 
         let newStatus = "UNPAID";
@@ -133,6 +141,8 @@ export async function evaluateBusinessPermitTransaction(
         delete updatedAdditionalData.counterName;
         updatedAdditionalData.checkedIn = false;
 
+        const bploCalc = (transaction as any).bploCalc;
+
         const updatedTransaction = await prisma.transaction.update({
             where: { id: sanitizedId },
             data: {
@@ -144,9 +154,15 @@ export async function evaluateBusinessPermitTransaction(
                 fiscalSnapshot: {
                     basicTax: result.basicTax,
                     additionalTax: result.additionalTax,
-                    penaltyCharge: result.penalty,
+                    penaltyCharge: 0, // Keep penalty charge 0
                     deliveryFee: result.deliveryFee,
                     totalAmount: result.totalAmount,
+                    ...(bploCalc ? {
+                        sanitaryFee: bploCalc.sanitaryInspectionFee,
+                        garbageFee: bploCalc.garbageFee,
+                        healthCertificateFee: bploCalc.healthCertificateFee,
+                        classificationSize: bploCalc.classificationSize
+                    } : {}),
                     ...(sanitizedBpFeeLineItems ? { lineItems: sanitizedBpFeeLineItems } : {})
                 }
             } as any,
