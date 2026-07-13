@@ -52,7 +52,7 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
     const [transaction, setTransaction] = useState<any>(null);
     const addData = (transaction?.additionalData as any) || {};
     const zoningStatus = addData.zoningStatus;
-    const isZoningActive = userRole === "MPDC_ZONING" && transaction?.status === "EVALUATED";
+    const isZoningActive = userRole === "MPDC_ZONING" && transaction?.status === "EVALUATED" && transaction?.additionalData?.feeAssessment?.endorsed === true;
     const isZoningReadonly = userRole === "MPDC_ZONING" && !isZoningActive;
 
     const isViewOnly = isForcedView || 
