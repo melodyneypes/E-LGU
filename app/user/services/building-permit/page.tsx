@@ -624,18 +624,18 @@ export default function BuildingPermitPage() {
   ];
 
   const permitTypesList = [
-    "1. Electrical Permit",
-    "2. Plumbing Permit",
-    "3. Sanitary Permit",
-    "4. Excavation & Ground Preparation Permit",
-    "5. Fencing Permit",
-    "6. Scaffolding Permit",
-    "7. Mechanical Permit",
-    "8. Architectural Documents",
-    "9. Civil/Structural Documents",
-    "10. Electronics Documents",
-    "11. Geodetic Documents",
-    "12. Fire Protection Plan"
+    "Electrical Documents",
+    "Plumbing Documents",
+    "Sanitary Documents",
+    "Excavation & Ground Preparation Documents",
+    "Fencing Documents",
+    "Scaffolding Documents",
+    "Mechanical Documents",
+    "Architectural Documents",
+    "Civil/Structural Documents",
+    "Electronics Documents",
+    "Geodetic Documents",
+    "Fire Protection Plan"
   ];
 
   useEffect(() => {
@@ -2718,11 +2718,19 @@ export default function BuildingPermitPage() {
               </p>
             </div>
 
-            <div className="bg-slate-100/50 dark:bg-white/5 border-l-4 border-slate-800 dark:border-white p-4 rounded-r-xl flex items-center gap-3 mb-8">
-              <AlertCircle className="w-5 h-5 text-slate-800 dark:text-white shrink-0" />
-              <p className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300">
-                <b>File Upload Rules:</b> Max 5MB per file · Allowed: .pdf, .jpg, .jpeg, .png only
-              </p>
+            <div className="flex flex-col gap-3 mb-8">
+              <div className="bg-slate-100/50 dark:bg-white/5 border-l-4 border-slate-800 dark:border-white p-4 rounded-r-xl flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-slate-800 dark:text-white shrink-0" />
+                <p className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <b>File Upload Rules:</b> Max 5MB per file · Allowed: .pdf, .jpg, .jpeg, .png only
+                </p>
+              </div>
+              <div className="bg-blue-50 dark:bg-blue-500/10 border-l-4 border-blue-500 p-4 rounded-r-xl flex items-center gap-3">
+                <span className="text-lg shrink-0">💡</span>
+                <p className="text-xs md:text-sm font-medium text-blue-800 dark:text-blue-200">
+                  <b>Recommendation:</b> For clear and readable documents, we highly recommend using the <b>CamScanner</b> app to scan your files before uploading.
+                </p>
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
@@ -2758,14 +2766,21 @@ export default function BuildingPermitPage() {
                 } : undefined}
               >
                 <FileSignature className="w-4 h-4" />
-                Permits (Upload 4 or more)
+                Documents (Upload 4 or more)
               </button>
             </div>
 
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-black text-slate-800 dark:text-white">
-                {activeDocTab === "REQUIREMENTS" ? "Requirements" : "Permits"}
-              </h3>
+              <div className="flex flex-col">
+                <h3 className="text-xl font-black text-slate-800 dark:text-white">
+                  {activeDocTab === "REQUIREMENTS" ? "Requirements" : "Documents"}
+                </h3>
+                {activeDocTab === "PERMITS" && (
+                  <span className="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full w-fit mt-1">
+                    Upload at least 4 to proceed
+                  </span>
+                )}
+              </div>
               {isEditable && (
                 <Button
                   type="button"
@@ -2774,7 +2789,7 @@ export default function BuildingPermitPage() {
                   onClick={handleAddCustomDocument}
                   className="rounded-full border-slate-300 hover:bg-slate-50 dark:border-white/20 dark:hover:bg-white/10 flex items-center gap-2"
                 >
-                  <span>+</span> Add Custom {activeDocTab === "REQUIREMENTS" ? "Requirement" : "Permit"}
+                  <span>+</span> Add Custom {activeDocTab === "REQUIREMENTS" ? "Requirement" : "Document"}
                 </Button>
               )}
             </div>
@@ -2820,7 +2835,9 @@ export default function BuildingPermitPage() {
                           {isRequired ? (
                             <span className="text-red-500 ml-1 text-base align-top">*</span>
                           ) : (
-                            <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1 align-middle">Optional</span>
+                            activeDocTab !== "PERMITS" && (
+                              <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1 align-middle">Optional</span>
+                            )
                           )}
                         </div>
                       </h4>
@@ -3191,6 +3208,19 @@ export default function BuildingPermitPage() {
                           {selectedApplication.status === "REJECTED" ? "Reason for Rejection" : "Revision Remarks"}
                         </p>
                         <p className="whitespace-pre-wrap font-medium">{selectedApplication.rejectionRemarks}</p>
+                        
+                        {selectedApplication.status === "FOR_REVISION" && selectedApplication.additionalData?.revisionRequests?.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-red-200 dark:border-red-500/20">
+                            <p className="font-bold uppercase tracking-widest text-[10px] mb-2 text-red-700 dark:text-red-400">Documents to Revise / Additional Attachments:</p>
+                            <ul className="list-disc pl-5 space-y-1">
+                              {selectedApplication.additionalData.revisionRequests.map((req: any, i: number) => (
+                                <li key={i} className="text-xs font-medium text-red-800 dark:text-red-300">
+                                  {req.name} <span className="text-[9px] uppercase tracking-widest text-red-600 dark:text-red-400/80 ml-1">({req.type === 'PERMITS' ? 'DOCUMENTS' : 'REQUIREMENTS'})</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     )}
 
