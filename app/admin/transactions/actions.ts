@@ -1173,7 +1173,7 @@ export async function submitBusinessPermitTransaction(formData: FormData) {
 export async function uploadECopyAction(formData: FormData) {
     try {
         const user = await assertSessionUser();
-        assertUserRoles(user, ["ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "USER", "MPDC_ZONING"]);
+        assertUserRoles(user, ["ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "USER", "MPDC_ZONING", "BFP"]);
         const file = formData.get("file") as File;
         if (!file) return { success: false, error: "No file provided" };
 
@@ -2499,7 +2499,7 @@ export async function rejectTransaction(id: string, remarks: string) {
 export async function sendForRevision(
     id: string,
     remarks: string,
-    revisionRequests: { type: "REQUIREMENTS" | "PERMITS"; name: string }[] = []
+    revisionRequests: { type: "REQUIREMENTS" | "PERMITS"; name: string; key?: string }[] = []
 ) {
     try {
         id = sanitizeString(id);
@@ -2507,7 +2507,8 @@ export async function sendForRevision(
         const normalizedRevisionRequests = revisionRequests
             .map((item) => ({
                 type: item?.type === "PERMITS" ? "PERMITS" as const : "REQUIREMENTS" as const,
-                name: sanitizeString(item?.name || "")
+                name: sanitizeString(item?.name || ""),
+                key: item?.key ? sanitizeString(item.key) : undefined
             }))
             .filter((item) => item.name.length > 0);
 
@@ -3221,6 +3222,23 @@ export async function getEngineerTransactions(params?: string | {
             type: { code: { startsWith: "BUILDING_PERMIT" } }
         };
 
+        if (user.role === "MPDC_ZONING") {
+            where.AND = [
+                { status: { notIn: ["DRAFT", "FOR_REQUESTING", "FOR_REVISION", "FOR_INSPECTION", "FOR_REINSPECTION"] } },
+                {
+                    OR: [
+                        { status: { not: "EVALUATED" } },
+                        {
+                            additionalData: {
+                                path: ["feeAssessment", "endorsed"],
+                                equals: true
+                            }
+                        }
+                    ]
+                }
+            ];
+        }
+
         if (status && status !== "ALL") {
             if (status === "CANCELLED") {
                 where.isCancelled = true;
@@ -3369,23 +3387,52 @@ export async function getEngineerStatusCounts() {
             isCancelled: false
         };
 
+        if (user.role === "MPDC_ZONING") {
+            where.AND = [
+                { status: { notIn: ["DRAFT", "FOR_REQUESTING", "FOR_REVISION", "FOR_INSPECTION", "FOR_REINSPECTION"] } },
+                {
+                    OR: [
+                        { status: { not: "EVALUATED" } },
+                        {
+                            additionalData: {
+                                path: ["feeAssessment", "endorsed"],
+                                equals: true
+                            }
+                        }
+                    ]
+                }
+            ];
+        }
+
+        const counts: Record<string, number> = {};
+
         const grouped = await prisma.transaction.groupBy({
             by: ["status"],
             where,
             _count: { _all: true }
         });
+        for (const group of grouped) {
+            counts[group.status] = group._count?._all ?? 0;
+        }
 
         const cancelledCount = await prisma.transaction.count({
             where: {
                 type: { code: { startsWith: "BUILDING_PERMIT" } },
-                isCancelled: true
+                isCancelled: true,
+                ...(user.role === "MPDC_ZONING" ? { 
+                    AND: [
+                        { status: { notIn: ["DRAFT", "FOR_REQUESTING", "FOR_REVISION", "FOR_INSPECTION", "FOR_REINSPECTION"] } },
+                        {
+                            OR: [
+                                { status: { not: "EVALUATED" } },
+                                { additionalData: { path: ["feeAssessment", "endorsed"], equals: true } }
+                            ]
+                        }
+                    ]
+                } : {})
             }
         });
 
-        const counts: Record<string, number> = {};
-        for (const group of grouped) {
-            counts[group.status] = group._count?._all ?? 0;
-        }
         counts["CANCELLED"] = cancelledCount;
 
         return { success: true, data: counts };
@@ -3584,6 +3631,7 @@ export async function endorseBuildingPermitFees(
         buildingPermitFee?: number;
         engineerMunicipalCharges?: { name: string, amount: number }[];
         zoningMunicipalCharges?: { name: string, amount: number }[];
+        zoningVisibleDocs?: string[];
     }
 ) {
     try {
@@ -3606,6 +3654,7 @@ export async function endorseBuildingPermitFees(
         // Update with the fee assessment
         const updatedAdditionalData = {
             ...currentAdditionalData,
+            ...(fees.zoningVisibleDocs && !isZoningEndorse ? { zoningVisibleDocs: fees.zoningVisibleDocs } : {}),
             feeAssessment: {
                 ...existingFeeAssessment,
                 ...(isZoningEndorse ? {
@@ -5282,5 +5331,139 @@ export async function submitZoningClearanceAction(id: string, url: string) {
     } catch (error: any) {
         console.error("Submit zoning clearance error:", error);
         return { success: false, error: error.message || "Failed to submit zoning clearance" };
+    }
+}
+
+export async function getBFPTransactions(status?: string, searchTerm?: string, dateFilter?: string) {
+    try {
+        const user = await assertSessionUser();
+        assertUserRoles(user, ["BFP", "ADMIN"]);
+
+        const where: any = {
+            type: { code: "BUILDING_PERMIT" }
+        };
+
+        // BFP only sees transactions where both Engineer and Zoning have endorsed
+        // i.e., additionalData.feeAssessment.endorsed == true && additionalData.feeAssessment.zoningEndorsed == true
+        where.additionalData = {
+            path: ['feeAssessment', 'endorsed'],
+            equals: true,
+        };
+
+        if (status === "PENDING") {
+            where.additionalData = {
+                ...where.additionalData,
+                path: ['bfpStatus'],
+                equals: null
+            };
+        } else if (status === "APPROVED") {
+            where.additionalData = {
+                ...where.additionalData,
+                path: ['bfpStatus'],
+                equals: "APPROVED"
+            };
+        }
+
+        if (searchTerm) {
+            where.OR = [
+                { id: { contains: searchTerm, mode: "insensitive" } },
+                { user: { name: { contains: searchTerm, mode: "insensitive" } } },
+                { user: { email: { contains: searchTerm, mode: "insensitive" } } }
+            ];
+        }
+
+        if (dateFilter) {
+            const start = new Date(dateFilter);
+            const end = new Date(dateFilter);
+            end.setDate(end.getDate() + 1);
+            where.createdAt = { gte: start, lt: end };
+        }
+
+        let transactions = await prisma.transaction.findMany({
+            where,
+            include: { type: true, user: true },
+            orderBy: { updatedAt: "desc" }
+        });
+        
+        // Manual filter to ensure zoningEndorsed is true
+        transactions = transactions.filter((tx: any) => {
+            const assess = tx.additionalData?.feeAssessment;
+            return assess && assess.endorsed === true && assess.zoningEndorsed === true;
+        });
+        
+        if (status === "PENDING") {
+            transactions = transactions.filter((tx: any) => !tx.additionalData?.bfpStatus);
+        } else if (status === "APPROVED") {
+            transactions = transactions.filter((tx: any) => tx.additionalData?.bfpStatus === "APPROVED");
+        }
+
+        return { success: true, data: transactions };
+    } catch (error) {
+        console.error("Get BFP transactions error:", error);
+        return { success: false, error: "Failed to fetch BFP transactions" };
+    }
+}
+
+export async function getBFPStatusCounts() {
+    try {
+        const user = await assertSessionUser();
+        assertUserRoles(user, ["BFP", "ADMIN"]);
+
+        const transactions = await prisma.transaction.findMany({
+            where: {
+                type: { code: "BUILDING_PERMIT" }
+            },
+            select: { additionalData: true }
+        });
+        
+        let pending = 0;
+        let approved = 0;
+        
+        transactions.forEach((tx: any) => {
+            const assess = tx.additionalData?.feeAssessment;
+            if (assess && assess.endorsed === true && assess.zoningEndorsed === true) {
+                if (tx.additionalData?.bfpStatus === "APPROVED") {
+                    approved++;
+                } else {
+                    pending++;
+                }
+            }
+        });
+
+        return { success: true, data: { PENDING: pending, APPROVED: approved } };
+    } catch (error) {
+        console.error("Get BFP counts error:", error);
+        return { success: false, error: "Failed to fetch BFP counts" };
+    }
+}
+
+export async function approveBFPTransaction(id: string, bfpClearanceUrl: string) {
+    try {
+        const user = await assertSessionUser();
+        assertUserRoles(user, ["BFP", "ADMIN"]);
+
+        const transaction = await prisma.transaction.findUnique({ where: { id } });
+        if (!transaction) return { success: false, error: "Transaction not found" };
+
+        const currentData = (transaction.additionalData as any) || {};
+        
+        const updatedTransaction = await prisma.transaction.update({
+            where: { id },
+            data: {
+                additionalData: {
+                    ...currentData,
+                    bfpStatus: "APPROVED",
+                    bfpClearanceUrl,
+                    bfpApprovedBy: user.name || "BFP Officer",
+                    bfpApprovedAt: new Date()
+                }
+            }
+        });
+
+        revalidatePath("/admin/bfp");
+        return { success: true, data: updatedTransaction };
+    } catch (error: any) {
+        console.error("Approve BFP error:", error);
+        return { success: false, error: error.message || "Failed to approve BFP transaction" };
     }
 }

@@ -2673,6 +2673,23 @@ export async function getUserReports() {
     }
 }
 
+export async function getUserTransactions() {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+        const transactions = await (prisma as any).transaction.findMany({
+            where: { userId: (session.user as any).id },
+            include: { type: true },
+            orderBy: { createdAt: "desc" }
+        });
+
+        return { success: true, transactions };
+    } catch (error) {
+        return { success: false, error: "Failed to fetch your transactions." };
+    }
+}
+
 export async function getAdminReports() {
     try {
         const session = await getServerSession(authOptions);

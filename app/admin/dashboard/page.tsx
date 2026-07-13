@@ -22,7 +22,6 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
     if (user?.role === "ADMIN" && user?.department?.toUpperCase() === "BPLO") {
         redirect("/admin/bplo");
     }
-
     // Redirect Registrar Admin directly to their registrar hub
     if (user?.role === "ADMIN" && (user?.department?.toUpperCase() === "REGISTRAR" || user?.department?.toUpperCase() === "CIVIL_REGISTRY")) {
         redirect("/admin/registrar");
@@ -31,6 +30,11 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
     // Redirect Engineer to their Building Permit hub
     if (user?.role === "ENGINEER" || user?.role === "MPDC_ZONING") {
         redirect("/admin/engineer");
+    }
+
+    // Redirect BFP to their BFP hub
+    if (user?.role === "BFP") {
+        redirect("/admin/bfp");
     }
 
     const isBarangayAdmin = user?.role === "BARANGAY_ADMIN";

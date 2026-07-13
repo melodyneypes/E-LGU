@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useState, useRef, useEffect, use, useCallback } from "react";
+import React, { useState, useRef, useEffect, use, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -205,6 +205,8 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     const [isRequestingRevision, setIsRequestingRevision] = useState(false);
     const [themeColor, setThemeColor] = useState<string>("#2563eb");
 
+    const [selectedVaultDocs, setSelectedVaultDocs] = useState<string[]>([]);
+
     // Schedule Inspection Form State
     const [isSchedulingInspection, setIsSchedulingInspection] = useState(false);
     const [inspectionType, setInspectionType] = useState("Structural Inspection");
@@ -214,6 +216,89 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     const [inspectionNotes, setInspectionNotes] = useState("");
     const canScheduleInspection = transaction?.status === "FOR_REQUESTING";
     const canRequestRevision = transaction?.status === "FOR_REQUESTING";
+
+    const additional = transaction?.additionalData || {};
+    const resident = transaction?.user?.residentProfile || transaction?.residentSnapshot || {};
+
+    const vaultDocs = useMemo(() => {
+        if (!transaction) return [];
+        return [
+            { key: "newIdFile", url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)", type: "REQUIREMENTS" },
+            { key: "newIdFileBack", url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)", type: "REQUIREMENTS" },
+            { key: "tctFile", url: additional?.documents?.tctFile, label: "TCT / Land Title", type: "REQUIREMENTS" },
+            ...[
+                "Barangay Clearance/Certification",
+                "Tax Declaration",
+                "Land Title",
+                "Community Tax Certificate",
+                "Latest Tax Receipts",
+                "Adjoining Owners Confirmation",
+                "Locational Clearance",
+                "Affidavit of Consent",
+                "Affidavit of Adjoining Owners",
+                "Signed & Sealed Plans",
+                "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
+                "Cedula of Lot Owner",
+                "ID of Lot Owner",
+                "Death Certificate of Lot Owner (Optional)",
+                "Birth Certificate of Heirs of Deceased Owner (Optional)",
+                "Valid Licenses (PRC I.D.) of Involved Professionals",
+                "Duly Notarized Estimated Value of Building/Structure",
+                "Duly Notarized Technical Specification",
+                "Construction Safety and Health Program From DOLE",
+                "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
+                "Affidavit of Undertaking",
+                "Cedula of Applicant",
+                "ID of applicant with 3 signatures",
+                "Structural Analysis and Design",
+                "Soil Boring Test"
+            ]
+              .map((label, idx) => ({ key: `req_${idx}`, url: additional?.documents?.[`req_${idx}`], label, idx, type: "REQUIREMENTS" }))
+              .filter(({ idx }) => {
+                  if (additional?.isLotOwner === "Yes" && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
+                  if (additional?.isLotOwner === "No" && [21, 22].includes(idx)) return false;
+                  const hasMultipleFloors = parseInt(additional?.totalFloors || "0", 10) > 1;
+                  if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
+                  return true;
+              }),
+            ...Object.keys(additional?.documents || {})
+                .filter(key => key.startsWith("req_"))
+                .map(key => {
+                    const idx = parseInt(key.replace("req_", ""), 10);
+                    if (idx >= 25) {
+                        const label = additional?.customLabels?.[key] || `Additional Document ${idx - 24}`;
+                        return { key, url: additional.documents[key], label, type: "REQUIREMENTS" };
+                    }
+                    return null;
+                })
+                .filter(Boolean) as { key: string, url: string; label: string; type: string }[],
+            ...[
+                "1. Electrical Permit",
+                "2. Plumbing Permit",
+                "3. Sanitary Permit",
+                "4. Excavation & Ground Preparation Permit",
+                "5. Fencing Permit",
+                "6. Scaffolding Permit",
+                "7. Mechanical Permit",
+                "8. Architectural Documents",
+                "9. Civil/Structural Documents",
+                "10. Electronics Documents",
+                "11. Geodetic Documents",
+                "12. Fire Protection Plan"
+            ].map((label, idx) => ({ key: `permit_${idx}`, url: additional?.documents?.[`permit_${idx}`], label, type: "PERMITS" })),
+            ...Object.keys(additional?.documents || {})
+                .filter(key => key.startsWith("permit_"))
+                .map(key => {
+                    const idx = parseInt(key.replace("permit_", ""), 10);
+                    if (idx >= 12) {
+                        const label = additional?.customLabels?.[key] || `Additional Permit ${idx - 11}`;
+                        return { key, url: additional.documents[key], label, type: "PERMITS" };
+                    }
+                    return null;
+                })
+                .filter(Boolean) as { key: string; url: string; label: string; type: string }[]
+        ].filter(doc => doc.url);
+    }, [transaction, additional, resident]);
 
     const fetchTransaction = useCallback(async () => {
         setLoading(true);
@@ -283,10 +368,18 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
             .map((item) => ({ type: item.type, name: item.name.trim() }))
             .filter((item) => item.name.length > 0);
 
+        const vaultRequests = selectedVaultDocs.map(key => {
+            const doc = vaultDocs.find(d => d.key === key);
+            return doc ? { type: doc.type as "REQUIREMENTS" | "PERMITS", name: doc.label, key: doc.key } : null;
+        }).filter(Boolean) as { type: "REQUIREMENTS" | "PERMITS"; name: string; key: string }[];
+
+        const finalRequests = [...vaultRequests, ...cleanedRequests];
+
         if (!remarks.trim()) { toast.error("Remarks required"); return; }
+        if (finalRequests.length === 0) { toast.error("At least one document must be requested"); return; }
         setActionLoading(true);
         try {
-            const res = await sendForRevision(id, remarks, cleanedRequests);
+            const res = await sendForRevision(id, remarks, finalRequests);
             if (res.success) {
                 toast.success("Sent back for revision");
                 router.push(backUrl);
@@ -308,87 +401,9 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
 
     if (!transaction) return <div className="p-20 text-center dark:text-white">Protocol Error: Transaction Inaccessible</div>;
 
-    const additional = transaction.additionalData || {};
-    const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
-
     const renderRequirementsGrid = () => (
         <div className="grid grid-cols-2 gap-4">
-            {[
-                { url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)" },
-                { url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)" },
-                { url: additional?.documents?.tctFile, label: "TCT / Land Title" },
-                ...[
-                    "Barangay Clearance/Certification",
-                    "Tax Declaration",
-                    "Land Title",
-                    "Community Tax Certificate",
-                    "Latest Tax Receipts",
-                    "Adjoining Owners Confirmation",
-                    "Locational Clearance",
-                    "Affidavit of Consent",
-                    "Affidavit of Adjoining Owners",
-                    "Signed & Sealed Plans",
-                    "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
-                    "Cedula of Lot Owner",
-                    "ID of Lot Owner",
-                    "Death Certificate of Lot Owner (Optional)",
-                    "Birth Certificate of Heirs of Deceased Owner (Optional)",
-                    "Valid Licenses (PRC I.D.) of Involved Professionals",
-                    "Duly Notarized Estimated Value of Building/Structure",
-                    "Duly Notarized Technical Specification",
-                    "Construction Safety and Health Program From DOLE",
-                    "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
-                    "Affidavit of Undertaking",
-                    "Cedula of Applicant",
-                    "ID of applicant with 3 signatures",
-                    "Structural Analysis and Design",
-                    "Soil Boring Test"
-                ]
-                  .map((label, idx) => ({ url: additional?.documents?.[`req_${idx}`], label, idx }))
-                  .filter(({ idx }) => {
-                      if (additional?.isLotOwner === "Yes" && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
-                      if (additional?.isLotOwner === "No" && [21, 22].includes(idx)) return false;
-                      const hasMultipleFloors = parseInt(additional?.totalFloors || "0", 10) > 1;
-                      if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
-                      return true;
-                  }),
-                ...Object.keys(additional?.documents || {})
-                    .filter(key => key.startsWith("req_"))
-                    .map(key => {
-                        const idx = parseInt(key.replace("req_", ""), 10);
-                        if (idx >= 25) {
-                            const label = additional?.customLabels?.[key] || `Additional Document ${idx - 24}`;
-                            return { url: additional.documents[key], label };
-                        }
-                        return null;
-                    })
-                    .filter(Boolean) as { url: string; label: string }[],
-                ...[
-                    "1. Electrical Permit",
-                    "2. Plumbing Permit",
-                    "3. Sanitary Permit",
-                    "4. Excavation & Ground Preparation Permit",
-                    "5. Fencing Permit",
-                    "6. Scaffolding Permit",
-                    "7. Mechanical Permit",
-                    "8. Architectural Documents",
-                    "9. Civil/Structural Documents",
-                    "10. Electronics Documents",
-                    "11. Geodetic Documents",
-                    "12. Fire Protection Plan"
-                ].map((label, idx) => ({ url: additional?.documents?.[`permit_${idx}`], label })),
-                ...Object.keys(additional?.documents || {})
-                    .filter(key => key.startsWith("permit_"))
-                    .map(key => {
-                        const idx = parseInt(key.replace("permit_", ""), 10);
-                        if (idx >= 12) {
-                            const label = additional?.customLabels?.[key] || `Additional Permit ${idx - 11}`;
-                            return { url: additional.documents[key], label };
-                        }
-                        return null;
-                    })
-                    .filter(Boolean) as { url: string; label: string }[]
-            ].filter(doc => doc.url).map((doc, i) => (
+            {vaultDocs.map((doc, i) => (
                 <Dialog key={i}>
                     <DialogTrigger asChild>
                         <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 flex items-center justify-center cursor-zoom-in">
@@ -838,10 +853,25 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                                 <Label className="text-[10px] font-black uppercase text-slate-400">Corrections Needed *</Label>
                                                 <Textarea ref={remarksRef} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="min-h-[120px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 font-bold p-6 text-sm" required />
                                                 <div className="space-y-3">
+                                                    <Label className="text-[10px] font-black uppercase text-slate-400">Uploaded Documents to Revise</Label>
+                                                    <p className="text-[10px] text-slate-400">Select the documents the Citizen needs to re-upload.</p>
+                                                    <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
+                                                        {vaultDocs.map((doc) => (
+                                                            <div key={doc.key} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors" onClick={() => setSelectedVaultDocs(prev => prev.includes(doc.key) ? prev.filter(k => k !== doc.key) : [...prev, doc.key])}>
+                                                                <input type="checkbox" className="w-4 h-4 border-slate-300 text-amber-500 focus:ring-amber-500 cursor-pointer rounded-sm" checked={selectedVaultDocs.includes(doc.key)} onChange={(e) => { e.stopPropagation(); setSelectedVaultDocs(prev => e.target.checked ? [...prev, doc.key] : prev.filter(k => k !== doc.key)); }} />
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{doc.label}</span>
+                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{doc.type}</span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-3">
                                                     <div className="flex items-center justify-between gap-3">
                                                         <div className="space-y-1">
-                                                            <Label className="text-[10px] font-black uppercase text-slate-400">Requested Attachments</Label>
-                                                            <p className="text-[10px] text-slate-400">Optional. Add only if you want Citizen to upload more files.</p>
+                                                            <Label className="text-[10px] font-black uppercase text-slate-400">Additional Attachments</Label>
+                                                            <p className="text-[10px] text-slate-400">Optional. Add only if you want Citizen to upload completely new files.</p>
                                                         </div>
                                                         <Button
                                                             type="button"

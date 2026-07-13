@@ -558,6 +558,7 @@ enum UserRole {
   RIDER
   ENGINEER
   MPDC_ZONING
+  BFP
 }
 
 enum ResidentStatus {

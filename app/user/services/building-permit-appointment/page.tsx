@@ -3379,7 +3379,7 @@ export default function BuildingPermitAppointmentPage() {
                         )}>
                           {!["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") ? (
                              <Clock className="w-5 h-5" />
-                          ) : selectedApplication?.additionalData?.zoningStatus === "EVALUATED" ? (
+                          ) : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed ? (
                              <Check className="w-5 h-5" />
                           ) : (
                              <MapPin className="w-5 h-5" />
@@ -3393,8 +3393,8 @@ export default function BuildingPermitAppointmentPage() {
                                 ? "Scheduled for Zoning Site Inspection"
                                 : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
                                   ? "Scheduled for Zoning Site Re-inspection"
-                                  : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
-                                    ? "Zoning Clearance Approved"
+                                  : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
+                                    ? "Zoning Assessment Endorsed"
                                     : "Zoning Clearance Under Review"}
                           </p>
                           <p className="text-xs text-slate-500 leading-normal">
@@ -3404,8 +3404,8 @@ export default function BuildingPermitAppointmentPage() {
                                 ? "Your application is scheduled for an upcoming zoning site inspection."
                                 : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
                                   ? "Your application requires a zoning site re-inspection. Please check for updates."
-                                  : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
-                                    ? "Your zoning requirements have been evaluated and approved by MPDC."
+                                  : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
+                                    ? "Your zoning requirements have been evaluated and endorsed by MPDC."
                                     : "Your documents are currently being reviewed by the MPDC Zoning Office."}
                           </p>
                         </div>
@@ -3420,7 +3420,7 @@ export default function BuildingPermitAppointmentPage() {
                               ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
                               : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
                                 ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                                : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
+                                : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
                                   ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
                                   : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
                       )}>
@@ -3428,7 +3428,7 @@ export default function BuildingPermitAppointmentPage() {
                           ? "Cancelled"
                           : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
                             ? "Pending"
-                            : selectedApplication?.additionalData?.zoningStatus === "EVALUATED"
+                            : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
                               ? "Approved"
                               : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
                                 ? "For Inspection"

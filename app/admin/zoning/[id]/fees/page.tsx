@@ -95,8 +95,8 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
     // ViewOnly for Zoning: if not active phase, if already endorsed, or if zoningStatus is not EVALUATED.
     // ViewOnly for others (Engineer/Admin): if not EVALUATED status, or if already endorsed.
-    const isViewOnly = isForcedView || 
-        isEndorsed || 
+    const isViewOnly = isForcedView ||
+        isEndorsed ||
         (userRole === "MPDC_ZONING" && (!isZoningActive || zoningStatus !== "EVALUATED")) ||
         (userRole !== "MPDC_ZONING" && transaction && transaction.status !== "EVALUATED");
 
@@ -146,7 +146,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
     const handleEndorse = async () => {
         const isZoning = userRole === "MPDC_ZONING";
-        
+
         if (!isZoning && !buildingFee) {
             toast.error("Please fill in all required fee fields.");
             return;
@@ -778,7 +778,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                             Preview <ExternalLink className="w-3.5 h-3.5" />
                                         </Button>
                                     </div>
-                                    
+
                                     <Button
                                         onClick={handleSubmitZoningClearance}
                                         disabled={actionLoading || !zoningClearanceUrl}
@@ -841,64 +841,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                         </div>
                     )}
 
-                    {/* E-Copy Upload Section for FOR_PROCESSING and CLAIMING */}
-                    {["FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING"].includes(transaction.status) && (
-                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
-                            <div>
-                                <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
-                                    Upload Building <span className="text-primary">Permit E-Copy</span>
-                                </h2>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">Upload the scanned or digital copy of the approved building permit. Supported formats: PDF, PNG, JPG.</p>
-                            </div>
 
-                            <div className="space-y-4">
-                                <div className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-8 text-center bg-slate-50/50 dark:bg-white/5 hover:bg-slate-100/50 dark:hover:bg-white/10 transition-all duration-300 relative group">
-                                    <input
-                                        type="file"
-                                        id="eCopyUpload"
-                                        onChange={handleFileChange}
-                                        accept="application/pdf,image/*"
-                                        disabled={uploading || transaction.status !== "FOR_PROCESSING"}
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
-                                    />
-                                    <div className="flex flex-col items-center justify-center gap-4">
-                                        <div className="p-4 bg-primary/10 rounded-2xl group-hover:scale-110 transition-transform">
-                                            <Upload className="w-8 h-8 text-primary" />
-                                        </div>
-                                        <div>
-                                            <span className="text-xs font-black uppercase tracking-wider text-slate-600 block dark:text-slate-300">Drag & Drop or Click to Upload</span>
-                                            <span className="text-[10px] font-bold text-slate-400 block mt-1">PDF or Images up to 10MB</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {eCopyUrl && (
-                                <div className="p-6 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-2xl flex items-center justify-between shadow-sm">
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-3 bg-emerald-500/10 rounded-xl">
-                                            <FileText className="w-6 h-6 text-emerald-500" />
-                                        </div>
-                                        <div>
-                                            <span className="text-xs font-black uppercase tracking-widest italic text-emerald-500">Permit E-Copy Loaded</span>
-                                            <span className="text-[11px] font-medium text-slate-400 block mt-0.5">Click preview to view the uploaded file.</span>
-                                        </div>
-                                    </div>
-                                    <Button
-                                        onClick={() => {
-                                            setViewerUrl(eCopyUrl);
-                                            setViewerTitle("Building Permit E-Copy");
-                                            setViewerOpen(true);
-                                        }}
-                                        variant="outline"
-                                        className="h-10 gap-2 font-black text-[10px] uppercase tracking-wider rounded-xl"
-                                    >
-                                        Preview <ExternalLink className="w-3.5 h-3.5" />
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
 
                 {/* Right Column: Workflow Tracking & Executive Actions */}
@@ -994,7 +937,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                         ) : (
                                             <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
                                                 <Check className="w-4 h-4 shrink-0 mt-0.5" />
-                                                <span>BFP Fire Safety Clearance Proof has been submitted by Resident!</span>
+                                                <span>BFP Fire Safety Clearance Proof has been submitted by BFP Officer!</span>
                                             </div>
                                         )}
 
@@ -1006,7 +949,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                         ) : (
                                             <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
                                                 <Check className="w-4 h-4 shrink-0 mt-0.5" />
-                                                <span>Zoning/Locational Clearance Proof has been submitted by Resident!</span>
+                                                <span>Zoning/Locational Clearance Proof has been submitted by Zoning Officer!</span>
                                             </div>
                                         )}
 
@@ -1050,47 +993,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                     </div>
                                 )}
 
-                                {["FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING"].includes(transaction.status) && (
-                                    <div className="space-y-4">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Resident Fulfillment Preference</span>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <Badge className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs px-3 py-1 font-bold rounded-lg uppercase">
-                                                    {transaction.fulfillmentType || "PICK_UP"}
-                                                </Badge>
-                                            </div>
-                                            <p className="text-[11px] text-slate-400 font-medium mt-2 leading-relaxed">
-                                                Upon clicking the Submit button, the permit will be routed to:{" "}
-                                                <span className="font-bold text-white">
-                                                    {transaction.fulfillmentType === "DELIVERY" ? "FOR_PICKING (Rider Delivery)" : "FOR_CLAIM (Ready for pick up)"}
-                                                </span>.
-                                            </p>
-                                        </div>
 
-                                        {(userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
-                                            <div className="pt-2 space-y-3">
-                                                <Button
-                                                    onClick={handleSubmitPermit}
-                                                    disabled={actionLoading || !eCopyUrl || uploading || transaction.status !== "FOR_PROCESSING"}
-                                                    className="w-full h-14 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    <Check className="w-4 h-4 mr-2" /> Submit
-                                                </Button>
-
-                                                {(!transaction.fulfillmentType || transaction.fulfillmentType === "PICK_UP") && (
-                                                    <Button
-                                                        onClick={handleRelease}
-                                                        disabled={actionLoading || !eCopyUrl || uploading || transaction.status === "FOR_PROCESSING"}
-                                                        variant="outline"
-                                                        className="w-full h-14 rounded-xl border-blue-500/50 text-blue-500 hover:bg-blue-500/10 font-black italic uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        <BadgeCheck className="w-4 h-4 mr-2" /> Released
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
                             </div>
                         )}
                     </div>

@@ -382,6 +382,7 @@ export function Sidebar({
         { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
         { href: "/admin/zoning", label: "Zoning Hub", icon: LayoutDashboard, category: "Zoning" },
         { href: "/admin/zoning/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Zoning" },
+        { href: "/admin/bfp", label: "BFP Hub", icon: LayoutDashboard, category: "BFP" },
         { href: "/admin/users", label: "User Accounts", icon: UserCheck, category: "Security & Accounts" },
     ];
 
@@ -506,6 +507,10 @@ export function Sidebar({
             menuItems = [
                 { href: "/admin/zoning", label: "Zoning Hub", icon: HardHat, category: "Zoning" },
                 { href: "/admin/zoning/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Zoning" }
+            ];
+        } else if (role === "BFP") {
+            menuItems = [
+                { href: "/admin/bfp", label: "BFP Hub", icon: LayoutDashboard, category: "BFP" }
             ];
         }
     }
