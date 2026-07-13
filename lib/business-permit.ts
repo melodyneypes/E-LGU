@@ -1,6 +1,7 @@
 /**
  * Business Permit Calculation Logic
  * Based on the LGU Online Services Portal Documentation
+ * Aligned with the Vertex Technologies Corporation Municipal Scale spec
  */
 
 export type BusinessPermitType = "NEW" | "RENEWAL";
@@ -9,45 +10,290 @@ export interface BusinessPermitCalculationParams {
     type: BusinessPermitType;
     capitalization: number;
     grossSales?: number;
+    assets?: number;
+    workforceCount?: number;
+    lineOfBusiness?: string;
+    floorArea?: number;
+    healthCardCount?: number;
     fulfillmentType?: "PICK_UP" | "DELIVERY" | "E_COPY" | null;
     deliveryFee?: number;
+    settings?: Record<string, string>;
 }
 
 export interface BusinessPermitResult {
-    baseFee: number;
-    taxAmount: number;
-    regulatoryFee: number; // Placeholder for future municipal regulatory inspections (e.g. Sanitary/Zoning)
+    baseFee: number; // Mayor's Permit Fee (calculated based on classification scale)
+    taxAmount: number; // Graduated or capital-based business tax
+    sanitaryInspectionFee: number; // Sanitary fee based on floor area
+    garbageFee: number; // Garbage fee based on category and floor area
+    healthCertificateFee: number; // Health cards count * price
+    regulatoryFee: number; // Placeholder for legacy or other fees
     deliveryFee: number;
     totalAmount: number;
+    classificationSize: "MICRO" | "SMALL" | "MEDIUM" | "LARGE";
 }
 
 /**
- * Computes the Business Permit assessed tax amount.
- * 
- * Formula from Vertex Tech Corp Spec: 
- * Assessed Tax Bill = (Declared Capitalization * 1%) + Base Mayor's Permit Fee (₱500.00)
- * 
- * Constraint: This computed amount is strictly read-only and cannot be manually overridden.
+ * Computes the Business Permit assessed tax, Mayor's Permit Fee, and surcharges.
  */
 export function calculateBusinessPermit(params: BusinessPermitCalculationParams): BusinessPermitResult {
     const {
         type,
-        capitalization,
+        capitalization = 0,
         grossSales = 0,
+        assets = 0,
+        workforceCount = 0,
+        lineOfBusiness = "Other Businesses",
+        floorArea = 0,
+        healthCardCount = 0,
         fulfillmentType = "PICK_UP",
-        deliveryFee = 0
+        deliveryFee = 0,
+        settings = {}
     } = params;
 
-    // Mayors Permit Base Fee is strictly ₱500.00
-    const baseFee = 500.00;
+    // Load custom settings if provided, otherwise default to official rates
+    const taxRateNew = settings.bplo_tax_rate_new ? parseFloat(settings.bplo_tax_rate_new) : 0.0005; // 0.05%
+    const healthCardUnitPrice = settings.bplo_health_card_fee ? parseFloat(settings.bplo_health_card_fee) : 100.00;
+    const retailRateLow = settings.bplo_retail_tax_rate_low ? parseFloat(settings.bplo_retail_tax_rate_low) : 0.022; // 2.2%
+    const retailRateHigh = settings.bplo_retail_tax_rate_high ? parseFloat(settings.bplo_retail_tax_rate_high) : 0.011; // 1.1%
+    const manufacturerLargeRate = settings.bplo_manufacturer_tax_rate ? parseFloat(settings.bplo_manufacturer_tax_rate) : 0.004125; // 0.4125%
+    const wholesalerLargeRate = settings.bplo_wholesaler_tax_rate ? parseFloat(settings.bplo_wholesaler_tax_rate) : 0.0055; // 0.55%
 
-    // Strict Spec Formula: Declared Capitalization * 1%
-    // If it's a renewal, we can fall back to gross sales or capitalization based on what was declared.
-    const basisAmount = type === "NEW" ? capitalization : (grossSales || capitalization || 0);
-    const taxAmount = basisAmount * 0.01;
+    // 1. Determine Business Classification Size (whichever yields the higher classification)
+    // Assets Scale:
+    // Micro: < 500,000 | Small: 500,000 to 5,000,000 | Medium: 5,000,000 to 20,000,000 | Large: > 20,000,000
+    let assetClass: "MICRO" | "SMALL" | "MEDIUM" | "LARGE" = "MICRO";
+    if (assets > 20000000) {
+        assetClass = "LARGE";
+    } else if (assets > 5000000) {
+        assetClass = "MEDIUM";
+    } else if (assets >= 500000) {
+        assetClass = "SMALL";
+    }
 
-    // Regulatory fees placeholder (set to 0 to align exactly with the (Capitalization * 1%) + 500 formula)
-    const regulatoryFee = 0.00;
+    // Workforce Scale:
+    // Micro: 1-10 | Small: 11-99 | Medium: 100-199 | Large: >= 200
+    let workforceClass: "MICRO" | "SMALL" | "MEDIUM" | "LARGE" = "MICRO";
+    if (workforceCount >= 200) {
+        workforceClass = "LARGE";
+    } else if (workforceCount >= 100) {
+        workforceClass = "MEDIUM";
+    } else if (workforceCount >= 11) {
+        workforceClass = "SMALL";
+    }
+
+    // Choose the higher classification
+    const sizeHierarchy = { MICRO: 1, SMALL: 2, MEDIUM: 3, LARGE: 4 };
+    const classificationSize = sizeHierarchy[assetClass] >= sizeHierarchy[workforceClass] ? assetClass : workforceClass;
+
+    // 2. Compute Mayor's Permit Fee (baseFee) based on classification matrix
+    let baseFee = 500.00; // Default fallback
+    const businessLine = lineOfBusiness.trim();
+
+    let mayorsPermitMatrix: Record<string, Record<string, number>> = {};
+    try {
+        if (settings.bplo_mayors_permit_matrix) {
+            mayorsPermitMatrix = JSON.parse(settings.bplo_mayors_permit_matrix);
+        }
+    } catch (e) {
+        console.error("Failed to parse bplo_mayors_permit_matrix:", e);
+    }
+
+    if (mayorsPermitMatrix[businessLine] && mayorsPermitMatrix[businessLine][classificationSize] !== undefined) {
+        baseFee = mayorsPermitMatrix[businessLine][classificationSize];
+    } else {
+        if (businessLine === "Manufacturers/Importers/Producers") {
+            const fees = { MICRO: 400.00, SMALL: 600.00, MEDIUM: 1100.00, LARGE: 2100.00 };
+            baseFee = fees[classificationSize];
+        } else if (businessLine === "Banks (Universal)") {
+            baseFee = 5100.00; // Only large fee exists, default to it
+        } else if (businessLine === "Banks (Commercial/Development)") {
+            baseFee = 3100.00;
+        } else if (businessLine === "Banks (Rural/Thrift/Savings)") {
+            baseFee = 1600.00;
+        } else if (businessLine === "Other Financial Institutions") {
+            const fees = { MICRO: 1100.00, SMALL: 1600.00, MEDIUM: 3100.00, LARGE: 5100.00 };
+            baseFee = fees[classificationSize];
+        } else if (businessLine === "Contractors/Service Establishments") {
+            const fees = { MICRO: 500.00, SMALL: 900.00, MEDIUM: 1100.00, LARGE: 1600.00 };
+            baseFee = fees[classificationSize];
+        } else if (businessLine === "Wholesalers/Retailers/Dealers") {
+            const fees = { MICRO: 500.00, SMALL: 900.00, MEDIUM: 1100.00, LARGE: 1600.00 };
+            baseFee = fees[classificationSize];
+        } else {
+            // Other Businesses
+            const fees = { MICRO: 500.00, SMALL: 700.00, MEDIUM: 900.00, LARGE: 1100.00 };
+            baseFee = fees[classificationSize];
+        }
+    }
+
+    // 3. Compute Graded Business Tax (taxAmount)
+    let taxAmount = 0;
+
+    if (type === "NEW") {
+        // Newly-Started Businesses: Capitalization * taxRateNew
+        taxAmount = capitalization * taxRateNew;
+    } else {
+        // RENEWAL: Compute based on gross sales
+        if (businessLine === "Manufacturers/Importers/Producers") {
+            if (grossSales >= 6500000) {
+                taxAmount = grossSales * manufacturerLargeRate;
+            } else if (grossSales >= 5000000) {
+                taxAmount = 26812.50;
+            } else if (grossSales >= 4000000) {
+                taxAmount = 25410.00;
+            } else if (grossSales >= 300000) {
+                taxAmount = 6050.00;
+            } else if (grossSales >= 200000) {
+                taxAmount = 4235.00;
+            } else if (grossSales >= 15000) {
+                taxAmount = 332.20;
+            } else if (grossSales >= 10000) {
+                taxAmount = 242.00;
+            } else {
+                taxAmount = 181.50;
+            }
+        } else if (businessLine === "Wholesalers/Retailers/Dealers") {
+            // Wholesalers, Distributors, and Dealers
+            if (grossSales >= 2000000) {
+                taxAmount = grossSales * wholesalerLargeRate;
+                if (taxAmount < 11000.00) taxAmount = 11000.00; // Floor limit cap
+            } else if (grossSales >= 1000000) {
+                taxAmount = 11000.00;
+            } else if (grossSales >= 750000) {
+                taxAmount = 9680.00;
+            } else if (grossSales >= 500000) {
+                taxAmount = 7260.00;
+            } else if (grossSales >= 300000) {
+                taxAmount = 4840.00;
+            } else if (grossSales >= 200000) {
+                taxAmount = 3630.00;
+            } else if (grossSales >= 150000) {
+                taxAmount = 2662.00;
+            } else if (grossSales >= 100000) {
+                taxAmount = 2057.00;
+            } else if (grossSales >= 75000) {
+                taxAmount = 1452.00;
+            } else if (grossSales >= 50000) {
+                taxAmount = 1089.00;
+            } else if (grossSales >= 40000) {
+                taxAmount = 726.00;
+            } else if (grossSales >= 30000) {
+                taxAmount = 484.00;
+            } else if (grossSales >= 20000) {
+                taxAmount = 363.00;
+            } else if (grossSales >= 15000) {
+                taxAmount = 302.50;
+            } else if (grossSales >= 10000) {
+                taxAmount = 242.00;
+            } else if (grossSales >= 8000) {
+                taxAmount = 205.70;
+            } else if (grossSales >= 7000) {
+                taxAmount = 181.50;
+            } else if (grossSales >= 6000) {
+                taxAmount = 157.30;
+            } else if (grossSales >= 5000) {
+                taxAmount = 133.10;
+            } else if (grossSales >= 4000) {
+                taxAmount = 110.00;
+            } else if (grossSales >= 3000) {
+                taxAmount = 79.20;
+            } else if (grossSales >= 2000) {
+                taxAmount = 55.00;
+            } else if (grossSales >= 1000) {
+                taxAmount = 36.30;
+            } else {
+                taxAmount = 19.80;
+            }
+        } else {
+            // Retailers & Other generic businesses:
+            // Retailers (Sari-Sari / Retail Stores)
+            if (grossSales <= 400000) {
+                taxAmount = grossSales * retailRateLow; // 2.2% default
+            } else {
+                taxAmount = grossSales * retailRateHigh; // 1.1% default
+            }
+        }
+    }
+
+    // 4. Compute Appended Surcharges
+    // Sanitary Inspection Fee based on floor area:
+    let sanitaryInspectionFee = 0;
+
+    let sanitaryFeeMatrix: Array<{ minArea: number; fee: number }> = [];
+    try {
+        if (settings.bplo_sanitary_fee_matrix) {
+            sanitaryFeeMatrix = JSON.parse(settings.bplo_sanitary_fee_matrix);
+        }
+    } catch (e) {
+        console.error("Failed to parse bplo_sanitary_fee_matrix:", e);
+    }
+
+    if (Array.isArray(sanitaryFeeMatrix) && sanitaryFeeMatrix.length > 0) {
+        const sorted = [...sanitaryFeeMatrix].sort((a, b) => b.minArea - a.minArea);
+        const match = sorted.find(item => floorArea >= item.minArea);
+        if (match) {
+            sanitaryInspectionFee = match.fee;
+        }
+    } else {
+        if (floorArea >= 1000) {
+            sanitaryInspectionFee = 350.00;
+        } else if (floorArea >= 500) {
+            sanitaryInspectionFee = 300.00;
+        } else if (floorArea >= 200) {
+            sanitaryInspectionFee = 250.00;
+        } else if (floorArea >= 100) {
+            sanitaryInspectionFee = 200.00;
+        } else if (floorArea >= 50) {
+            sanitaryInspectionFee = 150.00;
+        } else if (floorArea >= 25) {
+            sanitaryInspectionFee = 100.00;
+        }
+    }
+
+    // Garbage Collection Fee:
+    let garbageFee = 0;
+    const lowerLine = businessLine.toLowerCase();
+
+    let garbageFeeMatrix: Record<string, { threshold: number; low: number; high: number }> = {};
+    try {
+        if (settings.bplo_garbage_fee_matrix) {
+            garbageFeeMatrix = JSON.parse(settings.bplo_garbage_fee_matrix);
+        }
+    } catch (e) {
+        console.error("Failed to parse bplo_garbage_fee_matrix:", e);
+    }
+
+    let activeGarbageRule = null;
+    if (Object.keys(garbageFeeMatrix).length > 0) {
+        const matchedKey = Object.keys(garbageFeeMatrix).find(k => lowerLine.includes(k.toLowerCase()));
+        if (matchedKey) {
+            activeGarbageRule = garbageFeeMatrix[matchedKey];
+        } else if (garbageFeeMatrix.others) {
+            activeGarbageRule = garbageFeeMatrix.others;
+        }
+    }
+
+    if (activeGarbageRule) {
+        garbageFee = floorArea <= activeGarbageRule.threshold ? activeGarbageRule.low : activeGarbageRule.high;
+    } else {
+        if (lowerLine.includes("manufacturers")) {
+            garbageFee = floorArea <= 100 ? 1500.00 : 2500.00;
+        } else if (lowerLine.includes("hotels") || lowerLine.includes("apartments")) {
+            garbageFee = floorArea <= 100 ? 1000.00 : 1500.00;
+        } else if (lowerLine.includes("restaurants") || lowerLine.includes("eateries") || lowerLine.includes("food")) {
+            garbageFee = floorArea <= 50 ? 1000.00 : 2000.00;
+        } else if (lowerLine.includes("hospitals") || lowerLine.includes("clinics")) {
+            garbageFee = floorArea <= 10 ? 1000.00 : 1500.00;
+        } else {
+            // Retail Stores/Movie Houses/Others
+            garbageFee = floorArea <= 10 ? 800.00 : 1200.00;
+        }
+    }
+
+    // Health Card Fee: healthCardCount * healthCardUnitPrice
+    const healthCertificateFee = healthCardCount * healthCardUnitPrice;
+
+    const regulatoryFee = 0.00; // Placeholder
 
     // Delivery Fee (added external to the tax base)
     const finalDeliveryFee = fulfillmentType === "DELIVERY" ? deliveryFee : 0;
@@ -55,8 +301,12 @@ export function calculateBusinessPermit(params: BusinessPermitCalculationParams)
     return {
         baseFee,
         taxAmount,
+        sanitaryInspectionFee,
+        garbageFee,
+        healthCertificateFee,
         regulatoryFee,
         deliveryFee: finalDeliveryFee,
-        totalAmount: baseFee + taxAmount + regulatoryFee + finalDeliveryFee
+        totalAmount: baseFee + taxAmount + sanitaryInspectionFee + garbageFee + healthCertificateFee + regulatoryFee + finalDeliveryFee,
+        classificationSize
     };
 }

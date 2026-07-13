@@ -61,13 +61,13 @@ export function Sidebar({
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(pathname.startsWith("/admin/settings"));
     const [isAboutOpen, setIsAboutOpen] = React.useState(pathname.startsWith("/admin/about"));
     const [isBarangaysOpen, setIsBarangaysOpen] = React.useState(pathname.startsWith("/admin/barangays"));
-    const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
     const [isRegistrarOpen, setIsRegistrarOpen] = React.useState(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger") && !pathname.startsWith("/admin/registrar/appointment-settings"));
 
     const [searchQuery, setSearchQuery] = React.useState("");
     const [isEntranceComplete, setIsEntranceComplete] = React.useState(false);
     const [mounted, setMounted] = React.useState(false);
     const [liveLcrCounts, setLiveLcrCounts] = React.useState<Record<string, number>>(unviewedLcrCounts);
+    const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
 
     const { theme, setTheme } = useTheme();
     React.useEffect(() => {
@@ -210,7 +210,6 @@ export function Sidebar({
         setIsBarangaysOpen(pathname.startsWith("/admin/barangays"));
         setIsTreasuryOpen(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
         setIsRegistrarOpen(pathname.startsWith("/admin/registrar") && !pathname.startsWith("/admin/registrar/ledger") && !pathname.startsWith("/admin/registrar/appointment-settings"));
-
     }, [pathname]);
 
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
@@ -376,7 +375,7 @@ export function Sidebar({
         { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "Treasury", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
         { href: "/admin/bplo/appointment-settings", label: "BPLO Appointment Settings", icon: Calendar, category: "Treasury" },
         { href: "/admin/bplo/queue", label: "BPLO Queue", icon: Users, category: "Treasury" },
-        { href: "/admin/treasury/payment-settings", label: "Payment Settings", icon: CreditCard, category: "Treasury" },
+        { href: "/admin/settings/bplo", label: "Payment Settings", icon: CreditCard, category: "Treasury" },
         { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury" },
         { href: "/admin/treasury/queue", label: "Treasury Queue", icon: Users, category: "Treasury" },
         { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
@@ -426,7 +425,7 @@ export function Sidebar({
 
     const activeCodes = activeTypes ? new Set(activeTypes.map(t => t.code)) : null;
 
-    const allMenuItems = activeCodes ? baseMenuItems.map(item => {
+    const allMenuItemsMapped = activeCodes ? baseMenuItems.map(item => {
         if (item.label === "Registrar Hub" && item.subItems) {
             const filteredSub = item.subItems.filter(sub => {
                 if (sub.label === "Dashboard") return true;
@@ -452,9 +451,16 @@ export function Sidebar({
         }
 
         return item;
-
-        return item;
     }) : baseMenuItems;
+
+    const isLguAdmin = role === "ADMIN" && (department?.toUpperCase() === "LGU" || !department);
+
+    const allMenuItems = allMenuItemsMapped.filter(item => {
+        if (item.label === "Payment Settings") {
+            return isLguAdmin;
+        }
+        return true;
+    });
 
     let menuItems = allMenuItems;
 
@@ -476,7 +482,7 @@ export function Sidebar({
                     );
                 } else if (deptUpper === "LGU") {
                     menuItems = allMenuItems.filter(item =>
-                        !["Registrar Hub", "Transaction Ledger", "Treasury Hub", "Payments Ledger", "BPLO Permits", "BPLO Appointment Settings", "BPLO Queue", "Payment Settings", "Appointment Settings"].includes(item.label)
+                        !["Registrar Hub", "Transaction Ledger", "Treasury Hub", "Payments Ledger", "BPLO Permits", "BPLO Appointment Settings", "BPLO Queue", "Appointment Settings"].includes(item.label)
                     );
                 } else {
                     menuItems = [

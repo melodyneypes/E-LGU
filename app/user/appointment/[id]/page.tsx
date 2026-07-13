@@ -367,12 +367,11 @@ export default function AppointmentDetailsPage() {
                     </div>
 
                     {/* RIGHT COLUMN: Custom Detailed Information */}
-                    <div className="md:col-span-2 space-y-6">
+                    <div className="md:col-span-2 space-y-4">
 
                         {/* Status Alert Banner */}
                         {statusConfig && !isCedula && request.status !== "FOR_INSPECTION" && (
-                            <div className={cn("p-5 border rounded-2xl flex items-start gap-4", statusConfig.color)}>
-                                <statusConfig.icon className="w-5 h-5 shrink-0 mt-0.5" />
+                            <div className={cn("p-5 border rounded-2xl", statusConfig.color)}>
                                 <div className="space-y-1">
                                     <h4 className="text-xs font-black uppercase tracking-widest italic leading-none">{statusConfig.label}</h4>
                                     <p className="text-xs leading-relaxed font-medium opacity-85">
@@ -384,7 +383,11 @@ export default function AppointmentDetailsPage() {
                                                     : "Your booking is currently queued. Please wait for the municipal assessor/evaluation team to approve.")
                                                 : request.status === "PAID"
                                                     ? "Payment received! Please proceed to the Municipal Office on your scheduled date to claim your document."
-                                                    : "Your booking status has changed. Please read any evaluation comments below."
+                                                    : request.status === "UNPAID"
+                                                    ? "Your application has been evaluated. Please proceed to the Municipal Hall, scan your queue ticket at the kiosk to check in, and present it to the front desk to complete your payment."
+                                                    : (request.status === "RELEASED" || request.status === "DELIVERED")
+                                                        ? "Transaction completed! Thank you for trusting the Local Government Unit of Mapandan. Your document has been successfully processed and released."
+                                                        : "Your booking status has changed. Please read any evaluation comments below."
                                         }
                                     </p>
                                 </div>
@@ -393,15 +396,16 @@ export default function AppointmentDetailsPage() {
 
 
 
-                        {/* Details Card */}
-                        <Card className="border border-slate-200 dark:border-white/10 rounded-2xl md:rounded-3xl p-5 md:p-8 space-y-6">
+                        <Card className="border border-slate-200 dark:border-white/10 rounded-2xl md:rounded-3xl p-5 md:p-8 space-y-5">
                             {!isCedula && (
                                 <>
-                                    <div className="flex items-center gap-3">
-                                        <FileText className="w-5 h-5 text-primary" />
-                                        <h3 className="text-sm font-black uppercase tracking-widest italic text-slate-800 dark:text-white leading-none">Booking Information</h3>
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-3">
+                                            <FileText className="w-5 h-5 text-primary" />
+                                            <h3 className="text-sm font-black uppercase tracking-widest italic text-slate-800 dark:text-white leading-none">Booking Information</h3>
+                                        </div>
+                                        <Separator />
                                     </div>
-                                    <Separator />
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs leading-relaxed">
                                         <div className="space-y-1">
@@ -448,7 +452,7 @@ export default function AppointmentDetailsPage() {
 
                             {/* CUSTOM BUILDING PERMIT VIEW */}
                             {isBuildingPermit && (
-                                <div className="mt-8 pt-6 border-t border-slate-100 dark:border-white/5 space-y-4">
+                                <div className="mt-5 pt-4 border-t border-slate-100 dark:border-white/5 space-y-4">
                                     <div className="flex items-center gap-2">
                                         <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase tracking-widest px-2 py-0.5">Building Permit Fields</Badge>
                                     </div>
@@ -477,23 +481,27 @@ export default function AppointmentDetailsPage() {
                         </Card>
 
                         {/* Reminders Panel */}
-                        <Card className="border border-amber-200 dark:border-amber-500/20 bg-amber-50/10 dark:bg-amber-500/5 rounded-2xl p-5 md:p-6 space-y-4">
-                            <div className="flex items-center gap-2.5 text-amber-700 dark:text-amber-500">
-                                <ShieldAlert className="w-4.5 h-4.5" />
-                                <h4 className="font-black text-xs uppercase tracking-widest italic">Booking Reminders & Guides</h4>
-                            </div>
-                            <Separator className="bg-amber-200/20" />
-                            <ul className="list-disc pl-5 space-y-2 text-xs font-semibold text-slate-700 dark:text-slate-300 leading-relaxed">
-                                <li><strong>Physical Ticket Copy:</strong> Please note that you cannot get your physical ticket from this website. You must tap your ID card at the Municipal Hall Kiosk, print your physical ticket there, and present it to the front desk.</li>
-                                <li><strong>Punctuality:</strong> Arrive at least 10–15 minutes prior to your selected slot ({request.appointmentSlot}).</li>
-                                <li><strong>Verification:</strong> Present this queue ticket slip (either printed or on your phone screen) to the kiosk or officer.</li>
-                                {request.isPriority && (
-                                    <li className="text-primary font-bold">
-                                        <strong>Priority Verification:</strong> You are required to present your physical Priority ID (e.g. Senior Citizen, PWD, or pregnancy proof) at the front desk to ensure you proceed to the priority lane.
-                                    </li>
-                                )}
-                            </ul>
-                        </Card>
+                        {["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION"].includes(request.status) && (
+                            <Card className="border border-amber-200 dark:border-amber-500/20 bg-amber-50/10 dark:bg-amber-500/5 rounded-2xl p-5 md:p-6 space-y-2.5">
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center gap-2.5 text-amber-700 dark:text-amber-500">
+                                        <ShieldAlert className="w-4.5 h-4.5" />
+                                        <h4 className="font-black text-xs uppercase tracking-widest italic">Booking Reminders & Guides</h4>
+                                    </div>
+                                    <Separator className="bg-amber-200/20" />
+                                </div>
+                                <ul className="list-disc pl-5 space-y-2 text-xs font-semibold text-slate-700 dark:text-slate-300 leading-relaxed">
+                                    <li><strong>Physical Ticket Copy:</strong> Please note that you cannot get your physical ticket from this website. You must tap your ID card at the Municipal Hall Kiosk, print your physical ticket there, and present it to the front desk.</li>
+                                    <li><strong>Punctuality:</strong> Arrive at least 10–15 minutes prior to your selected slot ({request.appointmentSlot}).</li>
+                                    <li><strong>Verification:</strong> Present this queue ticket slip (either printed or on your phone screen) to the kiosk or officer.</li>
+                                    {request.isPriority && (
+                                        <li className="text-primary font-bold">
+                                            <strong>Priority Verification:</strong> You are required to present your physical Priority ID (e.g. Senior Citizen, PWD, or pregnancy proof) at the front desk to ensure you proceed to the priority lane.
+                                        </li>
+                                    )}
+                                </ul>
+                            </Card>
+                        )}
                     </div>
                 </div>
 

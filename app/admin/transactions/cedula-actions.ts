@@ -704,16 +704,21 @@ export async function getTreasuryTransactions(params?: string | {
                     ]
                 },
                 {
-                    AND: [
-                        { type: { code: { startsWith: "BUILDING_PERMIT" } } },
-                        { status: "EVALUATED" },
+                    OR: [
+                        { NOT: { type: { code: { startsWith: "BUILDING_PERMIT" } } } },
                         {
-                            NOT: {
-                                additionalData: {
-                                    path: ["zoningStatus"],
-                                    string_contains: "EVALUATED"
+                            AND: [
+                                { type: { code: { startsWith: "BUILDING_PERMIT" } } },
+                                { status: "EVALUATED" },
+                                {
+                                    NOT: {
+                                        additionalData: {
+                                            path: ["zoningStatus"],
+                                            string_contains: "EVALUATED"
+                                        }
+                                    }
                                 }
-                            }
+                            ]
                         }
                     ]
                 }

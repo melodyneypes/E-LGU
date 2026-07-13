@@ -70,8 +70,8 @@ export default function QueueClient({
 }: QueueClientProps) {
     const [queueData, setQueueData] = useState<QueueDepartmentData[]>(initialQueueData);
     const [currentTime, setCurrentTime] = useState<Date | null>(null);
-    const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
-    const [hasInteracted, setHasInteracted] = useState(false);
+    const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+    const [hasInteracted, setHasInteracted] = useState(true);
     const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
     
     // RFID Lock Screen States
@@ -91,8 +91,8 @@ export default function QueueClient({
             const res = await verifyRfidUnlock(rfidCode);
             if (res.success) {
                 setIsLocked(false);
-                setIsVoiceEnabled(false);
-                setHasInteracted(false);
+                setIsVoiceEnabled(true);
+                setHasInteracted(true);
             } else {
                 setRfidError(res.error || "Access Denied: RFID not authorized");
             }
@@ -233,6 +233,74 @@ export default function QueueClient({
         };
     }, []);
 
+    const playChime = () => {
+        try {
+            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            if (!AudioContextClass) return Promise.resolve();
+            const ctx = new AudioContextClass();
+            
+            // "Ting-Ning-Ting-Tiiinggggg" 4-tone arpeggio (C5, E5, G5, C6)
+            
+            // Note 1 (Ting): C5 (523.25 Hz)
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.type = "sine";
+            osc1.frequency.setValueAtTime(523.25, ctx.currentTime);
+            gain1.gain.setValueAtTime(0.12, ctx.currentTime);
+            gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc1.start(ctx.currentTime);
+            osc1.stop(ctx.currentTime + 0.3);
+            
+            // Note 2 (Ning): E5 (659.25 Hz)
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.type = "sine";
+            osc2.frequency.setValueAtTime(659.25, ctx.currentTime + 0.12);
+            gain2.gain.setValueAtTime(0, ctx.currentTime);
+            gain2.gain.setValueAtTime(0.12, ctx.currentTime + 0.12);
+            gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.42);
+            osc2.start(ctx.currentTime + 0.12);
+            osc2.stop(ctx.currentTime + 0.42);
+
+            // Note 3 (Ting): G5 (783.99 Hz)
+            const osc3 = ctx.createOscillator();
+            const gain3 = ctx.createGain();
+            osc3.connect(gain3);
+            gain3.connect(ctx.destination);
+            osc3.type = "sine";
+            osc3.frequency.setValueAtTime(783.99, ctx.currentTime + 0.24);
+            gain3.gain.setValueAtTime(0, ctx.currentTime);
+            gain3.gain.setValueAtTime(0.12, ctx.currentTime + 0.24);
+            gain3.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.54);
+            osc3.start(ctx.currentTime + 0.24);
+            osc3.stop(ctx.currentTime + 0.54);
+
+            // Note 4 (Tiiinggggg): C6 (1046.50 Hz) - Long decay
+            const osc4 = ctx.createOscillator();
+            const gain4 = ctx.createGain();
+            osc4.connect(gain4);
+            gain4.connect(ctx.destination);
+            osc4.type = "sine";
+            osc4.frequency.setValueAtTime(1046.50, ctx.currentTime + 0.36);
+            gain4.gain.setValueAtTime(0, ctx.currentTime);
+            gain4.gain.setValueAtTime(0.15, ctx.currentTime + 0.36);
+            gain4.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.8);
+            osc4.start(ctx.currentTime + 0.36);
+            osc4.stop(ctx.currentTime + 1.8);
+            
+            return new Promise<void>((resolve) => {
+                setTimeout(resolve, 1700);
+            });
+        } catch (e) {
+            console.error("Failed to play chime:", e);
+            return Promise.resolve();
+        }
+    };
+
     // Text-to-Speech logic
     useEffect(() => {
         if (!isVoiceEnabled) return;
@@ -249,70 +317,74 @@ export default function QueueClient({
                     // Update tracker immediately to avoid double calls
                     prevCalledRef.current[trackerKey] = currentCallKey;
 
-                    // Speech Synthesis (with Google Translate TTS fallback for Smart TVs)
                     const counter = active.counterName;
                     const phrase = `Ticket number, ${currentTicket.split("").join(" ")}, please proceed to ${counter}.`;
 
-                    if (typeof window !== "undefined" && window.speechSynthesis && voices.length > 0) {
-                        // Web Speech API Synthesis (Local Engine)
-                        console.log("Speech Engine: Using native Web Speech API");
-                        const utterance = new SpeechSynthesisUtterance(phrase);
-                        utterance.rate = 0.85; // slightly slower for clarity
-                        utterance.pitch = 1.05; // slightly higher pitch for natural female tone
-                        
-                        // Find a high-quality female English voice from our loaded state
-                        const femaleVoice = voices.find(voice => {
-                            const name = voice.name.toLowerCase();
-                            const lang = voice.lang.toLowerCase();
-                            const isEnglish = lang.startsWith("en");
+                    // Run announcement chain asynchronously
+                    (async () => {
+                        await playChime();
+
+                        if (typeof window !== "undefined" && window.speechSynthesis && voices.length > 0) {
+                            // Web Speech API Synthesis (Local Engine)
+                            console.log("Speech Engine: Using native Web Speech API");
+                            const utterance = new SpeechSynthesisUtterance(phrase);
+                            utterance.rate = 0.85; // slightly slower for clarity
+                            utterance.pitch = 1.05; // slightly higher pitch for natural female tone
                             
-                            const isFemaleName = 
-                                name.includes("zira") ||
-                                name.includes("samantha") ||
-                                name.includes("hazel") ||
-                                name.includes("aria") ||
-                                name.includes("susan") ||
-                                name.includes("female") ||
-                                name.includes("google us english") ||
-                                name.includes("en-us-language") ||
-                                name.includes("heera"); // Cortana/other standard female voices
+                            // Find a high-quality female English voice from our loaded state
+                            const femaleVoice = voices.find(voice => {
+                                const name = voice.name.toLowerCase();
+                                const lang = voice.lang.toLowerCase();
+                                const isEnglish = lang.startsWith("en");
+                                
+                                const isFemaleName = 
+                                    name.includes("zira") ||
+                                    name.includes("samantha") ||
+                                    name.includes("hazel") ||
+                                    name.includes("aria") ||
+                                    name.includes("susan") ||
+                                    name.includes("female") ||
+                                    name.includes("google us english") ||
+                                    name.includes("en-us-language") ||
+                                    name.includes("heera"); // Cortana/other standard female voices
+                                
+                                const isMaleName = 
+                                    name.includes("david") ||
+                                    name.includes("mark") ||
+                                    name.includes("george") ||
+                                    name.includes("ravi") ||
+                                    name.includes("male");
+
+                                return isEnglish && isFemaleName && !isMaleName;
+                            }) || voices.find(voice => {
+                                // Fallback to any voice that is English and doesn't contain a male name
+                                const name = voice.name.toLowerCase();
+                                const lang = voice.lang.toLowerCase();
+                                return lang.startsWith("en") && !(
+                                    name.includes("david") ||
+                                    name.includes("mark") ||
+                                    name.includes("george") ||
+                                    name.includes("male")
+                                );
+                            });
+
+                            console.log("Speech Engine: Selected voice -", femaleVoice?.name || "System Default");
+
+                            if (femaleVoice) {
+                                utterance.voice = femaleVoice;
+                            }
                             
-                            const isMaleName = 
-                                name.includes("david") ||
-                                name.includes("mark") ||
-                                name.includes("george") ||
-                                name.includes("ravi") ||
-                                name.includes("male");
-
-                            return isEnglish && isFemaleName && !isMaleName;
-                        }) || voices.find(voice => {
-                            // Fallback to any voice that is English and doesn't contain a male name
-                            const name = voice.name.toLowerCase();
-                            const lang = voice.lang.toLowerCase();
-                            return lang.startsWith("en") && !(
-                                name.includes("david") ||
-                                name.includes("mark") ||
-                                name.includes("george") ||
-                                name.includes("male")
-                            );
-                        });
-
-                        console.log("Speech Engine: Selected voice -", femaleVoice?.name || "System Default");
-
-                        if (femaleVoice) {
-                            utterance.voice = femaleVoice;
+                            window.speechSynthesis.speak(utterance);
+                        } else {
+                            // Fallback: Streaming MP3 from Google Translate TTS (for Smart TVs and mobile browsers with 0 native voices)
+                            console.log("Speech Engine: Using Google Translate TTS Fallback Audio Stream");
+                            const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodeURIComponent(phrase)}`;
+                            const audio = new Audio(audioUrl);
+                            audio.play().catch(err => {
+                                console.error("Fallback TTS Audio playback failed:", err);
+                            });
                         }
-                        
-                        window.speechSynthesis.speak(utterance);
-                    } else {
-                        // Fallback: Streaming MP3 from Google Translate TTS (for Smart TVs and mobile browsers with 0 native voices)
-                        console.log("Speech Engine: Using Google Translate TTS Fallback Audio Stream");
-                        const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodeURIComponent(phrase)}`;
-                        const audio = new Audio(audioUrl);
-                        audio.play().catch(err => {
-                            console.error("Fallback TTS Audio playback failed:", err);
-                        });
-                    }
+                    })();
                 }
             });
         });
