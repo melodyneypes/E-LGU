@@ -16,8 +16,8 @@ import {
     getTransactionById,
     rejectTransaction,
     sendForRevision,
-    evaluateCedulaTransaction,
-    markForReinspection,
+    evaluateZoningApplication as evaluateCedulaTransaction,
+    markZoningForReinspection as markForReinspection,
     getSystemSettingAction
 } from "@/app/admin/transactions/actions";
 import { Button } from "@/components/ui/button";
@@ -102,7 +102,7 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
     const handleEvaluate = async () => {
         setActionLoading(true);
         try {
-            const res = await evaluateCedulaTransaction(id, 0, remarks);
+            const res = await evaluateCedulaTransaction(id);
             if (res.success) {
                 toast.success("Inspection Approved Successfully");
                 router.push(`/admin/zoning/${id}/fees`);
@@ -223,10 +223,10 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 mr-2">
                         <Badge className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 border border-orange-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
-                            Revision Count: {transaction?.revisionCount || 0} / 3
+                            Revision Count: {transaction?.additionalData?.zoningRevisionCount || 0} / 3
                         </Badge>
                         <Badge className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 border border-blue-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
-                            Re-inspection Count: {transaction?.additionalData?.reinspectionCount || 0} / 3
+                            Re-inspection Count: {transaction?.additionalData?.zoningReinspectionCount || 0} / 3
                         </Badge>
                     </div>
                     <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
@@ -272,7 +272,7 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
                     </div>
 
                     {/* Active Re-Inspection Details */}
-                    {additional?.inspectionSchedule && (
+                    {additional?.zoningInspectionSchedule && (
                         <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-blue-500/20 dark:border-blue-500/10 space-y-8 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-bl-[100px] pointer-events-none" />
                             <div>
@@ -284,20 +284,20 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Inspection Type</label>
-                                    <div className="h-12 flex items-center px-5 bg-blue-50 dark:bg-blue-500/5 border border-blue-100 dark:border-blue-500/10 rounded-xl font-bold text-sm text-blue-900 dark:text-blue-100">{additional.inspectionSchedule.type || "--"}</div>
+                                    <div className="h-12 flex items-center px-5 bg-blue-50 dark:bg-blue-500/5 border border-blue-100 dark:border-blue-500/10 rounded-xl font-bold text-sm text-blue-900 dark:text-blue-100">{additional.zoningInspectionSchedule.type || "--"}</div>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Date & Time</label>
-                                    <div className="h-12 flex items-center px-5 bg-blue-50 dark:bg-blue-500/5 border border-blue-100 dark:border-blue-500/10 rounded-xl font-bold text-sm text-blue-900 dark:text-blue-100">{additional.inspectionSchedule.date} @ {additional.inspectionSchedule.time}</div>
+                                    <div className="h-12 flex items-center px-5 bg-blue-50 dark:bg-blue-500/5 border border-blue-100 dark:border-blue-500/10 rounded-xl font-bold text-sm text-blue-900 dark:text-blue-100">{additional.zoningInspectionSchedule.date} @ {additional.zoningInspectionSchedule.time}</div>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Assigned Inspector</label>
-                                    <div className="h-12 flex items-center px-5 bg-blue-50 dark:bg-blue-500/5 border border-blue-100 dark:border-blue-500/10 rounded-xl font-bold text-sm text-blue-900 dark:text-blue-100">{additional.inspectionSchedule.inspectorName || "--"}</div>
+                                    <div className="h-12 flex items-center px-5 bg-blue-50 dark:bg-blue-500/5 border border-blue-100 dark:border-blue-500/10 rounded-xl font-bold text-sm text-blue-900 dark:text-blue-100">{additional.zoningInspectionSchedule.inspectorName || "--"}</div>
                                 </div>
-                                {additional.inspectionSchedule.notes && (
+                                {additional.zoningInspectionSchedule.notes && (
                                     <div className="space-y-2 md:col-span-3">
-                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Engineer&apos;s Instructions</label>
-                                        <div className="p-5 bg-blue-50 dark:bg-blue-500/5 border border-blue-100 dark:border-blue-500/10 rounded-xl font-medium italic text-sm text-blue-800 dark:text-blue-200 min-h-[48px]">&quot;{additional.inspectionSchedule.notes}&quot;</div>
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Zoning Officer&apos;s Instructions</label>
+                                        <div className="p-5 bg-blue-50 dark:bg-blue-500/5 border border-blue-100 dark:border-blue-500/10 rounded-xl font-medium italic text-sm text-blue-800 dark:text-blue-200 min-h-[48px]">&quot;{additional.zoningInspectionSchedule.notes}&quot;</div>
                                     </div>
                                 )}
                             </div>
@@ -540,7 +540,7 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
                                 <div className="flex gap-2 w-full">
                                     <Dialog open={isRequestingRevision} onOpenChange={(open) => { setIsRequestingRevision(open); if (!open) setRemarks(""); }}>
                                         <DialogTrigger asChild>
-                                            {(transaction.revisionCount || 0) < 3 && (
+                                            {(transaction.additionalData?.zoningRevisionCount || 0) < 3 && (
                                                 <Button onClick={() => { setIsRequestingRevision(true); setRemarks(""); }} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95">
                                                     Request Revision
                                                 </Button>

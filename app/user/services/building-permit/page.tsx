@@ -407,6 +407,7 @@ export default function BuildingPermitPage() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRevision, setIsRevision] = useState(false);
+  const [isZoningRevision, setIsZoningRevision] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentPreviewUrl, setPaymentPreviewUrl] = useState<string | null>(null);
   const [gcashReferenceNo, setGcashReferenceNo] = useState("");
@@ -417,19 +418,28 @@ export default function BuildingPermitPage() {
   const [viewerTitle, setViewerTitle] = useState("");
   const [viewerFile, setViewerFile] = useState<File | null>(null);
 
-  const isEditable = !selectedApplication || isRevision;
+  const isEditable = !selectedApplication || isRevision || isZoningRevision;
 
   const isFieldRequested = (key: string) => {
-    if (!isRevision) return true;
-    if (!selectedApplication?.additionalData?.revisionRequests) return true;
-    return selectedApplication.additionalData.revisionRequests.some((req: any) => req.key === key);
+    if (!isRevision && !isZoningRevision) return true;
+    let requested = false;
+    if (isRevision && selectedApplication?.additionalData?.revisionRequests) {
+      requested = requested || selectedApplication.additionalData.revisionRequests.some((req: any) => req.key === key);
+    }
+    if (isZoningRevision && selectedApplication?.additionalData?.zoningRevisionRequests) {
+      requested = requested || selectedApplication.additionalData.zoningRevisionRequests.some((req: any) => req.key === key);
+    }
+    return requested;
   };
 
   const effectiveDocuments = (() => {
     const docs = selectedApplication?.additionalData?.documents || {};
-    if (!isRevision) return docs;
+    if (!isRevision && !isZoningRevision) return docs;
     const filtered: Record<string, string> = {};
-    const revisionKeys = new Set(selectedApplication?.additionalData?.revisionRequests?.map((r: any) => r.key) || []);
+    const revisionKeys = new Set([
+      ...(isRevision ? (selectedApplication?.additionalData?.revisionRequests?.map((r: any) => r.key) || []) : []),
+      ...(isZoningRevision ? (selectedApplication?.additionalData?.zoningRevisionRequests?.map((r: any) => r.key) || []) : [])
+    ]);
     for (const [k, v] of Object.entries(docs)) {
       if (!revisionKeys.has(k)) {
         filtered[k] = v as string;
@@ -722,9 +732,9 @@ export default function BuildingPermitPage() {
       Object.keys(docs).forEach(key => {
         if (key.startsWith("req_")) {
           const idx = parseInt(key.replace("req_", ""), 10);
-          if (idx >= 25) {
-            const label = labels[key] || `Additional Document ${idx - 24}`;
-            loadedReqs[idx - 25] = { label };
+          if (idx >= documentRequirementsList.length) {
+            const label = labels[key] || `Additional Document ${idx - documentRequirementsList.length + 1}`;
+            loadedReqs[idx - documentRequirementsList.length] = { label };
           }
         }
       });
@@ -739,15 +749,15 @@ export default function BuildingPermitPage() {
       Object.keys(docs).forEach(key => {
         if (key.startsWith("permit_")) {
           const idx = parseInt(key.replace("permit_", ""), 10);
-          if (idx >= 7) {
-            const label = labels[key] || `Additional Permit ${idx - 6}`;
-            loadedPermits[idx - 7] = { label };
+          if (idx >= permitTypesList.length) {
+            const label = labels[key] || `Additional Document ${idx - permitTypesList.length + 1}`;
+            loadedPermits[idx - permitTypesList.length] = { label };
           }
         }
       });
       const finalPermits: { label: string }[] = [];
       for (let i = 0; i < loadedPermits.length; i++) {
-        finalPermits.push(loadedPermits[i] || { label: `Additional Permit ${i + 1}` });
+        finalPermits.push(loadedPermits[i] || { label: `Additional Document ${i + 1}` });
       }
       setCustomPermits(finalPermits);
     } else {
@@ -1509,6 +1519,7 @@ export default function BuildingPermitPage() {
                       tctFile: null
                     }));
                     setIsRevision(false);
+                    setIsZoningRevision(false);
                     let newMaxIdx = 3;
                     let initialStep = "EVALUATION";
                     if (["FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(app.status)) {
@@ -2695,7 +2706,7 @@ export default function BuildingPermitPage() {
                          boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
                        }}
                      >
-                       Next: Upload Docs & Permits
+                       Next: Upload Requirements & Documents
                        <span className="text-xl leading-none">→</span>
                      </button>
                   </div>
@@ -2711,10 +2722,10 @@ export default function BuildingPermitPage() {
             <div className="space-y-3 md:space-y-4 mb-8">
               <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter leading-tight flex items-center gap-4">
                 <UploadCloud className="w-10 h-10 md:w-12 md:h-12 text-slate-800 dark:text-white" />
-                <span className="text-slate-800 dark:text-white">Upload Documents & Permits</span>
+                <span className="text-slate-800 dark:text-white">Upload Requirements & Documents</span>
               </h2>
               <p className="text-slate-500 font-medium text-xs md:text-sm uppercase tracking-widest">
-                Upload all required documents and permits. Files must be PDF, JPG, or PNG (max 5MB each).
+                Upload all required requirements and documents. Files must be PDF, JPG, or PNG (max 5MB each).
               </p>
             </div>
 
@@ -2725,12 +2736,7 @@ export default function BuildingPermitPage() {
                   <b>File Upload Rules:</b> Max 5MB per file · Allowed: .pdf, .jpg, .jpeg, .png only
                 </p>
               </div>
-              <div className="bg-blue-50 dark:bg-blue-500/10 border-l-4 border-blue-500 p-4 rounded-r-xl flex items-center gap-3">
-                <span className="text-lg shrink-0">💡</span>
-                <p className="text-xs md:text-sm font-medium text-blue-800 dark:text-blue-200">
-                  <b>Recommendation:</b> For clear and readable documents, we highly recommend using the <b>CamScanner</b> app to scan your files before uploading.
-                </p>
-              </div>
+
             </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
@@ -2800,7 +2806,7 @@ export default function BuildingPermitPage() {
                 ? [
                     ...documentRequirementsList
                       .map((docName, idx) => ({ docName, idx, kind: "base" as const })),
-                    ...customRequirements.map((req, idx) => ({ docName: req.label, idx: 25 + idx, kind: "custom" as const }))
+                    ...customRequirements.map((req, idx) => ({ docName: req.label, idx: documentRequirementsList.length + idx, kind: "custom" as const }))
                   ].filter(({ idx, kind }) => {
                     if (kind === "custom") return true;
                     if (idx === 5) return false;
@@ -2811,7 +2817,7 @@ export default function BuildingPermitPage() {
                   })
                 : [
                     ...permitTypesList.map((docName, idx) => ({ docName, idx, kind: "base" as const })),
-                    ...customPermits.map((permit, idx) => ({ docName: permit.label, idx: 7 + idx, kind: "custom" as const }))
+                    ...customPermits.map((permit, idx) => ({ docName: permit.label, idx: permitTypesList.length + idx, kind: "custom" as const }))
                   ]
               ).map(({ docName, idx, kind }) => {
                 const isCustomItem = kind === "custom";
@@ -2856,7 +2862,7 @@ export default function BuildingPermitPage() {
                             type="button"
                             onClick={() => {
                               if (activeDocTab === "REQUIREMENTS") {
-                                setCustomRequirements(prev => prev.filter((_, i) => i !== (idx - 25)));
+                                setCustomRequirements(prev => prev.filter((_, i) => i !== (idx - documentRequirementsList.length)));
                                 setUploadedRequirements(prev => {
                                   const nextReqs: Record<number, File> = {};
                                   Object.entries(prev).forEach(([kStr, file]) => {
@@ -2870,7 +2876,7 @@ export default function BuildingPermitPage() {
                                   return nextReqs;
                                 });
                               } else {
-                                setCustomPermits(prev => prev.filter((_, i) => i !== (idx - 7)));
+                                setCustomPermits(prev => prev.filter((_, i) => i !== (idx - permitTypesList.length)));
                                 setUploadedPermits(prev => {
                                   const nextPermits: Record<number, File> = {};
                                   Object.entries(prev).forEach(([kStr, file]) => {
@@ -3497,10 +3503,15 @@ export default function BuildingPermitPage() {
               )}
 
               {/* Edit for Revision Button */}
-              {selectedApplication && selectedApplication.status === "FOR_REVISION" && !selectedApplication.isCancelled && (
+              {selectedApplication && (selectedApplication.status === "FOR_REVISION" || selectedApplication.additionalData?.zoningStatus === "FOR_REVISION") && !selectedApplication.isCancelled && (
                 <button
                   onClick={() => {
-                    setIsRevision(true);
+                    if (selectedApplication.status === "FOR_REVISION") {
+                      setIsRevision(true);
+                    }
+                    if (selectedApplication.additionalData?.zoningStatus === "FOR_REVISION") {
+                      setIsZoningRevision(true);
+                    }
                     setCurrentStep("PROFILE");
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }}

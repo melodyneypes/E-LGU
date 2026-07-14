@@ -377,9 +377,15 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
 
         if (!remarks.trim()) { toast.error("Remarks required"); return; }
         if (finalRequests.length === 0) { toast.error("At least one document must be requested"); return; }
+        
+        let finalRemarks = remarks.trim() + "\n\nDocuments to revise/upload:\n";
+        finalRequests.forEach((req, index) => {
+            finalRemarks += `${index + 1}. ${req.name}\n`;
+        });
+
         setActionLoading(true);
         try {
-            const res = await sendForRevision(id, remarks, finalRequests);
+            const res = await sendForRevision(id, finalRemarks, finalRequests);
             if (res.success) {
                 toast.success("Sent back for revision");
                 router.push(backUrl);
