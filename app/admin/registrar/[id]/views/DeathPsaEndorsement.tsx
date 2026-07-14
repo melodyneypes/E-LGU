@@ -402,6 +402,15 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                             </div>
                                         </div>
                                     )}
+
+                                    {causeOfDeath && (
+                                        <div className="space-y-1.5">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Cause of Death</span>
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
+                                                {causeOfDeath}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

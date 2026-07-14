@@ -975,6 +975,17 @@ export default function AppointmentDeathCertifiedTrueCopyPage() {
                                                 </SelectContent>
                                             </Select>
                                         </div>
+
+                                        <div className="md:col-span-2 space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Cause of Death</Label>
+                                            <Input
+                                                name="causeOfDeath"
+                                                placeholder="ENTER CAUSE OF DEATH (OPTIONAL)"
+                                                value={formData.causeOfDeath}
+                                                onChange={handleInputChange}
+                                                className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 h-12 transition-all uppercase font-medium"
+                                            />
+                                        </div>
                                     </div>
 
                                     <div className="flex justify-end gap-3 pt-6">
