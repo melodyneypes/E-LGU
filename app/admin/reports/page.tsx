@@ -4,14 +4,18 @@ import { AlertTriangle, BarChart3, Clock, CheckCircle2 } from "lucide-react";
 import { getSystemSetting } from "@/lib/settings";
 
 export default async function AdminReportsPage() {
-    const { reports = [] } = await getAdminReports();
+    const res = await getAdminReports({ page: 1, limit: 10 });
+    const reports = res?.reports || [];
+    const totalCount = res?.totalCount || 0;
+    const totalPages = res?.totalPages || 0;
+    const initialStats = res?.stats || { total: 0, pending: 0, inProgress: 0, completed: 0, rejected: 0 };
     const themeColor = await getSystemSetting("theme_color", "#2563eb");
     
     const stats = {
-        total: reports.length,
-        pending: reports.filter((r: { status: string }) => r.status === "PENDING").length,
-        inProgress: reports.filter((r: { status: string }) => r.status === "IN_PROGRESS").length,
-        completed: reports.filter((r: { status: string }) => r.status === "COMPLETED").length,
+        total: initialStats.total,
+        pending: initialStats.pending,
+        inProgress: initialStats.inProgress,
+        completed: initialStats.completed,
     };
 
     return (
@@ -82,7 +86,7 @@ export default async function AdminReportsPage() {
                 style={{ boxShadow: '0 25px 50px -12px color-mix(in srgb, var(--primary-theme) 10%, transparent)' }}
                 className="bg-white dark:bg-[#151b2b] rounded-[2.5rem] border border-slate-200 dark:border-[#2a3040] p-6 shadow-sm overflow-hidden"
             >
-                <ReportsTable initialReports={reports} themeColor={themeColor} />
+                <ReportsTable initialReports={reports} initialTotalCount={totalCount} initialTotalPages={totalPages} themeColor={themeColor} />
             </div>
         </div>
     );
