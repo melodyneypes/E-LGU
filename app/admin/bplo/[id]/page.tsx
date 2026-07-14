@@ -34,7 +34,6 @@ import {
 } from "@/app/admin/transactions/bplo-actions";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -336,7 +335,8 @@ export default function BploDetailPage({ params }: PageProps) {
             { label: "Business Tax", amount: String(result.taxAmount) },
             { label: "Sanitary Inspection Fee", amount: String(sanitaryFee) },
             { label: "Garbage Collection Fee", amount: String(garbageFee) },
-            { label: "Health Certificate Fee", amount: String(result.healthCertificateFee) }
+            { label: "Health Certificate Fee", amount: String(result.healthCertificateFee) },
+            { label: "Mayor's / Tax Clearance Fee", amount: String(result.regulatoryFee) }
         ];
     }, [
         bploSettings,
@@ -802,14 +802,6 @@ export default function BploDetailPage({ params }: PageProps) {
                         <ArrowLeft className="w-4 h-4" /> BACK TO DASHBOARD
                     </Button>
                 </Link>
-                <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10 px-4 py-1">
-                        Revision Count: {transaction.revisionCount || 0} / 3
-                    </Badge>
-                    <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
-                        Type Of Request: {transaction.fulfillmentType?.replace("_", " ") || "Processing"}
-                    </Badge>
-                </div>
             </header>
 
             <main className="max-w-[1400px] mx-auto px-8 grid grid-cols-12 gap-8 mt-4">
@@ -1125,7 +1117,11 @@ export default function BploDetailPage({ params }: PageProps) {
                                     const positiveDefaultFees = defaultFees.filter((f: any) => Number(f.amount) > 0);
                                     const computedItems = [
                                         { label: "Mayor's Permit Fee", amount: Number(fiscalSnapshot.basicTax) || 0 },
-                                        { label: "Business Tax", amount: Number(fiscalSnapshot.additionalTax) || 0 }
+                                        { label: "Business Tax", amount: Number(fiscalSnapshot.additionalTax) || 0 },
+                                        { label: "Sanitary Inspection Fee", amount: Number(fiscalSnapshot.sanitaryFee) || 0 },
+                                        { label: "Garbage Collection Fee", amount: Number(fiscalSnapshot.garbageFee) || 0 },
+                                        { label: "Health Certificate Fee", amount: Number(fiscalSnapshot.healthCardFee) || 0 },
+                                        { label: "Mayor's / Tax Clearance Fee", amount: Number(fiscalSnapshot.regulatoryFee) || 0 }
                                     ].filter(item => item.amount > 0);
 
                                     // Authoritative total: prefer transaction.totalAmount (always written by server),
@@ -1410,8 +1406,8 @@ export default function BploDetailPage({ params }: PageProps) {
 
                     {/* EXECUTIVE ACTIONS */}
                     <div className="space-y-4 pt-4">
-                        {/* Inspection/Processing phase actions */}
-                        {(transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION" || transaction.status === "FOR_PROCESSING") && (
+                        {/* Inspection/Processing/Requesting phase actions */}
+                        {(transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION" || transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && (
                             <div className="space-y-4">
                                 {transaction.status === "FOR_REINSPECTION" && (() => {
                                     const orNo = additional?.orSeriesNumber || transaction.orSeriesNumber || additional?.orNumber || additional?.orNo;
@@ -1496,13 +1492,33 @@ export default function BploDetailPage({ params }: PageProps) {
                                     );
                                 })()}
 
-                                <Button
-                                    onClick={handleEvaluate}
-                                    disabled={actionLoading}
-                                    className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider"
-                                >
-                                    {transaction.status === "FOR_PROCESSING" ? "Proceed for Payment" : "Process The Request"}
-                                </Button>
+                                {transaction.status === "FOR_REQUESTING" ? (
+                                    !additional?.checkedIn ? (
+                                        <div className="bg-amber-50 dark:bg-amber-500/5 p-4 rounded-2xl border border-amber-200 dark:border-amber-500/30 text-xs font-bold text-center text-amber-800 dark:text-amber-300 italic">
+                                            Awaiting Citizen Check-in at Kiosk
+                                        </div>
+                                    ) : !additional?.counterName ? (
+                                        <div className="bg-slate-50 dark:bg-white/[0.02] p-4 rounded-2xl border border-slate-200 dark:border-white/10 text-xs font-bold text-center text-slate-500 italic">
+                                            Awaiting Counter/Window Calling Assignment
+                                        </div>
+                                    ) : (
+                                        <Button
+                                            onClick={handleEvaluate}
+                                            disabled={actionLoading}
+                                            className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider"
+                                        >
+                                            Process The Request
+                                        </Button>
+                                    )
+                                ) : (
+                                    <Button
+                                        onClick={handleEvaluate}
+                                        disabled={actionLoading}
+                                        className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider"
+                                    >
+                                        {transaction.status === "FOR_PROCESSING" ? "Proceed for Payment" : "Process The Request"}
+                                    </Button>
+                                )}
 
                                 {transaction.status !== "FOR_REINSPECTION" && transaction.status !== "FOR_PROCESSING" && (
                                     <div className="flex gap-2">

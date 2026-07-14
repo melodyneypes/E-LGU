@@ -87,7 +87,22 @@ export function calculateBusinessPermit(params: BusinessPermitCalculationParams)
 
     // 2. Compute Mayor's Permit Fee (baseFee) based on classification matrix
     let baseFee = 500.00; // Default fallback
-    const businessLine = lineOfBusiness.trim();
+    const businessLine = (() => {
+        const lob = (lineOfBusiness || "").trim().toLowerCase();
+        if (lob.includes("manufacturer") || lob.includes("producer")) {
+            return "Manufacturers/Importers/Producers";
+        } else if (lob.includes("bank") || lob.includes("financial") || lob.includes("lending") || lob.includes("institution")) {
+            if (lob.includes("universal")) return "Banks (Universal)";
+            if (lob.includes("commercial") || lob.includes("development")) return "Banks (Commercial/Development)";
+            if (lob.includes("rural") || lob.includes("thrift") || lob.includes("savings")) return "Banks (Rural/Thrift/Savings)";
+            return "Other Financial Institutions";
+        } else if (lob.includes("contractor") || lob.includes("service") || lob.includes("eatery") || lob.includes("restaurant") || lob.includes("food")) {
+            return "Contractors/Service Establishments";
+        } else if (lob.includes("retail") || lob.includes("wholesaler") || lob.includes("distributor") || lob.includes("dealer") || lob.includes("store")) {
+            return "Wholesalers/Retailers/Dealers";
+        }
+        return "Other Businesses";
+    })();
 
     let mayorsPermitMatrix: Record<string, Record<string, number>> = {};
     try {
@@ -293,7 +308,8 @@ export function calculateBusinessPermit(params: BusinessPermitCalculationParams)
     // Health Card Fee: healthCardCount * healthCardUnitPrice
     const healthCertificateFee = healthCardCount * healthCardUnitPrice;
 
-    const regulatoryFee = 0.00; // Placeholder
+    const mayorsTaxClearanceFee = settings.bplo_mayors_tax_clearance_fee ? parseFloat(settings.bplo_mayors_tax_clearance_fee) : 85.00;
+    const regulatoryFee = mayorsTaxClearanceFee;
 
     // Delivery Fee (added external to the tax base)
     const finalDeliveryFee = fulfillmentType === "DELIVERY" ? deliveryFee : 0;

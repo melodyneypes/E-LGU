@@ -23,7 +23,8 @@ export async function saveBploSettingsAction(settings: Record<string, string>) {
             "bplo_wholesaler_tax_rate",
             "bplo_mayors_permit_matrix",
             "bplo_sanitary_fee_matrix",
-            "bplo_garbage_fee_matrix"
+            "bplo_garbage_fee_matrix",
+            "bplo_mayors_tax_clearance_fee"
         ];
 
         // Perform upserts in a database transaction
