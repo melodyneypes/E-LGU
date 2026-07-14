@@ -54,6 +54,7 @@ export function BploSettingsClient({ initialSettings, themeColor }: BploSettings
     const [formState, setFormState] = useState({
         bplo_tax_rate_new: toPercent(initialSettings.bplo_tax_rate_new),
         bplo_health_card_fee: initialSettings.bplo_health_card_fee,
+        bplo_mayors_tax_clearance_fee: initialSettings.bplo_mayors_tax_clearance_fee || "85.00",
         bplo_retail_tax_rate_low: toPercent(initialSettings.bplo_retail_tax_rate_low),
         bplo_retail_tax_rate_high: toPercent(initialSettings.bplo_retail_tax_rate_high),
         bplo_manufacturer_tax_rate: toPercent(initialSettings.bplo_manufacturer_tax_rate),
@@ -219,6 +220,7 @@ export function BploSettingsClient({ initialSettings, themeColor }: BploSettings
         const payload = {
             bplo_tax_rate_new: toDecimal(formState.bplo_tax_rate_new),
             bplo_health_card_fee: String(parseFloat(formState.bplo_health_card_fee) || 0),
+            bplo_mayors_tax_clearance_fee: String(parseFloat(formState.bplo_mayors_tax_clearance_fee) || 0),
             bplo_retail_tax_rate_low: toDecimal(formState.bplo_retail_tax_rate_low),
             bplo_retail_tax_rate_high: toDecimal(formState.bplo_retail_tax_rate_high),
             bplo_manufacturer_tax_rate: toDecimal(formState.bplo_manufacturer_tax_rate),
@@ -287,6 +289,20 @@ export function BploSettingsClient({ initialSettings, themeColor }: BploSettings
                                     className="h-12 rounded-xl text-xs font-bold font-mono"
                                 />
                                 <p className="text-[9px] text-slate-400 font-bold italic uppercase tracking-wider">Fee charged per employee card application.</p>
+                            </div>
+
+                            <div className="space-y-2 text-left">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Mayor&apos;s / Tax Clearance Fee (₱)</Label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    name="bplo_mayors_tax_clearance_fee"
+                                    value={formState.bplo_mayors_tax_clearance_fee}
+                                    onChange={handleChange}
+                                    required
+                                    className="h-12 rounded-xl text-xs font-bold font-mono"
+                                />
+                                <p className="text-[9px] text-slate-400 font-bold italic uppercase tracking-wider">Clearance Fee charged for both New and Renewal applications.</p>
                             </div>
 
                             <div className="space-y-2 text-left">

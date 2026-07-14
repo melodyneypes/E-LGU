@@ -280,13 +280,20 @@ export async function releaseCedula(id: string, ctcNumber: string, eCopyUrl?: st
         let additionalTax = 0;
         let penalty = 0;
 
+        const settingsList = await prisma.systemSetting.findMany();
+        const settingsMap: Record<string, string> = {};
+        settingsList.forEach(s => {
+            settingsMap[s.key] = s.value;
+        });
+
         const calc = calculateCedula({
             type: additionalData.applicantType || "INDIVIDUAL",
             income: additionalData.income || 0,
             propertyValue: additionalData.propertyValue || 0,
             fulfillmentType: transaction.fulfillmentType,
             deliveryFee: transaction.type.deliveryFee,
-            baseFee: transaction.type.baseFee
+            baseFee: transaction.type.baseFee,
+            settings: settingsMap
         });
         basicTax = calc.basicTax;
         additionalTax = calc.additionalTax;
@@ -1110,5 +1117,35 @@ export async function processOnsitePaymentAndReleaseAction(params: {
     } catch (error: any) {
         console.error("processOnsitePaymentAndReleaseAction error:", error);
         return { success: false, error: error?.message || "Failed to process payment and release" };
+    }
+}
+
+export async function getCedulaSettings() {
+    try {
+        const settingsList = await prisma.systemSetting.findMany({
+            where: {
+                key: {
+                    in: [
+                        "cedula_basic_tax_individual",
+                        "cedula_basic_tax_juridical",
+                        "cedula_additional_tax_rate_individual",
+                        "cedula_additional_tax_rate_juridical",
+                        "cedula_cap_individual",
+                        "cedula_cap_juridical",
+                        "cedula_penalty_rate_monthly"
+                    ]
+                }
+            }
+        });
+
+        const settingsMap: Record<string, string> = {};
+        settingsList.forEach(s => {
+            settingsMap[s.key] = s.value;
+        });
+
+        return { success: true, data: settingsMap };
+    } catch (err: any) {
+        console.error("Error loading Cedula settings:", err);
+        return { success: false, error: err.message || "Failed to load settings" };
     }
 }

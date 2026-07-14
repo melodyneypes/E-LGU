@@ -44,6 +44,7 @@ import { releaseDeathPsaEndorsement } from "@/app/admin/transactions/death-endor
 import { calculateCivilRegistryFee } from "@/lib/civil-registry";
 import { collectPsaAppointmentPayment } from "@/app/admin/transactions/civil-registry-appointment-actions";
 import { calculateCedula } from "@/lib/cedula";
+import { getCedulaSettings } from "@/app/admin/transactions/cedula-actions";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { Button } from "@/components/ui/button";
 import DocumentViewerModal from "./components/DocumentViewerModal";
@@ -231,11 +232,12 @@ export default function TreasuryDetailPage() {
     const id = routeParams?.id as string;
     const router = useRouter();
     const { data: session } = useSession();
-    const rawUserRole = (session?.user as any)?.role;
     const userDepartment = (session?.user as any)?.department;
+    const isLgu = userDepartment?.toUpperCase() === "LGU";
+    const rawUserRole = isLgu ? "LGU_ADMIN" : (session?.user as any)?.role;
     // Map BPLO Admin to behave exactly like ADMIN_AIDE for Treasury pages
     const isBPLOAdmin = rawUserRole === "ADMIN" && userDepartment?.toUpperCase() === "BPLO";
-    const userRole = isBPLOAdmin ? "ADMIN_AIDE" : rawUserRole;
+    const userRole = isLgu ? "LGU_ADMIN" : (isBPLOAdmin ? "ADMIN_AIDE" : rawUserRole);
     // Treasury Staff can only upload OR; Permit No., Sticker No., and Waybill are BPLO Admin only
     const isTreasuryStaff = rawUserRole === "TREASURY_STAFF";
     const searchParams = useSearchParams();
@@ -277,6 +279,7 @@ export default function TreasuryDetailPage() {
     const [orFile, setOrFile] = useState<File | null>(null);
     const [orPreview, setOrPreview] = useState<string | null>(null);
     const [themeColor, setThemeColor] = useState<string>("#2563eb");
+    const [cedulaSettings, setCedulaSettings] = useState<Record<string, string>>({});
     const [registryBookVerification, setRegistryBookVerification] = useState<string>("");
     const [birthRegDocFile, setBirthRegDocFile] = useState<File | null>(null);
     const [birthRegDocPreview, setBirthRegDocPreview] = useState<string | null>(null);
@@ -452,7 +455,7 @@ export default function TreasuryDetailPage() {
         return format(d, "MMM d, yyyy");
     };
     // RETURN_REQUESTED and REFUND_REQUESTED are also excluded so BPLO Admin can action disputes on Business Permits
-    const isReadOnlyAide = userRole === "ADMIN_AIDE" && isBusinessPermit && !["FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM", "FOR_PICKING", "RETURN_REQUESTED", "REFUND_REQUESTED"].includes(transaction?.status || "");
+    const isReadOnlyAide = isLgu || (userRole === "ADMIN_AIDE" && isBusinessPermit && !["FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM", "FOR_PICKING", "RETURN_REQUESTED", "REFUND_REQUESTED"].includes(transaction?.status || ""));
 
     const fetchTransaction = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
@@ -593,6 +596,13 @@ export default function TreasuryDetailPage() {
         getSystemSettingAction("theme_color", "#2563eb").then(res => {
             if (res.success && res.data) {
                 setThemeColor(res.data);
+            }
+        });
+
+        // Fetch Cedula settings
+        getCedulaSettings().then(res => {
+            if (res.success && res.data) {
+                setCedulaSettings(res.data);
             }
         });
 
@@ -1021,7 +1031,8 @@ export default function TreasuryDetailPage() {
                 propertyValue,
                 fulfillmentType: transaction.fulfillmentType,
                 deliveryFee,
-                baseFee: transaction.type?.baseFee
+                baseFee: transaction.type?.baseFee,
+                settings: cedulaSettings
             });
             const itemsSum = feeLineItems.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
             return {
@@ -1037,7 +1048,8 @@ export default function TreasuryDetailPage() {
             propertyValue,
             fulfillmentType: transaction.fulfillmentType,
             deliveryFee,
-            baseFee: transaction.type?.baseFee
+            baseFee: transaction.type?.baseFee,
+            settings: cedulaSettings
         });
     })();
 

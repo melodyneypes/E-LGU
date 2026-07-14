@@ -13,6 +13,7 @@ export interface CedulaCalculationParams {
     fulfillmentType?: "PICK_UP" | "DELIVERY" | "E_COPY" | null;
     deliveryFee?: number;
     baseFee?: number;
+    settings?: Record<string, string>;
 }
 
 export interface CedulaResult {
@@ -34,31 +35,24 @@ export function isPastCedulaDeadline(): boolean {
 
 /**
  * Calculates the penalty rate based on the current month.
- * January: 0%
- * February: 0%
- * March: 2%
- * April: 4%
- * ...
- * February (Next Year Theoretical Max): 24%
  */
-export function getCedulaPenaltyRate(): number {
+export function getCedulaPenaltyRate(settings?: Record<string, string>): number {
     const now = new Date();
     const month = now.getMonth(); // 0-indexed: 0=Jan, 1=Feb, 2=Mar...
 
     // Penalty starts in March (Index 2)
     if (month < 2) return 0;
     
-    // Formula: (MonthIndex - 1) * 2% 
-    // March(2) -> (2-1)*0.02 = 0.02 (2%)
-    // December(11) -> (11-1)*0.02 = 0.20 (20%)
-    return (month - 1) * 0.02;
+    // Default penalty rate is 2% monthly
+    const monthlyRate = settings?.cedula_penalty_rate_monthly ? parseFloat(settings.cedula_penalty_rate_monthly) : 0.02;
+    return (month - 1) * monthlyRate;
 }
 
 /**
  * Returns a human-readable penalty label (e.g., "4%")
  */
-export function getCedulaPenaltyRateLabel(): string {
-    const rate = getCedulaPenaltyRate();
+export function getCedulaPenaltyRateLabel(settings?: Record<string, string>): string {
+    const rate = getCedulaPenaltyRate(settings);
     return `${Math.round(rate * 100)}%`;
 }
 
@@ -72,36 +66,42 @@ export function calculateCedula(params: CedulaCalculationParams): CedulaResult {
         propertyValue, 
         fulfillmentType = "PICK_UP",
         deliveryFee = 0,
-        baseFee
+        settings = {}
     } = params;
 
-    const basicTax = baseFee !== undefined ? baseFee : (type === "INDIVIDUAL" ? 5.00 : 500.00);
+    // Load basic tax defaults or settings
+    const defaultBasicIndividual = settings.cedula_basic_tax_individual ? parseFloat(settings.cedula_basic_tax_individual) : 5.00;
+    const defaultBasicJuridical = settings.cedula_basic_tax_juridical ? parseFloat(settings.cedula_basic_tax_juridical) : 500.00;
+    const basicTax = type === "INDIVIDUAL" ? defaultBasicIndividual : defaultBasicJuridical;
+
+    // Load additional tax rate defaults or settings (in Peso, representing rate per basis)
+    const addRateIndiv = settings.cedula_additional_tax_rate_individual ? parseFloat(settings.cedula_additional_tax_rate_individual) : 1.00;
+    const addRateJur = settings.cedula_additional_tax_rate_juridical ? parseFloat(settings.cedula_additional_tax_rate_juridical) : 2.00;
+
     let additionalTax = 0;
     const totalBasis = income + propertyValue;
 
     if (type === "INDIVIDUAL") {
-        // Individual: ₱1.00 for every ₱1,000 of income/property
-        additionalTax = Math.floor(totalBasis / 1000) * 1.00;
+        // Individual: ₱X.XX for every ₱1,000 of income/property
+        additionalTax = Math.floor(totalBasis / 1000) * addRateIndiv;
     } else {
-        // Juridical: ₱2.00 for every ₱5,000 of income/property
-        additionalTax = Math.floor(totalBasis / 5000) * 2.00;
+        // Juridical: ₱Y.YY for every ₱5,000 of income/property
+        additionalTax = Math.floor(totalBasis / 5000) * addRateJur;
     }
 
-    // --- PENALTY (2% Monthly interest starting March 1st) ---
+    // --- PENALTY (Monthly interest starting March 1st) ---
     // Penalty is calculated based on the Community Tax (Basic + Additional)
     let penalty = 0;
-    const penaltyRate = getCedulaPenaltyRate();
+    const penaltyRate = getCedulaPenaltyRate(settings);
     if (penaltyRate > 0) {
         penalty = (basicTax + additionalTax) * penaltyRate;
     }
 
     // --- ABSOLUTE TOTAL CAPPING (Staff Requirement) ---
-    // The Total Due (Basic + Additional + Penalty) must not exceed:
-    // P5,000.00 for Individuals, P10,000.00 for Juridical entities.
-    // --- ABSOLUTE TOTAL CAPPING (Staff Requirement) ---
-    // The Total Due (Basic + Additional + Penalty) must not exceed:
-    // P5,000.00 for Individuals, P10,000.00 for Juridical entities.
-    const totalCap = type === "INDIVIDUAL" ? 5000 : 10000;
+    // The Total Due (Basic + Additional + Penalty) must not exceed the capping settings
+    const capIndiv = settings.cedula_cap_individual ? parseFloat(settings.cedula_cap_individual) : 5000.00;
+    const capJur = settings.cedula_cap_juridical ? parseFloat(settings.cedula_cap_juridical) : 10000.00;
+    const totalCap = type === "INDIVIDUAL" ? capIndiv : capJur;
     const currentSubtotal = basicTax + additionalTax + penalty;
 
     if (currentSubtotal > totalCap) {
@@ -115,7 +115,7 @@ export function calculateCedula(params: CedulaCalculationParams): CedulaResult {
         // Update components based on target principal
         additionalTax = targetCommunityTax - basicTax;
         
-        // Ensure additionalTax doesn't go below 0 (shouldn't happen with standard caps)
+        // Ensure additionalTax doesn't go below 0
         if (additionalTax < 0) additionalTax = 0;
 
         // Recalculate penalty on the capped principal
