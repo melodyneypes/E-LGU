@@ -475,9 +475,14 @@ export default function EngineerDetailPage({ params }: PageProps) {
             toast.error("Please add at least one requested attachment.");
             return;
         }
+        let finalRemarks = remarks.trim() + "\n\nDocuments to revise/upload:\n";
+        cleanedRequests.forEach((req, index) => {
+            finalRemarks += `${index + 1}. ${req.name}\n`;
+        });
+
         setActionLoading(true);
         try {
-            const res = await sendForRevision(transaction.id, remarks, cleanedRequests);
+            const res = await sendForRevision(transaction.id, finalRemarks, cleanedRequests);
             if (res.success) {
                 toast.success("Sent back for revision");
                 router.push(backUrl);

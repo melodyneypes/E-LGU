@@ -2690,7 +2690,8 @@ export async function resubmitTransaction(id: string, formData: FormData) {
             include: { type: true }
         });
 
-        if (!tx || tx.status !== "FOR_REVISION") {
+        const existingAdditionalData = tx?.additionalData as any || {};
+        if (!tx || (tx.status !== "FOR_REVISION" && existingAdditionalData.zoningStatus !== "FOR_REVISION")) {
             return { success: false, error: "Invalid transaction for resubmission" };
         }
 
@@ -2779,13 +2780,22 @@ export async function resubmitTransaction(id: string, formData: FormData) {
             "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
         ].includes(tx?.type?.code || "");
 
+        const newStatus = tx.status === "FOR_REVISION" 
+            ? (isPsaAppointment ? "EVALUATED" : (isLCR ? "FOR_INSPECTION" : "FOR_REQUESTING"))
+            : tx.status;
+            
+        if (additionalData.zoningStatus === "FOR_REVISION") {
+            additionalData.zoningStatus = "FOR_REQUESTING";
+            additionalData.zoningRejectionRemarks = null;
+        }
+
         const transaction = await prisma.transaction.update({
             where: { id },
             data: {
                 additionalData: sanitizeObject(additionalData),
                 residentSnapshot: residentSnapshot ? sanitizeObject(residentSnapshot as any) : null,
-                status: isPsaAppointment ? "EVALUATED" : (isLCR ? "FOR_INSPECTION" : "FOR_REQUESTING"),
-                rejectionRemarks: null
+                status: newStatus as any,
+                ...(tx.status === "FOR_REVISION" ? { rejectionRemarks: null } : {})
             }
         });
 
@@ -3238,20 +3248,9 @@ export async function getEngineerTransactions(params?: string | {
         };
 
         if (user.role === "MPDC_ZONING") {
-            where.AND = [
-                { status: { notIn: ["DRAFT", "FOR_REQUESTING", "FOR_REVISION", "FOR_INSPECTION", "FOR_REINSPECTION"] } },
-                {
-                    OR: [
-                        { status: { not: "EVALUATED" } },
-                        {
-                            additionalData: {
-                                path: ["feeAssessment", "endorsed"],
-                                equals: true
-                            }
-                        }
-                    ]
-                }
-            ];
+            // Zoning sees all building permits
+        } else {
+            // No strict exclusion needed for Engineer by default here unless specified
         }
 
         if (status && status !== "ALL") {
@@ -3261,8 +3260,27 @@ export async function getEngineerTransactions(params?: string | {
                 where.status = "PAID" as any;
                 where.isCancelled = false;
             } else {
-                where.status = status;
-                where.isCancelled = false;
+                if (user.role === "MPDC_ZONING") {
+                    const zoningOnlyStatuses = ["FOR_REQUESTING", "FOR_REVISION", "FOR_INSPECTION", "FOR_REINSPECTION"];
+                    if (zoningOnlyStatuses.includes(status)) {
+                        where.additionalData = {
+                            path: ["zoningStatus"],
+                            equals: status
+                        };
+                        where.isCancelled = false;
+                    } else {
+                        // For global statuses, zoningStatus must be EVALUATED and global status matches
+                        where.additionalData = {
+                            path: ["zoningStatus"],
+                            equals: "EVALUATED"
+                        };
+                        where.status = status;
+                        where.isCancelled = false;
+                    }
+                } else {
+                    where.status = status;
+                    where.isCancelled = false;
+                }
             }
         }
 
@@ -3352,7 +3370,8 @@ export async function getEngineerTransactions(params?: string | {
                             id: true,
                             documentUrl: true
                         }
-                    }
+                    },
+                    additionalData: true
                 },
                 orderBy: { createdAt: "desc" },
                 take: limit === 999999 ? undefined : limit,
@@ -3376,11 +3395,28 @@ export async function getEngineerPendingCount() {
         const user = await assertSessionUser();
         assertUserRoles(user, ["ENGINEER", "MPDC_ZONING", "ADMIN"]);
 
+        const where: any = {
+            type: { code: { startsWith: "BUILDING_PERMIT" } }
+        };
+
+        if (user.role === "MPDC_ZONING") {
+            // For pending count, Zoning just looks for FOR_REQUESTING and FOR_INSPECTION
+            // But wait, the original logic for Zoning was checking allTxs
+
+            
+            const allTxs = await prisma.transaction.findMany({ where });
+            const pendingCount = allTxs.filter(tx => {
+                const zStatus = (tx.additionalData as any)?.zoningStatus || "FOR_REQUESTING";
+                return ["FOR_REQUESTING", "FOR_INSPECTION", "PAID", "FOR_CLAIM", "FOR_PROCESSING"].includes(zStatus);
+            }).length;
+            
+            return { success: true, count: pendingCount };
+        } else {
+            where.status = { in: ["FOR_REQUESTING", "FOR_INSPECTION", "PAID", "FOR_CLAIM", "FOR_PROCESSING"] as any };
+        }
+
         const count = await prisma.transaction.count({
-            where: {
-                type: { code: { startsWith: "BUILDING_PERMIT" } },
-                status: { in: ["FOR_REQUESTING", "FOR_INSPECTION", "PAID", "FOR_CLAIM", "FOR_PROCESSING"] as any }
-            }
+            where
         });
         return { success: true, count };
     } catch (error: any) {
@@ -3403,20 +3439,21 @@ export async function getEngineerStatusCounts() {
         };
 
         if (user.role === "MPDC_ZONING") {
-            where.AND = [
-                { status: { notIn: ["DRAFT", "FOR_REQUESTING", "FOR_REVISION", "FOR_INSPECTION", "FOR_REINSPECTION"] } },
-                {
-                    OR: [
-                        { status: { not: "EVALUATED" } },
-                        {
-                            additionalData: {
-                                path: ["feeAssessment", "endorsed"],
-                                equals: true
-                            }
-                        }
-                    ]
+            const allTxs = await prisma.transaction.findMany({ where });
+            const counts: Record<string, number> = {};
+            for (const tx of allTxs) {
+                const zStatus = (tx.additionalData as any)?.zoningStatus || "FOR_REQUESTING";
+                let effectiveStatus = zStatus;
+                if (zStatus === "EVALUATED") {
+                    effectiveStatus = tx.status || "EVALUATED";
                 }
-            ];
+                counts[effectiveStatus] = (counts[effectiveStatus] || 0) + 1;
+            }
+            const cancelledCount = await prisma.transaction.count({ 
+                where: { type: { code: { startsWith: "BUILDING_PERMIT" } }, isCancelled: true } 
+            });
+            if (cancelledCount > 0) counts["CANCELLED"] = cancelledCount;
+            return { success: true, data: counts };
         }
 
         const counts: Record<string, number> = {};
@@ -3424,10 +3461,10 @@ export async function getEngineerStatusCounts() {
         const grouped = await prisma.transaction.groupBy({
             by: ["status"],
             where,
-            _count: { _all: true }
+            _count: { id: true }
         });
         for (const group of grouped) {
-            counts[group.status] = group._count?._all ?? 0;
+            counts[group.status] = group._count?.id ?? 0;
         }
 
         const cancelledCount = await prisma.transaction.count({
@@ -5480,5 +5517,316 @@ export async function approveBFPTransaction(id: string, bfpClearanceUrl: string)
     } catch (error: any) {
         console.error("Approve BFP error:", error);
         return { success: false, error: error.message || "Failed to approve BFP transaction" };
+    }
+}
+
+/**
+ * ZONING ISOLATION ACTIONS
+ */
+
+export async function sendForZoningRevision(
+    id: string,
+    remarks: string,
+    revisionRequests: { type: "REQUIREMENTS" | "PERMITS"; name: string; key?: string }[] = []
+) {
+    try {
+        id = sanitizeString(id);
+        remarks = sanitizeString(remarks);
+        const normalizedRevisionRequests = revisionRequests
+            .map((item) => ({
+                type: item?.type === "PERMITS" ? "PERMITS" as const : "REQUIREMENTS" as const,
+                name: sanitizeString(item?.name || ""),
+                key: item?.key ? sanitizeString(item.key) : undefined
+            }))
+            .filter((item) => item.name.length > 0);
+
+        const session = await getSession();
+        const user = session?.user as any;
+        if (!user || user.role !== "MPDC_ZONING") {
+            return { success: false, error: "Forbidden" };
+        }
+
+        const tx = await prisma.transaction.findUnique({
+            where: { id },
+            include: { user: true, type: true }
+        });
+
+        if (!tx) return { success: false, error: "Transaction inaccessible" };
+
+        const currentAdditionalData = (tx.additionalData as any) || {};
+        const nextRevisionCount = (currentAdditionalData.zoningRevisionCount || 0) + 1;
+        const revisionHistory = Array.isArray(currentAdditionalData.zoningRevisionHistory)
+            ? currentAdditionalData.zoningRevisionHistory
+            : [];
+            
+        const updatedAdditionalData = {
+            ...currentAdditionalData,
+            zoningStatus: "FOR_REVISION",
+            zoningRejectionRemarks: remarks,
+            zoningRevisionRequests: normalizedRevisionRequests,
+            zoningRevisionCount: nextRevisionCount,
+            zoningRevisionHistory: [
+                ...revisionHistory,
+                {
+                    id: `${Date.now()}`,
+                    remarks,
+                    revisionRequests: normalizedRevisionRequests,
+                    requestedBy: user.id,
+                    requestedAt: new Date().toISOString()
+                }
+            ]
+        };
+
+        const transaction = await prisma.transaction.update({
+            where: { id },
+            data: {
+                additionalData: updatedAdditionalData as any
+            }
+        });
+
+        if (tx.userId && tx.user?.role === "USER" && tx.user?.email) {
+            const resident = tx.residentSnapshot as any;
+            sendEmail({
+                type: "FOR_REVISION" as any,
+                to: tx.user.email,
+                name: resident?.firstName || tx.user.name || "Resident",
+                remarks: remarks,
+                transactionId: tx.id.slice(-8).toUpperCase(),
+                serviceName: tx.type?.name
+            }).catch(err => console.error("Zoning Revision request email error:", err));
+        }
+
+        revalidatePath("/admin/zoning");
+        revalidatePath("/user/services");
+        return { success: true, data: transaction };
+    } catch (error) {
+        console.error("Send for zoning revision error:", error);
+        return { success: false, error: "Failed to request zoning revision" };
+    }
+}
+
+export async function scheduleZoningInspection(id: string, details: any) {
+    try {
+        const session = await getSession();
+        const user = session?.user as any;
+        if (!user || user.role !== "MPDC_ZONING") {
+            return { success: false, error: "Forbidden" };
+        }
+
+        const transaction = await prisma.transaction.findUnique({
+            where: { id },
+            include: { type: true, user: true }
+        });
+
+        if (!transaction) return { success: false, error: "Transaction not found" };
+
+        const existingAdditionalData = (transaction.additionalData as any) || {};
+        
+        const updatedTransaction = await prisma.transaction.update({
+            where: { id },
+            data: {
+                additionalData: {
+                    ...existingAdditionalData,
+                    zoningInspectionSchedule: details,
+                    zoningStatus: "FOR_INSPECTION"
+                },
+                updatedAt: new Date()
+            },
+            include: { type: true, user: true }
+        });
+
+        if (transaction.user?.email) {
+            const resident = transaction.residentSnapshot as any;
+            await sendEmail({
+                type: "FOR_INSPECTION",
+                to: transaction.user.email,
+                name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : transaction.user.name || "Resident",
+                transactionId: id.slice(-8).toUpperCase(),
+                serviceName: transaction.type?.name || "Building Permit",
+                remarks: `Inspector: ${details.inspectorName} | Date: ${details.date} | Time: ${details.time} | Notes: ${details.notes || 'None'}`,
+                department: "ZONING"
+            });
+        }
+
+        revalidatePath("/admin/zoning");
+        return { success: true, data: updatedTransaction };
+    } catch (error) {
+        console.error("Schedule zoning inspection error:", error);
+        return { success: false, error: "Failed to schedule zoning inspection" };
+    }
+}
+
+export async function rejectZoningTransaction(id: string, remarks: string) {
+    try {
+        const session = await getSession();
+        const user = session?.user as any;
+        if (!user || user.role !== "MPDC_ZONING") return { success: false, error: "Forbidden" };
+
+        const tx = await prisma.transaction.findUnique({ where: { id }, include: { user: true, type: true } });
+        if (!tx) return { success: false, error: "Not found" };
+
+        const additionalData = (tx.additionalData as any) || {};
+
+        const transaction = await prisma.transaction.update({
+            where: { id },
+            data: {
+                additionalData: {
+                    ...additionalData,
+                    zoningStatus: "REJECTED",
+                    zoningRejectionRemarks: remarks
+                }
+            }
+        });
+
+        if (tx.user?.email) {
+            const resident = tx.residentSnapshot as any;
+            sendEmail({
+                type: "REJECTED",
+                to: tx.user.email,
+                name: resident?.firstName || tx.user.name || "Resident",
+                remarks,
+                transactionId: tx.id.slice(-8).toUpperCase(),
+                serviceName: tx.type?.name
+            }).catch(e => console.error(e));
+        }
+
+        revalidatePath("/admin/zoning");
+        return { success: true, data: transaction };
+    } catch (error) {
+        console.error(error);
+        return { success: false, error: "Failed to reject" };
+    }
+}
+
+export async function evaluateZoningApplication(id: string) {
+    try {
+        const session = await getSession();
+        const user = session?.user as any;
+        if (!user || user.role !== "MPDC_ZONING") return { success: false, error: "Forbidden" };
+
+        const tx = await prisma.transaction.findUnique({ where: { id } });
+        if (!tx) return { success: false, error: "Not found" };
+
+        const additionalData = (tx.additionalData as any) || {};
+
+        const transaction = await prisma.transaction.update({
+            where: { id },
+            data: {
+                additionalData: {
+                    ...additionalData,
+                    zoningStatus: "EVALUATED",
+                    zoningRejectionRemarks: null,
+                    zoningRevisionRequests: null
+                }
+            }
+        });
+
+        revalidatePath("/admin/zoning");
+        return { success: true, data: transaction };
+    } catch (error) {
+        console.error(error);
+        return { success: false, error: "Failed to evaluate" };
+    }
+}
+
+export async function markZoningForReinspection(id: string, reason: string, details?: any) {
+    try {
+        const session = await getSession();
+        const user = session?.user as any;
+        if (!user || user.role !== "MPDC_ZONING") {
+            return { success: false, error: "Forbidden" };
+        }
+
+        const transaction = await prisma.transaction.findUnique({
+            where: { id },
+            include: { type: true, user: true }
+        });
+
+        if (!transaction) return { success: false, error: "Transaction not found" };
+
+        const additionalData = (transaction.additionalData as any) || {};
+        const count = (additionalData.zoningReinspectionCount || 0) + 1;
+
+        const history = additionalData.zoningReinspectionHistory || [];
+        const newHistory = [...history];
+
+        if ((!additionalData.zoningReinspectionCount || additionalData.zoningReinspectionCount === 0) && additionalData.zoningInspectionSchedule) {
+            newHistory.push({
+                isOriginal: true,
+                date: additionalData.zoningInspectionSchedule.date,
+                time: additionalData.zoningInspectionSchedule.time,
+                type: additionalData.zoningInspectionSchedule.type || "Initial Inspection",
+                inspectorName: additionalData.zoningInspectionSchedule.inspectorName,
+                notes: additionalData.zoningInspectionSchedule.notes || "",
+                reason: "Initial Site Inspection",
+                count: 0
+            });
+        }
+
+        newHistory.push({ date: new Date().toISOString(), reason, count });
+
+        let newZoningStatus = "FOR_REINSPECTION";
+        let remarks = null;
+
+        if (count >= 3) {
+            newZoningStatus = "REJECTED";
+            remarks = `Automatically rejected after 3 re-inspection attempts. Final Reason: ${reason}`;
+        }
+
+        const newAdditionalData = {
+            ...additionalData,
+            zoningReinspectionCount: count,
+            zoningReinspectionHistory: newHistory,
+            zoningStatus: newZoningStatus,
+            ...(remarks ? { zoningRejectionRemarks: remarks } : {})
+        } as any;
+
+        if (details && count < 3) {
+            newAdditionalData.zoningInspectionSchedule = {
+                type: details.type,
+                date: details.date,
+                time: details.time,
+                inspectorName: details.inspectorName,
+                notes: `Re-inspection Reason: ${reason}`
+            };
+        }
+
+        const updatedTransaction = await prisma.transaction.update({
+            where: { id },
+            data: {
+                additionalData: newAdditionalData,
+                updatedAt: new Date()
+            },
+            include: { type: true, user: true }
+        });
+
+        if (transaction.user?.email && count < 3) {
+            const resident = transaction.residentSnapshot as any;
+            await sendEmail({
+                type: "FOR_INSPECTION",
+                to: transaction.user.email,
+                name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : transaction.user.name || "Resident",
+                transactionId: id.slice(-8).toUpperCase(),
+                serviceName: transaction.type?.name || "Building Permit",
+                remarks: `Re-inspection Reason: ${reason}. Inspector: ${details.inspectorName} | Date: ${details.date} | Time: ${details.time}`,
+                department: "ZONING"
+            });
+        } else if (transaction.user?.email && count >= 3) {
+             const resident = transaction.residentSnapshot as any;
+             await sendEmail({
+                type: "REJECTED",
+                to: transaction.user.email,
+                name: resident?.firstName || transaction.user.name || "Resident",
+                remarks: remarks || "",
+                transactionId: id.slice(-8).toUpperCase(),
+                serviceName: transaction.type?.name
+             });
+        }
+
+        revalidatePath("/admin/zoning");
+        return { success: true, data: updatedTransaction };
+    } catch (error) {
+        console.error("Mark zoning for reinspection error:", error);
+        return { success: false, error: "Failed to mark for re-inspection" };
     }
 }

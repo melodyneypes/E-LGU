@@ -353,10 +353,10 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 mr-2">
                         <Badge className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 border border-orange-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
-                            Revision Count: {transaction?.revisionCount || 0} / 3
+                            Revision Count: {transaction?.additionalData?.zoningRevisionCount || 0} / 3
                         </Badge>
                         <Badge className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 border border-blue-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
-                            Re-inspection Count: {transaction?.additionalData?.reinspectionCount || 0} / 3
+                            Re-inspection Count: {transaction?.additionalData?.zoningReinspectionCount || 0} / 3
                         </Badge>
                     </div>
                     <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
