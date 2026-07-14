@@ -623,8 +623,8 @@ export default function QueueClient({
             </header>
 
             {/* Main Queuing Board */}
-            <main className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 z-10 min-h-0 overflow-hidden">
-                {queueData.map((dept) => {
+            <main className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 z-10 min-h-0 overflow-hidden">
+                {queueData.filter(dept => dept.department !== "Engineering").map((dept) => {
                     const Icon = DEPT_ICONS[dept.department] || Coins;
                     const theme = DEPT_THEMES[dept.department] || DEPT_THEMES["Treasury"];
                     
@@ -663,9 +663,6 @@ export default function QueueClient({
                                                     <h3 className={`text-xl xl:text-2xl font-black tracking-tight font-mono ${theme.text} drop-shadow-[0_0_10px_rgba(var(--primary),0.3)] animate-pulse`}>
                                                         {serving.queueNumber}
                                                     </h3>
-                                                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-wide truncate w-full mt-0.5">
-                                                        {serving.residentName || "UNKNOWN CITIZEN"}
-                                                    </p>
                                                     <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5">
                                                         <Activity className="w-2 h-2 text-slate-400" />
                                                         <span className="text-[6.5px] font-black text-slate-300 uppercase tracking-widest">

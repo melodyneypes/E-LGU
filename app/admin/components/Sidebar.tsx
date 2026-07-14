@@ -376,6 +376,7 @@ export function Sidebar({
         { href: "/admin/bplo/appointment-settings", label: "BPLO Appointment Settings", icon: Calendar, category: "Treasury" },
         { href: "/admin/bplo/queue", label: "BPLO Queue", icon: Users, category: "Treasury" },
         { href: "/admin/settings/bplo", label: "Payment Settings", icon: CreditCard, category: "Treasury" },
+        { href: "/admin/settings/cedula", label: "Cedula Settings", icon: FileText, category: "Treasury" },
         { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury" },
         { href: "/admin/treasury/queue", label: "Treasury Queue", icon: Users, category: "Treasury" },
         { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },

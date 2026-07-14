@@ -5,13 +5,14 @@ interface GenerateQueueParams {
   isPriority: boolean;
   appointmentDate: Date;
   appointmentSlot?: string;
+  category?: "CEDULA" | "BUSINESS_PERMIT" | "CIVIL_REGISTRY";
 }
 
 /**
  * Generates a shared format queue ticket number.
- * Format: [DATE]-[SHIFT]-[PRIORITY_INDICATOR][SEQUENCE]
- * E.g., 07072026-AM-001 (Standard)
- * E.g., 07072026-AM-P001 (Priority)
+ * Format: [DATE]-[SHIFT]-[PREFIX][SEQUENCE]
+ * E.g., 07072026-AM-T001 (Cedula Standard)
+ * E.g., 07072026-AM-TP001 (Cedula Priority)
  * 
  * Auto-increments sequentially regardless of the service selected.
  */
@@ -19,6 +20,7 @@ export async function generateQueueNumber({
   isPriority,
   appointmentDate,
   appointmentSlot,
+  category,
 }: GenerateQueueParams): Promise<string> {
   const startOfDay = new Date(appointmentDate);
   startOfDay.setUTCHours(0, 0, 0, 0);
@@ -53,6 +55,17 @@ export async function generateQueueNumber({
     } as any
   });
 
+  let prefix = "";
+  if (category === "CEDULA") {
+    prefix = isPriority ? "TP" : "T";
+  } else if (category === "CIVIL_REGISTRY") {
+    prefix = isPriority ? "RP" : "R";
+  } else if (category === "BUSINESS_PERMIT") {
+    prefix = isPriority ? "BP" : "B";
+  } else {
+    prefix = isPriority ? "P" : "";
+  }
+
   const seqNum = String(shiftCount + 1).padStart(3, "0");
-  return `${dateStr}-${shiftStr}-${isPriority ? "P" : ""}${seqNum}`;
+  return `${dateStr}-${shiftStr}-${prefix}${seqNum}`;
 }

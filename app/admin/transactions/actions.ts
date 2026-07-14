@@ -824,6 +824,7 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
                     isPriority,
                     appointmentDate: startOfDay,
                     appointmentSlot: appointmentSlotVal,
+                    category: "CIVIL_REGISTRY"
                 });
             }
         }
@@ -1602,6 +1603,12 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
                     totalAmount: total
                 };
             } else if (isBusinessPermit) {
+                const settingsList = await prisma.systemSetting.findMany();
+                const settingsMap: Record<string, string> = {};
+                settingsList.forEach(s => {
+                    settingsMap[s.key] = s.value;
+                });
+
                 const cap = Number(additionalData.capitalInvestment || 0);
                 const sales = Number(additionalData.grossSales || 0);
                 const bploCalc = calculateBusinessPermit({
@@ -1609,7 +1616,8 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
                     capitalization: cap,
                     grossSales: sales,
                     fulfillmentType: transaction.fulfillmentType,
-                    deliveryFee: deliveryFeeOverride !== undefined ? deliveryFeeOverride : dynamicDeliveryFee
+                    deliveryFee: deliveryFeeOverride !== undefined ? deliveryFeeOverride : dynamicDeliveryFee,
+                    settings: settingsMap
                 });
                 result = {
                     basicTax: bploCalc.baseFee,
@@ -1620,13 +1628,20 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
                 };
             }
         } else if (isCedula) {
+            const settingsList = await prisma.systemSetting.findMany();
+            const settingsMap: Record<string, string> = {};
+            settingsList.forEach(s => {
+                settingsMap[s.key] = s.value;
+            });
+
             const cedulaCalc = calculateCedula({
                 type: additionalData.applicantType || "INDIVIDUAL",
                 income: additionalData.income || 0,
                 propertyValue: additionalData.propertyValue || 0,
                 fulfillmentType: transaction.fulfillmentType,
                 deliveryFee: deliveryFeeOverride !== undefined ? deliveryFeeOverride : dynamicDeliveryFee,
-                baseFee: transaction.type?.baseFee
+                baseFee: transaction.type?.baseFee,
+                settings: settingsMap
             });
             result = {
                 basicTax: cedulaCalc.basicTax,

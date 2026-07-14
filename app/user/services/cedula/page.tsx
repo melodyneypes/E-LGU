@@ -58,6 +58,7 @@ import {
     resubmitStudentCedulaTransaction
 } from "@/app/admin/transactions/student-actions";
 import { calculateCedula, CedulaResult, isPastCedulaDeadline, getCedulaPenaltyRate } from "@/lib/cedula";
+import { getCedulaSettings } from "@/app/admin/transactions/cedula-actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -103,6 +104,7 @@ export default function CedulaApplicationPage() {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [initialResident, setInitialResident] = useState<any>(null);
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
+    const [cedulaSettings, setCedulaSettings] = useState<Record<string, string>>({});
     const [existingIdUrl, setExistingIdUrl] = useState<string | null>(null);
     const [existingProofUrl, setExistingProofUrl] = useState<string | null>(null);
     const [revisionId, setRevisionId] = useState<string | null>(null);
@@ -158,6 +160,12 @@ export default function CedulaApplicationPage() {
             try {
                 // Ensure service types exist in DB
                 await ensureCedulaTransactionTypes();
+
+                // Fetch Settings
+                const settingsRes = await getCedulaSettings();
+                if (settingsRes.success && settingsRes.data) {
+                    setCedulaSettings(settingsRes.data);
+                }
 
                 // Fetch Types
                 let defaultTypeId = "";
@@ -328,7 +336,8 @@ export default function CedulaApplicationPage() {
             propertyValue: parseFloat(formData.propertyValue.replace(/,/g, '')) || 0,
             fulfillmentType: "PICK_UP", // Base amount only during initial app
             deliveryFee: 0,
-            baseFee: selectedType?.baseFee
+            baseFee: selectedType?.baseFee,
+            settings: cedulaSettings
         });
         setCalcResult(result);
     }, [formData.income, formData.propertyValue, formData.applicantType, selectedType, formData.isStudent]);
@@ -1194,7 +1203,7 @@ export default function CedulaApplicationPage() {
                                                     </div>
                                                     <div className="flex justify-between items-center text-[10px] md:text-xs uppercase tracking-widest italic text-amber-500">
                                                         <span className="flex items-center gap-2">
-                                                            Penalty ({Math.round(getCedulaPenaltyRate() * 100)}%)
+                                                            Penalty ({Math.round(getCedulaPenaltyRate(cedulaSettings) * 100)}%)
                                                             {isPastCedulaDeadline() && (
                                                                 <TooltipProvider delayDuration={0}>
                                                                     <Tooltip>

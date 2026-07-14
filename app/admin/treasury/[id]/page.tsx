@@ -41,6 +41,7 @@ import { releaseMarriagePsaEndorsement } from "@/app/admin/transactions/marriage
 import { releaseBirthPsaEndorsement, collectPsaAppointmentPayment } from "@/app/admin/transactions/birth-endorsement-actions";
 import { releaseDeathPsaEndorsement } from "@/app/admin/transactions/death-endorsement-actions";
 import { calculateCedula } from "@/lib/cedula";
+import { getCedulaSettings } from "@/app/admin/transactions/cedula-actions";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { Button } from "@/components/ui/button";
 import DocumentViewerModal from "./components/DocumentViewerModal";
@@ -274,6 +275,7 @@ export default function TreasuryDetailPage() {
     const [orFile, setOrFile] = useState<File | null>(null);
     const [orPreview, setOrPreview] = useState<string | null>(null);
     const [themeColor, setThemeColor] = useState<string>("#2563eb");
+    const [cedulaSettings, setCedulaSettings] = useState<Record<string, string>>({});
     const [registryBookVerification, setRegistryBookVerification] = useState<string>("");
     const [birthRegDocFile, setBirthRegDocFile] = useState<File | null>(null);
     const [birthRegDocPreview, setBirthRegDocPreview] = useState<string | null>(null);
@@ -588,6 +590,13 @@ export default function TreasuryDetailPage() {
         getSystemSettingAction("theme_color", "#2563eb").then(res => {
             if (res.success && res.data) {
                 setThemeColor(res.data);
+            }
+        });
+
+        // Fetch Cedula settings
+        getCedulaSettings().then(res => {
+            if (res.success && res.data) {
+                setCedulaSettings(res.data);
             }
         });
 
@@ -1043,7 +1052,8 @@ export default function TreasuryDetailPage() {
                 propertyValue,
                 fulfillmentType: transaction.fulfillmentType,
                 deliveryFee,
-                baseFee: transaction.type?.baseFee
+                baseFee: transaction.type?.baseFee,
+                settings: cedulaSettings
             });
             const itemsSum = feeLineItems.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
             return {
@@ -1059,7 +1069,8 @@ export default function TreasuryDetailPage() {
             propertyValue,
             fulfillmentType: transaction.fulfillmentType,
             deliveryFee,
-            baseFee: transaction.type?.baseFee
+            baseFee: transaction.type?.baseFee,
+            settings: cedulaSettings
         });
     })();
 

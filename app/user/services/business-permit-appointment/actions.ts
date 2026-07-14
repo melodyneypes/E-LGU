@@ -287,6 +287,7 @@ export async function submitBusinessAppointment(formData: FormData) {
             isPriority,
             appointmentDate: startOfDay,
             appointmentSlot,
+            category: "BUSINESS_PERMIT"
         });
 
         const transaction = await prisma.$transaction(async (tx) => {
