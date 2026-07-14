@@ -253,6 +253,13 @@ export default function PrivacyTermsModal({ isOpen, onClose, onAccept, onDecline
                                     <p className="font-bold text-red-500 dark:text-red-400">
                                         IMPORTANT: In order to protect municipal resources, EMapandan LGU enforces a strict Three-Strike Rejection Policy. If your applications are rejected 3 times in the same Category of the request due to fraudulent data, false values, or intentional document violations, your online portal access will be permanently suspended, requiring you to apply in-person directly at the Mapandan Municipal Hall.
                                     </p>
+
+                                    <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-wider text-[10px] sm:text-xs block pt-1 sm:pt-2">
+                                        4. Missed Appointment Policy
+                                    </h4>
+                                    <p>
+                                        If you do not go to the municipal hall and process your request on the day that you appointed or booked, your request will be automatically rejected.
+                                    </p>
                                 </div>
                             )}
                         </div>
