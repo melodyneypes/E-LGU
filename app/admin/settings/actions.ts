@@ -377,6 +377,9 @@ export async function updateTreasurySettings(formData: FormData) {
 
 export async function updateTransactionBaseFees(fees: { id: string, baseFee: number, studentFee?: number | null, defaultFees?: any }[]) {
     try {
+        console.log("=== updateTransactionBaseFees RECEIVED ===");
+        console.log(JSON.stringify(fees, null, 2));
+        console.log("==========================================");
         await verifyAdminOrBarangayAdmin();
         const updates = fees.map(fee =>
             prisma.transactionType.update({
@@ -470,9 +473,9 @@ export async function updateAppointmentConfig(
         revalidatePath("/user/services/business-permit-appointment");
         revalidatePath("/admin/treasury/payment-settings");
         revalidatePath("/admin/treasury/appointment-settings");
-        revalidatePath("/user/services/civil-registry/appointment-birth-psa-endorsement");
-        revalidatePath("/user/services/civil-registry/appointment-death-psa-endorsement");
-        revalidatePath("/user/services/civil-registry/appointment-marriage-psa-endorsement");
+        revalidatePath("/user/services/civil-registry/appointment-birth-certified-true-copy");
+        revalidatePath("/user/services/civil-registry/appointment-death-certified-true-copy");
+        revalidatePath("/user/services/civil-registry/appointment-marriage-certified-true-copy");
         revalidatePath("/admin/registrar/appointment-settings");
         return { success: true };
     } catch (error: any) {

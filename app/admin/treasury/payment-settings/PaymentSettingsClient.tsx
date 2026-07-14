@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Building2, Search } from "lucide-react";
+import { Building2, Search, Plus, Trash2 } from "lucide-react";
 import { updateTransactionBaseFees } from "@/app/admin/settings/actions";
 
 interface PaymentSettingsClientProps {
@@ -30,21 +30,6 @@ export default function PaymentSettingsClient({
         }, {} as Record<string, string>);
     });
 
-    const [apptMandatoryFees, setApptMandatoryFees] = useState<Record<string, string>>(() => {
-        return transactionTypes.reduce((acc, type) => {
-            const isAppt = type.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" || 
-                           type.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" || 
-                           type.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
-            if (isAppt && type.defaultFees) {
-                const arr = typeof type.defaultFees === "string" ? JSON.parse(type.defaultFees) : type.defaultFees;
-                acc[type.id] = String(arr.find((f: any) => f.code === "MANDATORY_FINE" || f.code === "MANDATORY_FEE")?.amount ?? 140);
-            } else if (isAppt) {
-                acc[type.id] = "140";
-            }
-            return acc;
-        }, {} as Record<string, string>);
-    });
-
     const [studentFees, setStudentFees] = useState<Record<string, string>>(() => {
         return transactionTypes.reduce((acc, type) => {
             acc[type.id] = String(type.studentFee || 0);
@@ -52,41 +37,37 @@ export default function PaymentSettingsClient({
         }, {} as Record<string, string>);
     });
 
-    // Birth Registration Sub-Fees (fetched from defaultFees JSON)
-    const [birthRegProcFee, setBirthRegProcFee] = useState<string>(() => {
-        const birthReg = transactionTypes.find(t => t.code === "LCR_BIRTH_REG");
-        if (birthReg?.defaultFees) {
-            const arr = typeof birthReg.defaultFees === "string" ? JSON.parse(birthReg.defaultFees) : birthReg.defaultFees;
-            return String(arr.find((f: any) => f.code === "PROCESSING_FEE")?.amount ?? 215);
-        }
-        return "215";
+    const [baseFeeLabels, setBaseFeeLabels] = useState<Record<string, string>>(() => {
+        return transactionTypes.reduce((acc, type) => {
+            if (type.category?.toLowerCase() === "civil registry") {
+                let arr: any[] = [];
+                if (type.defaultFees) {
+                    arr = typeof type.defaultFees === "string" ? JSON.parse(type.defaultFees) : type.defaultFees;
+                }
+                const labelObj = arr.find((f: any) => f.code === "BASE_FEE_LABEL");
+                acc[type.id] = labelObj?.label || "Misc Fee";
+            }
+            return acc;
+        }, {} as Record<string, string>);
     });
 
-    const [birthRegLate1, setBirthRegLate1] = useState<string>(() => {
-        const birthReg = transactionTypes.find(t => t.code === "LCR_BIRTH_REG");
-        if (birthReg?.defaultFees) {
-            const arr = typeof birthReg.defaultFees === "string" ? JSON.parse(birthReg.defaultFees) : birthReg.defaultFees;
-            return String(arr.find((f: any) => f.code === "LATE_FEE_1_10")?.amount ?? 315);
-        }
-        return "315";
-    });
-
-    const [birthRegLate10, setBirthRegLate10] = useState<string>(() => {
-        const birthReg = transactionTypes.find(t => t.code === "LCR_BIRTH_REG");
-        if (birthReg?.defaultFees) {
-            const arr = typeof birthReg.defaultFees === "string" ? JSON.parse(birthReg.defaultFees) : birthReg.defaultFees;
-            return String(arr.find((f: any) => f.code === "LATE_FEE_10_20")?.amount ?? 515);
-        }
-        return "515";
-    });
-
-    const [birthRegLate20, setBirthRegLate20] = useState<string>(() => {
-        const birthReg = transactionTypes.find(t => t.code === "LCR_BIRTH_REG");
-        if (birthReg?.defaultFees) {
-            const arr = typeof birthReg.defaultFees === "string" ? JSON.parse(birthReg.defaultFees) : birthReg.defaultFees;
-            return String(arr.find((f: any) => f.code === "LATE_FEE_20_UP")?.amount ?? 1015);
-        }
-        return "1015";
+    const [civilRegistryDefaultFees, setCivilRegistryDefaultFees] = useState<Record<string, { code: string; label: string; amount: string }[]>>(() => {
+        return transactionTypes.reduce((acc, type) => {
+            if (type.category?.toLowerCase() === "civil registry") {
+                let arr: any[] = [];
+                if (type.defaultFees) {
+                    arr = typeof type.defaultFees === "string" ? JSON.parse(type.defaultFees) : type.defaultFees;
+                }
+                acc[type.id] = arr
+                    .filter((f: any) => f.code !== "BASE_FEE_LABEL")
+                    .map((f: any) => ({
+                        code: f.code || `FEE_${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+                        label: f.label || "",
+                        amount: String(f.amount ?? 0)
+                    }));
+            }
+            return acc;
+        }, {} as Record<string, { code: string; label: string; amount: string }[]>);
     });
 
     const [isSavingFees, setIsSavingFees] = useState(false);
@@ -102,27 +83,34 @@ export default function PaymentSettingsClient({
             return acc;
         }, {} as Record<string, string>));
 
-        setApptMandatoryFees(transactionTypes.reduce((acc, type) => {
-            const isAppt = type.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" || 
-                           type.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" || 
-                           type.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
-            if (isAppt && type.defaultFees) {
-                const arr = typeof type.defaultFees === "string" ? JSON.parse(type.defaultFees) : type.defaultFees;
-                acc[type.id] = String(arr.find((f: any) => f.code === "MANDATORY_FINE" || f.code === "MANDATORY_FEE")?.amount ?? 140);
-            } else if (isAppt) {
-                acc[type.id] = "140";
+        setCivilRegistryDefaultFees(transactionTypes.reduce((acc, type) => {
+            if (type.category?.toLowerCase() === "civil registry") {
+                let arr: any[] = [];
+                if (type.defaultFees) {
+                    arr = typeof type.defaultFees === "string" ? JSON.parse(type.defaultFees) : type.defaultFees;
+                }
+                acc[type.id] = arr
+                    .filter((f: any) => f.code !== "BASE_FEE_LABEL")
+                    .map((f: any) => ({
+                        code: f.code || `FEE_${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+                        label: f.label || "",
+                        amount: String(f.amount ?? 0)
+                    }));
+            }
+            return acc;
+        }, {} as Record<string, { code: string; label: string; amount: string }[]>));
+
+        setBaseFeeLabels(transactionTypes.reduce((acc, type) => {
+            if (type.category?.toLowerCase() === "civil registry") {
+                let arr: any[] = [];
+                if (type.defaultFees) {
+                    arr = typeof type.defaultFees === "string" ? JSON.parse(type.defaultFees) : type.defaultFees;
+                }
+                const labelObj = arr.find((f: any) => f.code === "BASE_FEE_LABEL");
+                acc[type.id] = labelObj?.label || "Misc Fee";
             }
             return acc;
         }, {} as Record<string, string>));
-
-        const birthReg = transactionTypes.find(t => t.code === "LCR_BIRTH_REG");
-        if (birthReg?.defaultFees) {
-            const arr = typeof birthReg.defaultFees === "string" ? JSON.parse(birthReg.defaultFees) : birthReg.defaultFees;
-            setBirthRegProcFee(String(arr.find((f: any) => f.code === "PROCESSING_FEE")?.amount ?? 215));
-            setBirthRegLate1(String(arr.find((f: any) => f.code === "LATE_FEE_1_10")?.amount ?? 315));
-            setBirthRegLate10(String(arr.find((f: any) => f.code === "LATE_FEE_10_20")?.amount ?? 515));
-            setBirthRegLate20(String(arr.find((f: any) => f.code === "LATE_FEE_20_UP")?.amount ?? 1015));
-        }
     }, [transactionTypes]);
 
     const handleFeeChange = (id: string, value: string) => {
@@ -139,34 +127,68 @@ export default function PaymentSettingsClient({
         }));
     };
 
+    const handleAddCivilRegistryFee = (typeId: string) => {
+        setCivilRegistryDefaultFees(prev => {
+            const current = prev[typeId] || [];
+            const randomCode = `FEE_${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+            return {
+                ...prev,
+                [typeId]: [...current, { code: randomCode, label: "", amount: "0" }]
+            };
+        });
+    };
+
+    const handleRemoveCivilRegistryFee = (typeId: string, index: number) => {
+        setCivilRegistryDefaultFees(prev => {
+            const current = prev[typeId] || [];
+            const updated = current.filter((_, idx) => idx !== index);
+            return {
+                ...prev,
+                [typeId]: updated
+            };
+        });
+    };
+
+    const handleCivilRegistryFeeChange = (typeId: string, index: number, field: "label" | "amount", value: string) => {
+        setCivilRegistryDefaultFees(prev => {
+            const current = prev[typeId] || [];
+            const updated = current.map((item, idx) => {
+                if (idx === index) {
+                    return { ...item, [field]: value };
+                }
+                return item;
+            });
+            return {
+                ...prev,
+                [typeId]: updated
+            };
+        });
+    };
+
     const handleSaveFees = async () => {
         setIsSavingFees(true);
         try {
             const feesList = Object.entries(fees).map(([id, baseFee]) => {
                 const type = transactionTypes.find(t => t.id === id);
                 const isCedula = type?.code?.includes("CEDULA");
-                const isBirthReg = type?.code === "LCR_BIRTH_REG";
-                const isAppt = type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" || 
-                               type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" || 
-                               type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
-                
-                const apptMandatory = isAppt ? (Number(apptMandatoryFees[id]) || 0) : 0;
+                const isCivilRegistry = type?.category?.toLowerCase() === "civil registry";
 
                 return {
                     id,
                     baseFee: Number(baseFee) || 0,
                     ...(isCedula ? { studentFee: Number(studentFees[id]) || 0 } : {}),
-                    ...(isBirthReg ? {
+                    ...(isCivilRegistry ? {
                         defaultFees: [
-                            { code: "PROCESSING_FEE", label: "Processing & E-Copy Fee", amount: Number(birthRegProcFee) || 0 },
-                            { code: "LATE_FEE_1_10", label: "Late Fee (1-10 Years)", amount: Number(birthRegLate1) || 0 },
-                            { code: "LATE_FEE_10_20", label: "Late Fee (10-20 Years)", amount: Number(birthRegLate10) || 0 },
-                            { code: "LATE_FEE_20_UP", label: "Late Fee (20+ Years)", amount: Number(birthRegLate20) || 0 }
-                        ]
-                    } : {}),
-                    ...(isAppt ? {
-                        defaultFees: [
-                            { code: "MANDATORY_FINE", label: "Mandatory Fee", amount: apptMandatory }
+                            {
+                                code: "BASE_FEE_LABEL",
+                                label: baseFeeLabels[id] || "Misc Fee",
+                                amount: 0
+                            },
+                            ...(civilRegistryDefaultFees[id] || []).map(f => ({
+                                code: f.code,
+                                label: f.label,
+                                amount: Number(f.amount) || 0
+                            }))
                         ]
                     } : {})
                 };
@@ -269,108 +291,108 @@ export default function PaymentSettingsClient({
                                                 </td>
                                                 <td className="p-4 text-right pr-6">
                                                     <div className="flex flex-col gap-2 items-end">
-                                                        <div className="relative inline-flex items-center max-w-[130px] ml-auto">
-                                                            <span className="absolute left-3 text-slate-400 dark:text-slate-500 font-black text-sm">₱</span>
-                                                            <Input 
-                                                                type="number"
-                                                                step="0.01"
-                                                                value={fees[type.id] !== undefined ? fees[type.id] : ""}
-                                                                onChange={(e) => handleFeeChange(type.id, e.target.value)}
-                                                                className="h-11 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-sm shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
-                                                            />
-                                                        </div>
-                                                        {type.code?.includes("CEDULA") && (
-                                                            <div className="flex items-center gap-2 mt-1">
-                                                                <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">Student Fee:</span>
-                                                                <div className="relative inline-flex items-center max-w-[130px]">
+                                                        {type.category?.toLowerCase() === "civil registry" ? (
+                                                            <div className="flex flex-col gap-2 w-full max-w-[320px]">
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <div className="flex-grow max-w-[140px]">
+                                                                        <Input 
+                                                                            type="text"
+                                                                            value={baseFeeLabels[type.id] !== undefined ? baseFeeLabels[type.id] : "Misc Fee"}
+                                                                            onChange={(e) => setBaseFeeLabels(prev => ({ ...prev, [type.id]: e.target.value }))}
+                                                                            className="h-9 px-3 rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-sm w-full"
+                                                                            placeholder="Fee Label"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="relative inline-flex items-center max-w-[130px]">
+                                                                        <span className="absolute left-3 text-slate-400 dark:text-slate-500 font-black text-sm">₱</span>
+                                                                        <Input 
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            value={fees[type.id] !== undefined ? fees[type.id] : ""}
+                                                                            onChange={(e) => handleFeeChange(type.id, e.target.value)}
+                                                                            className="h-9 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                <div className="mt-2 w-full text-left bg-slate-50/50 dark:bg-black/10 border border-slate-100 dark:border-[#2a3040]/80 rounded-xl p-3 space-y-2">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Additional Fees</span>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            onClick={() => handleAddCivilRegistryFee(type.id)}
+                                                                            className="h-6 px-2 text-[9px] font-bold text-primary hover:text-primary/80 flex items-center gap-1 rounded-md"
+                                                                        >
+                                                                            <Plus className="w-3 h-3" /> Add
+                                                                        </Button>
+                                                                    </div>
+                                                                    
+                                                                    {(civilRegistryDefaultFees[type.id] || []).length === 0 ? (
+                                                                        <p className="text-[10px] text-slate-400 italic">No additional fees configured.</p>
+                                                                    ) : (
+                                                                        <div className="space-y-2">
+                                                                            {(civilRegistryDefaultFees[type.id] || []).map((item, idx) => (
+                                                                                <div key={item.code} className="flex items-center gap-1.5">
+                                                                                    <Input
+                                                                                        type="text"
+                                                                                        placeholder="Fee Label"
+                                                                                        value={item.label}
+                                                                                        onChange={(e) => handleCivilRegistryFeeChange(type.id, idx, "label", e.target.value)}
+                                                                                        className="h-8 px-2 flex-grow rounded-lg bg-white dark:bg-black/30 border-slate-200 dark:border-[#2a3040] text-[10px] font-bold shadow-sm"
+                                                                                    />
+                                                                                    <div className="relative inline-flex items-center max-w-[80px]">
+                                                                                        <span className="absolute left-2 text-slate-400 dark:text-slate-500 font-bold text-[10px]">₱</span>
+                                                                                        <Input
+                                                                                            type="number"
+                                                                                            step="0.01"
+                                                                                            value={item.amount}
+                                                                                            onChange={(e) => handleCivilRegistryFeeChange(type.id, idx, "amount", e.target.value)}
+                                                                                            className="h-8 pl-5 pr-1.5 text-right rounded-lg bg-white dark:bg-black/30 border-slate-200 dark:border-[#2a3040] text-[10px] font-bold shadow-sm w-full"
+                                                                                        />
+                                                                                    </div>
+                                                                                    <Button
+                                                                                        type="button"
+                                                                                        variant="ghost"
+                                                                                        onClick={() => handleRemoveCivilRegistryFee(type.id, idx)}
+                                                                                        className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg flex items-center justify-center"
+                                                                                    >
+                                                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                                                    </Button>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <div className="relative inline-flex items-center max-w-[130px] ml-auto">
                                                                     <span className="absolute left-3 text-slate-400 dark:text-slate-500 font-black text-sm">₱</span>
                                                                     <Input 
                                                                         type="number"
                                                                         step="0.01"
-                                                                        value={studentFees[type.id] !== undefined ? studentFees[type.id] : ""}
-                                                                        onChange={(e) => handleStudentFeeChange(type.id, e.target.value)}
-                                                                        className="h-9 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
+                                                                        value={fees[type.id] !== undefined ? fees[type.id] : ""}
+                                                                        onChange={(e) => handleFeeChange(type.id, e.target.value)}
+                                                                        className="h-11 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-sm shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
                                                                     />
                                                                 </div>
-                                                            </div>
-                                                        )}
-                                                        {type.code === "LCR_BIRTH_REG" && (
-                                                            <div className="flex flex-col gap-2 mt-2 w-full max-w-[280px]">
-                                                                <div className="flex items-center justify-between gap-2">
-                                                                    <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">Processing Fee:</span>
-                                                                    <div className="relative inline-flex items-center max-w-[130px]">
-                                                                        <span className="absolute left-3 text-slate-400 dark:text-slate-500 font-black text-sm">₱</span>
-                                                                        <Input 
-                                                                            type="number"
-                                                                            step="0.01"
-                                                                            value={birthRegProcFee}
-                                                                            onChange={(e) => setBirthRegProcFee(e.target.value)}
-                                                                            className="h-9 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
-                                                                        />
+                                                                {type.code?.includes("CEDULA") && (
+                                                                    <div className="flex items-center gap-2 mt-1">
+                                                                        <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">Student Fee:</span>
+                                                                        <div className="relative inline-flex items-center max-w-[130px]">
+                                                                            <span className="absolute left-3 text-slate-400 dark:text-slate-500 font-black text-sm">₱</span>
+                                                                            <Input 
+                                                                                type="number"
+                                                                                step="0.01"
+                                                                                value={studentFees[type.id] !== undefined ? studentFees[type.id] : ""}
+                                                                                onChange={(e) => handleStudentFeeChange(type.id, e.target.value)}
+                                                                                className="h-9 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
+                                                                            />
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                                <div className="flex items-center justify-between gap-2">
-                                                                    <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">Late Fee (1-10y):</span>
-                                                                    <div className="relative inline-flex items-center max-w-[130px]">
-                                                                        <span className="absolute left-3 text-slate-400 dark:text-slate-500 font-black text-sm">₱</span>
-                                                                        <Input 
-                                                                            type="number"
-                                                                            step="0.01"
-                                                                            value={birthRegLate1}
-                                                                            onChange={(e) => setBirthRegLate1(e.target.value)}
-                                                                            className="h-9 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                                <div className="flex items-center justify-between gap-2">
-                                                                    <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">Late Fee (10-20y):</span>
-                                                                    <div className="relative inline-flex items-center max-w-[130px]">
-                                                                        <span className="absolute left-3 text-slate-400 dark:text-slate-500 font-black text-sm">₱</span>
-                                                                        <Input 
-                                                                            type="number"
-                                                                            step="0.01"
-                                                                            value={birthRegLate10}
-                                                                            onChange={(e) => setBirthRegLate10(e.target.value)}
-                                                                            className="h-9 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                                <div className="flex items-center justify-between gap-2">
-                                                                    <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">Late Fee (20y+):</span>
-                                                                    <div className="relative inline-flex items-center max-w-[130px]">
-                                                                        <span className="absolute left-3 text-slate-400 dark:text-slate-500 font-black text-sm">₱</span>
-                                                                        <Input 
-                                                                            type="number"
-                                                                            step="0.01"
-                                                                            value={birthRegLate20}
-                                                                            onChange={(e) => setBirthRegLate20(e.target.value)}
-                                                                            className="h-9 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                        {(type.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" || 
-                                                          type.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" || 
-                                                          type.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT") && (
-                                                            <div className="flex flex-col gap-2 mt-2 w-full max-w-[280px]">
-                                                                <div className="flex items-center justify-between gap-2">
-                                                                    <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">Mandatory Fee:</span>
-                                                                    <div className="relative inline-flex items-center max-w-[130px]">
-                                                                        <span className="absolute left-3 text-slate-400 dark:text-slate-500 font-black text-sm">₱</span>
-                                                                        <Input 
-                                                                            type="number"
-                                                                            step="0.01"
-                                                                            value={apptMandatoryFees[type.id] !== undefined ? apptMandatoryFees[type.id] : "140"}
-                                                                            onChange={(e) => {
-                                                                                const val = e.target.value;
-                                                                                setApptMandatoryFees(prev => ({ ...prev, [type.id]: val }));
-                                                                            }}
-                                                                            className="h-9 pl-7 pr-3 text-right rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-xs shadow-inner focus:ring-2 focus:ring-primary/20 w-full"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
+                                                                )}
+                                                            </>
                                                         )}
                                                     </div>
                                                 </td>

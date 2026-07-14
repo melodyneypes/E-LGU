@@ -115,9 +115,9 @@ export default function UserServiceRequestsPage() {
 
     const getStatusStyle = (req: any) => {
         const typeCode = req.type?.code || "";
-        const isPsaAppointment = typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
+        const isPsaAppointment = typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT";
 
         if (req.isCancelled) {
             return { color: "text-red-500", bg: "bg-red-500/10", border: "border-red-500/20", icon: X, label: "CANCELLED" };

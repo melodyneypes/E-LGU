@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
     ArrowLeft,
@@ -26,13 +26,16 @@ export default function TreasuryQueuePage() {
     const [waitingQueue, setWaitingQueue] = useState<any[]>([]);
     const [currentlyServing, setCurrentlyServing] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isInitialized, setIsInitialized] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
+    const hasFetchedRef = useRef(false);
 
     // Load active counter from localStorage
     const loadCounter = useCallback(() => {
         if (typeof window !== "undefined") {
             const activeCounter = localStorage.getItem("activeCounterName");
             setCounterName(activeCounter);
+            setIsInitialized(true);
         }
     }, []);
 
@@ -44,16 +47,22 @@ export default function TreasuryQueuePage() {
 
     // Fetch queue list from backend
     const fetchQueue = useCallback(async () => {
+        if (!isInitialized) return;
+
         if (!counterName) {
             setLoading(false);
             return;
         }
 
         try {
+            if (!hasFetchedRef.current) {
+                setLoading(true);
+            }
             const res = await getTreasuryQueueTickets(counterName);
             if (res.success && res.data) {
                 setWaitingQueue(res.data.waiting || []);
                 setCurrentlyServing(res.data.serving?.[0] || null);
+                hasFetchedRef.current = true;
             } else {
                 toast.error(res.error || "Failed to load queue tickets.");
             }
@@ -63,7 +72,7 @@ export default function TreasuryQueuePage() {
         } finally {
             setLoading(false);
         }
-    }, [counterName]);
+    }, [counterName, isInitialized]);
 
     useEffect(() => {
         fetchQueue();
@@ -203,15 +212,7 @@ export default function TreasuryQueuePage() {
                     </div>
                 </div>
 
-                {!counterName ? (
-                    <Card className="border border-red-500/20 bg-red-500/5 rounded-3xl p-8 text-center max-w-xl mx-auto space-y-4">
-                        <ShieldAlert className="w-12 h-12 text-red-500 mx-auto" />
-                        <h2 className="text-xl font-bold text-red-600 dark:text-red-400 uppercase">Window Counter Required</h2>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
-                            Please configure your active counter/window first using the **&quot;Set Counter&quot;** selector located in the top navigation bar.
-                        </p>
-                    </Card>
-                ) : loading ? (
+                {!isInitialized || (loading && counterName) ? (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 items-start">
                         {/* LEFT COLUMN SKELETON */}
                         <div className="lg:col-span-2 space-y-6">
@@ -264,6 +265,14 @@ export default function TreasuryQueuePage() {
                             </Card>
                         </div>
                     </div>
+                ) : !counterName ? (
+                    <Card className="border border-red-500/20 bg-red-500/5 rounded-3xl p-8 text-center max-w-xl mx-auto space-y-4">
+                        <ShieldAlert className="w-12 h-12 text-red-500 mx-auto" />
+                        <h2 className="text-xl font-bold text-red-600 dark:text-red-400 uppercase">Window Counter Required</h2>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
+                            Please configure your active counter/window first using the **&quot;Set Counter&quot;** selector located in the top navigation bar.
+                        </p>
+                    </Card>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 items-start">
                         

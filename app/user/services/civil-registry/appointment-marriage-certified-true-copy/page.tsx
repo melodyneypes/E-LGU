@@ -68,7 +68,7 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "REVIEW", label: "DOCUMENTS & SUBMIT", icon: CheckCircle2 },
 ];
 
-export default function AppointmentMarriagePsaEndorsementPage() {
+export default function AppointmentMarriageCertifiedTrueCopyPage() {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<Step>("INFORMANT");
 
@@ -189,9 +189,12 @@ export default function AppointmentMarriagePsaEndorsementPage() {
     const parsedDefaultFees = dbType?.defaultFees 
         ? (typeof dbType.defaultFees === "string" ? JSON.parse(dbType.defaultFees) : dbType.defaultFees) 
         : [];
+    const baseFeeObj = parsedDefaultFees.find((f: any) => f.code === "BASE_FEE_LABEL");
+    const baseFeeLabel = baseFeeObj?.label || "Misc Fee";
+    const additionalFees = parsedDefaultFees.filter((f: any) => f.code !== "BASE_FEE_LABEL");
     const miscFeeAmount = dbType?.baseFee ?? 130.00;
-    const mandatoryFeeAmount = parsedDefaultFees.find((f: any) => f.code === "MANDATORY_FINE" || f.code === "MANDATORY_FEE")?.amount ?? 140.00;
-    const apptTotalAmount = miscFeeAmount + mandatoryFeeAmount;
+    const defaultFeesTotal = additionalFees.reduce((sum: number, fee: any) => sum + (Number(fee.amount) || 0), 0);
+    const apptTotalAmount = miscFeeAmount + defaultFeesTotal;
 
     const handleAcceptPolicy = () => {
         setPolicyOpen(false);
@@ -204,8 +207,8 @@ export default function AppointmentMarriagePsaEndorsementPage() {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get("revisionId")) return;
 
-        const savedStep = sessionStorage.getItem("appointment-marriage-psa-endorsement-step");
-        const savedForm = sessionStorage.getItem("appointment-marriage-psa-endorsement-form");
+        const savedStep = sessionStorage.getItem("appointment-marriage-certified-true-copy-step");
+        const savedForm = sessionStorage.getItem("appointment-marriage-certified-true-copy-form");
 
         if (savedStep) setCurrentStep(savedStep as Step);
         if (savedForm) {
@@ -220,8 +223,8 @@ export default function AppointmentMarriagePsaEndorsementPage() {
 
     useEffect(() => {
         if (!loading && !revisionId) {
-            sessionStorage.setItem("appointment-marriage-psa-endorsement-step", currentStep);
-            sessionStorage.setItem("appointment-marriage-psa-endorsement-form", JSON.stringify(formData));
+            sessionStorage.setItem("appointment-marriage-certified-true-copy-step", currentStep);
+            sessionStorage.setItem("appointment-marriage-certified-true-copy-form", JSON.stringify(formData));
         }
     }, [currentStep, formData, loading, revisionId]);
 
@@ -318,7 +321,7 @@ export default function AppointmentMarriagePsaEndorsementPage() {
                 }
 
                 if (typesResult.success && typesResult.data) {
-                    const psaType = typesResult.data.find((t: any) => t.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT");
+                    const psaType = typesResult.data.find((t: any) => t.code === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT");
                     if (psaType) {
                         setTypeId(psaType.id);
                         setDbType(psaType);
@@ -390,7 +393,7 @@ export default function AppointmentMarriagePsaEndorsementPage() {
         try {
             const data = new FormData();
             data.append("typeId", typeId);
-            data.append("registryType", "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT");
+            data.append("registryType", "MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT");
             if (revisionId) {
                 data.append("revisionId", revisionId);
             }
@@ -421,12 +424,12 @@ export default function AppointmentMarriagePsaEndorsementPage() {
             const res = await submitCivilRegistryTransaction(data);
 
             if (res.success && res.data) {
-                toast.success(revisionId ? "Revision resubmitted successfully!" : "Marriage PSA Appointment Endorsement submitted successfully!");
-                sessionStorage.removeItem("appointment-marriage-psa-endorsement-step");
-                sessionStorage.removeItem("appointment-marriage-psa-endorsement-form");
+                toast.success(revisionId ? "Revision resubmitted successfully!" : "Marriage Certified True Copy Appointment submitted successfully!");
+                sessionStorage.removeItem("appointment-marriage-certified-true-copy-step");
+                sessionStorage.removeItem("appointment-marriage-certified-true-copy-form");
                 router.push(`/user/appointment/${res.data.id}`);
             } else {
-                toast.error(res.error || "Failed to submit endorsement request");
+                toast.error(res.error || "Failed to submit appointment request");
             }
         } catch (error) {
             console.error("Submission error:", error);
@@ -464,7 +467,7 @@ export default function AppointmentMarriagePsaEndorsementPage() {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
                 <Loader2 className="w-10 h-10 animate-spin mb-4" style={{ color: "var(--primary-theme)" }} />
-                <p className="font-black uppercase tracking-widest text-[10px] text-slate-400 italic">Initializing Endorsement Form...</p>
+                <p className="font-black uppercase tracking-widest text-[10px] text-slate-400 italic">Initializing Appointment Form...</p>
             </div>
         );
     }
@@ -575,7 +578,7 @@ export default function AppointmentMarriagePsaEndorsementPage() {
                             </BreadcrumbItem>
                             <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                             <BreadcrumbItem>
-                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: themeColor }}>Marriage PSA Appointment Endorsement</BreadcrumbPage>
+                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: themeColor }}>Marriage Certified True Copy Appointment</BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
@@ -598,11 +601,11 @@ export default function AppointmentMarriagePsaEndorsementPage() {
                             </div>
 
                             <h1 className="text-2xl md:text-4xl font-black uppercase italic tracking-tighter leading-none">
-                                Marriage PSA <span style={{ color: themeColor }}>Appointment Endorsement</span>
+                                Marriage Certified True Copy <span style={{ color: themeColor }}>Appointment</span>
                             </h1>
 
                             <p className="text-slate-600 dark:text-slate-300 font-medium text-xs leading-relaxed max-w-xl italic">
-                                Request an appointment for the Local Civil Registry to endorse a verified marriage certificate record to the Philippine Statistics Authority (PSA) database.
+                                Schedule an appointment and request a certified true copy of an existing marriage certificate.
                             </p>
                         </div>
 
@@ -774,7 +777,7 @@ export default function AppointmentMarriagePsaEndorsementPage() {
                                                             <SelectTrigger className={cn("!h-12 w-full rounded-xl border-slate-950 dark:border-white focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold italic", (showErrors && !formData.relationship) ? "border-2 border-red-500 focus:ring-red-500" : "")}>
                                                                 <SelectValue placeholder="SELECT RELATIONSHIP" />
                                                             </SelectTrigger>
-                                                            <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
+                                                            <SelectContent className="rounded-xl border-slate-200/60 dark:border-white/10 italic">
                                                                 <SelectItem value="SELF">SELF (HUSBAND / WIFE)</SelectItem>
                                                                 <SelectItem value="CHILD">CHILD</SelectItem>
                                                                 <SelectItem value="PARENT">PARENT</SelectItem>
@@ -873,7 +876,7 @@ export default function AppointmentMarriagePsaEndorsementPage() {
                                 </div>
                             )}
 
-                            {/* ===== STEP 2: SPOUSE INFO & DOCUMENTS ===== */}
+                            {/* ===== STEP 2: SPOUSE INFO ===== */}
                             {currentStep === "SUBJECT" && (
                                 <div className="space-y-8">
                                     <Card className="p-8 rounded-[2rem] border border-slate-200/50 dark:border-white/5 bg-white dark:bg-[#0f1117] shadow-xl dark:shadow-2xl space-y-8">
@@ -881,7 +884,7 @@ export default function AppointmentMarriagePsaEndorsementPage() {
                                             <h3 className="text-xl font-black uppercase italic tracking-tight flex items-center gap-2" style={{ color: themeColor }}>
                                                 Marriage Details
                                             </h3>
-                                            <p className="text-xs text-slate-400 font-bold italic">Provide the details of the marriage record that needs PSA endorsement</p>
+                                            <p className="text-xs text-slate-400 font-bold italic">Provide the details of the marriage record that needs certified true copy request</p>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div className="space-y-1.5">
@@ -1003,7 +1006,7 @@ export default function AppointmentMarriagePsaEndorsementPage() {
                                 </div>
                             )}
 
-                            {/* ===== STEP 3: REVIEW & SUBMIT ===== */}
+                            {/* ===== STEP 4: REVIEW & SUBMIT ===== */}
                             {currentStep === "REVIEW" && (
                                 <div className="space-y-8">
                                     <Card className="p-8 rounded-[2rem] border border-slate-200/50 dark:border-white/5 bg-white dark:bg-[#0f1117] shadow-xl dark:shadow-2xl space-y-8">
@@ -1084,24 +1087,26 @@ export default function AppointmentMarriagePsaEndorsementPage() {
                                             <div className="col-span-1 md:col-span-2 space-y-6 pt-6 border-t border-slate-100 dark:border-white/5">
                                                 <h5 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 border-b pb-2">Filing Fee Details</h5>
 
-                                                <div className="space-y-3 p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/40 dark:border-white/5">
-                                                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                                        <span>Misc Fee</span>
-                                                        <span className="font-bold text-slate-700 dark:text-slate-200">₱{miscFeeAmount.toFixed(2)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                                        <span>Mandatory Fee</span>
-                                                        <span className="font-bold text-slate-700 dark:text-slate-200">₱{mandatoryFeeAmount.toFixed(2)}</span>
-                                                    </div>
-                                                    <div className="border-t border-slate-200/40 dark:border-white/5 pt-2 flex items-center justify-between">
-                                                        <div>
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total PSA Endorsement Fee</span>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <span className="text-2xl font-black uppercase italic tracking-tight text-rose-500">₱{apptTotalAmount.toFixed(2)}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                 <div className="space-y-3 p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/40 dark:border-white/5">
+                                                     <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                         <span>{baseFeeLabel}</span>
+                                                         <span className="font-bold text-slate-700 dark:text-slate-200">₱{miscFeeAmount.toFixed(2)}</span>
+                                                     </div>
+                                                     {additionalFees.map((fee: any, idx: number) => (
+                                                         <div key={fee.code || idx} className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                             <span>{fee.label || "Additional Fee"}</span>
+                                                             <span className="font-bold text-slate-700 dark:text-slate-200">₱{(Number(fee.amount) || 0).toFixed(2)}</span>
+                                                         </div>
+                                                     ))}
+                                                     <div className="border-t border-slate-200/40 dark:border-white/5 pt-2 flex items-center justify-between">
+                                                         <div>
+                                                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Certified True Copy Appointment Fee</span>
+                                                         </div>
+                                                         <div className="text-right">
+                                                             <span className="text-2xl font-black uppercase italic tracking-tight text-rose-500">₱{apptTotalAmount.toFixed(2)}</span>
+                                                         </div>
+                                                     </div>
+                                                 </div>
                                             </div>
                                         </div>
 

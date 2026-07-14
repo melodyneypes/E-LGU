@@ -13,9 +13,9 @@ export default function CivilRegistry({ request, additionalData }: CivilRegistry
     const code = request.type?.code || "";
     
     // Determine specific LCR type
-    const isBirth = code.includes("BIRTH") || code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" || additionalData.registryType === "BIRTH_PSA_ENDORSEMENT";
-    const isDeath = code.includes("DEATH") || code.includes("LCR_DEATH") || additionalData.registryType === "DEATH_PSA_APPOINTMENT_ENDORSEMENT";
-    const isMarriage = code.includes("MARRIAGE") || code.includes("LCR_MARRIAGE") || additionalData.registryType === "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
+    const isBirth = code.includes("BIRTH") || code === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" || additionalData.registryType === "BIRTH_PSA_ENDORSEMENT" || additionalData.registryType === "BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT";
+    const isDeath = code.includes("DEATH") || code.includes("LCR_DEATH") || additionalData.registryType === "DEATH_PSA_APPOINTMENT_ENDORSEMENT" || additionalData.registryType === "DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT";
+    const isMarriage = code.includes("MARRIAGE") || code.includes("LCR_MARRIAGE") || additionalData.registryType === "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT" || additionalData.registryType === "MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT";
 
     // Informant Full Name
     const informantName = [
@@ -46,16 +46,16 @@ export default function CivilRegistry({ request, additionalData }: CivilRegistry
 
     if (isBirth) {
         headerIcon = <Baby className="w-5 h-5 text-primary" />;
-        headerTitle = "Birth Endorsement Details";
-        badgeText = "Birth Registry (PSA Endorsement)";
+        headerTitle = "Birth Certified True Copy Details";
+        badgeText = "Birth Registry (Certified True Copy Appointment)";
     } else if (isDeath) {
         headerIcon = <Skull className="w-5 h-5 text-primary" />;
-        headerTitle = "Death Endorsement Details";
-        badgeText = "Death Registry (PSA Endorsement)";
+        headerTitle = "Death Certified True Copy Details";
+        badgeText = "Death Registry (Certified True Copy Appointment)";
     } else if (isMarriage) {
         headerIcon = <Heart className="w-5 h-5 text-primary" />;
-        headerTitle = "Marriage Endorsement Details";
-        badgeText = "Marriage Registry (PSA Endorsement)";
+        headerTitle = "Marriage Certified True Copy Details";
+        badgeText = "Marriage Registry (Certified True Copy Appointment)";
     }
 
     return (

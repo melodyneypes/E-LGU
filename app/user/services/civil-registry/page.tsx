@@ -55,13 +55,13 @@ const REGISTRY_TYPES = [
     },
     {
         id: "PSA_APPOINTMENT_ENDORSEMENT",
-        label: "Birth Certificate Endorsement",
+        label: "Birth Certified True Copy Appointment",
         icon: FileSignature,
-        description: "Schedule appointment and request endorsement of a verified local birth certificate record to the PSA.",
+        description: "Schedule an appointment to request a certified true copy of an existing birth certificate.",
         color: "blue",
-        href: "/user/services/civil-registry/appointment-birth-psa-endorsement",
+        href: "/user/services/civil-registry/appointment-birth-certified-true-copy",
         available: true,
-        code: "LCR_PSA_APPOINTMENT_ENDORSEMENT"
+        code: "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT"
     },
     {
         id: "DEATH_PSA_ENDORSEMENT",
@@ -75,13 +75,13 @@ const REGISTRY_TYPES = [
     },
     {
         id: "DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-        label: "Death Certificate Endorsement",
+        label: "Death Certified True Copy Appointment",
         icon: FileSignature,
-        description: "Schedule an appointment and request endorsement of a verified local death certificate record to the PSA.",
+        description: "Schedule an appointment to request a certified true copy of an existing death certificate.",
         color: "slate",
-        href: "/user/services/civil-registry/appointment-death-psa-endorsement",
+        href: "/user/services/civil-registry/appointment-death-certified-true-copy",
         available: true,
-        code: "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT"
+        code: "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT"
     },
     {
         id: "DEATH_REQ",
@@ -125,13 +125,13 @@ const REGISTRY_TYPES = [
     },
     {
         id: "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT",
-        label: "Marriage Certificate Endorsement",
+        label: "Marriage Certified True Copy Appointment",
         icon: FileSignature,
-        description: "Schedule an appointment and request endorsement of a verified local marriage certificate record to the PSA.",
+        description: "Schedule an appointment to request a certified true copy of an existing marriage certificate.",
         color: "rose",
-        href: "/user/services/civil-registry/appointment-marriage-psa-endorsement",
+        href: "/user/services/civil-registry/appointment-marriage-certified-true-copy",
         available: true,
-        code: "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+        code: "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
     },
     {
         id: "MARRIAGE",
@@ -273,6 +273,17 @@ export default function CivilRegistryPage() {
         if (!activeCodes) return [];
 
         const activeItems = REGISTRY_TYPES.filter(type => activeCodes.has(type.code));
+
+        if (activeItems.length <= 3) {
+            return [
+                {
+                    title: "Available Services",
+                    subtitle: "Select a civil registry service to proceed",
+                    items: activeItems
+                }
+            ];
+        }
+
         const appointmentIds = ["PSA_APPOINTMENT_ENDORSEMENT", "DEATH_PSA_APPOINTMENT_ENDORSEMENT", "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"];
         const activeAppointments = activeItems.filter(type => appointmentIds.includes(type.id));
         const activeNonAppointments = activeItems.filter(type => !appointmentIds.includes(type.id));

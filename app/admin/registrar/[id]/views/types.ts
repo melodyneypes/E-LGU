@@ -94,6 +94,7 @@ export interface TreasuryViewProps {
     orSeriesNumber?: string;
     setOrSeriesNumber?: Dispatch<SetStateAction<string>>;
     miscFee?: string;
+    miscFeeLabel?: string;
     setMiscFee?: Dispatch<SetStateAction<string>>;
     handleProcessRequest?: () => Promise<void>;
     handleMarkAppointmentAttended?: () => Promise<void>;

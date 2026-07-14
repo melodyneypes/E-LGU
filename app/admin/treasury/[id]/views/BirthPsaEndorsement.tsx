@@ -103,7 +103,12 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
 
     const isTreasuryContext = backUrl?.includes("/admin/treasury") || rawUserRole === "TREASURY_STAFF";
     const typeCode = transaction?.type?.code || "";
-    const isAppointmentPsa = typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT";
+    const isAppointmentPsa = typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT";
+    const isRegistrarReleasing = isAppointmentPsa && (transaction.isPaid || transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING" || (transaction.status === "FOR_PROCESSING" && additional?.servingDepartment === "Registrar"));
+    const isPaymentInputDisabled = isAppointmentPsa && (
+        (transaction.status === "FOR_PROCESSING" && additional?.servingDepartment !== "Treasury") ||
+        transaction.status === "UNPAID"
+    );
     const subjectName = additional.subjectFullName || additional.subjectName || "N/A";
     const subjectDateOfBirth = additional.subjectDateOfBirth || additional.dateOfEvent || "";
     const mothersMaidenName = additional.mothersMaidenName || additional.motherName || "";
@@ -146,7 +151,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                     <div className="lg:col-span-8 space-y-8">
                         {/* TRANSACTION CATEGORY CARD */}
                         <TransactionInfoCard
-                            transactionName="Birth PSA Endorsement Request"
+                            transactionName={isAppointmentPsa ? "Birth Certified True Copy Appointment" : "Birth PSA Endorsement Request"}
                             categoryLabel="Local Civil Registry"
                             themeColor={themeColor}
                         />
@@ -729,7 +734,7 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                         )}
 
                         {/* TREASURY ACTION PANEL FOR PAID OR PENDING_PAYMENT_VERIFICATION (non-appointment) OR UNPAID (appointment) */}
-                        {isTreasuryContext && (
+                        {isTreasuryContext && !isRegistrarReleasing && (
                             isAppointmentPsa
                                 ? (transaction.status === "UNPAID" || transaction.status === "FOR_PROCESSING")
                                 : (transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION" || transaction.status === "FOR_PROCESSING")
@@ -807,9 +812,16 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                         <input
                                             type="text"
                                             value={orSeriesNumber || ""}
+                                            disabled={isPaymentInputDisabled}
                                             onChange={(e) => setOrSeriesNumber?.(e.target.value)}
-                                            placeholder="Enter O.R. Series Number..."
-                                            className="w-full h-11 px-4 rounded-xl border border-slate-150 dark:border-white/5 bg-white dark:bg-[#151b28]/60 text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-primary transition-all"
+                                            placeholder={
+                                                transaction.status === "UNPAID"
+                                                    ? "Call Resident to Counter First..."
+                                                    : isPaymentInputDisabled
+                                                        ? "Awaiting Registrar Check-In..."
+                                                        : "Enter O.R. Series Number..."
+                                            }
+                                            className="w-full h-11 px-4 rounded-xl border border-slate-150 dark:border-white/5 bg-white dark:bg-[#151b28]/60 text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-primary transition-all disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-800/50 disabled:cursor-not-allowed"
                                         />
                                     </div>
 
@@ -914,18 +926,29 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                                 </div>
 
                                 {isAppointmentPsa ? (
-                                    <Button
-                                        onClick={handleCollectPsaPayment}
-                                        disabled={actionLoading || !orSeriesNumber || orSeriesNumber.trim() === ""}
-                                        className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-green-500/10"
-                                    >
-                                        {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                        Collect Payment & Issue O.R.
-                                    </Button>
+                                    transaction.status === "UNPAID" ? (
+                                        <Button
+                                            asChild
+                                            className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-amber-500/10"
+                                        >
+                                            <Link href="/admin/treasury/queue">
+                                                Go to Treasury Queue to Call Resident
+                                            </Link>
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            onClick={handleCollectPsaPayment}
+                                            disabled={actionLoading || !orSeriesNumber || orSeriesNumber.trim() === "" || isPaymentInputDisabled}
+                                            className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-green-500/10"
+                                        >
+                                            {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                            Collect Payment & Issue O.R.
+                                        </Button>
+                                    )
                                 ) : (
                                     <Button
                                         onClick={() => handleConfirmPayment()}
-                                        disabled={actionLoading || !orSeriesNumber || (!orFile && !transaction.orUrl)}
+                                        disabled={actionLoading || !orSeriesNumber || (!orFile && !transaction.orUrl) || isPaymentInputDisabled}
                                         className="w-full h-14 bg-green-500 hover:bg-green-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all"
                                     >
                                         {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
@@ -935,16 +958,16 @@ export default function BirthPsaEndorsementView(props: TreasuryViewProps) {
                             </div>
                         )}
 
-                        {/* TREASURY RELEASE ACTION FOR APPOINTMENT PSA (FOR_CLAIM / FOR_PICKING) */}
-                        {isTreasuryContext && isAppointmentPsa && (transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING") && (
+                        {/* TREASURY RELEASE ACTION FOR APPOINTMENT PSA (FOR_CLAIM / FOR_PICKING / FOR_PROCESSING at Registrar) */}
+                        {isTreasuryContext && isRegistrarReleasing && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
                                 <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
                                     <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mx-auto">
                                         <Check className="w-7 h-7" />
                                     </div>
-                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">Payment Collected & Confirmed</h4>
+                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">Releasing under Civil Registrar</h4>
                                     <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
-                                        Official Receipt has been successfully issued. The transaction is now in the Civil Registrar&apos;s queue for final release of the endorsed document.
+                                        The payment has been collected and verified. The Civil Registrar is responsible for releasing the documents to the resident.
                                     </p>
                                 </div>
                             </div>

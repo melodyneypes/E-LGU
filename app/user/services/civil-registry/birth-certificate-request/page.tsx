@@ -62,6 +62,7 @@ import {
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
+import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import { getSecureUploadUrlAction } from "@/app/auth/actions";
 
 // --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
@@ -88,10 +89,9 @@ async function uploadFileClientSide(file: File, fieldName: string): Promise<stri
     return res.publicUrl;
 }
 
-type Step = "STATUS" | "IDENTITY" | "DETAILS" | "PARENTS" | "CONFIRM";
+type Step = "IDENTITY" | "DETAILS" | "PARENTS" | "CONFIRM";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
-    { id: "STATUS", label: "Status", icon: Sparkles },
     { id: "IDENTITY", label: "Identity", icon: User },
     { id: "DETAILS", label: "Details", icon: Search },
     { id: "PARENTS", label: "Parents", icon: Users },
@@ -311,8 +311,8 @@ export default function CivilRegistryPage() {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get("revisionId")) return;
 
-        const savedStep = sessionStorage.getItem("civil-registry-step");
-        const savedForm = sessionStorage.getItem("civil-registry-form");
+        const savedStep = sessionStorage.getItem("birth-request-step");
+        const savedForm = sessionStorage.getItem("birth-request-form");
 
         if (savedStep) setCurrentStep(savedStep as Step);
         if (savedForm) {
@@ -332,8 +332,8 @@ export default function CivilRegistryPage() {
 
     useEffect(() => {
         if (!loading && !revisionId) {
-            sessionStorage.setItem("civil-registry-step", currentStep);
-            sessionStorage.setItem("civil-registry-form", JSON.stringify({
+            sessionStorage.setItem("birth-request-step", currentStep);
+            sessionStorage.setItem("birth-request-form", JSON.stringify({
                 ...form,
                 files: {} // Don't store File objects
             }));
@@ -711,8 +711,8 @@ export default function CivilRegistryPage() {
             const res = await submitCivilRegistryTransaction(formData);
             if (res.success && res.data) {
                 toast.success(revisionId ? "Revision resubmitted successfully!" : "Request submitted successfully!");
-                sessionStorage.removeItem("civil-registry-step");
-                sessionStorage.removeItem("civil-registry-form");
+                sessionStorage.removeItem("birth-request-step");
+                sessionStorage.removeItem("birth-request-form");
                 router.push(`/user/services/requests/${res.data.id}`);
             } else {
                 toast.error(res.error || "Submission failed");
@@ -797,6 +797,7 @@ export default function CivilRegistryPage() {
                 }
                 `
             }} />
+            <SecureIdleTimer />
             <PrivacyTermsModal
                 isOpen={policyOpen}
                 onClose={() => setPolicyOpen(false)}
@@ -882,7 +883,7 @@ export default function CivilRegistryPage() {
                 <div className="space-y-6">
 
                     {/* Progress Stepper */}
-                    <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2">
+                    <div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2">
                         {STEPS.map((step, idx) => {
                             const isActive = currentStep === step.id;
                             const stepIdx = STEPS.findIndex(s => s.id === currentStep);
@@ -895,10 +896,6 @@ export default function CivilRegistryPage() {
                                     role="button"
                                     tabIndex={0}
                                     onClick={() => {
-                                        if (step.id === "STATUS") {
-                                            router.push("/user/services/civil-registry");
-                                            return;
-                                        }
                                         const targetIdx = STEPS.findIndex(s => s.id === step.id);
                                         const currentIdx = STEPS.findIndex(s => s.id === currentStep);
 
@@ -914,10 +911,6 @@ export default function CivilRegistryPage() {
                                     }}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' || e.key === ' ') {
-                                            if (step.id === "STATUS") {
-                                                router.push("/user/services/civil-registry");
-                                                return;
-                                            }
                                             const targetIdx = STEPS.findIndex(s => s.id === step.id);
                                             const currentIdx = STEPS.findIndex(s => s.id === currentStep);
                                             if (targetIdx <= currentIdx) {
@@ -935,7 +928,7 @@ export default function CivilRegistryPage() {
                                         (() => {
                                             const targetIdx = STEPS.findIndex(s => s.id === step.id);
                                             const currentIdx = STEPS.findIndex(s => s.id === currentStep);
-                                            if (targetIdx <= currentIdx || step.id === "STATUS") return "cursor-pointer";
+                                            if (targetIdx <= currentIdx) return "cursor-pointer";
                                             // Check if all preceding steps from current to target are valid
                                             for (let i = currentIdx; i < targetIdx; i++) {
                                                 if (!isStepValid(STEPS[i].id)) return "opacity-50 cursor-not-allowed";
