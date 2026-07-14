@@ -117,6 +117,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
     const mothersMaidenName = additional.mothersMaidenName || additional.motherName || "";
     const fathersName = additional.fathersName || "";
     const placeOfDeath = additional.placeOfDeath || "";
+    const causeOfDeath = additional.causeOfDeath || "";
 
     const psaNegativeCertUrl = additional.psaNegativeCert || null;
     const form2aUrl = additional.form2a || null;
@@ -386,6 +387,15 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Death</span>
                                             <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
                                                 {placeOfDeath}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {causeOfDeath && (
+                                        <div className="space-y-1.5">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Cause of Death</span>
+                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                {causeOfDeath}
                                             </div>
                                         </div>
                                     )}

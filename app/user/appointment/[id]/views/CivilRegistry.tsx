@@ -17,13 +17,7 @@ export default function CivilRegistry({ request, additionalData }: CivilRegistry
     const isDeath = code.includes("DEATH") || code.includes("LCR_DEATH") || additionalData.registryType === "DEATH_PSA_APPOINTMENT_ENDORSEMENT" || additionalData.registryType === "DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT";
     const isMarriage = code.includes("MARRIAGE") || code.includes("LCR_MARRIAGE") || additionalData.registryType === "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT" || additionalData.registryType === "MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT";
 
-    // Informant Full Name
-    const informantName = [
-        additionalData.informantFirstName,
-        additionalData.informantMiddleName,
-        additionalData.informantLastName,
-        additionalData.informantSuffix
-    ].filter(Boolean).join(" ") || "N/A";
+
 
     // Helper to format date
     const formatDate = (dateStr: string) => {
@@ -72,35 +66,16 @@ export default function CivilRegistry({ request, additionalData }: CivilRegistry
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs leading-relaxed">
-                {/* Informant Information Section */}
+                {/* Subject Details Section */}
                 <div className="space-y-4 col-span-1 sm:col-span-2">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-primary/80">Informant Information</h4>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-primary/80">Document / Subject Details</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/50 dark:bg-white/5 p-4 rounded-xl border border-slate-100 dark:border-white/5">
-                        <div className="space-y-1">
-                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Full Name</span>
-                            <p className="font-black uppercase text-slate-800 dark:text-white">{informantName}</p>
-                        </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 col-span-1 sm:col-span-2">
                             <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Relationship to Subject</span>
                             <p className="font-black uppercase text-slate-800 dark:text-white">
                                 {additionalData.relationship || "N/A"}
                             </p>
                         </div>
-                        <div className="space-y-1">
-                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Contact Number</span>
-                            <p className="font-black text-slate-800 dark:text-white">{additionalData.contactNumber || "N/A"}</p>
-                        </div>
-                        <div className="space-y-1">
-                            <span className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Email Address</span>
-                            <p className="font-black text-slate-800 dark:text-white font-mono lowercase">{additionalData.email || "N/A"}</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Subject Details Section */}
-                <div className="space-y-4 col-span-1 sm:col-span-2">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-primary/80">Document / Subject Details</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/50 dark:bg-white/5 p-4 rounded-xl border border-slate-100 dark:border-white/5">
                         {isBirth && (
                             <>
                                 <div className="space-y-1">
