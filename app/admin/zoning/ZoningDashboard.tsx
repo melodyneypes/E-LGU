@@ -315,7 +315,10 @@ export default function ZoningDashboard() {
                                                         displayStatus = "PENDING ENGINEERING";
                                                         colorClass = "text-amber-600 opacity-70";
                                                     } else {
-                                                        const zStatus = tx.status || "FOR_REQUESTING";
+                                                        let zStatus = tx.additionalData?.zoningStatus || "FOR_REQUESTING";
+                                                        if (zStatus === "EVALUATED") {
+                                                            zStatus = tx.status || "EVALUATED";
+                                                        }
                                                         displayStatus = zStatus.replace(/_/g, " ");
                                                         colorClass = ({
                                                             "FOR_REQUESTING": "text-amber-600",

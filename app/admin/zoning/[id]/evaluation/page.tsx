@@ -22,9 +22,9 @@ import {
 import { toast } from "sonner";
 import {
     getTransactionById,
-    rejectTransaction,
-    sendForRevision,
-    scheduleBuildingInspection,
+    rejectZoningTransaction as rejectTransaction,
+    sendForZoningRevision as sendForRevision,
+    scheduleZoningInspection as scheduleBuildingInspection,
     getSystemSettingAction
 } from "@/app/admin/transactions/actions";
 import { Button } from "@/components/ui/button";
@@ -299,9 +299,16 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
             .filter((item) => item.name.length > 0);
 
         if (!remarks.trim()) { toast.error("Remarks required"); return; }
+        if (cleanedRequests.length === 0) { toast.error("At least one document must be requested"); return; }
+        
+        let finalRemarks = remarks.trim() + "\n\nDocuments to revise/upload:\n";
+        cleanedRequests.forEach((req, index) => {
+            finalRemarks += `${index + 1}. ${req.name}\n`;
+        });
+
         setActionLoading(true);
         try {
-            const res = await sendForRevision(id, remarks, cleanedRequests);
+            const res = await sendForRevision(id, finalRemarks, cleanedRequests);
             if (res.success) {
                 toast.success("Sent back for revision");
                 router.push(backUrl);
@@ -462,10 +469,10 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 mr-2">
                         <Badge className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 border border-orange-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
-                            Revision Count: {transaction?.revisionCount || 0} / 3
+                            Revision Count: {transaction?.additionalData?.zoningRevisionCount || 0} / 3
                         </Badge>
                         <Badge className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 border border-blue-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
-                            Re-inspection Count: {transaction?.additionalData?.reinspectionCount || 0} / 3
+                            Re-inspection Count: {transaction?.additionalData?.zoningReinspectionCount || 0} / 3
                         </Badge>
                     </div>
                     <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
@@ -848,7 +855,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                 <div className="flex gap-2 w-full">
                                     <Dialog open={isRequestingRevision} onOpenChange={(open) => { setIsRequestingRevision(open); if (!open) setRemarks(""); }}>
                                         <DialogTrigger asChild>
-                                            {canRequestRevision && (transaction.revisionCount || 0) < 3 && (
+                                            {canRequestRevision && (transaction.additionalData?.zoningRevisionCount || 0) < 3 && (
                                                 <Button onClick={() => { setIsRequestingRevision(true); setRemarks(""); setRevisionRequests([{ type: "REQUIREMENTS", name: "" }]); }} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95">
                                                     Request Revision
                                                 </Button>
