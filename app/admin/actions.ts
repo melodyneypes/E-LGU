@@ -2690,8 +2690,20 @@ export async function getUserTransactions() {
     }
 }
 
-export async function getAdminReports() {
+export async function getAdminReports(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    barangay?: string;
+}) {
     try {
+        const page = params?.page ?? 1;
+        const limit = params?.limit ?? 10;
+        const search = params?.search ?? "";
+        const status = params?.status ?? "All";
+        const barangay = params?.barangay ?? "All";
+
         const session = await getServerSession(authOptions);
         const userRole = (session?.user as any)?.role;
         if (!session?.user?.id || (userRole !== "ADMIN" && userRole !== "BARANGAY_ADMIN")) {
@@ -2703,23 +2715,85 @@ export async function getAdminReports() {
 
         if (userRole === "BARANGAY_ADMIN") {
             if (!managedBarangay) {
-                return { success: true, reports: [] };
+                return { success: true, reports: [], totalCount: 0, totalPages: 0, currentPage: 1 };
             }
             whereClause.barangay = {
                 name: managedBarangay
             };
+        } else if (barangay !== "All") {
+            whereClause.barangay = {
+                name: barangay
+            };
         }
 
-        const reports = await (prisma as any).report.findMany({
-            where: whereClause,
-            include: { 
-                user: true,
-                barangay: true
-            },
-            orderBy: { createdAt: "desc" }
-        });
+        if (status !== "All") {
+            whereClause.status = status;
+        }
 
-        return { success: true, reports };
+        if (search) {
+            whereClause.OR = [
+                {
+                    category: {
+                        contains: search,
+                        mode: "insensitive"
+                    }
+                },
+                {
+                    user: {
+                        name: {
+                            contains: search,
+                            mode: "insensitive"
+                        }
+                    }
+                }
+            ];
+        }
+
+        const [reports, totalCount] = await Promise.all([
+            (prisma as any).report.findMany({
+                where: whereClause,
+                include: { 
+                    user: true,
+                    barangay: true
+                },
+                orderBy: { createdAt: "desc" },
+                skip: (page - 1) * limit,
+                take: limit
+            }),
+            (prisma as any).report.count({
+                where: whereClause
+            })
+        ]);
+
+        const statsWhereClause: any = {};
+        if (userRole === "BARANGAY_ADMIN" && managedBarangay) {
+            statsWhereClause.barangay = {
+                name: managedBarangay
+            };
+        }
+
+        const [totalStats, pendingStats, inProgressStats, completedStats, rejectedStats] = await Promise.all([
+            (prisma as any).report.count({ where: statsWhereClause }),
+            (prisma as any).report.count({ where: { ...statsWhereClause, status: "PENDING" } }),
+            (prisma as any).report.count({ where: { ...statsWhereClause, status: "IN_PROGRESS" } }),
+            (prisma as any).report.count({ where: { ...statsWhereClause, status: "COMPLETED" } }),
+            (prisma as any).report.count({ where: { ...statsWhereClause, status: "REJECTED" } }),
+        ]);
+
+        return { 
+            success: true, 
+            reports, 
+            totalCount, 
+            totalPages: Math.ceil(totalCount / limit), 
+            currentPage: page,
+            stats: {
+                total: totalStats,
+                pending: pendingStats,
+                inProgress: inProgressStats,
+                completed: completedStats,
+                rejected: rejectedStats
+            }
+        };
     } catch (error) {
         return { success: false, error: "Failed to fetch reports." };
     }
