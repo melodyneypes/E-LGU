@@ -107,7 +107,12 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
 
     const isTreasuryContext = backUrl?.includes("/admin/treasury") || rawUserRole === "TREASURY_STAFF";
     const typeCode = transaction?.type?.code || "";
-    const isAppointmentPsa = typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
+    const isAppointmentPsa = typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT";
+    const isRegistrarReleasing = isAppointmentPsa && (transaction.isPaid || transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING" || (transaction.status === "FOR_PROCESSING" && additional?.servingDepartment === "Registrar"));
+    const isPaymentInputDisabled = isAppointmentPsa && (
+        (transaction.status === "FOR_PROCESSING" && additional?.servingDepartment !== "Treasury") ||
+        transaction.status === "UNPAID"
+    );
     const husbandFullName = additional.husbandFullName || additional.husbandName || "—";
     const wifeFullName = additional.wifeFullName || additional.wifeName || "—";
     const subjectName = husbandFullName !== "—" && wifeFullName !== "—" ? `${husbandFullName} & ${wifeFullName}` : "N/A";
@@ -143,7 +148,7 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     <div className="lg:col-span-8 space-y-8">
                         <TransactionInfoCard
-                            transactionName="Marriage PSA Endorsement Request"
+                            transactionName={isAppointmentPsa ? "Marriage Certified True Copy Appointment" : "Marriage PSA Endorsement Request"}
                             categoryLabel="Local Civil Registry"
                             themeColor={themeColor}
                         />
@@ -501,7 +506,7 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                             </div>
                         </div>
 
-                        {((isAppointmentPsa ? (transaction.status === "UNPAID" || transaction.status === "FOR_PROCESSING") : (transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION" || transaction.status === "FOR_PROCESSING")) && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && (
+                        {(!isRegistrarReleasing && (isAppointmentPsa ? (transaction.status === "UNPAID" || transaction.status === "FOR_PROCESSING") : (transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION" || transaction.status === "FOR_PROCESSING")) && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN")) && (
                             <div className="space-y-4">
                                 {transaction.paymentReference && additional?.gcashReferenceNo && (
                                     <div className="space-y-3">
@@ -541,10 +546,17 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Official Receipt Number</span>
                                     <input
                                         type="text"
-                                        placeholder="ENTER O.R. NUMBER..."
+                                        placeholder={
+                                            transaction.status === "UNPAID"
+                                                ? "CALL RESIDENT TO COUNTER FIRST..."
+                                                : isPaymentInputDisabled
+                                                    ? "AWAITING REGISTRAR CHECK-IN..."
+                                                    : "ENTER O.R. NUMBER..."
+                                        }
                                         value={orSeriesNumber}
+                                        disabled={isPaymentInputDisabled}
                                         onChange={(e) => setOrSeriesNumber?.(e.target.value)}
-                                        className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold focus:outline-none uppercase tracking-wider"
+                                        className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold focus:outline-none uppercase tracking-wider disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-800/50 disabled:cursor-not-allowed"
                                     />
                                 </div>
 
@@ -565,25 +577,36 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                                      </div>
                                  )}
 
-                                 {isAppointmentPsa ? (
-                                     <Button
-                                         onClick={handleCollectPsaPayment}
-                                         disabled={actionLoading || !orSeriesNumber || orSeriesNumber.trim() === ""}
-                                         className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
-                                     >
-                                         {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                         Collect Payment & Issue O.R.
-                                     </Button>
-                                 ) : (
-                                     <Button
-                                         onClick={() => handleConfirmPayment()}
-                                         disabled={actionLoading || !orSeriesNumber}
-                                         className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
-                                     >
-                                         {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                         Confirm Receipt & Send to Registrar
-                                     </Button>
-                                 )}
+                                  {isAppointmentPsa ? (
+                                      transaction.status === "UNPAID" ? (
+                                          <Button
+                                              asChild
+                                              className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-amber-500/10"
+                                          >
+                                              <Link href="/admin/treasury/queue">
+                                                  Go to Treasury Queue to Call Resident
+                                              </Link>
+                                          </Button>
+                                      ) : (
+                                          <Button
+                                              onClick={handleCollectPsaPayment}
+                                              disabled={actionLoading || !orSeriesNumber || orSeriesNumber.trim() === "" || isPaymentInputDisabled}
+                                              className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
+                                          >
+                                              {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                              Collect Payment & Issue O.R.
+                                          </Button>
+                                      )
+                                  ) : (
+                                      <Button
+                                          onClick={() => handleConfirmPayment()}
+                                          disabled={actionLoading || !orSeriesNumber || isPaymentInputDisabled}
+                                          className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
+                                      >
+                                          {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                          Confirm Receipt & Send to Registrar
+                                      </Button>
+                                  )}
 
                                  {!isAppointmentPsa && (
                                      <div className="flex gap-2">
@@ -597,18 +620,18 @@ export default function MarriagePsaEndorsementView(props: TreasuryViewProps) {
                                      </div>
                                  )}
                             </div>
-                        ))}
+                        )}
 
-                        {/* TREASURY RELEASE ACTION FOR APPOINTMENT PSA (FOR_CLAIM / FOR_PICKING) */}
-                        {isTreasuryContext && isAppointmentPsa && (transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING") && (
+                        {/* TREASURY RELEASE ACTION FOR APPOINTMENT PSA (FOR_CLAIM / FOR_PICKING / FOR_PROCESSING at Registrar) */}
+                        {isTreasuryContext && isRegistrarReleasing && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
                                 <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
                                     <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mx-auto">
                                         <Check className="w-7 h-7" />
                                     </div>
-                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">Payment Collected & Confirmed</h4>
+                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">Releasing under Civil Registrar</h4>
                                     <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
-                                        Official Receipt has been successfully issued. The transaction is now in the Civil Registrar&apos;s queue for final release of the endorsed document.
+                                        The payment has been collected and verified. The Civil Registrar is responsible for releasing the documents to the resident.
                                     </p>
                                 </div>
                             </div>

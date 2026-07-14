@@ -329,7 +329,7 @@ export function Sidebar({
                 { href: "/admin/registrar?category=Birth Registration", label: "Birth Registration" },
                 { href: "/admin/registrar?category=Birth Certificate", label: "Birth Certificate" },
                 { href: "/admin/registrar?category=PSA Endorsement", label: "PSA Endorsement" },
-                { href: "/admin/registrar?category=PSA Appt. Endorsement", label: "PSA Appointment Endorsement" },
+                { href: "/admin/registrar?category=Certified True Copy Appointment", label: "Certified True Copy Appointment" },
                 { href: "/admin/registrar?category=Death Registration", label: "Death Registration" },
                 { href: "/admin/registrar?category=Death Certificate", label: "Death Certificate" },
                 { href: "/admin/registrar?category=Marriage License", label: "Marriage License" },
@@ -350,6 +350,7 @@ export function Sidebar({
             category: "Registrar"
         },
         { href: "/admin/registrar/queue", label: "Registrar Queue", icon: Users, category: "Registrar" },
+        { href: "/admin/treasury/payment-settings", label: "Payment Settings", icon: CreditCard, category: "Registrar" },
         {
             label: "Treasury Hub",
             icon: LayoutDashboard,
@@ -434,7 +435,7 @@ export function Sidebar({
                 if (sub.label === "Birth Registration") code = "LCR_BIRTH_REG";
                 else if (sub.label === "Birth Certificate") code = "LCR_BIRTH";
                 else if (sub.label === "PSA Endorsement") code = ["LCR_PSA_ENDORSEMENT", "LCR_DEATH_PSA_ENDORSEMENT", "LCR_MARRIAGE_PSA_ENDORSEMENT"];
-                else if (sub.label === "PSA Appointment Endorsement") code = ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"];
+                else if (sub.label === "Certified True Copy Appointment") code = ["LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"];
                 else if (sub.label === "Death Registration") code = "LCR_DEATH_REG";
                 else if (sub.label === "Death Certificate") code = "LCR_DEATH";
                 else if (sub.label === "Marriage License") code = "LCR_MARRIAGE_LICENSE";

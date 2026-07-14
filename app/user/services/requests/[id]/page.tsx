@@ -829,9 +829,9 @@ export default function RequestHubPage() {
     const isLcrDeathReg = typeCode === "LCR_DEATH_REG";
     const isLcrMarriage = typeCode === "LCR_MARRIAGE" || typeCode === "LCR_MARRIAGE_REG";
     const isLcrMarriageLicense = typeCode === "LCR_MARRIAGE_LICENSE";
-    const isBirthPsaEndorsement = typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT";
-    const isDeathPsaEndorsement = typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT";
-    const isMarriagePsaEndorsement = typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
+    const isBirthPsaEndorsement = typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT";
+    const isDeathPsaEndorsement = typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT";
+    const isMarriagePsaEndorsement = typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT";
     const isPsaEndorsement = isBirthPsaEndorsement || isDeathPsaEndorsement || isMarriagePsaEndorsement;
 
     const getRevisionUrl = () => {
@@ -849,9 +849,9 @@ export default function RequestHubPage() {
             if (code === "LCR_PSA_ENDORSEMENT") return `/user/services/civil-registry/birth-psa-endorsement?revisionId=${request.id}`;
             if (code === "LCR_DEATH_PSA_ENDORSEMENT") return `/user/services/civil-registry/death-psa-endorsement?revisionId=${request.id}`;
             if (code === "LCR_MARRIAGE_PSA_ENDORSEMENT") return `/user/services/civil-registry/marriage-psa-endorsement?revisionId=${request.id}`;
-            if (code === "LCR_PSA_APPOINTMENT_ENDORSEMENT") return `/user/services/civil-registry/appointment-birth-psa-endorsement?revisionId=${request.id}`;
-            if (code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") return `/user/services/civil-registry/appointment-death-psa-endorsement?revisionId=${request.id}`;
-            if (code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT") return `/user/services/civil-registry/appointment-marriage-psa-endorsement?revisionId=${request.id}`;
+            if (code === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT") return `/user/services/civil-registry/appointment-birth-certified-true-copy?revisionId=${request.id}`;
+            if (code === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT") return `/user/services/civil-registry/appointment-death-certified-true-copy?revisionId=${request.id}`;
+            if (code === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT") return `/user/services/civil-registry/appointment-marriage-certified-true-copy?revisionId=${request.id}`;
         }
         return `/user/services/requests/${request.id}`;
     };

@@ -2,7 +2,9 @@ import React from "react";
 import PaymentSettingsClient from "@/app/admin/treasury/payment-settings/PaymentSettingsClient";
 import { Metadata } from "next";
 import prisma from "@/lib/db/prisma";
-import { notFound } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
     title: "Payment Settings | Mapandan Portal",
@@ -10,7 +12,12 @@ export const metadata: Metadata = {
 };
 
 export default async function PaymentSettingsPage() {
-    notFound();
+    const session = await getServerSession(authOptions);
+    const user = session?.user as any;
+
+    if (!user || (user.role !== "ADMIN" && user.role !== "TREASURY_STAFF" && user.role !== "REGISTRAR")) {
+        redirect("/admin/dashboard");
+    }
 
     // Fetch Treasury Settings for the configuration form
     const settingsList = await prisma.systemSetting.findMany({
@@ -31,6 +38,12 @@ export default async function PaymentSettingsPage() {
     const themeColor = treasurySettings["theme_color"] || "#2563eb";
 
     const transactionTypes = await prisma.transactionType.findMany({
+        where: {
+            OR: [
+                { category: "Civil Registry" },
+                { code: { startsWith: "LCR_" } }
+            ]
+        },
         orderBy: { name: "asc" }
     });
 

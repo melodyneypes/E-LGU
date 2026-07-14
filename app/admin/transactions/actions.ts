@@ -289,6 +289,38 @@ export async function ensureBuildingPermitTransactionTypes() {
 
 export async function ensureCivilRegistryTransactionTypes() {
     try {
+        // Migrate old transaction type codes to new codes to preserve existing transaction records
+        const migrationMappings = [
+            { old: "LCR_PSA_APPOINTMENT_ENDORSEMENT", new: "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" },
+            { old: "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", new: "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" },
+            { old: "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT", new: "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT" }
+        ];
+
+        for (const mapping of migrationMappings) {
+            const oldType = await prisma.transactionType.findUnique({
+                where: { code: mapping.old }
+            });
+            if (oldType) {
+                const newType = await prisma.transactionType.findUnique({
+                    where: { code: mapping.new }
+                });
+                if (!newType) {
+                    await prisma.transactionType.update({
+                        where: { code: mapping.old },
+                        data: { code: mapping.new }
+                    });
+                } else {
+                    await prisma.transaction.updateMany({
+                        where: { type: { code: mapping.old } },
+                        data: { typeId: newType.id }
+                    });
+                    await prisma.transactionType.delete({
+                        where: { code: mapping.old }
+                    });
+                }
+            }
+        }
+
         const types = [
             {
                 code: "LCR_BIRTH",
@@ -502,9 +534,9 @@ export async function ensureCivilRegistryTransactionTypes() {
                 ]
             },
             {
-                code: "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-                name: "Birth PSA Appointment Endorsement",
-                description: "Request appointment for Birth PSA Endorsement.",
+                code: "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                name: "Birth Certified True Copy Appointment",
+                description: "Request appointment for Birth Certified True Copy.",
                 level: 1,
                 category: "Civil Registry",
                 baseFee: 130.00,
@@ -513,7 +545,7 @@ export async function ensureCivilRegistryTransactionTypes() {
                 requiredDocs: ["PSA Negative Certification"],
                 formSchema: {
                     type: "CIVIL_REGISTRY",
-                    registryType: "PSA_APPOINTMENT_ENDORSEMENT",
+                    registryType: "BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
                     fields: ["originalTransactionId", "psaNegCertUrl"]
                 },
                 requiresBusinessName: false,
@@ -524,9 +556,9 @@ export async function ensureCivilRegistryTransactionTypes() {
                 ]
             },
             {
-                code: "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-                name: "Death PSA Appointment Endorsement",
-                description: "Request appointment for Death PSA Endorsement.",
+                code: "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                name: "Death Certified True Copy Appointment",
+                description: "Request appointment for Death Certified True Copy.",
                 level: 1,
                 category: "Civil Registry",
                 baseFee: 130.00,
@@ -535,7 +567,7 @@ export async function ensureCivilRegistryTransactionTypes() {
                 requiredDocs: ["PSA Negative Certification"],
                 formSchema: {
                     type: "CIVIL_REGISTRY",
-                    registryType: "DEATH_PSA_APPOINTMENT_ENDORSEMENT",
+                    registryType: "DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
                     fields: ["originalTransactionId", "psaNegCertUrl"]
                 },
                 requiresBusinessName: false,
@@ -546,9 +578,9 @@ export async function ensureCivilRegistryTransactionTypes() {
                 ]
             },
             {
-                code: "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT",
-                name: "Marriage PSA Appointment Endorsement",
-                description: "Request appointment for Marriage PSA Endorsement.",
+                code: "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                name: "Marriage Certified True Copy Appointment",
+                description: "Request appointment for Marriage Certified True Copy.",
                 level: 1,
                 category: "Civil Registry",
                 baseFee: 130.00,
@@ -557,7 +589,7 @@ export async function ensureCivilRegistryTransactionTypes() {
                 requiredDocs: ["PSA Negative Certification"],
                 formSchema: {
                     type: "CIVIL_REGISTRY",
-                    registryType: "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT",
+                    registryType: "MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT",
                     fields: ["originalTransactionId", "psaNegCertUrl"]
                 },
                 requiresBusinessName: false,
@@ -569,27 +601,23 @@ export async function ensureCivilRegistryTransactionTypes() {
             }
         ];
 
-        const codes = types.map(t => t.code);
-        const existingCount = await prisma.transactionType.count({
-            where: {
-                code: { in: codes }
-            }
-        });
-
-        if (existingCount !== types.length) {
-            for (const t of types) {
-                await prisma.transactionType.upsert({
-                    where: { code: t.code },
-                    update: {
-                        name: t.name,
-                        description: t.description,
-                        requiredDocs: t.requiredDocs,
-                        formSchema: t.formSchema,
-                        supportsECopy: t.supportsECopy,
-                    },
-                    create: t as any
-                });
-            }
+        for (const t of types) {
+            const rawFee = (t as any).defaultFees;
+            await prisma.transactionType.upsert({
+                where: { code: t.code },
+                update: {
+                    name: t.name,
+                    description: t.description,
+                    requiredDocs: t.requiredDocs,
+                    formSchema: t.formSchema,
+                    supportsECopy: t.supportsECopy,
+                    deliveryFee: t.deliveryFee
+                },
+                create: {
+                    ...t,
+                    defaultFees: rawFee ? (typeof rawFee === 'string' ? rawFee : JSON.stringify(rawFee)) : undefined
+                } as any
+            });
         }
 
         return { success: true };
@@ -707,7 +735,10 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
             "MARRIAGE_LICENSE", "PSA_ENDORSEMENT",
             "BIRTH_PSA_ENDORSEMENT", "DEATH_PSA_ENDORSEMENT", "MARRIAGE_PSA_ENDORSEMENT",
             "PSA_APPOINTMENT_ENDORSEMENT", "BIRTH_PSA_APPOINTMENT_ENDORSEMENT",
-            "DEATH_PSA_APPOINTMENT_ENDORSEMENT", "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+            "DEATH_PSA_APPOINTMENT_ENDORSEMENT", "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT",
+            "BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+            "DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+            "MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
         ].includes(registryType);
 
         if (isLCRType) {
@@ -833,7 +864,10 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
             "PSA_APPOINTMENT_ENDORSEMENT",
             "BIRTH_PSA_APPOINTMENT_ENDORSEMENT",
             "DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-            "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+            "MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT",
+            "BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+            "DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+            "MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
         ].includes(registryType);
         const initialStatus = "FOR_REQUESTING";
 
@@ -1708,9 +1742,9 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
             const hasAdditionalFees = sanitizedBpFeeLineItems && sanitizedBpFeeLineItems.length > 0;
             const isCertifiedCopy = ["LCR_BIRTH", "LCR_MARRIAGE"].includes(typeCode);
             const isPsaAppointment = [
-                "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-                "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-                "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
             ].includes(typeCode);
 
             if (isPsaAppointment) {
@@ -1965,7 +1999,7 @@ export async function getPendingTreasuryCount() {
             {
                 NOT: {
                     AND: [
-                        { type: { code: { in: ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"] } } },
+                        { type: { code: { in: ["LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"] } } },
                         { status: "FOR_REQUESTING" }
                     ]
                 }
@@ -2011,7 +2045,7 @@ export async function getTreasuryStatusCounts() {
             {
                 NOT: {
                     AND: [
-                        { type: { code: { in: ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"] } } },
+                        { type: { code: { in: ["LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"] } } },
                         { status: "FOR_REQUESTING" }
                     ]
                 }
@@ -2760,9 +2794,9 @@ export async function resubmitTransaction(id: string, formData: FormData) {
 
         const isLCR = tx?.type?.code?.startsWith("LCR_") || tx?.type?.code?.startsWith("CIVIL_REGISTRY");
         const isPsaAppointment = [
-            "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-            "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-            "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+            "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+            "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+            "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
         ].includes(tx?.type?.code || "");
 
         const newStatus = tx.status === "FOR_REVISION" 
@@ -5194,32 +5228,32 @@ export async function getRegistrarActiveCounts() {
             LCR_BIRTH: 0,
             LCR_BIRTH_REG: 0,
             LCR_PSA_ENDORSEMENT: 0,
-            LCR_PSA_APPOINTMENT_ENDORSEMENT: 0,
+            LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT: 0,
             LCR_DEATH_REG: 0,
             LCR_DEATH: 0,
             LCR_DEATH_PSA_ENDORSEMENT: 0,
-            LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT: 0,
+            LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT: 0,
             LCR_MARRIAGE_LICENSE: 0,
             LCR_MARRIAGE_REG: 0,
             LCR_MARRIAGE: 0,
             LCR_MARRIAGE_PSA_ENDORSEMENT: 0,
-            LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT: 0,
+            LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT: 0,
         };
 
         const totalCounts: Record<string, number> = {
             LCR_BIRTH: 0,
             LCR_BIRTH_REG: 0,
             LCR_PSA_ENDORSEMENT: 0,
-            LCR_PSA_APPOINTMENT_ENDORSEMENT: 0,
+            LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT: 0,
             LCR_DEATH_REG: 0,
             LCR_DEATH: 0,
             LCR_DEATH_PSA_ENDORSEMENT: 0,
-            LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT: 0,
+            LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT: 0,
             LCR_MARRIAGE_LICENSE: 0,
             LCR_MARRIAGE_REG: 0,
             LCR_MARRIAGE: 0,
             LCR_MARRIAGE_PSA_ENDORSEMENT: 0,
-            LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT: 0,
+            LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT: 0,
         };
 
         for (const tx of allTransactions) {
@@ -5233,7 +5267,7 @@ export async function getRegistrarActiveCounts() {
             if (code === "LCR_MARRIAGE_LICENSE" && tx.status === "FOR_REQUESTING") {
                 continue;
             }
-            if ((code === "LCR_DEATH_PSA_ENDORSEMENT" || code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") && tx.status === "FOR_REQUESTING") {
+            if ((code === "LCR_DEATH_PSA_ENDORSEMENT" || code === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT") && tx.status === "FOR_REQUESTING") {
                 continue;
             }
 
@@ -5297,11 +5331,11 @@ export async function getUnviewedLcrCounts() {
             LCR_BIRTH_REG: "Birth Registration",
             LCR_BIRTH: "Birth Certificate",
             LCR_PSA_ENDORSEMENT: "PSA Endorsement",
-            LCR_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appointment Endorsement",
+            LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT: "Certified True Copy Appointment",
             LCR_DEATH_PSA_ENDORSEMENT: "PSA Endorsement",
-            LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appointment Endorsement",
+            LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT: "Certified True Copy Appointment",
             LCR_MARRIAGE_PSA_ENDORSEMENT: "PSA Endorsement",
-            LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT: "PSA Appointment Endorsement",
+            LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT: "Certified True Copy Appointment",
             LCR_DEATH_REG: "Death Registration",
             LCR_DEATH: "Death Certificate",
             LCR_MARRIAGE_LICENSE: "Marriage License",

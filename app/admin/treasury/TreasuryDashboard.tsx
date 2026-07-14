@@ -331,9 +331,9 @@ export default function TreasuryDashboard() {
         const isLcrBirthRegistration = tx.type?.code === "LCR_BIRTH_REG" || tx.type?.code === "LCR_DEATH_REG" || tx.type?.code === "LCR_MARRIAGE_REG" || tx.type?.code === "LCR_MARRIAGE_LICENSE" || (tx.type?.name && (tx.type.name.includes("Registration") || tx.type.name.includes("License"))) || false;
         const isCivilRegistry = tx.type?.category === "Civil Registry" || tx.type?.code?.startsWith("LCR_") || tx.type?.code?.startsWith("CIVIL_REGISTRY") || isLcrBirthCertifiedCopy || isLcrBirthRegistration;
         const isPsaAppointmentTx = [
-            "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-            "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-            "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+            "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+            "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+            "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
         ].includes(tx.type?.code || "");
 
         if (isCivilRegistry && ["FOR_REQUESTING", "EVALUATED", "FOR_PROCESSING"].includes(tx.status) && !isPsaAppointmentTx) {
@@ -350,9 +350,9 @@ export default function TreasuryDashboard() {
 
         // PSA Appointment Endorsements in FOR_CLAIM/FOR_PICKING are for Treasury counter payment — always allow
         // const isPsaApptEndorsement = [
-        //     "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-        //     "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-        //     "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+        //     "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+        //     "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+        //     "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
         // ].includes(tx.type?.code || "");
         // (no filter block needed here — handled below in categoryParam check)
 
@@ -641,9 +641,9 @@ export default function TreasuryDashboard() {
                                                                         const tc = tx.type?.code || "";
                                                                         const s = tx.status || "";
                                                                         const isPsaAppt = [
-                                                                            "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-                                                                            "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-                                                                            "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                                                                            "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                                                                            "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                                                                            "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
                                                                         ].includes(tc);
                                                                         if (isPsaAppt) {
                                                                             if (s === "FOR_INSPECTION" || s === "FOR_REQUESTING") {
