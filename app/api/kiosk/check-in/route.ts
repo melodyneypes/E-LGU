@@ -134,12 +134,21 @@ export async function POST(request: Request) {
 
         let queueNumber = transaction.queueNumber;
         if (!queueNumber) {
+            let category: "CEDULA" | "BUSINESS_PERMIT" | "CIVIL_REGISTRY" | undefined = undefined;
+            const categoryStr = (transaction.type?.category || "").toUpperCase();
+            const codeStr = (transaction.type?.code || "").toUpperCase();
+
+            if (categoryStr === "CIVIL REGISTRY" || codeStr.includes("PSA_") || codeStr.includes("APPOINTMENT") || codeStr.startsWith("LCR_")) {
+                category = "CIVIL_REGISTRY";
+            }
+
             const { generateQueueNumber } = await import("@/lib/queue");
             queueNumber = await generateQueueNumber({
                 source: "kiosk",
                 isPriority: transaction.isPriority || false,
                 appointmentDate: today,
-                appointmentSlot: today.getHours() < 12 ? "AM" : "PM"
+                appointmentSlot: today.getHours() < 12 ? "AM" : "PM",
+                category
             });
         }
 
