@@ -767,7 +767,7 @@ export default function BuildingPermitAppointmentPage() {
       setCustomRequirements([]);
       setCustomPermits([]);
     }
-  }, [selectedApplication]);
+  }, [selectedApplication, documentRequirementsList.length, permitTypesList.length]);
 
   const handleAddCustomDocument = () => {
     setCustomDocName("");

@@ -3380,7 +3380,7 @@ export async function getEngineerPendingCount() {
         const user = await assertSessionUser();
         assertUserRoles(user, ["ENGINEER", "MPDC_ZONING", "ADMIN"]);
 
-        let where: any = {
+        const where: any = {
             type: { code: { startsWith: "BUILDING_PERMIT" } }
         };
 
