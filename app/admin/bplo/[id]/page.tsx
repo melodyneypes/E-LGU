@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 import Image from "next/image";
 import { isValidUrl } from "@/utils/image";
@@ -85,6 +86,7 @@ function isImageFile(url: string) {
 export default function BploDetailPage({ params }: PageProps) {
     const { id } = use(params);
     const router = useRouter();
+    const { data: session } = useSession();
 
     const activeCounter = typeof window !== "undefined" ? localStorage.getItem("activeCounterName") : null;
     const redirectPath = activeCounter ? "/admin/bplo/queue" : "/admin/bplo";
@@ -154,9 +156,10 @@ export default function BploDetailPage({ params }: PageProps) {
     const [evalAssets, setEvalAssets] = useState(0);
     const [evalEmployees, setEvalEmployees] = useState(0);
 
-    const isReadOnly = transaction
+    const userDepartment = (session?.user as any)?.department;
+    const isReadOnly = (userDepartment?.toUpperCase() === "LGU") || (transaction
         ? ["PAID", "FOR_REQUESTING", "REJECTED", "EVALUATED", "UNPAID", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(transaction.status)
-        : false;
+        : false);
 
     const fetchTransaction = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
@@ -789,7 +792,7 @@ export default function BploDetailPage({ params }: PageProps) {
     });
 
     const currentStepIdx = steps.findIndex(s => s.id === transaction.status);
-    const canEditRecord = transaction?.status === "FOR_INSPECTION";
+    const canEditRecord = !isReadOnly && transaction?.status === "FOR_INSPECTION";
     return (
         <div
             className="min-h-screen bg-[#f8fafd] dark:bg-[#0c111d] text-[#0f172a] dark:text-[#f8fafc] pb-20 font-sans transition-colors duration-500"
@@ -1407,7 +1410,7 @@ export default function BploDetailPage({ params }: PageProps) {
                     {/* EXECUTIVE ACTIONS */}
                     <div className="space-y-4 pt-4">
                         {/* Inspection/Processing/Requesting phase actions */}
-                        {(transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION" || transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && (
+                        {!isReadOnly && (transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION" || transaction.status === "FOR_PROCESSING" || transaction.status === "FOR_REQUESTING") && (
                             <div className="space-y-4">
                                 {transaction.status === "FOR_REINSPECTION" && (() => {
                                     const orNo = additional?.orSeriesNumber || transaction.orSeriesNumber || additional?.orNumber || additional?.orNo;

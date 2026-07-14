@@ -353,7 +353,7 @@ export function Sidebar({
         {
             label: "Treasury Hub",
             icon: LayoutDashboard,
-            category: "Treasury",
+            category: "Payment Settings",
             isDropdown: true,
             isOpen: isTreasuryOpen,
             onToggle: () => {
@@ -371,14 +371,14 @@ export function Sidebar({
                 { href: "/admin/treasury?category=Building Permit", label: "Building Permit" },
             ]
         },
-        { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury" },
-        { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "Treasury", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
-        { href: "/admin/bplo/appointment-settings", label: "BPLO Appointment Settings", icon: Calendar, category: "Treasury" },
-        { href: "/admin/bplo/queue", label: "BPLO Queue", icon: Users, category: "Treasury" },
-        { href: "/admin/settings/bplo", label: "Payment Settings", icon: CreditCard, category: "Treasury" },
-        { href: "/admin/settings/cedula", label: "Cedula Settings", icon: FileText, category: "Treasury" },
-        { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury" },
-        { href: "/admin/treasury/queue", label: "Treasury Queue", icon: Users, category: "Treasury" },
+        { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Payment Settings" },
+        { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "Payment Settings", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
+        { href: "/admin/bplo/appointment-settings", label: "BPLO Appointment Settings", icon: Calendar, category: "Payment Settings" },
+        { href: "/admin/bplo/queue", label: "BPLO Queue", icon: Users, category: "Payment Settings" },
+        { href: "/admin/settings/bplo", label: "BPLO Settings", icon: CreditCard, category: "Payment Settings" },
+        { href: "/admin/settings/cedula", label: "Cedula Settings", icon: FileText, category: "Payment Settings" },
+        { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Payment Settings" },
+        { href: "/admin/treasury/queue", label: "Treasury Queue", icon: Users, category: "Payment Settings" },
         { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
         { href: "/admin/zoning", label: "Zoning Hub", icon: LayoutDashboard, category: "Zoning" },
         { href: "/admin/zoning/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Zoning" },
@@ -478,12 +478,13 @@ export function Sidebar({
                     );
                 } else if (deptUpper === "TREASURY") {
                     menuItems = allMenuItems.filter(item =>
-                        ["Treasury Hub", "Payments Ledger", "Payment Settings", "Treasury Queue"].includes(item.label) ||
-                        (item.label === "Appointment Settings" && item.category === "Treasury")
+                        ["Treasury Hub", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
+                        (item.label === "Appointment Settings" && item.category === "Payment Settings")
                     );
                 } else if (deptUpper === "LGU") {
                     menuItems = allMenuItems.filter(item =>
-                        !["Registrar Hub", "Transaction Ledger", "Treasury Hub", "Payments Ledger", "BPLO Permits", "BPLO Appointment Settings", "BPLO Queue", "Appointment Settings"].includes(item.label)
+                        !["Registrar Hub", "Transaction Ledger", "Registrar Queue", "BPLO Queue", "Treasury Queue"].includes(item.label) &&
+                        !(item.label === "Appointment Settings" && item.category === "Registrar")
                     );
                 } else {
                     menuItems = [
@@ -500,8 +501,8 @@ export function Sidebar({
             menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
         } else if (role === "TREASURY_STAFF") {
             menuItems = allMenuItems.filter(item =>
-                ["Treasury Hub", "Payments Ledger", "Payment Settings", "Treasury Queue"].includes(item.label) ||
-                (item.label === "Appointment Settings" && item.category === "Treasury")
+                ["Treasury Hub", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
+                (item.label === "Appointment Settings" && item.category === "Payment Settings")
             );
         } else if (role === "ADMIN_AIDE") {
             menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue"].includes(item.label));

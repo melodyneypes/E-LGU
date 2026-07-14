@@ -229,11 +229,12 @@ export default function TreasuryDetailPage() {
     const id = routeParams?.id as string;
     const router = useRouter();
     const { data: session } = useSession();
-    const rawUserRole = (session?.user as any)?.role;
     const userDepartment = (session?.user as any)?.department;
+    const isLgu = userDepartment?.toUpperCase() === "LGU";
+    const rawUserRole = isLgu ? "LGU_ADMIN" : (session?.user as any)?.role;
     // Map BPLO Admin to behave exactly like ADMIN_AIDE for Treasury pages
     const isBPLOAdmin = rawUserRole === "ADMIN" && userDepartment?.toUpperCase() === "BPLO";
-    const userRole = isBPLOAdmin ? "ADMIN_AIDE" : rawUserRole;
+    const userRole = isLgu ? "LGU_ADMIN" : (isBPLOAdmin ? "ADMIN_AIDE" : rawUserRole);
     // Treasury Staff can only upload OR; Permit No., Sticker No., and Waybill are BPLO Admin only
     const isTreasuryStaff = rawUserRole === "TREASURY_STAFF";
     const searchParams = useSearchParams();
@@ -451,7 +452,7 @@ export default function TreasuryDetailPage() {
         return format(d, "MMM d, yyyy");
     };
     // RETURN_REQUESTED and REFUND_REQUESTED are also excluded so BPLO Admin can action disputes on Business Permits
-    const isReadOnlyAide = userRole === "ADMIN_AIDE" && isBusinessPermit && !["FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM", "FOR_PICKING", "RETURN_REQUESTED", "REFUND_REQUESTED"].includes(transaction?.status || "");
+    const isReadOnlyAide = isLgu || (userRole === "ADMIN_AIDE" && isBusinessPermit && !["FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM", "FOR_PICKING", "RETURN_REQUESTED", "REFUND_REQUESTED"].includes(transaction?.status || ""));
 
     const fetchTransaction = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
