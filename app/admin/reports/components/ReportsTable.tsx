@@ -134,6 +134,12 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
         return () => clearTimeout(handler);
     }, [searchQuery, statusFilter, barangayFilter, limit]);
 
+    const handlePageChange = (newPage: number) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            fetchReports(newPage, limit, searchQuery, statusFilter, barangayFilter);
+        }
+    };
+
     const [viewerOpen, setViewerOpen] = useState(false);
     const [viewerUrl, setViewerUrl] = useState<string | null>(null);
     const [viewerTitle, setViewerTitle] = useState("");
