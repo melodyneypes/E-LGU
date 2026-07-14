@@ -285,6 +285,8 @@ export function BusinessPermitAppointmentClient({
             businessBranch: addData.businessBranch === "BRANCH" ? "BRANCH" : "MAIN",
             registrationType: addData.registrationType === "SEC" ? "SEC" : addData.registrationType === "COA" ? "COA" : "DTI",
             dtiSecDate: addData.dtiSecDate || "",
+            assets: addData.assets ? addData.assets.toString() : "",
+            healthCardCount: addData.healthCardCount ? addData.healthCardCount.toString() : "0",
         }));
 
         setShowRenewalModal(false);

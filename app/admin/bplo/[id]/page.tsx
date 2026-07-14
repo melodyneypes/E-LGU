@@ -923,7 +923,7 @@ export default function BploDetailPage({ params }: PageProps) {
                                             </div>
                                         ) : (
                                             <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
-                                                ₱{(Number(additional?.assets) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                ₱{(Number(additional?.assets) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </div>
                                         )}
                                     </div>
@@ -980,7 +980,7 @@ export default function BploDetailPage({ params }: PageProps) {
                                             </div>
                                         ) : (
                                             <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-black text-sm text-primary">
-                                                ₱{Number(additional?.grossSales || additional?.capitalInvestment || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                ₱{Number(additional?.grossSales || additional?.capitalInvestment || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </div>
                                         )}
                                     </div>
@@ -1157,7 +1157,7 @@ export default function BploDetailPage({ params }: PageProps) {
                                                     {calculatedFees.map((item, idx) => (
                                                         <div key={idx} className="flex justify-between items-center text-xs font-bold text-slate-600 dark:text-slate-400 italic">
                                                             <span>{item.label}</span>
-                                                            <span className="dark:text-slate-200 font-mono font-bold">₱{Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            <span className="dark:text-slate-200 font-mono font-bold">₱{Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -1167,7 +1167,7 @@ export default function BploDetailPage({ params }: PageProps) {
                                                     return (
                                                         <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-white/10 text-base font-black text-primary italic">
                                                             <span>Total Amount</span>
-                                                            <span>₱{calculatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            <span>₱{calculatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                                         </div>
                                                     );
                                                 })()}
