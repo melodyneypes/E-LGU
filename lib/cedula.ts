@@ -66,7 +66,6 @@ export function calculateCedula(params: CedulaCalculationParams): CedulaResult {
         propertyValue, 
         fulfillmentType = "PICK_UP",
         deliveryFee = 0,
-        baseFee,
         settings = {}
     } = params;
 

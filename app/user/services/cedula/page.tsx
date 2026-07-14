@@ -340,7 +340,7 @@ export default function CedulaApplicationPage() {
             settings: cedulaSettings
         });
         setCalcResult(result);
-    }, [formData.income, formData.propertyValue, formData.applicantType, selectedType, formData.isStudent]);
+    }, [formData.income, formData.propertyValue, formData.applicantType, selectedType, formData.isStudent, cedulaSettings]);
 
     useEffect(() => {
         updateCalc();

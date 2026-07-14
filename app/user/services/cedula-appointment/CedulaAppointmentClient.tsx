@@ -299,7 +299,7 @@ export function CedulaAppointmentClient({
             settings: cedulaSettings
         });
         setCalcResult(result);
-    }, [formState.income, formState.propertyValue, applicantType, activeType]);
+    }, [formState.income, formState.propertyValue, applicantType, activeType, cedulaSettings]);
 
 
 
