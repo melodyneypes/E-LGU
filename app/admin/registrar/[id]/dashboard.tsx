@@ -21,16 +21,16 @@ interface ActiveCounts {
     LCR_BIRTH: number;
     LCR_BIRTH_REG: number;
     LCR_PSA_ENDORSEMENT: number;
-    LCR_PSA_APPOINTMENT_ENDORSEMENT: number;
+    LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT: number;
     LCR_DEATH_REG: number;
     LCR_DEATH: number;
     LCR_DEATH_PSA_ENDORSEMENT: number;
-    LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT: number;
+    LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT: number;
     LCR_MARRIAGE_LICENSE: number;
     LCR_MARRIAGE_REG: number;
     LCR_MARRIAGE: number;
     LCR_MARRIAGE_PSA_ENDORSEMENT: number;
-    LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT: number;
+    LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT: number;
 }
 
 interface DashboardCounts {
@@ -73,10 +73,10 @@ const SERVICES_META: ServiceMeta[] = [
         color: "indigo"
     },
     {
-        code: ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"],
-        name: "PSA Appointment Endorsement",
-        categoryParam: "PSA Appt. Endorsement",
-        description: "PSA Appointment Endorsement requests for Birth, Death, and Marriage",
+        code: ["LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"],
+        name: "Certified True Copy Appointment",
+        categoryParam: "Certified True Copy Appointment",
+        description: "Certified True Copy Appointment requests for Birth, Death, and Marriage",
         icon: Folder,
         color: "violet"
     },

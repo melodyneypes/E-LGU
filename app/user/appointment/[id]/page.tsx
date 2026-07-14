@@ -240,9 +240,9 @@ export default function AppointmentDetailsPage() {
     const isBuildingPermit = request.type?.code?.startsWith("BUILDING_PERMIT");
     const isBusinessPermit = request.type?.code?.startsWith("BUSINESS_PERMIT");
     const isCivilRegistry = request.type?.code?.startsWith("LCR_") || request.type?.code?.startsWith("CIVIL_REGISTRY");
-    const isAppointmentPsa = request.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-        request.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-        request.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
+    const isAppointmentPsa = request.type?.code === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+        request.type?.code === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+        request.type?.code === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT";
 
     return (
         <div className="min-h-screen bg-white dark:bg-[#0a0c10] pb-24" style={{ "--primary-theme": themeColor } as React.CSSProperties}>

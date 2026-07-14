@@ -126,9 +126,12 @@ export default function DeathPsaEndorsementPage() {
     const parsedDefaultFees = dbType?.defaultFees 
         ? (typeof dbType.defaultFees === "string" ? JSON.parse(dbType.defaultFees) : dbType.defaultFees) 
         : [];
+    const baseFeeObj = parsedDefaultFees.find((f: any) => f.code === "BASE_FEE_LABEL");
+    const baseFeeLabel = baseFeeObj?.label || "Misc Fee";
+    const additionalFees = parsedDefaultFees.filter((f: any) => f.code !== "BASE_FEE_LABEL");
     const miscFeeAmount = dbType?.baseFee ?? 200.00;
-    const mandatoryFeeAmount = parsedDefaultFees.find((f: any) => f.code === "MANDATORY_FINE" || f.code === "MANDATORY_FEE")?.amount ?? 130.00;
-    const regTotalAmount = miscFeeAmount + mandatoryFeeAmount;
+    const defaultFeesTotal = additionalFees.reduce((sum: number, fee: any) => sum + (Number(fee.amount) || 0), 0);
+    const regTotalAmount = miscFeeAmount + defaultFeesTotal;
 
     const [viewerOpen, setViewerOpen] = useState(false);
     const [viewerFile, setViewerFile] = useState<File | null>(null);
@@ -1303,13 +1306,15 @@ export default function DeathPsaEndorsementPage() {
                                         {/* Fee Display */}
                                         <div className="space-y-3 p-4 rounded-2xl bg-slate-500/10 border border-slate-500/20">
                                             <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
-                                                <span>Misc Fee</span>
+                                                <span>{baseFeeLabel}</span>
                                                 <span className="font-bold text-slate-200">₱{miscFeeAmount.toFixed(2)}</span>
                                             </div>
-                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
-                                                <span>Mandatory Fee</span>
-                                                <span className="font-bold text-slate-200">₱{mandatoryFeeAmount.toFixed(2)}</span>
-                                            </div>
+                                            {additionalFees.map((fee: any, idx: number) => (
+                                                <div key={fee.code || idx} className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
+                                                    <span>{fee.label || "Additional Fee"}</span>
+                                                    <span className="font-bold text-slate-200">₱{(Number(fee.amount) || 0).toFixed(2)}</span>
+                                                </div>
+                                            ))}
                                             <div className="border-t border-slate-500/20 pt-2 flex items-center justify-between">
                                                 <div>
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Total PSA Endorsement Fee</span>

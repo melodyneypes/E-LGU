@@ -82,11 +82,13 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
         removeFeeLineItem,
         updateFeeLineItem,
         miscFee,
+        miscFeeLabel,
         setMiscFee,
         handleProcessRequest,
         handlePrintWaybill,
         handleMarkAppointmentAttended,
-        handleCollectPsaPayment
+        handleCollectPsaPayment,
+        handleFinishAppointmentToTreasury
     } = props;
 
     const [isAssessmentOpen, setIsAssessmentOpen] = React.useState(true);
@@ -114,7 +116,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
     const additional = transaction.additionalData || {};
 
     const isTreasuryContext = backUrl?.includes("/admin/treasury") || rawUserRole === "TREASURY_STAFF";
-    const isAppointmentEndorsement = (transaction.type?.code || "").includes("APPOINTMENT_ENDORSEMENT");
+    const isAppointmentEndorsement = (transaction.type?.code || "").includes("APPOINTMENT");
     const subjectName = additional.subjectFullName || additional.subjectName || "N/A";
     const subjectDateOfDeath = additional.subjectDateOfDeath || additional.dateOfEvent || "";
     const mothersMaidenName = additional.mothersMaidenName || additional.motherName || "";
@@ -151,7 +153,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     <div className="lg:col-span-8 space-y-8">
                         <TransactionInfoCard
-                            transactionName="Death PSA Endorsement Request"
+                            transactionName={isAppointmentEndorsement ? "Death Certified True Copy Appointment" : "Death PSA Endorsement Request"}
                             categoryLabel="Local Civil Registry"
                             themeColor={themeColor}
                         />
@@ -219,7 +221,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                         </h3>
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
-                                                <span>Miscellaneous Fee</span>
+                                                <span>{miscFeeLabel || "Miscellaneous Fee"}</span>
                                                 <span className="dark:text-slate-200 font-black">
                                                     {parseFloat(miscFee || "0") > 0
                                                         ? `₱${(parseFloat(miscFee || "0")).toFixed(2)}`
@@ -234,11 +236,8 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                                 </div>
                                             )}
 
-                                            {/* RENDER STATIC ADDITIONAL FEES */}
-                                            {feeLineItems && feeLineItems.length > 0 && feeLineItems.map((item: any, idx: number) => {
-                                                if (!item.readonly && ["FOR_INSPECTION", "FOR_REQUESTING"].includes(transaction.status)) {
-                                                    return null;
-                                                }
+                                            {/* RENDER STATIC ADDITIONAL FEES — always plain rows for appointments */}
+                                            {isAppointmentEndorsement && feeLineItems && feeLineItems.length > 0 && feeLineItems.map((item: any, idx: number) => {
                                                 const feeAmt = parseFloat(item.amount) || 0;
                                                 if (feeAmt === 0) return null;
                                                 return (
@@ -251,72 +250,82 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                                 );
                                             })}
 
-                                            {/* ADDITIONAL FEES EDITOR */}
-                                            {["FOR_INSPECTION", "FOR_REQUESTING"].includes(transaction.status) && (
+                                            {/* RENDER STATIC ADDITIONAL FEES (non-editor states, PSA Endorsement only) */}
+                                            {!isAppointmentEndorsement && !["FOR_INSPECTION", "FOR_REQUESTING"].includes(transaction.status) && feeLineItems && feeLineItems.length > 0 && feeLineItems.map((item: any, idx: number) => {
+                                                const feeAmt = parseFloat(item.amount) || 0;
+                                                if (feeAmt === 0) return null;
+                                                return (
+                                                    <div key={idx} className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
+                                                        <span>{item.label || "Additional Fee"}</span>
+                                                        <span className="dark:text-slate-200 font-black">
+                                                            ₱{feeAmt.toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+
+                                            {/* ADDITIONAL FEES EDITOR — PSA Endorsements only */}
+                                            {!isAppointmentEndorsement && ["FOR_INSPECTION", "FOR_REQUESTING"].includes(transaction.status) && (
                                                 <div className="pt-2 space-y-2 border-t border-slate-100 dark:border-white/5 pt-4">
                                                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
                                                         Additional Fees
                                                     </p>
                                                     <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-100 dark:border-white/5 rounded-2xl p-4 space-y-3">
-                                                        {feeLineItems?.map((item, idx) => {
-                                                            if (item.readonly) return null;
-                                                            return (
-                                                                <div key={idx} className={cn(
-                                                                    "flex gap-3 items-center group bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 px-3 py-1.5 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-primary/20 transition-all",
-                                                                    item.readonly && "opacity-75 bg-slate-50 dark:bg-white/[0.02] cursor-not-allowed select-none"
-                                                                )}>
-                                                                    <span className="text-[9px] font-mono font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-white/5 w-6 h-6 flex items-center justify-center rounded-lg select-none shrink-0">
-                                                                        {String(idx + 1).padStart(2, '0')}
-                                                                    </span>
+                                                        {feeLineItems?.map((item: any, idx: number) => (
+                                                            <div key={idx} className={cn(
+                                                                "flex gap-3 items-center group bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 px-3 py-1.5 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-primary/20 transition-all",
+                                                                item.readonly && "opacity-75 bg-slate-50 dark:bg-white/[0.02] cursor-not-allowed select-none"
+                                                            )}>
+                                                                <span className="text-[9px] font-mono font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-white/5 w-6 h-6 flex items-center justify-center rounded-lg select-none shrink-0">
+                                                                    {String(idx + 1).padStart(2, '0')}
+                                                                </span>
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="Fee Description"
+                                                                    value={item.label}
+                                                                    disabled={item.readonly}
+                                                                    onChange={(e) => updateFeeLineItem?.(idx, 'label', e.target.value)}
+                                                                    className="flex-1 h-9 bg-transparent text-sm font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none border-none p-0 focus:ring-0 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed"
+                                                                />
+                                                                <div className="relative w-28 shrink-0 flex items-center border-l border-slate-100 dark:border-white/5 pl-3">
+                                                                    <span className="text-xs font-black text-slate-400 mr-1 select-none">₱</span>
                                                                     <input
-                                                                        type="text"
-                                                                        placeholder="Fee Description"
-                                                                        value={item.label}
+                                                                        type="number"
+                                                                        placeholder="0.00"
+                                                                        value={item.amount}
                                                                         disabled={item.readonly}
-                                                                        onChange={(e) => updateFeeLineItem?.(idx, 'label', e.target.value)}
-                                                                        className="flex-1 h-9 bg-transparent text-sm font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none border-none p-0 focus:ring-0 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed"
+                                                                        onChange={(e) => updateFeeLineItem?.(idx, 'amount', e.target.value)}
+                                                                        className="w-full bg-transparent text-sm font-black text-right text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed"
                                                                     />
-                                                                    <div className="relative w-28 shrink-0 flex items-center border-l border-slate-100 dark:border-white/5 pl-3">
-                                                                        <span className="text-xs font-black text-slate-400 mr-1 select-none">₱</span>
-                                                                        <input
-                                                                            type="number"
-                                                                            placeholder="0.00"
-                                                                            value={item.amount}
-                                                                            disabled={item.readonly}
-                                                                            onChange={(e) => updateFeeLineItem?.(idx, 'amount', e.target.value)}
-                                                                            className="w-full bg-transparent text-sm font-black text-right text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed"
-                                                                        />
-                                                                    </div>
-                                                                    {!item.readonly && feeLineItems.length > 1 ? (
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            onClick={() => removeFeeLineItem?.(idx)}
-                                                                            className="w-8 h-8 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-all shrink-0 md:opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                                                        >
-                                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                                        </Button>
-                                                                    ) : (
-                                                                        <div className="w-8 h-8 shrink-0" />
-                                                                    )}
                                                                 </div>
-                                                            );
-                                                        })}
-                                                        {!feeLineItems.some(i => !i.readonly) && (
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                onClick={addFeeLineItem}
-                                                                className="w-full h-10 border-dashed border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 text-xs font-bold text-slate-600 dark:text-slate-350 rounded-xl flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all"
-                                                            >
-                                                                <Plus className="w-3.5 h-3.5" />
-                                                                Add Assessment Row
-                                                            </Button>
-                                                        )}
+                                                                {!item.readonly && feeLineItems.length > 1 ? (
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        onClick={() => removeFeeLineItem?.(idx)}
+                                                                        className="w-8 h-8 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-all shrink-0 md:opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                                                    >
+                                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                                    </Button>
+                                                                ) : (
+                                                                    <div className="w-8 h-8 shrink-0" />
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            onClick={addFeeLineItem}
+                                                            className="h-10 px-4 rounded-xl border border-dashed border-slate-200 dark:border-white/10 font-black italic text-[10px] tracking-widest gap-2 text-slate-400 hover:text-primary hover:border-primary/50 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5 transition-all w-full mt-1"
+                                                        >
+                                                            <Plus className="w-3.5 h-3.5" /> ADD FEE LINE ITEM
+                                                        </Button>
                                                     </div>
                                                 </div>
                                             )}
+
+
 
                                             <div className="border-t border-dotted border-slate-300 dark:border-white/10 pt-4 mt-4 flex justify-between items-center">
                                                 <span className="text-base font-black uppercase italic tracking-widest text-slate-900 dark:text-white leading-none">Total Amount</span>
@@ -350,80 +359,49 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                 </h3>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                                <div className="space-y-6">
-                                    <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic">
-                                        Deceased Details
-                                    </h4>
-                                    <div className="space-y-6">
-                                        <div className="space-y-1.5">
-                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Deceased Full Name</span>
-                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                {subjectName}
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-1.5">
-                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Date of Death</span>
-                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                {safeFormatDate(subjectDateOfDeath)}
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-1.5">
-                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">{"Mother's Maiden Name"}</span>
-                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                {mothersMaidenName || "—"}
-                                            </div>
-                                        </div>
-
-                                        {fathersName && (
-                                            <div className="space-y-1.5">
-                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Father&apos;s Full Name</span>
-                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                    {fathersName}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {placeOfDeath && (
-                                            <div className="space-y-1.5">
-                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Death</span>
-                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                    {placeOfDeath}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-6">
-                                    <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic">
-                                        Informant Details
-                                    </h4>
-                                    <div className="space-y-6">
-                                        <div className="space-y-1.5">
-                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Informant Full Name</span>
-                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                {[additional.informantFirstName, additional.informantMiddleName, additional.informantLastName].filter(Boolean).join(" ") + (additional.informantSuffix ? " " + additional.informantSuffix : "") || "—"}
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1.5">
-                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Contact Number</span>
-                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                    {additional.contactNumber || "—"}
-                                                </div>
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Civil Status</span>
-                                                <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
-                                                    {additional.informantCivilStatus || "—"}
-                                                </div>
-                                            </div>
+                            <div className="space-y-6">
+                                <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic">
+                                    Deceased Details
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-1.5">
+                                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Deceased Full Name</span>
+                                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
+                                            {subjectName}
                                         </div>
                                     </div>
+
+                                    <div className="space-y-1.5">
+                                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Date of Death</span>
+                                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
+                                            {safeFormatDate(subjectDateOfDeath)}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">{"Mother's Maiden Name"}</span>
+                                        <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
+                                            {mothersMaidenName || "—"}
+                                        </div>
+                                    </div>
+
+                                    {fathersName && (
+                                        <div className="space-y-1.5">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Father&apos;s Full Name</span>
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
+                                                {fathersName}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {placeOfDeath && (
+                                        <div className="space-y-1.5">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Death</span>
+                                            <div className="bg-slate-50 dark:bg-[#1f2937]/50 border border-slate-100 dark:border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-slate-800 dark:text-white text-sm uppercase leading-none">
+                                                {placeOfDeath}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -997,20 +975,24 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                     )}
                                 </div>
                                 
-                                {!isTreasuryContext && handleMarkAppointmentAttended && (
-                                    <Button
-                                        onClick={handleMarkAppointmentAttended}
-                                        disabled={actionLoading || !additional?.checkedIn}
-                                        className={cn(
-                                            "w-full h-14 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all",
-                                            additional?.checkedIn
-                                                ? "bg-primary hover:bg-primary/90"
-                                                : "bg-slate-300 dark:bg-white/10 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none"
-                                        )}
-                                    >
-                                        {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                        {additional?.checkedIn ? "Finish Appointment" : "Awaiting Citizen Check-in"}
-                                    </Button>
+                                {!isTreasuryContext && (
+                                    additional?.checkedIn ? (
+                                        <Button
+                                            onClick={handleCallInQueue}
+                                            disabled={actionLoading}
+                                            className={`w-full h-14 rounded-2xl text-xs font-black uppercase tracking-wider italic text-white ${themeColor} shadow-lg active:scale-95 transition-all shadow-emerald-500/10`}
+                                        >
+                                            {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                            Call in the Queue
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            disabled
+                                            className="w-full h-14 bg-slate-300 dark:bg-white/10 text-slate-400 dark:text-slate-500 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center cursor-not-allowed shadow-none"
+                                        >
+                                            Awaiting Citizen Check-in
+                                        </Button>
+                                    )
                                 )}
                             </div>
                         )}
@@ -1104,7 +1086,8 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                             </div>
                         )}
 
-                        {transaction.status === "FOR_CLAIM" && (
+                        {/* REGISTRAR RELEASE FOR CLAIM ACTION */}
+                        {(transaction.status === "FOR_CLAIM" || (transaction.status === "FOR_PROCESSING" && isAppointmentEndorsement && transaction.isPaid)) && (
                             <div className="space-y-6">
                                 <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-6">
                                     <div className="text-center space-y-3">
@@ -1142,17 +1125,33 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                         )}
 
                         {/* PSA APPOINTMENT: WAITING FOR TREASURY COUNTER PAYMENT */}
-                        {transaction.status === "FOR_PROCESSING" && isAppointmentEndorsement && (
+                        {transaction.status === "FOR_PROCESSING" && isAppointmentEndorsement && !transaction.isPaid && (
                             <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                                 <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
                                     <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto">
                                         <Clock className="w-7 h-7 animate-pulse" />
                                     </div>
-                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">Endorsement Submitted — Awaiting Treasury</h4>
+                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">
+                                        {additional.servingDepartment === "Registrar" 
+                                            ? "Verify Citizen Requirements" 
+                                            : "Endorsement Submitted — Awaiting Treasury"}
+                                    </h4>
                                     <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
-                                        The application has been endorsed to the PSA. The citizen will pay the counter fee at the Treasury Office. Treasury staff will issue the Official Receipt to complete the transaction.
+                                        {additional.servingDepartment === "Registrar"
+                                            ? "Please verify the citizen's physical requirements and documents. Click below to finish the appointment and transfer them to the Treasury counter."
+                                            : "The application has been endorsed to the PSA. The citizen will pay the counter fee at the Treasury Office. Treasury staff will issue the Official Receipt to complete the transaction."}
                                     </p>
                                 </div>
+                                {transaction.status === "FOR_PROCESSING" && additional.servingDepartment === "Registrar" && handleFinishAppointmentToTreasury && (
+                                    <Button
+                                        onClick={handleFinishAppointmentToTreasury}
+                                        disabled={actionLoading}
+                                        className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all shadow-emerald-500/20"
+                                    >
+                                        {actionLoading && <RotateCw className="w-4 h-4 animate-spin" />}
+                                        ✓ Finish Appointment — Transfer to Treasury
+                                    </Button>
+                                )}
                             </div>
                         )}
 

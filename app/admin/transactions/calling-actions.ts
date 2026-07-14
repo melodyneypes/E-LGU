@@ -14,7 +14,7 @@ export async function callTicketToCounter(id: string, counterName: string) {
         const session = await getServerSession(authOptions);
         const user = session?.user as any;
 
-        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
         if (!user || !allowedRoles.includes(user.role)) {
             return { success: false, error: "Forbidden: Unauthorized role" };
         }
@@ -68,7 +68,7 @@ export async function fetchAndCallNextTicket(counterName: string) {
         const session = await getServerSession(authOptions);
         const user = session?.user as any;
 
-        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
         if (!user || !allowedRoles.includes(user.role)) {
             return { success: false, error: "Forbidden: Unauthorized role" };
         }
@@ -101,15 +101,13 @@ export async function fetchAndCallNextTicket(counterName: string) {
                         type: {
                             code: {
                                 in: [
-                                    "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-                                    "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-                                    "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                                    "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                                    "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                                    "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
                                 ]
                             }
                         },
-                        status: {
-                            in: ["FOR_CLAIM", "FOR_PICKING"]
-                        }
+                        status: "UNPAID"
                     }
                 ],
                 isCancelled: false,
@@ -174,7 +172,7 @@ export async function fetchAndCallNextBploTicket(counterName: string) {
         const session = await getServerSession(authOptions);
         const user = session?.user as any;
 
-        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
         if (!user || !allowedRoles.includes(user.role)) {
             return { success: false, error: "Forbidden: Unauthorized role" };
         }
@@ -250,7 +248,7 @@ export async function getBploQueueTickets(counterName: string) {
     try {
         const session = await getServerSession(authOptions);
         const user = session?.user as any;
-        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
         if (!user || !allowedRoles.includes(user.role)) {
             return { success: false, error: "Unauthorized" };
         }
@@ -342,7 +340,7 @@ export async function callSpecificBploTicket(ticketId: string, counterName: stri
 
         const session = await getServerSession(authOptions);
         const user = session?.user as any;
-        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
         if (!user || !allowedRoles.includes(user.role)) {
             return { success: false, error: "Unauthorized" };
         }
@@ -365,6 +363,7 @@ export async function callSpecificBploTicket(ticketId: string, counterName: stri
         const updated = await prisma.transaction.update({
             where: { id: ticketId },
             data: {
+                status: "FOR_PROCESSING",
                 additionalData: updatedAdditionalData,
                 updatedAt: new Date()
             }
@@ -384,7 +383,7 @@ export async function getTreasuryQueueTickets(counterName: string) {
     try {
         const session = await getServerSession(authOptions);
         const user = session?.user as any;
-        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
         if (!user || !allowedRoles.includes(user.role)) {
             return { success: false, error: "Unauthorized" };
         }
@@ -414,11 +413,11 @@ export async function getTreasuryQueueTickets(counterName: string) {
                         NOT: {
                             type: {
                                 code: {
-                                    in: [
-                                        "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-                                        "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-                                        "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
-                                    ]
+                                     in: [
+                                         "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                                         "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                                         "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
+                                     ]
                                 }
                             }
                         }
@@ -428,15 +427,13 @@ export async function getTreasuryQueueTickets(counterName: string) {
                         type: {
                             code: {
                                 in: [
-                                    "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-                                    "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-                                    "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                                    "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                                    "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                                    "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
                                 ]
                             }
                         },
-                        status: {
-                            in: ["UNPAID", "FOR_CLAIM", "FOR_PICKING"]
-                        },
+                        status: "UNPAID",
                         appointmentDate: {
                             gte: startOfDay,
                             lte: endOfDay
@@ -504,7 +501,7 @@ export async function getRegistrarQueueTickets(counterName: string) {
     try {
         const session = await getServerSession(authOptions);
         const user = session?.user as any;
-        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
         if (!user || !allowedRoles.includes(user.role)) {
             return { success: false, error: "Unauthorized" };
         }
@@ -584,7 +581,7 @@ export async function fetchAndCallNextRegistrarTicket(counterName: string) {
 
         const session = await getServerSession(authOptions);
         const user = session?.user as any;
-        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
         if (!user || !allowedRoles.includes(user.role)) {
             return { success: false, error: "Forbidden: Unauthorized role" };
         }
@@ -645,7 +642,7 @@ export async function callSpecificRegistrarTicket(ticketId: string, counterName:
 
         const session = await getServerSession(authOptions);
         const user = session?.user as any;
-        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER"];
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
         if (!user || !allowedRoles.includes(user.role)) {
             return { success: false, error: "Unauthorized" };
         }
@@ -657,6 +654,7 @@ export async function callSpecificRegistrarTicket(ticketId: string, counterName:
         const updated = await prisma.transaction.update({
             where: { id: ticketId },
             data: {
+                status: "FOR_PROCESSING",
                 additionalData: { ...currentAdditionalData, counterName: sanitizedCounterName, servingDepartment: "Registrar" },
                 updatedAt: new Date()
             }

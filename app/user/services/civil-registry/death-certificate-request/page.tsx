@@ -58,6 +58,7 @@ import { searchResidents } from "@/app/admin/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
+import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 
 
 // --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
@@ -87,10 +88,9 @@ async function uploadFileClientSide(file: File, fieldName: string): Promise<stri
 
 // --- TYPES ---
 
-type Step = "STATUS" | "IDENTITY" | "DETAILS" | "UPLOAD" | "CONFIRM";
+type Step = "IDENTITY" | "DETAILS" | "UPLOAD" | "CONFIRM";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
-    { id: "STATUS", label: "Status", icon: Sparkles },
     { id: "IDENTITY", label: "Identity", icon: User },
     { id: "DETAILS", label: "Details", icon: FileText },
     { id: "UPLOAD", label: "Documents", icon: Upload },
@@ -903,6 +903,7 @@ export default function DeathCertificateRequestPage() {
                 }
                 `
             }} />
+            <SecureIdleTimer />
             <PrivacyTermsModal
                 isOpen={policyOpen}
                 onClose={() => setPolicyOpen(false)}
@@ -987,8 +988,7 @@ export default function DeathCertificateRequestPage() {
                 </div>
             </div>
 
-            {/* Progress Stepper */}
-            <div className="grid grid-cols-5 gap-1.5 md:gap-4 relative px-1 md:px-2 py-4">
+            <div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2 py-4">
                 {STEPS.map((step, idx) => {
                     const isActive = currentStep === step.id;
                     const stepIdx = STEPS.findIndex(s => s.id === currentStep);
@@ -1000,10 +1000,6 @@ export default function DeathCertificateRequestPage() {
                             key={idx}
                             className="flex flex-col items-center gap-2 md:gap-3 relative z-10 font-black group cursor-pointer"
                             onClick={() => {
-                                if (step.id === "STATUS") {
-                                    router.push("/user/services/civil-registry");
-                                    return;
-                                }
                                 const targetIdx = STEPS.findIndex(s => s.id === step.id);
                                 const currentIdx = STEPS.findIndex(s => s.id === currentStep);
                                 if (targetIdx <= currentIdx) {
@@ -1011,7 +1007,7 @@ export default function DeathCertificateRequestPage() {
                                 } else {
                                     for (let i = currentIdx; i < targetIdx; i++) {
                                         const stepToValidate = STEPS[i].id;
-                                        if (stepToValidate !== "STATUS" && !validateStep(stepToValidate)) {
+                                        if (!validateStep(stepToValidate)) {
                                             return;
                                         }
                                     }

@@ -53,10 +53,17 @@ export async function POST(request: Request) {
 
         // Fallback: If not found by ID CUID, search by queueNumber
         if (!transaction) {
-            transaction = await prisma.transaction.findFirst({
+            const txs = await prisma.transaction.findMany({
                 where: { queueNumber: transactionId },
                 include: { type: true }
             });
+            if (txs.length > 0) {
+                // Find the first transaction that is NOT yet checked in for its current status
+                transaction = txs.find(t => {
+                    const ad = (t.additionalData as any) || {};
+                    return ad.checkedIn !== true || ad.lastCheckedInStatus !== t.status;
+                }) || txs[0];
+            }
         }
 
         if (!transaction) {
@@ -66,15 +73,15 @@ export async function POST(request: Request) {
             );
         }
 
-        if (!transaction.appointmentDate) {
+        const isPaymentOrClaiming = ["UNPAID", "PAID", "FOR_CLAIM"].includes(transaction.status);
+        const today = new Date();
+
+        if (!transaction.appointmentDate && !isPaymentOrClaiming) {
             return NextResponse.json(
                 { success: false, error: "Ticket does not have an assigned appointment date" },
                 { status: 400 }
             );
         }
-
-        const isPaymentOrClaiming = ["UNPAID", "PAID", "FOR_CLAIM"].includes(transaction.status);
-        const today = new Date();
 
         if (!isPaymentOrClaiming) {
             // Compare dates in Philippine Time (UTC+8) to avoid timezone mismatch
@@ -84,7 +91,7 @@ export async function POST(request: Request) {
                 return new Date(phMs);
             };
 
-            const appDatePh = toPhDate(new Date(transaction.appointmentDate));
+            const appDatePh = toPhDate(new Date(transaction.appointmentDate!));
             const todayPh = toPhDate(today);
 
             const isToday = appDatePh.getUTCFullYear() === todayPh.getUTCFullYear() &&
@@ -125,6 +132,17 @@ export async function POST(request: Request) {
             }
         }
 
+        let queueNumber = transaction.queueNumber;
+        if (!queueNumber) {
+            const { generateQueueNumber } = await import("@/lib/queue");
+            queueNumber = await generateQueueNumber({
+                source: "kiosk",
+                isPriority: transaction.isPriority || false,
+                appointmentDate: today,
+                appointmentSlot: today.getHours() < 12 ? "AM" : "PM"
+            });
+        }
+
         const updatedAdditionalData = {
             ...currentAdditionalData,
             checkedIn: true,
@@ -136,6 +154,7 @@ export async function POST(request: Request) {
             where: { id: transaction.id },
             data: {
                 appointmentDate: isPaymentOrClaiming ? today : undefined, // Update appointmentDate to today for payment/claim queue fetching
+                queueNumber: queueNumber,
                 additionalData: updatedAdditionalData,
                 updatedAt: today
             }

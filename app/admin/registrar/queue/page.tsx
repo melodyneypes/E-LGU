@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
     ArrowLeft,
@@ -26,13 +26,16 @@ export default function RegistrarQueuePage() {
     const [waitingQueue, setWaitingQueue] = useState<any[]>([]);
     const [currentlyServing, setCurrentlyServing] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isInitialized, setIsInitialized] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
+    const hasFetchedRef = useRef(false);
 
     // Load active counter from localStorage
     const loadCounter = useCallback(() => {
         if (typeof window !== "undefined") {
             const activeCounter = localStorage.getItem("activeCounterName");
             setCounterName(activeCounter);
+            setIsInitialized(true);
         }
     }, []);
 
@@ -44,16 +47,22 @@ export default function RegistrarQueuePage() {
 
     // Fetch queue list from backend
     const fetchQueue = useCallback(async () => {
+        if (!isInitialized) return;
+
         if (!counterName) {
             setLoading(false);
             return;
         }
 
         try {
+            if (!hasFetchedRef.current) {
+                setLoading(true);
+            }
             const res = await getRegistrarQueueTickets(counterName);
             if (res.success && res.data) {
                 setWaitingQueue(res.data.waiting || []);
                 setCurrentlyServing(res.data.serving?.[0] || null);
+                hasFetchedRef.current = true;
             } else {
                 toast.error(res.error || "Failed to load queue tickets.");
             }
@@ -63,7 +72,7 @@ export default function RegistrarQueuePage() {
         } finally {
             setLoading(false);
         }
-    }, [counterName]);
+    }, [counterName, isInitialized]);
 
     useEffect(() => {
         fetchQueue();
@@ -187,7 +196,60 @@ export default function RegistrarQueuePage() {
                     </div>
                 </div>
 
-                {!counterName ? (
+                {!isInitialized || (loading && counterName) ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 items-start">
+                        {/* LEFT COLUMN SKELETON */}
+                        <div className="lg:col-span-2 space-y-6">
+                            {/* Call Next Button Skeleton */}
+                            <div className="w-full h-16 rounded-2xl bg-slate-200/30 dark:bg-white/5 border border-slate-200/30 dark:border-white/10 animate-pulse" />
+                            
+                            {/* Serving Card Skeleton */}
+                            <Card className="rounded-3xl border border-slate-200/50 dark:border-white/10 shadow-xl overflow-hidden bg-white/40 dark:bg-white/5 relative">
+                                <div className="absolute top-0 left-0 right-0 h-1.5 bg-slate-200/50 dark:bg-white/10" />
+                                <CardContent className="p-8 space-y-8 flex flex-col items-center">
+                                    {/* Subtitle placeholder */}
+                                    <div className="h-3 w-48 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                                    {/* Serving badge placeholder */}
+                                    <div className="h-6 w-24 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                                    {/* Number placeholder */}
+                                    <div className="h-20 w-64 bg-slate-200/60 dark:bg-white/10 rounded-3xl animate-pulse" />
+                                    {/* Name placeholder */}
+                                    <div className="space-y-2 w-full max-w-xs flex flex-col items-center">
+                                        <div className="h-2 w-20 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                                        <div className="h-5 w-48 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                                    </div>
+                                    {/* Service placeholder */}
+                                    <div className="h-5 w-32 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                                    {/* Buttons placeholder */}
+                                    <div className="pt-6 border-t border-slate-100 dark:border-white/5 w-full flex justify-center gap-4">
+                                        <div className="h-12 w-32 bg-slate-200/60 dark:bg-white/10 rounded-xl animate-pulse" />
+                                        <div className="h-12 w-44 bg-slate-200/60 dark:bg-white/10 rounded-xl animate-pulse" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                        
+                        {/* RIGHT COLUMN SKELETON */}
+                        <div className="space-y-4">
+                            {/* Title placeholder */}
+                            <div className="h-4 w-36 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                            {/* List Card Placeholder */}
+                            <Card className="rounded-2xl border border-slate-200/50 dark:border-[#2a3040] shadow-sm bg-white/40 dark:bg-white/5 overflow-hidden">
+                                <CardContent className="p-3 space-y-3">
+                                    {[1, 2, 3, 4].map((i) => (
+                                        <div key={i} className="flex items-center justify-between p-3.5 bg-slate-50/30 dark:bg-white/[0.02] rounded-xl border border-slate-100/50 dark:border-white/5">
+                                            <div className="space-y-2">
+                                                <div className="h-5 w-16 bg-slate-200/60 dark:bg-white/10 rounded-lg animate-pulse" />
+                                                <div className="h-2.5 w-24 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                                            </div>
+                                            <div className="h-4 w-28 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                                        </div>
+                                    ))}
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </div>
+                ) : !counterName ? (
                     <Card className="border border-red-500/20 bg-red-500/5 rounded-3xl p-8 text-center max-w-xl mx-auto space-y-4">
                         <ShieldAlert className="w-12 h-12 text-red-500 mx-auto" />
                         <h2 className="text-xl font-bold text-red-600 dark:text-red-400 uppercase">Window Counter Required</h2>
