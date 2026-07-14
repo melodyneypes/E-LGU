@@ -14,8 +14,6 @@ import {
     Upload,
     Camera,
     Hash,
-    Plus,
-    Trash2,
     ChevronDown,
     ChevronUp,
     Copy
@@ -31,8 +29,10 @@ import {
 } from "@/app/admin/transactions/actions";
 import {
     evaluateBusinessPermitTransaction,
-    releaseBusinessPermit
+    releaseBusinessPermit,
+    getBploSettingsAction
 } from "@/app/admin/transactions/bplo-actions";
+import { calculateBusinessPermit } from "@/lib/business-permit";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -87,6 +87,8 @@ export default function BploDetailPage({ params }: PageProps) {
     const { id } = use(params);
     const router = useRouter();
 
+    const activeCounter = typeof window !== "undefined" ? localStorage.getItem("activeCounterName") : null;
+    const redirectPath = activeCounter ? "/admin/bplo/queue" : "/admin/bplo";
 
     const [transaction, setTransaction] = useState<any>(null);
     const [viewerOpen, setViewerOpen] = useState(false);
@@ -138,6 +140,21 @@ export default function BploDetailPage({ params }: PageProps) {
     const [isRequirementsExpanded, setIsRequirementsExpanded] = useState(true);
     const [isBreakdownExpanded, setIsBreakdownExpanded] = useState(true);
     const [feeItems, setFeeItems] = useState<FeeItem[]>([]);
+    const [bploSettings, setBploSettings] = useState<Record<string, string> | null>(null);
+
+    // Calculator widget state
+    const [evalType, setEvalType] = useState<"NEW" | "RENEWAL">("NEW");
+    const [evalLineOfBusiness, setEvalLineOfBusiness] = useState("Manufacturers/Importers/Producers");
+    const [evalScale, setEvalScale] = useState<"MICRO" | "SMALL" | "MEDIUM" | "LARGE">("MICRO");
+    const [evalSanitaryBracket, setEvalSanitaryBracket] = useState(25);
+    const [evalGarbageCategory, setEvalGarbageCategory] = useState("manufacturers");
+    const [evalHealthCards, setEvalHealthCards] = useState(0);
+    const [evalCapitalization, setEvalCapitalization] = useState(0);
+    const [evalGrossSales, setEvalGrossSales] = useState(0);
+    const [evalFloorArea, setEvalFloorArea] = useState(0);
+    const [evalAssets, setEvalAssets] = useState(0);
+    const [evalEmployees, setEvalEmployees] = useState(0);
+
     const isReadOnly = transaction
         ? ["PAID", "FOR_REQUESTING", "REJECTED", "EVALUATED", "UNPAID", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(transaction.status)
         : false;
@@ -177,6 +194,11 @@ export default function BploDetailPage({ params }: PageProps) {
 
     useEffect(() => {
         fetchTransaction();
+        getBploSettingsAction().then(res => {
+            if (res.success && res.data) {
+                setBploSettings(res.data);
+            }
+        });
         getSystemSettingAction("theme_color", "#2563eb").then(res => {
             if (res.success && res.data) {
                 setThemeColor(res.data);
@@ -194,6 +216,142 @@ export default function BploDetailPage({ params }: PageProps) {
             });
         });
     }, [fetchTransaction, id]);
+
+    useEffect(() => {
+        if (!transaction) return;
+        const addData = transaction.additionalData || {};
+        setEvalType(addData.businessType === "NEW" ? "NEW" : "RENEWAL");
+        
+        // Derive official tax classification from friendly selection
+        const declaredLOB = (addData.lineOfBusiness || "").toLowerCase();
+        let derivedTaxLOB = "Other Businesses";
+        if (declaredLOB.includes("manufacturer") || declaredLOB.includes("producer")) {
+            derivedTaxLOB = "Manufacturers/Importers/Producers";
+        } else if (declaredLOB.includes("bank") || declaredLOB.includes("financial") || declaredLOB.includes("lending") || declaredLOB.includes("institution")) {
+            derivedTaxLOB = "Other Financial Institutions";
+        } else if (declaredLOB.includes("contractor") || declaredLOB.includes("service") || declaredLOB.includes("eatery") || declaredLOB.includes("restaurant") || declaredLOB.includes("food")) {
+            derivedTaxLOB = "Contractors/Service Establishments";
+        } else if (declaredLOB.includes("retail") || declaredLOB.includes("wholesaler") || declaredLOB.includes("distributor") || declaredLOB.includes("dealer") || declaredLOB.includes("store")) {
+            derivedTaxLOB = "Wholesalers/Retailers/Dealers";
+        }
+        setEvalLineOfBusiness(derivedTaxLOB);
+        setEvalCapitalization(Number(addData.capitalInvestment || 0));
+        setEvalGrossSales(Number(addData.grossSales || 0));
+        setEvalFloorArea(Number(addData.businessArea || 0));
+        setEvalHealthCards(Number(addData.healthCardCount || 0));
+        setEvalAssets(Number(addData.assets || 0));
+        setEvalEmployees(Number(addData.employeeCount || 0));
+
+    }, [transaction]);
+
+    // Reactive scale derivation from assets & employees
+    useEffect(() => {
+        let derivedScale: "MICRO" | "SMALL" | "MEDIUM" | "LARGE" = "MICRO";
+        if (evalAssets >= 20000000 || evalEmployees >= 200) derivedScale = "LARGE";
+        else if (evalAssets >= 5000000 || evalEmployees >= 100) derivedScale = "MEDIUM";
+        else if (evalAssets >= 500000 || evalEmployees >= 11) derivedScale = "SMALL";
+        setEvalScale(derivedScale);
+    }, [evalAssets, evalEmployees]);
+
+    // Reactive sanitary bracket derivation from floor area
+    useEffect(() => {
+        let derivedSanitary = 25;
+        if (evalFloorArea >= 1000) derivedSanitary = 1000;
+        else if (evalFloorArea >= 500) derivedSanitary = 500;
+        else if (evalFloorArea >= 200) derivedSanitary = 200;
+        else if (evalFloorArea >= 100) derivedSanitary = 100;
+        else if (evalFloorArea >= 50) derivedSanitary = 50;
+        setEvalSanitaryBracket(derivedSanitary);
+    }, [evalFloorArea]);
+
+    // Reactive garbage category derivation from line of business
+    useEffect(() => {
+        const lob = evalLineOfBusiness.toLowerCase();
+        let derivedGarbage = "others";
+        if (lob.includes("manufacturer")) derivedGarbage = "manufacturers";
+        else if (lob.includes("hotel") || lob.includes("apartments")) derivedGarbage = "hotels";
+        else if (lob.includes("restaurant") || lob.includes("eateries") || lob.includes("food")) derivedGarbage = "restaurants";
+        else if (lob.includes("hospital") || lob.includes("clinics")) derivedGarbage = "hospitals";
+        setEvalGarbageCategory(derivedGarbage);
+    }, [evalLineOfBusiness]);
+
+    const calculatedFees = React.useMemo(() => {
+        if (!bploSettings || !transaction) {
+            return [
+                { label: "Mayor's Permit Fee", amount: "0.00" },
+                { label: "Business Tax", amount: "0.00" },
+                { label: "Sanitary Inspection Fee", amount: "0.00" },
+                { label: "Garbage Collection Fee", amount: "0.00" },
+                { label: "Health Certificate Fee", amount: "0.00" }
+            ];
+        }
+
+        const parseSafeJSON = (raw: string, fallback: any) => {
+            try {
+                return raw ? JSON.parse(raw) : fallback;
+            } catch {
+                return fallback;
+            }
+        };
+
+        const result = calculateBusinessPermit({
+            type: evalType,
+            capitalization: evalCapitalization,
+            grossSales: evalGrossSales,
+            assets: evalAssets,
+            workforceCount: 0,
+            lineOfBusiness: evalLineOfBusiness,
+            floorArea: evalFloorArea,
+            healthCardCount: evalHealthCards,
+            fulfillmentType: transaction.fulfillmentType,
+            deliveryFee: transaction.fulfillmentType === "DELIVERY" ? (transaction.type.deliveryFee || 0) : 0,
+            settings: bploSettings
+        });
+
+        // 1. Mayor's Permit Fee scale override:
+        let mayorsPermitFee = result.baseFee;
+        const mayorsMatrix = parseSafeJSON(bploSettings.bplo_mayors_permit_matrix, {});
+        if (mayorsMatrix[evalLineOfBusiness]?.[evalScale] !== undefined) {
+            mayorsPermitFee = Number(mayorsMatrix[evalLineOfBusiness][evalScale]);
+        }
+
+        // 2. Sanitary Inspection Fee override:
+        let sanitaryFee = result.sanitaryInspectionFee;
+        const sanitaryMatrix = parseSafeJSON(bploSettings.bplo_sanitary_fee_matrix, []);
+        const sanitaryMatch = sanitaryMatrix.find((i: any) => i.minArea === evalSanitaryBracket);
+        if (sanitaryMatch) {
+            sanitaryFee = Number(sanitaryMatch.fee);
+        }
+
+        // 3. Garbage Collection Fee override:
+        let garbageFee = result.garbageFee;
+        const garbageMatrix = parseSafeJSON(bploSettings.bplo_garbage_fee_matrix, {});
+        if (garbageMatrix[evalGarbageCategory]) {
+            const rule = garbageMatrix[evalGarbageCategory];
+            garbageFee = evalFloorArea <= rule.threshold ? Number(rule.low) : Number(rule.high);
+        }
+
+        return [
+            { label: "Mayor's Permit Fee", amount: String(mayorsPermitFee) },
+            { label: "Business Tax", amount: String(result.taxAmount) },
+            { label: "Sanitary Inspection Fee", amount: String(sanitaryFee) },
+            { label: "Garbage Collection Fee", amount: String(garbageFee) },
+            { label: "Health Certificate Fee", amount: String(result.healthCertificateFee) }
+        ];
+    }, [
+        bploSettings,
+        transaction,
+        evalType,
+        evalCapitalization,
+        evalGrossSales,
+        evalAssets,
+        evalLineOfBusiness,
+        evalFloorArea,
+        evalHealthCards,
+        evalScale,
+        evalSanitaryBracket,
+        evalGarbageCategory
+    ]);
 
     const handleEvaluate = async () => {
         const isInspection = transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION";
@@ -214,9 +372,10 @@ export default function BploDetailPage({ params }: PageProps) {
         try {
             const deliveryFee = transaction.fulfillmentType === "DELIVERY" ? (transaction.type.deliveryFee || 0) : 0;
 
-            // Send only valid positive line items. If none exist, the server computes
-            // the business permit assessment from the declared capital/gross sales.
-            const itemsToSend = feeItems
+            // If in FOR_INSPECTION phase, use our live auto-calculated fees. Otherwise fall back to feeItems.
+            const itemsSource = isInspection ? calculatedFees : feeItems;
+
+            const itemsToSend = itemsSource
                 .filter(f => f.label.trim() && Number(f.amount) > 0)
                 .map(f => ({ label: f.label.trim(), amount: Number(f.amount) || 0 }));
 
@@ -224,11 +383,20 @@ export default function BploDetailPage({ params }: PageProps) {
                 transaction.id,
                 deliveryFee,
                 remarks || (isInspection ? "Business Permit Inspection Approved" : "Business Permit Assessment"),
-                itemsToSend
+                itemsToSend,
+                isInspection ? {
+                    lineOfBusiness: evalLineOfBusiness,
+                    assets: evalAssets,
+                    employeeCount: evalEmployees,
+                    businessArea: evalFloorArea,
+                    capitalInvestment: evalType === "NEW" ? evalCapitalization : undefined,
+                    grossSales: evalType === "RENEWAL" ? evalGrossSales : undefined,
+                    healthCardCount: evalHealthCards,
+                } : undefined
             );
             if (res.success) {
                 toast.success(isInspection ? "Inspection approved! Transaction status is now FOR PROCESSING." : "Assessment details updated and submitted successfully!");
-                router.push("/admin/bplo/queue");
+                router.push(redirectPath);
             } else {
                 toast.error(res.error || "Evaluation failed.");
             }
@@ -244,7 +412,7 @@ export default function BploDetailPage({ params }: PageProps) {
             const res = await rejectTransaction(transaction.id, remarks);
             if (res.success) {
                 toast.success("Permit request successfully declined.");
-                router.push("/admin/bplo/queue");
+                router.push(redirectPath);
             } else toast.error(res.error || "Decline failed.");
         } finally { setActionLoading(false); }
     };
@@ -256,7 +424,7 @@ export default function BploDetailPage({ params }: PageProps) {
             const res = await sendForRevision(transaction.id, remarks);
             if (res.success) {
                 toast.success("Permit application returned to citizen for revisions.");
-                router.push("/admin/bplo/queue");
+                router.push(redirectPath);
             } else toast.error(res.error || "Revision request failed.");
         } finally { setActionLoading(false); }
     };
@@ -294,10 +462,10 @@ export default function BploDetailPage({ params }: PageProps) {
                 toast.success(message);
                 setECopyFile(null);
                 setStickerNumber("");
-                router.push("/admin/bplo/queue");
+                router.push(redirectPath);
             } else toast.error(res.error || "Failed to release permit.");
         } finally { setActionLoading(false); }
-    }, [transaction, permitNumberInput, eCopyFile, stickerNumber, router]);
+    }, [transaction, permitNumberInput, eCopyFile, stickerNumber, router, redirectPath]);
 
     const handlePrintWaybill = () => {
         const iframe = document.createElement('iframe');
@@ -529,17 +697,7 @@ export default function BploDetailPage({ params }: PageProps) {
         }
     };
 
-    const updateFeeItem = (index: number, field: keyof Pick<FeeItem, "label" | "amount">, value: string) => {
-        setFeeItems(items => items.map((item, i) => i === index ? { ...item, [field]: value } : item));
-    };
 
-    const addFeeItem = () => {
-        setFeeItems(items => [...items, { label: "", amount: "" }]);
-    };
-
-    const removeFeeItem = (index: number) => {
-        setFeeItems(items => items.filter((_, i) => i !== index));
-    };
 
     useEffect(() => {
         if (isRejecting || isRequestingRevision) {
@@ -631,6 +789,7 @@ export default function BploDetailPage({ params }: PageProps) {
     });
 
     const currentStepIdx = steps.findIndex(s => s.id === transaction.status);
+    const canEditRecord = transaction?.status === "FOR_INSPECTION";
     return (
         <div
             className="min-h-screen bg-[#f8fafd] dark:bg-[#0c111d] text-[#0f172a] dark:text-[#f8fafc] pb-20 font-sans transition-colors duration-500"
@@ -662,210 +821,6 @@ export default function BploDetailPage({ params }: PageProps) {
                         themeColor={themeColor}
                         categoryLabel={transaction.type?.name || "Business Permit"}
                     />
-
-                    {/* METRICS + BREAKDOWN CARD */}
-                    {!["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION"].includes(transaction.status) && (
-                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
-                            {/* TOP METRICS — 4-col white/grey grid */}
-                            {(() => {
-                                const declaredValue = Number(additional?.grossSales || additional?.capitalInvestment || 0);
-                                const declaredLabel = additional?.businessType === "NEW" ? "CAPITAL" : "DECLARED GROSS";
-                                const paymentType = transaction.paymentType?.replace(/_/g, " ") || "—";
-                                const fulfillment = transaction.fulfillmentType?.replace(/_/g, " ") || "—";
-                                const rawFiscal = transaction.fiscalSnapshot;
-                                const fiscalSnapshot = (typeof rawFiscal === "string" ? JSON.parse(rawFiscal) : rawFiscal) as any || {};
-
-                                // Use transaction.totalAmount as the authoritative total — it is always
-                                // written by evaluateCedulaTransaction regardless of fiscalSnapshot state.
-                                const totalAmountAssessed =
-                                    Number(transaction.totalAmount) ||
-                                    Number(fiscalSnapshot.totalAmount) ||
-                                    (Array.isArray(transaction.type?.defaultFees)
-                                        ? transaction.type.defaultFees.reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0)
-                                        : 0);
-                                return (
-                                    <div className="grid grid-cols-4 gap-3">
-                                        {/* Declared */}
-                                        <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/10 flex flex-col justify-between min-h-[100px]">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{declaredLabel}</span>
-                                            <p className="text-xl font-black italic tracking-tighter text-slate-900 dark:text-white mt-2">
-                                                ₱{declaredValue.toLocaleString()}
-                                            </p>
-                                        </div>
-                                        {/* Payment Mode */}
-                                        <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/10 flex flex-col justify-between min-h-[100px]">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">PAYMENT MODE</span>
-                                            <p className="text-xl font-black italic tracking-tighter text-slate-900 dark:text-white uppercase mt-2">
-                                                {paymentType === "—" ? <span className="w-6 h-1.5 bg-slate-400 rounded-sm inline-block" /> : paymentType}
-                                            </p>
-                                        </div>
-                                        {/* Fulfillment */}
-                                        <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/10 flex flex-col justify-between min-h-[100px]">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">FULFILLMENT</span>
-                                            <p className="text-xl font-black italic tracking-tighter text-slate-900 dark:text-white uppercase mt-2">
-                                                {fulfillment === "—" ? <span className="w-6 h-1.5 bg-slate-400 rounded-sm inline-block" /> : fulfillment}
-                                            </p>
-                                        </div>
-                                        {/* Total Amount */}
-                                        <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/10 flex flex-col justify-between min-h-[100px]">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500/80">Total Amount</span>
-                                            <p className="text-xl font-black italic tracking-tighter text-emerald-500 mt-2">
-                                                ₱{totalAmountAssessed.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                            </p>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* FEE ASSESSMENT BREAKDOWN — Accordion */}
-                            <div className="border-t border-slate-100 dark:border-white/5 pt-6">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsBreakdownExpanded(!isBreakdownExpanded)}
-                                    className="flex items-center justify-between w-full text-left focus:outline-none group"
-                                >
-                                    <div>
-                                        <h2 className="text-xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
-                                            Permit <span className="text-primary">Assessment Breakdown</span>
-                                        </h2>
-                                        <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-1">
-                                            Approved and Assessed Fees
-                                        </p>
-                                    </div>
-                                    <div className="text-slate-400 group-hover:text-primary transition-colors">
-                                        <div className="w-9 h-9 rounded-full border border-slate-200 dark:border-white/10 flex items-center justify-center hover:border-primary/40 transition-all">
-                                            {isBreakdownExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                                        </div>
-                                    </div>
-                                </button>
-
-                                {isBreakdownExpanded && (() => {
-                                    const rawFiscal = transaction.fiscalSnapshot;
-                                    const fiscalSnapshot = (typeof rawFiscal === "string" ? JSON.parse(rawFiscal) : rawFiscal) as any || {};
-                                    const isInspectionAssessment = transaction.status === "FOR_PROCESSING";
-                                    const lineItems: any[] = fiscalSnapshot.lineItems || [];
-                                    const defaultFees: any[] = transaction.type?.defaultFees || [];
-                                    const positiveLineItems = lineItems.filter((i: any) => Number(i.amount) > 0);
-                                    const positiveDefaultFees = defaultFees.filter((f: any) => Number(f.amount) > 0);
-                                    const computedItems = [
-                                        { label: "Mayor's Permit Fee", amount: Number(fiscalSnapshot.basicTax) || 0 },
-                                        { label: "Business Tax", amount: Number(fiscalSnapshot.additionalTax) || 0 }
-                                    ].filter(item => item.amount > 0);
-
-                                    // Authoritative total: prefer transaction.totalAmount (always written by server),
-                                    // then fiscalSnapshot.totalAmount, then sum of line items / defaultFees.
-                                    const authTotal =
-                                        Number(transaction.totalAmount) ||
-                                        Number(fiscalSnapshot.totalAmount) ||
-                                        (positiveLineItems.length > 0
-                                            ? positiveLineItems.reduce((a: number, i: any) => a + (Number(i.amount) || 0), 0)
-                                            : (computedItems.length > 0
-                                                ? computedItems.reduce((a: number, item: any) => a + item.amount, 0)
-                                                : positiveDefaultFees.reduce((a: number, f: any) => a + (Number(f.amount) || 0), 0)));
-
-                                    // Determine which set of line items to display
-                                    const displayItems: { label: string; amount: number }[] =
-                                        positiveLineItems.length > 0
-                                            ? positiveLineItems.map((i: any) => ({ label: i.label, amount: Number(i.amount) || 0 }))
-                                            : computedItems.length > 0
-                                                ? computedItems
-                                                : positiveDefaultFees.map((f: any) => ({ label: f.label, amount: Number(f.amount) || 0 }));
-
-                                    if (isInspectionAssessment) {
-                                        const editableTotal = feeItems.reduce((total, item) => total + (Number(item.amount) || 0), 0);
-
-                                        return (
-                                            <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                                <div className="rounded-2xl border border-slate-100 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] p-4 space-y-3">
-                                                    {feeItems.map((item, idx) => (
-                                                        <div key={idx} className="grid grid-cols-12 gap-3 items-end">
-                                                            <div className="col-span-12 md:col-span-7 space-y-1.5">
-                                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                                                    Fee label
-                                                                </Label>
-                                                                <Input
-                                                                    value={item.label}
-                                                                    onChange={(e) => updateFeeItem(idx, "label", e.target.value)}
-                                                                    placeholder="Enter additional fee label"
-                                                                    className="h-11 rounded-xl bg-white dark:bg-[#101725] text-xs font-black"
-                                                                />
-                                                            </div>
-                                                            <div className="col-span-9 md:col-span-4 space-y-1.5">
-                                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                                                    Amount
-                                                                </Label>
-                                                                <Input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    step="0.01"
-                                                                    value={item.amount}
-                                                                    onChange={(e) => updateFeeItem(idx, "amount", e.target.value)}
-                                                                    placeholder="0.00"
-                                                                    className="h-11 rounded-xl bg-white dark:bg-[#101725] text-xs font-black"
-                                                                />
-                                                            </div>
-                                                            <div className="col-span-3 md:col-span-1">
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="outline"
-                                                                    size="icon"
-                                                                    onClick={() => removeFeeItem(idx)}
-                                                                    className="h-11 w-full rounded-xl border-slate-200 dark:border-white/10 text-slate-400 hover:text-red-500 hover:border-red-200"
-                                                                    title="Remove fee"
-                                                                >
-                                                                    <Trash2 className="w-4 h-4" />
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        onClick={addFeeItem}
-                                                        className="w-full h-11 rounded-xl border-dashed border-slate-300 dark:border-white/15 text-xs font-black uppercase tracking-wider"
-                                                    >
-                                                        <Plus className="w-4 h-4 mr-2" />
-                                                        Add Additional Fee
-                                                    </Button>
-                                                </div>
-
-                                                <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-white/10 text-base font-black text-primary italic">
-                                                    <span>Total Amount</span>
-                                                    <span>₱{editableTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-
-                                    return (
-                                        <div className="mt-6 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                                            {displayItems.map((item, idx) => (
-                                                <div key={idx} className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
-                                                    <span>{item.label}</span>
-                                                    <span className="dark:text-slate-200">₱{item.amount.toFixed(2)}</span>
-                                                </div>
-                                            ))}
-
-                                            {Number(fiscalSnapshot.deliveryFee) > 0 && (
-                                                <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-white/5 text-sm font-bold text-slate-600 dark:text-slate-400 italic">
-                                                    <span>Delivery Fee</span>
-                                                    <span className="dark:text-slate-200">₱{Number(fiscalSnapshot.deliveryFee).toFixed(2)}</span>
-                                                </div>
-                                            )}
-
-                                            <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-white/10 text-base font-black text-primary italic">
-                                                <span>Total Amount Assessed</span>
-                                                <span>₱{authTotal.toFixed(2)}</span>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-                            </div>
-                        </div>
-                    )}
-
-
 
                     {/* BUSINESS RECORD ACCORDION */}
                     <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-10 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 animate-in fade-in duration-300">
@@ -929,39 +884,121 @@ export default function BploDetailPage({ params }: PageProps) {
                                             {additional?.businessBarangay || additional?.barangay || resident?.barangay || "--"}
                                         </div>
                                     </div>
-
                                     <div className="col-span-12 md:col-span-6 space-y-2">
-                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Line of Business</label>
-                                        <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
-                                            {additional?.lineOfBusiness || "General"}
-                                        </div>
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Line of Business / Classification</label>
+                                        {canEditRecord ? (
+                                            <select
+                                                value={evalLineOfBusiness}
+                                                onChange={(e) => setEvalLineOfBusiness(e.target.value)}
+                                                className="w-full h-12 px-4 rounded-xl border border-slate-100 dark:border-white/10 bg-[#f8fafd] dark:bg-white/5 text-sm font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+                                            >
+                                                <option value="Manufacturers/Importers/Producers" className="text-slate-900 dark:text-white bg-white dark:bg-[#121824]">Manufacturers/Producers</option>
+                                                <option value="Banks (Universal)" className="text-slate-900 dark:text-white bg-white dark:bg-[#121824]">Banks (Universal)</option>
+                                                <option value="Banks (Commercial/Development)" className="text-slate-900 dark:text-white bg-white dark:bg-[#121824]">Banks (Commercial)</option>
+                                                <option value="Banks (Rural/Thrift/Savings)" className="text-slate-900 dark:text-white bg-white dark:bg-[#121824]">Banks (Rural/Thrift/Savings)</option>
+                                                <option value="Other Financial Institutions" className="text-slate-900 dark:text-white bg-white dark:bg-[#121824]">Other Financial Institutions</option>
+                                                <option value="Contractors/Service Establishments" className="text-slate-900 dark:text-white bg-white dark:bg-[#121824]">Contractors/Service</option>
+                                                <option value="Wholesalers/Retailers/Dealers" className="text-slate-900 dark:text-white bg-white dark:bg-[#121824]">Wholesalers/Retailers/Dealers</option>
+                                                <option value="Other Businesses" className="text-slate-900 dark:text-white bg-white dark:bg-[#121824]">Other Businesses</option>
+                                            </select>
+                                        ) : (
+                                            <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
+                                                {additional?.lineOfBusiness || "General"}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="col-span-12 md:col-span-6 space-y-2">
                                         <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
-                                            {isRenewal ? "Existing Permit License" : "Registration / Permit No."}
+                                            Total Business Assets
                                         </label>
-                                        <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-primary truncate">
-                                            {transaction.businessPermit?.permitNumber || additional?.existingPermitNumber || additional?.permitNumber || additional?.dtiSecNumber || "--"}
-                                        </div>
+                                        {canEditRecord ? (
+                                            <div className="relative">
+                                                <Input
+                                                    type="number"
+                                                    value={evalAssets || ""}
+                                                    onChange={(e) => setEvalAssets(Number(e.target.value) || 0)}
+                                                    className="h-12 px-5 pl-8 rounded-xl bg-[#f8fafd] dark:bg-[#101725] border border-slate-100 dark:border-white/10 font-bold text-sm text-slate-800 dark:text-slate-100 focus-visible:ring-primary"
+                                                />
+                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₱</span>
+                                            </div>
+                                        ) : (
+                                            <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
+                                                ₱{(Number(additional?.assets) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="col-span-12 md:col-span-4 space-y-2">
                                         <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Employee Count</label>
-                                        <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
-                                            {additional?.employeeCount ?? "0"}
-                                        </div>
+                                        {canEditRecord ? (
+                                            <Input
+                                                type="number"
+                                                value={evalEmployees || ""}
+                                                onChange={(e) => setEvalEmployees(Number(e.target.value) || 0)}
+                                                className="h-12 px-5 rounded-xl bg-[#f8fafd] dark:bg-[#101725] border border-slate-100 dark:border-white/10 font-bold text-sm text-slate-800 dark:text-slate-100 focus-visible:ring-primary"
+                                                placeholder="0"
+                                            />
+                                        ) : (
+                                            <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
+                                                {additional?.employeeCount ?? "0"}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="col-span-12 md:col-span-4 space-y-2">
-                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Store Area</label>
-                                        <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
-                                            {additional?.businessArea ? `${additional.businessArea} sqm` : "0 sqm"}
-                                        </div>
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Store Area (sqm)</label>
+                                        {canEditRecord ? (
+                                            <Input
+                                                type="number"
+                                                value={evalFloorArea || ""}
+                                                onChange={(e) => setEvalFloorArea(Number(e.target.value) || 0)}
+                                                className="h-12 px-5 rounded-xl bg-[#f8fafd] dark:bg-[#101725] border border-slate-100 dark:border-white/10 font-bold text-sm text-slate-800 dark:text-slate-100 focus-visible:ring-primary"
+                                                placeholder="0"
+                                            />
+                                        ) : (
+                                            <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
+                                                {additional?.businessArea ? `${additional.businessArea} sqm` : "0 sqm"}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="col-span-12 md:col-span-4 space-y-2">
-                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Capital / Declared Gross</label>
-                                        <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-black text-sm text-primary">
-                                            ₱{Number(additional?.grossSales || additional?.capitalInvestment || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                        </div>
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
+                                            {evalType === "NEW" ? "Capitalization" : "Declared Gross Sales"}
+                                        </label>
+                                        {canEditRecord ? (
+                                            <div className="relative">
+                                                <Input
+                                                    type="number"
+                                                    value={evalType === "NEW" ? (evalCapitalization || "") : (evalGrossSales || "")}
+                                                    onChange={(e) => {
+                                                        const val = Number(e.target.value) || 0;
+                                                        if (evalType === "NEW") setEvalCapitalization(val);
+                                                        else setEvalGrossSales(val);
+                                                    }}
+                                                    className="h-12 px-5 pl-8 rounded-xl bg-[#f8fafd] dark:bg-[#101725] border border-slate-100 dark:border-white/10 font-bold text-sm text-slate-800 dark:text-slate-100 focus-visible:ring-primary"
+                                                />
+                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₱</span>
+                                            </div>
+                                        ) : (
+                                            <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-black text-sm text-primary">
+                                                ₱{Number(additional?.grossSales || additional?.capitalInvestment || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="col-span-12 md:col-span-4 space-y-2">
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Health Cards Needed</label>
+                                        {canEditRecord ? (
+                                            <Input
+                                                type="number"
+                                                value={evalHealthCards || ""}
+                                                onChange={(e) => setEvalHealthCards(Number(e.target.value) || 0)}
+                                                className="h-12 px-5 rounded-xl bg-[#f8fafd] dark:bg-[#101725] border border-slate-100 dark:border-white/10 font-bold text-sm text-slate-800 dark:text-slate-100 focus-visible:ring-primary"
+                                                placeholder="0"
+                                            />
+                                        ) : (
+                                            <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
+                                                {additional?.healthCardCount ?? "0"}
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="col-span-12 md:col-span-4 space-y-2">
@@ -1002,26 +1039,169 @@ export default function BploDetailPage({ params }: PageProps) {
                                         </div>
                                     </div>
 
-                                    {additional?.businessType === "NEW" && (
-                                        <>
-                                            <div className="col-span-12 md:col-span-6 space-y-2">
-                                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">{additional?.registrationType || "DTI"} Registration Number</label>
-                                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-primary truncate">
-                                                    {additional?.dtiSecNumber || "--"}
-                                                </div>
+                                    <div className="col-span-12 md:col-span-4 space-y-2">
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">{additional?.registrationType || "DTI"} Registration Number</label>
+                                        <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
+                                            {additional?.dtiSecNumber || "--"}
+                                        </div>
+                                    </div>
+                                    <div className="col-span-12 md:col-span-4 space-y-2">
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">{additional?.registrationType || "DTI"} Registration Date</label>
+                                        <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
+                                            {additional?.dtiSecDate || "--"}
+                                        </div>
+                                    </div>
+
+                                    {additional?.businessType !== "NEW" && (
+                                        <div className="col-span-12 md:col-span-4 space-y-2">
+                                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Existing Permit License No.</label>
+                                            <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-primary truncate">
+                                                {additional?.permitNumber || "--"}
                                             </div>
-                                            <div className="col-span-12 md:col-span-6 space-y-2">
-                                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">{additional?.registrationType || "DTI"} Registration Date</label>
-                                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
-                                                    {additional?.dtiSecDate || "--"}
-                                                </div>
-                                            </div>
-                                        </>
+                                        </div>
                                     )}
                                 </div>
                             </div>
                         )}
                     </div>
+
+                    {/* METRICS + BREAKDOWN CARD */}
+                    {transaction.status !== "FOR_REQUESTING" && (
+                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
+                            {/* TOP METRICS — 4-col white/grey grid */}
+                            {(() => {
+                                const declaredValue = Number(additional?.grossSales || additional?.capitalInvestment || 0);
+                                const declaredLabel = additional?.businessType === "NEW" ? "CAPITAL" : "DECLARED GROSS";
+                                const paymentType = transaction.paymentType?.replace(/_/g, " ") || "—";
+                                return (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {/* Declared */}
+                                        <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/10 flex flex-col justify-between min-h-[100px]">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{declaredLabel}</span>
+                                            <p className="text-xl font-black italic tracking-tighter text-slate-900 dark:text-white mt-2">
+                                                ₱{declaredValue.toLocaleString()}
+                                            </p>
+                                        </div>
+                                        {/* Payment Mode */}
+                                        <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/10 flex flex-col justify-between min-h-[100px]">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">PAYMENT MODE</span>
+                                            <p className="text-xl font-black italic tracking-tighter text-slate-900 dark:text-white uppercase mt-2">
+                                                {paymentType === "—" ? <span className="w-6 h-1.5 bg-slate-400 rounded-sm inline-block" /> : paymentType}
+                                            </p>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* FEE ASSESSMENT BREAKDOWN — Accordion */}
+                            <div className="border-t border-slate-100 dark:border-white/5 pt-6">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsBreakdownExpanded(!isBreakdownExpanded)}
+                                    className="flex items-center justify-between w-full text-left focus:outline-none group"
+                                >
+                                    <div>
+                                        <h2 className="text-xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
+                                            Permit <span className="text-primary">Assessment Breakdown</span>
+                                        </h2>
+                                        <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-1">
+                                            Approved and Assessed Fees
+                                        </p>
+                                    </div>
+                                    <div className="text-slate-400 group-hover:text-primary transition-colors">
+                                        <div className="w-9 h-9 rounded-full border border-slate-200 dark:border-white/10 flex items-center justify-center hover:border-primary/40 transition-all">
+                                            {isBreakdownExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                        </div>
+                                    </div>
+                                </button>
+
+                                {isBreakdownExpanded && (() => {
+                                    const rawFiscal = transaction.fiscalSnapshot;
+                                    const fiscalSnapshot = (typeof rawFiscal === "string" ? JSON.parse(rawFiscal) : rawFiscal) as any || {};
+                                    const isInspectionAssessment = transaction.status === "FOR_INSPECTION";
+                                    const lineItems: any[] = fiscalSnapshot.lineItems || [];
+                                    const defaultFees: any[] = transaction.type?.defaultFees || [];
+                                    const positiveLineItems = lineItems.filter((i: any) => Number(i.amount) > 0);
+                                    const positiveDefaultFees = defaultFees.filter((f: any) => Number(f.amount) > 0);
+                                    const computedItems = [
+                                        { label: "Mayor's Permit Fee", amount: Number(fiscalSnapshot.basicTax) || 0 },
+                                        { label: "Business Tax", amount: Number(fiscalSnapshot.additionalTax) || 0 }
+                                    ].filter(item => item.amount > 0);
+
+                                    // Authoritative total: prefer transaction.totalAmount (always written by server),
+                                    // then fiscalSnapshot.totalAmount, then sum of line items / defaultFees.
+                                    const authTotal =
+                                        Number(transaction.totalAmount) ||
+                                        Number(fiscalSnapshot.totalAmount) ||
+                                        (positiveLineItems.length > 0
+                                            ? positiveLineItems.reduce((a: number, i: any) => a + (Number(i.amount) || 0), 0)
+                                            : (computedItems.length > 0
+                                                ? computedItems.reduce((a: number, item: any) => a + item.amount, 0)
+                                                : positiveDefaultFees.reduce((a: number, f: any) => a + (Number(f.amount) || 0), 0)));
+
+                                    // Determine which set of line items to display
+                                    const displayItems: { label: string; amount: number }[] =
+                                        positiveLineItems.length > 0
+                                            ? positiveLineItems.map((i: any) => ({ label: i.label, amount: Number(i.amount) || 0 }))
+                                            : computedItems.length > 0
+                                                ? computedItems
+                                                : positiveDefaultFees.map((f: any) => ({ label: f.label, amount: Number(f.amount) || 0 }));
+
+                                    if (isInspectionAssessment) {
+
+                                        return (
+                                            <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+
+                                                <div className="rounded-2xl border border-slate-100 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] p-5 space-y-3">
+                                                    <h5 className="text-[10px] font-black uppercase tracking-wider text-slate-400 italic border-b border-slate-100 dark:border-white/5 pb-2">Assessed Fee Schedule</h5>
+                                                    {calculatedFees.map((item, idx) => (
+                                                        <div key={idx} className="flex justify-between items-center text-xs font-bold text-slate-600 dark:text-slate-400 italic">
+                                                            <span>{item.label}</span>
+                                                            <span className="dark:text-slate-200 font-mono font-bold">₱{Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {(() => {
+                                                    const calculatedTotal = calculatedFees.reduce((total, item) => total + (Number(item.amount) || 0), 0);
+                                                    return (
+                                                        <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-white/10 text-base font-black text-primary italic">
+                                                            <span>Total Amount</span>
+                                                            <span>₱{calculatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div className="mt-6 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                                            {displayItems.map((item, idx) => (
+                                                <div key={idx} className="flex justify-between items-center text-sm font-bold text-slate-600 dark:text-slate-400 italic">
+                                                    <span>{item.label}</span>
+                                                    <span className="dark:text-slate-200">₱{item.amount.toFixed(2)}</span>
+                                                </div>
+                                            ))}
+
+                                            {Number(fiscalSnapshot.deliveryFee) > 0 && (
+                                                <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-white/5 text-sm font-bold text-slate-600 dark:text-slate-400 italic">
+                                                    <span>Delivery Fee</span>
+                                                    <span className="dark:text-slate-200">₱{Number(fiscalSnapshot.deliveryFee).toFixed(2)}</span>
+                                                </div>
+                                            )}
+
+                                            <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-white/10 text-base font-black text-primary italic">
+                                                <span>Total Amount Assessed</span>
+                                                <span>₱{authTotal.toFixed(2)}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        </div>
+                    )}
+
 
                     {/* ALL REQUIREMENTS — Accordion */}
                     <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border-slate-50 dark:border-white/5 border animate-in fade-in duration-300">

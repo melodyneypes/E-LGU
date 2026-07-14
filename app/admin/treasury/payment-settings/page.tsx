@@ -1,10 +1,8 @@
 import React from "react";
 import PaymentSettingsClient from "@/app/admin/treasury/payment-settings/PaymentSettingsClient";
 import { Metadata } from "next";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 export const metadata: Metadata = {
     title: "Payment Settings | Mapandan Portal",
@@ -12,13 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default async function PaymentSettingsPage() {
-    const session = await getServerSession(authOptions);
-    const role = (session?.user as any)?.role;
-
-    // Restricted to Treasury, Admin, and Admin Aide
-    if (role !== "TREASURY_STAFF" && role !== "ADMIN" && role !== "ADMIN_AIDE") {
-        redirect("/admin/dashboard");
-    }
+    notFound();
 
     // Fetch Treasury Settings for the configuration form
     const settingsList = await prisma.systemSetting.findMany({

@@ -16,7 +16,8 @@ import {
     Eye,
     Building2,
     ChevronDown,
-    X
+    X,
+    HelpCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -37,6 +38,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { submitBusinessAppointment } from "./actions";
+import { calculateBusinessPermit } from "@/lib/business-permit";
 
 
 function FilePreview({ file, onClick }: { file: File; onClick?: () => void }) {
@@ -115,16 +117,16 @@ const MAPANDAN_BARANGAYS = [
 ];
 
 const LINE_OF_BUSINESS_OPTIONS = [
-    "Agriculture & Forestry",
-    "Manufacturing",
-    "Wholesale & Retail",
-    "Food & Beverage Services",
-    "IT & Computer Services",
-    "Construction",
-    "Real Estate",
-    "Transportation & Storage",
-    "Healthcare & Social",
-    "Education"
+    "Retail Store",
+    "Wholesaler / Distributor",
+    "Eatery / Restaurant / Food Service",
+    "Services / Contractors",
+    "Banking / Financial Institution",
+    "Manufacturers / Producers",
+    "Agriculture / Farming / Fishery",
+    "Amusement / Recreation",
+    "Real Estate / Rental",
+    "Others / General Services"
 ];
 
 type Step = "PATHWAY" | "PROFILE" | "SCHEDULE" | "CHECKLIST" | "SUBMIT" | "SUCCESS";
@@ -167,6 +169,7 @@ interface BusinessPermitAppointmentClientProps {
     hasActiveNew: boolean;
     hasActiveRenew: boolean;
     previousPermits: any[];
+    bploSettings: Record<string, string>;
 }
 
 export function BusinessPermitAppointmentClient({
@@ -177,7 +180,8 @@ export function BusinessPermitAppointmentClient({
     bookedSlots,
     hasActiveNew,
     hasActiveRenew,
-    previousPermits
+    previousPermits,
+    bploSettings
 }: BusinessPermitAppointmentClientProps) {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<Step>("PATHWAY");
@@ -190,6 +194,7 @@ export function BusinessPermitAppointmentClient({
     const [selectedPermitIndex, setSelectedPermitIndex] = useState(0);
 
     const [isOtherLine, setIsOtherLine] = useState(false);
+    const [isGuideOpen, setIsGuideOpen] = useState(false);
 
     // Form State matching the online filing form
     const [formState, setFormState] = useState({
@@ -212,7 +217,9 @@ export function BusinessPermitAppointmentClient({
         sssNumber: "",
         businessBranch: "MAIN",
         registrationType: "DTI",
-        dtiSecDate: ""
+        dtiSecDate: "",
+        assets: "",
+        healthCardCount: "0"
     });
 
     const [residentState] = useState({
@@ -421,7 +428,7 @@ export function BusinessPermitAppointmentClient({
         if (step === "PROFILE") {
             const hasCapital = businessType === "NEW" ? !!formState.capitalInvestment : !!formState.grossSales;
             const hasRegistration = businessType === "NEW" ? (!!formState.registrationType && !!formState.dtiSecNumber && !!formState.dtiSecDate) : !!formState.permitNumber;
-            return !!formState.businessName && !!formState.lineOfBusiness && !!formState.barangay && hasCapital && !!formState.businessBranch && !!formState.tinNumber && hasRegistration;
+            return !!formState.businessName && !!formState.lineOfBusiness && !!formState.barangay && hasCapital && !!formState.businessBranch && !!formState.tinNumber && hasRegistration && !!formState.assets;
         }
         if (step === "CHECKLIST") {
             return true;
@@ -484,6 +491,8 @@ export function BusinessPermitAppointmentClient({
                 isPriorityLane,
                 capitalInvestment: parseFloat(formState.capitalInvestment.replace(/,/g, "")) || 0,
                 grossSales: parseFloat(formState.grossSales.replace(/,/g, "")) || 0,
+                assets: parseFloat(formState.assets.replace(/,/g, "")) || 0,
+                healthCardCount: parseInt(formState.healthCardCount, 10) || 0,
             };
             formDataPayload.append("additionalData", JSON.stringify(addData));
 
@@ -706,9 +715,19 @@ export function BusinessPermitAppointmentClient({
                                 exit={{ opacity: 0, y: -15 }}
                                 className="space-y-8"
                             >
-                                <div className="border-b border-slate-100 dark:border-white/5 pb-4">
-                                    <h2 className="text-2xl font-black uppercase italic text-slate-900 dark:text-white tracking-tighter">Business Details</h2>
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Provide legal and financial registration metrics</p>
+                                <div className="border-b border-slate-100 dark:border-white/5 pb-4 flex justify-between items-end">
+                                    <div>
+                                        <h2 className="text-2xl font-black uppercase italic text-slate-900 dark:text-white tracking-tighter">Business Details</h2>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Provide legal and financial registration metrics</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsGuideOpen(true)}
+                                        className="text-slate-400 hover:text-primary transition-colors flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest italic select-none"
+                                    >
+                                        <HelpCircle className="w-4 h-4 text-primary" style={{ color: themeColor }} />
+                                        Fee Guide
+                                    </button>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -862,6 +881,21 @@ export function BusinessPermitAppointmentClient({
                                     </div>
 
                                     <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Number of Health Card Applications</Label>
+                                        <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold italic -mt-1 leading-normal">
+                                            Required for all food-handling, hospitality, and medical personnel.
+                                        </p>
+                                        <Input
+                                            type="number"
+                                            value={formState.healthCardCount}
+                                            onChange={e => handleInputChange("healthCardCount", e.target.value)}
+                                            min="0"
+                                            placeholder="e.g. 5"
+                                            className="rounded-xl h-12 border-slate-200"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
                                         <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Store Area (in Sqm)</Label>
                                         <Input
                                             type="number"
@@ -869,6 +903,23 @@ export function BusinessPermitAppointmentClient({
                                             onChange={e => handleInputChange("businessArea", e.target.value)}
                                             placeholder="e.g. 120"
                                             className="rounded-xl h-12 border-slate-200"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2 relative">
+                                        <Label className="text-[10px] font-black uppercase tracking-wider text-slate-500 italic">Total Business Assets (₱) <span className="text-rose-500 ml-0.5">*</span></Label>
+                                        <Input
+                                            type="text"
+                                            value={formState.assets}
+                                            onChange={e => {
+                                                const cleanVal = e.target.value.replace(/[^0-9.,]/g, "");
+                                                handleInputChange("assets", cleanVal);
+                                            }}
+                                            placeholder="e.g. 1,500,000"
+                                            className={cn(
+                                                "rounded-xl h-12 border-slate-200 font-mono font-bold",
+                                                showValidationErrors && !formState.assets && "border-red-500 focus-visible:ring-red-500/20 dark:border-red-500/50"
+                                            )}
                                         />
                                     </div>
 
@@ -1264,117 +1315,192 @@ export function BusinessPermitAppointmentClient({
                         </motion.div>
                     )}
 
-                    {/* STEP 6: SUBMIT */}
-                    {currentStep === "SUBMIT" && (
-                        <motion.div
-                            key="submit-step"
-                            initial={{ opacity: 0, y: 15 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -15 }}
-                            className="space-y-8"
-                        >
-                            <div className="space-y-1">
-                                <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-800 dark:text-white">Review Appointment Parameters</h3>
-                                <p className="text-[10px] text-slate-400 italic">Verify all information before submitting to the queue.</p>
-                            </div>
+                                    {/* STEP 6: SUBMIT */}
+                    {currentStep === "SUBMIT" && (() => {
+                        const parsedCapital = parseFloat(formState.capitalInvestment.replace(/,/g, "")) || 0;
+                        const parsedGross = parseFloat(formState.grossSales.replace(/,/g, "")) || 0;
+                        const parsedAssets = parseFloat(formState.assets.replace(/,/g, "")) || 0;
+                        const parsedWorkforce = parseInt(formState.employeeCount, 10) || 0;
+                        const parsedArea = parseFloat(formState.businessArea) || 0;
+                        const parsedHealth = parseInt(formState.healthCardCount, 10) || 0;
 
-                            <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-100 dark:border-white/5 p-6 rounded-2xl space-y-4 text-xs leading-relaxed">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Filing Route</span>
-                                        <p className="font-black uppercase text-slate-900 dark:text-white">{businessType === "NEW" ? "New Business Registration" : "License Renewal"}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Selected Date</span>
-                                        <p className="font-black text-slate-900 dark:text-white">{selectedDate}</p>
-                                    </div>
-                                    <div className="space-y-1 col-span-1 sm:col-span-2">
-                                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Selected Slot</span>
-                                        <p className="font-black text-slate-900 dark:text-white">{selectedSlot}</p>
-                                    </div>
-                                </div>
-                            </div>
+                        const assessment = calculateBusinessPermit({
+                            type: businessType,
+                            capitalization: parsedCapital,
+                            grossSales: parsedGross,
+                            assets: parsedAssets,
+                            workforceCount: parsedWorkforce,
+                            lineOfBusiness: formState.lineOfBusiness,
+                            floorArea: parsedArea,
+                            healthCardCount: parsedHealth,
+                            settings: bploSettings
+                        });
 
-                            {/* Priority Lane Option */}
-                            <div
-                                onClick={() => setIsPriorityLane(!isPriorityLane)}
-                                className={cn(
-                                    "p-5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-4 select-none",
-                                    isPriorityLane ? "bg-primary/5 border-primary shadow-sm" : "bg-slate-50 dark:bg-white/[0.02] border-transparent hover:border-primary/20"
-                                )}
-                                style={isPriorityLane ? { borderColor: themeColor, backgroundColor: `${themeColor}0a` } : {}}
+                        return (
+                            <motion.div
+                                key="submit-step"
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                className="space-y-8"
                             >
-                                <div className={cn(
-                                    "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
-                                    isPriorityLane ? "bg-primary border-primary text-white" : "border-slate-300 dark:border-white/10"
-                                )} style={isPriorityLane ? { backgroundColor: themeColor, borderColor: themeColor } : {}}>
-                                    {isPriorityLane && <Check className="w-3.5 h-3.5" />}
+                                <div className="space-y-1">
+                                    <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-800 dark:text-white">Review Appointment Parameters & Assessment</h3>
+                                    <p className="text-[10px] text-slate-400 italic">Verify all information and estimated fees before submitting.</p>
                                 </div>
-                                <div className="space-y-1 text-left">
-                                    <p className="text-xs font-black italic uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-                                        ♿ REQUEST PRIORITY LANE SERVICE
-                                    </p>
-                                    <p className="text-[8px] md:text-[10px] text-slate-400 font-bold leading-relaxed italic uppercase tracking-widest">
-                                        CHECK THIS IF YOU ARE A SENIOR CITIZEN, PWD, OR PREGNANT APPLICANT.
-                                    </p>
-                                    <p className="text-[9px] font-bold text-amber-500 dark:text-amber-500/90 leading-relaxed uppercase tracking-wider mt-2">
-                                        ⚠️ WARNING: YOU MUST PRESENT A VALID PRIORITY ID OR PROOF OF ENTITLEMENT AT THE COUNTER. FAILURE TO PRODUCE VALID VERIFICATION WILL RESULT IN THE IMMEDIATE DISAPPROVAL OF YOUR PRIORITY QUEUE STATUS, AND YOU WILL BE REQUIRED TO BOOK A NEW APPOINTMENT ON ANOTHER DAY.
-                                    </p>
-                                </div>
-                            </div>
 
-                            {/* Privacy Policy Checklist */}
-                            <div
-                                onClick={() => {
-                                    if (privacyAccepted) {
-                                        setPrivacyAccepted(false);
-                                    } else {
-                                        setIsPrivacyModalOpen(true);
-                                    }
-                                }}
-                                className={cn(
-                                    "p-5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-4 select-none",
-                                    privacyAccepted ? "bg-primary/5 border-primary shadow-sm" : "bg-slate-50 dark:bg-white/[0.02] border-transparent hover:border-primary/20"
-                                )}
-                                style={privacyAccepted ? { borderColor: themeColor, backgroundColor: `${themeColor}0a` } : {}}
-                            >
-                                <div className={cn(
-                                    "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
-                                    privacyAccepted ? "bg-primary border-primary text-white" : "border-slate-300 dark:border-white/10"
-                                )} style={privacyAccepted ? { backgroundColor: themeColor, borderColor: themeColor } : {}}>
-                                    {privacyAccepted && <Check className="w-3.5 h-3.5" />}
-                                </div>
-                                <div className="space-y-1 text-left">
-                                    <p className="text-xs font-black italic uppercase tracking-tight text-slate-900 dark:text-white">DATA PRIVACY AND TERMS AGREEMENT</p>
-                                    <p className="text-[8px] md:text-[10px] text-slate-500 font-medium leading-relaxed italic uppercase tracking-widest">
-                                        I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. I CONFIRM ALL INFO IS TRUE AND CORRECT. CLICK TO REVIEW AGREEMENT.
-                                    </p>
-                                </div>
-                            </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Appointment Summary */}
+                                    <div className="bg-slate-50 dark:bg-white/[0.01] border border-slate-100 dark:border-white/5 p-6 rounded-2xl space-y-4 text-xs leading-relaxed">
+                                        <div className="border-b border-slate-200/50 dark:border-white/5 pb-2">
+                                            <h4 className="font-black uppercase tracking-wider text-[10px] text-primary" style={{ color: themeColor }}>Appointment Summary</h4>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-4">
+                                            <div className="space-y-1">
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Filing Route</span>
+                                                <p className="font-black uppercase text-slate-900 dark:text-white">{businessType === "NEW" ? "New Business Registration" : "License Renewal"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Selected Date</span>
+                                                <p className="font-black text-slate-900 dark:text-white">{selectedDate}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Selected Slot</span>
+                                                <p className="font-black text-slate-900 dark:text-white">{selectedSlot}</p>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-white/5">
-                                <Button variant="outline" onClick={handleBack} disabled={submitting} className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                    Back
-                                </Button>
-                                <Button
-                                    onClick={handleSubmit}
-                                    disabled={submitting || !privacyAccepted}
-                                    className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-white italic shadow-md gap-2"
-                                    style={{ backgroundColor: themeColor }}
-                                >
-                                    {submitting ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
-                                        </>
-                                    ) : (
-                                        <>
-                                            Submit Appointment <Check className="w-4 h-4" />
-                                        </>
+                                    {/* Fee Assessment Breakdown */}
+                                    <div className="bg-slate-950 text-white dark:bg-black/40 border border-slate-800 dark:border-white/5 p-6 rounded-2xl space-y-4 text-xs leading-relaxed shadow-lg">
+                                        <div className="border-b border-white/10 pb-2 flex justify-between items-center">
+                                            <div className="flex items-center gap-1.5">
+                                                <h4 className="font-black uppercase tracking-wider text-[10px] text-primary" style={{ color: themeColor }}>Estimated Assessment Bill</h4>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsGuideOpen(true)}
+                                                    className="text-slate-400 hover:text-white transition-colors select-none"
+                                                    title="View Assessment Guide"
+                                                >
+                                                    <HelpCircle className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                            <span className="text-[8px] font-black uppercase tracking-widest bg-white/10 px-2 py-0.5 rounded text-white/90">
+                                                Scale: {assessment.classificationSize}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-2.5">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Mayor&apos;s Permit Fee</span>
+                                                <span className="font-mono font-bold">₱{assessment.baseFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Graded Business Tax</span>
+                                                <span className="font-mono font-bold">₱{assessment.taxAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Sanitary Inspection Fee</span>
+                                                <span className="font-mono font-bold">₱{assessment.sanitaryInspectionFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Garbage Collection Fee</span>
+                                                <span className="font-mono font-bold">₱{assessment.garbageFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8.5px]">Health Certificate Fee</span>
+                                                <span className="font-mono font-bold">₱{assessment.healthCertificateFee.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <div className="border-t border-white/10 pt-2.5 mt-1.5 flex justify-between items-center">
+                                                <span className="font-black uppercase tracking-widest text-[9px]" style={{ color: themeColor }}>Total Assessed Amount</span>
+                                                <span className="font-mono font-black text-sm" style={{ color: themeColor }}>
+                                                    ₱{assessment.totalAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Priority Lane Option */}
+                                <div
+                                    onClick={() => setIsPriorityLane(!isPriorityLane)}
+                                    className={cn(
+                                        "p-5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-4 select-none",
+                                        isPriorityLane ? "bg-primary/5 border-primary shadow-sm" : "bg-slate-50 dark:bg-white/[0.02] border-transparent hover:border-primary/20"
                                     )}
-                                </Button>
-                            </div>
-                        </motion.div>
-                    )}
+                                    style={isPriorityLane ? { borderColor: themeColor, backgroundColor: `${themeColor}0a` } : {}}
+                                >
+                                    <div className={cn(
+                                        "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
+                                        isPriorityLane ? "bg-primary border-primary text-white" : "border-slate-300 dark:border-white/10"
+                                    )} style={isPriorityLane ? { backgroundColor: themeColor, borderColor: themeColor } : {}}>
+                                        {isPriorityLane && <Check className="w-3.5 h-3.5" />}
+                                    </div>
+                                    <div className="space-y-1 text-left">
+                                        <p className="text-xs font-black italic uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+                                            ♿ REQUEST PRIORITY LANE SERVICE
+                                        </p>
+                                        <p className="text-[8px] md:text-[10px] text-slate-400 font-bold leading-relaxed italic uppercase tracking-widest">
+                                            CHECK THIS IF YOU ARE A SENIOR CITIZEN, PWD, OR PREGNANT APPLICANT.
+                                        </p>
+                                        <p className="text-[9px] font-bold text-amber-500 dark:text-amber-500/90 leading-relaxed uppercase tracking-wider mt-2">
+                                            ⚠️ WARNING: YOU MUST PRESENT A VALID PRIORITY ID OR PROOF OF ENTITLEMENT AT THE COUNTER. FAILURE TO PRODUCE VALID VERIFICATION WILL RESULT IN THE IMMEDIATE DISAPPROVAL OF YOUR PRIORITY QUEUE STATUS, AND YOU WILL BE REQUIRED TO BOOK A NEW APPOINTMENT ON ANOTHER DAY.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Privacy Policy Checklist */}
+                                <div
+                                    onClick={() => {
+                                        if (privacyAccepted) {
+                                            setPrivacyAccepted(false);
+                                        } else {
+                                            setIsPrivacyModalOpen(true);
+                                        }
+                                    }}
+                                    className={cn(
+                                        "p-5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-4 select-none",
+                                        privacyAccepted ? "bg-primary/5 border-primary shadow-sm" : "bg-slate-50 dark:bg-white/[0.02] border-transparent hover:border-primary/20"
+                                    )}
+                                    style={privacyAccepted ? { borderColor: themeColor, backgroundColor: `${themeColor}0a` } : {}}
+                                >
+                                    <div className={cn(
+                                        "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
+                                        privacyAccepted ? "bg-primary border-primary text-white" : "border-slate-300 dark:border-white/10"
+                                    )} style={privacyAccepted ? { backgroundColor: themeColor, borderColor: themeColor } : {}}>
+                                        {privacyAccepted && <Check className="w-3.5 h-3.5" />}
+                                    </div>
+                                    <div className="space-y-1 text-left">
+                                        <p className="text-xs font-black italic uppercase tracking-tight text-slate-900 dark:text-white">DATA PRIVACY AND TERMS AGREEMENT</p>
+                                        <p className="text-[8px] md:text-[10px] text-slate-500 font-medium leading-relaxed italic uppercase tracking-widest">
+                                            I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. I CONFIRM ALL INFO IS TRUE AND CORRECT. CLICK TO REVIEW AGREEMENT.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-white/5">
+                                    <Button variant="outline" onClick={handleBack} disabled={submitting} className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                        Back
+                                    </Button>
+                                    <Button
+                                        onClick={handleSubmit}
+                                        disabled={submitting || !privacyAccepted}
+                                        className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-white italic shadow-md gap-2"
+                                        style={{ backgroundColor: themeColor }}
+                                    >
+                                        {submitting ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
+                                            </>
+                                        ) : (
+                                            <>
+                                                Submit Appointment <Check className="w-4 h-4" />
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            </motion.div>
+                        );
+                    })()}
                 </AnimatePresence>
                 </div>
             </div>
@@ -1531,6 +1657,131 @@ export function BusinessPermitAppointmentClient({
                                     style={{ backgroundColor: themeColor }}
                                 >
                                     Yes, Autofill Details
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* CALCULATIONS GUIDE MODAL */}
+            <AnimatePresence>
+                {isGuideOpen && (
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                        {/* Glass backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsGuideOpen(false)}
+                            className="absolute inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md"
+                        />
+
+                        {/* Modal card */}
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            transition={{ type: "spring", duration: 0.5 }}
+                            className="bg-white dark:bg-[#11131a] rounded-[2rem] border border-slate-200 dark:border-white/10 shadow-2xl p-6 md:p-8 max-w-2xl w-full relative z-10 space-y-6 overflow-hidden max-h-[85vh] flex flex-col"
+                        >
+                            {/* Decorative background gradient */}
+                            <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+
+                            <div className="flex items-start justify-between border-b border-slate-100 dark:border-white/5 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-3 bg-primary/10 rounded-2xl text-primary shrink-0" style={{ color: themeColor, backgroundColor: `${themeColor}1a` }}>
+                                        <Building2 className="w-6 h-6" />
+                                    </div>
+                                    <div className="space-y-0.5 text-left">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-primary italic" style={{ color: themeColor }}>Reference Guide</span>
+                                        <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
+                                            Assessment Calculation Guide
+                                        </h3>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setIsGuideOpen(false)}
+                                    className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto pr-1 space-y-6 text-left text-xs leading-relaxed text-slate-600 dark:text-slate-300 custom-scrollbar pb-4">
+                                <div className="space-y-2">
+                                    <h4 className="font-black uppercase tracking-wider text-[10px] text-primary" style={{ color: themeColor }}>1. Business Size Classification</h4>
+                                    <p className="font-medium text-slate-500 dark:text-slate-400">The municipal system automatically classifies business scale by comparing both declared **Assets** and **Workforce Size (Employee Count)**, choosing whichever results in the higher size classification tier:</p>
+                                    <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-white/[0.02] p-3.5 rounded-xl border border-slate-100 dark:border-white/5 font-mono text-[9px] font-bold">
+                                        <div>
+                                            <span className="text-slate-400 block mb-1">ASSET SCALE</span>
+                                            <span className="block text-slate-700 dark:text-slate-200">• Micro: &lt; ₱500k</span>
+                                            <span className="block text-slate-700 dark:text-slate-200">• Small: ₱500k to ₱5M</span>
+                                            <span className="block text-slate-700 dark:text-slate-200">• Medium: ₱5M to ₱20M</span>
+                                            <span className="block text-slate-700 dark:text-slate-200">• Large: &gt; ₱20M</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 block mb-1">WORKFORCE SCALE</span>
+                                            <span className="block text-slate-700 dark:text-slate-200">• Micro: 1 to 10 workers</span>
+                                            <span className="block text-slate-700 dark:text-slate-200">• Small: 11 to 99 workers</span>
+                                            <span className="block text-slate-700 dark:text-slate-200">• Medium: 100 to 199 workers</span>
+                                            <span className="block text-slate-700 dark:text-slate-200">• Large: &gt;= 200 workers</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h4 className="font-black uppercase tracking-wider text-[10px] text-primary" style={{ color: themeColor }}>2. Mayor&apos;s Permit Fee</h4>
+                                    <p className="font-medium text-slate-500 dark:text-slate-400">The base license permit fee is looked up in the municipal schedule according to the business line and classification size. For example:</p>
+                                    <ul className="list-disc list-inside space-y-1 pl-1.5 text-slate-500 dark:text-slate-400">
+                                        <li><strong className="text-slate-700 dark:text-slate-200">Contractors / Service / Wholesalers / Retailers:</strong> ranges from ₱500.00 (Micro) up to ₱1,600.00 (Large).</li>
+                                        <li><strong className="text-slate-700 dark:text-slate-200">Manufacturers / Producers:</strong> ranges from ₱400.00 (Micro) up to ₱2,100.00 (Large).</li>
+                                        <li><strong className="text-slate-700 dark:text-slate-200">Financial Institutions:</strong> ranges from ₱1,100.00 (Micro) up to ₱5,100.00 (Large).</li>
+                                    </ul>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h4 className="font-black uppercase tracking-wider text-[10px] text-primary" style={{ color: themeColor }}>3. Graded Business Tax</h4>
+                                    <p className="font-medium text-slate-500 dark:text-slate-400">Tax levied on business operations in Mapandan, calculated based on the pathway type:</p>
+                                    <ul className="list-disc list-inside space-y-1.5 pl-1.5 text-slate-500 dark:text-slate-400">
+                                        <li>
+                                            <strong className="text-slate-700 dark:text-slate-200">Newly-Started Businesses:</strong>
+                                            <p className="pl-5 mt-0.5 font-mono text-[9px] text-slate-600 dark:text-slate-300">Initial Tax = Declared Capitalization × 1% × 0.05 (0.05% of investment)</p>
+                                        </li>
+                                        <li>
+                                            <strong className="text-slate-700 dark:text-slate-200">Renewing Businesses:</strong>
+                                            <p className="pl-5 mt-0.5">Calculated using graduated tax brackets corresponding to the preceding calendar year&apos;s declared gross sales (Retailers pay 2.2% if gross is &lt;= ₱400k, and 1.1% if gross is &gt; ₱400k).</p>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h4 className="font-black uppercase tracking-wider text-[10px] text-primary" style={{ color: themeColor }}>4. Automatically Appended Surcharges</h4>
+                                    <ul className="list-disc list-inside space-y-2 pl-1.5 text-slate-500 dark:text-slate-400">
+                                        <li>
+                                            <strong className="text-slate-700 dark:text-slate-200">Annual Sanitary Inspection Fee:</strong>
+                                            <p className="pl-5 mt-0.5">Appended dynamically based on the total floor area (sqm) of the establishment, ranging from ₱100.00 (area between 25 to 50 sqm) up to ₱350.00 (area above 1,000 sqm).</p>
+                                        </li>
+                                        <li>
+                                            <strong className="text-slate-700 dark:text-slate-200">Annual Garbage Collection Fee:</strong>
+                                            <p className="pl-5 mt-0.5">Assessed according to business sector classifications (e.g. Restaurants, Retail Stores, Manufacturers) and floor area limits.</p>
+                                        </li>
+                                        <li>
+                                            <strong className="text-slate-700 dark:text-slate-200">Health Certificate Card:</strong>
+                                            <p className="pl-5 mt-0.5">Flat regulatory fee of ₱100.00 per employee card. Required for workers in food and hospitality establishments.</p>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex justify-end">
+                                <Button
+                                    type="button"
+                                    onClick={() => setIsGuideOpen(false)}
+                                    className="rounded-xl px-6 h-12 font-black uppercase tracking-widest text-[10px] text-white"
+                                    style={{ backgroundColor: themeColor }}
+                                >
+                                    Dismiss Guide
                                 </Button>
                             </div>
                         </motion.div>

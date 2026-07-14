@@ -27,7 +27,16 @@ export async function evaluateBusinessPermitTransaction(
     id: string,
     deliveryFeeOverride?: number,
     adminNotes?: string,
-    bpFeeLineItems?: { label: string; amount: number }[]
+    bpFeeLineItems?: { label: string; amount: number }[],
+    updatedFields?: {
+        lineOfBusiness?: string;
+        assets?: number;
+        employeeCount?: number;
+        businessArea?: number;
+        capitalInvestment?: number;
+        grossSales?: number;
+        healthCardCount?: number;
+    }
 ) {
     try {
         const sanitizedId = sanitizeString(id);
@@ -63,7 +72,23 @@ export async function evaluateBusinessPermitTransaction(
             return { success: false, error: "Forbidden: Admin Aides can only process Business Permits in the inspection phase." };
         }
 
-        const additionalData = transaction.additionalData as any;
+        const additionalData = { ...((transaction.additionalData as any) || {}) };
+
+        if (updatedFields) {
+            if (updatedFields.lineOfBusiness !== undefined) additionalData.lineOfBusiness = updatedFields.lineOfBusiness;
+            if (updatedFields.assets !== undefined) {
+                additionalData.assets = updatedFields.assets;
+                additionalData.totalAssets = updatedFields.assets;
+            }
+            if (updatedFields.employeeCount !== undefined) additionalData.employeeCount = updatedFields.employeeCount;
+            if (updatedFields.businessArea !== undefined) additionalData.businessArea = updatedFields.businessArea;
+            if (updatedFields.capitalInvestment !== undefined) additionalData.capitalInvestment = updatedFields.capitalInvestment;
+            if (updatedFields.grossSales !== undefined) additionalData.grossSales = updatedFields.grossSales;
+            if (updatedFields.healthCardCount !== undefined) {
+                additionalData.healthCardCount = updatedFields.healthCardCount;
+                additionalData.healthCertificateCount = updatedFields.healthCardCount;
+            }
+        }
 
         let dynamicDeliveryFee = transaction.type.deliveryFee;
         if (transaction.fulfillmentType === "DELIVERY" && (transaction.deliveryAddress || (transaction as any).residentSnapshot)) {
@@ -107,20 +132,51 @@ export async function evaluateBusinessPermitTransaction(
         } else {
             const cap = Number(additionalData.capitalInvestment || 0);
             const sales = Number(additionalData.grossSales || 0);
+            const settingsList = await prisma.systemSetting.findMany({
+                where: {
+                    key: {
+                        in: [
+                            "bplo_tax_rate_new",
+                            "bplo_health_card_fee",
+                            "bplo_retail_tax_rate_low",
+                            "bplo_retail_tax_rate_high",
+                            "bplo_manufacturer_tax_rate",
+                            "bplo_wholesaler_tax_rate",
+                            "bplo_mayors_permit_matrix",
+                            "bplo_sanitary_fee_matrix",
+                            "bplo_garbage_fee_matrix"
+                        ]
+                    }
+                }
+            });
+            const settingsMap: Record<string, string> = {};
+            settingsList.forEach(s => {
+                settingsMap[s.key] = s.value;
+            });
+
             const bploCalc = calculateBusinessPermit({
                 type: additionalData.businessType === "NEW" ? "NEW" : "RENEWAL",
                 capitalization: cap,
                 grossSales: sales,
+                assets: Number(additionalData.assets || 0),
+                workforceCount: Number(additionalData.employeeCount || 0),
+                lineOfBusiness: additionalData.lineOfBusiness,
+                floorArea: Number(additionalData.businessArea || 0),
+                healthCardCount: Number(additionalData.healthCardCount || 0),
                 fulfillmentType: transaction.fulfillmentType,
-                deliveryFee: deliveryFeeOverride !== undefined ? deliveryFeeOverride : dynamicDeliveryFee
+                deliveryFee: deliveryFeeOverride !== undefined ? deliveryFeeOverride : dynamicDeliveryFee,
+                settings: settingsMap
             });
             result = {
                 basicTax: bploCalc.baseFee,
                 additionalTax: bploCalc.taxAmount,
-                penalty: 0,
+                penalty: bploCalc.sanitaryInspectionFee + bploCalc.garbageFee + bploCalc.healthCertificateFee, // Store subtotal of surcharges here for default audit fields
                 deliveryFee: bploCalc.deliveryFee,
                 totalAmount: bploCalc.totalAmount
             };
+
+            // Store the calculation details in the scope for fiscalSnapshot
+            (transaction as any).bploCalc = bploCalc;
         }
 
         let newStatus = "UNPAID";
@@ -128,10 +184,11 @@ export async function evaluateBusinessPermitTransaction(
             newStatus = "FOR_PROCESSING";
         }
 
-        const currentAdditionalData = (transaction.additionalData as any) || {};
-        const updatedAdditionalData = { ...currentAdditionalData };
+        const updatedAdditionalData = { ...additionalData };
         delete updatedAdditionalData.counterName;
         updatedAdditionalData.checkedIn = false;
+
+        const bploCalc = (transaction as any).bploCalc;
 
         const updatedTransaction = await prisma.transaction.update({
             where: { id: sanitizedId },
@@ -144,9 +201,15 @@ export async function evaluateBusinessPermitTransaction(
                 fiscalSnapshot: {
                     basicTax: result.basicTax,
                     additionalTax: result.additionalTax,
-                    penaltyCharge: result.penalty,
+                    penaltyCharge: 0, // Keep penalty charge 0
                     deliveryFee: result.deliveryFee,
                     totalAmount: result.totalAmount,
+                    ...(bploCalc ? {
+                        sanitaryFee: bploCalc.sanitaryInspectionFee,
+                        garbageFee: bploCalc.garbageFee,
+                        healthCertificateFee: bploCalc.healthCertificateFee,
+                        classificationSize: bploCalc.classificationSize
+                    } : {}),
                     ...(sanitizedBpFeeLineItems ? { lineItems: sanitizedBpFeeLineItems } : {})
                 }
             } as any,
@@ -350,5 +413,42 @@ export async function releaseBusinessPermit(id: string, permitNumber: string, eC
     } catch (error: any) {
         console.error("Release business permit error:", error);
         return { success: false, error: error?.message || "Failed to release business permit." };
+    }
+}
+
+export async function getBploSettingsAction() {
+    try {
+        const session = await getSession();
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const settingsList = await prisma.systemSetting.findMany({
+            where: {
+                key: {
+                    in: [
+                        "bplo_tax_rate_new",
+                        "bplo_health_card_fee",
+                        "bplo_retail_tax_rate_low",
+                        "bplo_retail_tax_rate_high",
+                        "bplo_manufacturer_tax_rate",
+                        "bplo_wholesaler_tax_rate",
+                        "bplo_mayors_permit_matrix",
+                        "bplo_sanitary_fee_matrix",
+                        "bplo_garbage_fee_matrix"
+                    ]
+                }
+            }
+        });
+
+        const settingsMap: Record<string, string> = {};
+        settingsList.forEach(s => {
+            settingsMap[s.key] = s.value;
+        });
+
+        return { success: true, data: settingsMap };
+    } catch (err: any) {
+        console.error("Error getting BPLO Settings:", err);
+        return { success: false, error: err.message || "Failed to load settings." };
     }
 }
