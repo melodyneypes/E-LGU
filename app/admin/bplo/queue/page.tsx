@@ -246,7 +246,9 @@ export default function BploQueuePage() {
                                 <CardContent className="p-8 space-y-6 text-center">
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Now Processing at {counterName}</p>
-                                                                        {currentlyServingList.length > 0 ? (
+                                    </div>
+ 
+                                    {currentlyServingList.length > 0 ? (
                                         <div className="flex flex-col gap-3 w-full">
                                             {currentlyServingList.map((ticket) => (
                                                 <div 
@@ -370,6 +372,7 @@ export default function BploQueuePage() {
                                         </CardContent>
                                     </Card>
                                 )}
+                            </div>
                         </div>
                     </div>
                 )}

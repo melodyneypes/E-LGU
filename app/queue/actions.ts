@@ -134,12 +134,7 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             return false;
         });
 
-        const seenCountersByDept: Record<string, Set<string>> = {
-            Treasury: new Set(),
-            BPLO: new Set(),
-            Registrar: new Set(),
-            Engineering: new Set()
-        };
+
 
         for (const tx of servingTxs) {
             const deptIdx = getDeptIndex(tx, false);
