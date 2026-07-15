@@ -24,7 +24,7 @@ export default function BploQueuePage() {
     const router = useRouter();
     const [counterName, setCounterName] = useState<string | null>(null);
     const [waitingQueue, setWaitingQueue] = useState<any[]>([]);
-    const [currentlyServing, setCurrentlyServing] = useState<any | null>(null);
+    const [currentlyServingList, setCurrentlyServingList] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
 
@@ -54,8 +54,7 @@ export default function BploQueuePage() {
             const res = await getBploQueueTickets(counterName);
             if (res.success && res.data) {
                 setWaitingQueue(res.data.waiting || []);
-                // Select the first ticket in the serving array (if any) as currently serving
-                setCurrentlyServing(res.data.serving?.[0] || null);
+                setCurrentlyServingList(res.data.serving || []);
             } else {
                 toast.error(res.error || "Failed to load queue tickets.");
             }
@@ -144,14 +143,14 @@ export default function BploQueuePage() {
 
 
 
-    // Action: Recall currently serving
-    const handleRecall = async () => {
-        if (!currentlyServing || !counterName) return;
+    // Action: Recall a specific serving ticket
+    const handleRecall = async (ticket: any) => {
+        if (!ticket || !counterName) return;
         setActionLoading(true);
         try {
-            const res = await callSpecificBploTicket(currentlyServing.id, counterName);
+            const res = await callSpecificBploTicket(ticket.id, counterName);
             if (res.success) {
-                toast.success(`Re-calling ticket: ${currentlyServing.queueNumber}`);
+                toast.success(`Re-calling ticket: ${ticket.queueNumber}`);
             } else {
                 toast.error(res.error || "Failed to recall ticket.");
             }

@@ -73,6 +73,20 @@ export async function POST(request: Request) {
             );
         }
 
+        if (transaction.isCancelled) {
+            return NextResponse.json(
+                { success: false, error: "Scan Failed: This appointment has been cancelled." },
+                { status: 400 }
+            );
+        }
+
+        if (transaction.status === "REJECTED") {
+            return NextResponse.json(
+                { success: false, error: "Scan Failed: This appointment has been rejected/declined." },
+                { status: 400 }
+            );
+        }
+
         const isPaymentOrClaiming = ["UNPAID", "PAID", "FOR_CLAIM"].includes(transaction.status);
         const today = new Date();
 

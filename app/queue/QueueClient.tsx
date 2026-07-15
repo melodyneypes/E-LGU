@@ -309,7 +309,7 @@ export default function QueueClient({
             dept.nowServing.forEach(active => {
                 const currentTicket = active.queueNumber;
                 const lastUpdated = active.updatedAt || "";
-                const trackerKey = `${dept.department}-${active.counterName}`;
+                const trackerKey = `${dept.department}-${active.counterName}-${currentTicket}`;
                 const prevCallKey = prevCalledRef.current[trackerKey];
                 const currentCallKey = `${currentTicket}-${lastUpdated}`;
 
