@@ -369,8 +369,21 @@ export default function AppointmentDetailsPage() {
                     {/* RIGHT COLUMN: Custom Detailed Information */}
                     <div className="md:col-span-2 space-y-4">
 
+                        {/* Rejection Alert Banner (Outside the Card) */}
+                        {request.status === "REJECTED" && (
+                            <div className="p-5 border border-red-500/20 bg-red-500/10 text-red-500 rounded-2xl flex gap-3 items-start animate-in slide-in-from-top-2 duration-300">
+                                <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                                <div className="space-y-1">
+                                    <h4 className="text-xs font-black uppercase tracking-widest italic leading-none">Application Rejected</h4>
+                                    <p className="text-xs leading-relaxed font-medium opacity-85">
+                                        Reason: {request.rejectionRemarks || "No remarks provided."}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Status Alert Banner */}
-                        {statusConfig && !isCedula && request.status !== "FOR_INSPECTION" && (
+                        {statusConfig && !isCedula && request.status !== "FOR_INSPECTION" && request.status !== "REJECTED" && (
                             <div className={cn("p-5 border rounded-2xl", statusConfig.color)}>
                                 <div className="space-y-1">
                                     <h4 className="text-xs font-black uppercase tracking-widest italic leading-none">{statusConfig.label}</h4>

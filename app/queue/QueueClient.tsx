@@ -319,12 +319,11 @@ export default function QueueClient({
 
                     const counter = active.counterName;
                     const phrase = `Ticket number, ${currentTicket.split("").join(" ")}, please proceed to ${counter}.`;
-
                     // Run announcement chain asynchronously
                     (async () => {
                         await playChime();
 
-                        if (typeof window !== "undefined" && window.speechSynthesis && voices.length > 0) {
+                        if (typeof window !== "undefined" && window.speechSynthesis) {
                             // Web Speech API Synthesis (Local Engine)
                             console.log("Speech Engine: Using native Web Speech API");
                             const utterance = new SpeechSynthesisUtterance(phrase);
@@ -356,7 +355,7 @@ export default function QueueClient({
                                     name.includes("male");
 
                                 return isEnglish && isFemaleName && !isMaleName;
-                            }) || voices.find(voice => {
+                             }) || voices.find(voice => {
                                 // Fallback to any voice that is English and doesn't contain a male name
                                 const name = voice.name.toLowerCase();
                                 const lang = voice.lang.toLowerCase();
@@ -395,7 +394,7 @@ export default function QueueClient({
         setHasInteracted(true);
 
         // Pre-warm audio engine for mobile browsers / TVs
-        if (typeof window !== "undefined" && window.speechSynthesis && voices.length > 0) {
+        if (typeof window !== "undefined" && window.speechSynthesis) {
             const utterance = new SpeechSynthesisUtterance("Voice announcements enabled");
             utterance.volume = 0;
             window.speechSynthesis.speak(utterance);

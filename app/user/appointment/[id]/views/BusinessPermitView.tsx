@@ -8,8 +8,9 @@ interface BusinessPermitViewProps {
     additionalData: any;
 }
 
-export default function BusinessPermitView({ additionalData }: BusinessPermitViewProps) {
+export default function BusinessPermitView({ request, additionalData }: BusinessPermitViewProps) {
     const isNew = additionalData.businessType === "NEW";
+    const isRejected = request?.status === "REJECTED";
 
     const formatCurrency = (amount: any) => {
         const val = parseFloat(String(amount || 0).replace(/,/g, ""));
@@ -26,6 +27,11 @@ export default function BusinessPermitView({ additionalData }: BusinessPermitVie
                 {additionalData.businessBranch && (
                     <Badge className="bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 border-none text-[8px] font-black uppercase tracking-widest px-2 py-0.5">
                         {additionalData.businessBranch} BRANCH
+                    </Badge>
+                )}
+                {request?.status && (
+                    <Badge className={isRejected ? "bg-red-500/10 text-red-500 border border-red-500/20 text-[8px] font-black uppercase tracking-widest px-2 py-0.5" : "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[8px] font-black uppercase tracking-widest px-2 py-0.5"}>
+                        {request.status.replace(/_/g, " ")}
                     </Badge>
                 )}
             </div>
