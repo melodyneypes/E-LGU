@@ -134,12 +134,7 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             return false;
         });
 
-        const seenCountersByDept: Record<string, Set<string>> = {
-            Treasury: new Set(),
-            BPLO: new Set(),
-            Registrar: new Set(),
-            Engineering: new Set()
-        };
+
 
         for (const tx of servingTxs) {
             const deptIdx = getDeptIndex(tx, false);
@@ -149,22 +144,21 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             const additionalData = tx.additionalData as any;
             const counterName = additionalData?.counterName || `${deptName} Counter`;
 
-            if (!seenCountersByDept[deptName].has(counterName)) {
-                seenCountersByDept[deptName].add(counterName);
-
-                let residentName = "N/A";
-                if (tx.user?.residentProfile) {
-                    const profile = tx.user.residentProfile;
-                    residentName = `${profile.firstName} ${profile.lastName}`;
-                }
-
-                queueData[deptIdx].nowServing.push({
-                    queueNumber: tx.queueNumber,
-                    residentName,
-                    counterName,
-                    updatedAt: tx.updatedAt.toISOString()
-                });
+            let residentName = "N/A";
+            if (tx.user?.residentProfile) {
+                const profile = tx.user.residentProfile;
+                residentName = `${profile.firstName} ${profile.lastName}`;
+            } else if (tx.residentSnapshot) {
+                const snapshot = tx.residentSnapshot as any;
+                residentName = `${snapshot.firstName} ${snapshot.lastName}`;
             }
+
+            queueData[deptIdx].nowServing.push({
+                queueNumber: tx.queueNumber,
+                residentName,
+                counterName,
+                updatedAt: tx.updatedAt.toISOString()
+            });
         }
 
         // Partition waiting tickets

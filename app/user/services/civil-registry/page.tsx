@@ -29,7 +29,7 @@ const REGISTRY_TYPES = [
         icon: Scroll,
         description: "Request a certified true copy of an existing birth certificate.",
         color: "blue",
-        href: "/user/services/civil-registry/birth-certificate-request",
+        href: "/user/services/civil-registry/appointment-birth-certified-true-copy",
         available: true,
         code: "LCR_BIRTH"
     },
@@ -39,7 +39,7 @@ const REGISTRY_TYPES = [
         icon: Baby,
         description: "Register a new birth record (timely or late registration).",
         color: "blue",
-        href: "/user/services/civil-registry/birth-registration",
+        href: "/user/services/civil-registry/appointment-birth-certified-true-copy",
         available: true,
         code: "LCR_BIRTH_REG"
     },
@@ -49,7 +49,7 @@ const REGISTRY_TYPES = [
         icon: FileSignature,
         description: "Request endorsement of a verified local birth certificate record to the PSA.",
         color: "blue",
-        href: "/user/services/civil-registry/birth-psa-endorsement",
+        href: "/user/services/civil-registry/appointment-birth-certified-true-copy",
         available: true,
         code: "LCR_PSA_ENDORSEMENT"
     },
@@ -69,7 +69,7 @@ const REGISTRY_TYPES = [
         icon: FileSignature,
         description: "Request endorsement of a verified local death certificate record to the PSA.",
         color: "slate",
-        href: "/user/services/civil-registry/death-psa-endorsement",
+        href: "/user/services/civil-registry/appointment-death-certified-true-copy",
         available: true,
         code: "LCR_DEATH_PSA_ENDORSEMENT"
     },
@@ -89,7 +89,7 @@ const REGISTRY_TYPES = [
         icon: Scroll,
         description: "Request a certified true copy of an existing death certificate.",
         color: "slate",
-        href: "/user/services/civil-registry/death-certificate-request",
+        href: "/user/services/civil-registry/appointment-death-certified-true-copy",
         available: true,
         code: "LCR_DEATH"
     },
@@ -99,7 +99,7 @@ const REGISTRY_TYPES = [
         icon: Skull,
         description: "Register a Death or Request a Certified Death Certificate.",
         color: "slate",
-        href: "/user/services/civil-registry/death-registration",
+        href: "/user/services/civil-registry/appointment-death-certified-true-copy",
         available: true,
         code: "LCR_DEATH_REG"
     },
@@ -109,7 +109,7 @@ const REGISTRY_TYPES = [
         icon: Scroll,
         description: "Request a certified true copy of an existing marriage certificate.",
         color: "rose",
-        href: "/user/services/civil-registry/marriage-certificate-request",
+        href: "/user/services/civil-registry/appointment-marriage-certified-true-copy",
         available: true,
         code: "LCR_MARRIAGE"
     },
@@ -119,7 +119,7 @@ const REGISTRY_TYPES = [
         icon: FileSignature,
         description: "Request endorsement of a verified local marriage certificate record to the PSA.",
         color: "rose",
-        href: "/user/services/civil-registry/marriage-psa-endorsement",
+        href: "/user/services/civil-registry/appointment-marriage-certified-true-copy",
         available: true,
         code: "LCR_MARRIAGE_PSA_ENDORSEMENT"
     },
@@ -139,7 +139,7 @@ const REGISTRY_TYPES = [
         icon: Heart,
         description: "Request a certified copy of a Marriage Certificate.",
         color: "rose",
-        href: "/user/services/civil-registry/marriage-registration",
+        href: "/user/services/civil-registry/appointment-marriage-certified-true-copy",
         available: true,
         code: "LCR_MARRIAGE_REG"
     },
@@ -149,7 +149,7 @@ const REGISTRY_TYPES = [
         icon: HeartHandshake,
         description: "Apply for a legal license to be married in the Philippines.",
         color: "amber",
-        href: "/user/services/civil-registry/marriage-license-application",
+        href: "/user/services/civil-registry/appointment-marriage-certified-true-copy",
         available: true,
         code: "LCR_MARRIAGE_LICENSE"
     },

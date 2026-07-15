@@ -37,7 +37,7 @@ import {
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useRouter, notFound } from "next/navigation";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { useDraft } from "@/hooks/useDraft";
 import { getCurrentUserResident, getTransactionTypes, submitBusinessPermitTransaction, getBarangaysList, getTransactionById, getAllSuccessfulBusinessPermits, getUserTransactions, getSystemSettingAction } from "@/app/admin/transactions/actions";
@@ -250,6 +250,10 @@ function FilePreview({ file, onClick }: { file: File; onClick?: () => void }) {
     );
 }
 export default function BusinessPermitWizardPage() {
+    const isOffline = typeof window !== "undefined" ? true : true;
+    if (isOffline) {
+        notFound();
+    }
     const router = useRouter();
     const { hydrateDraft, hydrateDraftFiles, persistDraft, persistDraftFile, clearDraft } = useDraft<FormState>("emapandan_bp_draft");
     const contactInputRef = useRef<HTMLInputElement>(null);

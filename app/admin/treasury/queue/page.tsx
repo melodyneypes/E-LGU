@@ -24,7 +24,7 @@ export default function TreasuryQueuePage() {
     const router = useRouter();
     const [counterName, setCounterName] = useState<string | null>(null);
     const [waitingQueue, setWaitingQueue] = useState<any[]>([]);
-    const [currentlyServing, setCurrentlyServing] = useState<any | null>(null);
+    const [currentlyServingList, setCurrentlyServingList] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isInitialized, setIsInitialized] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
@@ -61,7 +61,7 @@ export default function TreasuryQueuePage() {
             const res = await getTreasuryQueueTickets(counterName);
             if (res.success && res.data) {
                 setWaitingQueue(res.data.waiting || []);
-                setCurrentlyServing(res.data.serving?.[0] || null);
+                setCurrentlyServingList(res.data.serving || []);
                 hasFetchedRef.current = true;
             } else {
                 toast.error(res.error || "Failed to load queue tickets.");
@@ -157,14 +157,14 @@ export default function TreasuryQueuePage() {
 
 
 
-    // Action: Recall currently serving
-    const handleRecall = async () => {
-        if (!currentlyServing || !counterName) return;
+    // Action: Recall a specific serving ticket
+    const handleRecall = async (ticket: any) => {
+        if (!ticket || !counterName) return;
         setActionLoading(true);
         try {
-            const res = await callTicketToCounter(currentlyServing.id, counterName);
+            const res = await callTicketToCounter(ticket.id, counterName);
             if (res.success) {
-                toast.success(`Re-calling ticket: ${currentlyServing.queueNumber}`);
+                toast.success(`Re-calling ticket: ${ticket.queueNumber}`);
             } else {
                 toast.error(res.error || "Failed to recall ticket.");
             }
@@ -250,19 +250,17 @@ export default function TreasuryQueuePage() {
                             {/* Title placeholder */}
                             <div className="h-4 w-36 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
                             {/* List Card Placeholder */}
-                            <Card className="rounded-2xl border border-slate-200/50 dark:border-[#2a3040] shadow-sm bg-white/40 dark:bg-white/5 overflow-hidden">
-                                <CardContent className="p-3 space-y-3">
-                                    {[1, 2, 3, 4].map((i) => (
-                                        <div key={i} className="flex items-center justify-between p-3.5 bg-slate-50/30 dark:bg-white/[0.02] rounded-xl border border-slate-100/50 dark:border-white/5">
-                                            <div className="space-y-2">
-                                                <div className="h-5 w-16 bg-slate-200/60 dark:bg-white/10 rounded-lg animate-pulse" />
-                                                <div className="h-2.5 w-24 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
-                                            </div>
-                                            <div className="h-4 w-28 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                            <div className="space-y-3">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <div key={i} className="flex items-center justify-between p-3.5 bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm">
+                                        <div className="space-y-2">
+                                            <div className="h-5 w-16 bg-slate-200/60 dark:bg-white/10 rounded-lg animate-pulse" />
+                                            <div className="h-2.5 w-24 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
                                         </div>
-                                    ))}
-                                </CardContent>
-                            </Card>
+                                        <div className="h-4 w-28 bg-slate-200/60 dark:bg-white/10 rounded-full animate-pulse" />
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 ) : !counterName ? (
@@ -298,51 +296,60 @@ export default function TreasuryQueuePage() {
                                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Now Processing at {counterName}</p>
                                     </div>
  
-                                    {currentlyServing ? (
-                                        <div className="space-y-6">
-                                            <div className="space-y-2">
-                                                <span className="inline-flex items-center gap-2 px-6 py-2 bg-amber-500/10 text-amber-500 rounded-full text-xs font-black uppercase tracking-widest border border-amber-500/20 italic animate-pulse">
-                                                    <Activity className="w-4 h-4" />
-                                                    Serving
-                                                </span>
-                                                <h2 className="text-6xl md:text-8xl font-black tracking-tighter text-slate-950 dark:text-white uppercase italic leading-none font-mono py-4">
-                                                    {currentlyServing.queueNumber ? currentlyServing.queueNumber.split("-").pop() : "TR-XXX"}
-                                                </h2>
-                                            </div>
- 
-                                            <div className="space-y-1 max-w-md mx-auto">
-                                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Resident Name</p>
-                                                <h3 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white uppercase leading-tight">
-                                                    {currentlyServing.user?.residentProfile 
-                                                        ? `${currentlyServing.user.residentProfile.firstName} ${currentlyServing.user.residentProfile.lastName}` 
-                                                        : (currentlyServing.residentSnapshot ? `${currentlyServing.residentSnapshot?.firstName} ${currentlyServing.residentSnapshot?.lastName}` : "UNKNOWN")}
-                                                </h3>
-                                            </div>
- 
-                                            <div className="space-y-1">
-                                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Service Requested</p>
-                                                <span className="text-xs font-bold text-primary uppercase bg-primary/5 px-3 py-1 rounded-full border border-primary/10 inline-block">
-                                                    {currentlyServing.type?.name}
-                                                </span>
-                                            </div>
- 
-                                            <div className="pt-6 border-t border-slate-100 dark:border-white/5 flex items-center justify-center gap-4">
-                                                <Button 
-                                                    variant="outline" 
-                                                    className="h-12 px-6 rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 border-slate-200 dark:border-white/10 hover:border-amber-500/40 hover:text-amber-500"
-                                                    onClick={handleRecall}
-                                                    disabled={actionLoading}
+                                    {currentlyServingList.length > 0 ? (
+                                        <div className="flex flex-col gap-3 w-full">
+                                            {currentlyServingList.map((ticket) => (
+                                                <div 
+                                                    key={ticket.id} 
+                                                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 bg-slate-50/50 dark:bg-white/[0.02] rounded-2xl border border-slate-200 dark:border-white/10 gap-4 shadow-sm transition-all hover:bg-slate-50 dark:hover:bg-white/[0.04] w-full"
                                                 >
-                                                    <Volume2 className="w-4 h-4" />
-                                                    Recall Voice
-                                                </Button>
-                                                <Button 
-                                                    className="h-12 px-6 rounded-xl font-black uppercase tracking-widest text-[10px]"
-                                                    onClick={() => router.push(`/admin/treasury/${currentlyServing.id}`)}
-                                                >
-                                                    Process Transaction
-                                                </Button>
-                                            </div>
+                                                    {/* Left: Ticket Number Indicator */}
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex flex-col items-center justify-center bg-primary/10 border border-primary/20 text-primary w-12 h-12 rounded-xl font-mono flex-shrink-0">
+                                                            <span className="text-[7px] font-black uppercase tracking-wider text-primary/70 leading-none">Ticket</span>
+                                                            <span className="text-xl font-black italic tracking-tighter mt-0.5 leading-none">
+                                                                {ticket.queueNumber ? ticket.queueNumber.split("-").pop() : "TR-XXX"}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Mid: Resident Details & Service type */}
+                                                        <div className="space-y-1 text-left">
+                                                            <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase leading-tight truncate max-w-[160px] sm:max-w-[200px]">
+                                                                {ticket.user?.residentProfile 
+                                                                    ? `${ticket.user.residentProfile.firstName} ${ticket.user.residentProfile.lastName}` 
+                                                                    : (ticket.residentSnapshot ? `${ticket.residentSnapshot?.firstName} ${ticket.residentSnapshot?.lastName}` : "UNKNOWN")}
+                                                            </h3>
+                                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                                <span className="text-[9px] font-bold text-primary uppercase bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10 truncate max-w-[140px] inline-block">
+                                                                    {ticket.type?.name}
+                                                                </span>
+                                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-500/10 text-amber-500 rounded-md text-[8px] font-black uppercase tracking-wider border border-amber-500/20 italic animate-pulse">
+                                                                    Serving
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Right: Actions */}
+                                                    <div className="flex items-center gap-2 w-full sm:w-auto border-t sm:border-t-0 pt-2.5 sm:pt-0 border-slate-150 dark:border-white/5">
+                                                        <Button 
+                                                            variant="outline" 
+                                                            className="h-8.5 px-3 rounded-xl font-black uppercase tracking-widest text-[9px] flex items-center gap-1 border-slate-200 dark:border-white/10 hover:border-amber-500/40 hover:text-amber-500 w-full sm:w-auto"
+                                                            onClick={() => handleRecall(ticket)}
+                                                            disabled={actionLoading}
+                                                        >
+                                                            <Volume2 className="w-3 h-3" />
+                                                            Recall
+                                                        </Button>
+                                                        <Button 
+                                                            className="h-8.5 px-3 rounded-xl font-black uppercase tracking-widest text-[9px] w-full sm:w-auto"
+                                                            onClick={() => router.push(`/admin/treasury/${ticket.id}`)}
+                                                        >
+                                                            Process
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     ) : (
                                         <div className="py-12 space-y-4">
@@ -368,45 +375,45 @@ export default function TreasuryQueuePage() {
                                 </h3>
                             </div>
  
-                            <Card className="rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm bg-white dark:bg-white/5 overflow-hidden">
-                                <CardContent className="p-3 space-y-3">
-                                    {waitingQueue.length > 0 ? (
-                                        waitingQueue.map((tx) => {
-                                            const queueNum = tx.queueNumber ? tx.queueNumber.split("-").pop() : "TR-XXX";
-                                            const isPriority = tx.isPriority;
-                                            
-                                            return (
-                                                <div 
-                                                    key={tx.id} 
-                                                    className="flex items-center justify-between p-3.5 bg-slate-50/50 dark:bg-white/[0.02] rounded-xl border border-slate-100 dark:border-white/5 transition-all hover:bg-slate-100/50 dark:hover:bg-white/[0.04]"
-                                                >
-                                                    <div className="flex flex-col items-start gap-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-lg font-black font-mono tracking-tighter text-slate-900 dark:text-white uppercase italic">
-                                                                {queueNum}
+                            <div className="space-y-3">
+                                {waitingQueue.length > 0 ? (
+                                    waitingQueue.map((tx) => {
+                                        const queueNum = tx.queueNumber ? tx.queueNumber.split("-").pop() : "TR-XXX";
+                                        const isPriority = tx.isPriority;
+                                        
+                                        return (
+                                            <div 
+                                                key={tx.id} 
+                                                className="flex items-center justify-between p-3.5 bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm transition-all hover:bg-slate-50 dark:hover:bg-white/[0.08]"
+                                            >
+                                                <div className="flex flex-col items-start gap-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-lg font-black font-mono tracking-tighter text-slate-900 dark:text-white uppercase italic">
+                                                            {queueNum}
+                                                        </span>
+                                                        {isPriority && (
+                                                            <span className="text-[8px] font-black tracking-widest uppercase bg-rose-500/10 text-rose-500 border border-rose-500/20 px-2 py-0.5 rounded-full italic animate-pulse">
+                                                                Priority
                                                             </span>
-                                                            {isPriority && (
-                                                                <span className="text-[8px] font-black tracking-widest uppercase bg-rose-500/10 text-rose-500 border border-rose-500/20 px-2 py-0.5 rounded-full italic animate-pulse">
-                                                                    Priority
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                                                            Status: <span className="text-primary">{tx.status === "UNPAID" ? "FOR PAYMENT" : tx.status?.replace(/_/g, " ")}</span>
-                                                        </p>
+                                                        )}
                                                     </div>
-                                                    <div className="text-right">
-                                                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase truncate max-w-[180px] leading-tight">
-                                                            {tx.user?.residentProfile 
-                                                                ? `${tx.user.residentProfile.firstName} ${tx.user.residentProfile.lastName}` 
-                                                                : (tx.residentSnapshot ? `${tx.residentSnapshot?.firstName} ${tx.residentSnapshot?.lastName}` : "UNKNOWN")}
-                                                        </p>
-                                                    </div>
+                                                    <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+                                                        Status: <span className="text-primary">{tx.status === "UNPAID" ? "FOR PAYMENT" : tx.status?.replace(/_/g, " ")}</span>
+                                                    </p>
                                                 </div>
-                                            );
-                                        })
-                                    ) : (
-                                        <div className="text-center py-10 space-y-3.5">
+                                                <div className="text-right">
+                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase truncate max-w-[180px] leading-tight">
+                                                        {tx.user?.residentProfile 
+                                                            ? `${tx.user.residentProfile.firstName} ${tx.user.residentProfile.lastName}` 
+                                                            : (tx.residentSnapshot ? `${tx.residentSnapshot?.firstName} ${tx.residentSnapshot?.lastName}` : "UNKNOWN")}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                ) : (
+                                    <Card className="rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm bg-white dark:bg-white/5 overflow-hidden">
+                                        <CardContent className="p-3 text-center py-10 space-y-3.5">
                                             <Smile className="w-10 h-10 text-slate-200 dark:text-slate-700 mx-auto" />
                                             <div className="space-y-1">
                                                 <p className="text-xs font-bold text-slate-400 uppercase">Queue is Empty</p>
@@ -414,10 +421,10 @@ export default function TreasuryQueuePage() {
                                                     No citizens are checked in for payment today.
                                                 </p>
                                             </div>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}

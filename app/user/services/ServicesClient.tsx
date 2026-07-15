@@ -29,6 +29,29 @@ interface TransactionType {
     requiredDocs: any;
 }
 
+const getAppointmentLink = (code: string, originalLink: string) => {
+    const c = code.toUpperCase();
+    if (c.includes("BIRTH")) {
+        return "/user/services/civil-registry/appointment-birth-certified-true-copy";
+    }
+    if (c.includes("DEATH")) {
+        return "/user/services/civil-registry/appointment-death-certified-true-copy";
+    }
+    if (c.includes("MARRIAGE")) {
+        return "/user/services/civil-registry/appointment-marriage-certified-true-copy";
+    }
+    if (c.includes("BPLO") || c.includes("BUSINESS")) {
+        return "/user/services/business-permit-appointment";
+    }
+    if (c.includes("BUILDING") || c.includes("ENGINEER")) {
+        return "/user/services/building-permit-appointment";
+    }
+    if (c.includes("CEDULA")) {
+        return "/user/services/cedula-appointment";
+    }
+    return originalLink;
+};
+
 interface ServicesClientProps {
     initialServices: TransactionType[];
     themeColor: string;
@@ -112,7 +135,7 @@ export default function ServicesClient({ initialServices, themeColor }: Services
             title = "BPLO SERVICES";
             department = "BPLO Office";
             description = "Apply for a new municipal business permit or renew your existing enterprise operation license online with digital checklist validation.";
-            link = "/user/services/business-permit";
+            link = "/user/services/business-permit-appointment";
             icon = Building2;
             accentBg = "bg-emerald-500/10 dark:bg-emerald-500/5";
             borderColor = "border-emerald-500/10 dark:border-emerald-500/5";
@@ -130,7 +153,7 @@ export default function ServicesClient({ initialServices, themeColor }: Services
             title = "BUILDING PERMIT SERVICES";
             department = "Engineering Office";
             description = "Apply for building permits and standard structural clearance clearances online.";
-            link = "/user/services/building-permit";
+            link = "/user/services/building-permit-appointment";
             icon = Building2;
             accentBg = "bg-amber-500/10 dark:bg-amber-500/5";
             borderColor = "border-amber-500/10 dark:border-amber-500/5";
@@ -352,6 +375,11 @@ export default function ServicesClient({ initialServices, themeColor }: Services
                                                                             <h4 className="text-xs md:text-sm font-black uppercase text-slate-800 dark:text-slate-200 tracking-tight italic">
                                                                                 {item.name}
                                                                             </h4>
+                                                                            <Button asChild size="sm" className="h-8 px-4 text-white rounded-lg text-[9px] font-black uppercase tracking-widest italic shrink-0" style={{ backgroundColor: themeColor }}>
+                                                                                <Link href={getAppointmentLink(item.code, service.link)}>
+                                                                                    Book
+                                                                                </Link>
+                                                                            </Button>
                                                                         </div>
 
                                                                         {serviceDocs.length > 0 ? (
@@ -385,11 +413,6 @@ export default function ServicesClient({ initialServices, themeColor }: Services
 
                                                         {service.code === "BPLO" ? (
                                                             <div className="flex items-center gap-2">
-                                                                <Button asChild variant="outline" className="h-10 px-5 text-slate-700 dark:text-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest italic transition-all active:scale-95 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5">
-                                                                    <Link href="/user/services/business-permit">
-                                                                        File Online
-                                                                    </Link>
-                                                                </Button>
                                                                 <Button asChild className="h-10 px-5 text-white rounded-xl text-[9px] font-black uppercase tracking-widest italic transition-all active:scale-95 shadow-md gap-2" style={{ backgroundColor: themeColor }}>
                                                                     <Link href="/user/services/business-permit-appointment">
                                                                         Book Appointment
@@ -397,10 +420,12 @@ export default function ServicesClient({ initialServices, themeColor }: Services
                                                                     </Link>
                                                                 </Button>
                                                             </div>
+                                                        ) : service.code === "CIVIL REGISTRY" || service.code === "CIVIL-REGISTRY" ? (
+                                                            null
                                                         ) : (
                                                             <Button asChild className={`h-10 px-5 text-white rounded-xl text-[9px] font-black uppercase tracking-widest italic transition-all active:scale-95 shadow-md ${service.buttonShadow} gap-2`} style={{ backgroundColor: themeColor }}>
                                                                 <Link href={service.link}>
-                                                                    Filing Portal
+                                                                    Book Appointment
                                                                     <ArrowRight className="w-3.5 h-3.5" />
                                                                 </Link>
                                                             </Button>
