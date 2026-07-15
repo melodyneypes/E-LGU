@@ -60,7 +60,7 @@ import {
 import { calculateCedula, CedulaResult, isPastCedulaDeadline, getCedulaPenaltyRate } from "@/lib/cedula";
 import { getCedulaSettings } from "@/app/admin/transactions/cedula-actions";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useRouter, notFound } from "next/navigation";
 import Image from "next/image";
 import { useDraft } from "@/hooks/useDraft";
 
@@ -94,6 +94,10 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
 ];
 
 export default function CedulaApplicationPage() {
+    const isOffline = typeof window !== "undefined" ? true : true;
+    if (isOffline) {
+        notFound();
+    }
     const router = useRouter();
     const { hydrateDraft, hydrateDraftFiles, persistDraft, persistDraftFile, clearDraft } = useDraft<FormState>("emapandan_cedula_draft");
     const [currentStep, setCurrentStep] = useState<Step>("STATUS");

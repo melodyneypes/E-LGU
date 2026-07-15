@@ -60,7 +60,7 @@ import {
     getTransactionById
 } from "@/app/admin/transactions/actions";
 import { toast } from "sonner";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, notFound } from "next/navigation";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 import { getSecureUploadUrlAction } from "@/app/auth/actions";
@@ -168,6 +168,10 @@ const REGISTRY_TYPES = [
 ];
 
 export default function CivilRegistryPage() {
+    const isOffline = typeof window !== "undefined" ? true : true;
+    if (isOffline) {
+        notFound();
+    }
     const router = useRouter();
     const searchParams = useSearchParams();
     const urlType = searchParams ? searchParams.get("type") : null;

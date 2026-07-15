@@ -68,7 +68,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getCurrentUserResident, cancelTransaction, getSystemSettingAction } from "@/app/admin/transactions/actions";
 import { submitBuildingPermit, saveTransactionSignature, getExistingBuildingPermits, resubmitBuildingPermit, submitBuildingPermitPaymentProof, checkActivePropertyPermit, getBarangaysAction } from "./actions";
-import { useRouter } from "next/navigation";
+import { useRouter, notFound } from "next/navigation";
 import { toast } from "sonner";
 import { compressImage } from "@/lib/image-compression";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -369,6 +369,10 @@ const getEngineeringStatusLabel = (status: string) => {
 };
 
 export default function BuildingPermitPage() {
+  const isOffline = typeof window !== "undefined" ? true : true;
+  if (isOffline) {
+    notFound();
+  }
   const router = useRouter();
   const [themeColor, setThemeColor] = useState("var(--primary-theme)");
 
@@ -436,12 +440,20 @@ export default function BuildingPermitPage() {
     const docs = selectedApplication?.additionalData?.documents || {};
     if (!isRevision && !isZoningRevision) return docs;
     const filtered: Record<string, string> = {};
-    const revisionKeys = new Set([
-      ...(isRevision ? (selectedApplication?.additionalData?.revisionRequests?.map((r: any) => r.key) || []) : []),
-      ...(isZoningRevision ? (selectedApplication?.additionalData?.zoningRevisionRequests?.map((r: any) => r.key) || []) : [])
-    ]);
+    const revisionKeys: string[] = [];
+    const additionalData = selectedApplication?.additionalData as any;
+    if (isRevision && additionalData?.revisionRequests) {
+      additionalData.revisionRequests.forEach((r: any) => {
+        if (r?.key) revisionKeys.push(r.key);
+      });
+    }
+    if (isZoningRevision && additionalData?.zoningRevisionRequests) {
+      additionalData.zoningRevisionRequests.forEach((r: any) => {
+        if (r?.key) revisionKeys.push(r.key);
+      });
+    }
     for (const [k, v] of Object.entries(docs)) {
-      if (!revisionKeys.has(k)) {
+      if (revisionKeys.indexOf(k) === -1) {
         filtered[k] = v as string;
       }
     }

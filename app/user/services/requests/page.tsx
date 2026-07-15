@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, notFound } from "next/navigation";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -42,6 +42,10 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 
 export default function UserServiceRequestsPage() {
+    const isOffline = typeof window !== "undefined" ? true : true;
+    if (isOffline) {
+        notFound();
+    }
     const router = useRouter();
     const [requests, setRequests] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);

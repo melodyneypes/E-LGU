@@ -108,13 +108,13 @@ function ServiceCard({ service, themeColor, isMobile, isMaintenanceActive }: { s
                 isMaintenanceActive
                     ? "#"
                     : service.code.startsWith("CEDULA") 
-                        ? "/user/services/cedula" 
+                        ? "/user/services/cedula-appointment" 
                         : service.code.startsWith("BUSINESS_PERMIT")
-                            ? "/user/services/business-permit"
+                            ? "/user/services/business-permit-appointment"
                             : service.code === "CIVIL_REGISTRY"
                                 ? "/user/services/civil-registry"
                                 : service.code === "BUILDING_PERMIT"
-                                    ? "/user/services/building-permit"
+                                    ? "/user/services/building-permit-appointment"
                                     : `/user/services/${service.id}`
             } 
             className="block p-5 md:p-8 h-full"
