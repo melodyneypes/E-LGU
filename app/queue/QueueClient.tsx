@@ -308,7 +308,10 @@ export default function QueueClient({
         queueData.forEach(dept => {
             dept.nowServing.forEach(active => {
                 const currentTicket = active.queueNumber;
-                const lastUpdated = active.updatedAt || "";
+                const lastUpdatedRaw = active.updatedAt;
+                const lastUpdated = lastUpdatedRaw 
+                    ? ((lastUpdatedRaw as any) instanceof Date ? (lastUpdatedRaw as any).toISOString() : new Date(lastUpdatedRaw as any).toISOString())
+                    : "";
                 const trackerKey = `${dept.department}-${active.counterName}-${currentTicket}`;
                 const prevCallKey = prevCalledRef.current[trackerKey];
                 const currentCallKey = `${currentTicket}-${lastUpdated}`;
@@ -324,6 +327,7 @@ export default function QueueClient({
                         await playChime();
 
                         if (typeof window !== "undefined" && window.speechSynthesis) {
+                            window.speechSynthesis.cancel(); // Prevent overlapping speech synthesis loops
                             // Web Speech API Synthesis (Local Engine)
                             console.log("Speech Engine: Using native Web Speech API");
                             const utterance = new SpeechSynthesisUtterance(phrase);
