@@ -280,13 +280,20 @@ export async function releaseCedula(id: string, ctcNumber: string, eCopyUrl?: st
         let additionalTax = 0;
         let penalty = 0;
 
+        const settingsList = await prisma.systemSetting.findMany();
+        const settingsMap: Record<string, string> = {};
+        settingsList.forEach(s => {
+            settingsMap[s.key] = s.value;
+        });
+
         const calc = calculateCedula({
             type: additionalData.applicantType || "INDIVIDUAL",
             income: additionalData.income || 0,
             propertyValue: additionalData.propertyValue || 0,
             fulfillmentType: transaction.fulfillmentType,
             deliveryFee: transaction.type.deliveryFee,
-            baseFee: transaction.type.baseFee
+            baseFee: transaction.type.baseFee,
+            settings: settingsMap
         });
         basicTax = calc.basicTax;
         additionalTax = calc.additionalTax;
@@ -656,14 +663,14 @@ export async function getTreasuryTransactions(params?: string | {
                                         // For non-appointment LCRs: allow FOR_REQUESTING, PAID, UNPAID, FOR_PROCESSING
                                         {
                                             AND: [
-                                                { type: { code: { notIn: ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"] } } },
-                                                { status: { in: ["FOR_REQUESTING", "PAID", "UNPAID", "FOR_PROCESSING"] } }
+                                                 { type: { code: { notIn: ["LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"] } } },
+                                                 { status: { in: ["FOR_REQUESTING", "PAID", "UNPAID", "FOR_PROCESSING"] } }
                                             ]
                                         },
                                         // For appointment LCRs: Registrar sees FOR_REQUESTING, EVALUATED, FOR_PROCESSING, FOR_CLAIM, FOR_PICKING
                                         {
                                             AND: [
-                                                { type: { code: { in: ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"] } } },
+                                                 { type: { code: { in: ["LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"] } } },
                                                 {
                                                     status: {
                                                         in: isRegistrarUser
@@ -707,18 +714,20 @@ export async function getTreasuryTransactions(params?: string | {
                     OR: [
                         { NOT: { type: { code: { startsWith: "BUILDING_PERMIT" } } } },
                         {
-                            AND: [
-                                { type: { code: { startsWith: "BUILDING_PERMIT" } } },
-                                { status: "EVALUATED" },
-                                {
-                                    NOT: {
-                                        additionalData: {
-                                            path: ["zoningStatus"],
-                                            string_contains: "EVALUATED"
+                            NOT: {
+                                AND: [
+                                    { type: { code: { startsWith: "BUILDING_PERMIT" } } },
+                                    { status: "EVALUATED" },
+                                    {
+                                        NOT: {
+                                            additionalData: {
+                                                path: ["zoningStatus"],
+                                                string_contains: "EVALUATED"
+                                            }
                                         }
                                     }
-                                }
-                            ]
+                                ]
+                            }
                         }
                     ]
                 }
@@ -727,262 +736,262 @@ export async function getTreasuryTransactions(params?: string | {
 
         // Category filter
         if (category && category !== "ALL") {
-            where.type.category = category;
-        }
+        where.type.category = category;
+    }
 
-        // Service filter
-        if (serviceFilter && serviceFilter !== "ALL") {
-            if (serviceFilter === "Student") {
-                where.isStudent = true;
-                where.type = {
-                    OR: [
-                        { code: "CEDULA_IND" },
-                        { code: "CEDULA_JUR" }
+    // Service filter
+    if (serviceFilter && serviceFilter !== "ALL") {
+        if (serviceFilter === "Student") {
+            where.isStudent = true;
+            where.type = {
+                OR: [
+                    { code: "CEDULA_IND" },
+                    { code: "CEDULA_JUR" }
+                ]
+            };
+        } else {
+            where.type = { ...where.type, name: serviceFilter };
+            where.isStudent = false;
+        }
+    }
+
+    // LCR Sub-category filter mapping
+    if (lcrSubCategory) {
+        if (lcrSubCategory === "Birth Registration") {
+            where.type = { ...where.type, code: "LCR_BIRTH_REG" };
+        } else if (lcrSubCategory === "Birth Certificate") {
+            where.type = { ...where.type, code: "LCR_BIRTH" };
+        } else if (lcrSubCategory === "Death Registration") {
+            where.type = { ...where.type, code: "LCR_DEATH_REG" };
+            where.status = { not: "FOR_REQUESTING" };
+        } else if (lcrSubCategory === "Death Certificate") {
+            where.type = { ...where.type, code: "LCR_DEATH" };
+        } else if (lcrSubCategory === "Marriage License") {
+            where.type = { ...where.type, code: "LCR_MARRIAGE_LICENSE" };
+            where.status = { not: "FOR_REQUESTING" };
+        } else if (lcrSubCategory === "Marriage Registration") {
+            where.type = { ...where.type, code: "LCR_MARRIAGE_REG" };
+        } else if (lcrSubCategory === "Marriage Certificate") {
+            where.type = { ...where.type, code: "LCR_MARRIAGE" };
+        } else if (lcrSubCategory === "PSA Endorsement") {
+            where.type = {
+                ...where.type,
+                code: {
+                    in: [
+                        "LCR_PSA_ENDORSEMENT",
+                        "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                        "LCR_DEATH_PSA_ENDORSEMENT",
+                        "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                        "LCR_MARRIAGE_PSA_ENDORSEMENT",
+                        "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
                     ]
-                };
-            } else {
-                where.type = { ...where.type, name: serviceFilter };
-                where.isStudent = false;
-            }
-        }
-
-        // LCR Sub-category filter mapping
-        if (lcrSubCategory) {
-            if (lcrSubCategory === "Birth Registration") {
-                where.type = { ...where.type, code: "LCR_BIRTH_REG" };
-            } else if (lcrSubCategory === "Birth Certificate") {
-                where.type = { ...where.type, code: "LCR_BIRTH" };
-            } else if (lcrSubCategory === "Death Registration") {
-                where.type = { ...where.type, code: "LCR_DEATH_REG" };
-                where.status = { not: "FOR_REQUESTING" };
-            } else if (lcrSubCategory === "Death Certificate") {
-                where.type = { ...where.type, code: "LCR_DEATH" };
-            } else if (lcrSubCategory === "Marriage License") {
-                where.type = { ...where.type, code: "LCR_MARRIAGE_LICENSE" };
-                where.status = { not: "FOR_REQUESTING" };
-            } else if (lcrSubCategory === "Marriage Registration") {
-                where.type = { ...where.type, code: "LCR_MARRIAGE_REG" };
-            } else if (lcrSubCategory === "Marriage Certificate") {
-                where.type = { ...where.type, code: "LCR_MARRIAGE" };
-            } else if (lcrSubCategory === "PSA Endorsement") {
-                where.type = {
-                    ...where.type,
-                    code: {
-                        in: [
-                            "LCR_PSA_ENDORSEMENT",
-                            "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-                            "LCR_DEATH_PSA_ENDORSEMENT",
-                            "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-                            "LCR_MARRIAGE_PSA_ENDORSEMENT",
-                            "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
-                        ]
-                    }
-                };
-                where.status = {
-                    notIn: isRegistrarUser
-                        ? ["RELEASED", "DELIVERED", "UNPAID"]
-                        : ["RELEASED", "DELIVERED", "FOR_REQUESTING"]
-                };
-                if (isRegistrarUser) {
-                    where.AND = [
-                        ...(where.AND || []),
-                        {
-                            NOT: {
-                                AND: [
-                                    { type: { code: { in: ["LCR_DEATH_PSA_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT"] } } },
-                                    { status: { in: ["FOR_CLAIM", "UNPAID", "RELEASED", "DELIVERED"] } }
-                                ]
-                            }
-                        }
-                    ];
                 }
-            } else if (lcrSubCategory === "PSA Appt. Endorsement") {
-                where.type = {
-                    ...where.type,
-                    code: {
-                        in: [
-                            "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-                            "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-                            "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
-                        ]
-                    }
-                };
-                where.status = {
-                    notIn: isRegistrarUser
-                        ? ["RELEASED", "DELIVERED", "UNPAID"]
-                        : ["RELEASED", "DELIVERED", "FOR_REQUESTING"]
-                };
-                if (isRegistrarUser) {
-                    where.AND = [
-                        ...(where.AND || []),
-                        {
-                            NOT: {
-                                AND: [
-                                    { type: { code: { in: ["LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT"] } } },
-                                    { status: { in: ["FOR_CLAIM", "UNPAID", "RELEASED", "DELIVERED"] } }
-                                ]
-                            }
-                        }
-                    ];
-                }
-            }
-        }
-        if (ledgerType) {
-            where.status = { in: ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"] };
-            where.isCancelled = false;
-
-            if (ledgerType === "BIRTH") {
-                where.type = {
-                    ...where.type,
-                    code: { in: ["LCR_BIRTH_REG", "LCR_BIRTH"] }
-                };
-            } else if (ledgerType === "DEATH") {
-                where.type = {
-                    ...where.type,
-                    code: { in: ["LCR_DEATH_REG", "LCR_DEATH"] }
-                };
-            } else if (ledgerType === "MARRIAGE") {
-                where.type = {
-                    ...where.type,
-                    code: { in: ["LCR_MARRIAGE_REG", "LCR_MARRIAGE", "LCR_MARRIAGE_LICENSE"] }
-                };
-            } else if (ledgerType === "PSA") {
-                where.type = {
-                    ...where.type,
-                    code: {
-                        in: [
-                            "LCR_PSA_ENDORSEMENT",
-                            "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-                            "LCR_DEATH_PSA_ENDORSEMENT",
-                            "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-                            "LCR_MARRIAGE_PSA_ENDORSEMENT",
-                            "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
-                        ]
-                    }
-                };
-            }
-        }
-
-        // Search filter: ID, Business Name, or Resident Name inside JSON
-        if (search) {
-            const cleanSearch = search.trim();
-            where.OR = [
-                { id: { contains: cleanSearch, mode: "insensitive" } },
-                { businessName: { contains: cleanSearch, mode: "insensitive" } },
-                {
-                    user: {
-                        residentProfile: {
-                            OR: [
-                                { firstName: { contains: cleanSearch, mode: "insensitive" } },
-                                { lastName: { contains: cleanSearch, mode: "insensitive" } }
+            };
+            where.status = {
+                notIn: isRegistrarUser
+                    ? ["RELEASED", "DELIVERED", "UNPAID"]
+                    : ["RELEASED", "DELIVERED", "FOR_REQUESTING"]
+            };
+            if (isRegistrarUser) {
+                where.AND = [
+                    ...(where.AND || []),
+                    {
+                        NOT: {
+                            AND: [
+                                { type: { code: { in: ["LCR_DEATH_PSA_ENDORSEMENT", "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT"] } } },
+                                { status: { in: ["UNPAID", "RELEASED", "DELIVERED"] } }
                             ]
                         }
                     }
-                },
-                {
-                    residentSnapshot: {
-                        path: ["firstName"],
-                        string_contains: cleanSearch
-                    }
-                },
-                {
-                    residentSnapshot: {
-                        path: ["firstName"],
-                        string_contains: cleanSearch.toUpperCase()
-                    }
-                },
-                {
-                    residentSnapshot: {
-                        path: ["firstName"],
-                        string_contains: cleanSearch.toLowerCase()
-                    }
-                },
-                {
-                    residentSnapshot: {
-                        path: ["lastName"],
-                        string_contains: cleanSearch
-                    }
-                },
-                {
-                    residentSnapshot: {
-                        path: ["lastName"],
-                        string_contains: cleanSearch.toUpperCase()
-                    }
-                },
-                {
-                    residentSnapshot: {
-                        path: ["lastName"],
-                        string_contains: cleanSearch.toLowerCase()
-                    }
-                }
-            ];
-        }
-
-        const [transactions, totalCount] = await Promise.all([
-            prisma.transaction.findMany({
-                where,
-                select: {
-                    id: true,
-                    status: true,
-                    fulfillmentType: true,
-                    paymentType: true,
-                    totalAmount: true,
-                    updatedAt: true,
-                    createdAt: true,
-                    isCancelled: true,
-                    businessName: true,
-                    isStudent: true,
-                    processedBy: true,
-                    residentSnapshot: true,
-                    additionalData: true,
-                    type: {
-                        select: {
-                            id: true,
-                            code: true,
-                            name: true,
-                            category: true,
-                            requiresBusinessName: true
-                        }
-                    },
-                    cedula: {
-                        select: {
-                            id: true,
-                            ctcNumber: true
-                        }
-                    },
-                    businessPermit: {
-                        select: {
-                            id: true,
-                            permitNumber: true
-                        }
-                    }
-                },
-                orderBy: { createdAt: "desc" },
-                take: limit === 999999 ? undefined : limit,
-                skip: skip
-            }),
-            prisma.transaction.count({ where })
-        ]);
-
-        const normalized = (transactions as any[]).map(tx => {
-            try {
-                const additional = tx.additionalData || {};
-                const code = tx.type?.code || "";
-                if (code.startsWith("LCR_") && code.includes("MARRIAGE")) {
-                    const eventDate = additional.dateOfMarriage || additional.eventDate || (additional.event && additional.event.date) || null;
-                    return { ...tx, eventDate };
-                }
-                return tx;
-            } catch {
-                return tx;
+                ];
             }
-        });
-
-        return { success: true, data: normalized as any[], totalCount };
-    } catch (error: any) {
-        console.error("Fetch treasury transactions error:", error);
-        return { success: false, error: error?.message || "Failed to fetch transactions" };
+        } else if (lcrSubCategory === "PSA Appt. Endorsement") {
+            where.type = {
+                ...where.type,
+                code: {
+                    in: [
+                        "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                        "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                        "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
+                    ]
+                }
+            };
+            where.status = {
+                notIn: isRegistrarUser
+                    ? ["RELEASED", "DELIVERED", "UNPAID"]
+                    : ["RELEASED", "DELIVERED", "FOR_REQUESTING"]
+            };
+            if (isRegistrarUser) {
+                where.AND = [
+                    ...(where.AND || []),
+                    {
+                        NOT: {
+                            AND: [
+                                { type: { code: { in: ["LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT"] } } },
+                                { status: { in: ["UNPAID", "RELEASED", "DELIVERED"] } }
+                            ]
+                        }
+                    }
+                ];
+            }
+        }
     }
+    if (ledgerType) {
+        where.status = { in: ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"] };
+        where.isCancelled = false;
+
+        if (ledgerType === "BIRTH") {
+            where.type = {
+                ...where.type,
+                code: { in: ["LCR_BIRTH_REG", "LCR_BIRTH"] }
+            };
+        } else if (ledgerType === "DEATH") {
+            where.type = {
+                ...where.type,
+                code: { in: ["LCR_DEATH_REG", "LCR_DEATH"] }
+            };
+        } else if (ledgerType === "MARRIAGE") {
+            where.type = {
+                ...where.type,
+                code: { in: ["LCR_MARRIAGE_REG", "LCR_MARRIAGE", "LCR_MARRIAGE_LICENSE"] }
+            };
+        } else if (ledgerType === "PSA") {
+            where.type = {
+                ...where.type,
+                code: {
+                    in: [
+                        "LCR_PSA_ENDORSEMENT",
+                        "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                        "LCR_DEATH_PSA_ENDORSEMENT",
+                        "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                        "LCR_MARRIAGE_PSA_ENDORSEMENT",
+                        "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
+                    ]
+                }
+            };
+        }
+    }
+
+    // Search filter: ID, Business Name, or Resident Name inside JSON
+    if (search) {
+        const cleanSearch = search.trim();
+        where.OR = [
+            { id: { contains: cleanSearch, mode: "insensitive" } },
+            { businessName: { contains: cleanSearch, mode: "insensitive" } },
+            {
+                user: {
+                    residentProfile: {
+                        OR: [
+                            { firstName: { contains: cleanSearch, mode: "insensitive" } },
+                            { lastName: { contains: cleanSearch, mode: "insensitive" } }
+                        ]
+                    }
+                }
+            },
+            {
+                residentSnapshot: {
+                    path: ["firstName"],
+                    string_contains: cleanSearch
+                }
+            },
+            {
+                residentSnapshot: {
+                    path: ["firstName"],
+                    string_contains: cleanSearch.toUpperCase()
+                }
+            },
+            {
+                residentSnapshot: {
+                    path: ["firstName"],
+                    string_contains: cleanSearch.toLowerCase()
+                }
+            },
+            {
+                residentSnapshot: {
+                    path: ["lastName"],
+                    string_contains: cleanSearch
+                }
+            },
+            {
+                residentSnapshot: {
+                    path: ["lastName"],
+                    string_contains: cleanSearch.toUpperCase()
+                }
+            },
+            {
+                residentSnapshot: {
+                    path: ["lastName"],
+                    string_contains: cleanSearch.toLowerCase()
+                }
+            }
+        ];
+    }
+
+    const [transactions, totalCount] = await Promise.all([
+        prisma.transaction.findMany({
+            where,
+            select: {
+                id: true,
+                status: true,
+                fulfillmentType: true,
+                paymentType: true,
+                totalAmount: true,
+                updatedAt: true,
+                createdAt: true,
+                isCancelled: true,
+                businessName: true,
+                isStudent: true,
+                processedBy: true,
+                residentSnapshot: true,
+                additionalData: true,
+                type: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                        category: true,
+                        requiresBusinessName: true
+                    }
+                },
+                cedula: {
+                    select: {
+                        id: true,
+                        ctcNumber: true
+                    }
+                },
+                businessPermit: {
+                    select: {
+                        id: true,
+                        permitNumber: true
+                    }
+                }
+            },
+            orderBy: { createdAt: "desc" },
+            take: limit === 999999 ? undefined : limit,
+            skip: skip
+        }),
+        prisma.transaction.count({ where })
+    ]);
+
+    const normalized = (transactions as any[]).map(tx => {
+        try {
+            const additional = tx.additionalData || {};
+            const code = tx.type?.code || "";
+            if (code.startsWith("LCR_") && code.includes("MARRIAGE")) {
+                const eventDate = additional.dateOfMarriage || additional.eventDate || (additional.event && additional.event.date) || null;
+                return { ...tx, eventDate };
+            }
+            return tx;
+        } catch {
+            return tx;
+        }
+    });
+
+    return { success: true, data: normalized as any[], totalCount };
+} catch (error: any) {
+    console.error("Fetch treasury transactions error:", error);
+    return { success: false, error: error?.message || "Failed to fetch transactions" };
+}
 }
 
 /**
@@ -1050,7 +1059,7 @@ export async function processOnsitePaymentAndReleaseAction(params: {
         const formData = new FormData();
         formData.append("id", transactionId);
         formData.append("paymentMethod", paymentMethod);
-        
+
         let paymentRemarks = remarks || "";
         if (paymentMethod === "CASH" && amountTendered !== undefined) {
             const changeAmt = Math.max(0, amountTendered - totalDue);
@@ -1108,5 +1117,35 @@ export async function processOnsitePaymentAndReleaseAction(params: {
     } catch (error: any) {
         console.error("processOnsitePaymentAndReleaseAction error:", error);
         return { success: false, error: error?.message || "Failed to process payment and release" };
+    }
+}
+
+export async function getCedulaSettings() {
+    try {
+        const settingsList = await prisma.systemSetting.findMany({
+            where: {
+                key: {
+                    in: [
+                        "cedula_basic_tax_individual",
+                        "cedula_basic_tax_juridical",
+                        "cedula_additional_tax_rate_individual",
+                        "cedula_additional_tax_rate_juridical",
+                        "cedula_cap_individual",
+                        "cedula_cap_juridical",
+                        "cedula_penalty_rate_monthly"
+                    ]
+                }
+            }
+        });
+
+        const settingsMap: Record<string, string> = {};
+        settingsList.forEach(s => {
+            settingsMap[s.key] = s.value;
+        });
+
+        return { success: true, data: settingsMap };
+    } catch (err: any) {
+        console.error("Error loading Cedula settings:", err);
+        return { success: false, error: err.message || "Failed to load settings" };
     }
 }

@@ -61,9 +61,9 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
 
             // PSA Appointment Endorsements waiting for Treasury counter payment -> Treasury
             const PSA_APPT_CODES = [
-                "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-                "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-                "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
             ];
             if (isWaiting && PSA_APPT_CODES.includes(code) && ["FOR_CLAIM", "FOR_PICKING"].includes(status)) {
                 return 2; // Registrar
@@ -101,9 +101,9 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             const additionalData = tx.additionalData as any;
             
             const isPsaAppt = [
-                "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-                "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-                "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
             ].includes(code);
 
             const hasCounter = additionalData && 
@@ -175,12 +175,12 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
 
             const code = tx.type?.code || "";
             const isPsaAppt = [
-                "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-                "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-                "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
             ].includes(code);
 
-            const hasCounter = additionalData && 
+            const hasCounter = tx.status !== "UNPAID" && additionalData && 
                 typeof additionalData.counterName === "string" && 
                 additionalData.counterName.trim() !== "" &&
                 (!isPsaAppt || !["FOR_CLAIM", "FOR_PICKING"].includes(tx.status) || additionalData.servingDepartment === "Registrar");
@@ -199,14 +199,14 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             if (category === "Civil Registry" || code.startsWith("LCR_") || code.startsWith("CIVIL_REGISTRY")) {
                 // PSA Appointment Endorsements waiting for Treasury counter payment
                 const PSA_APPT_CODES = [
-                    "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-                    "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-                    "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                    "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                    "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+                    "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
                 ];
                 if (PSA_APPT_CODES.includes(code)) {
                     return ["FOR_REQUESTING", "FOR_INSPECTION", "UNPAID", "FOR_CLAIM", "FOR_PICKING"].includes(tx.status);
                 }
-                return ["FOR_REQUESTING", "FOR_INSPECTION"].includes(tx.status);
+                return ["FOR_REQUESTING", "FOR_INSPECTION", "UNPAID"].includes(tx.status);
             }
 
             return ["FOR_REQUESTING", "FOR_INSPECTION"].includes(tx.status);

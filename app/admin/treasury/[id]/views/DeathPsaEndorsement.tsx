@@ -106,12 +106,18 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
 
     const isTreasuryContext = backUrl?.includes("/admin/treasury") || rawUserRole === "TREASURY_STAFF";
     const typeCode = transaction?.type?.code || "";
-    const isAppointmentPsa = typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT";
+    const isAppointmentPsa = typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT";
+    const isRegistrarReleasing = isAppointmentPsa && (transaction.isPaid || transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING" || (transaction.status === "FOR_PROCESSING" && additional?.servingDepartment === "Registrar"));
+    const isPaymentInputDisabled = isAppointmentPsa && (
+        (transaction.status === "FOR_PROCESSING" && additional?.servingDepartment !== "Treasury") ||
+        transaction.status === "UNPAID"
+    );
     const subjectName = additional.subjectFullName || additional.subjectName || "N/A";
     const subjectDateOfDeath = additional.subjectDateOfDeath || additional.dateOfEvent || "";
     const mothersMaidenName = additional.mothersMaidenName || additional.motherName || "";
     const fathersName = additional.fathersName || "";
     const placeOfDeath = additional.placeOfDeath || "";
+    const causeOfDeath = additional.causeOfDeath || "";
 
     const psaNegativeCertUrl = additional.psaNegativeCert || null;
     const form2aUrl = additional.form2a || null;
@@ -142,7 +148,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     <div className="lg:col-span-8 space-y-8">
                         <TransactionInfoCard
-                            transactionName="Death PSA Endorsement Request"
+                            transactionName={isAppointmentPsa ? "Death Certified True Copy Appointment" : "Death PSA Endorsement Request"}
                             categoryLabel="Local Civil Registry"
                             themeColor={themeColor}
                         />
@@ -341,80 +347,58 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                 </h3>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                                <div className="space-y-6">
-                                    <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic">
-                                        Subject Details
-                                    </h4>
-                                    <div className="space-y-6">
-                                        <div className="space-y-1.5">
-                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Subject Full Name</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                {subjectName}
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-1.5">
-                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Date of Death</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                {safeFormatDate(subjectDateOfDeath)}
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-1.5">
-                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">{"Mother's Maiden Name"}</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                {mothersMaidenName || "—"}
-                                            </div>
-                                        </div>
-
-                                        {fathersName && (
-                                            <div className="space-y-1.5">
-                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Father&apos;s Full Name</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                    {fathersName}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {placeOfDeath && (
-                                            <div className="space-y-1.5">
-                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Death</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                    {placeOfDeath}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-6">
-                                    <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic">
-                                        Informant Details
-                                    </h4>
-                                    <div className="space-y-6">
-                                        <div className="space-y-1.5">
-                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Informant Full Name</span>
-                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                {[additional.informantFirstName, additional.informantMiddleName, additional.informantLastName].filter(Boolean).join(" ") + (additional.informantSuffix ? " " + additional.informantSuffix : "") || "—"}
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1.5">
-                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Contact Number</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                    {additional.contactNumber || "—"}
-                                                </div>
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Civil Status</span>
-                                                <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
-                                                    {additional.informantCivilStatus || "—"}
-                                                </div>
-                                            </div>
+                            <div className="space-y-6">
+                                <h4 className="text-[9px] font-black uppercase tracking-widest text-primary italic">
+                                    Deceased Details
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-1.5">
+                                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Deceased Full Name</span>
+                                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            {subjectName}
                                         </div>
                                     </div>
+
+                                    <div className="space-y-1.5">
+                                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Date of Death</span>
+                                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            {safeFormatDate(subjectDateOfDeath)}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">{"Mother's Maiden Name"}</span>
+                                        <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                            {mothersMaidenName || "—"}
+                                        </div>
+                                    </div>
+
+                                    {fathersName && (
+                                        <div className="space-y-1.5">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Father&apos;s Full Name</span>
+                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                {fathersName}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {placeOfDeath && (
+                                        <div className="space-y-1.5">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Place of Death</span>
+                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                {placeOfDeath}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {causeOfDeath && (
+                                        <div className="space-y-1.5">
+                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest block leading-none">Cause of Death</span>
+                                            <div className="bg-[#1f2937]/50 border border-slate-800 rounded-2xl h-12 px-4 flex items-center font-bold text-white text-sm uppercase leading-none">
+                                                {causeOfDeath}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -511,7 +495,7 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                             </div>
                         </div>
 
-                        {((isAppointmentPsa ? (transaction.status === "UNPAID" || transaction.status === "FOR_PROCESSING") : (transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION" || transaction.status === "FOR_PROCESSING")) && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN") && (
+                        {(!isRegistrarReleasing && (isAppointmentPsa ? (transaction.status === "UNPAID" || transaction.status === "FOR_PROCESSING") : (transaction.status === "PAID" || transaction.status === "PENDING_PAYMENT_VERIFICATION" || transaction.status === "FOR_PROCESSING")) && (rawUserRole === "TREASURY_STAFF" || rawUserRole === "ADMIN")) && (
                             <div className="space-y-4">
                                 {transaction.paymentReference && additional?.gcashReferenceNo && (
                                     <div className="space-y-3">
@@ -551,10 +535,17 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Official Receipt Number</span>
                                     <input
                                         type="text"
-                                        placeholder="ENTER O.R. NUMBER..."
+                                        placeholder={
+                                            transaction.status === "UNPAID"
+                                                ? "CALL RESIDENT TO COUNTER FIRST..."
+                                                : isPaymentInputDisabled
+                                                    ? "AWAITING REGISTRAR CHECK-IN..."
+                                                    : "ENTER O.R. NUMBER..."
+                                        }
                                         value={orSeriesNumber}
+                                        disabled={isPaymentInputDisabled}
                                         onChange={(e) => setOrSeriesNumber?.(e.target.value)}
-                                        className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold focus:outline-none uppercase tracking-wider"
+                                        className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold focus:outline-none uppercase tracking-wider disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-800/50 disabled:cursor-not-allowed"
                                     />
                                 </div>
 
@@ -576,24 +567,35 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                  )}
 
                                  {isAppointmentPsa ? (
-                                     <Button
-                                         onClick={handleCollectPsaPayment}
-                                         disabled={actionLoading || !orSeriesNumber || orSeriesNumber.trim() === ""}
-                                         className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
-                                     >
-                                         {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                         Collect Payment & Issue O.R.
-                                     </Button>
-                                 ) : (
-                                     <Button
-                                         onClick={() => handleConfirmPayment()}
-                                         disabled={actionLoading || !orSeriesNumber}
-                                         className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
-                                     >
-                                         {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
-                                         Confirm Receipt & Send to Registrar
-                                     </Button>
-                                 )}
+                                      transaction.status === "UNPAID" ? (
+                                          <Button
+                                              asChild
+                                              className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-amber-500/10"
+                                          >
+                                              <Link href="/admin/treasury/queue">
+                                                  Go to Treasury Queue to Call Resident
+                                              </Link>
+                                          </Button>
+                                      ) : (
+                                          <Button
+                                              onClick={handleCollectPsaPayment}
+                                              disabled={actionLoading || !orSeriesNumber || orSeriesNumber.trim() === "" || isPaymentInputDisabled}
+                                              className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
+                                          >
+                                              {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                              Collect Payment & Issue O.R.
+                                          </Button>
+                                      )
+                                  ) : (
+                                      <Button
+                                          onClick={() => handleConfirmPayment()}
+                                          disabled={actionLoading || !orSeriesNumber || isPaymentInputDisabled}
+                                          className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl shadow-lg font-black uppercase text-xs tracking-wider flex items-center justify-center active:scale-95 transition-all shadow-emerald-500/10"
+                                      >
+                                          {actionLoading && <RotateCw className="w-4 h-4 animate-spin mr-2" />}
+                                          Confirm Receipt & Send to Registrar
+                                      </Button>
+                                  )}
 
                                  {!isAppointmentPsa && (
                                      <div className="flex gap-2">
@@ -607,18 +609,18 @@ export default function DeathPsaEndorsementView(props: TreasuryViewProps) {
                                      </div>
                                  )}
                             </div>
-                        ))}
+                        )}
 
-                        {/* TREASURY RELEASE ACTION FOR APPOINTMENT PSA (FOR_CLAIM / FOR_PICKING) */}
-                        {isTreasuryContext && isAppointmentPsa && (transaction.status === "FOR_CLAIM" || transaction.status === "FOR_PICKING") && (
+                        {/* TREASURY RELEASE ACTION FOR APPOINTMENT PSA (FOR_CLAIM / FOR_PICKING / FOR_PROCESSING at Registrar) */}
+                        {isTreasuryContext && isRegistrarReleasing && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
                                 <div className="p-8 rounded-[2rem] bg-white dark:bg-[#151b28] border border-slate-100 dark:border-white/5 shadow-2xl space-y-4 text-center">
                                     <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mx-auto">
                                         <Check className="w-7 h-7" />
                                     </div>
-                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">Payment Collected & Confirmed</h4>
+                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">Releasing under Civil Registrar</h4>
                                     <p className="text-[10px] text-slate-400 italic max-w-xs mx-auto">
-                                        Official Receipt has been successfully issued. The transaction is now in the Civil Registrar&apos;s queue for final release of the endorsed document.
+                                        The payment has been collected and verified. The Civil Registrar is responsible for releasing the documents to the resident.
                                     </p>
                                 </div>
                             </div>

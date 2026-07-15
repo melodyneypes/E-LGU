@@ -54,7 +54,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { updateReportStatus } from "@/app/admin/actions";
+import { updateReportStatus, getAdminReports } from "@/app/admin/actions";
 
 
 interface Report {
@@ -78,38 +78,67 @@ interface Report {
     } | null;
 }
 
-export function ReportsTable({ initialReports, themeColor = "#2563eb" }: { initialReports: Report[]; themeColor?: string }) {
+export function ReportsTable({ initialReports, initialTotalCount, initialTotalPages, themeColor = "#2563eb" }: { initialReports: Report[]; initialTotalCount: number; initialTotalPages: number; themeColor?: string }) {
     const { data: session } = useSession();
     const role = (session?.user as any)?.role;
     const isBarangayAdmin = role === "BARANGAY_ADMIN";
 
     const [reports, setReports] = useState(initialReports);
+    const [totalCount, setTotalCount] = useState(initialTotalCount);
+    const [totalPages, setTotalPages] = useState(initialTotalPages);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState("All");
+    const [barangayFilter, setBarangayFilter] = useState("All");
+    const [isLoading, setIsLoading] = useState(false);
+
     const [selectedReport, setSelectedReport] = useState<Report | null>(null);
     const [adminComment, setAdminComment] = useState("");
     const [isUpdating, setIsUpdating] = useState(false);
     const [currentStatus, setCurrentStatus] = useState("");
 
-    const [statusFilter, setStatusFilter] = useState("All");
-    const [barangayFilter, setBarangayFilter] = useState("All");
-    const [searchQuery, setSearchQuery] = useState("");
+    const uniqueBarangays = ["Amanoaoac", "Apaya", "Aserda", "Baloling", "Coral", "Golden", "Jimenez", "Lambayan", "Luyan South", "Nilombot", "Pias", "Poblacion", "Primicias", "Sta. Maria", "Torres"];
 
-    const uniqueBarangays = Array.from(
-        new Set(reports.map(r => r.barangay?.name).filter(Boolean))
-    ) as string[];
+    const fetchReports = async (page: number, currentLimit: number, search: string, status: string, barangay: string) => {
+        setIsLoading(true);
+        try {
+            const res = await getAdminReports({
+                page,
+                limit: currentLimit,
+                search,
+                status,
+                barangay
+            });
+            if (res.success && res.reports) {
+                setReports(res.reports as any);
+                setTotalCount(res.totalCount || 0);
+                setTotalPages(res.totalPages || 0);
+                setCurrentPage(res.currentPage || 1);
+            } else {
+                toast.error(res.error || "Failed to load reports.");
+            }
+        } catch (error) {
+            console.error("Error fetching reports:", error);
+            toast.error("An error occurred while loading reports.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-    const filteredReports = reports.filter(report => {
-        const matchesStatus = statusFilter === "All" || report.status === statusFilter;
-        const matchesBarangay = isBarangayAdmin 
-            ? true 
-            : (barangayFilter === "All" || report.barangay?.name === barangayFilter);
+    React.useEffect(() => {
+        const handler = setTimeout(() => {
+            fetchReports(1, limit, searchQuery, statusFilter, barangayFilter);
+        }, 300);
 
-        const reporterName = report.user.name?.toLowerCase() || "";
-        const category = report.category.toLowerCase() || "";
-        const query = searchQuery.toLowerCase();
-        const matchesSearch = reporterName.includes(query) || category.includes(query);
+        return () => clearTimeout(handler);
+    }, [searchQuery, statusFilter, barangayFilter, limit]);
 
-        return matchesStatus && matchesBarangay && matchesSearch;
-    });
+    const handlePageChange = (newPage: number) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            fetchReports(newPage, limit, searchQuery, statusFilter, barangayFilter);
+        }
+    };
 
     const [viewerOpen, setViewerOpen] = useState(false);
     const [viewerUrl, setViewerUrl] = useState<string | null>(null);
@@ -226,7 +255,14 @@ export function ReportsTable({ initialReports, themeColor = "#2563eb" }: { initi
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredReports.length > 0 ? filteredReports.map((report) => (
+                        {isLoading ? (
+                            <TableRow>
+                                <TableCell colSpan={6} className="py-20 text-center">
+                                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-slate-400" />
+                                    <p className="text-slate-500 font-black uppercase tracking-widest text-xs italic">Loading reports...</p>
+                                </TableCell>
+                            </TableRow>
+                        ) : reports.length > 0 ? reports.map((report) => (
                             <TableRow 
                                 key={report.id} 
                                 className="border-slate-100 dark:border-[#2a3040]/50 hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer"
@@ -292,7 +328,7 @@ export function ReportsTable({ initialReports, themeColor = "#2563eb" }: { initi
                             </TableRow>
                         )) : (
                             <TableRow>
-                                <TableCell colSpan={5} className="py-20 text-center">
+                                <TableCell colSpan={6} className="py-20 text-center">
                                     <AlertTriangle className="w-10 h-10 text-slate-200 dark:text-white/5 mx-auto mb-4" />
                                     <p className="text-slate-500 font-black uppercase tracking-widest text-xs italic">No reports found...</p>
                                 </TableCell>
@@ -300,6 +336,49 @@ export function ReportsTable({ initialReports, themeColor = "#2563eb" }: { initi
                         )}
                     </TableBody>
                 </Table>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="p-6 border-t border-slate-200 dark:border-[#2a3040] flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-[#151b2b]/50 rounded-[1.5rem] mt-4">
+                <div className="flex items-center space-x-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                    <span className="hidden sm:inline-block">Rows per page:</span>
+                    <Select value={limit.toString()} onValueChange={(value) => setLimit(Number(value))}>
+                        <SelectTrigger className="h-8 w-[70px] border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117] rounded-lg">
+                            <SelectValue placeholder={limit} />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-[#151b2b]">
+                            <SelectItem value="10">10</SelectItem>
+                            <SelectItem value="20">20</SelectItem>
+                            <SelectItem value="35">35</SelectItem>
+                            <SelectItem value="50">50</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="flex items-center space-x-4">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                        Showing {Math.min(currentPage * limit, totalCount)} of {totalCount}
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1 || isLoading}
+                            className="h-10 px-4 rounded-xl border-slate-200 dark:border-[#2a3040] font-bold"
+                        >
+                            Prev
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages || totalPages === 0 || isLoading}
+                            className="h-10 px-4 rounded-xl border-slate-200 dark:border-[#2a3040] font-bold"
+                        >
+                            Next
+                        </Button>
+                    </div>
+                </div>
             </div>
 
             {/* Detailed View Modal */}

@@ -62,9 +62,9 @@ function getResidentSnapshot(tx: any): any {
 
 
 const PSA_APPOINTMENT_CODES = [
-    "LCR_PSA_APPOINTMENT_ENDORSEMENT",
-    "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT",
-    "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+    "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+    "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+    "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
 ];
 
 // Contextual status label for PSA Appointment Endorsements
@@ -335,20 +335,20 @@ export default function RegistrarPage() {
                 const isExcludedStatus = tx.status === "RELEASED" || tx.status === "DELIVERED" || tx.status === "UNPAID";
                 matchesCategory = (
                     tx.type?.code === "LCR_PSA_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
                     tx.type?.code === "LCR_DEATH_PSA_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
+                    tx.type?.code === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
                     tx.type?.code === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                    tx.type?.code === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
                 ) && !isExcludedStatus;
-            } else if (categoryParam === "PSA Appt. Endorsement") {
+            } else if (categoryParam === "Certified True Copy Appointment") {
                 const isExcludedStatus = tx.status === "RELEASED" ||
                     tx.status === "DELIVERED" ||
                     tx.status === "UNPAID";
                 matchesCategory = (
-                    tx.type?.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    tx.type?.code === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+                    tx.type?.code === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+                    tx.type?.code === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+                    tx.type?.code === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
                 ) && !isExcludedStatus;
             }
 

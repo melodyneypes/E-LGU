@@ -154,13 +154,21 @@ export async function releaseDeathPsaEndorsement(
         const additionalData = (transaction.additionalData as any) || {};
         const isInitialRelease = (transaction.status as any) === "FOR_PROCESSING" || (transaction.status as any) === "PAID" || (transaction.status as any) === "FOR_REINSPECTION";
 
-        const targetStatus = (transaction.eCopyUrl || eCopyUrl)
+        const isAppointment = [
+            "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+            "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT",
+            "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
+        ].includes(transaction.type.code);
+
+        const targetStatus = isAppointment
             ? (transaction.fulfillmentType === "DELIVERY" ? "FOR_PICKING" : "RELEASED")
-            : (transaction.status as any) === "PAID"
-                ? "FOR_REINSPECTION"
-                : isInitialRelease
-                    ? (transaction.fulfillmentType === "DELIVERY" ? "FOR_PICKING" : "FOR_CLAIM")
-                    : "RELEASED";
+            : (transaction.eCopyUrl || eCopyUrl)
+                ? (transaction.fulfillmentType === "DELIVERY" ? "FOR_PICKING" : "RELEASED")
+                : (transaction.status as any) === "PAID"
+                    ? "FOR_REINSPECTION"
+                    : isInitialRelease
+                        ? (transaction.fulfillmentType === "DELIVERY" ? "FOR_PICKING" : "FOR_CLAIM")
+                        : "RELEASED";
 
         if (targetStatus === "FOR_PICKING") {
             try {

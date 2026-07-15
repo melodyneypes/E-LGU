@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-export async function saveBploSettingsAction(settings: Record<string, string>) {
+export async function saveCedulaSettingsAction(settings: Record<string, string>) {
     try {
         const session = await getServerSession(authOptions);
         const user = session?.user as any;
@@ -15,16 +15,13 @@ export async function saveBploSettingsAction(settings: Record<string, string>) {
         }
 
         const allowedKeys = [
-            "bplo_tax_rate_new",
-            "bplo_health_card_fee",
-            "bplo_retail_tax_rate_low",
-            "bplo_retail_tax_rate_high",
-            "bplo_manufacturer_tax_rate",
-            "bplo_wholesaler_tax_rate",
-            "bplo_mayors_permit_matrix",
-            "bplo_sanitary_fee_matrix",
-            "bplo_garbage_fee_matrix",
-            "bplo_mayors_tax_clearance_fee"
+            "cedula_basic_tax_individual",
+            "cedula_basic_tax_juridical",
+            "cedula_additional_tax_rate_individual",
+            "cedula_additional_tax_rate_juridical",
+            "cedula_cap_individual",
+            "cedula_cap_juridical",
+            "cedula_penalty_rate_monthly"
         ];
 
         // Perform upserts in a database transaction
@@ -39,19 +36,19 @@ export async function saveBploSettingsAction(settings: Record<string, string>) {
                     create: {
                         key,
                         value: String(value).trim(),
-                        description: `BPLO Calculator parameter: ${key}`
+                        description: `Cedula Calculator parameter: ${key}`
                     }
                 });
             })
         );
 
-        revalidatePath("/admin/settings/bplo");
-        revalidatePath("/admin/bplo");
-        revalidatePath("/user/services/business-permit-appointment");
+        revalidatePath("/admin/settings/cedula");
+        revalidatePath("/user/services/cedula-appointment");
+        revalidatePath("/user/services/cedula");
 
         return { success: true };
     } catch (err: any) {
-        console.error("Error saving BPLO calculator settings:", err);
+        console.error("Error saving Cedula calculator settings:", err);
         return { success: false, error: err.message || "Failed to save settings." };
     }
 }

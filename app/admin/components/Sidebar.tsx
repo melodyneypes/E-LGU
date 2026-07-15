@@ -329,7 +329,7 @@ export function Sidebar({
                 { href: "/admin/registrar?category=Birth Registration", label: "Birth Registration" },
                 { href: "/admin/registrar?category=Birth Certificate", label: "Birth Certificate" },
                 { href: "/admin/registrar?category=PSA Endorsement", label: "PSA Endorsement" },
-                { href: "/admin/registrar?category=PSA Appt. Endorsement", label: "PSA Appointment Endorsement" },
+                { href: "/admin/registrar?category=Certified True Copy Appointment", label: "Certified True Copy Appointment" },
                 { href: "/admin/registrar?category=Death Registration", label: "Death Registration" },
                 { href: "/admin/registrar?category=Death Certificate", label: "Death Certificate" },
                 { href: "/admin/registrar?category=Marriage License", label: "Marriage License" },
@@ -350,10 +350,11 @@ export function Sidebar({
             category: "Registrar"
         },
         { href: "/admin/registrar/queue", label: "Registrar Queue", icon: Users, category: "Registrar" },
+        { href: "/admin/treasury/payment-settings", label: "Payment Settings", icon: CreditCard, category: "Registrar" },
         {
             label: "Treasury Hub",
             icon: LayoutDashboard,
-            category: "Treasury",
+            category: "Treasury Department",
             isDropdown: true,
             isOpen: isTreasuryOpen,
             onToggle: () => {
@@ -371,13 +372,14 @@ export function Sidebar({
                 { href: "/admin/treasury?category=Building Permit", label: "Building Permit" },
             ]
         },
-        { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury" },
-        { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "Treasury", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
-        { href: "/admin/bplo/appointment-settings", label: "BPLO Appointment Settings", icon: Calendar, category: "Treasury" },
-        { href: "/admin/bplo/queue", label: "BPLO Queue", icon: Users, category: "Treasury" },
-        { href: "/admin/settings/bplo", label: "Payment Settings", icon: CreditCard, category: "Treasury" },
-        { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury" },
-        { href: "/admin/treasury/queue", label: "Treasury Queue", icon: Users, category: "Treasury" },
+        { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury Department" },
+        { href: "/admin/treasury/appointment-settings", label: "Appointment Settings", icon: Calendar, category: "Treasury Department" },
+        { href: "/admin/treasury/queue", label: "Treasury Queue", icon: Users, category: "Treasury Department" },
+        { href: "/admin/bplo", label: "BPLO Permits", icon: CreditCard, category: "BPLO Department", badge: bploInspectionCount > 0 ? bploInspectionCount : undefined },
+        { href: "/admin/bplo/appointment-settings", label: "BPLO Appointment Settings", icon: Calendar, category: "BPLO Department" },
+        { href: "/admin/bplo/queue", label: "BPLO Queue", icon: Users, category: "BPLO Department" },
+        { href: "/admin/settings/bplo", label: "BPLO Settings", icon: CreditCard, category: "Payment Settings" },
+        { href: "/admin/settings/cedula", label: "Cedula Settings", icon: FileText, category: "Payment Settings" },
         { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
         { href: "/admin/zoning", label: "Zoning Hub", icon: LayoutDashboard, category: "Zoning" },
         { href: "/admin/zoning/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Zoning" },
@@ -434,7 +436,7 @@ export function Sidebar({
                 if (sub.label === "Birth Registration") code = "LCR_BIRTH_REG";
                 else if (sub.label === "Birth Certificate") code = "LCR_BIRTH";
                 else if (sub.label === "PSA Endorsement") code = ["LCR_PSA_ENDORSEMENT", "LCR_DEATH_PSA_ENDORSEMENT", "LCR_MARRIAGE_PSA_ENDORSEMENT"];
-                else if (sub.label === "PSA Appointment Endorsement") code = ["LCR_PSA_APPOINTMENT_ENDORSEMENT", "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT", "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"];
+                else if (sub.label === "Certified True Copy Appointment") code = ["LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT", "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"];
                 else if (sub.label === "Death Registration") code = "LCR_DEATH_REG";
                 else if (sub.label === "Death Certificate") code = "LCR_DEATH";
                 else if (sub.label === "Marriage License") code = "LCR_MARRIAGE_LICENSE";
@@ -477,12 +479,13 @@ export function Sidebar({
                     );
                 } else if (deptUpper === "TREASURY") {
                     menuItems = allMenuItems.filter(item =>
-                        ["Treasury Hub", "Payments Ledger", "Payment Settings", "Treasury Queue"].includes(item.label) ||
-                        (item.label === "Appointment Settings" && item.category === "Treasury")
+                        ["Treasury Hub", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
+                        (item.label === "Appointment Settings" && item.category === "Treasury Department")
                     );
                 } else if (deptUpper === "LGU") {
                     menuItems = allMenuItems.filter(item =>
-                        !["Registrar Hub", "Transaction Ledger", "Treasury Hub", "Payments Ledger", "BPLO Permits", "BPLO Appointment Settings", "BPLO Queue", "Appointment Settings"].includes(item.label)
+                        !["Registrar Hub", "Transaction Ledger", "Registrar Queue", "BPLO Queue", "Treasury Queue"].includes(item.label) &&
+                        !(item.label === "Appointment Settings" && item.category === "Registrar")
                     );
                 } else {
                     menuItems = [
@@ -499,8 +502,8 @@ export function Sidebar({
             menuItems = allMenuItems.filter(item => barangayAdminAllowed.includes(item.label));
         } else if (role === "TREASURY_STAFF") {
             menuItems = allMenuItems.filter(item =>
-                ["Treasury Hub", "Payments Ledger", "Payment Settings", "Treasury Queue"].includes(item.label) ||
-                (item.label === "Appointment Settings" && item.category === "Treasury")
+                ["Treasury Hub", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
+                (item.label === "Appointment Settings" && item.category === "Treasury Department")
             );
         } else if (role === "ADMIN_AIDE") {
             menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue"].includes(item.label));

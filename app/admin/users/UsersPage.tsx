@@ -308,6 +308,12 @@ export function UsersPage({
                 >
                   Municipal Engineer
                 </SelectItem>
+                <SelectItem
+                  value="BFP"
+                  className="text-[10px] font-black uppercase italic"
+                >
+                  BFP / Fire Protection
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -462,6 +468,9 @@ export function UsersPage({
                         else if (user.role === "RIDER")
                           style =
                             "bg-amber-500/10 text-amber-500 border-amber-500/20";
+                        else if (user.role === "BFP")
+                          style =
+                            "bg-orange-500/10 text-orange-500 border-orange-500/20";
 
                         return (
                           <Badge

@@ -515,7 +515,7 @@ export default function QueueClient({
     }
 
     return (
-        <div className="min-h-screen bg-[#060813] text-white flex flex-col font-sans select-none overflow-hidden relative">
+        <div className="h-screen bg-[#060813] text-white flex flex-col font-sans select-none overflow-hidden relative">
             {/* Audio Autoplay Activation Overlay */}
             {!hasInteracted && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 backdrop-blur-md select-none p-4">
@@ -551,41 +551,41 @@ export default function QueueClient({
             <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-500/5 blur-[150px] pointer-events-none" />
 
             {/* Top Navigation / Status Header */}
-            <header className="px-8 py-5 border-b border-white/5 bg-slate-950/40 backdrop-blur-md flex items-center justify-between z-10 shrink-0">
-                <div className="flex items-center gap-4">
+            <header className="px-6 py-3 border-b border-white/5 bg-slate-950/40 backdrop-blur-md flex items-center justify-between z-10 shrink-0">
+                <div className="flex items-center gap-3">
                     {branding.logo ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img 
                             src={branding.logo} 
                             alt="Logo" 
-                            className="w-12 h-12 object-contain"
+                            className="w-10 h-10 object-contain"
                         />
                     ) : (
-                        <div className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center font-black text-xl italic" style={{ color: themeColor }}>
+                        <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center font-black text-lg italic" style={{ color: themeColor }}>
                             {branding.word1?.charAt(0)}
                         </div>
                     )}
                     <div>
-                        <h1 className="text-lg font-black uppercase tracking-wider italic">
+                        <h1 className="text-base font-black uppercase tracking-wider italic leading-tight">
                             {branding.word1}<span style={{ color: themeColor }}>{branding.word2}</span>
                         </h1>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-1">Unified Queuing Display System</p>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-0.5">Unified Queuing Display System</p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4">
                     {/* Voice Announcement Activator */}
                     {!hasInteracted ? (
                         <button
                             onClick={handleEnableVoice}
-                            className="flex items-center gap-2.5 px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-red-500/20 active:scale-95 animate-pulse"
+                            className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-red-500/20 active:scale-95 animate-pulse"
                         >
-                            <Play className="w-4 h-4 fill-white" /> Enable Voice Announcements
+                            <Play className="w-3.5 h-3.5 fill-white" /> Enable Voice Announcements
                         </button>
                     ) : (
                         <button
                             onClick={() => setIsVoiceEnabled(!isVoiceEnabled)}
-                            className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                            className={`flex items-center gap-2 px-3 py-1.5 border rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                                 isVoiceEnabled 
                                     ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
                                     : "bg-slate-800/40 border-white/5 text-slate-400"
@@ -593,12 +593,12 @@ export default function QueueClient({
                         >
                             {isVoiceEnabled ? (
                                 <>
-                                    <Volume2 className="w-4 h-4 text-emerald-400" />
+                                    <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
                                     Voice Announcements Active
                                 </>
                             ) : (
                                 <>
-                                    <VolumeX className="w-4 h-4 text-slate-500" />
+                                    <VolumeX className="w-3.5 h-3.5 text-slate-500" />
                                     Voice Muted
                                 </>
                             )}
@@ -607,13 +607,13 @@ export default function QueueClient({
 
                     {/* Clock Display */}
                     {currentTime && (
-                        <div className="flex items-center gap-3 border-l border-white/10 pl-6 text-right">
-                            <Clock className="w-5 h-5 text-slate-400" />
+                        <div className="flex items-center gap-3 border-l border-white/10 pl-4 text-right">
+                            <Clock className="w-4.5 h-4.5 text-slate-400" />
                             <div>
-                                <p className="text-sm font-bold text-slate-200 uppercase tracking-wide leading-none">
+                                <p className="text-xs font-bold text-slate-200 uppercase tracking-wide leading-none">
                                     {currentTime.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit", hour12: true })}
                                 </p>
-                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">
+                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-0.5">
                                     {currentTime.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" })}
                                 </p>
                             </div>
@@ -623,34 +623,34 @@ export default function QueueClient({
             </header>
 
             {/* Main Queuing Board */}
-            <main className="flex-1 p-8 grid grid-cols-1 md:grid-cols-4 gap-8 z-10 min-h-0">
-                {queueData.map((dept) => {
+            <main className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 z-10 min-h-0 overflow-hidden">
+                {queueData.filter(dept => dept.department !== "Engineering").map((dept) => {
                     const Icon = DEPT_ICONS[dept.department] || Coins;
                     const theme = DEPT_THEMES[dept.department] || DEPT_THEMES["Treasury"];
                     
                     return (
                         <div 
                             key={dept.department}
-                            className={`flex flex-col h-full rounded-[2.5rem] border ${theme.border} ${theme.bg} backdrop-blur-sm shadow-xl p-8 relative transition-all duration-500 overflow-hidden`}
+                            className={`flex flex-col h-full rounded-[2rem] border ${theme.border} ${theme.bg} backdrop-blur-sm shadow-xl p-4 xl:p-5 relative transition-all duration-500 overflow-hidden`}
                         >
                             {/* Department Heading */}
-                            <div className="flex items-center justify-between pb-6 border-b border-white/5">
-                                <div className="space-y-1">
-                                    <span className={`text-[10px] font-black uppercase tracking-widest ${theme.text} italic`}>Department</span>
-                                    <h2 className="text-xl font-black uppercase tracking-wide text-white italic">{dept.department}</h2>
+                            <div className="flex items-center justify-between pb-3 border-b border-white/5">
+                                <div className="space-y-0.5">
+                                    <span className={`text-[9px] font-black uppercase tracking-widest ${theme.text} italic`}>Department</span>
+                                    <h2 className="text-base xl:text-lg font-black uppercase tracking-wide text-white italic leading-tight">{dept.department}</h2>
                                 </div>
-                                <div className={`w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center ${theme.text}`}>
-                                    <Icon className="w-5 h-5" />
+                                <div className={`w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center ${theme.text}`}>
+                                    <Icon className="w-4.5 h-4.5" />
                                 </div>
                             </div>
 
                             {/* Now Serving Ticket Panel */}
-                            <div className="flex-1 flex flex-col justify-center py-4 overflow-y-auto space-y-4 min-h-0">
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] italic text-center block mb-2">Now Serving</span>
+                            <div className="flex-1 flex flex-col justify-start py-3 overflow-y-auto min-h-0">
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] italic text-center block mb-2">Now Serving</span>
                                 
                                 <AnimatePresence mode="popLayout">
                                     {dept.nowServing.length > 0 ? (
-                                        <div className="space-y-2.5 w-full">
+                                        <div className={`grid ${dept.nowServing.length > 1 ? "grid-cols-2" : "grid-cols-1"} gap-2 w-full`}>
                                             {dept.nowServing.map((serving) => (
                                                 <motion.div 
                                                     key={serving.queueNumber}
@@ -658,17 +658,14 @@ export default function QueueClient({
                                                     animate={{ scale: 1, opacity: 1 }}
                                                     exit={{ scale: 0.95, opacity: 0 }}
                                                     transition={{ duration: 0.3 }}
-                                                    className="text-center w-full p-2.5 rounded-2xl bg-white/5 border border-white/5 shadow-md flex flex-col items-center justify-center"
+                                                    className="text-center w-full p-2 rounded-xl bg-white/5 border border-white/5 shadow-md flex flex-col items-center justify-center"
                                                 >
-                                                    <h3 className={`text-2xl lg:text-3xl font-black tracking-tight font-mono ${theme.text} drop-shadow-[0_0_15px_rgba(var(--primary),0.3)] animate-pulse`}>
+                                                    <h3 className={`text-xl xl:text-2xl font-black tracking-tight font-mono ${theme.text} drop-shadow-[0_0_10px_rgba(var(--primary),0.3)] animate-pulse`}>
                                                         {serving.queueNumber}
                                                     </h3>
-                                                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-wide truncate max-w-[90%] mt-1">
-                                                        {serving.residentName || "UNKNOWN CITIZEN"}
-                                                    </p>
-                                                    <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/5">
-                                                        <Activity className="w-2.5 h-2.5 text-slate-400" />
-                                                        <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest">
+                                                    <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5">
+                                                        <Activity className="w-2 h-2 text-slate-400" />
+                                                        <span className="text-[6.5px] font-black text-slate-300 uppercase tracking-widest">
                                                             {serving.counterName}
                                                         </span>
                                                     </div>
@@ -680,32 +677,32 @@ export default function QueueClient({
                                             key="idle"
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 0.4 }}
-                                            className="text-center space-y-2 py-6 w-full"
+                                            className="text-center space-y-1 py-4 w-full my-auto"
                                         >
-                                            <p className="text-2xl font-black uppercase tracking-wider italic text-slate-500 font-mono">---</p>
-                                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">No Ticket Called</span>
+                                            <p className="text-xl font-black uppercase tracking-wider italic text-slate-500 font-mono">---</p>
+                                            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest italic">No Ticket Called</span>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
                             </div>
 
                             {/* Up Next List */}
-                            <div className="mt-auto pt-6 border-t border-white/5">
-                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic block mb-4">Up Next in Line</span>
-                                <div className="space-y-2.5">
+                            <div className="mt-auto pt-3 border-t border-white/5">
+                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest italic block mb-2">Up Next in Line</span>
+                                <div className="space-y-1.5">
                                     {dept.waiting.length > 0 ? (
-                                        dept.waiting.slice(0, 6).map((num, idx) => (
+                                        dept.waiting.slice(0, 5).map((num, idx) => (
                                             <div 
                                                 key={num}
-                                                className="flex items-center justify-between px-4 py-3 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 transition-all font-mono"
+                                                className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-all font-mono"
                                             >
-                                                <span className="text-xs font-black text-slate-400">{idx + 1}</span>
-                                                <span className="text-sm font-black tracking-wide text-slate-200">{num}</span>
+                                                <span className="text-[10px] font-black text-slate-400">{idx + 1}</span>
+                                                <span className="text-xs font-black tracking-wide text-slate-200">{num}</span>
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="text-center py-4 border border-dashed border-white/5 rounded-2xl bg-white/[0.01]">
-                                            <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wider">Queue Empty</span>
+                                        <div className="text-center py-3 border border-dashed border-white/5 rounded-xl bg-white/[0.01]">
+                                            <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">Queue Empty</span>
                                         </div>
                                     )}
                                 </div>
@@ -716,12 +713,12 @@ export default function QueueClient({
             </main>
 
             {/* Bottom Announcements Ticker */}
-            <footer className="h-14 border-t border-white/5 bg-slate-950/60 backdrop-blur-md flex items-center overflow-hidden z-10 shrink-0">
-                <div className="px-6 h-full flex items-center justify-center bg-red-500/10 border-r border-red-500/20 text-red-500 text-[10px] font-black uppercase tracking-widest italic shrink-0">
+            <footer className="h-10 border-t border-white/5 bg-slate-950/60 backdrop-blur-md flex items-center overflow-hidden z-10 shrink-0">
+                <div className="px-4 h-full flex items-center justify-center bg-red-500/10 border-r border-red-500/20 text-red-500 text-[9px] font-black uppercase tracking-widest italic shrink-0">
                     📢 Advisory
                 </div>
                 <div className="flex-1 relative overflow-hidden h-full flex items-center">
-                    <div className="animate-[marquee_45s_linear_infinite] whitespace-nowrap flex items-center gap-16 absolute text-[10px] md:text-xs font-black uppercase tracking-widest italic text-slate-400">
+                    <div className="animate-[marquee_45s_linear_infinite] whitespace-nowrap flex items-center gap-16 absolute text-[9px] md:text-[10px] font-black uppercase tracking-widest italic text-slate-400">
                         <span>• Please prepare your valid ID and documents before approaching the counter</span>
                         <span>• Senior Citizens, PWDs, and Pregnant women can claim Priority Lane service</span>
                         <span>• EMapandan Smart Governance Portal - Empowering residents with fast digital transactions</span>

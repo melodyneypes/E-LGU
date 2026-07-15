@@ -36,11 +36,15 @@ import { releaseDeathRegistry } from "@/app/admin/transactions/death-regis-actio
 import { releaseDeathCertificate, evaluateDeathCertificateTransaction } from "@/app/admin/transactions/death-cert-actions";
 import { releaseMarriageLicense, evaluateMarriageLicenseTransaction } from "@/app/admin/transactions/marriage-license-actions";
 import { releaseMarriageRegistry, evaluateMarriageRegistrationTransaction } from "@/app/admin/transactions/marriage-regis-actions";
+import { releaseMarriageCertificate } from "@/app/admin/transactions/marriage-cert-actions";
 import { evaluateStudentCedulaTransaction } from "@/app/admin/transactions/student-actions";
 import { releaseMarriagePsaEndorsement } from "@/app/admin/transactions/marriage-endorsement-actions";
-import { releaseBirthPsaEndorsement, collectPsaAppointmentPayment } from "@/app/admin/transactions/birth-endorsement-actions";
+import { releaseBirthPsaEndorsement } from "@/app/admin/transactions/birth-endorsement-actions";
 import { releaseDeathPsaEndorsement } from "@/app/admin/transactions/death-endorsement-actions";
+import { calculateCivilRegistryFee } from "@/lib/civil-registry";
+import { collectPsaAppointmentPayment } from "@/app/admin/transactions/civil-registry-appointment-actions";
 import { calculateCedula } from "@/lib/cedula";
+import { getCedulaSettings } from "@/app/admin/transactions/cedula-actions";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { Button } from "@/components/ui/button";
 import DocumentViewerModal from "./components/DocumentViewerModal";
@@ -228,11 +232,12 @@ export default function TreasuryDetailPage() {
     const id = routeParams?.id as string;
     const router = useRouter();
     const { data: session } = useSession();
-    const rawUserRole = (session?.user as any)?.role;
     const userDepartment = (session?.user as any)?.department;
+    const isLgu = userDepartment?.toUpperCase() === "LGU";
+    const rawUserRole = isLgu ? "LGU_ADMIN" : (session?.user as any)?.role;
     // Map BPLO Admin to behave exactly like ADMIN_AIDE for Treasury pages
     const isBPLOAdmin = rawUserRole === "ADMIN" && userDepartment?.toUpperCase() === "BPLO";
-    const userRole = isBPLOAdmin ? "ADMIN_AIDE" : rawUserRole;
+    const userRole = isLgu ? "LGU_ADMIN" : (isBPLOAdmin ? "ADMIN_AIDE" : rawUserRole);
     // Treasury Staff can only upload OR; Permit No., Sticker No., and Waybill are BPLO Admin only
     const isTreasuryStaff = rawUserRole === "TREASURY_STAFF";
     const searchParams = useSearchParams();
@@ -274,6 +279,7 @@ export default function TreasuryDetailPage() {
     const [orFile, setOrFile] = useState<File | null>(null);
     const [orPreview, setOrPreview] = useState<string | null>(null);
     const [themeColor, setThemeColor] = useState<string>("#2563eb");
+    const [cedulaSettings, setCedulaSettings] = useState<Record<string, string>>({});
     const [registryBookVerification, setRegistryBookVerification] = useState<string>("");
     const [birthRegDocFile, setBirthRegDocFile] = useState<File | null>(null);
     const [birthRegDocPreview, setBirthRegDocPreview] = useState<string | null>(null);
@@ -441,7 +447,7 @@ export default function TreasuryDetailPage() {
     const isLCR = (transaction?.type?.code?.startsWith("LCR_") ?? false) || (transaction?.type?.code?.startsWith("CIVIL_REGISTRY") ?? false);
     const isCedula = transaction?.type?.code?.includes("CEDULA") ?? false;
     const typeCode = (transaction?.type?.code || "").toUpperCase();
-    const isLcrBirthCertifiedCopy = typeCode === "LCR_BIRTH" || (transaction?.type?.name && transaction.type.name.includes("Birth Certificate")) || false;
+    const isLcrCertifiedCopy = typeCode === "LCR_BIRTH" || typeCode === "LCR_DEATH" || typeCode === "LCR_MARRIAGE" || (transaction?.type?.name && (transaction.type.name.includes("Birth Certificate") || transaction.type.name.includes("Death Certificate") || transaction.type.name.includes("Marriage Certificate") || transaction.type.name.includes("Certified Copy"))) || false;
     const safeFormatDate = (dateStr: any) => {
         if (!dateStr) return "N/A";
         const d = new Date(dateStr);
@@ -449,7 +455,7 @@ export default function TreasuryDetailPage() {
         return format(d, "MMM d, yyyy");
     };
     // RETURN_REQUESTED and REFUND_REQUESTED are also excluded so BPLO Admin can action disputes on Business Permits
-    const isReadOnlyAide = userRole === "ADMIN_AIDE" && isBusinessPermit && !["FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM", "FOR_PICKING", "RETURN_REQUESTED", "REFUND_REQUESTED"].includes(transaction?.status || "");
+    const isReadOnlyAide = isLgu || (userRole === "ADMIN_AIDE" && isBusinessPermit && !["FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM", "FOR_PICKING", "RETURN_REQUESTED", "REFUND_REQUESTED"].includes(transaction?.status || ""));
 
     const fetchTransaction = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
@@ -503,11 +509,13 @@ export default function TreasuryDetailPage() {
                         if (tx.isStudent) {
                             setFeeLineItems([{ label: "", amount: "0" }]);
                         } else if (Array.isArray(tx.type?.defaultFees) && tx.type.defaultFees.length > 0) {
-                            const mappedFees = tx.type.defaultFees.map((fee: any) => ({
-                                label: fee.label,
-                                amount: fee.amount !== undefined ? String(fee.amount) : "",
-                                readonly: isLcrRequesting
-                            }));
+                            const mappedFees = tx.type.defaultFees
+                                .filter((fee: any) => fee.code !== "BASE_FEE_LABEL")
+                                .map((fee: any) => ({
+                                    label: fee.label,
+                                    amount: fee.amount !== undefined ? String(fee.amount) : "",
+                                    readonly: isLcrRequesting
+                                }));
                             // For LCR FOR_REQUESTING, also append a blank editable row
                             if (isLcrRequesting) {
                                 mappedFees.push({ label: "", amount: "", readonly: false });
@@ -591,6 +599,13 @@ export default function TreasuryDetailPage() {
             }
         });
 
+        // Fetch Cedula settings
+        getCedulaSettings().then(res => {
+            if (res.success && res.data) {
+                setCedulaSettings(res.data);
+            }
+        });
+
         // Fetch branding settings
         Promise.all([
             getSystemSettingAction("brand_word_1", "Mapandan"),
@@ -659,15 +674,15 @@ export default function TreasuryDetailPage() {
     const handleRelease = useCallback(async () => {
 
         // CTC or Permit Number required for all initial processing phases (Only for non-Business Permits)
-        const ctcRequired = !isBusinessPermit && !isLcrBirthCertifiedCopy && !["PAID", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction?.status);
+        const ctcRequired = !isBusinessPermit && !isLcrCertifiedCopy && !["PAID", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction?.status);
         if (ctcRequired && !ctcNumber && !transaction?.cedula?.ctcNumber) {
             toast.error("CTC Number Required");
             return;
         }
         // Require E-Copy for LCR releases (except PSA Appointment Endorsements)
-        const isAppointmentPsa = typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
+        const isAppointmentPsa = typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT";
         if (isLCR && !isAppointmentPsa && !eCopyFile && !transaction.eCopyUrl) {
             toast.error("Official Digital E-Copy registry record is required before releasing.");
             return;
@@ -720,13 +735,21 @@ export default function TreasuryDetailPage() {
                     ? await releaseBirthCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
                     : typeCode === "LCR_BIRTH_REG"
                         ? await releaseBirthRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                    : typeCode === "LCR_DEATH"
+                        ? await releaseDeathCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                    : typeCode === "LCR_DEATH_REG"
+                        ? await releaseDeathRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                    : typeCode === "LCR_MARRIAGE"
+                        ? await releaseMarriageCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                    : typeCode === "LCR_MARRIAGE_REG"
+                        ? await releaseMarriageRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
                         : typeCode === "LCR_MARRIAGE_LICENSE"
                             ? await releaseMarriageLicense(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                            : (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT")
+                            : (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT")
                                 ? await releaseMarriagePsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                : (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT")
+                                : (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT")
                                     ? await releaseBirthPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                    : (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT")
+                                    : (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT")
                                         ? await releaseDeathPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
                                         : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
             if (res.success) {
@@ -762,7 +785,7 @@ export default function TreasuryDetailPage() {
             toast.error("An error occurred while releasing the document.");
             setActionLoading(false);
         }
-    }, [transaction, ctcNumber, eCopyFile, orFile, router, isBusinessPermit, isLCR, isLcrBirthCertifiedCopy, typeCode, backUrl]);
+    }, [transaction, ctcNumber, eCopyFile, orFile, router, isBusinessPermit, isLCR, isLcrCertifiedCopy, typeCode, backUrl]);
 
     const handleResolveDispute = async () => {
         if (!remarks) { toast.error("Remarks required for resolution"); return; }
@@ -898,9 +921,9 @@ export default function TreasuryDetailPage() {
     // For PSA Appointment Endorsement types, treasury only acts at the FOR_CLAIM/FOR_PICKING/RELEASED step (collect cash & issue O.R.)
     // Before that (EVALUATED, UNPAID, FOR_PROCESSING), show an "Awaiting Registrar" screen
     if (
-        (typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT") &&
+        (typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT") &&
         !["FOR_CLAIM", "FOR_PICKING", "RELEASED", "PAID", "FOR_PROCESSING", "UNPAID"].includes(transaction?.status || "")
     ) {
         return (
@@ -981,42 +1004,7 @@ export default function TreasuryDetailPage() {
         }
 
         if (isLCR) {
-            const isLate = (additional.registrationType || "").toUpperCase() === "LATE";
-            const isMarriageReg = typeCode === "LCR_MARRIAGE_REG";
-            const isMarriageLicense = typeCode === "LCR_MARRIAGE_LICENSE";
-
-            // Pag FOR_REQUESTING, gamitin ang standard type baseFee (huwag yung transaction.totalAmount para maiwasan ang loop/double mapping)
-            const baseFee = (transaction.status === "FOR_REQUESTING")
-                ? Number(transaction.type?.baseFee || 0)
-                : (((isMarriageReg && !isLate) || isMarriageLicense)
-                    ? 0
-                    : Number(transaction.type?.baseFee || additional.totalAmount || transaction.totalAmount || 0));
-
-            const typeDelivery = Number(transaction.type?.deliveryFee || 0);
-            const deliveryFeeUsed = transaction.fulfillmentType === "DELIVERY"
-                ? (fiscal?.deliveryFee ?? deliveryFee ?? typeDelivery)
-                : 0;
-
-            const miscFee = (transaction.status === "FOR_REQUESTING")
-                ? (additional.miscFee !== undefined ? Number(additional.miscFee) : (isLate ? 300 : 0))
-                : (isLate
-                    ? (additional.miscFee !== undefined ? Number(additional.miscFee) : 300)
-                    : (isMarriageLicense ? (additional.miscFee !== undefined ? Number(additional.miscFee) : Number(transaction.type?.baseFee || 0)) : 0));
-
-            const itemsSum = feeLineItems.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-            const total = (transaction.totalAmount && Number(transaction.totalAmount) > 0 && transaction.status !== "FOR_REQUESTING")
-                ? Number(transaction.totalAmount)
-                : deliveryFeeUsed + miscFee + itemsSum;
-
-            return {
-                basicTax: baseFee,
-                additionalTax: 0,
-                penalty: 0,
-                deliveryFee: deliveryFeeUsed,
-                miscFee,
-                totalAmount: total,
-                lineItems: feeLineItems.filter(item => (parseFloat(item.amount) || 0) > 0)
-            };
+            return calculateCivilRegistryFee(transaction, feeLineItems, deliveryFee);
         }
 
         if (transaction.isStudent) {
@@ -1043,7 +1031,8 @@ export default function TreasuryDetailPage() {
                 propertyValue,
                 fulfillmentType: transaction.fulfillmentType,
                 deliveryFee,
-                baseFee: transaction.type?.baseFee
+                baseFee: transaction.type?.baseFee,
+                settings: cedulaSettings
             });
             const itemsSum = feeLineItems.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
             return {
@@ -1059,7 +1048,8 @@ export default function TreasuryDetailPage() {
             propertyValue,
             fulfillmentType: transaction.fulfillmentType,
             deliveryFee,
-            baseFee: transaction.type?.baseFee
+            baseFee: transaction.type?.baseFee,
+            settings: cedulaSettings
         });
     })();
 
@@ -1107,9 +1097,9 @@ export default function TreasuryDetailPage() {
             ];
         }
         if (
-            typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+            typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
         ) {
             return [
                 { id: "ATTEND_APPOINTMENT", label: "Attend Appointment" },
@@ -1132,7 +1122,7 @@ export default function TreasuryDetailPage() {
 
     if (
         typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
-        typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+        typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" || typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" || typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
     ) {
         // Maintain standard 4 steps
     } else if (status === "REJECTED") {
@@ -1181,11 +1171,23 @@ export default function TreasuryDetailPage() {
             return "REGISTRAR_RELEASE";
         }
         if (
-            typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+            typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
         ) {
-            if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED", "EVALUATED", "FOR_PROCESSING"].includes(s)) {
+            if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED", "EVALUATED"].includes(s)) {
+                if (!(additional as any)?.checkedIn) {
+                    return "ATTEND_APPOINTMENT";
+                }
+                return "RESIDENT_CHECKIN";
+            }
+            if (s === "FOR_PROCESSING") {
+                if ((additional as any)?.servingDepartment === "Treasury") {
+                    return "TREASURY_OR";
+                }
+                if (transaction.isPaid || (additional as any)?.appointmentAttended) {
+                    return "TREASURY_RELEASE";
+                }
                 return "RESIDENT_CHECKIN";
             }
             if (s === "UNPAID") {
@@ -1193,7 +1195,7 @@ export default function TreasuryDetailPage() {
             }
             return "TREASURY_RELEASE";
         }
-        if (isLcrBirthCertifiedCopy && (s === "PAID" || s === "PENDING_PAYMENT_VERIFICATION")) {
+        if (isLcrCertifiedCopy && (s === "PAID" || s === "PENDING_PAYMENT_VERIFICATION")) {
             return "VERIFY_OR";
         }
         if (!isBusinessPermit && !isBuildingPermit) {
@@ -1646,11 +1648,11 @@ export default function TreasuryDetailPage() {
                                     ? releaseMarriageRegistry
                                     : typeCode === "LCR_MARRIAGE_LICENSE"
                                         ? releaseMarriageLicense
-                                        : (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT")
+                                        : (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT")
                                             ? releaseMarriagePsaEndorsement
-                                            : (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT")
+                                            : (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT")
                                                 ? releaseBirthPsaEndorsement
-                                                : (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT")
+                                                : (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT")
                                                     ? releaseDeathPsaEndorsement
                                                     : releaseCedula;
                 const rel = await releaseFn(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "");
@@ -1693,11 +1695,11 @@ export default function TreasuryDetailPage() {
                                     ? releaseMarriageRegistry
                                     : typeCode === "LCR_MARRIAGE_LICENSE"
                                         ? releaseMarriageLicense
-                                        : (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT")
+                                        : (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT")
                                             ? releaseMarriagePsaEndorsement
-                                            : (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT")
+                                            : (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT")
                                                 ? releaseBirthPsaEndorsement
-                                                : (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT")
+                                                : (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT")
                                                     ? releaseDeathPsaEndorsement
                                                     : releaseCedula;
                 const rel = await releaseFn(
@@ -2087,17 +2089,17 @@ export default function TreasuryDetailPage() {
         renderView = <BuildingPermitView {...viewProps} />;
     } else if (typeCode.includes("CEDULA")) {
         renderView = <GenericServiceView {...viewProps} />;
-    } else if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT") {
+    } else if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT") {
         renderView = <BirthPsaEndorsementView {...viewProps} />;
-    } else if (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") {
+    } else if (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT") {
         renderView = <DeathPsaEndorsementView {...viewProps} />;
-    } else if (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT") {
+    } else if (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT") {
         renderView = <MarriagePsaEndorsementView {...viewProps} />;
     } else if (typeCode === "LCR_MARRIAGE") {
         renderView = <MarraigeCertificateView {...viewProps} />;
     } else if (typeCode === "LCR_DEATH" || (transaction?.type?.name && (transaction.type.name.includes("Death Certificate") || transaction.type.name.includes("Certified Copy of Death")))) {
         renderView = <DeathCertificateView {...viewProps} />;
-    } else if (typeCode === "LCR_BIRTH" || isLcrBirthCertifiedCopy) {
+    } else if (typeCode === "LCR_BIRTH" || isLcrCertifiedCopy) {
         renderView = <BirthCertificateView {...viewProps} />;
     } else if (typeCode === "LCR_DEATH_REG") {
         renderView = <DeathRegistrationView {...viewProps} />;

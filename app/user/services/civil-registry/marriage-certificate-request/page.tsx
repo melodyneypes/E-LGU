@@ -53,6 +53,7 @@ import {
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
+import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
 
 
 // --- UPLOAD FILE SECURELY VIA SIGNED UPLOAD URL ---
@@ -82,10 +83,9 @@ async function uploadFileClientSide(file: File, fieldName: string): Promise<stri
 
 // --- TYPES ---
 
-type Step = "STATUS" | "IDENTITY" | "DETAILS" | "CONFIRM";
+type Step = "IDENTITY" | "DETAILS" | "CONFIRM";
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
-    { id: "STATUS", label: "Status", icon: Home },
     { id: "IDENTITY", label: "Requester Details", icon: Heart },
     { id: "DETAILS", label: "Marriage Details", icon: FileText },
     { id: "CONFIRM", label: "Review & Submit", icon: CheckCircle2 },
@@ -658,9 +658,8 @@ export default function MarriageCertificateRequestPage() {
     const processingFee = Number(defaultFees.find((f: any) => f.code === "PROCESSING_FEE")?.amount || 0);
     const totalAmount = baseFee + processingFee;
 
-    // --- STEP VALIDATION ---
     const validateStep = (stepId: Step): boolean => {
-        if (stepId === "STATUS" || stepId === "IDENTITY") {
+        if (stepId === "IDENTITY") {
             const missingIdentity: string[] = [];
             if (!form.relationship) missingIdentity.push("Relationship to Document Owners");
             if (!form.contactNumber) missingIdentity.push("Contact Number");
@@ -920,6 +919,7 @@ export default function MarriageCertificateRequestPage() {
                     opacity: 0.8 !important;
                 }
             `}} />
+            <SecureIdleTimer />
             <PrivacyTermsModal
                 isOpen={policyOpen}
                 onClose={() => setPolicyOpen(false)}
@@ -1005,7 +1005,7 @@ export default function MarriageCertificateRequestPage() {
             </div>
 
             {/* Progress Stepper */}
-            <div className="grid grid-cols-4 gap-1.5 md:gap-4 relative px-1 md:px-2 py-2">
+            <div className="grid grid-cols-3 gap-1.5 md:gap-4 relative px-1 md:px-2 py-2">
                 {STEPS.map((step, idx) => {
                     const isActive = currentStep === step.id;
                     const stepIdx = STEPS.findIndex(s => s.id === currentStep);
@@ -1017,10 +1017,6 @@ export default function MarriageCertificateRequestPage() {
                             key={idx}
                             className="flex flex-col items-center gap-1 md:gap-2 relative z-10 font-black group cursor-pointer"
                             onClick={() => {
-                                if (step.id === "STATUS") {
-                                    router.push("/user/services/civil-registry");
-                                    return;
-                                }
                                 const targetIdx = STEPS.findIndex(s => s.id === step.id);
                                 const currentIdx = STEPS.findIndex(s => s.id === currentStep);
 

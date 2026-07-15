@@ -13,12 +13,34 @@ export default async function CedulaAppointmentPage() {
         redirect("/auth/login");
     }
 
-    const settings = await getMultipleSystemSettings(["theme_color", "logo", "brand_word_1", "brand_word_2"]);
+    const settings = await getMultipleSystemSettings([
+        "theme_color",
+        "logo",
+        "brand_word_1",
+        "brand_word_2",
+        "cedula_basic_tax_individual",
+        "cedula_basic_tax_juridical",
+        "cedula_additional_tax_rate_individual",
+        "cedula_additional_tax_rate_juridical",
+        "cedula_cap_individual",
+        "cedula_cap_juridical",
+        "cedula_penalty_rate_monthly"
+    ]);
     const themeColor = settings.get("theme_color") || "#2563eb";
     const branding = {
         logo: settings.get("logo") || null,
         word1: settings.get("brand_word_1") || "MUNICIPALITY",
         word2: settings.get("brand_word_2") || "PORTAL",
+    };
+
+    const cedulaSettings = {
+        cedula_basic_tax_individual: settings.get("cedula_basic_tax_individual") || "5.00",
+        cedula_basic_tax_juridical: settings.get("cedula_basic_tax_juridical") || "500.00",
+        cedula_additional_tax_rate_individual: settings.get("cedula_additional_tax_rate_individual") || "1.00",
+        cedula_additional_tax_rate_juridical: settings.get("cedula_additional_tax_rate_juridical") || "2.00",
+        cedula_cap_individual: settings.get("cedula_cap_individual") || "5000.00",
+        cedula_cap_juridical: settings.get("cedula_cap_juridical") || "10000.00",
+        cedula_penalty_rate_monthly: settings.get("cedula_penalty_rate_monthly") || "0.02"
     };
 
     // Fetch user's resident profile
@@ -94,6 +116,7 @@ export default async function CedulaAppointmentPage() {
             bookedSlots={bookedSlots as any[]}
             hasActiveIndividual={!!activeIndividual}
             hasActiveJuridical={!!activeJuridical}
+            cedulaSettings={cedulaSettings}
         />
     );
 }

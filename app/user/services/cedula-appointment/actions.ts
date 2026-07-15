@@ -232,6 +232,7 @@ export async function submitCedulaAppointment(formData: FormData) {
             isPriority,
             appointmentDate: startOfDay,
             appointmentSlot,
+            category: "CEDULA"
         });
 
         // 3. Create the Transaction Record

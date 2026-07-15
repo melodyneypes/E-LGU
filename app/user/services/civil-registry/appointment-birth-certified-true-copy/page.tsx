@@ -65,7 +65,7 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
     { id: "REVIEW", label: "Review & Submit", icon: CheckCircle2 },
 ];
 
-export default function AppointmentBirthPsaEndorsementPage() {
+export default function AppointmentBirthCertifiedTrueCopyPage() {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<Step>("INFORMANT");
     const [mounted, setMounted] = useState(false);
@@ -129,9 +129,12 @@ export default function AppointmentBirthPsaEndorsementPage() {
     const parsedDefaultFees = dbType?.defaultFees 
         ? (typeof dbType.defaultFees === "string" ? JSON.parse(dbType.defaultFees) : dbType.defaultFees) 
         : [];
+    const baseFeeObj = parsedDefaultFees.find((f: any) => f.code === "BASE_FEE_LABEL");
+    const baseFeeLabel = baseFeeObj?.label || "Misc Fee";
+    const additionalFees = parsedDefaultFees.filter((f: any) => f.code !== "BASE_FEE_LABEL");
     const miscFeeAmount = dbType?.baseFee ?? 130.00;
-    const mandatoryFeeAmount = parsedDefaultFees.find((f: any) => f.code === "MANDATORY_FINE" || f.code === "MANDATORY_FEE")?.amount ?? 140.00;
-    const apptTotalAmount = miscFeeAmount + mandatoryFeeAmount;
+    const defaultFeesTotal = additionalFees.reduce((sum: number, fee: any) => sum + (Number(fee.amount) || 0), 0);
+    const apptTotalAmount = miscFeeAmount + defaultFeesTotal;
 
     const handleAcceptPolicy = () => { setPolicyOpen(false); setPolicyAccepted(true); };
 
@@ -143,8 +146,8 @@ export default function AppointmentBirthPsaEndorsementPage() {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get("revisionId")) return;
 
-        const savedStep = sessionStorage.getItem("appointment-birth-psa-endorsement-step");
-        const savedForm = sessionStorage.getItem("appointment-birth-psa-endorsement-form");
+        const savedStep = sessionStorage.getItem("appointment-birth-certified-true-copy-step");
+        const savedForm = sessionStorage.getItem("appointment-birth-certified-true-copy-form");
 
         if (savedStep) setCurrentStep(savedStep as Step);
         if (savedForm) {
@@ -164,8 +167,8 @@ export default function AppointmentBirthPsaEndorsementPage() {
 
     useEffect(() => {
         if (!loading && !revisionId) {
-            sessionStorage.setItem("appointment-birth-psa-endorsement-step", currentStep);
-            sessionStorage.setItem("appointment-birth-psa-endorsement-form", JSON.stringify(formData));
+            sessionStorage.setItem("appointment-birth-certified-true-copy-step", currentStep);
+            sessionStorage.setItem("appointment-birth-certified-true-copy-form", JSON.stringify(formData));
         }
     }, [currentStep, formData, loading, revisionId]);
 
@@ -269,13 +272,13 @@ export default function AppointmentBirthPsaEndorsementPage() {
                 }
 
                 if (typesResult.success && typesResult.data) {
-                    const psaType = typesResult.data.find((t: any) => t.code === "LCR_PSA_APPOINTMENT_ENDORSEMENT");
+                    const psaType = typesResult.data.find((t: any) => t.code === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT");
                     if (psaType) {
                         setTypeId(psaType.id);
                         setDbType(psaType);
                         await logDebugMessage(`Client: Found dbType ID: ${psaType.id}`);
                     } else {
-                        await logDebugMessage("Client: LCR_PSA_APPOINTMENT_ENDORSEMENT type NOT found in dbTypes list");
+                        await logDebugMessage("Client: LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT type NOT found in dbTypes list");
                     }
                 } else {
                     await logDebugMessage(`Client: getTransactionTypes was unsuccessful: ${typesResult.error}`);
@@ -340,7 +343,7 @@ export default function AppointmentBirthPsaEndorsementPage() {
         try {
             const data = new FormData();
             data.append("typeId", typeId);
-            data.append("registryType", "BIRTH_PSA_ENDORSEMENT");
+            data.append("registryType", "BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT");
             if (revisionId) {
                 data.append("revisionId", revisionId);
             }
@@ -373,12 +376,12 @@ export default function AppointmentBirthPsaEndorsementPage() {
             const res = await submitCivilRegistryTransaction(data);
 
             if (res.success && res.data) {
-                toast.success(revisionId ? "Revision resubmitted successfully!" : "Birth PSA Appointment Endorsement submitted successfully!");
-                sessionStorage.removeItem("appointment-birth-psa-endorsement-step");
-                sessionStorage.removeItem("appointment-birth-psa-endorsement-form");
+                toast.success(revisionId ? "Revision resubmitted successfully!" : "Birth Certified True Copy Appointment submitted successfully!");
+                sessionStorage.removeItem("appointment-birth-certified-true-copy-step");
+                sessionStorage.removeItem("appointment-birth-certified-true-copy-form");
                 router.push(`/user/appointment/${res.data.id}`);
             } else {
-                toast.error(res.error || "Failed to submit endorsement request");
+                toast.error(res.error || "Failed to submit appointment request");
             }
         } catch (error) {
             console.error("Submission error:", error);
@@ -392,7 +395,7 @@ export default function AppointmentBirthPsaEndorsementPage() {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
                 <Loader2 className="w-10 h-10 animate-spin mb-4" style={{ color: "var(--primary-theme)" }} />
-                <p className="font-black uppercase tracking-widest text-[10px] text-slate-400 italic">Initializing Endorsement Form...</p>
+                <p className="font-black uppercase tracking-widest text-[10px] text-slate-400 italic">Initializing Appointment Form...</p>
             </div>
         );
     }
@@ -502,7 +505,7 @@ export default function AppointmentBirthPsaEndorsementPage() {
                             </BreadcrumbItem>
                             <BreadcrumbSeparator className="text-slate-300 dark:text-white/10" />
                             <BreadcrumbItem>
-                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: themeColor }}>Birth PSA Appointment Endorsement</BreadcrumbPage>
+                                <BreadcrumbPage className="text-[10px] font-black uppercase tracking-widest italic" style={{ color: themeColor }}>Birth Certified True Copy Appointment</BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
@@ -525,11 +528,11 @@ export default function AppointmentBirthPsaEndorsementPage() {
                             </div>
 
                             <h1 className="text-2xl md:text-4xl font-black uppercase italic tracking-tighter leading-none">
-                                Birth PSA Appointment <span style={{ color: themeColor }}>Endorsement</span>
+                                Birth Certified True Copy <span style={{ color: themeColor }}>Appointment</span>
                             </h1>
 
                             <p className="text-slate-600 dark:text-slate-300 font-medium text-xs leading-relaxed max-w-xl italic">
-                                Request appointment and endorsement of a verified local birth certificate record to the Philippine Statistics Authority (PSA).
+                                Schedule an appointment and request a certified true copy of an existing birth certificate.
                             </p>
                         </div>
 
@@ -569,7 +572,7 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                             "w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-500 border-2 bg-white dark:bg-[#08090d]",
                                             isActive ? "shadow-lg scale-110" :
                                                 isCompleted ? "text-white" :
-                                                    "border-slate-200 dark:border-white/10 text-slate-400"
+                                                    "border-slate-200/40 dark:border-white/10 text-slate-400"
                                         )}
                                             style={
                                                 isActive
@@ -674,7 +677,7 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                                     <SelectTrigger className={cn("h-12 rounded-xl focus:ring-emerald-500 shadow-sm text-xs md:text-sm bg-white dark:bg-slate-900 transition-all font-bold", (showErrors && !formData.relationship) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10")}>
                                                         <SelectValue placeholder="SELECT RELATIONSHIP" />
                                                     </SelectTrigger>
-                                                    <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 italic">
+                                                    <SelectContent className="rounded-xl border-slate-200/60 dark:border-white/10 italic">
                                                         <SelectItem value="SELF">SELF (I AM THE SUBJECT)</SelectItem>
                                                         <SelectItem value="CHILD">CHILD</SelectItem>
                                                         <SelectItem value="PARENT">PARENT</SelectItem>
@@ -731,45 +734,18 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Informant Address</Label>
                                             <Input
                                                 readOnly
-                                                className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 transition-all font-bold italic text-slate-600 uppercase"
+                                                className="rounded-xl border-slate-200/60 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 transition-all font-bold italic text-slate-600 uppercase"
                                                 value={formData.informantAddress}
                                             />
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Occupation</Label>
-                                                <Input
-                                                    readOnly
-                                                    className="rounded-xl border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 h-12 transition-all font-bold italic text-slate-600"
-                                                    value={formData.informantOccupation}
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Contact Number <span className="text-red-500">*</span></Label>
-                                                <Input
-                                                    name="contactNumber"
-                                                    value={formData.contactNumber}
-                                                    onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value.replace(/[^0-9]/g, '') }))}
-                                                    className={cn(
-                                                        "rounded-xl bg-white dark:bg-slate-900 h-12 transition-all font-bold italic",
-                                                        (showErrors && !formData.contactNumber) ? "border-2 border-red-500" : "border border-slate-200 dark:border-white/10"
-                                                    )}
-                                                />
-                                                {(showErrors && !formData.contactNumber) && (
-                                                    <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest ml-1 animate-pulse">Required</p>
-                                                )}
-                                            </div>
                                         </div>
                                     </div>
 
                                     <BackNextButton
                                         onBack={() => router.push("/user/services/civil-registry")}
                                         onNext={() => {
-                                            const isSpecifyEmpty = (formData.relationship === "OTHER" || formData.relationship === "RELATIVE") && !formData.relationshipOther?.trim();
-                                            if (!formData.relationship || !formData.contactNumber || isSpecifyEmpty) {
+                                            if (!formData.relationship || !formData.contactNumber || ((formData.relationship === "OTHER" || formData.relationship === "RELATIVE") && !formData.relationshipOther)) {
                                                 setShowErrors(true);
-                                                toast.error("Please fill in all required informant details.");
+                                                toast.error("Please fill in all informant details.");
                                                 return;
                                             }
                                             setShowErrors(false);
@@ -780,7 +756,7 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                 </motion.div>
                             )}
 
-                            {/* ===== STEP 2: SUBJECT & DOCUMENTS ===== */}
+                            {/* ===== STEP 2: SUBJECT DETAILS ===== */}
                             {currentStep === "SUBJECT" && (
                                 <motion.div
                                     key="subject-step"
@@ -790,14 +766,12 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                     className="space-y-6"
                                 >
                                     <div className="space-y-2">
-                                        <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight flex items-center gap-2">
-                                            Subject Information & Documents
-                                        </h2>
-                                        <p className="text-xs text-slate-500 font-medium italic">Provide the details of the person whose birth record needs PSA appointment endorsement</p>
+                                        <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Subject Information</h2>
+                                        <p className="text-xs text-slate-500 font-medium italic">Provide details of the person whose birth certificate copy is requested</p>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="md:col-span-2 space-y-2">
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic ml-1">Subject&apos;s Full Name <span className="text-red-500">*</span></Label>
                                             <Input
                                                 name="subjectFullName"
@@ -846,8 +820,6 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                             )}
                                         </div>
                                     </div>
-
-
 
                                     <BackNextButton
                                         onBack={() => setCurrentStep("INFORMANT")}
@@ -912,7 +884,7 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                 </motion.div>
                             )}
 
-                            {/* ===== STEP 3: REVIEW & SUBMIT ===== */}
+                            {/* ===== STEP 4: REVIEW & SUBMIT ===== */}
                             {currentStep === "REVIEW" && (
                                 <motion.div
                                     key="review-step"
@@ -923,7 +895,7 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                 >
                                     <div className="flex items-center gap-4 mb-4">
                                         <div>
-                                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Endorsement Review</h2>
+                                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Appointment Review</h2>
                                             <p className="text-xs text-slate-500 font-medium italic">Verify information before submission</p>
                                         </div>
                                     </div>
@@ -943,7 +915,7 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                                 <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.informantAddress}</p>
                                             </div>
                                             <div className="col-span-2 border-t border-slate-200 dark:border-white/5 pt-4 space-y-1">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500 italic">Subject Name (To Endorse)</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500 italic">Subject Name</span>
                                                 <p className="font-black text-slate-900 dark:text-white italic uppercase text-lg">{formData.subjectFullName}</p>
                                             </div>
                                             <div className="space-y-1">
@@ -954,7 +926,7 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Mother&apos;s Maiden Name</span>
                                                 <p className="font-black text-slate-900 dark:text-white italic uppercase">{formData.mothersMaidenName}</p>
                                             </div>
-                                            <div className="col-span-2 border-t border-slate-200 dark:border-white/5 pt-4 grid grid-cols-2 gap-6">
+                                            <div className="col-span-2 border-t border-slate-200/40 dark:border-white/5 pt-4 grid grid-cols-2 gap-6">
                                                 <div className="space-y-1">
                                                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Appointment Date</span>
                                                     <p className="font-black text-slate-900 dark:text-white italic">
@@ -970,27 +942,27 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                             </div>
                                         </div>
 
-
-
-                                         {/* Fee Display */}
-                                         <div className="space-y-3 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20">
-                                             <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500 italic">
-                                                 <span>Misc Fee</span>
-                                                 <span className="font-bold text-slate-700 dark:text-slate-200">₱{miscFeeAmount.toFixed(2)}</span>
-                                             </div>
-                                             <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500 italic">
-                                                 <span>Mandatory Fee</span>
-                                                 <span className="font-bold text-slate-700 dark:text-slate-200">₱{mandatoryFeeAmount.toFixed(2)}</span>
-                                             </div>
-                                             <div className="border-t border-emerald-200/40 dark:border-emerald-500/20 pt-2 flex items-center justify-between">
-                                                 <div>
-                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Total PSA Appointment Endorsement Fee</span>
-                                                 </div>
-                                                 <div className="text-right">
-                                                     <span className="text-lg font-black text-emerald-600 tracking-tight">₱{apptTotalAmount.toFixed(2)}</span>
-                                                 </div>
-                                             </div>
-                                         </div>
+                                        {/* Fee Display */}
+                                        <div className="space-y-3 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20">
+                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500 italic">
+                                                <span>{baseFeeLabel}</span>
+                                                <span className="font-bold text-slate-700 dark:text-slate-200">₱{miscFeeAmount.toFixed(2)}</span>
+                                            </div>
+                                            {additionalFees.map((fee: any, idx: number) => (
+                                                <div key={fee.code || idx} className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500 italic">
+                                                    <span>{fee.label || "Additional Fee"}</span>
+                                                    <span className="font-bold text-slate-700 dark:text-slate-200">₱{(Number(fee.amount) || 0).toFixed(2)}</span>
+                                                </div>
+                                            ))}
+                                            <div className="border-t border-emerald-200/40 dark:border-emerald-500/20 pt-2 flex items-center justify-between">
+                                                <div>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Total Certified True Copy Appointment Fee</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-lg font-black text-emerald-600 tracking-tight">₱{apptTotalAmount.toFixed(2)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </Card>
 
                                     <div className="space-y-4">
@@ -1035,7 +1007,7 @@ export default function AppointmentBirthPsaEndorsementPage() {
                                             </button>
                                             <div className="flex-1 text-xs text-left cursor-pointer select-none" onClick={(e) => { e.stopPropagation(); setPolicyOpen(true); }}>
                                                 <div className="font-black uppercase text-[11px] tracking-wider text-slate-900 dark:text-white">DATA PRIVACY AND TERMS AGREEMENT</div>
-                                                <div className="text-[10px] text-slate-500 italic mt-1 line-clamp-2 md:line-clamp-none">I AUTHORIZE THE LGU TO PROCESS MY PERSONAL INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
+                                                <div className="text-[10px] text-slate-500 italic mt-1 line-clamp-2 md:line-clamp-none">I AUTHORIZE THE LGU TO PROCESS MY INFORMATION IN ACCORDANCE WITH THE DATA PRIVACY ACT. CLICK TO REVIEW AGREEMENT.</div>
                                                 {(showErrors && !policyAccepted) && (
                                                     <p className="text-[9px] font-black text-red-500 uppercase italic tracking-widest mt-1 animate-pulse">Agreement required before submitting</p>
                                                 )}

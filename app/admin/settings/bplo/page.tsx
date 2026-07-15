@@ -29,7 +29,8 @@ export default async function BploSettingsPage() {
                     "bplo_wholesaler_tax_rate",
                     "bplo_mayors_permit_matrix",
                     "bplo_sanitary_fee_matrix",
-                    "bplo_garbage_fee_matrix"
+                    "bplo_garbage_fee_matrix",
+                    "bplo_mayors_tax_clearance_fee"
                 ]
             }
         }
@@ -72,6 +73,7 @@ export default async function BploSettingsPage() {
     const defaults = {
         bplo_tax_rate_new: "0.0005", // 0.05%
         bplo_health_card_fee: "100.00",
+        bplo_mayors_tax_clearance_fee: "85.00",
         bplo_retail_tax_rate_low: "0.022", // 2.2%
         bplo_retail_tax_rate_high: "0.011", // 1.1%
         bplo_manufacturer_tax_rate: "0.004125", // 0.4125%

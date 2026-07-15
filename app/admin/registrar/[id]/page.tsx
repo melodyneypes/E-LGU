@@ -46,8 +46,10 @@ import { releaseMarriageLicense, evaluateMarriageLicenseTransaction, processMarr
 import { releaseMarriageRegistry, evaluateMarriageRegistrationTransaction } from "@/app/admin/transactions/marriage-regis-actions";
 import { releaseMarriageCertificate, evaluateMarriageCertificateTransaction } from "@/app/admin/transactions/marriage-cert-actions";
 import { releaseMarriagePsaEndorsement } from "@/app/admin/transactions/marriage-endorsement-actions";
-import { releaseBirthPsaEndorsement, markPsaAppointmentAttended, collectPsaAppointmentPayment, finishPsaAppointmentToTreasury } from "@/app/admin/transactions/birth-endorsement-actions";
+import { releaseBirthPsaEndorsement } from "@/app/admin/transactions/birth-endorsement-actions";
 import { releaseDeathPsaEndorsement } from "@/app/admin/transactions/death-endorsement-actions";
+import { calculateCivilRegistryFee } from "@/lib/civil-registry";
+import { markPsaAppointmentAttended, collectPsaAppointmentPayment, finishPsaAppointmentToTreasury } from "@/app/admin/transactions/civil-registry-appointment-actions";
 import { calculateCedula } from "@/lib/cedula";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { Button } from "@/components/ui/button";
@@ -255,8 +257,8 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             ? "/admin/registrar?category=Birth%20Certificate"
             : (typeCodeForBack === "LCR_PSA_ENDORSEMENT" || typeCodeForBack === "LCR_DEATH_PSA_ENDORSEMENT" || typeCodeForBack === "LCR_MARRIAGE_PSA_ENDORSEMENT")
                 ? "/admin/registrar?category=PSA%20Endorsement"
-                : (typeCodeForBack === "LCR_PSA_APPOINTMENT_ENDORSEMENT" || typeCodeForBack === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" || typeCodeForBack === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT")
-                    ? "/admin/registrar?category=PSA%20Appt.%20Endorsement"
+                : (typeCodeForBack === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" || typeCodeForBack === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" || typeCodeForBack === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT")
+                    ? "/admin/registrar?category=Certified%20True%20Copy%20Appointment"
                 : typeCodeForBack === "LCR_DEATH_REG"
                     ? "/admin/registrar?category=Death%20Registration"
                     : typeCodeForBack === "LCR_DEATH"
@@ -288,6 +290,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     const [birthRegDocPreview, setBirthRegDocPreview] = useState<string | null>(null);
     const [orSeriesNumber, setOrSeriesNumber] = useState<string>("");
     const [miscFee, setMiscFee] = useState<string>("0");
+    const [miscFeeLabel, setMiscFeeLabel] = useState<string>("Miscellaneous Fee");
 
     useEffect(() => {
         if (!birthRegDocFile) {
@@ -449,11 +452,14 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                     const addData = tx.additionalData || {};
                     const isLate = (addData.registrationType || "").toUpperCase() === "LATE";
                     const typeCode = (tx.type?.code || "").toUpperCase();
-                    const defaultLcrMisc = (typeCode === "LCR_BIRTH" || typeCode.includes("PSA_")) ? String(tx.type?.baseFee || tx.totalAmount || "130") : "0";
+                    const defaultLcrMisc = (typeCode === "LCR_BIRTH" || typeCode.includes("PSA_") || typeCode.includes("APPOINTMENT")) ? String(tx.type?.baseFee || tx.totalAmount || "130") : "0";
                     const initialMisc = fiscalSnapshot?.miscFee !== undefined
                         ? String(fiscalSnapshot.miscFee)
                         : (addData.miscFee !== undefined ? String(addData.miscFee) : (isLate ? "300" : defaultLcrMisc));
                     setMiscFee(initialMisc);
+                    if (fiscalSnapshot?.miscFeeLabel) {
+                        setMiscFeeLabel(fiscalSnapshot.miscFeeLabel);
+                    }
                 }
 
                 if (tx && tx.type?.code?.startsWith("BUILDING_PERMIT")) {
@@ -477,11 +483,15 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                     } else {
                         const defaultFees = tx.type?.defaultFees;
                         if (Array.isArray(defaultFees) && defaultFees.length > 0) {
-                            const mappedFees = defaultFees.map((fee: any) => ({
-                                label: fee.label,
-                                amount: (tx.type?.code?.includes("PSA_") ?? false) ? String(fee.amount) : "",
-                                readonly: true
-                            }));
+                            const baseLabelObj = defaultFees.find((fee: any) => fee.code === "BASE_FEE_LABEL");
+                            if (baseLabelObj?.label) setMiscFeeLabel(baseLabelObj.label);
+                            const mappedFees = defaultFees
+                                .filter((fee: any) => fee.code !== "BASE_FEE_LABEL")
+                                .map((fee: any) => ({
+                                    label: fee.label,
+                                    amount: (tx.type?.code?.includes("PSA_") || tx.type?.code?.includes("APPOINTMENT")) ? String(fee.amount) : "",
+                                    readonly: true
+                                }));
                             setFeeLineItems(mappedFees);
                         }
                     }
@@ -655,9 +665,9 @@ export default function RegistrarDetailPage({ params }: PageProps) {
 
     const handleRelease = useCallback(async () => {
         const isPsaAppointmentEndorsement = 
-            typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
+            typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT";
 
         const ctcRequired = !isBusinessPermit && !isLCR && !isLcrBirthCertifiedCopy && !["PAID", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction?.status);
         if (ctcRequired && !ctcNumber && !transaction?.cedula?.ctcNumber) {
@@ -737,19 +747,19 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                                     ? await releaseMarriageRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
                                     : typeCode === "LCR_MARRIAGE_LICENSE"
                                         ? await releaseMarriageLicense(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                        : (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT")
+                                        : (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT")
                                             ? await releaseMarriagePsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                            : (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT")
+                                            : (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT")
                                                 ? await releaseBirthPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                                : (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT")
+                                                : (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT")
                                                     ? await releaseDeathPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
                                                     : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
             if (res.success) {
                 const status = res.data?.status;
                 const isPsaAppointmentEndorsement = 
-                    typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-                    typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT";
+                    typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+                    typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+                    typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT";
 
                 const message = isPsaAppointmentEndorsement
                     ? "Endorsement submitted to PSA. Sent to Treasury for counter payment."
@@ -1398,33 +1408,8 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         }
 
         if (isLCR) {
-            const isLate = (additional.registrationType || "").toUpperCase() === "LATE";
-            const isMarriageReg = typeCode === "LCR_MARRIAGE_REG";
-            const isCertifiedCopy = ["LCR_BIRTH", "LCR_DEATH", "LCR_MARRIAGE"].includes(typeCode) || isLcrBirthCertifiedCopy;
-            const isBirthReg = typeCode === "LCR_BIRTH_REG";
-            const isDeathReg = typeCode === "LCR_DEATH_REG";
-            const isMarriageLicense = typeCode === "LCR_MARRIAGE_LICENSE";
-            const baseFee = (isCertifiedCopy || isBirthReg || isDeathReg || isMarriageReg || isMarriageLicense || typeCode.includes("PSA_"))
-                ? 0
-                : Number(transaction.type?.baseFee || additional.totalAmount || transaction.totalAmount || 0);
-            const typeDelivery = Number(transaction.type?.deliveryFee || 0);
-            const deliveryFeeUsed = transaction.fulfillmentType === "DELIVERY"
-                ? (fiscal?.deliveryFee ?? deliveryFee ?? typeDelivery)
-                : 0;
             const miscFeeVal = parseFloat(miscFee) || 0;
-            const isNotEvaluated = ["FOR_REQUESTING", "UNDER_REVIEW", "FOR_INSPECTION"].includes(transaction.status);
-            const itemsSum = feeLineItems.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-            const total = (transaction.totalAmount && Number(transaction.totalAmount) > 0 && !isNotEvaluated)
-                ? Number(transaction.totalAmount)
-                : baseFee + deliveryFeeUsed + miscFeeVal + itemsSum;
-            return {
-                basicTax: baseFee,
-                additionalTax: 0,
-                penalty: 0,
-                deliveryFee: deliveryFeeUsed,
-                miscFee: miscFeeVal,
-                totalAmount: total
-            };
+            return calculateCivilRegistryFee(transaction, feeLineItems, deliveryFee, miscFeeVal);
         }
 
         return calculateCedula({
@@ -1485,9 +1470,9 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             ];
         }
         if (
-            typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+            typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
         ) {
             return [
                 { id: "ATTEND_APPOINTMENT", label: "Attend Appointment" },
@@ -1527,9 +1512,9 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         typeCode === "LCR_PSA_ENDORSEMENT" ||
         typeCode === "LCR_DEATH_PSA_ENDORSEMENT" ||
         typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" ||
-        typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-        typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-        typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+        typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+        typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+        typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
     ) {
         // Maintain the standard 4 steps
     } else if (status === "REJECTED") {
@@ -1583,11 +1568,23 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             return "REGISTRAR_RELEASE";
         }
         if (
-            typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT" ||
-            typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT"
+            typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
+            typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT"
         ) {
-            if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED", "EVALUATED", "FOR_PROCESSING"].includes(s)) {
+            if (["FOR_INSPECTION", "FOR_REQUESTING", "UNDER_REVIEW", "FOR_REVISION", "REJECTED", "EVALUATED"].includes(s)) {
+                if (!(additional as any)?.checkedIn) {
+                    return "ATTEND_APPOINTMENT";
+                }
+                return "RESIDENT_CHECKIN";
+            }
+            if (s === "FOR_PROCESSING") {
+                if ((additional as any)?.servingDepartment === "Treasury") {
+                    return "TREASURY_OR";
+                }
+                if (transaction.isPaid || (additional as any)?.appointmentAttended) {
+                    return "TREASURY_RELEASE";
+                }
                 return "RESIDENT_CHECKIN";
             }
             if (s === "UNPAID") {
@@ -1929,6 +1926,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
         setOrSeriesNumber,
         miscFee,
         setMiscFee,
+        miscFeeLabel,
         handleProcessRequest,
         handleMarkAppointmentAttended,
         handleCollectPsaPayment,
@@ -1982,7 +1980,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             </>
         );
     }
-    if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_PSA_APPOINTMENT_ENDORSEMENT") {
+    if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT") {
         return (
             <>
                 <BirthPsaEndorsementView {...viewProps} />
@@ -1999,7 +1997,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             </>
         );
     }
-    if (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_PSA_APPOINTMENT_ENDORSEMENT") {
+    if (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT") {
         return (
             <>
                 <DeathPsaEndorsementView {...viewProps} />
@@ -2016,7 +2014,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
             </>
         );
     }
-    if (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_PSA_APPOINTMENT_ENDORSEMENT") {
+    if (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT") {
         return (
             <>
                 <MarriagePsaEndorsementView {...viewProps} />

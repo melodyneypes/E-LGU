@@ -128,16 +128,16 @@ export function AdminShell({
         if (role === "ADMIN") {
             if (deptUpper === "BPLO" && !pathname.startsWith("/admin/bplo")) {
                 isRestricted = true;
-            } else if ((deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") && !pathname.startsWith("/admin/registrar")) {
+            } else if ((deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") && !pathname.startsWith("/admin/registrar") && pathname !== "/admin/treasury/payment-settings") {
                 isRestricted = true;
             } else if (deptUpper === "TREASURY" && !pathname.startsWith("/admin/treasury") && !pathname.startsWith("/admin/treasury/payments") && !pathname.startsWith("/admin/treasury/payment-settings") && !pathname.startsWith("/admin/treasury/appointment-settings")) {
                 isRestricted = true;
             } else if (deptUpper === "LGU") {
-                // LGU admins are restricted from specialized sub-sections
+                // LGU admins are restricted from registrar specialized sub-sections, and queues
                 if (
                     pathname.startsWith("/admin/registrar") ||
-                    pathname.startsWith("/admin/treasury") ||
-                    pathname.startsWith("/admin/bplo")
+                    pathname === "/admin/bplo/queue" ||
+                    pathname === "/admin/treasury/queue"
                 ) {
                     isRestricted = true;
                 }

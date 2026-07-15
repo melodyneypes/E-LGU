@@ -92,6 +92,13 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const isEndorsed = feeAssessment?.endorsed === true;
     const isViewOnly = isForcedView || isEndorsed || (transaction && transaction.status !== "EVALUATED");
 
+    const [now] = useState(() => Date.now());
+    const isBfpBypassActive = useMemo(() => {
+        const endorsedAt = transaction?.additionalData?.feeAssessment?.zoningEndorsedAt;
+        if (!endorsedAt) return false;
+        return now - new Date(endorsedAt).getTime() > 3 * 24 * 60 * 60 * 1000;
+    }, [transaction, now]);
+
     const additional = useMemo(() => transaction?.additionalData || {}, [transaction]);
     const resident = useMemo(() => transaction?.user?.residentProfile || transaction?.residentSnapshot || {}, [transaction]);
 
@@ -1064,57 +1071,52 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                     </p>
                                 )}
 
-                                {transaction.status === "PAID" && (() => {
-                                    const endorsedAt = transaction.additionalData?.feeAssessment?.zoningEndorsedAt;
-                                    const isBfpBypassActive = endorsedAt ? (Date.now() - new Date(endorsedAt).getTime() > 3 * 24 * 60 * 60 * 1000) : false;
-                                    
-                                    return (
-                                        <div className="space-y-4">
-                                            {!transaction.additionalData?.bfpClearanceUrl ? (
-                                                isBfpBypassActive ? (
-                                                    <div className="p-4 bg-amber-500/5 border border-amber-500/20 text-amber-500 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
-                                                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                                                        <span>BFP Clearance requirement bypassed (3-day limit exceeded).</span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="p-4 bg-red-500/5 border border-red-500/20 text-red-500 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
-                                                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 animate-pulse" />
-                                                        <span>Awaiting BFP Fire Safety Clearance upload from Resident.</span>
-                                                    </div>
-                                                )
-                                            ) : (
-                                                <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
-                                                    <Check className="w-4 h-4 shrink-0 mt-0.5" />
-                                                    <span>BFP Fire Safety Clearance Proof has been submitted by BFP Officer!</span>
+                                {transaction.status === "PAID" && (
+                                    <div className="space-y-4">
+                                        {!transaction.additionalData?.bfpClearanceUrl ? (
+                                            isBfpBypassActive ? (
+                                                <div className="p-4 bg-amber-500/5 border border-amber-500/20 text-amber-500 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
+                                                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                                                    <span>BFP Clearance requirement bypassed (3-day limit exceeded).</span>
                                                 </div>
-                                            )}
-
-                                            {!transaction.additionalData?.zoningClearanceUrl ? (
+                                            ) : (
                                                 <div className="p-4 bg-red-500/5 border border-red-500/20 text-red-500 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
                                                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 animate-pulse" />
-                                                    <span>Awaiting Zoning/Locational Clearance upload from Resident.</span>
+                                                    <span>Awaiting BFP Fire Safety Clearance upload from Resident.</span>
                                                 </div>
-                                            ) : (
-                                                <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
-                                                    <Check className="w-4 h-4 shrink-0 mt-0.5" />
-                                                    <span>Zoning/Locational Clearance Proof has been submitted by Zoning Officer!</span>
-                                                </div>
-                                            )}
+                                            )
+                                        ) : (
+                                            <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
+                                                <Check className="w-4 h-4 shrink-0 mt-0.5" />
+                                                <span>BFP Fire Safety Clearance Proof has been submitted by BFP Officer!</span>
+                                            </div>
+                                        )}
 
-                                            {(userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
-                                                <div className="pt-2 space-y-3">
-                                                    <Button
-                                                        onClick={handleApprove}
-                                                        disabled={actionLoading || (!transaction.additionalData?.bfpClearanceUrl && !isBfpBypassActive) || !transaction.additionalData?.zoningClearanceUrl}
-                                                        className="w-full h-14 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        <BadgeCheck className="w-4 h-4 mr-2" /> Approve & Process Permit
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })()}
+                                        {!transaction.additionalData?.zoningClearanceUrl ? (
+                                            <div className="p-4 bg-red-500/5 border border-red-500/20 text-red-500 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
+                                                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 animate-pulse" />
+                                                <span>Awaiting Zoning/Locational Clearance upload from Resident.</span>
+                                            </div>
+                                        ) : (
+                                            <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
+                                                <Check className="w-4 h-4 shrink-0 mt-0.5" />
+                                                <span>Zoning/Locational Clearance Proof has been submitted by Zoning Officer!</span>
+                                            </div>
+                                        )}
+
+                                        {(userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
+                                            <div className="pt-2 space-y-3">
+                                                <Button
+                                                    onClick={handleApprove}
+                                                    disabled={actionLoading || (!transaction.additionalData?.bfpClearanceUrl && !isBfpBypassActive) || !transaction.additionalData?.zoningClearanceUrl}
+                                                    className="w-full h-14 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    <BadgeCheck className="w-4 h-4 mr-2" /> Approve & Process Permit
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 {["FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING"].includes(transaction.status) && (
                                     <div className="space-y-4">
