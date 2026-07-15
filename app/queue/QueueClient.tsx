@@ -688,19 +688,24 @@ export default function QueueClient({
                             {/* Up Next List */}
                             <div className="mt-auto pt-3 border-t border-white/5">
                                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest italic block mb-2">Up Next in Line</span>
-                                <div className="space-y-1.5">
+                                <div className="grid grid-cols-2 gap-2">
                                     {dept.waiting.length > 0 ? (
-                                        dept.waiting.slice(0, 5).map((num, idx) => (
-                                            <div 
-                                                key={num}
-                                                className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-all font-mono"
-                                            >
-                                                <span className="text-[10px] font-black text-slate-400">{idx + 1}</span>
-                                                <span className="text-xs font-black tracking-wide text-slate-200">{num}</span>
-                                            </div>
-                                        ))
+                                        dept.waiting.slice(0, 5).map((num, idx, arr) => {
+                                            const isLastAndAlone = idx === arr.length - 1 && idx % 2 === 0;
+                                            return (
+                                                <div 
+                                                    key={num}
+                                                    className={`flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-all font-mono ${
+                                                        isLastAndAlone ? "col-span-2" : "col-span-1"
+                                                    }`}
+                                                >
+                                                    <span className="text-[10px] font-black text-slate-400">{idx + 1}</span>
+                                                    <span className="text-xs font-black tracking-wide text-slate-200">{num}</span>
+                                                </div>
+                                            );
+                                        })
                                     ) : (
-                                        <div className="text-center py-3 border border-dashed border-white/5 rounded-xl bg-white/[0.01]">
+                                        <div className="col-span-2 text-center py-3 border border-dashed border-white/5 rounded-xl bg-white/[0.01]">
                                             <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">Queue Empty</span>
                                         </div>
                                     )}
