@@ -10,7 +10,6 @@ import {
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
     FileText
 } from "lucide-react";
-import { signOut } from "next-auth/react";
 import { secureLogoutAction } from "@/app/actions/auth";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
