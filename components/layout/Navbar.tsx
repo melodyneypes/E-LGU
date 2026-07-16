@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSession, signOut } from "next-auth/react";
+import { secureLogoutAction } from "@/app/actions/auth";
 import { useTheme } from "next-themes";
 import { useBarangay } from "@/components/providers/BarangayProvider";
 import { BarangaySelectionModal } from "@/components/shared/BarangaySelectionModal";
@@ -241,8 +242,7 @@ export function Navbar({
         setIsDropdownOpen(false);
         setIsOpen(false);
         localStorage.removeItem("selectedBarangay");
-        await signOut({ redirect: false });
-        window.location.href = "/";
+        await secureLogoutAction();
     };
 
     // Prevent body scroll when mobile menu is open
