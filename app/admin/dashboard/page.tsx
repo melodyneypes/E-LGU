@@ -13,6 +13,7 @@ import { PaymentDashboardView } from "./components/PaymentDashboardView";
 import { ResidentDashboardView } from "./components/ResidentDashboardView";
 import { RecentAnnouncementsCard } from "./components/RecentAnnouncementsCard";
 import { LatestNewsCard } from "./components/LatestNewsCard";
+import { UpcomingEventsCard } from "./components/UpcomingEventsCard";
 
 function getPhilippineDateString(date: Date): string {
     return new Intl.DateTimeFormat("en-CA", {
@@ -144,7 +145,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         }
     }
 
-    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays, transactionsList, categoriesList, paymentsList, residentsList, recentAnnouncements, latestNews] = await Promise.all([
+    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays, transactionsList, categoriesList, paymentsList, residentsList, recentAnnouncements, latestNews, upcomingEvents, pastEvents] = await Promise.all([
         getMultipleSystemSettings(["theme_color"]),
         prisma.resident.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
         prisma.job.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
@@ -256,6 +257,40 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                 imageUrl: true,
                 isPublished: true,
                 publishDate: true
+            }
+        }),
+        prisma.event.findMany({
+            where: {
+                endDate: { gte: new Date() },
+                isPublished: true
+            },
+            orderBy: { startDate: "asc" },
+            take: 5,
+            select: {
+                id: true,
+                title: true,
+                category: true,
+                startDate: true,
+                endDate: true,
+                venueName: true,
+                isPublished: true
+            }
+        }),
+        prisma.event.findMany({
+            where: {
+                endDate: { lt: new Date() },
+                isPublished: true
+            },
+            orderBy: { endDate: "desc" },
+            take: 5,
+            select: {
+                id: true,
+                title: true,
+                category: true,
+                startDate: true,
+                endDate: true,
+                venueName: true,
+                isPublished: true
             }
         })
     ]);
@@ -483,6 +518,11 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-1000">
                 <RecentAnnouncementsCard announcements={recentAnnouncements} />
                 <LatestNewsCard news={latestNews} />
+            </div>
+
+            {/* Upcoming Events */}
+            <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                <UpcomingEventsCard events={upcomingEvents} pastEvents={pastEvents} />
             </div>
 
             {/* Middle Layout */}
