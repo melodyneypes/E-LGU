@@ -158,12 +158,6 @@ export default function ZoningDashboard() {
 
     const visibleTransactions = transactions.filter(tx => !isPendingEngineeringTransaction(tx));
 
-    const visibleStatusCounts = STATUS_TABS.reduce((acc, tab) => {
-        if (tab.value === "ALL") return acc;
-        acc[tab.value] = visibleTransactions.filter(tx => getDashboardStatus(tx) === tab.value).length;
-        return acc;
-    }, {} as Record<string, number>);
-
     const displayedTabs = STATUS_TABS.filter(tab => {
         if (tab.value === "ALL") return true;
         return (statusCounts[tab.value] || 0) > 0 || status === tab.value;

@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useState, useRef, useEffect, use, useCallback } from "react";
+import React, { useState, useEffect, use, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -16,14 +16,11 @@ import {
     Camera,
     AlertCircle,
     BadgeCheck,
-    FileText,
-    Trash2
+    FileText
 } from "lucide-react";
 import { toast } from "sonner";
 import {
     getTransactionById,
-    rejectZoningTransaction as rejectTransaction,
-    sendForZoningRevision as sendForRevision,
     scheduleZoningInspection as scheduleBuildingInspection,
     getSystemSettingAction
 } from "@/app/admin/transactions/actions";
@@ -210,13 +207,6 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
-    const [remarks, setRemarks] = useState("");
-    const [revisionRequests, setRevisionRequests] = useState<RevisionRequestItem[]>([
-        { type: "REQUIREMENTS", name: "" }
-    ]);
-    const remarksRef = useRef<HTMLTextAreaElement>(null);
-    const [isRejecting, setIsRejecting] = useState(false);
-    const [isRequestingRevision, setIsRequestingRevision] = useState(false);
     const [themeColor, setThemeColor] = useState<string>("#2563eb");
 
     // Schedule Inspection Form State
@@ -229,10 +219,6 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     const canScheduleInspection = userRole === "MPDC_ZONING" 
         ? (isZoningActive && zoningStatus === "FOR_REQUESTING")
         : (transaction?.status === "FOR_REQUESTING");
-    const canRequestRevision = userRole === "MPDC_ZONING" 
-        ? (isZoningActive && zoningStatus === "FOR_REQUESTING")
-        : (transaction?.status === "FOR_REQUESTING");
-
     const fetchTransaction = useCallback(async () => {
         setLoading(true);
         try {
@@ -280,48 +266,6 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
         setActionLoading(false);
     };
 
-    const handleReject = async () => {
-        if (!remarks) { toast.error("Remarks required"); return; }
-        setActionLoading(true);
-        try {
-            const res = await rejectTransaction(id, remarks);
-            if (res.success) {
-                toast.success("Rejected successfully");
-                router.push(backUrl);
-            } else {
-                toast.error(res.error || "Failed");
-            }
-        } finally {
-            setActionLoading(false);
-        }
-    };
-
-    const handleRequestRevision = async () => {
-        const cleanedRequests = revisionRequests
-            .map((item) => ({ type: item.type, name: item.name.trim() }))
-            .filter((item) => item.name.length > 0);
-
-        if (!remarks.trim()) { toast.error("Remarks required"); return; }
-        if (cleanedRequests.length === 0) { toast.error("At least one document must be requested"); return; }
-        
-        let finalRemarks = remarks.trim() + "\n\nDocuments to revise/upload:\n";
-        cleanedRequests.forEach((req, index) => {
-            finalRemarks += `${index + 1}. ${req.name}\n`;
-        });
-
-        setActionLoading(true);
-        try {
-            const res = await sendForRevision(id, finalRemarks, cleanedRequests);
-            if (res.success) {
-                toast.success("Sent back for revision");
-                router.push(backUrl);
-            } else {
-                toast.error(res.error || "Failed");
-            }
-        } finally {
-            setActionLoading(false);
-        }
-    };
 
     if (loading) {
         return (

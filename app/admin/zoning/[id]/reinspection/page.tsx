@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect, use, useCallback } from "react";
+import React, { useState, useEffect, use, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -14,8 +14,6 @@ import {
 import { toast } from "sonner";
 import {
     getTransactionById,
-    rejectTransaction,
-    sendForRevision,
     evaluateZoningApplication as evaluateCedulaTransaction,
     markZoningForReinspection as markForReinspection,
     getSystemSettingAction
@@ -65,10 +63,6 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
     
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
-    const [remarks, setRemarks] = useState("");
-    const remarksRef = useRef<HTMLTextAreaElement>(null);
-    const [isRejecting, setIsRejecting] = useState(false);
-    const [isRequestingRevision, setIsRequestingRevision] = useState(false);
     const [themeColor, setThemeColor] = useState<string>("#2563eb");
 
     // Re-inspection State
@@ -139,37 +133,6 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
         }
     };
 
-    const handleReject = async () => {
-        if (!remarks) { toast.error("Remarks required"); return; }
-        setActionLoading(true);
-        try {
-            const res = await rejectTransaction(id, remarks);
-            if (res.success) {
-                toast.success("Rejected successfully");
-                router.push(backUrl);
-            } else {
-                toast.error(res.error || "Failed");
-            }
-        } finally {
-            setActionLoading(false);
-        }
-    };
-
-    const handleRequestRevision = async () => {
-        if (!remarks) { toast.error("Remarks required"); return; }
-        setActionLoading(true);
-        try {
-            const res = await sendForRevision(id, remarks);
-            if (res.success) {
-                toast.success("Sent back for revision");
-                router.push(backUrl);
-            } else {
-                toast.error(res.error || "Failed");
-            }
-        } finally {
-            setActionLoading(false);
-        }
-    };
 
     if (loading) {
         return (

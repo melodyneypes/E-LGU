@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useState, useEffect, use, useCallback, useMemo, useRef } from "react";
@@ -12,7 +13,6 @@ import {
     Check,
     Upload,
     FileText,
-    ExternalLink,
     X,
     FileWarning,
     RefreshCw,
@@ -88,7 +88,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const [reasonText, setReasonText] = useState("");
     const [viewerOpen, setViewerOpen] = useState(false);
     const [viewerUrl, setViewerUrl] = useState<string | null>(null);
-    const [viewerTitle, setViewerTitle] = useState("");
+    const [viewerTitle] = useState("");
     const feeAssessment = transaction?.additionalData?.feeAssessment || null;
     const isEndorsed = feeAssessment?.endorsed === true;
     const engineerEndorsedToZoning = feeAssessment?.engineerEndorsedToZoning === true;
