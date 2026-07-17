@@ -28,7 +28,8 @@ import { useRouter } from "next/navigation";
 const STATUS_TABS = [
     { value: "ALL", label: "All", color: "text-slate-600", activeColor: "bg-slate-900 text-white dark:bg-white dark:text-slate-900" },
     { value: "PENDING", label: "Pending Evaluation", color: "text-amber-600", activeColor: "bg-amber-500 text-white" },
-    { value: "APPROVED", label: "Acknowledged", color: "text-emerald-600", activeColor: "bg-emerald-500 text-white" }
+    { value: "APPROVED", label: "Acknowledged", color: "text-emerald-600", activeColor: "bg-emerald-500 text-white" },
+    { value: "COMPLETED", label: "Completed", color: "text-cyan-600", activeColor: "bg-cyan-500 text-white" }
 ];
 
 function formatDateTime(date: string | Date): { date: string; time: string } {
@@ -51,6 +52,12 @@ function getResidentSnapshot(tx: any): any {
     return tx.residentSnapshot;
 }
 
+function getEffectiveBfpStatus(tx: any): "PENDING" | "ACKNOWLEDGED" | "COMPLETED" {
+    if (tx?.additionalData?.bfpStatus === "COMPLETED" || tx?.additionalData?.bfpClearanceUrl) return "COMPLETED";
+    if (tx?.additionalData?.bfpStatus === "ACKNOWLEDGED") return "ACKNOWLEDGED";
+    return "PENDING";
+}
+
 export default function BFPDashboard() {
     const router = useRouter();
 
@@ -67,9 +74,14 @@ export default function BFPDashboard() {
     const fetchTransactions = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await getBFPTransactions(status === "ALL" ? undefined : status);
+            const res = await getBFPTransactions();
             if (res.success) {
-                setTransactions(res.data || []);
+                const allTransactions = res.data || [];
+                setTransactions(
+                    status === "ALL"
+                        ? allTransactions
+                        : allTransactions.filter((tx: any) => getEffectiveBfpStatus(tx) === status)
+                );
             } else {
                 setTransactions([]);
                 toast.error(res.error || "Failed to load transactions.");
@@ -219,7 +231,8 @@ export default function BFPDashboard() {
                                 paginatedTransactions.map((tx) => {
                                     const rs = getResidentSnapshot(tx);
                                     const { date, time } = formatDateTime(tx.updatedAt);
-                                    const bfpStatus = tx.additionalData?.bfpStatus;
+                                    const effectiveStatus = getEffectiveBfpStatus(tx);
+                                    const isSubmitted = effectiveStatus === "COMPLETED";
 
                                     return (
                                         <TableRow key={tx.id} className="group border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer" onClick={() => router.push(`/admin/bfp/${tx.id}/evaluation`)}>
@@ -250,7 +263,7 @@ export default function BFPDashboard() {
                                             </TableCell>
                                             <TableCell className="py-4 px-6 text-right">
                                                 <Button size="sm" className="bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200 font-bold text-[10px] uppercase tracking-widest rounded-lg" onClick={(e) => { e.stopPropagation(); router.push(`/admin/bfp/${tx.id}/evaluation`); }}>
-                                                    {bfpStatus === "APPROVED" ? "View Details" : "Evaluate"}
+                                                    {isSubmitted ? "View Details" : "Evaluate"}
                                                 </Button>
                                             </TableCell>
                                         </TableRow>

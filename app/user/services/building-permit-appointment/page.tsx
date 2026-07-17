@@ -372,6 +372,39 @@ const getEngineeringStatusLabel = (status: string) => {
   }
 };
 
+const getDisplayStatusDetails = (app: any) => {
+  if (app.isCancelled || app.status === "CANCELLED") {
+    return { label: "CANCELLED", colorClass: "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500" };
+  }
+  if (app.status === "REJECTED" || (app.status === "EVALUATED" && app.additionalData?.zoningStatus === "REJECTED")) {
+    return { 
+      label: app.status === "REJECTED" ? "REJECTED" : "ZONING REJECTED", 
+      colorClass: "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500" 
+    };
+  }
+  if (app.status === "RELEASED" || app.status === "DELIVERED") {
+    return { 
+      label: app.status.replace(/_/g, ' '), 
+      colorClass: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500" 
+    };
+  }
+  
+  if (app.status === "EVALUATED" && app.additionalData?.zoningStatus) {
+    if (app.additionalData.zoningStatus === "EVALUATED") {
+      return { label: "ZONING EVALUATED", colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" };
+    }
+    return { 
+      label: `ZONING ${app.additionalData.zoningStatus.replace(/_/g, ' ')}`, 
+      colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" 
+    };
+  }
+
+  return { 
+    label: app.status ? app.status.replace(/_/g, ' ') : "PENDING", 
+    colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" 
+  };
+};
+
 export default function BuildingPermitAppointmentPage() {
   const router = useRouter();
   const [themeColor, setThemeColor] = useState("var(--primary-theme)");
@@ -930,9 +963,6 @@ export default function BuildingPermitAppointmentPage() {
         "Have them sign the document in the presence of a notary public or barangay official.",
         "If any owner is unavailable or refuses, you may need to secure a barangay certification of posting instead."
       ],
-      infoType: "tip",
-      infoLabel: "Tip",
-      infoText: "Bring a small token or be courteous when requesting signatures. This avoids future boundary disputes."
     },
     {
       id: 8,
@@ -1611,16 +1641,17 @@ export default function BuildingPermitAppointmentPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className={cn(
-                      "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full",
-                      app.isCancelled || app.status === "CANCELLED" || app.status === "REJECTED"
-                        ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                        : app.status === "RELEASED"
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
-                          : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                    )}>
-                      {app.isCancelled || app.status === "CANCELLED" ? "CANCELLED" : (app.status ? app.status.replace(/_/g, ' ') : "PENDING")}
-                    </span>
+                    {(() => {
+                      const statusDetails = getDisplayStatusDetails(app);
+                      return (
+                        <span className={cn(
+                          "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full",
+                          statusDetails.colorClass
+                        )}>
+                          {statusDetails.label}
+                        </span>
+                      );
+                    })()}
                     <span className="text-primary group-hover:translate-x-1 transition-transform font-bold">
                       →
                     </span>

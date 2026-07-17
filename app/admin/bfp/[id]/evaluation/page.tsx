@@ -22,7 +22,8 @@ import {
     getTransactionById,
     approveBFPTransaction,
     getSystemSettingAction,
-    uploadECopyAction
+    uploadECopyAction,
+    saveBfpClearanceProofAction,
 } from "@/app/admin/transactions/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -183,16 +184,17 @@ export default function BFPEvaluationPage({ params }: PageProps) {
 
     const [transaction, setTransaction] = useState<any>(null);
     const addData = (transaction?.additionalData as any) || {};
-    const isBfpApproved = addData.bfpStatus === "APPROVED";
+    const isBfpAcknowledged = addData.bfpStatus === "ACKNOWLEDGED";
+    const isBfpCompleted = addData.bfpStatus === "COMPLETED" || Boolean(addData.bfpClearanceUrl);
     
-    // BFP read-only if they already approved or if user is viewing from a non-BFP role.
-    const isBfpReadonly = userRole !== "BFP" || isBfpApproved;
+    // BFP read-only only for non-BFP roles.
+    const isBfpReadonly = userRole !== "BFP";
     const isViewOnly = isForcedView || isBfpReadonly;
     
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [bfpClearanceUrl, setBfpClearanceUrl] = useState<string>("");
+    const [bfpClearanceUrl, setBfpClearanceUrl] = useState<string>(addData.bfpClearanceUrl || "");
     const [themeColor, setThemeColor] = useState<string>("#ef4444");
 
     const fetchTransaction = useCallback(async () => {
@@ -218,6 +220,27 @@ export default function BFPEvaluationPage({ params }: PageProps) {
         });
     }, [fetchTransaction]);
 
+    useEffect(() => {
+        setBfpClearanceUrl(addData.bfpClearanceUrl || "");
+    }, [addData.bfpClearanceUrl]);
+
+    const handleApprove = async () => {
+        setActionLoading(true);
+        try {
+            const res = await approveBFPTransaction(id);
+            if (res.success) {
+                toast.success("BFP acknowledged successfully!");
+                router.push(backUrl);
+            } else {
+                toast.error(res.error || "Failed to acknowledge.");
+            }
+        } catch {
+            toast.error("Error occurred");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const handleClearanceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
         const file = e.target.files[0];
@@ -227,7 +250,7 @@ export default function BFPEvaluationPage({ params }: PageProps) {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            const res = await uploadECopyAction(formData); 
+            const res = await uploadECopyAction(formData);
             if (res.success && res.data) {
                 setBfpClearanceUrl(res.data);
                 toast.success("BFP Clearance uploaded successfully!", { id: toastId });
@@ -241,19 +264,19 @@ export default function BFPEvaluationPage({ params }: PageProps) {
         }
     };
 
-    const handleApprove = async () => {
+    const handleSubmitClearance = async () => {
         if (!bfpClearanceUrl) {
             toast.error("Please upload the BFP Clearance first.");
             return;
         }
         setActionLoading(true);
         try {
-            const res = await approveBFPTransaction(id, bfpClearanceUrl);
+            const res = await saveBfpClearanceProofAction(id, bfpClearanceUrl);
             if (res.success) {
-                toast.success("BFP Acknowledged successfully!");
+                toast.success("BFP Clearance submitted to Engineer!");
                 router.push(backUrl);
             } else {
-                toast.error(res.error || "Failed to acknowledge.");
+                toast.error(res.error || "Failed to submit clearance.");
             }
         } catch {
             toast.error("Error occurred");
@@ -274,6 +297,7 @@ export default function BFPEvaluationPage({ params }: PageProps) {
 
     const additional = transaction.additionalData || {};
     const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
+    const bfpVisibleDocKeys = (additional?.feeAssessment?.bfpVisibleDocs || additional?.bfpVisibleDocs || []) as string[];
 
     const renderRequirementsGrid = () => (
         <div className="grid grid-cols-2 gap-4">
@@ -352,7 +376,7 @@ export default function BFPEvaluationPage({ params }: PageProps) {
                         return null;
                     })
                     .filter(Boolean) as { key: string; url: string; label: string }[]
-            ].filter(doc => doc.url && (!additional?.zoningVisibleDocs || additional.zoningVisibleDocs.includes(doc.key))).map((doc, i) => (
+            ].filter(doc => doc.url && (bfpVisibleDocKeys.length === 0 || bfpVisibleDocKeys.includes(doc.key))).map((doc, i) => (
                 <Dialog key={i}>
                     <DialogTrigger asChild>
                         <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 flex items-center justify-center cursor-zoom-in">
@@ -586,73 +610,9 @@ export default function BFPEvaluationPage({ params }: PageProps) {
                         </div>
                     </div>
 
-                    {/* BFP Clearance Upload Block */}
-                    {!isViewOnly && userRole === "BFP" && (
-                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-8 border border-slate-100 dark:border-white/5 space-y-6 shadow-sm">
-                            <div>
-                                <h3 className="text-sm font-black italic uppercase text-slate-900 dark:text-white">BFP Clearance</h3>
-                                <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Upload signed certificate</p>
-                            </div>
-
-                            {bfpClearanceUrl ? (
-                                <div className="space-y-4">
-                                    <div className="aspect-video w-full rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 relative group">
-                                        {bfpClearanceUrl.toLowerCase().includes('.pdf') ? (
-                                            <div className="flex flex-col items-center justify-center w-full h-full bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-red-500 transition-colors">
-                                                <FileText className="w-12 h-12 mb-2" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">BFP Clearance PDF</span>
-                                            </div>
-                                        ) : (
-                                            <img src={bfpClearanceUrl} alt="BFP Clearance" className="object-cover w-full h-full" />
-                                        )}
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                            <Dialog>
-                                                <DialogTrigger asChild>
-                                                    <Button size="icon" variant="ghost" className="rounded-full bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm">
-                                                        <ZoomIn className="w-4 h-4" />
-                                                    </Button>
-                                                </DialogTrigger>
-                                                <LightboxView src={bfpClearanceUrl} alt="BFP Clearance" label="BFP Clearance" />
-                                            </Dialog>
-                                        </div>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-xs font-bold text-emerald-500 flex items-center gap-1"><BadgeCheck className="w-4 h-4" /> Ready for submission</span>
-                                        <Button variant="ghost" size="sm" onClick={() => setBfpClearanceUrl("")} className="text-red-500 text-xs hover:bg-red-50 dark:hover:bg-red-500/10 h-8">
-                                            Remove
-                                        </Button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 bg-slate-50 dark:bg-white/[0.02] relative">
-                                    <div className="w-12 h-12 bg-white dark:bg-white/5 rounded-full flex items-center justify-center shadow-sm">
-                                        <Camera className="w-5 h-5 text-slate-400" />
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Click to upload clearance</p>
-                                        <p className="text-[9px] font-medium text-slate-400 mt-1 uppercase tracking-wider">JPG, PNG, PDF up to 5MB</p>
-                                    </div>
-                                    <input
-                                        type="file"
-                                        accept="image/jpeg,image/png,image/webp,application/pdf"
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                        onChange={handleClearanceUpload}
-                                        disabled={uploading}
-                                    />
-                                    {uploading && (
-                                        <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-2xl z-10">
-                                            <div className="w-6 h-6 border-2 border-red-500/20 border-t-red-500 rounded-full animate-spin mb-2" />
-                                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Uploading...</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
                     {/* Executive Actions */}
                     <div className="space-y-4">
-                        {!isViewOnly && userRole === "BFP" && (
+                        {!isViewOnly && userRole === "BFP" && !isBfpAcknowledged && !isBfpCompleted && (
                             <Button 
                                 onClick={handleApprove} 
                                 disabled={actionLoading} 
@@ -660,6 +620,86 @@ export default function BFPEvaluationPage({ params }: PageProps) {
                             >
                                 {actionLoading ? "Acknowledging..." : "Acknowledge BFP Clearance"}
                             </Button>
+                        )}
+
+                        {!isViewOnly && userRole === "BFP" && (isBfpAcknowledged || isBfpCompleted) && (
+                            <div className="space-y-4 bg-white dark:bg-[#151b28] rounded-[2rem] p-8 border border-slate-100 dark:border-white/5 shadow-sm">
+                                <div>
+                                    <h3 className="text-sm font-black italic uppercase text-slate-900 dark:text-white">Upload BFP Clearance</h3>
+                                    <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">
+                                        {isBfpCompleted ? "Submitted clearance ready for review" : "Submit signed clearance to the Engineer"}
+                                    </p>
+                                </div>
+
+                                {isBfpCompleted || bfpClearanceUrl ? (
+                                    <div className="space-y-4">
+                                        <div className="aspect-video w-full rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 relative group">
+                                            {String(addData.bfpClearanceUrl || bfpClearanceUrl).toLowerCase().includes('.pdf') ? (
+                                                <div className="flex flex-col items-center justify-center w-full h-full bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-red-500 transition-colors">
+                                                    <FileText className="w-12 h-12 mb-2" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">BFP Clearance PDF</span>
+                                                </div>
+                                            ) : (
+                                                <img src={String(addData.bfpClearanceUrl || bfpClearanceUrl)} alt="BFP Clearance" className="object-cover w-full h-full" />
+                                            )}
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <Button size="icon" variant="ghost" className="rounded-full bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm">
+                                                            <ZoomIn className="w-4 h-4" />
+                                                        </Button>
+                                                    </DialogTrigger>
+                                                    <LightboxView src={String(addData.bfpClearanceUrl || bfpClearanceUrl)} alt="BFP Clearance" label="BFP Clearance" />
+                                                </Dialog>
+                                            </div>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs font-bold text-emerald-500 flex items-center gap-1">
+                                                <BadgeCheck className="w-4 h-4" />
+                                                {isBfpCompleted ? "BFP Clearance submitted" : "Ready to submit to Engineer"}
+                                            </span>
+                                            {!isBfpCompleted && (
+                                                <Button variant="ghost" size="sm" onClick={() => setBfpClearanceUrl("")} className="text-red-500 text-xs hover:bg-red-50 dark:hover:bg-red-500/10 h-8">
+                                                    Remove
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 bg-slate-50 dark:bg-white/[0.02] relative">
+                                        <div className="w-12 h-12 bg-white dark:bg-white/5 rounded-full flex items-center justify-center shadow-sm">
+                                            <Camera className="w-5 h-5 text-slate-400" />
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Click to upload clearance</p>
+                                            <p className="text-[9px] font-medium text-slate-400 mt-1 uppercase tracking-wider">JPG, PNG, PDF up to 5MB</p>
+                                        </div>
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp,application/pdf"
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            onChange={handleClearanceUpload}
+                                            disabled={uploading}
+                                        />
+                                        {uploading && (
+                                            <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-2xl z-10">
+                                                <div className="w-6 h-6 border-2 border-red-500/20 border-t-red-500 rounded-full animate-spin mb-2" />
+                                                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Uploading...</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {!isBfpCompleted && (
+                                    <Button
+                                        onClick={handleSubmitClearance}
+                                        disabled={actionLoading || !bfpClearanceUrl}
+                                        className="w-full h-16 rounded-2xl bg-emerald-600 text-white font-black italic uppercase tracking-widest text-xs hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-900/20 active:scale-95"
+                                    >
+                                        {actionLoading ? "Submitting..." : "Submit to Engineer"}
+                                    </Button>
+                                )}
+                            </div>
                         )}
                     </div>
                 </div>

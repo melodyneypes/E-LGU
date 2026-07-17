@@ -1257,6 +1257,54 @@ export async function uploadECopyAction(formData: FormData) {
     }
 }
 
+export async function saveBuildingPermitECopyAction(id: string, eCopyUrl: string) {
+    try {
+        const session = await getSession();
+        const user = session?.user as any;
+        if (!user || (!isEngineerOrZoningRole(user.role) && user.role !== "ADMIN")) {
+            return { success: false, error: "Forbidden: Only Engineers, Zoning Officers, or Admins can save building permit e-copies." };
+        }
+
+        const transaction = await prisma.transaction.findUnique({ where: { id } });
+        if (!transaction) return { success: false, error: "Transaction not found" };
+        if (transaction.status !== "PAID") {
+            return { success: false, error: "Forbidden: Can only save the e-copy when the transaction is PAID." };
+        }
+
+        const updatedTransaction = await prisma.transaction.update({
+            where: { id },
+            data: {
+                status: "FOR_PROCESSING",
+                eCopyUrl,
+                updatedAt: new Date()
+            },
+            include: { user: true, type: true }
+        });
+
+        if (updatedTransaction.user?.email) {
+            const resident = updatedTransaction.residentSnapshot as any;
+            await sendEmail({
+                type: "FOR_PROCESSING",
+                to: updatedTransaction.user.email,
+                name: resident?.firstName ? `${resident.firstName} ${resident.lastName}` : updatedTransaction.user.name || "Resident",
+                transactionId: id.slice(-8).toUpperCase(),
+                serviceName: updatedTransaction.type?.name || "Building Permit",
+                remarks: "Your building permit e-copy has been prepared by the Engineer's Office."
+            });
+        }
+
+        revalidatePath("/admin/engineer");
+        revalidatePath("/admin/zoning");
+        revalidatePath("/admin/treasury");
+        revalidatePath("/user/services/building-permit");
+        revalidatePath(`/admin/engineer/${id}/fees`);
+        return { success: true, data: updatedTransaction };
+    } catch (error) {
+        console.error("Save building permit e-copy error:", error);
+        return { success: false, error: "Failed to save building permit e-copy" };
+    }
+}
+
 async function processFileUpload(file: File, folder: string = "transactions"): Promise<string | null> {
     if (!file || file.size === 0) return null;
 
@@ -1845,7 +1893,7 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
                     ...(sanitizedOrSeriesNumber ? { orSeriesNumber: sanitizedOrSeriesNumber } : {}),
                     ...(sanitizedMiscFeeOverride !== undefined ? { miscFee: sanitizedMiscFeeOverride } : {}),
                     ...(isBuildingPermit && (user.role === "ENGINEER" || user.role === "ADMIN") && (transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION")
-                        ? { zoningStatus: "FOR_REQUESTING" }
+                        ? { zoningStatus: "WAITING_ENDORSEMENT" }
                         : {}),
                     ...(isBuildingPermit && user.role === "MPDC_ZONING" && (additionalData?.zoningStatus === "FOR_INSPECTION" || additionalData?.zoningStatus === "FOR_REINSPECTION")
                         ? { zoningStatus: "EVALUATED" }
@@ -3427,19 +3475,26 @@ export async function getEngineerTransactions(params?: string | {
                 where.isCancelled = false;
             } else {
                 if (user.role === "MPDC_ZONING") {
-                    const zoningOnlyStatuses = ["FOR_REQUESTING", "FOR_REVISION", "FOR_INSPECTION", "FOR_REINSPECTION"];
+                    const zoningOnlyStatuses = ["FOR_REQUESTING", "FOR_REVISION", "FOR_INSPECTION", "FOR_REINSPECTION", "ENDORSED"];
                     if (zoningOnlyStatuses.includes(status)) {
                         where.additionalData = {
                             path: ["zoningStatus"],
                             equals: status
                         };
                         where.isCancelled = false;
+                    } else if (status === "RELEASED" || status === "DELIVERED") {
+                        where.OR = [
+                            { status },
+                            {
+                                additionalData: {
+                                    path: ["zoningStatus"],
+                                    equals: status
+                                }
+                            }
+                        ];
+                        where.isCancelled = false;
                     } else {
-                        // For global statuses, zoningStatus must be EVALUATED and global status matches
-                        where.additionalData = {
-                            path: ["zoningStatus"],
-                            equals: "EVALUATED"
-                        };
+                        // For global statuses shown on the zoning dashboard, match the global transaction status directly
                         where.status = status;
                         where.isCancelled = false;
                     }
@@ -3609,9 +3664,19 @@ export async function getEngineerStatusCounts() {
             const counts: Record<string, number> = {};
             for (const tx of allTxs) {
                 const zStatus = (tx.additionalData as any)?.zoningStatus || "FOR_REQUESTING";
+                const isPendingEngineering = !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED", "REJECTED", "CANCELLED"].includes(tx.status as string || "");
                 let effectiveStatus = zStatus;
-                if (zStatus === "EVALUATED") {
-                    effectiveStatus = tx.status || "EVALUATED";
+
+                if (tx.isCancelled) {
+                    effectiveStatus = "CANCELLED";
+                } else if (tx.status === "REJECTED") {
+                    effectiveStatus = "REJECTED";
+                } else if (tx.status === "RELEASED") {
+                    effectiveStatus = "RELEASED";
+                } else if (isPendingEngineering) {
+                    continue;
+                } else if (zStatus === "EVALUATED") {
+                    effectiveStatus = (tx.status as string) || "EVALUATED";
                 }
                 counts[effectiveStatus] = (counts[effectiveStatus] || 0) + 1;
             }
@@ -3846,10 +3911,13 @@ export async function markForReinspection(id: string, reason: string, details?: 
 export async function endorseBuildingPermitFees(
     id: string,
     fees: {
+        actionType?: "ENGINEER_TO_ZONING" | "ZONING_TO_ENGINEER" | "ENGINEER_TO_BFP" | "ENGINEER_TO_TREASURY";
         buildingPermitFee?: number;
         engineerMunicipalCharges?: { name: string, amount: number }[];
         zoningMunicipalCharges?: { name: string, amount: number }[];
         zoningVisibleDocs?: string[];
+        bfpVisibleDocs?: string[];
+        zoningClearanceUrl?: string;
     }
 ) {
     try {
@@ -3866,39 +3934,103 @@ export async function endorseBuildingPermitFees(
         if (!transaction) return { success: false, error: "Transaction not found" };
 
         const currentAdditionalData = (transaction.additionalData as any) || {};
-        const isZoningEndorse = user.role === "MPDC_ZONING";
         const existingFeeAssessment = currentAdditionalData.feeAssessment || {};
 
-        // Update with the fee assessment
+        let updatedFeeAssessment = { ...existingFeeAssessment };
+        let newZoningStatus = currentAdditionalData.zoningStatus;
+        let remarks = "";
+        let department: "ENGINEERING" | "ZONING" | undefined;
+
+        if (fees.actionType === "ENGINEER_TO_ZONING") {
+            updatedFeeAssessment = {
+                ...updatedFeeAssessment,
+                buildingPermitFee: Number(fees.buildingPermitFee || 0),
+                engineerMunicipalCharges: fees.engineerMunicipalCharges || [],
+                engineerEndorsedToZoning: true,
+            };
+            remarks = "Initial assessment completed by the Municipal Engineer. Awaiting Zoning fee endorsement.";
+            department = "ENGINEERING";
+            newZoningStatus = "FOR_REQUESTING";
+        } else if (fees.actionType === "ZONING_TO_ENGINEER" || (!fees.actionType && user.role === "MPDC_ZONING")) {
+            updatedFeeAssessment = {
+                ...updatedFeeAssessment,
+                zoningMunicipalCharges: fees.zoningMunicipalCharges || [],
+                zoningEndorsed: true,
+                zoningEndorsedAt: new Date(),
+                zoningEndorsedBy: user.name || "MPDC Zoning Officer"
+            };
+            newZoningStatus = "ENDORSED";
+            remarks = "Assessment endorsed by the Zoning Officer. Awaiting final Engineering review.";
+            department = "ZONING";
+        } else if (fees.actionType === "ENGINEER_TO_BFP") {
+            updatedFeeAssessment = {
+                ...updatedFeeAssessment,
+                bfpVisibleDocs: fees.bfpVisibleDocs || [],
+                bfpSubmitted: true,
+                bfpSubmittedAt: new Date(),
+                bfpSubmittedBy: user.name || "Municipal Engineer"
+            };
+            remarks = "Application endorsements and supporting files have been forwarded by the Municipal Engineer to the BFP Office for evaluation.";
+            department = "ENGINEERING";
+        } else if (fees.actionType === "ENGINEER_TO_TREASURY" || (!fees.actionType && user.role !== "MPDC_ZONING")) {
+            if (fees.buildingPermitFee !== undefined) {
+                updatedFeeAssessment.buildingPermitFee = Number(fees.buildingPermitFee || 0);
+            }
+            if (fees.engineerMunicipalCharges) {
+                updatedFeeAssessment.engineerMunicipalCharges = fees.engineerMunicipalCharges;
+            }
+            updatedFeeAssessment.endorsed = true;
+            updatedFeeAssessment.endorsedAt = new Date();
+            updatedFeeAssessment.endorsedBy = user.name || "Municipal Engineer";
+            remarks = "Assessment endorsed by the Municipal Engineer. Awaiting Treasury billing.";
+            department = "ENGINEERING";
+        }
+
+        const engineerCharges = updatedFeeAssessment.engineerMunicipalCharges || [];
+        const zoningCharges = updatedFeeAssessment.zoningMunicipalCharges || [];
+        const engineerTotal = engineerCharges.reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0);
+        const zoningTotal = zoningCharges.reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0);
+        const buildingPermitFee = Number(updatedFeeAssessment.buildingPermitFee || 0);
+        const baseTotal = buildingPermitFee + engineerTotal + zoningTotal;
+        const finalTotal = baseTotal;
+        const lineItems = [
+            { label: "Building Permit Fee", amount: buildingPermitFee }
+        ];
+
+        engineerCharges.forEach((c: any) => {
+            lineItems.push({ label: c.name || "Engineering Fee", amount: Number(c.amount || 0) });
+        });
+
+        zoningCharges.forEach((c: any) => {
+            lineItems.push({ label: c.name || "Zoning Fee", amount: Number(c.amount || 0) });
+        });
+
         const updatedAdditionalData = {
             ...currentAdditionalData,
-            ...(fees.zoningVisibleDocs && !isZoningEndorse ? { zoningVisibleDocs: fees.zoningVisibleDocs } : {}),
-            feeAssessment: {
-                ...existingFeeAssessment,
-                ...(isZoningEndorse ? {
-                    zoningMunicipalCharges: fees.zoningMunicipalCharges || [],
-                    zoningEndorsed: true,
-                    zoningEndorsedAt: new Date(),
-                    zoningEndorsedBy: user.name || "MPDC Zoning Officer"
-                } : {
-                    buildingPermitFee: Number(fees.buildingPermitFee || 0),
-                    engineerMunicipalCharges: fees.engineerMunicipalCharges || [],
-                    endorsed: true,
-                    endorsedAt: new Date(),
-                    endorsedBy: user.name || "Municipal Engineer"
-                })
-            }
+            feeAssessment: updatedFeeAssessment,
+            ...(fees.zoningVisibleDocs !== undefined ? { zoningVisibleDocs: fees.zoningVisibleDocs } : {}),
+            ...(fees.bfpVisibleDocs !== undefined ? { bfpVisibleDocs: fees.bfpVisibleDocs } : {}),
+            ...(fees.zoningClearanceUrl ? { zoningClearanceUrl: fees.zoningClearanceUrl } : {}),
+            ...(newZoningStatus !== currentAdditionalData.zoningStatus ? { zoningStatus: newZoningStatus } : {})
         };
-
 
         const updatedTransaction = await prisma.transaction.update({
             where: { id },
             data: {
-                status: undefined, // Status stays EVALUATED until Treasury approves billing
-                additionalData: {
-                    ...updatedAdditionalData,
-                    ...(isZoningEndorse ? { zoningStatus: "ENDORSED" } : {})
-                }
+                ...(fees.actionType === "ENGINEER_TO_TREASURY" || (!fees.actionType && user.role !== "MPDC_ZONING") ? { status: "UNPAID" } : {}),
+                ...(fees.actionType === "ENGINEER_TO_TREASURY" || (!fees.actionType && user.role !== "MPDC_ZONING")
+                    ? {
+                        totalAmount: finalTotal,
+                        fiscalSnapshot: {
+                            basicTax: baseTotal,
+                            additionalTax: 0,
+                            penaltyCharge: 0,
+                            totalAmount: finalTotal,
+                            lineItems
+                        }
+                    }
+                    : {}),
+                additionalData: updatedAdditionalData
             },
             include: { user: true, type: true }
         });
@@ -3906,14 +4038,9 @@ export async function endorseBuildingPermitFees(
         // Send email notification
         if (updatedTransaction.user?.email) {
             const resident = updatedTransaction.residentSnapshot as any;
-            const totalFees = Number(fees.buildingPermitFee || 0) +
-                (fees.engineerMunicipalCharges || []).reduce((sum, charge) => sum + Number(charge.amount || 0), 0) +
-                (fees.zoningMunicipalCharges || []).reduce((sum, charge) => sum + Number(charge.amount || 0), 0);
+            const totalFees = finalTotal;
 
-            const feeBreakdown = [];
-            if (Number(fees.buildingPermitFee || 0) > 0) feeBreakdown.push({ label: "Building Permit Fee", amount: Number(fees.buildingPermitFee) });
-            (fees.engineerMunicipalCharges || []).forEach(c => { if(Number(c.amount) > 0) feeBreakdown.push({ label: c.name || "Engineering Fee", amount: Number(c.amount) }) });
-            (fees.zoningMunicipalCharges || []).forEach(c => { if(Number(c.amount) > 0) feeBreakdown.push({ label: c.name || "Zoning Fee", amount: Number(c.amount) }) });
+            const feeBreakdown = lineItems.filter(item => Number(item.amount || 0) > 0);
 
             await sendEmail({
                 type: "EVALUATED",
@@ -3923,8 +4050,8 @@ export async function endorseBuildingPermitFees(
                 serviceName: updatedTransaction.type?.name || "Building Permit",
                 amount: totalFees,
                 feeBreakdown,
-                remarks: isZoningEndorse ? "Assessment endorsed by the Zoning Officer. Awaiting final Treasury billing." : "Assessment endorsed by the Municipal Engineer.",
-                department: isZoningEndorse ? "ZONING" : "ENGINEERING"
+                remarks: remarks,
+                department: department
             });
         }
 
@@ -4204,6 +4331,15 @@ export async function approveAndSendBuildingPermitBilling(id: string) {
 
         const currentAdditionalData = (transaction.additionalData as any) || {};
         const feeAssessment = currentAdditionalData.feeAssessment || {};
+        const bfpStatus = currentAdditionalData.bfpStatus || "";
+
+        if (!currentAdditionalData.zoningClearanceUrl || !currentAdditionalData.bfpClearanceUrl) {
+            return { success: false, error: "Cannot endorse to Treasury until both Zoning and BFP clearances are available." };
+        }
+
+        if (bfpStatus !== "ACKNOWLEDGED") {
+            return { success: false, error: "Cannot endorse to Treasury until BFP has acknowledged the application." };
+        }
 
         const engineerCharges = feeAssessment.engineerMunicipalCharges || [];
         const engineerTotal = engineerCharges.reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0);
@@ -4288,9 +4424,14 @@ export async function saveBfpClearanceProofAction(id: string, bfpClearanceUrl: s
         if (!transaction) return { success: false, error: "Transaction not found" };
 
         const currentAdditionalData = (transaction.additionalData as any) || {};
+        if (currentAdditionalData.bfpClearanceUrl) {
+            return { success: false, error: "BFP Clearance has already been submitted." };
+        }
         const updatedAdditionalData = {
             ...currentAdditionalData,
-            bfpClearanceUrl
+            bfpClearanceUrl,
+            bfpStatus: "COMPLETED",
+            bfpSubmittedAt: new Date()
         };
 
         const updatedTransaction = await prisma.transaction.update({
@@ -4300,6 +4441,8 @@ export async function saveBfpClearanceProofAction(id: string, bfpClearanceUrl: s
             }
         });
 
+        revalidatePath("/admin/bfp");
+        revalidatePath("/admin/bfp/");
         revalidatePath("/user/services/building-permit");
         revalidatePath(`/admin/engineer/${id}/fees`);
         return { success: true, data: updatedTransaction };
@@ -5557,10 +5700,9 @@ export async function getBFPTransactions(status?: string, searchTerm?: string, d
             type: { code: "BUILDING_PERMIT" }
         };
 
-        // BFP only sees transactions where both Engineer and Zoning have endorsed
-        // i.e., additionalData.feeAssessment.endorsed == true && additionalData.feeAssessment.zoningEndorsed == true
+        // BFP only sees transactions that the Engineer explicitly forwarded and that already have Zoning endorsement
         where.additionalData = {
-            path: ['feeAssessment', 'endorsed'],
+            path: ['feeAssessment', 'bfpSubmitted'],
             equals: true,
         };
 
@@ -5570,12 +5712,27 @@ export async function getBFPTransactions(status?: string, searchTerm?: string, d
                 path: ['bfpStatus'],
                 equals: null
             };
-        } else if (status === "APPROVED") {
+        } else if (status === "ACKNOWLEDGED") {
             where.additionalData = {
                 ...where.additionalData,
                 path: ['bfpStatus'],
-                equals: "APPROVED"
+                equals: "ACKNOWLEDGED"
             };
+        } else if (status === "COMPLETED") {
+            where.OR = [
+                {
+                    additionalData: {
+                        path: ['bfpClearanceUrl'],
+                        not: null
+                    }
+                },
+                {
+                    additionalData: {
+                        path: ['bfpStatus'],
+                        equals: "COMPLETED"
+                    }
+                }
+            ];
         }
 
         if (searchTerm) {
@@ -5599,16 +5756,18 @@ export async function getBFPTransactions(status?: string, searchTerm?: string, d
             orderBy: { updatedAt: "desc" }
         });
         
-        // Manual filter to ensure zoningEndorsed is true
+        // Manual filter to ensure zoningEndorsed is true and Engineer has forwarded to BFP
         transactions = transactions.filter((tx: any) => {
             const assess = tx.additionalData?.feeAssessment;
-            return assess && assess.endorsed === true && assess.zoningEndorsed === true;
+            return assess && assess.bfpSubmitted === true && assess.zoningEndorsed === true;
         });
         
         if (status === "PENDING") {
             transactions = transactions.filter((tx: any) => !tx.additionalData?.bfpStatus);
-        } else if (status === "APPROVED") {
-            transactions = transactions.filter((tx: any) => tx.additionalData?.bfpStatus === "APPROVED");
+        } else if (status === "ACKNOWLEDGED") {
+            transactions = transactions.filter((tx: any) => tx.additionalData?.bfpStatus === "ACKNOWLEDGED" && !tx.additionalData?.bfpClearanceUrl);
+        } else if (status === "COMPLETED") {
+            transactions = transactions.filter((tx: any) => tx.additionalData?.bfpStatus === "COMPLETED" || Boolean(tx.additionalData?.bfpClearanceUrl));
         }
 
         return { success: true, data: transactions };
@@ -5631,27 +5790,32 @@ export async function getBFPStatusCounts() {
         });
         
         let pending = 0;
-        let approved = 0;
+        let acknowledged = 0;
+        let completed = 0;
         
         transactions.forEach((tx: any) => {
             const assess = tx.additionalData?.feeAssessment;
-            if (assess && assess.endorsed === true && assess.zoningEndorsed === true) {
-                if (tx.additionalData?.bfpStatus === "APPROVED") {
-                    approved++;
+            if (assess && assess.bfpSubmitted === true && assess.zoningEndorsed === true) {
+                if (tx.additionalData?.bfpStatus === "COMPLETED" || tx.additionalData?.bfpClearanceUrl) {
+                    completed++;
+                    return;
+                }
+                if (tx.additionalData?.bfpStatus === "ACKNOWLEDGED") {
+                    acknowledged++;
                 } else {
                     pending++;
                 }
             }
         });
 
-        return { success: true, data: { PENDING: pending, APPROVED: approved } };
+        return { success: true, data: { PENDING: pending, ACKNOWLEDGED: acknowledged, COMPLETED: completed } };
     } catch (error) {
         console.error("Get BFP counts error:", error);
         return { success: false, error: "Failed to fetch BFP counts" };
     }
 }
 
-export async function approveBFPTransaction(id: string, bfpClearanceUrl: string) {
+export async function approveBFPTransaction(id: string) {
     try {
         const user = await assertSessionUser();
         assertUserRoles(user, ["BFP", "ADMIN"]);
@@ -5666,10 +5830,11 @@ export async function approveBFPTransaction(id: string, bfpClearanceUrl: string)
             data: {
                 additionalData: {
                     ...currentData,
-                    bfpStatus: "APPROVED",
-                    bfpClearanceUrl,
+                    bfpStatus: "ACKNOWLEDGED",
                     bfpApprovedBy: user.name || "BFP Officer",
-                    bfpApprovedAt: new Date()
+                    bfpApprovedAt: new Date(),
+                    bfpAcknowledgedBy: user.name || "BFP Officer",
+                    bfpAcknowledgedAt: new Date()
                 }
             }
         });
