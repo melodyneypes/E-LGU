@@ -16,6 +16,7 @@ import { LatestNewsCard } from "./components/LatestNewsCard";
 import { UpcomingEventsCard } from "./components/UpcomingEventsCard";
 import { LGUProjectsCard } from "./components/LGUProjectsCard";
 import { ActivityLogsCard } from "./components/ActivityLogsCard";
+import { DashboardClientWrapper } from "./components/DashboardClientWrapper";
 
 function getPhilippineDateString(date: Date): string {
     return new Intl.DateTimeFormat("en-CA", {
@@ -245,6 +246,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
             }
         }),
         prisma.announcement.findMany({
+            where: selectedBarangay ? { barangay: selectedBarangay } : {},
             orderBy: { createdAt: "desc" },
             take: 5,
             select: {
@@ -257,6 +259,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
             }
         }),
         prisma.news.findMany({
+            where: selectedBarangay ? { barangay: selectedBarangay } : {},
             orderBy: { publishDate: "desc" },
             take: 5,
             select: {
@@ -272,7 +275,8 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         prisma.event.findMany({
             where: {
                 endDate: { gte: new Date() },
-                isPublished: true
+                isPublished: true,
+                ...(selectedBarangay ? { barangay: selectedBarangay } : {})
             },
             orderBy: { startDate: "asc" },
             take: 5,
@@ -289,7 +293,8 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         prisma.event.findMany({
             where: {
                 endDate: { lt: new Date() },
-                isPublished: true
+                isPublished: true,
+                ...(selectedBarangay ? { barangay: selectedBarangay } : {})
             },
             orderBy: { endDate: "desc" },
             take: 5,
@@ -567,7 +572,8 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                 </div>
             </div>
 
-            {/* Stat Cards Grid */}
+            <DashboardClientWrapper>
+                {/* Stat Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* Residents Card */}
                 <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
@@ -704,6 +710,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
             </div>
 
 
+            </DashboardClientWrapper>
         </div>
     );
 }
