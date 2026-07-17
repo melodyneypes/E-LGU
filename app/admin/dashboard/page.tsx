@@ -1,4 +1,4 @@
- 
+
 import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -8,11 +8,12 @@ export const dynamic = "force-dynamic";
 import { BarangaySwitcher } from "../components/BarangaySwitcher";
 import { Download, Plus, Users, Briefcase, AlertTriangle, Hammer, MapPin } from "lucide-react";
 import { redirect } from "next/navigation";
+import { TransactionDashboardView } from "./components/TransactionDashboardView";
 
-export default async function AdminDashboard(props: { searchParams: Promise<{ barangay?: string }> }) {
+export default async function AdminDashboard(props: { searchParams: Promise<{ barangay?: string; from?: string; to?: string; category?: string }> }) {
     const session = await getServerSession(authOptions);
     const user = session?.user as any;
-    
+
     // Redirect Treasury Staff and Admin Aide to their specific hub immediately
     if (user?.role === "TREASURY_STAFF" || user?.role === "ADMIN_AIDE") {
         redirect("/admin/treasury");
@@ -42,24 +43,127 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
 
     const params = await props.searchParams;
     const selectedBarangay = isBarangayAdmin ? user.managedBarangay : params.barangay;
+    const selectedCategory = params.category || "ALL";
 
-    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays] = await Promise.all([
+    // Parse date range params
+    let fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - 30);
+    fromDate.setHours(0, 0, 0, 0);
+
+    let toDate = new Date();
+    toDate.setHours(23, 59, 59, 999);
+
+    if (params.from) {
+        const parsedFrom = new Date(params.from);
+        if (!isNaN(parsedFrom.getTime())) {
+            fromDate = parsedFrom;
+            fromDate.setHours(0, 0, 0, 0);
+        }
+    }
+    if (params.to) {
+        const parsedTo = new Date(params.to);
+        if (!isNaN(parsedTo.getTime())) {
+            toDate = parsedTo;
+            toDate.setHours(23, 59, 59, 999);
+        }
+    }
+
+    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays, transactionsList, categoriesList] = await Promise.all([
         getMultipleSystemSettings(["theme_color"]),
         prisma.resident.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
         prisma.job.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
         prisma.report.count({ where: { status: "PENDING", ...(selectedBarangay ? { barangay: { name: selectedBarangay } } : {}) } }),
         prisma.project.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
-        isAdmin ? prisma.barangayInfo.findMany({ orderBy: { name: "asc" }, select: { name: true } }) : []
+        isAdmin ? prisma.barangayInfo.findMany({ orderBy: { name: "asc" }, select: { name: true } }) : [],
+        prisma.transaction.findMany({
+            where: {
+                createdAt: {
+                    gte: fromDate,
+                    lte: toDate
+                },
+                ...(selectedCategory && selectedCategory !== "ALL" ? {
+                    type: {
+                        category: selectedCategory
+                    }
+                } : {}),
+                ...(selectedBarangay ? {
+                    user: {
+                        residentProfile: {
+                            barangay: selectedBarangay
+                        }
+                    }
+                } : {})
+            },
+            select: {
+                createdAt: true,
+                status: true
+            }
+        }),
+        prisma.transactionType.findMany({
+            select: { category: true },
+            distinct: ["category"]
+        })
     ]);
 
     const themeColor = settings.get("theme_color") || "#2563eb";
+    const categories = categoriesList.map((c) => c.category).filter(Boolean);
+
+    // Map dashboard chart statistics for requests dynamically based on date range
+    const chartDataMap: {
+        [key: string]: {
+            date: string;
+            requests: number;
+            evaluation: number;
+            processing: number;
+            released: number;
+            rejected: number;
+        };
+    } = {};
+
+    const currentCursor = new Date(fromDate);
+    let safetyCounter = 0;
+    while (currentCursor <= toDate && safetyCounter < 400) {
+        const dateStr = currentCursor.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        const key = currentCursor.toISOString().split("T")[0];
+        chartDataMap[key] = {
+            date: dateStr,
+            requests: 0,
+            evaluation: 0,
+            processing: 0,
+            released: 0,
+            rejected: 0,
+        };
+        currentCursor.setDate(currentCursor.getDate() + 1);
+        safetyCounter++;
+    }
+
+    transactionsList.forEach((tx) => {
+        const key = tx.createdAt.toISOString().split("T")[0];
+        if (chartDataMap[key]) {
+            chartDataMap[key].requests += 1;
+            
+            if (tx.status === "FOR_REQUESTING" || tx.status === "FOR_INSPECTION" || tx.status === "FOR_REVISION") {
+                chartDataMap[key].evaluation += 1;
+            } else if (tx.status === "FOR_PROCESSING") {
+                chartDataMap[key].processing += 1;
+            } else if (tx.status === "RELEASED") {
+                chartDataMap[key].released += 1;
+            } else if (tx.status === "REJECTED") {
+                chartDataMap[key].rejected += 1;
+            }
+        }
+    });
+
+    const chartData = Object.keys(chartDataMap)
+        .sort()
+        .map((key) => chartDataMap[key]);
 
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header Section */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-200 dark:border-[#2a3040]">
                 <div>
-                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400 mb-2 italic">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400 mb-2 italic">
                         <MapPin size={12} />
                         <span>System Scope: {selectedBarangay || "Global Mapandan"}</span>
                     </div>
@@ -73,10 +177,10 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
 
                 <div className="flex flex-wrap items-center gap-4">
                     {isAdmin && (
-                        <BarangaySwitcher 
-                            availableBarangays={activeBarangays.map(b => b.name)} 
-                            currentBarangay={selectedBarangay} 
-                            themeColor={themeColor} 
+                        <BarangaySwitcher
+                            availableBarangays={activeBarangays.map(b => b.name)}
+                            currentBarangay={selectedBarangay}
+                            themeColor={themeColor}
                         />
                     )}
                     <div className="flex items-center space-x-3">
@@ -104,7 +208,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
 
                 {/* Jobs Card */}
                 <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
-                     <div className="absolute -top-4 -right-4 text-emerald-100 dark:text-emerald-500/10 transition-transform group-hover:scale-110">
+                    <div className="absolute -top-4 -right-4 text-emerald-100 dark:text-emerald-500/10 transition-transform group-hover:scale-110">
                         <Briefcase size={120} strokeWidth={1} />
                     </div>
                     <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Occupation Hub</p>
@@ -134,9 +238,20 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Infra Tracker</p>
                     <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{projectsCount.toLocaleString()}</h2>
                     <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-purple-600 italic">
-                         <span className="bg-purple-50 dark:bg-purple-500/10 px-2 py-1 rounded-full">Active Works</span>
+                        <span className="bg-purple-50 dark:bg-purple-500/10 px-2 py-1 rounded-full">Active Works</span>
                     </div>
                 </div>
+            </div>
+
+            {/* Chart Section */}
+            <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                <TransactionDashboardView 
+                    data={chartData} 
+                    initialFrom={fromDate.toISOString().split("T")[0]}
+                    initialTo={toDate.toISOString().split("T")[0]}
+                    categories={categories}
+                    activeCategory={selectedCategory}
+                />
             </div>
 
             {/* Middle Layout */}
