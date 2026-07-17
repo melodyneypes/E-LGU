@@ -10,7 +10,7 @@ import {
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
     FileText
 } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { secureLogoutAction } from "@/app/actions/auth";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
@@ -855,10 +855,10 @@ export function Sidebar({
                                     )}
                                 </button>
                                 <button
-                                    onClick={() => signOut({ callbackUrl: window.location.origin + "/auth/login" })}
-                                    className="p-2 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                                    title="Log Out"
-                                >
+                                     onClick={() => secureLogoutAction()}
+                                     className="p-2 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                                     title="Log Out"
+                                 >
                                     <LogOut size={18} />
                                 </button>
                             </div>

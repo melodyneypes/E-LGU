@@ -78,11 +78,11 @@ export default function RegistrarQueuePage() {
         fetchQueue();
     }, [fetchQueue]);
 
-    // Supabase Real-time + 5-second Polling Fallback
+    // Supabase Real-time + 30-second Polling Fallback
     useEffect(() => {
         const pollInterval = setInterval(() => {
             fetchQueue();
-        }, 5000);
+        }, 30000);
 
         let channel: any = null;
         if (supabase) {

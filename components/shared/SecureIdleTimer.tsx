@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { secureLogoutAction } from "@/app/actions/auth";
 import { toast } from "sonner";
 
 interface SecureIdleTimerProps {
@@ -31,7 +31,7 @@ export default function SecureIdleTimer({
                 // At timeout threshold, log out the user automatically
                 if (nextTime >= timeoutSeconds) {
                     clearInterval(interval);
-                    signOut({ callbackUrl: window.location.origin + "/auth/login" });
+                    secureLogoutAction();
                     toast.warning(`Securely signed out due to ${Math.floor(timeoutSeconds / 60)} minutes of inactivity.`);
                 }
                 return nextTime;

@@ -11,6 +11,8 @@ interface CedulaViewProps {
 }
 
 export default function CedulaView({ request, additionalData }: CedulaViewProps) {
+    const isRejected = request.status === "REJECTED";
+
     return (
         <div className="space-y-6 animate-in fade-in duration-300">
             <div className="flex items-center gap-3">
@@ -18,8 +20,14 @@ export default function CedulaView({ request, additionalData }: CedulaViewProps)
                 <h3 className="text-sm font-black uppercase tracking-widest italic text-slate-800 dark:text-white leading-none">Cedula Assessment Details</h3>
             </div>
             <div className="h-px bg-slate-100 dark:bg-white/5" />
+
             <div className="flex items-center gap-2">
                 <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase tracking-widest px-2 py-0.5">Community Tax Certificate (CTC)</Badge>
+                {request.status && (
+                    <Badge className={isRejected ? "bg-red-500/10 text-red-500 border border-red-500/20 text-[8px] font-black uppercase tracking-widest px-2 py-0.5" : "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[8px] font-black uppercase tracking-widest px-2 py-0.5"}>
+                        {request.status.replace(/_/g, " ")}
+                    </Badge>
+                )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs leading-relaxed">
                 <div className="space-y-1">

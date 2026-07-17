@@ -1646,3 +1646,51 @@
 2026-07-14T06:40:47.590Z - Client: init() finally block (setting loading=false)
 2026-07-14T06:40:47.610Z - Client: init() finally block (setting loading=false)
 2026-07-14T06:40:47.714Z - Client: init() finally block (setting loading=false)
+2026-07-15T03:54:38.838Z - Client: init() started
+2026-07-15T03:54:39.755Z - Client: init() started
+2026-07-15T03:54:39.816Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-15T03:54:39.860Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-15T03:54:51.154Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-15T03:54:51.181Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-15T03:54:51.228Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-15T03:54:51.292Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-15T03:54:55.447Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-15T03:54:55.501Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-15T03:54:55.558Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-15T03:54:55.615Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-15T03:54:55.657Z - Client: init() try block successfully finished
+2026-07-15T03:54:55.713Z - Client: init() try block successfully finished
+2026-07-15T03:54:55.793Z - Client: init() finally block (setting loading=false)
+2026-07-15T03:54:55.862Z - Client: init() finally block (setting loading=false)
+2026-07-15T04:12:33.749Z - Client: init() started
+2026-07-15T04:12:34.721Z - Client: init() started
+2026-07-15T04:12:34.765Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-15T04:12:34.803Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-15T04:12:51.454Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-15T04:12:51.494Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-15T04:12:51.519Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-15T04:12:51.548Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-15T04:12:56.744Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-15T04:12:56.774Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-15T04:12:56.808Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-15T04:12:56.835Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-15T04:12:56.862Z - Client: init() try block successfully finished
+2026-07-15T04:12:56.890Z - Client: init() try block successfully finished
+2026-07-15T04:12:56.920Z - Client: init() finally block (setting loading=false)
+2026-07-15T04:12:56.952Z - Client: init() finally block (setting loading=false)
+2026-07-17T02:49:08.569Z - Client: init() started
+2026-07-17T02:49:08.866Z - Client: init() started
+2026-07-17T02:49:08.898Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-17T02:49:09.009Z - Client: Calling ensureCivilRegistryTransactionTypes()...
+2026-07-17T02:49:11.304Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-17T02:49:11.334Z - Client: ensureCivilRegistryTransactionTypes() finished
+2026-07-17T02:49:11.389Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-17T02:49:11.415Z - Client: Calling getCurrentUserResident() and getTransactionTypes()...
+2026-07-17T02:49:12.859Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-17T02:49:12.889Z - Client: getCurrentUserResident() and getTransactionTypes() resolved
+2026-07-17T02:49:12.980Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-17T02:49:13.006Z - Client: Found dbType ID: cmqymmg23000av5ncllwd7wt2
+2026-07-17T02:49:13.084Z - Client: init() try block successfully finished
+2026-07-17T02:49:13.110Z - Client: init() try block successfully finished
+2026-07-17T02:49:13.135Z - Client: init() finally block (setting loading=false)
+2026-07-17T02:49:13.186Z - Client: init() finally block (setting loading=false)

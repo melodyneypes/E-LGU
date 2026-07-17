@@ -468,7 +468,7 @@ export function UsersPage({
                         else if (user.role === "RIDER")
                           style =
                             "bg-amber-500/10 text-amber-500 border-amber-500/20";
-                        else if (user.role === "BFP")
+                        else if ((user.role as string) === "BFP")
                           style =
                             "bg-orange-500/10 text-orange-500 border-orange-500/20";
 

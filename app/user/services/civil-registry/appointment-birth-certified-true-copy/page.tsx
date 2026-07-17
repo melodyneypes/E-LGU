@@ -47,7 +47,6 @@ import {
     getTransactionTypes,
     getSystemSettingAction,
     getTransactionById,
-    logDebugMessage,
     getRegistrarAppointmentConfig
 } from "@/app/admin/transactions/actions";
 import { toast } from "sonner";
@@ -175,36 +174,26 @@ export default function AppointmentBirthCertifiedTrueCopyPage() {
     useEffect(() => {
         async function init() {
             try {
-                await logDebugMessage("Client: init() started");
-                await logDebugMessage("Client: Calling ensureCivilRegistryTransactionTypes()...");
-                await ensureCivilRegistryTransactionTypes();
-                await logDebugMessage("Client: ensureCivilRegistryTransactionTypes() finished");
-
                 const urlParams = new URLSearchParams(window.location.search);
                 const revId = urlParams.get("revisionId");
 
                 let txData: any = null;
                 if (revId) {
-                    await logDebugMessage(`Client: Fetching revision transaction for ID ${revId}...`);
                     const txRes = await getTransactionById(revId);
                     if (txRes.success && txRes.data) {
                         txData = txRes.data;
                         setRevisionId(revId);
                         setRevisionTx(txData);
-                        await logDebugMessage("Client: Revision transaction fetched successfully");
                     } else {
                         toast.error("Failed to fetch revision details");
-                        await logDebugMessage(`Client: Failed to fetch revision details: ${txRes.error}`);
                     }
                 }
 
-                await logDebugMessage("Client: Calling getCurrentUserResident() and getTransactionTypes()...");
                 const [resResult, typesResult, configResult] = await Promise.all([
                     getCurrentUserResident(),
                     getTransactionTypes(),
                     getRegistrarAppointmentConfig()
                 ]);
-                await logDebugMessage("Client: getCurrentUserResident() and getTransactionTypes() resolved");
 
                 if (configResult.success) {
                     setAppointmentConfig(configResult.config);
@@ -271,24 +260,28 @@ export default function AppointmentBirthCertifiedTrueCopyPage() {
                     }
                 }
 
-                if (typesResult.success && typesResult.data) {
-                    const psaType = typesResult.data.find((t: any) => t.code === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT");
+                let typesData = typesResult.success ? typesResult.data : null;
+                const expectedCode = "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT";
+                const hasType = typesData?.some((t: any) => t.code === expectedCode);
+
+                if (!hasType) {
+                    await ensureCivilRegistryTransactionTypes();
+                    const refetchedTypes = await getTransactionTypes();
+                    if (refetchedTypes.success) {
+                        typesData = refetchedTypes.data;
+                    }
+                }
+
+                if (typesData) {
+                    const psaType = typesData.find((t: any) => t.code === expectedCode);
                     if (psaType) {
                         setTypeId(psaType.id);
                         setDbType(psaType);
-                        await logDebugMessage(`Client: Found dbType ID: ${psaType.id}`);
-                    } else {
-                        await logDebugMessage("Client: LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT type NOT found in dbTypes list");
                     }
-                } else {
-                    await logDebugMessage(`Client: getTransactionTypes was unsuccessful: ${typesResult.error}`);
                 }
-                await logDebugMessage("Client: init() try block successfully finished");
             } catch (error: any) {
                 console.error("Initialization error:", error);
-                await logDebugMessage(`Client: init() catch block error: ${error?.message || error}`);
             } finally {
-                await logDebugMessage("Client: init() finally block (setting loading=false)");
                 setLoading(false);
             }
         }

@@ -49,6 +49,17 @@ export function BarangayProvider({ children }: { children: React.ReactNode }) {
         }
         // Hide splash when URL settles
         setIsLoading(false);
+
+        // Listen for global custom events to trigger loading overlay from navigation clicks
+        const handleGlobalLoadingTrigger = (e: Event) => {
+            const customEvent = e as CustomEvent;
+            setIsLoading(customEvent.detail);
+        };
+
+        window.addEventListener("trigger-global-loading", handleGlobalLoadingTrigger);
+        return () => {
+            window.removeEventListener("trigger-global-loading", handleGlobalLoadingTrigger);
+        };
     }, [searchParams, pathname, router]);
 
     const updateBarangay = (value: string) => {
