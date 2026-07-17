@@ -70,24 +70,6 @@ function isPendingEngineeringTransaction(tx: any): boolean {
     return !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED", "REJECTED", "CANCELLED"].includes(tx.status || "");
 }
 
-function getDashboardStatus(tx: any): string {
-    const zStatus = tx.additionalData?.zoningStatus || "FOR_REQUESTING";
-
-    if (tx.isCancelled) return "CANCELLED";
-    if (tx.status === "REJECTED") return "REJECTED";
-    if (isPendingEngineeringTransaction(tx)) return "PENDING_ENGINEERING";
-
-    if (["FOR_REQUESTING", "FOR_REVISION", "FOR_INSPECTION", "FOR_REINSPECTION"].includes(zStatus)) {
-        return zStatus;
-    }
-
-    if (zStatus === "EVALUATED") {
-        return tx.status || "EVALUATED";
-    }
-
-    return zStatus;
-}
-
 export default function ZoningDashboard() {
     const router = useRouter();
 

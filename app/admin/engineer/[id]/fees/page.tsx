@@ -725,7 +725,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                         <Dialog>
                                             <DialogTrigger asChild>
                                                 <div className="group relative aspect-video rounded-xl overflow-hidden flex items-center justify-center cursor-zoom-in bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5">
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                                     <img src={additional.signature} alt="E-Signature" className="max-h-20 object-contain p-2 group-hover:scale-105 transition-transform" />
                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                         <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
@@ -937,7 +936,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                             <Dialog>
                                 <DialogTrigger asChild>
                                     <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-white/5 group max-w-lg shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img src={transaction.additionalData.bfpClearanceUrl} alt="BFP Clearance" className="object-cover w-full h-full" />
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                             <span className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-2xl hover:scale-105 active:scale-95 transition-all">
@@ -963,7 +961,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                             <Dialog>
                                 <DialogTrigger asChild>
                                     <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-white/5 group max-w-lg shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img src={transaction.additionalData.zoningClearanceUrl} alt="Zoning Clearance" className="object-cover w-full h-full" />
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                             <span className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-2xl hover:scale-105 active:scale-95 transition-all">

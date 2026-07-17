@@ -37,11 +37,6 @@ import {
     DialogTrigger
 } from "@/components/ui/dialog";
 
-type RevisionRequestItem = {
-    type: "REQUIREMENTS" | "PERMITS";
-    name: string;
-};
-
 interface PageProps {
     params: Promise<{ id: string }>;
 }
