@@ -231,8 +231,6 @@ export default function AppointmentMarriageCertifiedTrueCopyPage() {
     useEffect(() => {
         async function init() {
             try {
-                await ensureCivilRegistryTransactionTypes();
-
                 const urlParams = new URLSearchParams(window.location.search);
                 const revId = urlParams.get("revisionId");
 
@@ -320,15 +318,25 @@ export default function AppointmentMarriageCertifiedTrueCopyPage() {
                     }
                 }
 
-                if (typesResult.success && typesResult.data) {
-                    const psaType = typesResult.data.find((t: any) => t.code === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT");
+                let typesData = typesResult.success ? typesResult.data : null;
+                const expectedCode = "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT";
+                const hasType = typesData?.some((t: any) => t.code === expectedCode);
+
+                if (!hasType) {
+                    await ensureCivilRegistryTransactionTypes();
+                    const refetchedTypes = await getTransactionTypes();
+                    if (refetchedTypes.success) {
+                        typesData = refetchedTypes.data;
+                    }
+                }
+
+                if (typesData) {
+                    const psaType = typesData.find((t: any) => t.code === expectedCode);
                     if (psaType) {
                         setTypeId(psaType.id);
                         setDbType(psaType);
                     }
                 }
-
-
             } catch (error) {
                 console.error("Initialization error:", error);
             } finally {

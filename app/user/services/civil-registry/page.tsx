@@ -198,24 +198,29 @@ export default function CivilRegistryPage() {
             }
         });
 
-        const fetchActiveCodes = async () => {
+        const fetchActiveCodes = async (runSeederIfMissing = true) => {
             getTransactionTypes().then((res) => {
                 if (res.success && res.data) {
                     const codes = new Set(res.data.map((t: any) => t.code as string));
                     setActiveCodes(codes);
+
+                    if (runSeederIfMissing) {
+                        const expectedCodes = REGISTRY_TYPES.map(type => type.code);
+                        const hasAllCodes = expectedCodes.every(code => codes.has(code));
+                        if (!hasAllCodes) {
+                            ensureCivilRegistryTransactionTypes()
+                                .catch((e) => console.error("Failed to ensure LCR types:", e))
+                                .finally(() => fetchActiveCodes(false));
+                        }
+                    }
                 } else {
                     setActiveCodes(new Set());
                 }
             });
         };
 
-        // Fetch immediately so the page doesn't block
-        fetchActiveCodes();
-
-        // Seed transaction types in background, then re-fetch to pick up any new ones
-        ensureCivilRegistryTransactionTypes()
-            .catch((e) => console.error("Failed to ensure LCR types:", e))
-            .finally(() => fetchActiveCodes());
+        // Fetch immediately and run seeder if any are missing
+        fetchActiveCodes(true);
 
         if (!supabase) return;
 
@@ -231,7 +236,7 @@ export default function CivilRegistryPage() {
                         table: "TransactionType",
                     },
                     () => {
-                        fetchActiveCodes();
+                        fetchActiveCodes(false);
                     }
                 )
                 .subscribe((status: string, err?: any) => {
@@ -428,8 +433,29 @@ export default function CivilRegistryPage() {
                     {/* Civil Registry Sections */}
                     <div className="space-y-16 max-w-6xl mx-auto w-full">
                         {activeCodes === null ? (
-                            <div className="flex justify-center items-center py-20">
-                                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" style={{ borderColor: themeColor }} />
+                            <div className="space-y-6 animate-pulse">
+                                {/* Section Header Skeleton */}
+                                <div className="flex items-center gap-4 border-b border-slate-100 dark:border-white/5 pb-4 select-none">
+                                    <div className="w-1.5 h-8 rounded-full bg-slate-200 dark:bg-slate-800" />
+                                    <div className="space-y-2">
+                                        <div className="h-5 w-48 bg-slate-300 dark:bg-slate-700 rounded-md" />
+                                        <div className="h-3 w-64 bg-slate-200 dark:bg-slate-800 rounded-md" />
+                                    </div>
+                                </div>
+
+                                {/* Cards Grid Skeleton */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {Array(3).fill(0).map((_, idx) => (
+                                        <div key={idx} className="p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] border-2 border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/5 backdrop-blur-md min-h-[100px] md:min-h-[220px] flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-0 justify-start md:justify-between">
+                                            <div className="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-slate-200 dark:bg-slate-800 shrink-0" />
+                                            <div className="space-y-3 mt-0 md:mt-6 w-full">
+                                                <div className="h-4 bg-slate-300 dark:bg-slate-700 rounded-md w-3/4" />
+                                                <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-md w-5/6" />
+                                                <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-md w-2/3" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         ) : (
                             sectionsToRender.map((section) => {

@@ -161,17 +161,17 @@ const isAuthorized = allowedRoles.includes(userRole) && !isLGU && (
                         <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
                             Or Type Custom Counter Name
                         </label>
-                        <div className="flex gap-1.5">
+                        <div className="flex items-center gap-1.5 w-full">
                             <input
                                 type="text"
                                 placeholder="e.g. Window 4"
                                 value={customValue}
                                 onChange={(e) => setCustomValue(e.target.value)}
-                                className="flex-1 h-9 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-primary placeholder-slate-455"
+                                className="flex-1 min-w-0 h-9 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-primary placeholder-slate-400"
                             />
                             <button
                                 type="submit"
-                                className="h-9 px-3 rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition-all"
+                                className="h-9 px-3 rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition-all shrink-0 hover:brightness-110 active:scale-95"
                                 style={{ backgroundColor: themeColor }}
                             >
                                 Set
