@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, use, useCallback, useMemo } from "react";
+import React, { useState, useEffect, use, useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -27,6 +27,7 @@ import {
     getSystemSettingAction,
     approveBuildingPermit,
     uploadECopyAction,
+    saveBuildingPermitECopyAction,
     submitBuildingPermitAction,
     reviseBuildingPermitClearancesAction,
     declineBuildingPermitAction,
@@ -73,10 +74,13 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
     // Fee form state
     const [buildingFee, setBuildingFee] = useState<string>("");
+    const [zoningVisibleDocs, setZoningVisibleDocs] = useState<string[]>([]);
+    const [bfpVisibleDocs, setBfpVisibleDocs] = useState<string[]>([]);
     const [engineerMunicipalCharges, setEngineerMunicipalCharges] = useState<{ name: string, amount: string }[]>([{ name: "", amount: "" }]);
     const [, setECopyFile] = useState<File | null>(null);
     const [eCopyUrl, setECopyUrl] = useState<string>("");
     const [uploading, setUploading] = useState(false);
+    const eCopyInputRef = useRef<HTMLInputElement | null>(null);
 
     // Modals state
     const [reviseModalOpen, setReviseModalOpen] = useState(false);
@@ -85,19 +89,42 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const [viewerOpen, setViewerOpen] = useState(false);
     const [viewerUrl, setViewerUrl] = useState<string | null>(null);
     const [viewerTitle, setViewerTitle] = useState("");
-    const [endorseModalOpen, setEndorseModalOpen] = useState(false);
-    const [selectedZoningDocs, setSelectedZoningDocs] = useState<string[]>([]);
-
     const feeAssessment = transaction?.additionalData?.feeAssessment || null;
     const isEndorsed = feeAssessment?.endorsed === true;
+    const engineerEndorsedToZoning = feeAssessment?.engineerEndorsedToZoning === true;
+    const zoningEndorsed = feeAssessment?.zoningEndorsed === true;
+    const bfpSubmitted = feeAssessment?.bfpSubmitted === true;
+    const bfpAcknowledged = transaction?.additionalData?.bfpStatus === "ACKNOWLEDGED";
+    const bfpAcknowledgedAt = transaction?.additionalData?.bfpAcknowledgedAt || transaction?.additionalData?.bfpApprovedAt;
+    const zoningClearanceReceived = Boolean(transaction?.additionalData?.zoningClearanceUrl || zoningEndorsed);
+    const bfpClearanceReceived = Boolean(transaction?.additionalData?.bfpClearanceUrl);
+    const zoningPaymentTotal = useMemo(
+        () => (transaction?.additionalData?.feeAssessment?.zoningMunicipalCharges || []).reduce((sum: number, fee: any) => sum + Number(fee.amount || 0), 0),
+        [transaction]
+    );
     const isViewOnly = isForcedView || isEndorsed || (transaction && transaction.status !== "EVALUATED");
 
-    const [now] = useState(() => Date.now());
-    const isBfpBypassActive = useMemo(() => {
-        const endorsedAt = transaction?.additionalData?.feeAssessment?.zoningEndorsedAt;
-        if (!endorsedAt) return false;
-        return now - new Date(endorsedAt).getTime() > 3 * 24 * 60 * 60 * 1000;
-    }, [transaction, now]);
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => {
+        const timer = window.setInterval(() => setNow(Date.now()), 1000);
+        return () => window.clearInterval(timer);
+    }, []);
+    const bfpCountdown = useMemo(() => {
+        if (!bfpAcknowledgedAt) return null;
+        const deadline = new Date(new Date(bfpAcknowledgedAt).getTime() + 3 * 24 * 60 * 60 * 1000);
+        const diff = deadline.getTime() - now;
+        const expired = diff <= 0;
+        const totalSeconds = Math.max(0, Math.floor(diff / 1000));
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return {
+            expired,
+            text: `${String(days).padStart(2, "0")}D ${String(hours).padStart(2, "0")}H ${String(minutes).padStart(2, "0")}M ${String(seconds).padStart(2, "0")}S`
+        };
+    }, [bfpAcknowledgedAt, now]);
+    const paymentEndorsementReady = Boolean((bfpClearanceReceived || bfpCountdown?.expired) && Number(buildingFee) > 0 && zoningPaymentTotal > 0);
 
     const additional = useMemo(() => transaction?.additionalData || {}, [transaction]);
     const resident = useMemo(() => transaction?.user?.residentProfile || transaction?.residentSnapshot || {}, [transaction]);
@@ -182,12 +209,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         ].filter(d => d.url && isValidUrl(d.url));
     }, [transaction, additional, resident]);
 
-    useEffect(() => {
-        if (endorseModalOpen) {
-            setSelectedZoningDocs(vaultDocs.map(d => d.key));
-        }
-    }, [endorseModalOpen, vaultDocs]);
-
     const fetchTransaction = useCallback(async () => {
         setLoading(true);
         try {
@@ -226,25 +247,33 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         });
     }, [fetchTransaction]);
 
-    const handleEndorseConfirm = async () => {
-        if (!buildingFee) {
-            toast.error("Please fill in all required fee fields.");
-            return;
-        }
-
+    const handleEndorse = async () => {
         const validCharges = engineerMunicipalCharges.filter(c => c.name.trim() && c.amount);
 
         setActionLoading(true);
         try {
+            const actionType = !engineerEndorsedToZoning
+                ? "ENGINEER_TO_ZONING"
+                : zoningEndorsed && !bfpSubmitted
+                    ? "ENGINEER_TO_BFP"
+                    : "ENGINEER_TO_TREASURY";
+
             const res = await endorseBuildingPermitFees(id, {
-                buildingPermitFee: Number(buildingFee),
+                actionType,
+                ...(buildingFee ? { buildingPermitFee: Number(buildingFee) } : {}),
                 engineerMunicipalCharges: validCharges.map(c => ({ name: c.name, amount: Number(c.amount) })),
-                zoningVisibleDocs: selectedZoningDocs
+                zoningVisibleDocs,
+                bfpVisibleDocs
             });
 
             if (res.success) {
-                toast.success("Fees endorsed to Treasury successfully!");
-                setEndorseModalOpen(false);
+                toast.success(
+                    actionType === "ENGINEER_TO_BFP"
+                        ? "Documents forwarded to BFP successfully!"
+                        : actionType === "ENGINEER_TO_TREASURY"
+                            ? "Fees endorsed to Engineer successfully!"
+                            : "Documents endorsed to Zoning successfully!"
+                );
                 router.push(backUrl);
             } else {
                 toast.error(res.error || "Failed to endorse fees");
@@ -340,7 +369,30 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         } catch {
             toast.error("Error uploading E-copy", { id: toastId });
         } finally {
+            e.target.value = "";
             setUploading(false);
+        }
+    };
+
+    const handleSaveECopy = async () => {
+        if (!eCopyUrl) {
+            toast.error("Please upload the building permit E-copy first.");
+            return;
+        }
+
+        setActionLoading(true);
+        try {
+            const res = await saveBuildingPermitECopyAction(id, eCopyUrl);
+            if (res.success) {
+                toast.success("Building Permit E-copy saved and moved to Submit phase successfully!");
+                fetchTransaction();
+            } else {
+                toast.error(res.error || "Failed to save e-copy");
+            }
+        } catch {
+            toast.error("An error occurred while saving e-copy");
+        } finally {
+            setActionLoading(false);
         }
     };
 
@@ -354,7 +406,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         try {
             const res = await submitBuildingPermitAction(id, eCopyUrl);
             if (res.success) {
-                toast.success("Building Permit submitted and released successfully!");
+                toast.success("Building Permit submitted to citizen successfully!");
                 fetchTransaction();
             } else {
                 toast.error(res.error || "Failed to submit permit");
@@ -406,7 +458,8 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         if (status === "FOR_INSPECTION") return 1;
         if (status === "FOR_REINSPECTION") return 2;
         if (status === "EVALUATED" || status === "UNPAID" || status === "PAYMENT_SUBMITTED" || status === "PAID") return 3;
-        return 4; // SUBMIT phase (FOR_PROCESSING, FOR_CLAIM, FOR_PICKING, RELEASED)
+        if (status === "FOR_PROCESSING" || status === "FOR_CLAIM" || status === "FOR_PICKING" || status === "RELEASED") return 4;
+        return 4; // SUBMIT phase fallback
     };
     const currentStepIdx = getStepIndex(transaction.status);
 
@@ -924,8 +977,8 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                         </div>
                     )}
 
-                    {/* E-Copy Upload Section for FOR_PROCESSING and CLAIMING */}
-                    {["FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING"].includes(transaction.status) && (
+                    {/* E-Copy Upload Section for PAID and Submit Phase */}
+                    {["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING"].includes(transaction.status) && (
                         <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
                             <div>
                                 <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
@@ -935,48 +988,123 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                             </div>
 
                             <div className="space-y-4">
-                                <div className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-8 text-center bg-slate-50/50 dark:bg-white/5 hover:bg-slate-100/50 dark:hover:bg-white/10 transition-all duration-300 relative group">
-                                    <input
-                                        type="file"
-                                        id="eCopyUpload"
-                                        onChange={handleFileChange}
-                                        accept="application/pdf,image/*"
-                                        disabled={uploading || transaction.status !== "FOR_PROCESSING"}
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
-                                    />
-                                    <div className="flex flex-col items-center justify-center gap-4">
-                                        <div className="p-4 bg-primary/10 rounded-2xl group-hover:scale-110 transition-transform">
-                                            <Upload className="w-8 h-8 text-primary" />
+                                {transaction.status === "PAID" ? (
+                                    <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
+                                        <input
+                                            ref={eCopyInputRef}
+                                            type="file"
+                                            id="eCopyUpload"
+                                            onChange={handleFileChange}
+                                            accept="application/pdf,image/*"
+                                            disabled={uploading || transaction.status !== "PAID"}
+                                            className="hidden"
+                                        />
+
+                                        <div className="space-y-1">
+                                            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Building Permit E-Copy</h3>
+                                            <p className="text-[10px] font-medium opacity-80 text-slate-500">
+                                                Upload once, review the preview, then replace it if needed before saving.
+                                            </p>
                                         </div>
-                                        <div>
-                                            <span className="text-xs font-black uppercase tracking-wider text-slate-600 block dark:text-slate-300">Drag & Drop or Click to Upload</span>
-                                            <span className="text-[10px] font-bold text-slate-400 block mt-1">PDF or Images up to 10MB</span>
-                                        </div>
+
+                                        {eCopyUrl ? (
+                                            <div className="space-y-4">
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-white/5 group max-w-lg shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer">
+                                                            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/0 group-hover:bg-slate-900/20 transition-colors">
+                                                                <span className="px-5 py-2.5 bg-white/0 text-white/0 group-hover:bg-white group-hover:text-slate-900 rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-2xl hover:scale-105 active:scale-95 transition-all">
+                                                                    View Fullscreen
+                                                                </span>
+                                                            </div>
+                                                            {String(eCopyUrl).toLowerCase().includes(".pdf") ? (
+                                                                <div className="w-full h-full flex items-center justify-center bg-white dark:bg-slate-900 text-slate-400">
+                                                                    <FileText className="w-16 h-16" />
+                                                                </div>
+                                                            ) : (
+                                                                <img src={eCopyUrl} alt="Building Permit E-Copy" className="object-cover w-full h-full" />
+                                                            )}
+                                                        </div>
+                                                    </DialogTrigger>
+                                                    <LightboxView src={eCopyUrl} alt="Building Permit E-Copy" label="Building Permit E-Copy" />
+                                                </Dialog>
+
+                                                <div className="flex flex-col sm:flex-row gap-3">
+                                                    <Button
+                                                        type="button"
+                                                        onClick={() => eCopyInputRef.current?.click()}
+                                                        disabled={uploading}
+                                                        variant="outline"
+                                                        className="h-12 rounded-xl border-primary/30 text-primary hover:bg-primary/10 font-black italic uppercase tracking-widest text-[11px] disabled:opacity-50"
+                                                    >
+                                                        {uploading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                                                        Change E-Copy
+                                                    </Button>
+                                                    <p className="text-[10px] font-medium text-slate-400 self-center">
+                                                        Replacing the file updates the current preview only. It will stay as one E-copy.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div
+                                                onClick={() => !uploading && eCopyInputRef.current?.click()}
+                                                className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-8 text-center bg-slate-50/50 dark:bg-white/5 hover:bg-slate-100/50 dark:hover:bg-white/10 transition-all duration-300 relative group cursor-pointer"
+                                            >
+                                                <div className="flex flex-col items-center justify-center gap-4">
+                                                    <div className="p-4 bg-primary/10 rounded-2xl group-hover:scale-110 transition-transform">
+                                                        {uploading ? <RefreshCw className="w-8 h-8 text-primary animate-spin" /> : <Upload className="w-8 h-8 text-primary" />}
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-xs font-black uppercase tracking-wider text-slate-600 block dark:text-slate-300">Drag & Drop or Click to Upload</span>
+                                                        <span className="text-[10px] font-bold text-slate-400 block mt-1">PDF or Images up to 10MB</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
+                                        <div className="space-y-1">
+                                            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Building Permit E-Copy</h3>
+                                            <p className="text-[10px] font-medium opacity-80 text-slate-500">Prepared by the Engineer and ready for citizen release.</p>
+                                        </div>
+                                        {eCopyUrl ? (
+                                            <Dialog>
+                                                <DialogTrigger asChild>
+                                                    <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-white/5 group max-w-lg shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer">
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/0 group-hover:bg-slate-900/20 transition-colors">
+                                                            <span className="px-5 py-2.5 bg-white/0 text-white/0 group-hover:bg-white group-hover:text-slate-900 rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-2xl hover:scale-105 active:scale-95 transition-all">
+                                                                View Fullscreen
+                                                            </span>
+                                                        </div>
+                                                        {String(eCopyUrl).toLowerCase().includes(".pdf") ? (
+                                                            <div className="w-full h-full flex items-center justify-center bg-white dark:bg-slate-900 text-slate-400">
+                                                                <FileText className="w-16 h-16" />
+                                                            </div>
+                                                        ) : (
+                                                            <img src={eCopyUrl} alt="Building Permit E-Copy" className="object-cover w-full h-full" />
+                                                        )}
+                                                    </div>
+                                                </DialogTrigger>
+                                                <LightboxView src={eCopyUrl} alt="Building Permit E-Copy" label="Building Permit E-Copy" />
+                                            </Dialog>
+                                        ) : (
+                                            <div className="rounded-xl border border-dashed border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 p-4 text-slate-400">
+                                                <p className="text-[10px] font-black uppercase tracking-widest italic">No e-copy saved yet</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
-                            {eCopyUrl && (
-                                <div className="p-6 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-2xl flex items-center justify-between shadow-sm">
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-3 bg-emerald-500/10 rounded-xl">
-                                            <FileText className="w-6 h-6 text-emerald-500" />
-                                        </div>
-                                        <div>
-                                            <span className="text-xs font-black uppercase tracking-widest italic text-emerald-500">Permit E-Copy Loaded</span>
-                                            <span className="text-[11px] font-medium text-slate-400 block mt-0.5">Click preview to view the uploaded file.</span>
-                                        </div>
-                                    </div>
+                            {transaction.status === "PAID" && (
+                                <div className="pt-2 space-y-3">
                                     <Button
-                                        onClick={() => {
-                                            setViewerUrl(eCopyUrl);
-                                            setViewerTitle("Building Permit E-Copy");
-                                            setViewerOpen(true);
-                                        }}
-                                        variant="outline"
-                                        className="h-10 gap-2 font-black text-[10px] uppercase tracking-wider rounded-xl"
+                                        onClick={handleSaveECopy}
+                                        disabled={actionLoading || !eCopyUrl || uploading}
+                                        className="w-full h-14 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        Preview <ExternalLink className="w-3.5 h-3.5" />
+                                        <Check className="w-4 h-4 mr-2" /> Save
                                     </Button>
                                 </div>
                             )}
@@ -1032,19 +1160,282 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                         </div>
                     </div>
 
+                    {["FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING"].includes(transaction.status) && (
+                        <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
+                            <div className="flex flex-col gap-1">
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Resident Fulfillment Preference</span>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <Badge className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs px-3 py-1 font-bold rounded-lg uppercase">
+                                        {transaction.fulfillmentType || "PICK_UP"}
+                                    </Badge>
+                                </div>
+                                <p className="text-[11px] text-slate-400 font-medium mt-2 leading-relaxed">
+                                    Upon clicking the Submit button, the permit will be routed to:{" "}
+                                    <span className="font-bold text-white">
+                                        {transaction.fulfillmentType === "DELIVERY" ? "FOR_PICKING (Rider Delivery)" : "FOR_CLAIM (Ready for pick up)"}
+                                    </span>.
+                                </p>
+                            </div>
+
+                            {(userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
+                                <div className="pt-2 space-y-3">
+                                    <Button
+                                        onClick={handleSubmitPermit}
+                                        disabled={actionLoading || !eCopyUrl || uploading || transaction.status !== "FOR_PROCESSING"}
+                                        className="w-full h-14 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <Check className="w-4 h-4 mr-2" /> Submit
+                                    </Button>
+
+                                    {(!transaction.fulfillmentType || transaction.fulfillmentType === "PICK_UP") && (
+                                        <Button
+                                            onClick={handleRelease}
+                                            disabled={actionLoading || !eCopyUrl || uploading || transaction.status !== "FOR_CLAIM"}
+                                            variant="outline"
+                                            className="w-full h-14 rounded-xl border-blue-500/50 text-blue-500 hover:bg-blue-500/10 font-black italic uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <BadgeCheck className="w-4 h-4 mr-2" /> Released
+                                        </Button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Zoning Clearance Preview */}
+                    {!["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction?.status || "") && zoningEndorsed && (
+                        <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
+                            <div className="space-y-1">
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Zoning Clearance</h3>
+                                <p className="text-[10px] font-medium opacity-80 text-slate-500">
+                                    {transaction.additionalData?.zoningClearanceUrl
+                                        ? "Submitted by Zoning and ready for Engineer review."
+                                        : "Zoning has endorsed the application. The clearance preview will appear here once uploaded."}
+                                </p>
+                            </div>
+
+                            {transaction.additionalData?.zoningClearanceUrl ? (
+                                <Dialog>
+                                    <DialogTrigger asChild>
+                                        <button type="button" className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-left hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+                                            <div className="h-14 w-18 rounded-lg overflow-hidden bg-slate-200 dark:bg-white/10 shrink-0 border border-slate-200 dark:border-white/10">
+                                                <img src={transaction.additionalData.zoningClearanceUrl} alt="Zoning Clearance" className="h-full w-full object-cover" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <span className="block text-xs font-bold text-slate-700 dark:text-slate-200">Zoning / Locational Clearance</span>
+                                                <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400">Submitted by Zoning Officer</span>
+                                            </div>
+                                        </button>
+                                    </DialogTrigger>
+                                    <LightboxView src={transaction.additionalData.zoningClearanceUrl} alt="Zoning Clearance" label="Zoning / Locational Clearance" />
+                                </Dialog>
+                            ) : (
+                                <div className="rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 p-4 text-amber-500">
+                                    <p className="text-[10px] font-black uppercase tracking-widest italic">Waiting for zoning clearance upload</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {bfpAcknowledged && (
+                        bfpClearanceReceived ? (
+                            <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
+                                <div className="space-y-1">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">BFP Clearance</h3>
+                                    <p className="text-[10px] font-medium opacity-80 text-slate-500">Submitted by BFP and ready for Engineer review.</p>
+                                </div>
+
+                                <Dialog>
+                                    <DialogTrigger asChild>
+                                        <button type="button" className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-left hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+                                            <div className="h-14 w-18 rounded-lg overflow-hidden bg-slate-200 dark:bg-white/10 shrink-0 border border-slate-200 dark:border-white/10">
+                                                <img src={transaction.additionalData.bfpClearanceUrl} alt="BFP Clearance" className="h-full w-full object-cover" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <span className="block text-xs font-bold text-slate-700 dark:text-slate-200">BFP Fire Safety Clearance</span>
+                                                <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400">Submitted by BFP Officer</span>
+                                            </div>
+                                        </button>
+                                    </DialogTrigger>
+                                    <LightboxView src={transaction.additionalData.bfpClearanceUrl} alt="BFP Clearance" label="BFP Fire Safety Clearance" />
+                                </Dialog>
+                            </div>
+                        ) : (
+                            <div className="bg-[#151b28] rounded-[2rem] p-6 border border-amber-500/20 space-y-4 shadow-lg shadow-amber-950/10">
+                                <div className="space-y-1">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-400 italic">
+                                        {bfpCountdown?.expired ? "Endorse to Resident" : "Waiting for BFP Clearance Document..."}
+                                    </h3>
+                                    <p className="text-[10px] font-medium opacity-80 text-amber-200/80">
+                                        {bfpCountdown?.expired
+                                            ? "The BFP acknowledgement window has expired. You may now endorse the payment fees once the assessment details are complete."
+                                            : "BFP has acknowledged the endorsement. The 3-day window is active until the clearance is submitted."}
+                                    </p>
+                                </div>
+                                {bfpCountdown?.expired ? (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-amber-400">
+                                            <span className="text-[9px] font-black uppercase tracking-[0.25em] italic">Payment endorsement available</span>
+                                            <Badge className="bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] px-3 py-1 font-bold rounded-lg shrink-0">
+                                                EXPIRED
+                                            </Badge>
+                                        </div>
+                                        {(userRole === "ENGINEER" || userRole === "ADMIN") && (
+                                            <Button
+                                                onClick={handleEndorse}
+                                                disabled={actionLoading || !paymentEndorsementReady}
+                                                className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                <Check className="w-4 h-4 mr-2" /> Endorse to Resident
+                                            </Button>
+                                        )}
+                                        {!paymentEndorsementReady && (
+                                            <p className="text-[10px] font-medium text-amber-200/80">
+                                                Set the Building Permit Fee and make sure the Zoning payment is already present before endorsing to Resident.
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-amber-400">
+                                        <span className="text-[9px] font-black uppercase tracking-[0.25em] italic">3-day countdown active after BFP acknowledgment</span>
+                                        <Badge className="bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] px-3 py-1 font-bold rounded-lg shrink-0">
+                                            {bfpCountdown?.text || "00D 00H 00M 00S"}
+                                        </Badge>
+                                    </div>
+                                )}
+                            </div>
+                        )
+                    )}
+
                     {/* Executive Actions */}
                     <div className="space-y-4">
-                        {!isEndorsed && (userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
+                        {!isEndorsed && !engineerEndorsedToZoning && (userRole === "ENGINEER" || userRole === "ADMIN") && (
+                            <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
+                                <div className="space-y-1">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Endorse to Zoning</h3>
+                                    <p className="text-[10px] font-medium opacity-80 text-slate-500">Select documents to make visible to Zoning for evaluation.</p>
+                                </div>
+                                <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                                    {vaultDocs.map((doc) => (
+                                        <div key={doc.key} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors" onClick={() => setZoningVisibleDocs(prev => prev.includes(doc.key) ? prev.filter(k => k !== doc.key) : [...prev, doc.key])}>
+                                            <Checkbox checked={zoningVisibleDocs.includes(doc.key)} onCheckedChange={(checked) => { setZoningVisibleDocs(prev => checked ? [...prev, doc.key] : prev.filter(k => k !== doc.key)); }} />
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{doc.label}</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{doc.type}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <Button
+                                    onClick={handleEndorse}
+                                    disabled={actionLoading || zoningVisibleDocs.length === 0}
+                                    className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95"
+                                >
+                                    <Check className="w-4 h-4 mr-2" /> Endorse to Zoning
+                                </Button>
+                            </div>
+                        )}
+
+                        {!isEndorsed && engineerEndorsedToZoning && !zoningEndorsed && (
+                            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-[2rem] p-6 text-center space-y-2">
+                                <h3 className="text-sm font-black italic uppercase tracking-widest">Awaiting Zoning</h3>
+                                <p className="text-[10px] font-medium opacity-80">This application has been forwarded to the Zoning Officer for their assessment. You will be able to endorse this to Treasury once they complete their review.</p>
+                            </div>
+                        )}
+
+                        {!isEndorsed && zoningEndorsed && !bfpSubmitted && (userRole === "ENGINEER" || userRole === "ADMIN") && (
+                            <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
+                                <div className="space-y-1">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Forward to BFP</h3>
+                                    <p className="text-[10px] font-medium opacity-80 text-slate-500">Select documents to forward to BFP for Fire Safety evaluation.</p>
+                                </div>
+                                <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                                    {vaultDocs.map((doc) => (
+                                        <div key={doc.key} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors" onClick={() => setBfpVisibleDocs(prev => prev.includes(doc.key) ? prev.filter(k => k !== doc.key) : [...prev, doc.key])}>
+                                            <Checkbox checked={bfpVisibleDocs.includes(doc.key)} onCheckedChange={(checked) => { setBfpVisibleDocs(prev => checked ? [...prev, doc.key] : prev.filter(k => k !== doc.key)); }} />
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{doc.label}</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{doc.type}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <Button
+                                    onClick={handleEndorse}
+                                    disabled={actionLoading}
+                                    className="w-full h-16 rounded-2xl bg-cyan-600 hover:bg-cyan-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-cyan-900/20 active:scale-95"
+                                >
+                                    <Check className="w-4 h-4 mr-2" /> Endorse to BFP
+                                </Button>
+                            </div>
+                        )}
+
+                        {!isEndorsed && zoningEndorsed && bfpSubmitted && bfpAcknowledged && zoningClearanceReceived && bfpClearanceReceived && !bfpCountdown?.expired && (userRole === "ENGINEER" || userRole === "ADMIN") && (
                             <Button
-                                onClick={() => setEndorseModalOpen(true)}
+                                onClick={handleEndorse}
                                 disabled={actionLoading || !buildingFee}
                                 className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95"
                             >
-                                <Check className="w-4 h-4 mr-2" /> Endorse to Zoning
+                                <Check className="w-4 h-4 mr-2" /> Endorse Payment to Resident
                             </Button>
                         )}
 
-                        {isEndorsed && (
+                        {!isEndorsed && zoningEndorsed && bfpSubmitted && !bfpAcknowledged && !bfpClearanceReceived && (userRole === "ENGINEER" || userRole === "ADMIN") && (
+                            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-[2rem] p-6 text-center space-y-2">
+                                <h3 className="text-sm font-black italic uppercase tracking-widest">Awaiting BFP Acknowledgment</h3>
+                                <p className="text-[10px] font-medium opacity-80">BFP must acknowledge the endorsement first before the clearance document countdown begins.</p>
+                            </div>
+                        )}
+
+                        {!isEndorsed && zoningEndorsed && bfpClearanceReceived && (
+                            <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
+                                <div className="space-y-1">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">BFP Clearance</h3>
+                                    <p className="text-[10px] font-medium opacity-80 text-slate-500">Submitted by BFP and ready for Engineer review.</p>
+                                </div>
+                                <Dialog>
+                                    <DialogTrigger asChild>
+                                        <button type="button" className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-left hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+                                            <div className="h-12 w-16 rounded-lg overflow-hidden bg-slate-200 dark:bg-white/10 shrink-0 border border-slate-200 dark:border-white/10">
+                                                <img src={transaction.additionalData.bfpClearanceUrl} alt="BFP Clearance" className="h-full w-full object-cover" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <span className="block text-xs font-bold text-slate-700 dark:text-slate-200">BFP Fire Safety Clearance</span>
+                                                <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400">Submitted by BFP Officer</span>
+                                            </div>
+                                        </button>
+                                    </DialogTrigger>
+                                    <LightboxView src={transaction.additionalData.bfpClearanceUrl} alt="BFP Clearance" label="BFP Fire Safety Clearance" />
+                                </Dialog>
+                            </div>
+                        )}
+
+                        {!["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status) && !isEndorsed && zoningEndorsed && bfpSubmitted && (bfpClearanceReceived || bfpCountdown?.expired) && (userRole === "ENGINEER" || userRole === "ADMIN") && (
+                            <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
+                                <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-4 text-emerald-400">
+                                    <span className="text-[9px] font-black uppercase tracking-[0.25em] italic">
+                                        {bfpClearanceReceived ? "Payment endorsement available" : "3-day countdown expired"}
+                                    </span>
+                                    <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] px-3 py-1 font-bold rounded-lg shrink-0">
+                                        READY
+                                    </Badge>
+                                </div>
+                                <Button
+                                    onClick={handleEndorse}
+                                    disabled={actionLoading || !paymentEndorsementReady}
+                                    className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <Check className="w-4 h-4 mr-2" /> Endorse Payment to Resident
+                                </Button>
+                                {!paymentEndorsementReady && (
+                                    <p className="text-[10px] font-medium text-emerald-200/80">
+                                        Set the Building Permit Fee and make sure the Zoning payment is already present before endorsing to Resident.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {isEndorsed && !["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status) && (
                             <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
                                 <div className="flex flex-col gap-1">
                                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Treasury Payment Status</span>
@@ -1073,29 +1464,17 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
                                 {transaction.status === "PAID" && (
                                     <div className="space-y-4">
-                                        {!transaction.additionalData?.bfpClearanceUrl ? (
-                                            isBfpBypassActive ? (
-                                                <div className="p-4 bg-amber-500/5 border border-amber-500/20 text-amber-500 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
-                                                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                                                    <span>BFP Clearance requirement bypassed (3-day limit exceeded).</span>
-                                                </div>
-                                            ) : (
-                                                <div className="p-4 bg-red-500/5 border border-red-500/20 text-red-500 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
-                                                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 animate-pulse" />
-                                                    <span>Awaiting BFP Fire Safety Clearance upload from Resident.</span>
-                                                </div>
-                                            )
-                                        ) : (
+                                        {bfpClearanceReceived && (
                                             <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
                                                 <Check className="w-4 h-4 shrink-0 mt-0.5" />
-                                                <span>BFP Fire Safety Clearance Proof has been submitted by BFP Officer!</span>
+                                                <span>BFP Clearance Document has been submitted.</span>
                                             </div>
                                         )}
 
-                                        {!transaction.additionalData?.zoningClearanceUrl ? (
+                                        {!zoningClearanceReceived ? (
                                             <div className="p-4 bg-red-500/5 border border-red-500/20 text-red-500 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
                                                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 animate-pulse" />
-                                                <span>Awaiting Zoning/Locational Clearance upload from Resident.</span>
+                                                <span>Awaiting Zoning/Locational Clearance submission from Zoning Officer.</span>
                                             </div>
                                         ) : (
                                             <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
@@ -1108,108 +1487,23 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                             <div className="pt-2 space-y-3">
                                                 <Button
                                                     onClick={handleApprove}
-                                                    disabled={actionLoading || (!transaction.additionalData?.bfpClearanceUrl && !isBfpBypassActive) || !transaction.additionalData?.zoningClearanceUrl}
+                                                    disabled={actionLoading || !bfpAcknowledged || !bfpClearanceReceived || !zoningClearanceReceived}
                                                     className="w-full h-14 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
-                                                    <BadgeCheck className="w-4 h-4 mr-2" /> Approve & Process Permit
+                                                    <BadgeCheck className="w-4 h-4 mr-2" /> Endorse to Resident
                                                 </Button>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {["FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING"].includes(transaction.status) && (
-                                    <div className="space-y-4">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Resident Fulfillment Preference</span>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <Badge className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs px-3 py-1 font-bold rounded-lg uppercase">
-                                                    {transaction.fulfillmentType || "PICK_UP"}
-                                                </Badge>
-                                            </div>
-                                            <p className="text-[11px] text-slate-400 font-medium mt-2 leading-relaxed">
-                                                Upon clicking the Submit button, the permit will be routed to:{" "}
-                                                <span className="font-bold text-white">
-                                                    {transaction.fulfillmentType === "DELIVERY" ? "FOR_PICKING (Rider Delivery)" : "FOR_CLAIM (Ready for pick up)"}
-                                                </span>.
-                                            </p>
-                                        </div>
-
-                                        {(userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
-                                            <div className="pt-2 space-y-3">
-                                                <Button
-                                                    onClick={handleSubmitPermit}
-                                                    disabled={actionLoading || !eCopyUrl || uploading || transaction.status !== "FOR_PROCESSING"}
-                                                    className="w-full h-14 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    <Check className="w-4 h-4 mr-2" /> Submit
-                                                </Button>
-
-                                                {(!transaction.fulfillmentType || transaction.fulfillmentType === "PICK_UP") && (
-                                                    <Button
-                                                        onClick={handleRelease}
-                                                        disabled={actionLoading || !eCopyUrl || uploading || transaction.status === "FOR_PROCESSING"}
-                                                        variant="outline"
-                                                        className="w-full h-14 rounded-xl border-blue-500/50 text-blue-500 hover:bg-blue-500/10 font-black italic uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        <BadgeCheck className="w-4 h-4 mr-2" /> Released
-                                                    </Button>
-                                                )}
                                             </div>
                                         )}
                                     </div>
                                 )}
                             </div>
                         )}
+
                     </div>
                 </div>
             </main>
 
-            {/* Endorse Modal */}
-            {endorseModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#151b28] w-full max-w-2xl rounded-[2rem] p-8 shadow-2xl border border-slate-100 dark:border-white/10 relative flex flex-col max-h-[90vh]">
-                        <button onClick={() => setEndorseModalOpen(false)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
-                            <X className="w-5 h-5 text-slate-500" />
-                        </button>
-                        <div className="flex-none space-y-2 mb-6">
-                            <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white">Endorse to Zoning</h2>
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Please select which uploaded requirements should be visible to Zoning.</p>
-                        </div>
-                        <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-                            {vaultDocs.map(doc => (
-                                <div key={doc.key} className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/10">
-                                    <Checkbox
-                                        id={doc.key}
-                                        checked={selectedZoningDocs.includes(doc.key)}
-                                        onCheckedChange={(checked) => {
-                                            if (checked) {
-                                                setSelectedZoningDocs(prev => [...prev, doc.key]);
-                                            } else {
-                                                setSelectedZoningDocs(prev => prev.filter(k => k !== doc.key));
-                                            }
-                                        }}
-                                        className="mt-1"
-                                    />
-                                    <label htmlFor={doc.key} className="text-sm font-bold text-slate-700 dark:text-slate-200 cursor-pointer leading-snug">
-                                        {doc.label}
-                                    </label>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="flex-none mt-8 flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-white/10">
-                            <Button variant="ghost" onClick={() => setEndorseModalOpen(false)} className="font-bold uppercase text-[10px] tracking-widest rounded-xl">Cancel</Button>
-                            <Button
-                                onClick={handleEndorseConfirm}
-                                disabled={actionLoading}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[10px] rounded-xl px-8 shadow-lg active:scale-95"
-                            >
-                                {actionLoading ? "Processing..." : "Confirm & Endorse"}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
+
 
             {/* Revise Modal */}
             {reviseModalOpen && (

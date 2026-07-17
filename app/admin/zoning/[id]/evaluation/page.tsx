@@ -195,7 +195,10 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     const [transaction, setTransaction] = useState<any>(null);
     const addData = (transaction?.additionalData as any) || {};
     const zoningStatus = addData.zoningStatus;
-    const isZoningActive = userRole === "MPDC_ZONING" && transaction?.status === "EVALUATED" && transaction?.additionalData?.feeAssessment?.endorsed === true;
+    const isZoningActive = userRole === "MPDC_ZONING" && transaction?.status === "EVALUATED" && (
+        transaction?.additionalData?.feeAssessment?.engineerEndorsedToZoning === true ||
+        transaction?.additionalData?.feeAssessment?.endorsed === true
+    );
     
     // Zoning is in read-only mode if the transaction is not yet passed to Zoning (i.e. not EVALUATED status)
     const isZoningReadonly = userRole === "MPDC_ZONING" && !isZoningActive;
@@ -852,97 +855,6 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                     </DialogContent>
                                 </Dialog>
 
-                                <div className="flex gap-2 w-full">
-                                    <Dialog open={isRequestingRevision} onOpenChange={(open) => { setIsRequestingRevision(open); if (!open) setRemarks(""); }}>
-                                        <DialogTrigger asChild>
-                                            {canRequestRevision && (transaction.additionalData?.zoningRevisionCount || 0) < 3 && (
-                                                <Button onClick={() => { setIsRequestingRevision(true); setRemarks(""); setRevisionRequests([{ type: "REQUIREMENTS", name: "" }]); }} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95">
-                                                    Request Revision
-                                                </Button>
-                                            )}
-                                        </DialogTrigger>
-                                        <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
-                                            <DialogHeader className="space-y-3">
-                                                <DialogTitle className="text-3xl font-black italic uppercase text-slate-900 dark:text-white leading-none">Request <span className="text-amber-500">Revision</span></DialogTitle>
-                                            </DialogHeader>
-                                            <div className="space-y-6 py-6">
-                                                <Label className="text-[10px] font-black uppercase text-slate-400">Corrections Needed *</Label>
-                                                <Textarea ref={remarksRef} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="min-h-[120px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 font-bold p-6 text-sm" required />
-                                                <div className="space-y-3">
-                                                    <div className="flex items-center justify-between gap-3">
-                                                        <div className="space-y-1">
-                                                            <Label className="text-[10px] font-black uppercase text-slate-400">Requested Attachments</Label>
-                                                            <p className="text-[10px] text-slate-400">Optional. Add only if you want Citizen to upload more files.</p>
-                                                        </div>
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={() => setRevisionRequests((prev) => [...prev, { type: "REQUIREMENTS", name: "" }])}
-                                                            className="h-8 rounded-full text-[10px] font-black uppercase tracking-widest"
-                                                        >
-                                                            Add Item
-                                                        </Button>
-                                                    </div>
-                                                    <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
-                                                        {revisionRequests.map((item, index) => (
-                                                            <div key={`${index}-${item.type}`} className="space-y-2 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 p-4">
-                                                                <div className="flex items-center gap-2">
-                                                                    <select
-                                                                        value={item.type}
-                                                                        onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, type: e.target.value === "PERMITS" ? "PERMITS" : "REQUIREMENTS" } : entry))}
-                                                                        className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs font-bold uppercase tracking-widest text-slate-700 dark:text-slate-200"
-                                                                    >
-                                                                        <option value="REQUIREMENTS">Requirements</option>
-                                                                        <option value="PERMITS">Permits</option>
-                                                                    </select>
-                                                                    <Input
-                                                                        value={item.name}
-                                                                        onChange={(e) => setRevisionRequests((prev) => prev.map((entry, idx) => idx === index ? { ...entry, name: e.target.value } : entry))}
-                                                                        placeholder="e.g. Structural Plan"
-                                                                        className="h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-sm font-medium"
-                                                                    />
-                                                                    {revisionRequests.length > 1 && (
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="ghost"
-                                                                            onClick={() => setRevisionRequests((prev) => prev.filter((_, idx) => idx !== index))}
-                                                                            className="h-10 w-10 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40"
-                                                                        >
-                                                                            <Trash2 className="w-4 h-4" />
-                                                                        </Button>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <Button onClick={handleRequestRevision} disabled={actionLoading || !remarks.trim()} className="w-full h-14 bg-amber-500 text-white font-black italic uppercase text-[11px] rounded-2xl">
-                                                Confirm Revision Request
-                                            </Button>
-                                        </DialogContent>
-                                    </Dialog>
-
-                                    <Dialog open={isRejecting} onOpenChange={(open) => { setIsRejecting(open); if (!open) setRemarks(""); }}>
-                                        <DialogTrigger asChild>
-                                            <Button onClick={() => { setIsRejecting(true); setRemarks(""); }} className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-red-600/20 transition-all active:scale-95">
-                                                Decline
-                                            </Button>
-                                        </DialogTrigger>
-                                        <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
-                                            <DialogHeader className="space-y-3">
-                                                <DialogTitle className="text-3xl font-black italic uppercase text-slate-900 dark:text-white leading-none">Decline <span className="text-red-600">Request</span></DialogTitle>
-                                            </DialogHeader>
-                                            <div className="space-y-6 py-6">
-                                                <Label className="text-[10px] font-black uppercase text-slate-400">Reason for Decline *</Label>
-                                                <Textarea ref={remarksRef} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="min-h-[120px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 font-bold p-6 text-sm" required />
-                                            </div>
-                                            <Button onClick={handleReject} disabled={actionLoading || !remarks.trim()} className="w-full h-14 bg-red-600 text-white font-black italic uppercase text-[11px] rounded-2xl">
-                                                Confirm Decline
-                                            </Button>
-                                        </DialogContent>
-                                    </Dialog>
-                                </div>
                             </div>
                         )}
                     </div>
