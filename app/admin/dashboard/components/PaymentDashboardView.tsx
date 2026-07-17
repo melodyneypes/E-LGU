@@ -11,43 +11,36 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import { TrendingUp, CheckCircle, Clock, AlertTriangle, Eye, Calendar, Folder, RotateCcw } from "lucide-react";
+import { TrendingUp, Calendar, Folder, RotateCcw, CreditCard } from "lucide-react";
 
-interface ChartDataPoint {
+interface PaymentChartPoint {
   date: string;
-  requests: number;
-  evaluation: number;
-  processing: number;
-  released: number;
-  rejected: number;
+  amount: number;
 }
 
-interface TransactionDashboardViewProps {
-  data: ChartDataPoint[];
+interface PaymentDashboardViewProps {
+  data: PaymentChartPoint[];
   initialFrom: string;
   initialTo: string;
   categories: string[];
   activeCategory: string;
+  activeMethod: string;
 }
-
-type FilterType = "requests" | "evaluation" | "processing" | "released" | "rejected";
 
 function ChartSkeleton() {
   return (
     <div className="h-[320px] w-full mt-4 flex flex-col justify-between animate-pulse">
       <div className="w-full h-full flex flex-col justify-between py-2 border-l border-b border-slate-200/30 dark:border-[#2a3040]/30 pl-4 relative overflow-hidden">
-        {/* Pulsing Grid Lines */}
         {[1, 2, 3, 4, 5].map((i) => (
           <div key={i} className="flex items-center gap-4 w-full">
             <div className="w-6 h-2.5 bg-slate-200/50 dark:bg-[#2a3040]/50 rounded shrink-0" />
             <div className="w-full h-[1px] bg-slate-100 dark:bg-[#2a3040]/20" />
           </div>
         ))}
-        {/* A stylized placeholder curve to mimic the chart line */}
         <div className="absolute inset-0 flex items-end pl-8">
-          <svg className="w-full h-32 text-slate-200/20 dark:text-[#2a3040]/20" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <svg className="w-full h-32 text-emerald-200/10 dark:text-emerald-500/5" viewBox="0 0 100 100" preserveAspectRatio="none">
             <path
-              d="M0,100 C15,80 30,50 50,70 C70,90 85,20 100,50 L100,100 Z"
+              d="M0,90 C20,70 40,85 60,40 C80,20 90,60 100,30 L100,100 Z"
               fill="currentColor"
             />
           </svg>
@@ -62,92 +55,52 @@ function ChartSkeleton() {
   );
 }
 
-export function TransactionDashboardView({
+export function PaymentDashboardView({
   data,
   initialFrom,
   initialTo,
   categories,
   activeCategory,
-}: TransactionDashboardViewProps) {
+  activeMethod,
+}: PaymentDashboardViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
-  const [activeFilter, setActiveFilter] = useState<FilterType>("requests");
   const [fromDate, setFromDate] = useState(initialFrom);
   const [toDate, setToDate] = useState(initialTo);
 
-  // Sum calculations for display totals
-  const totalRequests = data.reduce((acc, curr) => acc + curr.requests, 0);
-  const totalEvaluation = data.reduce((acc, curr) => acc + curr.evaluation, 0);
-  const totalProcessing = data.reduce((acc, curr) => acc + curr.processing, 0);
-  const totalReleased = data.reduce((acc, curr) => acc + curr.released, 0);
-  const totalRejected = data.reduce((acc, curr) => acc + curr.rejected, 0);
+  const totalAmount = data.reduce((acc, curr) => acc + curr.amount, 0);
 
-  // Dynamic config matching selection
-  const filterConfigs = {
-    requests: {
-      label: "All Requests",
-      total: totalRequests,
-      color: "#8b5cf6",
-      gradientId: "colorRequests",
-      icon: Eye,
-    },
-    evaluation: {
-      label: "For Evaluation",
-      total: totalEvaluation,
-      color: "#f59e0b",
-      gradientId: "colorEvaluation",
-      icon: Clock,
-    },
-    processing: {
-      label: "In Processing",
-      total: totalProcessing,
-      color: "#0ea5e9",
-      gradientId: "colorProcessing",
-      icon: TrendingUp,
-    },
-    released: {
-      label: "Released",
-      total: totalReleased,
-      color: "#10b981",
-      gradientId: "colorReleased",
-      icon: CheckCircle,
-    },
-    rejected: {
-      label: "Rejected",
-      total: totalRejected,
-      color: "#f43f5e",
-      gradientId: "colorRejected",
-      icon: AlertTriangle,
-    },
-  };
-
-  const currentConfig = filterConfigs[activeFilter];
-
-  const handleFilterChange = (newFrom: string, newTo: string, newCategory: string) => {
+  const handleFilterChange = (newFrom: string, newTo: string, newCategory: string, newMethod: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("from", newFrom);
-    params.set("to", newTo);
-    params.set("category", newCategory);
+    params.set("payFrom", newFrom);
+    params.set("payTo", newTo);
+    params.set("payCategory", newCategory);
+    params.set("payMethod", newMethod);
     startTransition(() => {
       router.push(`/admin/dashboard?${params.toString()}`, { scroll: false });
     });
   };
 
   const handleReset = () => {
-    // Reset inputs
     setFromDate(initialFrom);
     setToDate(initialTo);
-    setActiveFilter("requests");
-
-    // Clear URL parameters
     startTransition(() => {
-      router.push("/admin/dashboard", { scroll: false });
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("payFrom");
+      params.delete("payTo");
+      params.delete("payCategory");
+      params.delete("payMethod");
+      router.push(`/admin/dashboard?${params.toString()}`, { scroll: false });
     });
   };
 
-  const hasActiveFilters = searchParams.has("from") || searchParams.has("to") || searchParams.has("category") || activeFilter !== "requests";
+  const hasActiveFilters =
+    searchParams.has("payFrom") ||
+    searchParams.has("payTo") ||
+    searchParams.has("payCategory") ||
+    searchParams.has("payMethod");
 
   return (
     <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl space-y-6">
@@ -155,15 +108,15 @@ export function TransactionDashboardView({
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
           <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white flex items-center gap-2">
-            <TrendingUp className="w-5 h-5" style={{ color: currentConfig.color }} />
-            <span>Daily Request</span>
+            <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            <span>Collections Ledger</span>
           </h3>
           <p className="text-slate-500 dark:text-slate-400 text-xs font-medium italic mt-1">
-            Analyzing <span className="font-bold" style={{ color: currentConfig.color }}>{currentConfig.label}</span> ({currentConfig.total.toLocaleString()} total requests)
+            Total Revenue: <span className="font-bold text-emerald-600 dark:text-emerald-400">₱{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </p>
         </div>
 
-        {/* Date Inputs + Category Select + Status Dropdown Controls */}
+        {/* Date Inputs + Category Select + Method Controls */}
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
           {/* From Input */}
           <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl shrink-0">
@@ -173,7 +126,7 @@ export function TransactionDashboardView({
               value={fromDate}
               onChange={(e) => {
                 setFromDate(e.target.value);
-                handleFilterChange(e.target.value, toDate, activeCategory);
+                handleFilterChange(e.target.value, toDate, activeCategory, activeMethod);
               }}
               className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none border-none cursor-pointer [color-scheme:light|dark]"
             />
@@ -189,7 +142,7 @@ export function TransactionDashboardView({
               value={toDate}
               onChange={(e) => {
                 setToDate(e.target.value);
-                handleFilterChange(fromDate, e.target.value, activeCategory);
+                handleFilterChange(fromDate, e.target.value, activeCategory, activeMethod);
               }}
               className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none border-none cursor-pointer [color-scheme:light|dark]"
             />
@@ -199,7 +152,7 @@ export function TransactionDashboardView({
           <div className="relative w-full sm:w-[160px]">
             <select
               value={activeCategory}
-              onChange={(e) => handleFilterChange(fromDate, toDate, e.target.value)}
+              onChange={(e) => handleFilterChange(fromDate, toDate, e.target.value, activeMethod)}
               className="w-full pl-9 pr-10 py-2.5 bg-slate-100 dark:bg-[#1e2330] border border-slate-200/50 dark:border-[#2a3040]/50 text-xs font-black uppercase italic tracking-wider rounded-xl outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200 shadow-sm"
             >
               <option value="ALL">All Categories</option>
@@ -219,20 +172,22 @@ export function TransactionDashboardView({
             </div>
           </div>
 
-          {/* Status Select Dropdown */}
+          {/* Payment Method Selector Dropdown */}
           <div className="relative w-full sm:w-[160px]">
             <select
-              value={activeFilter}
-              onChange={(e) => setActiveFilter(e.target.value as FilterType)}
-              className="w-full px-4 py-2.5 bg-slate-100 dark:bg-[#1e2330] border border-slate-200/50 dark:border-[#2a3040]/50 text-xs font-black uppercase italic tracking-wider rounded-xl outline-none cursor-pointer appearance-none transition-all pr-10 shadow-sm"
-              style={{ color: currentConfig.color }}
+              value={activeMethod}
+              onChange={(e) => handleFilterChange(fromDate, toDate, activeCategory, e.target.value)}
+              className="w-full pl-9 pr-10 py-2.5 bg-slate-100 dark:bg-[#1e2330] border border-slate-200/50 dark:border-[#2a3040]/50 text-xs font-black uppercase italic tracking-wider rounded-xl outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200 shadow-sm"
             >
-              {(Object.keys(filterConfigs) as FilterType[]).map((key) => (
-                <option key={key} value={key} className="bg-white dark:bg-[#151b2b] text-slate-800 dark:text-slate-200">
-                  {filterConfigs[key].label}
-                </option>
-              ))}
+              <option value="ALL">All Methods</option>
+              <option value="CASH">Cash</option>
+              <option value="CASH_ON_DELIVERY">Cash on Delivery</option>
+              <option value="E_PAYMENT">E-Payment</option>
+              <option value="BANK_TRANSFER">Bank Transfer</option>
             </select>
+            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+              <CreditCard className="w-3.5 h-3.5 text-slate-400" />
+            </div>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 dark:text-slate-400">
               <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                 <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
@@ -261,9 +216,9 @@ export function TransactionDashboardView({
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
-                <linearGradient id={currentConfig.gradientId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={currentConfig.color} stopOpacity={0.4} />
-                  <stop offset="95%" stopColor={currentConfig.color} stopOpacity={0.0} />
+                <linearGradient id="colorRevenueOnly" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
 
@@ -283,7 +238,7 @@ export function TransactionDashboardView({
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
-                allowDecimals={false}
+                tickFormatter={(val) => `₱${val}`}
               />
 
               <Tooltip
@@ -296,19 +251,19 @@ export function TransactionDashboardView({
                   fontFamily: "inherit",
                 }}
                 formatter={(value: any) => [
-                  `${value} Request(s)`,
-                  currentConfig.label,
+                  `₱${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                  "Collections",
                 ]}
                 labelStyle={{ fontWeight: "bold", marginBottom: "4px" }}
               />
 
               <Area
                 type="monotone"
-                dataKey={activeFilter}
-                stroke={currentConfig.color}
+                dataKey="amount"
+                stroke="#10b981"
                 strokeWidth={3}
                 fillOpacity={1}
-                fill={`url(#${currentConfig.gradientId})`}
+                fill="url(#colorRevenueOnly)"
               />
             </AreaChart>
           </ResponsiveContainer>

@@ -9,8 +9,26 @@ import { BarangaySwitcher } from "../components/BarangaySwitcher";
 import { Download, Plus, Users, Briefcase, AlertTriangle, Hammer, MapPin } from "lucide-react";
 import { redirect } from "next/navigation";
 import { TransactionDashboardView } from "./components/TransactionDashboardView";
+import { PaymentDashboardView } from "./components/PaymentDashboardView";
 
-export default async function AdminDashboard(props: { searchParams: Promise<{ barangay?: string; from?: string; to?: string; category?: string }> }) {
+function getPhilippineDateString(date: Date): string {
+    return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Manila",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).format(date);
+}
+
+function getPhilippineDisplayString(date: Date): string {
+    return date.toLocaleDateString("en-US", {
+        timeZone: "Asia/Manila",
+        month: "short",
+        day: "numeric",
+    });
+}
+
+export default async function AdminDashboard(props: { searchParams: Promise<{ barangay?: string; from?: string; to?: string; category?: string; payFrom?: string; payTo?: string; payCategory?: string; payMethod?: string }> }) {
     const session = await getServerSession(authOptions);
     const user = session?.user as any;
 
@@ -45,6 +63,10 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
     const selectedBarangay = isBarangayAdmin ? user.managedBarangay : params.barangay;
     const selectedCategory = params.category || "ALL";
 
+    // Parse payment filters
+    const payCategory = params.payCategory || "ALL";
+    const payMethod = params.payMethod || "ALL";
+
     // Parse date range params
     let fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - 30);
@@ -68,7 +90,30 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         }
     }
 
-    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays, transactionsList, categoriesList] = await Promise.all([
+    // Parse payment date range params
+    let payFromDate = new Date();
+    payFromDate.setDate(payFromDate.getDate() - 30);
+    payFromDate.setHours(0, 0, 0, 0);
+
+    let payToDate = new Date();
+    payToDate.setHours(23, 59, 59, 999);
+
+    if (params.payFrom) {
+        const parsedPayFrom = new Date(params.payFrom);
+        if (!isNaN(parsedPayFrom.getTime())) {
+            payFromDate = parsedPayFrom;
+            payFromDate.setHours(0, 0, 0, 0);
+        }
+    }
+    if (params.payTo) {
+        const parsedPayTo = new Date(params.payTo);
+        if (!isNaN(parsedPayTo.getTime())) {
+            payToDate = parsedPayTo;
+            payToDate.setHours(23, 59, 59, 999);
+        }
+    }
+
+    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays, transactionsList, categoriesList, paymentsList] = await Promise.all([
         getMultipleSystemSettings(["theme_color"]),
         prisma.resident.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
         prisma.job.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
@@ -102,6 +147,38 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         prisma.transactionType.findMany({
             select: { category: true },
             distinct: ["category"]
+        }),
+        prisma.payment.findMany({
+            where: {
+                status: "PAID",
+                createdAt: {
+                    gte: payFromDate,
+                    lte: payToDate
+                },
+                ...(payCategory && payCategory !== "ALL" ? {
+                    transaction: {
+                        type: {
+                            category: payCategory
+                        }
+                    }
+                } : {}),
+                ...(payMethod && payMethod !== "ALL" ? {
+                    method: payMethod as any
+                } : {}),
+                ...(selectedBarangay ? {
+                    transaction: {
+                        user: {
+                            residentProfile: {
+                                barangay: selectedBarangay
+                            }
+                        }
+                    }
+                } : {})
+            },
+            select: {
+                amount: true,
+                createdAt: true
+            }
         })
     ]);
 
@@ -123,8 +200,8 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
     const currentCursor = new Date(fromDate);
     let safetyCounter = 0;
     while (currentCursor <= toDate && safetyCounter < 400) {
-        const dateStr = currentCursor.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-        const key = currentCursor.toISOString().split("T")[0];
+        const dateStr = getPhilippineDisplayString(currentCursor);
+        const key = getPhilippineDateString(currentCursor);
         chartDataMap[key] = {
             date: dateStr,
             requests: 0,
@@ -138,7 +215,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
     }
 
     transactionsList.forEach((tx) => {
-        const key = tx.createdAt.toISOString().split("T")[0];
+        const key = getPhilippineDateString(tx.createdAt);
         if (chartDataMap[key]) {
             chartDataMap[key].requests += 1;
             
@@ -157,6 +234,29 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
     const chartData = Object.keys(chartDataMap)
         .sort()
         .map((key) => chartDataMap[key]);
+
+    // Map dashboard chart statistics for payments dynamically based on date range
+    const paymentDataMap: { [key: string]: { date: string; amount: number } } = {};
+    const payCursor = new Date(payFromDate);
+    let paySafetyCounter = 0;
+    while (payCursor <= payToDate && paySafetyCounter < 400) {
+        const dateStr = getPhilippineDisplayString(payCursor);
+        const key = getPhilippineDateString(payCursor);
+        paymentDataMap[key] = { date: dateStr, amount: 0 };
+        payCursor.setDate(payCursor.getDate() + 1);
+        paySafetyCounter++;
+    }
+
+    paymentsList.forEach((pay) => {
+        const key = getPhilippineDateString(pay.createdAt);
+        if (paymentDataMap[key]) {
+            paymentDataMap[key].amount += pay.amount;
+        }
+    });
+
+    const paymentChartData = Object.keys(paymentDataMap)
+        .sort()
+        .map((key) => paymentDataMap[key]);
 
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -251,6 +351,18 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     initialTo={toDate.toISOString().split("T")[0]}
                     categories={categories}
                     activeCategory={selectedCategory}
+                />
+            </div>
+
+            {/* Payment Revenue Chart Section */}
+            <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                <PaymentDashboardView 
+                    data={paymentChartData}
+                    initialFrom={payFromDate.toISOString().split("T")[0]}
+                    initialTo={payToDate.toISOString().split("T")[0]}
+                    categories={categories}
+                    activeCategory={payCategory}
+                    activeMethod={payMethod}
                 />
             </div>
 
