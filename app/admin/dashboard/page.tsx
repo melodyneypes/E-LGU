@@ -6,7 +6,7 @@ import { getMultipleSystemSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 import { BarangaySwitcher } from "../components/BarangaySwitcher";
-import { Download, Plus, Users, Briefcase, AlertTriangle, Hammer, MapPin } from "lucide-react";
+import { Plus, Users, Briefcase, AlertTriangle, Hammer, MapPin } from "lucide-react";
 import { redirect } from "next/navigation";
 import { TransactionDashboardView } from "./components/TransactionDashboardView";
 import { PaymentDashboardView } from "./components/PaymentDashboardView";
@@ -548,15 +548,11 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
             {/* Header Section */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-200 dark:border-[#2a3040]">
                 <div>
-                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400 mb-2 italic">
-                        <MapPin size={12} />
-                        <span>System Scope: {selectedBarangay || "Global Mapandan"}</span>
-                    </div>
                     <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">
-                        Command Center
+                        Municipal Overview
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic">
-                        Welcome, {user.name || "Administrator"}. Viewing data for <span className="text-slate-900 dark:text-white font-bold">{selectedBarangay || "all administrative sectors"}</span>.
+                        Welcome, Municipal Admin. Viewing data for <span className="text-slate-900 dark:text-white font-bold">{selectedBarangay || "Mapandan"}</span>.
                     </p>
                 </div>
 
@@ -568,12 +564,6 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                             themeColor={themeColor}
                         />
                     )}
-                    <div className="flex items-center space-x-3">
-                        <button className="flex items-center space-x-2 px-5 py-3 bg-white dark:bg-[#1e2330] hover:bg-slate-50 dark:hover:bg-[#2a3040] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2a3040] rounded-2xl text-xs font-black uppercase italic tracking-tighter transition-all shadow-sm">
-                            <Download size={14} />
-                            <span>Export Ledger</span>
-                        </button>
-                    </div>
                 </div>
             </div>
 

@@ -38,7 +38,7 @@ export function BarangaySwitcher({ availableBarangays = [], currentBarangay, the
                             className="bg-transparent border-none outline-none text-xs font-black uppercase italic tracking-tighter text-slate-900 dark:text-white cursor-pointer pr-6 appearance-none leading-none"
                             style={{ minWidth: "140px" }}
                         >
-                            <option value="" className="text-slate-900 dark:text-white bg-white dark:bg-[#1e2330]">Mapandan Global</option>
+                            <option value="" className="text-slate-900 dark:text-white bg-white dark:bg-[#1e2330]">Mapandan</option>
                             {availableBarangays.map(b => (
                                 <option key={b} value={b} className="text-slate-900 dark:text-white bg-white dark:bg-[#1e2330]">{b}</option>
                             ))}
