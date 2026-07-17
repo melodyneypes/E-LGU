@@ -6,6 +6,8 @@ import { getMultipleSystemSettings } from "@/lib/settings";
 import prisma from "@/lib/db/prisma";
 export const dynamic = "force-dynamic";
 
+import { ProgressBarProvider } from "./components/ProgressBarProvider";
+
 export default async function AdminLayout({
     children,
 }: {
@@ -110,7 +112,9 @@ export default async function AdminLayout({
                 pendingTransactionsCount={0}
                 unviewedLcrCounts={{}}
             >
-                {children}
+                <ProgressBarProvider color={settings.get("theme_color") || "#2563eb"}>
+                    {children}
+                </ProgressBarProvider>
             </AdminShell>
         </div>
     );

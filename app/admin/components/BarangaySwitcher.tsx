@@ -17,6 +17,10 @@ export function BarangaySwitcher({ availableBarangays = [], currentBarangay, the
     const [isPending, startTransition] = React.useTransition();
 
     const onSelect = (barangay: string) => {
+        // Dispatch global event to trigger the elite full-screen preloader overlay instantly
+        const event = new CustomEvent("trigger-global-loading", { detail: true });
+        window.dispatchEvent(event);
+
         startTransition(() => {
             const params = new URLSearchParams(searchParams.toString());
             if (barangay) {

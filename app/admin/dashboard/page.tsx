@@ -6,7 +6,8 @@ import { getMultipleSystemSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 import { BarangaySwitcher } from "../components/BarangaySwitcher";
-import { Plus, Users, Briefcase, AlertTriangle, Hammer, MapPin } from "lucide-react";
+import { Users, Briefcase, AlertTriangle, Hammer, Utensils, Hotel, Image, Flag, Phone } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TransactionDashboardView } from "./components/TransactionDashboardView";
 import { PaymentDashboardView } from "./components/PaymentDashboardView";
@@ -631,24 +632,33 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Strategic Operations</h3>
                     <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[3rem] shadow-xl overflow-hidden">
                         {[
-                            { title: "Manage Content", desc: "Create announcements or town hall updates.", icon: Plus, color: "blue", action: "Add News Post" },
-                            { title: "Infrastructure Hub", desc: "Update road works and construction progress.", icon: Hammer, color: "purple", action: "Review Projects" },
-                            { title: "Gallery Management", desc: "Feature local spots or businesses.", icon: MapPin, color: "emerald", action: "Update Gallery" }
+                            { title: "Kainan Hub", desc: "Manage local dining and culinary spots.", icon: Utensils, color: "orange", action: "Manage Dining", path: "/admin/dining" },
+                            { title: "Tuluyan Hub", desc: "Update local accommodation and lodging records.", icon: Hotel, color: "blue", action: "Manage Lodging", path: "/admin/accommodation" },
+                            { title: "Tourism Gallery", desc: "Showcase local spots and gallery highlights.", icon: Image, color: "emerald", action: "Manage Gallery", path: "/admin/tourism" },
+                            { title: "Incident Reports", desc: "Monitor and respond to public incident files.", icon: Flag, color: "rose", action: "Review Reports", path: "/admin/reports" },
+                            { title: "Emergency Hotlines", desc: "Update critical emergency hotlines list.", icon: Phone, color: "purple", action: "Manage Hotlines", path: "/admin/hotlines" }
                         ].map((item, idx) => (
-                            <div key={idx} className="p-8 flex flex-col sm:flex-row sm:items-center justify-between border-b last:border-0 border-slate-100 dark:border-[#2a3040] gap-4 transition-colors hover:bg-slate-50/50 dark:hover:bg-white/5">
+                            <Link 
+                                key={idx} 
+                                href={item.path}
+                                className="p-8 flex flex-col sm:flex-row sm:items-center justify-between border-b last:border-0 border-slate-100 dark:border-[#2a3040] gap-4 transition-colors hover:bg-slate-50/50 dark:hover:bg-white/5 cursor-pointer block"
+                            >
                                 <div className="flex items-start space-x-6">
-                                    <div className={`w-14 h-14 rounded-2xl bg-${item.color}-50 dark:bg-${item.color}-500/10 flex items-center justify-center shrink-0`}>
-                                        <item.icon className={`w-7 h-7 text-${item.color}-600`} />
+                                    <div className={`w-14 h-14 rounded-2xl bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-50 dark:bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-500/10 flex items-center justify-center shrink-0`}>
+                                        <item.icon className={`w-7 h-7 text-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-600`} />
                                     </div>
                                     <div>
                                         <h4 className="text-xl font-bold text-slate-900 dark:text-white leading-tight uppercase italic">{item.title}</h4>
                                         <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic mt-1">{item.desc}</p>
                                     </div>
                                 </div>
-                                <button className={`whitespace-nowrap px-6 py-3 bg-${item.color === 'blue' ? 'blue-600' : 'white'} ${item.color === 'blue' ? 'text-white' : 'dark:bg-[#1e2330] text-slate-700 dark:text-slate-200'} rounded-2xl text-xs font-black uppercase italic tracking-all shadow-lg active:scale-95`}>
+                                <span 
+                                    className="text-center whitespace-nowrap px-6 py-3 rounded-2xl text-xs font-black uppercase italic transition-all shadow-lg hover:shadow-xl active:scale-95 border border-slate-200 dark:border-none text-white hover:opacity-90 inline-block"
+                                    style={{ backgroundColor: themeColor }}
+                                >
                                     {item.action}
-                                </button>
-                            </div>
+                                </span>
+                            </Link>
                         ))}
                     </div>
                 </div>
