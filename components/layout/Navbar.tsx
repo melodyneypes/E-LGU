@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { secureLogoutAction } from "@/app/actions/auth";
 import { useTheme } from "next-themes";
 import { useBarangay } from "@/components/providers/BarangayProvider";

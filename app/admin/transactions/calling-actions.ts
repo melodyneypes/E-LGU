@@ -523,19 +523,10 @@ export async function getRegistrarQueueTickets(counterName: string) {
             }
         });
 
-        // Filter in JS: only checked-in tickets with no counter assigned yet
-        // Accept any truthy checkedIn value to handle potential type inconsistencies
-        console.log("[Registrar Queue DEBUG] allCivilTxs count:", allCivilTxs.length);
-        allCivilTxs.forEach(tx => {
-            const ad = tx.additionalData as any;
-            console.log(`  TX ${tx.id.slice(-6)} | status=${tx.status} | checkedIn=${ad?.checkedIn} | counterName=${ad?.counterName} | category=${tx.type?.category}`);
-        });
-
         const filteredWaiting = allCivilTxs.filter(tx => {
             const addData = tx.additionalData as any;
             return addData && !!addData.checkedIn && !addData.counterName;
         });
-        console.log("[Registrar Queue DEBUG] filteredWaiting count:", filteredWaiting.length);
 
         // Fetch currently serving at this counter (all Civil Registry FOR_PROCESSING)
         const allServing = await prisma.transaction.findMany({

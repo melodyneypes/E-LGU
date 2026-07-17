@@ -198,24 +198,29 @@ export default function CivilRegistryPage() {
             }
         });
 
-        const fetchActiveCodes = async () => {
+        const fetchActiveCodes = async (runSeederIfMissing = true) => {
             getTransactionTypes().then((res) => {
                 if (res.success && res.data) {
                     const codes = new Set(res.data.map((t: any) => t.code as string));
                     setActiveCodes(codes);
+
+                    if (runSeederIfMissing) {
+                        const expectedCodes = REGISTRY_TYPES.map(type => type.code);
+                        const hasAllCodes = expectedCodes.every(code => codes.has(code));
+                        if (!hasAllCodes) {
+                            ensureCivilRegistryTransactionTypes()
+                                .catch((e) => console.error("Failed to ensure LCR types:", e))
+                                .finally(() => fetchActiveCodes(false));
+                        }
+                    }
                 } else {
                     setActiveCodes(new Set());
                 }
             });
         };
 
-        // Fetch immediately so the page doesn't block
-        fetchActiveCodes();
-
-        // Seed transaction types in background, then re-fetch to pick up any new ones
-        ensureCivilRegistryTransactionTypes()
-            .catch((e) => console.error("Failed to ensure LCR types:", e))
-            .finally(() => fetchActiveCodes());
+        // Fetch immediately and run seeder if any are missing
+        fetchActiveCodes(true);
 
         if (!supabase) return;
 
@@ -231,7 +236,7 @@ export default function CivilRegistryPage() {
                         table: "TransactionType",
                     },
                     () => {
-                        fetchActiveCodes();
+                        fetchActiveCodes(false);
                     }
                 )
                 .subscribe((status: string, err?: any) => {

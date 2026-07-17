@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle } from "lucide-react";
-import { signOut } from "next-auth/react";
 import { secureLogoutAction } from "@/app/actions/auth";
 import { toast } from "sonner";
 
