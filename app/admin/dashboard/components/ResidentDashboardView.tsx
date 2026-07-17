@@ -11,20 +11,20 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import { TrendingUp, Calendar, Folder, RotateCcw, CreditCard } from "lucide-react";
+import { Users, Calendar, Folder, RotateCcw, Heart, UserCheck } from "lucide-react";
 
-interface PaymentChartPoint {
+interface ResidentChartPoint {
   date: string;
-  amount: number;
+  count: number;
 }
 
-interface PaymentDashboardViewProps {
-  data: PaymentChartPoint[];
+interface ResidentDashboardViewProps {
+  data: ResidentChartPoint[];
   initialFrom: string;
   initialTo: string;
-  categories: string[];
-  activeCategory: string;
-  activeMethod: string;
+  activeGender: string;
+  activeCivilStatus: string;
+  activeSector: string;
 }
 
 function ChartSkeleton() {
@@ -38,9 +38,9 @@ function ChartSkeleton() {
           </div>
         ))}
         <div className="absolute inset-0 flex items-end pl-8">
-          <svg className="w-full h-32 text-emerald-200/10 dark:text-emerald-500/5" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <svg className="w-full h-32 text-blue-200/10 dark:text-blue-500/5" viewBox="0 0 100 100" preserveAspectRatio="none">
             <path
-              d="M0,90 C20,70 40,85 60,40 C80,20 90,60 100,30 L100,100 Z"
+              d="M0,95 C30,70 50,90 70,60 C85,40 95,80 100,50 L100,100 Z"
               fill="currentColor"
             />
           </svg>
@@ -55,14 +55,14 @@ function ChartSkeleton() {
   );
 }
 
-export function PaymentDashboardView({
+export function ResidentDashboardView({
   data,
   initialFrom,
   initialTo,
-  categories,
-  activeCategory,
-  activeMethod,
-}: PaymentDashboardViewProps) {
+  activeGender,
+  activeCivilStatus,
+  activeSector,
+}: ResidentDashboardViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
@@ -70,14 +70,15 @@ export function PaymentDashboardView({
   const [fromDate, setFromDate] = useState(initialFrom);
   const [toDate, setToDate] = useState(initialTo);
 
-  const totalAmount = data.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalCount = data.reduce((acc, curr) => acc + curr.count, 0);
 
-  const handleFilterChange = (newFrom: string, newTo: string, newCategory: string, newMethod: string) => {
+  const handleFilterChange = (newFrom: string, newTo: string, newGender: string, newCivil: string, newSector: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("payFrom", newFrom);
-    params.set("payTo", newTo);
-    params.set("payCategory", newCategory);
-    params.set("payMethod", newMethod);
+    params.set("resFrom", newFrom);
+    params.set("resTo", newTo);
+    params.set("resGender", newGender);
+    params.set("resCivil", newCivil);
+    params.set("resSector", newSector);
     startTransition(() => {
       router.push(`/admin/dashboard?${params.toString()}`, { scroll: false });
     });
@@ -88,19 +89,21 @@ export function PaymentDashboardView({
     setToDate(initialTo);
     startTransition(() => {
       const params = new URLSearchParams(searchParams.toString());
-      params.delete("payFrom");
-      params.delete("payTo");
-      params.delete("payCategory");
-      params.delete("payMethod");
+      params.delete("resFrom");
+      params.delete("resTo");
+      params.delete("resGender");
+      params.delete("resCivil");
+      params.delete("resSector");
       router.push(`/admin/dashboard?${params.toString()}`, { scroll: false });
     });
   };
 
   const hasActiveFilters =
-    searchParams.has("payFrom") ||
-    searchParams.has("payTo") ||
-    searchParams.has("payCategory") ||
-    searchParams.has("payMethod");
+    searchParams.has("resFrom") ||
+    searchParams.has("resTo") ||
+    searchParams.has("resGender") ||
+    searchParams.has("resCivil") ||
+    searchParams.has("resSector");
 
   return (
     <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl space-y-6">
@@ -108,15 +111,15 @@ export function PaymentDashboardView({
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
           <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            <span>Collections Ledger</span>
+            <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <span>Resident Analytics</span>
           </h3>
           <p className="text-slate-500 dark:text-slate-400 text-xs font-medium italic mt-1">
-            Total Revenue: <span className="font-bold text-emerald-600 dark:text-emerald-400">₱{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            Approved Onboarded: <span className="font-bold text-blue-600 dark:text-blue-400">{totalCount.toLocaleString()} Residents</span>
           </p>
         </div>
 
-        {/* Date Inputs + Category Select + Method Controls */}
+        {/* Date Inputs + Gender + Civil Status + Sector Controls */}
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
           {/* From Input */}
           <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl shrink-0">
@@ -126,7 +129,7 @@ export function PaymentDashboardView({
               value={fromDate}
               onChange={(e) => {
                 setFromDate(e.target.value);
-                handleFilterChange(e.target.value, toDate, activeCategory, activeMethod);
+                handleFilterChange(e.target.value, toDate, activeGender, activeCivilStatus, activeSector);
               }}
               className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none border-none cursor-pointer [color-scheme:light|dark]"
             />
@@ -142,25 +145,46 @@ export function PaymentDashboardView({
               value={toDate}
               onChange={(e) => {
                 setToDate(e.target.value);
-                handleFilterChange(fromDate, e.target.value, activeCategory, activeMethod);
+                handleFilterChange(fromDate, e.target.value, activeGender, activeCivilStatus, activeSector);
               }}
               className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none border-none cursor-pointer [color-scheme:light|dark]"
             />
           </div>
 
-          {/* Category Dropdown Selection */}
+          {/* Gender Selector */}
           <div className="relative w-full sm:w-[130px]">
             <select
-              value={activeCategory}
-              onChange={(e) => handleFilterChange(fromDate, toDate, e.target.value, activeMethod)}
+              value={activeGender}
+              onChange={(e) => handleFilterChange(fromDate, toDate, e.target.value, activeCivilStatus, activeSector)}
               className="w-full pl-9 pr-10 py-2.5 bg-slate-100 dark:bg-[#1e2330] border border-slate-200/50 dark:border-[#2a3040]/50 text-xs font-black uppercase italic tracking-wider rounded-xl outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200 shadow-sm"
             >
-              <option value="ALL">All Categories</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
+              <option value="ALL">All Genders</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+              <UserCheck className="w-3.5 h-3.5 text-slate-400" />
+            </div>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 dark:text-slate-400">
+              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Civil Status Selector */}
+          <div className="relative w-full sm:w-[130px]">
+            <select
+              value={activeCivilStatus}
+              onChange={(e) => handleFilterChange(fromDate, toDate, activeGender, e.target.value, activeSector)}
+              className="w-full pl-9 pr-10 py-2.5 bg-slate-100 dark:bg-[#1e2330] border border-slate-200/50 dark:border-[#2a3040]/50 text-xs font-black uppercase italic tracking-wider rounded-xl outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200 shadow-sm"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="Single">Single</option>
+              <option value="Married">Married</option>
+              <option value="Widowed">Widowed</option>
+              <option value="Separated">Separated</option>
+              <option value="Divorced">Divorced</option>
             </select>
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
               <Folder className="w-3.5 h-3.5 text-slate-400" />
@@ -172,21 +196,21 @@ export function PaymentDashboardView({
             </div>
           </div>
 
-          {/* Payment Method Selector Dropdown */}
+          {/* Sector Selector */}
           <div className="relative w-full sm:w-[130px]">
             <select
-              value={activeMethod}
-              onChange={(e) => handleFilterChange(fromDate, toDate, activeCategory, e.target.value)}
+              value={activeSector}
+              onChange={(e) => handleFilterChange(fromDate, toDate, activeGender, activeCivilStatus, e.target.value)}
               className="w-full pl-9 pr-10 py-2.5 bg-slate-100 dark:bg-[#1e2330] border border-slate-200/50 dark:border-[#2a3040]/50 text-xs font-black uppercase italic tracking-wider rounded-xl outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200 shadow-sm"
             >
-              <option value="ALL">All Methods</option>
-              <option value="CASH">Cash</option>
-              <option value="CASH_ON_DELIVERY">Cash on Delivery</option>
-              <option value="E_PAYMENT">E-Payment</option>
-              <option value="BANK_TRANSFER">Bank Transfer</option>
+              <option value="ALL">All Sectors</option>
+              <option value="SENIOR">Senior Citizens</option>
+              <option value="PWD">PWDs</option>
+              <option value="SOLO_PARENT">Solo Parents</option>
+              <option value="FOUR_PS">4Ps Beneficiaries</option>
             </select>
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-              <CreditCard className="w-3.5 h-3.5 text-slate-400" />
+              <Heart className="w-3.5 h-3.5 text-slate-400" />
             </div>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 dark:text-slate-400">
               <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -216,9 +240,9 @@ export function PaymentDashboardView({
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
-                <linearGradient id="colorRevenueOnly" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                <linearGradient id="colorOnboarding" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity="0.4" />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
 
@@ -238,13 +262,7 @@ export function PaymentDashboardView({
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
-                width={70}
-                tickFormatter={(val) => {
-                  if (val >= 1e9) return `₱${(val / 1e9).toFixed(1)}B`;
-                  if (val >= 1e6) return `₱${(val / 1e6).toFixed(1)}M`;
-                  if (val >= 1e3) return `₱${(val / 1e3).toFixed(0)}K`;
-                  return `₱${val}`;
-                }}
+                allowDecimals={false}
               />
 
               <Tooltip
@@ -257,19 +275,19 @@ export function PaymentDashboardView({
                   fontFamily: "inherit",
                 }}
                 formatter={(value: any) => [
-                  `₱${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-                  "Collections",
+                  `${value} Approved`,
+                  "Onboarded Residents",
                 ]}
                 labelStyle={{ fontWeight: "bold", marginBottom: "4px" }}
               />
 
               <Area
                 type="monotone"
-                dataKey="amount"
-                stroke="#10b981"
+                dataKey="count"
+                stroke="#3b82f6"
                 strokeWidth={3}
                 fillOpacity={1}
-                fill="url(#colorRevenueOnly)"
+                fill="url(#colorOnboarding)"
               />
             </AreaChart>
           </ResponsiveContainer>

@@ -10,6 +10,8 @@ import { Download, Plus, Users, Briefcase, AlertTriangle, Hammer, MapPin } from 
 import { redirect } from "next/navigation";
 import { TransactionDashboardView } from "./components/TransactionDashboardView";
 import { PaymentDashboardView } from "./components/PaymentDashboardView";
+import { ResidentDashboardView } from "./components/ResidentDashboardView";
+import { RecentAnnouncementsCard } from "./components/RecentAnnouncementsCard";
 
 function getPhilippineDateString(date: Date): string {
     return new Intl.DateTimeFormat("en-CA", {
@@ -28,7 +30,7 @@ function getPhilippineDisplayString(date: Date): string {
     });
 }
 
-export default async function AdminDashboard(props: { searchParams: Promise<{ barangay?: string; from?: string; to?: string; category?: string; payFrom?: string; payTo?: string; payCategory?: string; payMethod?: string }> }) {
+export default async function AdminDashboard(props: { searchParams: Promise<{ barangay?: string; from?: string; to?: string; category?: string; payFrom?: string; payTo?: string; payCategory?: string; payMethod?: string; resFrom?: string; resTo?: string; resGender?: string; resCivil?: string; resSector?: string }> }) {
     const session = await getServerSession(authOptions);
     const user = session?.user as any;
 
@@ -66,6 +68,11 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
     // Parse payment filters
     const payCategory = params.payCategory || "ALL";
     const payMethod = params.payMethod || "ALL";
+
+    // Parse resident filters
+    const resGender = params.resGender || "ALL";
+    const resCivil = params.resCivil || "ALL";
+    const resSector = params.resSector || "ALL";
 
     // Parse date range params
     let fromDate = new Date();
@@ -113,7 +120,30 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         }
     }
 
-    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays, transactionsList, categoriesList, paymentsList] = await Promise.all([
+    // Parse resident date range params
+    let resFromDate = new Date();
+    resFromDate.setDate(resFromDate.getDate() - 30);
+    resFromDate.setHours(0, 0, 0, 0);
+
+    let resToDate = new Date();
+    resToDate.setHours(23, 59, 59, 999);
+
+    if (params.resFrom) {
+        const parsedResFrom = new Date(params.resFrom);
+        if (!isNaN(parsedResFrom.getTime())) {
+            resFromDate = parsedResFrom;
+            resFromDate.setHours(0, 0, 0, 0);
+        }
+    }
+    if (params.resTo) {
+        const parsedResTo = new Date(params.resTo);
+        if (!isNaN(parsedResTo.getTime())) {
+            resToDate = parsedResTo;
+            resToDate.setHours(23, 59, 59, 999);
+        }
+    }
+
+    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays, transactionsList, categoriesList, paymentsList, residentsList, recentAnnouncements] = await Promise.all([
         getMultipleSystemSettings(["theme_color"]),
         prisma.resident.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
         prisma.job.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
@@ -177,6 +207,40 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
             },
             select: {
                 amount: true,
+                createdAt: true
+            }
+        }),
+        prisma.resident.findMany({
+            where: {
+                registrationStatus: "APPROVED",
+                category: {
+                    name: "Resident"
+                },
+                createdAt: {
+                    gte: resFromDate,
+                    lte: resToDate
+                },
+                ...(selectedBarangay ? { barangay: selectedBarangay } : {}),
+                ...(resGender && resGender !== "ALL" ? { gender: resGender } : {}),
+                ...(resCivil && resCivil !== "ALL" ? { civilStatus: resCivil } : {}),
+                ...(resSector === "SENIOR" ? { isSenior: true } : {}),
+                ...(resSector === "PWD" ? { isPWD: true } : {}),
+                ...(resSector === "SOLO_PARENT" ? { isSoloParent: true } : {}),
+                ...(resSector === "FOUR_PS" ? { is4Ps: true } : {})
+            },
+            select: {
+                createdAt: true
+            }
+        }),
+        prisma.announcement.findMany({
+            orderBy: { createdAt: "desc" },
+            take: 5,
+            select: {
+                id: true,
+                title: true,
+                priority: true,
+                category: true,
+                isActive: true,
                 createdAt: true
             }
         })
@@ -257,6 +321,29 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
     const paymentChartData = Object.keys(paymentDataMap)
         .sort()
         .map((key) => paymentDataMap[key]);
+
+    // Map dashboard chart statistics for residents dynamically based on date range
+    const residentDataMap: { [key: string]: { date: string; count: number } } = {};
+    const resCursor = new Date(resFromDate);
+    let resSafetyCounter = 0;
+    while (resCursor <= resToDate && resSafetyCounter < 400) {
+        const dateStr = getPhilippineDisplayString(resCursor);
+        const key = getPhilippineDateString(resCursor);
+        residentDataMap[key] = { date: dateStr, count: 0 };
+        resCursor.setDate(resCursor.getDate() + 1);
+        resSafetyCounter++;
+    }
+
+    residentsList.forEach((res) => {
+        const key = getPhilippineDateString(res.createdAt);
+        if (residentDataMap[key]) {
+            residentDataMap[key].count += 1;
+        }
+    });
+
+    const residentChartData = Object.keys(residentDataMap)
+        .sort()
+        .map((key) => residentDataMap[key]);
 
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -364,6 +451,23 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     activeCategory={payCategory}
                     activeMethod={payMethod}
                 />
+            </div>
+
+            {/* Resident Onboarding Chart Section */}
+            <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                <ResidentDashboardView 
+                    data={residentChartData}
+                    initialFrom={resFromDate.toISOString().split("T")[0]}
+                    initialTo={resToDate.toISOString().split("T")[0]}
+                    activeGender={resGender}
+                    activeCivilStatus={resCivil}
+                    activeSector={resSector}
+                />
+            </div>
+
+            {/* Recent Announcements Card */}
+            <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                <RecentAnnouncementsCard announcements={recentAnnouncements} />
             </div>
 
             {/* Middle Layout */}

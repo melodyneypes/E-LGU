@@ -196,7 +196,7 @@ export function TransactionDashboardView({
           </div>
 
           {/* Category Dropdown Selection */}
-          <div className="relative w-full sm:w-[160px]">
+          <div className="relative w-full sm:w-[130px]">
             <select
               value={activeCategory}
               onChange={(e) => handleFilterChange(fromDate, toDate, e.target.value)}
@@ -220,7 +220,7 @@ export function TransactionDashboardView({
           </div>
 
           {/* Status Select Dropdown */}
-          <div className="relative w-full sm:w-[160px]">
+          <div className="relative w-full sm:w-[130px]">
             <select
               value={activeFilter}
               onChange={(e) => setActiveFilter(e.target.value as FilterType)}
