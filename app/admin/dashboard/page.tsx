@@ -12,6 +12,7 @@ import { TransactionDashboardView } from "./components/TransactionDashboardView"
 import { PaymentDashboardView } from "./components/PaymentDashboardView";
 import { ResidentDashboardView } from "./components/ResidentDashboardView";
 import { RecentAnnouncementsCard } from "./components/RecentAnnouncementsCard";
+import { LatestNewsCard } from "./components/LatestNewsCard";
 
 function getPhilippineDateString(date: Date): string {
     return new Intl.DateTimeFormat("en-CA", {
@@ -143,7 +144,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         }
     }
 
-    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays, transactionsList, categoriesList, paymentsList, residentsList, recentAnnouncements] = await Promise.all([
+    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays, transactionsList, categoriesList, paymentsList, residentsList, recentAnnouncements, latestNews] = await Promise.all([
         getMultipleSystemSettings(["theme_color"]),
         prisma.resident.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
         prisma.job.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
@@ -242,6 +243,19 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                 category: true,
                 isActive: true,
                 createdAt: true
+            }
+        }),
+        prisma.news.findMany({
+            orderBy: { publishDate: "desc" },
+            take: 5,
+            select: {
+                id: true,
+                title: true,
+                author: true,
+                category: true,
+                imageUrl: true,
+                isPublished: true,
+                publishDate: true
             }
         })
     ]);
@@ -465,9 +479,10 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                 />
             </div>
 
-            {/* Recent Announcements Card */}
-            <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            {/* Recent Announcements & Latest News Side-by-Side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-1000">
                 <RecentAnnouncementsCard announcements={recentAnnouncements} />
+                <LatestNewsCard news={latestNews} />
             </div>
 
             {/* Middle Layout */}
