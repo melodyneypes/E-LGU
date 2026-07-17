@@ -14,6 +14,8 @@ import { ResidentDashboardView } from "./components/ResidentDashboardView";
 import { RecentAnnouncementsCard } from "./components/RecentAnnouncementsCard";
 import { LatestNewsCard } from "./components/LatestNewsCard";
 import { UpcomingEventsCard } from "./components/UpcomingEventsCard";
+import { LGUProjectsCard } from "./components/LGUProjectsCard";
+import { ActivityLogsCard } from "./components/ActivityLogsCard";
 
 function getPhilippineDateString(date: Date): string {
     return new Intl.DateTimeFormat("en-CA", {
@@ -145,9 +147,17 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         }
     }
 
-    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays, transactionsList, categoriesList, paymentsList, residentsList, recentAnnouncements, latestNews, upcomingEvents, pastEvents] = await Promise.all([
+    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays, transactionsList, categoriesList, paymentsList, residentsList, recentAnnouncements, latestNews, upcomingEvents, pastEvents, activeProjects, recentResidents, recentReports, recentPayments, recentTransactions] = await Promise.all([
         getMultipleSystemSettings(["theme_color"]),
-        prisma.resident.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
+        prisma.resident.count({
+            where: {
+                registrationStatus: "APPROVED",
+                category: {
+                    name: "Resident"
+                },
+                ...(selectedBarangay ? { barangay: selectedBarangay } : {})
+            }
+        }),
         prisma.job.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
         prisma.report.count({ where: { status: "PENDING", ...(selectedBarangay ? { barangay: { name: selectedBarangay } } : {}) } }),
         prisma.project.count({ where: selectedBarangay ? { barangay: selectedBarangay } : {} }),
@@ -292,6 +302,91 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                 venueName: true,
                 isPublished: true
             }
+        }),
+        prisma.project.findMany({
+            where: {
+                isPublished: true,
+                ...(selectedBarangay ? { barangay: selectedBarangay } : {})
+            },
+            orderBy: [{ status: "asc" }, { progress: "desc" }],
+            take: 5,
+            select: {
+                id: true,
+                title: true,
+                category: true,
+                status: true,
+                location: true,
+                progress: true
+            }
+        }),
+        prisma.resident.findMany({
+            where: {
+                registrationStatus: "APPROVED",
+                ...(selectedBarangay ? { barangay: selectedBarangay } : {})
+            },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                createdAt: true
+            }
+        }),
+        prisma.report.findMany({
+            where: selectedBarangay ? { barangay: { name: selectedBarangay } } : {},
+            orderBy: { createdAt: "desc" },
+            take: 5,
+            select: {
+                id: true,
+                category: true,
+                createdAt: true,
+                user: { select: { name: true } }
+            }
+        }),
+        prisma.payment.findMany({
+            where: {
+                status: "PAID",
+                ...(selectedBarangay ? {
+                    transaction: {
+                        user: {
+                            residentProfile: {
+                                barangay: selectedBarangay
+                            }
+                        }
+                    }
+                } : {})
+            },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+            select: {
+                id: true,
+                amount: true,
+                method: true,
+                createdAt: true,
+                transaction: {
+                    select: {
+                        user: { select: { name: true } }
+                    }
+                }
+            }
+        }),
+        prisma.transaction.findMany({
+            where: selectedBarangay ? {
+                user: {
+                    residentProfile: {
+                        barangay: selectedBarangay
+                    }
+                }
+            } : {},
+            orderBy: { createdAt: "desc" },
+            take: 5,
+            select: {
+                id: true,
+                createdAt: true,
+                type: { select: { name: true } },
+                user: { select: { name: true } }
+            }
         })
     ]);
 
@@ -394,6 +489,60 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         .sort()
         .map((key) => residentDataMap[key]);
 
+    // Format Philippine Time difference for activity logs
+    const formatTimeAgo = (date: Date) => {
+        const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
+        if (seconds < 60) return "Just now";
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes} min${minutes > 1 ? "s" : ""} ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours} hr${hours > 1 ? "s" : ""} ago`;
+        const days = Math.floor(hours / 24);
+        return `${days} day${days > 1 ? "s" : ""} ago`;
+    };
+
+    // Combine and sort real-time activities chronologically
+    const activityLogs = [
+        ...recentResidents.map((r) => ({
+            id: r.id,
+            type: "resident" as const,
+            user: `${r.firstName} ${r.lastName}`,
+            action: "registered as a new",
+            details: "Resident Profile",
+            time: formatTimeAgo(r.createdAt),
+            createdAt: r.createdAt
+        })),
+        ...recentReports.map((rp) => ({
+            id: rp.id,
+            type: "report" as const,
+            user: rp.user?.name || "A Resident",
+            action: "filed a public report on",
+            details: rp.category,
+            time: formatTimeAgo(rp.createdAt),
+            createdAt: rp.createdAt
+        })),
+        ...recentPayments.map((p) => ({
+            id: p.id,
+            type: "payment" as const,
+            user: p.transaction?.user?.name || "A Resident",
+            action: `paid ₱${p.amount.toLocaleString()} via`,
+            details: p.method,
+            time: formatTimeAgo(p.createdAt),
+            createdAt: p.createdAt
+        })),
+        ...recentTransactions.map((t) => ({
+            id: t.id,
+            type: "transaction" as const,
+            user: t.user?.name || "A Resident",
+            action: "requested service for",
+            details: t.type?.name || "Certificate",
+            time: formatTimeAgo(t.createdAt),
+            createdAt: t.createdAt
+        }))
+    ]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 5);
+
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header Section */}
@@ -435,10 +584,10 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     <div className="absolute -top-4 -right-4 text-blue-100 dark:text-blue-500/10 transition-transform group-hover:scale-110">
                         <Users size={120} strokeWidth={1} />
                     </div>
-                    <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Total Registry</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Total Residents</p>
                     <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{residentsCount.toLocaleString()}</h2>
                     <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-blue-600 italic">
-                        <span className="bg-blue-50 dark:bg-blue-500/10 px-2 py-1 rounded-full">Validated Records</span>
+                        <span className="bg-blue-50 dark:bg-blue-500/10 px-2 py-1 rounded-full">Registered Registry</span>
                     </div>
                 </div>
 
@@ -447,10 +596,10 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     <div className="absolute -top-4 -right-4 text-emerald-100 dark:text-emerald-500/10 transition-transform group-hover:scale-110">
                         <Briefcase size={120} strokeWidth={1} />
                     </div>
-                    <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Occupation Hub</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Jobs Posted</p>
                     <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{jobsCount.toLocaleString()}</h2>
                     <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-emerald-600 italic">
-                        <span className="bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-full">Active Opportunities</span>
+                        <span className="bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-full">Available Openings</span>
                     </div>
                 </div>
 
@@ -459,10 +608,10 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     <div className="absolute -top-4 -right-4 text-orange-100 dark:text-orange-500/10 transition-transform group-hover:scale-110">
                         <AlertTriangle size={120} strokeWidth={1} />
                     </div>
-                    <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Public Reports</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Pending Reports</p>
                     <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{reportsCount.toLocaleString()}</h2>
                     <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-orange-600 italic">
-                        <span className="bg-orange-50 dark:bg-orange-500/10 px-2 py-1 rounded-full">Pending Response</span>
+                        <span className="bg-orange-50 dark:bg-orange-500/10 px-2 py-1 rounded-full">Needs Response</span>
                     </div>
                 </div>
 
@@ -471,13 +620,51 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     <div className="absolute -top-4 -right-4 text-purple-100 dark:text-purple-500/10 transition-transform group-hover:scale-110">
                         <Hammer size={120} strokeWidth={1} />
                     </div>
-                    <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Infra Tracker</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">LGU Projects</p>
                     <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{projectsCount.toLocaleString()}</h2>
                     <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-purple-600 italic">
-                        <span className="bg-purple-50 dark:bg-purple-500/10 px-2 py-1 rounded-full">Active Works</span>
+                        <span className="bg-purple-50 dark:bg-purple-500/10 px-2 py-1 rounded-full">Infrastructure Works</span>
                     </div>
                 </div>
             </div>
+
+            {/* Strategic Operations & Activity Logs Side-by-Side (Below Cards) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                {/* Quick Actions (Col-span 2) */}
+                <div className="lg:col-span-2 space-y-6">
+                    <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Strategic Operations</h3>
+                    <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[3rem] shadow-xl overflow-hidden">
+                        {[
+                            { title: "Manage Content", desc: "Create announcements or town hall updates.", icon: Plus, color: "blue", action: "Add News Post" },
+                            { title: "Infrastructure Hub", desc: "Update road works and construction progress.", icon: Hammer, color: "purple", action: "Review Projects" },
+                            { title: "Gallery Management", desc: "Feature local spots or businesses.", icon: MapPin, color: "emerald", action: "Update Gallery" }
+                        ].map((item, idx) => (
+                            <div key={idx} className="p-8 flex flex-col sm:flex-row sm:items-center justify-between border-b last:border-0 border-slate-100 dark:border-[#2a3040] gap-4 transition-colors hover:bg-slate-50/50 dark:hover:bg-white/5">
+                                <div className="flex items-start space-x-6">
+                                    <div className={`w-14 h-14 rounded-2xl bg-${item.color}-50 dark:bg-${item.color}-500/10 flex items-center justify-center shrink-0`}>
+                                        <item.icon className={`w-7 h-7 text-${item.color}-600`} />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-xl font-bold text-slate-900 dark:text-white leading-tight uppercase italic">{item.title}</h4>
+                                        <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic mt-1">{item.desc}</p>
+                                    </div>
+                                </div>
+                                <button className={`whitespace-nowrap px-6 py-3 bg-${item.color === 'blue' ? 'blue-600' : 'white'} ${item.color === 'blue' ? 'text-white' : 'dark:bg-[#1e2330] text-slate-700 dark:text-slate-200'} rounded-2xl text-xs font-black uppercase italic tracking-all shadow-lg active:scale-95`}>
+                                    {item.action}
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Activity Logs (Col-span 1) */}
+                <div className="space-y-6">
+                    <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Activity Logs</h3>
+                    <ActivityLogsCard logs={activityLogs} />
+                </div>
+            </div>
+
+
 
             {/* Chart Section */}
             <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
@@ -520,67 +707,13 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                 <LatestNewsCard news={latestNews} />
             </div>
 
-            {/* Upcoming Events */}
-            <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            {/* Upcoming Events & LGU Projects Side-by-Side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-1000">
                 <UpcomingEventsCard events={upcomingEvents} pastEvents={pastEvents} />
+                <LGUProjectsCard projects={activeProjects} />
             </div>
 
-            {/* Middle Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Quick Actions (Col-span 2) */}
-                <div className="lg:col-span-2 space-y-6">
-                    <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Strategic Operations</h3>
-                    <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[3rem] shadow-xl overflow-hidden">
-                        {[
-                            { title: "Manage Content", desc: "Create announcements or town hall updates.", icon: Plus, color: "blue", action: "Add News Post" },
-                            { title: "Infrastructure Hub", desc: "Update road works and construction progress.", icon: Hammer, color: "purple", action: "Review Projects" },
-                            { title: "Gallery Management", desc: "Feature local spots or businesses.", icon: MapPin, color: "emerald", action: "Update Gallery" }
-                        ].map((item, idx) => (
-                            <div key={idx} className="p-8 flex flex-col sm:flex-row sm:items-center justify-between border-b last:border-0 border-slate-100 dark:border-[#2a3040] gap-4 transition-colors hover:bg-slate-50/50 dark:hover:bg-white/5">
-                                <div className="flex items-start space-x-6">
-                                    <div className={`w-14 h-14 rounded-2xl bg-${item.color}-50 dark:bg-${item.color}-500/10 flex items-center justify-center shrink-0`}>
-                                        <item.icon className={`w-7 h-7 text-${item.color}-600`} />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-xl font-bold text-slate-900 dark:text-white leading-tight uppercase italic">{item.title}</h4>
-                                        <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic mt-1">{item.desc}</p>
-                                    </div>
-                                </div>
-                                <button className={`whitespace-nowrap px-6 py-3 bg-${item.color === 'blue' ? 'blue-600' : 'white'} ${item.color === 'blue' ? 'text-white' : 'dark:bg-[#1e2330] text-slate-700 dark:text-slate-200'} rounded-2xl text-xs font-black uppercase italic transition-all shadow-lg active:scale-95`}>
-                                    {item.action}
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
 
-                {/* Recent Activity (Col-span 1) */}
-                <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Activity Logs</h3>
-                        <button className="text-blue-600 dark:text-blue-500 text-[10px] font-black uppercase tracking-widest italic hover:opacity-80 transition-all">Audit Trail</button>
-                    </div>
-
-                    <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[3rem] p-8 shadow-xl relative min-h-[400px]">
-                        <ul className="space-y-8 relative before:absolute before:inset-y-0 before:left-[11px] before:w-1 before:bg-slate-100 dark:before:bg-[#2a3040] before:rounded-full">
-                            {[
-                                { user: "Maria Santos", type: "Report", action: "submitted a new public report", details: "Street Light Repair", time: "10 mins ago", color: "blue" },
-                                { user: "Admin", type: "Job", action: "New application received for", details: "Administrative Assistant", time: "2 hours ago", color: "emerald" },
-                                { user: "System", type: "System", action: "System backup completed successfully", details: null, time: "5 hours ago", color: "blue" },
-                                { user: "Admin", type: "Project", action: "Updated details for", details: "Sabangan Beach Project", time: "1 day ago", color: "orange" }
-                            ].map((activity, idx) => (
-                                <li key={idx} className="relative pl-10 group cursor-default">
-                                    <span className={`absolute left-[8px] top-1.5 w-3 h-3 rounded-full bg-${activity.color}-500 ring-4 ring-white dark:ring-[#151b2b] shadow-xl group-hover:scale-125 transition-transform`}></span>
-                                    <p className="text-slate-700 dark:text-slate-300 text-sm font-medium italic leading-relaxed">
-                                        <strong className="text-slate-900 dark:text-white not-italic">{activity.user}</strong> {activity.action} {activity.details && <strong className="text-slate-900 dark:text-white not-italic">{activity.details}</strong>}.
-                                    </p>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-2 opacity-60 italic">{activity.time}</p>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }
