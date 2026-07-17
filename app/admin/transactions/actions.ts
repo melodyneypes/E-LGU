@@ -289,6 +289,12 @@ export async function ensureBuildingPermitTransactionTypes() {
 
 export async function ensureCivilRegistryTransactionTypes() {
     try {
+        // Fetch all existing transaction types under Civil Registry first to avoid doing many queries
+        const existingTypes = await prisma.transactionType.findMany({
+            where: { category: "Civil Registry" }
+        });
+        const existingMap = new Map(existingTypes.map((t) => [t.code, t]));
+
         // Migrate old transaction type codes to new codes to preserve existing transaction records
         const migrationMappings = [
             { old: "LCR_PSA_APPOINTMENT_ENDORSEMENT", new: "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" },
@@ -297,18 +303,16 @@ export async function ensureCivilRegistryTransactionTypes() {
         ];
 
         for (const mapping of migrationMappings) {
-            const oldType = await prisma.transactionType.findUnique({
-                where: { code: mapping.old }
-            });
+            const oldType = existingMap.get(mapping.old);
             if (oldType) {
-                const newType = await prisma.transactionType.findUnique({
-                    where: { code: mapping.new }
-                });
+                const newType = existingMap.get(mapping.new);
                 if (!newType) {
                     await prisma.transactionType.update({
                         where: { code: mapping.old },
                         data: { code: mapping.new }
                     });
+                    existingMap.set(mapping.new, { ...oldType, code: mapping.new });
+                    existingMap.delete(mapping.old);
                 } else {
                     await prisma.transaction.updateMany({
                         where: { type: { code: mapping.old } },
@@ -317,6 +321,7 @@ export async function ensureCivilRegistryTransactionTypes() {
                     await prisma.transactionType.delete({
                         where: { code: mapping.old }
                     });
+                    existingMap.delete(mapping.old);
                 }
             }
         }
@@ -603,21 +608,44 @@ export async function ensureCivilRegistryTransactionTypes() {
 
         for (const t of types) {
             const rawFee = (t as any).defaultFees;
-            await prisma.transactionType.upsert({
-                where: { code: t.code },
-                update: {
-                    name: t.name,
-                    description: t.description,
-                    requiredDocs: t.requiredDocs,
-                    formSchema: t.formSchema,
-                    supportsECopy: t.supportsECopy,
-                    deliveryFee: t.deliveryFee
-                },
-                create: {
-                    ...t,
-                    defaultFees: rawFee ? (typeof rawFee === 'string' ? rawFee : JSON.stringify(rawFee)) : undefined
-                } as any
-            });
+            const existing = existingMap.get(t.code);
+
+            if (!existing) {
+                await prisma.transactionType.create({
+                    data: {
+                        ...t,
+                        defaultFees: rawFee ? (typeof rawFee === 'string' ? rawFee : JSON.stringify(rawFee)) : undefined
+                    } as any
+                });
+            } else {
+                const isDocArrayEqual = Array.isArray(existing.requiredDocs) && Array.isArray(t.requiredDocs) &&
+                    existing.requiredDocs.length === t.requiredDocs.length &&
+                    existing.requiredDocs.every((val, i) => val === t.requiredDocs[i]);
+
+                const isSchemaEqual = JSON.stringify(existing.formSchema) === JSON.stringify(t.formSchema);
+
+                const needsUpdate =
+                    existing.name !== t.name ||
+                    existing.description !== t.description ||
+                    !isDocArrayEqual ||
+                    !isSchemaEqual ||
+                    existing.supportsECopy !== t.supportsECopy ||
+                    Number(existing.deliveryFee) !== Number(t.deliveryFee);
+
+                if (needsUpdate) {
+                    await prisma.transactionType.update({
+                        where: { code: t.code },
+                        data: {
+                            name: t.name,
+                            description: t.description,
+                            requiredDocs: t.requiredDocs,
+                            formSchema: t.formSchema,
+                            supportsECopy: t.supportsECopy,
+                            deliveryFee: t.deliveryFee
+                        }
+                    });
+                }
+            }
         }
 
         return { success: true };
@@ -675,6 +703,11 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
     try {
         const session = await getSession();
         if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+        // Automatically clean up any past-due Civil Registry appointments in background
+        cleanupPastDueCivilRegistryAppointments(session.user.id).catch(err => {
+            console.error("Failed to cleanup past due civil registry appointments:", err);
+        });
 
         const typeId = sanitizeString(formData.get("typeId") as string);
         const registryType = sanitizeString(formData.get("registryType") as string);
@@ -798,29 +831,31 @@ export async function submitCivilRegistryTransaction(formData: FormData) {
         const appointmentSlotVal = additionalData.appointmentSlot || null;
 
         if (appointmentDateVal && appointmentSlotVal) {
-            const config = await prisma.appointmentConfig.findUnique({
-                where: { department: "REGISTRAR" }
-            });
-            const maxSlotsAM = config?.maxSlotsAM ?? 25;
-            const maxSlotsPM = config?.maxSlotsPM ?? 25;
-
             const startOfDay = new Date(appointmentDateVal);
             startOfDay.setUTCHours(0, 0, 0, 0);
             const endOfDay = new Date(appointmentDateVal);
             endOfDay.setUTCHours(23, 59, 59, 999);
 
-            const bookedCount = await prisma.transaction.count({
-                where: {
-                    appointmentDate: {
-                        gte: startOfDay,
-                        lte: endOfDay
-                    },
-                    appointmentSlot: appointmentSlotVal,
-                    isCancelled: false,
-                    type: { category: "Civil Registry" },
-                    ...(revisionId ? { id: { not: revisionId } } : {})
-                }
-            });
+            const [config, bookedCount] = await Promise.all([
+                prisma.appointmentConfig.findUnique({
+                    where: { department: "REGISTRAR" }
+                }),
+                prisma.transaction.count({
+                    where: {
+                        appointmentDate: {
+                            gte: startOfDay,
+                            lte: endOfDay
+                        },
+                        appointmentSlot: appointmentSlotVal,
+                        isCancelled: false,
+                        type: { category: "Civil Registry" },
+                        ...(revisionId ? { id: { not: revisionId } } : {})
+                    }
+                })
+            ]);
+
+            const maxSlotsAM = config?.maxSlotsAM ?? 25;
+            const maxSlotsPM = config?.maxSlotsPM ?? 25;
 
             const isAM = appointmentSlotVal.includes("AM") || appointmentSlotVal.toUpperCase().includes("08:00 AM");
             const maxLimit = isAM ? maxSlotsAM : maxSlotsPM;
@@ -1428,6 +1463,26 @@ export async function getSystemSettingAction(key: string, defaultValue: string =
     } catch (error) {
         console.error(`Error fetching system setting ${key}:`, error);
         return { success: false, error: "Failed to fetch setting", data: defaultValue };
+    }
+}
+
+/**
+ * Fetch multiple system settings by keys in a single query
+ */
+export async function getSystemSettingsAction(keys: string[]): Promise<{ success: boolean; error?: string; data: Record<string, string> }> {
+    try {
+        await assertSessionUser();
+        const settings = await prisma.systemSetting.findMany({
+            where: { key: { in: keys } }
+        });
+        const result: Record<string, string> = {};
+        settings.forEach(s => {
+            result[s.key] = s.value;
+        });
+        return { success: true, data: result };
+    } catch (error) {
+        console.error("Error fetching system settings:", error);
+        return { success: false, error: "Failed to fetch settings", data: {} };
     }
 }
 
@@ -2844,6 +2899,79 @@ export async function resubmitTransaction(id: string, formData: FormData) {
 
 
 /**
+ * Automatically cancel/reject any past-due Civil Registry appointments in background
+ */
+export async function cleanupPastDueCivilRegistryAppointments(userId?: string) {
+    try {
+        const manilaDateString = new Intl.DateTimeFormat("en-US", {
+            timeZone: "Asia/Manila",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).format(new Date());
+        const [month, day, year] = manilaDateString.split("/");
+        const startOfTodayManila = new Date(`${year}-${month}-${day}T00:00:00.000Z`);
+
+        const whereClause: any = {
+            appointmentDate: {
+                lt: startOfTodayManila
+            },
+            status: {
+                notIn: ["RELEASED", "DELIVERED", "REJECTED"]
+            },
+            isCancelled: false,
+            type: {
+                OR: [
+                    { category: "Civil Registry" },
+                    { code: { startsWith: "LCR_" } },
+                    { code: { startsWith: "CIVIL_REGISTRY" } }
+                ]
+            }
+        };
+
+        if (userId) {
+            whereClause.userId = userId;
+        }
+
+        // Fetch candidates first to inspect additionalData safely in JS
+        const candidates = await prisma.transaction.findMany({
+            where: whereClause,
+            select: {
+                id: true,
+                additionalData: true
+            }
+        });
+
+        // Filter out those who checked in
+        const targetIds = candidates
+            .filter(tx => {
+                const addData = (typeof tx.additionalData === "string"
+                    ? JSON.parse(tx.additionalData || "{}")
+                    : tx.additionalData) || {};
+                return addData.checkedIn !== true;
+            })
+            .map(tx => tx.id);
+
+        if (targetIds.length > 0) {
+            await prisma.transaction.updateMany({
+                where: {
+                    id: { in: targetIds }
+                },
+                data: {
+                    isCancelled: true,
+                    status: "REJECTED",
+                    rejectionRemarks: "Appointment slot expired / missed"
+                }
+            });
+            console.log(`Auto-cancelled ${targetIds.length} past-due Civil Registry appointments:`, targetIds);
+        }
+    } catch (error) {
+        console.error("Error cleaning up past-due civil registry appointments:", error);
+    }
+}
+
+
+/**
  * Fetch all transactions for the currently logged-in resident
  */
 export async function getUserTransactions() {
@@ -2854,6 +2982,10 @@ export async function getUserTransactions() {
         // Automatically cancel/reject any past-due appointments in background before fetching
         cleanupPastDueCedulaAppointments(session.user.id).catch(err => {
             console.error("Failed to cleanup past due appointments in background:", err);
+        });
+
+        cleanupPastDueCivilRegistryAppointments(session.user.id).catch(err => {
+            console.error("Failed to cleanup past due civil registry appointments in background:", err);
         });
 
         const transactions = await prisma.transaction.findMany({
@@ -5216,29 +5348,35 @@ export async function getRegistrarActiveCounts() {
 
         const terminalStatuses = ["RELEASED", "REJECTED", "CANCELLED", "RETURNED", "REFUNDED", "DISPUTE_REJECTED"];
 
-        // Query all registrar transactions to extract both active and total counts
-        const allTransactions = await prisma.transaction.findMany({
+        // Query all registrar transaction types first
+        const lcrTypes = await prisma.transactionType.findMany({
             where: {
-                type: {
-                    OR: [
-                        { category: "Civil Registry" },
-                        { code: { startsWith: "LCR_" } },
-                        { code: { startsWith: "CIVIL_REGISTRY" } }
-                    ]
-                }
+                OR: [
+                    { category: "Civil Registry" },
+                    { code: { startsWith: "LCR_" } },
+                    { code: { startsWith: "CIVIL_REGISTRY" } }
+                ]
             },
             select: {
-                status: true,
-                isCancelled: true,
-                type: {
-                    select: {
-                        code: true
-                    }
-                }
+                id: true,
+                code: true
             }
         });
 
-        // Map and filter active transactions based on their type code and status rules
+        const typeIdToCode = new Map(lcrTypes.map(t => [t.id, t.code]));
+        const lcrTypeIds = lcrTypes.map(t => t.id);
+
+        // Run group by aggregation directly in database
+        const countsGrouped = await prisma.transaction.groupBy({
+            by: ["typeId", "status", "isCancelled"],
+            where: {
+                typeId: { in: lcrTypeIds }
+            },
+            _count: {
+                id: true
+            }
+        });
+
         const activeCounts: Record<string, number> = {
             LCR_BIRTH: 0,
             LCR_BIRTH_REG: 0,
@@ -5255,46 +5393,36 @@ export async function getRegistrarActiveCounts() {
             LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT: 0,
         };
 
-        const totalCounts: Record<string, number> = {
-            LCR_BIRTH: 0,
-            LCR_BIRTH_REG: 0,
-            LCR_PSA_ENDORSEMENT: 0,
-            LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT: 0,
-            LCR_DEATH_REG: 0,
-            LCR_DEATH: 0,
-            LCR_DEATH_PSA_ENDORSEMENT: 0,
-            LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT: 0,
-            LCR_MARRIAGE_LICENSE: 0,
-            LCR_MARRIAGE_REG: 0,
-            LCR_MARRIAGE: 0,
-            LCR_MARRIAGE_PSA_ENDORSEMENT: 0,
-            LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT: 0,
-        };
+        const totalCounts: Record<string, number> = { ...activeCounts };
 
-        for (const tx of allTransactions) {
-            const code = tx.type?.code;
+        for (const group of countsGrouped) {
+            const code = typeIdToCode.get(group.typeId);
             if (!code) continue;
 
+            const count = group._count.id;
+            const status = group.status;
+            const isCancelled = group.isCancelled;
+
             // Apply special category-specific filters
-            if (code === "LCR_DEATH_REG" && tx.status === "FOR_REQUESTING") {
+            if (code === "LCR_DEATH_REG" && status === "FOR_REQUESTING") {
                 continue;
             }
-            if (code === "LCR_MARRIAGE_LICENSE" && tx.status === "FOR_REQUESTING") {
+            if (code === "LCR_MARRIAGE_LICENSE" && status === "FOR_REQUESTING") {
                 continue;
             }
-            if ((code === "LCR_DEATH_PSA_ENDORSEMENT" || code === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT") && tx.status === "FOR_REQUESTING") {
+            if ((code === "LCR_DEATH_PSA_ENDORSEMENT" || code === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT") && status === "FOR_REQUESTING") {
                 continue;
             }
 
             // Increment total counts
             if (totalCounts[code] !== undefined) {
-                totalCounts[code]++;
+                totalCounts[code] += count;
             }
 
             // Increment active counts if non-terminal and not cancelled
-            const isActive = !tx.isCancelled && !terminalStatuses.includes(tx.status);
+            const isActive = !isCancelled && !terminalStatuses.includes(status);
             if (isActive && activeCounts[code] !== undefined) {
-                activeCounts[code]++;
+                activeCounts[code] += count;
             }
         }
 
