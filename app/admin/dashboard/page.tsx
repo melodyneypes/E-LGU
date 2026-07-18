@@ -629,7 +629,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-1000">
                 {/* Quick Actions (Col-span 2) */}
                 <div className="lg:col-span-2 space-y-6">
-                    <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Strategic Operations</h3>
+                    <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Administrative Services</h3>
                     <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[3rem] shadow-xl overflow-hidden">
                         {[
                             { title: "Kainan Hub", desc: "Manage local dining and culinary spots.", icon: Utensils, color: "orange", action: "Manage Dining", path: "/admin/dining" },
