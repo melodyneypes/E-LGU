@@ -707,11 +707,11 @@ export default function TreasuryDetailPage() {
                 formData.append("file", eCopyFile);
                 const uploadRes = await uploadECopyAction(formData);
                 if (uploadRes.success) eCopyUrl = uploadRes.data as string;
-                else { 
-                    toast.error(uploadRes.error || "E-Copy upload failed"); 
-                    setActionLoading(false); 
+                else {
+                    toast.error(uploadRes.error || "E-Copy upload failed");
+                    setActionLoading(false);
                     setIsNavigatingToQueue(false);
-                    return; 
+                    return;
                 }
             }
 
@@ -721,11 +721,11 @@ export default function TreasuryDetailPage() {
                 formData.append("file", orFile);
                 const uploadRes = await uploadECopyAction(formData);
                 if (uploadRes.success) orUrl = uploadRes.data as string;
-                else { 
-                    toast.error(uploadRes.error || "Official Receipt upload failed"); 
-                    setActionLoading(false); 
+                else {
+                    toast.error(uploadRes.error || "Official Receipt upload failed");
+                    setActionLoading(false);
                     setIsNavigatingToQueue(false);
-                    return; 
+                    return;
                 }
             }
 
@@ -735,23 +735,23 @@ export default function TreasuryDetailPage() {
                     ? await releaseBirthCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
                     : typeCode === "LCR_BIRTH_REG"
                         ? await releaseBirthRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                    : typeCode === "LCR_DEATH"
-                        ? await releaseDeathCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                    : typeCode === "LCR_DEATH_REG"
-                        ? await releaseDeathRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                    : typeCode === "LCR_MARRIAGE"
-                        ? await releaseMarriageCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                    : typeCode === "LCR_MARRIAGE_REG"
-                        ? await releaseMarriageRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                        : typeCode === "LCR_MARRIAGE_LICENSE"
-                            ? await releaseMarriageLicense(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                            : (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT")
-                                ? await releaseMarriagePsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                : (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT")
-                                    ? await releaseBirthPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                    : (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT")
-                                        ? await releaseDeathPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
-                                        : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
+                        : typeCode === "LCR_DEATH"
+                            ? await releaseDeathCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                            : typeCode === "LCR_DEATH_REG"
+                                ? await releaseDeathRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                : typeCode === "LCR_MARRIAGE"
+                                    ? await releaseMarriageCertificate(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                    : typeCode === "LCR_MARRIAGE_REG"
+                                        ? await releaseMarriageRegistry(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                        : typeCode === "LCR_MARRIAGE_LICENSE"
+                                            ? await releaseMarriageLicense(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                            : (typeCode === "LCR_MARRIAGE_PSA_ENDORSEMENT" || typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT")
+                                                ? await releaseMarriagePsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                                : (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT")
+                                                    ? await releaseBirthPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                                    : (typeCode === "LCR_DEATH_PSA_ENDORSEMENT" || typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT")
+                                                        ? await releaseDeathPsaEndorsement(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl)
+                                                        : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
             if (res.success) {
                 const status = res.data?.status;
                 const message = status === "FOR_PICKING"
@@ -1703,7 +1703,7 @@ export default function TreasuryDetailPage() {
                                                     ? releaseDeathPsaEndorsement
                                                     : releaseCedula;
                 const rel = await releaseFn(
-                    transaction.id, 
+                    transaction.id,
                     ctcNumber || transaction?.cedula?.ctcNumber || "",
                     undefined,
                     (res.data?.additionalData as any)?.orDocumentUrl

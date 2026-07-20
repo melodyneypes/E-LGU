@@ -223,7 +223,7 @@ export default function BploDetailPage({ params }: PageProps) {
         if (!transaction) return;
         const addData = transaction.additionalData || {};
         setEvalType(addData.businessType === "NEW" ? "NEW" : "RENEWAL");
-        
+
         // Derive official tax classification from friendly selection
         const declaredLOB = (addData.lineOfBusiness || "").toLowerCase();
         let derivedTaxLOB = "Other Businesses";
