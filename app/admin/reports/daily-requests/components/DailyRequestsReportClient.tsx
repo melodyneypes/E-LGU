@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useTransition, useRef } from "react";
 import { format } from "date-fns";
 import { 
     Search, Calendar, Folder, FileSpreadsheet, FileText, 
@@ -8,7 +8,6 @@ import {
     CheckCircle, Clock, AlertTriangle, Eye 
 } from "lucide-react";
 import Link from "next/link";
-import { getTransactionReportData } from "@/app/admin/actions";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
@@ -71,6 +70,8 @@ export function DailyRequestsReportClient({
     const [totalPages, setTotalPages] = useState(initialData.totalPages);
     const [currentPage, setCurrentPage] = useState(initialData.currentPage);
     const [stats, setStats] = useState(initialData.stats);
+    const [limit, setLimit] = useState(10);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const [fromDate, setFromDate] = useState(() => {
         if (initialFrom) return initialFrom;
@@ -90,41 +91,80 @@ export function DailyRequestsReportClient({
     const [isExportingExcel, setIsExportingExcel] = useState(false);
     const [isExportingPdf, setIsExportingPdf] = useState(false);
 
-    const fetchReportData = (pageNumber = 1) => {
-        startTransition(async () => {
-            const res = await getTransactionReportData({
-                from: fromDate,
-                to: toDate,
-                category,
-                status,
-                search,
-                page: pageNumber,
-                limit: 10
-            });
+    const fetchReportData = (pageNumber = 1, currentLimit = limit) => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
 
-            if (res.success && res.transactions) {
-                setTransactions(res.transactions as Transaction[]);
-                setTotalCount(res.totalCount ?? 0);
-                setTotalPages(res.totalPages ?? 1);
-                setCurrentPage(pageNumber);
-                if (res.stats) {
-                    setStats(res.stats);
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
+        startTransition(async () => {
+            try {
+                const queryParams = new URLSearchParams({
+                    from: fromDate,
+                    to: toDate,
+                    category,
+                    status,
+                    search,
+                    page: String(pageNumber),
+                    limit: String(currentLimit)
+                });
+
+                const res = await fetch(`/api/admin/reports/daily-requests?${queryParams.toString()}`, {
+                    signal: controller.signal
+                });
+
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.error || "Failed to retrieve report data.");
                 }
-            } else {
-                toast.error(res.error || "Failed to retrieve report data.");
+
+                const data = await res.json();
+
+                if (data.success && data.transactions) {
+                    setTransactions(data.transactions as Transaction[]);
+                    setTotalCount(data.totalCount ?? 0);
+                    setTotalPages(data.totalPages ?? 1);
+                    setCurrentPage(pageNumber);
+                    if (data.stats) {
+                        setStats(data.stats);
+                    }
+                }
+            } catch (error: any) {
+                const isAbort = error.name === "AbortError" || 
+                                error.message?.includes("aborted") || 
+                                error.message?.includes("abort");
+                if (!isAbort) {
+                    toast.error(error.message || "Failed to retrieve report data.");
+                }
             }
         });
     };
 
     // Refetch when filters change (debounce or trigger directly on select update)
     useEffect(() => {
-        fetchReportData(1);
+        fetchReportData(1, limit);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fromDate, toDate, category, status]);
 
+    // Debounce search input to query server-side as the user types
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(() => {
+            fetchReportData(1, limit);
+        }, 400);
+
+        return () => clearTimeout(delayDebounceFn);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [search]);
+
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        fetchReportData(1);
+    };
+
+    const handleLimitChange = (newLimit: number) => {
+        setLimit(newLimit);
+        fetchReportData(1, newLimit);
     };
 
     const getStatusStyles = (statusStr: string) => {
@@ -160,14 +200,20 @@ export function DailyRequestsReportClient({
     const handleExportExcel = async () => {
         setIsExportingExcel(true);
         try {
-            const res = await getTransactionReportData({
+            const queryParams = new URLSearchParams({
                 from: fromDate,
                 to: toDate,
                 category,
                 status,
                 search,
-                exportAll: true
+                exportAll: "true"
             });
+
+            const response = await fetch(`/api/admin/reports/daily-requests?${queryParams.toString()}`);
+            if (!response.ok) {
+                throw new Error("Export failed");
+            }
+            const res = await response.json();
 
             if (!res.success || !res.transactions) {
                 toast.error("Failed to load export data.");
@@ -204,14 +250,20 @@ export function DailyRequestsReportClient({
     const handleExportPdf = async () => {
         setIsExportingPdf(true);
         try {
-            const res = await getTransactionReportData({
+            const queryParams = new URLSearchParams({
                 from: fromDate,
                 to: toDate,
                 category,
                 status,
                 search,
-                exportAll: true
+                exportAll: "true"
             });
+
+            const response = await fetch(`/api/admin/reports/daily-requests?${queryParams.toString()}`);
+            if (!response.ok) {
+                throw new Error("Export failed");
+            }
+            const res = await response.json();
 
             if (!res.success || !res.transactions) {
                 toast.error("Failed to load export data.");
@@ -478,12 +530,12 @@ export function DailyRequestsReportClient({
                 </div>
 
                 {/* Table Data View */}
-                <div className="overflow-x-auto rounded-2xl border border-slate-100 dark:border-[#2a3040]">
+                <div className="overflow-x-auto">
                     <table className="w-full border-collapse text-left text-xs text-slate-500 dark:text-slate-400">
                         <thead className="bg-slate-50 dark:bg-[#1e2330] text-slate-700 dark:text-slate-300 font-bold uppercase tracking-widest text-[9px]">
                             <tr>
+                                <th className="px-6 py-4 w-12 text-center">#</th>
                                 <th className="px-6 py-4">Date Requested</th>
-                                <th className="px-6 py-4">Transaction ID</th>
                                 <th className="px-6 py-4">Resident Name</th>
                                 <th className="px-6 py-4">Service Type</th>
                                 <th className="px-6 py-4">Barangay</th>
@@ -508,15 +560,16 @@ export function DailyRequestsReportClient({
                                     </td>
                                 </tr>
                             ) : (
-                                transactions.map((tx) => {
+                                transactions.map((tx, index) => {
                                     const amountPaid = tx.payment && tx.payment.status === "PAID" ? tx.payment.amount : 0;
+                                    const rowNumber = (currentPage - 1) * 10 + index + 1;
                                     return (
                                         <tr key={tx.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
+                                            <td className="px-6 py-4 text-center font-bold text-slate-400">
+                                                {rowNumber}
+                                            </td>
                                             <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">
                                                 {format(new Date(tx.createdAt), "yyyy-MM-dd HH:mm")}
-                                            </td>
-                                            <td className="px-6 py-4 font-mono font-bold text-slate-400">
-                                                {tx.id.toUpperCase()}
                                             </td>
                                             <td className="px-6 py-4 font-bold text-slate-800 dark:text-slate-200">
                                                 {tx.user?.name || "A Resident"}
@@ -543,31 +596,56 @@ export function DailyRequestsReportClient({
                     </table>
                 </div>
 
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-[#2a3040]">
-                        <p className="text-xs text-slate-500 dark:text-slate-400 italic">
-                            Showing page <span className="font-bold">{currentPage}</span> of <span className="font-bold">{totalPages}</span> ({totalCount} total logs)
-                        </p>
+                {/* Pagination & Limit Selection Controls */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-[#2a3040]">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                        Showing page <span className="font-bold">{currentPage}</span> of <span className="font-bold">{totalPages}</span> ({totalCount} total logs)
+                    </p>
 
+                    <div className="flex flex-wrap items-center gap-4">
+                        {/* Page Limit Dropdown Selector */}
                         <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => fetchReportData(currentPage - 1)}
-                                disabled={currentPage === 1 || isPending}
-                                className="p-2 border border-slate-200 dark:border-[#2a3040] hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
-                            >
-                                <ChevronLeft className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                            </button>
-                            <button
-                                onClick={() => fetchReportData(currentPage + 1)}
-                                disabled={currentPage === totalPages || isPending}
-                                className="p-2 border border-slate-200 dark:border-[#2a3040] hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
-                            >
-                                <ChevronRight className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                            </button>
+                            <span className="text-xs text-slate-400 font-bold">Show:</span>
+                            <div className="relative">
+                                <select
+                                    value={limit}
+                                    onChange={(e) => handleLimitChange(Number(e.target.value))}
+                                    className="pl-3 pr-8 py-1.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] text-xs font-bold rounded-lg outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={30}>30</option>
+                                    <option value={50}>50</option>
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center px-1 text-slate-500">
+                                    <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                    </svg>
+                                </div>
+                            </div>
                         </div>
+
+                        {/* Prev / Next Buttons */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => fetchReportData(currentPage - 1, limit)}
+                                    disabled={currentPage === 1 || isPending}
+                                    className="p-2 border border-slate-200 dark:border-[#2a3040] hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
+                                >
+                                    <ChevronLeft className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                                </button>
+                                <button
+                                    onClick={() => fetchReportData(currentPage + 1, limit)}
+                                    disabled={currentPage === totalPages || isPending}
+                                    className="p-2 border border-slate-200 dark:border-[#2a3040] hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
+                                >
+                                    <ChevronRight className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                                </button>
+                            </div>
+                        )}
                     </div>
-                )}
+                </div>
             </div>
         </div>
     );
