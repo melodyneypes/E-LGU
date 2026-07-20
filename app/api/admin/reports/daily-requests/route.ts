@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
         }
 
         const { searchParams } = new URL(req.url);
-        
+
         const from = searchParams.get("from") || undefined;
         const to = searchParams.get("to") || undefined;
         const category = searchParams.get("category") || undefined;

@@ -3477,16 +3477,27 @@ export async function getTransactionReportData(params: {
 
         // Fetch Stats matching the filtered criteria (except status filter itself, or matching current filter)
         // We'll compute total, pending (FOR_REQUESTING/FOR_INSPECTION/FOR_REVISION/FOR_PROCESSING), released, rejected
-        const statsTransactions = await prisma.transaction.findMany({
+        const statusCounts = await prisma.transaction.groupBy({
+            by: ["status"],
             where: {
                 ...whereClause,
                 status: undefined // clear status for global breakdown stats
             },
-            select: {
-                status: true,
-                payment: {
-                    select: { amount: true, status: true }
+            _count: {
+                _all: true
+            }
+        });
+
+        const revenueAggregation = await prisma.payment.aggregate({
+            where: {
+                status: "PAID",
+                transaction: {
+                    ...whereClause,
+                    status: undefined
                 }
+            },
+            _sum: {
+                amount: true
             }
         });
 
@@ -3494,23 +3505,26 @@ export async function getTransactionReportData(params: {
         let pending = 0;
         let released = 0;
         let rejected = 0;
-        let revenue = 0;
 
-        statsTransactions.forEach(tx => {
-            total++;
-            if (tx.status === "FOR_REQUESTING" || tx.status === "FOR_INSPECTION" || tx.status === "FOR_REVISION" || tx.status === "FOR_PROCESSING") {
-                pending++;
-            } else if (tx.status === "RELEASED") {
-                released++;
-            } else if (tx.status === "REJECTED") {
-                rejected++;
-            }
-            if (tx.payment && tx.payment.status === "PAID") {
-                revenue += tx.payment.amount;
+        statusCounts.forEach(group => {
+            const count = group._count._all;
+            total += count;
+            if (group.status === "FOR_REQUESTING" || group.status === "FOR_INSPECTION" || group.status === "FOR_REVISION" || group.status === "FOR_PROCESSING") {
+                pending += count;
+            } else if (group.status === "RELEASED") {
+                released += count;
+            } else if (group.status === "REJECTED") {
+                rejected += count;
             }
         });
 
-        const stats = { total, pending, released, rejected, revenue };
+        const stats = {
+            total,
+            pending,
+            released,
+            rejected,
+            revenue: revenueAggregation._sum.amount || 0
+        };
 
         const page = params.page ?? 1;
         const limit = params.limit ?? 10;

@@ -2,16 +2,16 @@
 
 import React, { useState, useEffect, useTransition, useRef } from "react";
 import { format } from "date-fns";
-import { 
-    Search, Calendar, Folder, FileSpreadsheet, FileText, 
-    ArrowLeft, ChevronLeft, ChevronRight, Loader2, 
-    CheckCircle, Clock, AlertTriangle, Eye 
+import {
+    Search, Calendar, Folder, FileSpreadsheet, FileText,
+    ArrowLeft, ChevronLeft, ChevronRight, Loader2,
+    CheckCircle, Clock, AlertTriangle, Eye
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import ExcelJS from "exceljs";
 
 interface Transaction {
     id: string;
@@ -86,7 +86,7 @@ export function DailyRequestsReportClient({
     const [category, setCategory] = useState(initialCategory);
     const [status, setStatus] = useState(initialStatus);
     const [search, setSearch] = useState(initialSearch);
-    
+
     const [isPending, startTransition] = useTransition();
     const [isExportingExcel, setIsExportingExcel] = useState(false);
     const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -132,9 +132,9 @@ export function DailyRequestsReportClient({
                     }
                 }
             } catch (error: any) {
-                const isAbort = error.name === "AbortError" || 
-                                error.message?.includes("aborted") || 
-                                error.message?.includes("abort");
+                const isAbort = error.name === "AbortError" ||
+                    error.message?.includes("aborted") ||
+                    error.message?.includes("abort");
                 if (!isAbort) {
                     toast.error(error.message || "Failed to retrieve report data.");
                 }
@@ -220,23 +220,145 @@ export function DailyRequestsReportClient({
                 return;
             }
 
-            const exportData = res.transactions.map((tx: any) => ({
-                "Transaction ID": tx.id,
-                "Date Requested": format(new Date(tx.createdAt), "yyyy-MM-dd HH:mm"),
-                "Resident Name": tx.user?.name || "A Resident",
-                "Barangay": tx.user?.residentProfile?.barangay || "N/A",
-                "Service Type": tx.type?.name || "N/A",
-                "Category": tx.type?.category || "N/A",
-                "Status": getStatusLabel(tx.status),
-                "Amount Paid": (tx.payment && tx.payment.status === "PAID") ? tx.payment.amount : 0
-            }));
+            // Fetch theme color for header styling
+            let themeColor = "2563EB";
+            try {
+                const res = await fetch("/api/settings");
+                if (res.ok) {
+                    const data = await res.json();
+                    themeColor = (data.themeColor || "#2563EB").replace("#", "");
+                }
+            } catch { /* use default */ }
 
-            const ws = XLSX.utils.json_to_sheet(exportData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Daily Requests Report");
+            const fileRangeLabel = `${fromDate}_to_${toDate}`;
+            const rangeLabel = `${format(new Date(fromDate), "MMMM d, yyyy")} to ${format(new Date(toDate), "MMMM d, yyyy")}`;
 
-            // Save Spreadsheet
-            XLSX.writeFile(wb, `Daily_Requests_Report_${fromDate}_to_${toDate}.xlsx`);
+            const workbook = new ExcelJS.Workbook();
+            workbook.creator = "Treasury Portal";
+            workbook.created = new Date();
+
+            const sheet = workbook.addWorksheet("Daily Requests", {
+                pageSetup: { orientation: "landscape", fitToPage: true },
+            });
+
+            // Column definitions
+            sheet.columns = [
+                { header: "#",                       key: "no",       width: 6  },
+                { header: "Date Requested",          key: "date",     width: 22 },
+                { header: "Transaction ID",          key: "id",       width: 28 },
+                { header: "Resident Name",           key: "name",     width: 32 },
+                { header: "Service Type",            key: "type",     width: 30 },
+                { header: "Barangay",                key: "barangay", width: 16 },
+                { header: "Status",                  key: "status",   width: 16 },
+                { header: "Amount Paid (PHP)",       key: "amount",   width: 20 },
+            ];
+
+            // Style the header row (row 1)
+            const headerRow = sheet.getRow(1);
+            headerRow.height = 22;
+            headerRow.eachCell((cell) => {
+                cell.fill = {
+                    type: "pattern",
+                    pattern: "solid",
+                    fgColor: { argb: `FF${themeColor.toUpperCase()}` },
+                };
+                cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10, name: "Calibri" };
+                cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+                cell.border = {
+                    top:    { style: "thin", color: { argb: "FFFFFFFF" } },
+                    left:   { style: "thin", color: { argb: "FFFFFFFF" } },
+                    bottom: { style: "thin", color: { argb: "FFFFFFFF" } },
+                    right:  { style: "thin", color: { argb: "FFFFFFFF" } },
+                };
+            });
+
+            const borderThin: Partial<ExcelJS.Border> = { style: "medium", color: { argb: "FFB0B0B0" } };
+            const fullBorder = { top: borderThin, left: borderThin, bottom: borderThin, right: borderThin };
+
+            res.transactions.forEach((tx: any, idx: number) => {
+                const dateStr = format(new Date(tx.createdAt), "yyyy-MM-dd HH:mm");
+                const name = tx.user?.name || "A Resident";
+                const amount = (tx.payment && tx.payment.status === "PAID") ? tx.payment.amount : 0;
+
+                const row = sheet.addRow({
+                    no:     idx + 1,
+                    date:   dateStr,
+                    id:     tx.id,
+                    name:   name,
+                    type:   tx.type?.name || "N/A",
+                    barangay: tx.user?.residentProfile?.barangay || "N/A",
+                    status: getStatusLabel(tx.status),
+                    amount: amount,
+                });
+
+                row.height = 16;
+
+                const isAlt = idx % 2 === 1;
+                row.eachCell({ includeEmpty: true }, (cell, colNum) => {
+                    cell.fill = {
+                        type: "pattern",
+                        pattern: "solid",
+                        fgColor: { argb: isAlt ? "FFF5F7FA" : "FFFFFFFF" },
+                    };
+                    cell.border = fullBorder;
+                    cell.font = { name: "Calibri", size: 9 };
+                    cell.alignment = { vertical: "middle", horizontal: "center", wrapText: false };
+
+                    if (colNum === 1) { // #
+                        cell.font = { ...cell.font, color: { argb: "FF888888" } };
+                    }
+                    if (colNum === 3) { // ID
+                        cell.alignment = { ...cell.alignment, horizontal: "left" };
+                    }
+                    if (colNum === 4 || colNum === 5) { // Name, Type
+                        cell.alignment = { ...cell.alignment, horizontal: "left" };
+                    }
+                    if (colNum === 7) { // Status
+                        const s = String(cell.value);
+                        if (s === "Released")         cell.font = { ...cell.font, bold: true, color: { argb: "FF15803D" } };
+                        else if (["For Requesting", "For Inspection", "For Revision", "In Processing"].includes(s)) {
+                            cell.font = { ...cell.font, bold: true, color: { argb: "FFA16207" } };
+                        } else if (s === "Rejected")  cell.font = { ...cell.font, bold: true, color: { argb: "FFB91C1C" } };
+                    }
+                    if (colNum === 8) { // Amount Paid
+                        cell.numFmt = '#,##0.00';
+                        cell.alignment = { ...cell.alignment, horizontal: "right" };
+                        cell.font = { ...cell.font, bold: true };
+                    }
+                });
+            });
+
+            sheet.addRow([]); // Spacer
+            const dateRangeRow = sheet.addRow(["", "Date Range:", rangeLabel]);
+            dateRangeRow.getCell(2).font = { bold: true, size: 9, name: "Calibri" };
+            dateRangeRow.getCell(3).font = { size: 9, name: "Calibri" };
+
+            const totalRecordsRow = sheet.addRow(["", "Total Records:", res.transactions.length]);
+            totalRecordsRow.getCell(2).font = { bold: true, size: 9, name: "Calibri" };
+            totalRecordsRow.getCell(3).font = { bold: true, size: 9, name: "Calibri" };
+
+            const totalAmountRow = sheet.addRow(["", "Total Collections (PHP):", stats.revenue]);
+            totalAmountRow.getCell(2).font = { bold: true, size: 9, name: "Calibri" };
+            totalAmountRow.getCell(3).numFmt = '#,##0.00';
+            totalAmountRow.getCell(3).font = {
+                bold: true, size: 11, name: "Calibri",
+                color: { argb: `FF${themeColor.toUpperCase()}` },
+            };
+            totalAmountRow.getCell(3).border = {
+                bottom: { style: "double", color: { argb: `FF${themeColor.toUpperCase()}` } },
+            };
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], {
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `Daily_Requests_Report_${fileRangeLabel}.xlsx`;
+            link.click();
+            URL.revokeObjectURL(url);
+
             toast.success("Excel report exported successfully!");
         } catch (error) {
             console.error("Excel export error:", error);
@@ -270,69 +392,261 @@ export function DailyRequestsReportClient({
                 return;
             }
 
-            const doc = new jsPDF();
-            
-            // LGU Header Design
-            doc.setFillColor(37, 99, 235); // Blue Accent
-            doc.rect(0, 0, 210, 40, "F");
-            
-            doc.setTextColor(255, 255, 255);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(22);
-            doc.text("MUNICIPALITY OF MAPANDAN", 15, 18);
-            
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-            doc.text("Province of Pangasinan, Philippines", 15, 24);
-            doc.text(`Daily Requests Report: ${fromDate} to ${toDate}`, 15, 30);
+            // --- 1. Fetch branding ---
+            let logoUrl = "";
+            let brand1 = "MAPANDAN";
+            let brand2 = "PORTAL";
+            let themeColor = "#2563eb";
+            try {
+                const res = await fetch("/api/settings");
+                if (res.ok) {
+                    const data = await res.json();
+                    logoUrl = data.logoUrl || "";
+                    brand1 = data.brand1 || "MAPANDAN";
+                    brand2 = data.brand2 || "PORTAL";
+                    themeColor = data.themeColor || "#2563eb";
+                }
+            } catch { /* use defaults */ }
 
-            // Summary Stats Cards in PDF
-            doc.setFillColor(248, 250, 252);
-            doc.rect(15, 45, 180, 25, "F");
-            
-            doc.setTextColor(15, 23, 42);
+            // --- 2. Parse hex → RGB ---
+            const hexToRgb = (hex: string) => {
+                const c = hex.replace("#", "");
+                return {
+                    r: parseInt(c.substring(0, 2), 16),
+                    g: parseInt(c.substring(2, 4), 16),
+                    b: parseInt(c.substring(4, 6), 16),
+                };
+            };
+            const { r, g, b } = hexToRgb(themeColor);
+
+            const rangeLabel = `${format(new Date(fromDate), "MMMM d, yyyy")} to ${format(new Date(toDate), "MMMM d, yyyy")}`;
+            const fileRangeLabel = `${fromDate}_to_${toDate}`;
+
+            // --- Landscape A4 ---
+            const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+            const PAGE_W = doc.internal.pageSize.getWidth();   // 297mm
+            const PAGE_H = doc.internal.pageSize.getHeight();  // 210mm
+            const MARGIN = 14;
+
+            let currentY = 10;
+
+            // Logo centered
+            if (logoUrl) {
+                try {
+                    const imgRes = await fetch(logoUrl);
+                    const imgBlob = await imgRes.blob();
+                    const imgDataUrl = await new Promise<string>((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result as string);
+                        reader.readAsDataURL(imgBlob);
+                    });
+                    const ext = (logoUrl.split(".").pop()?.toUpperCase() || "PNG") as any;
+                    doc.addImage(imgDataUrl, ext, PAGE_W / 2 - 8, currentY, 16, 16);
+                    currentY += 19;
+                } catch { currentY += 2; }
+            }
+
+            // Republic label
+            doc.setFontSize(6.5);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(90, 90, 90);
+            doc.text("Republic of the Philippines", PAGE_W / 2, currentY, { align: "center" });
+            currentY += 4;
+
+            // Brand name: brand2 only, theme color, centered
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(r, g, b);
+            doc.text(brand2, PAGE_W / 2, currentY, { align: "center" });
+            currentY += 4.5;
+
+            // Office label
+            doc.setFontSize(7.5);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(50, 50, 50);
+            doc.text("Office of the Municipal Administrator", PAGE_W / 2, currentY, { align: "center" });
+            currentY += 4;
+
+            // Document title
             doc.setFontSize(9);
             doc.setFont("helvetica", "bold");
-            doc.text("SUMMARY STATISTICS", 20, 52);
-            
+            doc.setTextColor(20, 20, 20);
+            doc.text("DAILY REQUESTS REPORT — AUDIT & TRANSACTION LOGS", PAGE_W / 2, currentY, { align: "center" });
+            currentY += 3.5;
+
+            // Generated date right-aligned
+            doc.setFontSize(6);
             doc.setFont("helvetica", "normal");
-            doc.text(`Total Submissions: ${stats.total}`, 20, 60);
-            doc.text(`Completed (Released): ${stats.released}`, 80, 60);
-            doc.text(`Pending (Evaluation): ${stats.pending}`, 140, 60);
-            
-            doc.text(`Rejected Requests: ${stats.rejected}`, 20, 66);
-            doc.text(`Total Collections: PHP ${stats.revenue.toLocaleString()}`, 80, 66);
+            doc.setTextColor(130, 130, 130);
+            doc.text(`Date Generated: ${format(new Date(), "MMMM d, yyyy hh:mm a")}`, PAGE_W - MARGIN, currentY, { align: "right" });
 
-            // Table Data Compilation
-            const headers = [["Date", "Transaction ID", "Resident Name", "Service Type", "Status", "Amount"]];
-            const body = res.transactions.map((tx: any) => [
-                format(new Date(tx.createdAt), "yyyy-MM-dd"),
-                tx.id.substring(0, 8) + "...",
-                tx.user?.name || "N/A",
-                tx.type?.name || "N/A",
-                getStatusLabel(tx.status),
-                `PHP ${(tx.payment && tx.payment.status === "PAID" ? tx.payment.amount : 0).toLocaleString()}`
-            ]);
+            // Double rule under header
+            currentY += 1.5;
+            doc.setDrawColor(20, 20, 20);
+            doc.setLineWidth(0.8);
+            doc.line(MARGIN, currentY, PAGE_W - MARGIN, currentY);
+            currentY += 1;
+            doc.setLineWidth(0.25);
+            doc.line(MARGIN, currentY, PAGE_W - MARGIN, currentY);
+            currentY += 3;
 
-            autoTable(doc, {
-                startY: 75,
-                head: headers,
-                body: body,
-                theme: "striped",
-                headStyles: { fillColor: [37, 99, 235], fontSize: 9, fontStyle: "bold" },
-                bodyStyles: { fontSize: 8 },
-                columnStyles: {
-                    0: { cellWidth: 25 },
-                    1: { cellWidth: 25 },
-                    2: { cellWidth: 45 },
-                    3: { cellWidth: 45 },
-                    4: { cellWidth: 25 },
-                    5: { cellWidth: 20 }
-                }
+            const tableRows = res.transactions.map((tx: any, idx: number) => {
+                const dateStr = format(new Date(tx.createdAt), "MMM d, yyyy");
+                const timeStr = format(new Date(tx.createdAt), "hh:mm a");
+                const name = tx.user?.name || "A Resident";
+                const barangay = tx.user?.residentProfile?.barangay || "N/A";
+                const amount = (tx.payment && tx.payment.status === "PAID") ? tx.payment.amount : 0;
+                return [
+                    String(idx + 1),
+                    `${dateStr} ${timeStr}`,
+                    tx.id.toUpperCase(),
+                    name,
+                    tx.type?.name || "N/A",
+                    barangay,
+                    getStatusLabel(tx.status),
+                    `PHP ${amount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`
+                ];
             });
 
-            // Save PDF Document
-            doc.save(`Daily_Requests_Report_${fromDate}_to_${toDate}.pdf`);
+            autoTable(doc, {
+                startY: currentY,
+                theme: "grid",
+                head: [["#", "Date Requested", "Transaction ID", "Resident Name", "Service Type", "Barangay", "Status", "Amount Paid"]],
+                body: tableRows,
+                styles: {
+                    fontSize: 6.5,
+                    font: "courier",
+                    cellPadding: { top: 2, right: 2.5, bottom: 2, left: 2.5 },
+                    overflow: "linebreak",
+                    textColor: [20, 20, 20],
+                    lineColor: [180, 180, 180],
+                    lineWidth: 0.2,
+                    valign: "middle",
+                },
+                headStyles: {
+                    fillColor: [r, g, b],
+                    textColor: [255, 255, 255],
+                    font: "helvetica",
+                    fontStyle: "bold",
+                    fontSize: 7,
+                    halign: "center",
+                    lineColor: [r, g, b],
+                    lineWidth: 0.25,
+                    valign: "middle",
+                    minCellHeight: 8,
+                },
+                alternateRowStyles: { fillColor: [245, 247, 250] },
+                columnStyles: {
+                    0: { cellWidth: 8,  halign: "center", textColor: [120, 120, 120] },  // #
+                    1: { cellWidth: 28, halign: "center" },                               // Date
+                    2: { cellWidth: 42, fontStyle: "bold", halign: "left" },              // ID
+                    3: { cellWidth: 46, halign: "left" },                                 // Resident Name
+                    4: { cellWidth: 42, halign: "left" },                                 // Service Type
+                    5: { cellWidth: 24, halign: "center" },                               // Barangay
+                    6: { cellWidth: 24, halign: "center" },                               // Status
+                    7: { cellWidth: "auto" as any, halign: "right", fontStyle: "bold" },  // Amount
+                },
+                willDrawCell: (data) => {
+                    if (data.section === "body" && data.column.index === 6) {
+                        const statusVal = String(data.cell.text[0]);
+                        if (statusVal === "Released") data.cell.styles.textColor = [21, 128, 61];
+                        else if (["For Requesting", "For Inspection", "For Revision", "In Processing"].includes(statusVal)) {
+                            data.cell.styles.textColor = [161, 98, 7];
+                        } else if (statusVal === "Rejected") data.cell.styles.textColor = [185, 28, 28];
+                        data.cell.styles.fontStyle = "bold";
+                    }
+                },
+                margin: { left: MARGIN, right: MARGIN, top: MARGIN },
+            });
+
+            let summaryY = (doc as any).lastAutoTable.finalY;
+            summaryY += 5;
+
+            // Left side: Date Range
+            doc.setFontSize(6.5);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100, 100, 100);
+            doc.text("Date Range:", MARGIN, summaryY);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(20, 20, 20);
+            doc.text(rangeLabel, MARGIN + 20, summaryY);
+
+            // Right side: Total Records + Total Amount (stacked)
+            doc.setFontSize(6.5);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100, 100, 100);
+            doc.text("Total Records:", PAGE_W - MARGIN - 100, summaryY);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(20, 20, 20);
+            doc.text(String(res.transactions.length), PAGE_W - MARGIN - 55, summaryY, { align: "right" });
+
+            doc.setFontSize(6.5);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100, 100, 100);
+            doc.text("Total Collections (Paid):", PAGE_W - MARGIN - 100, summaryY + 5);
+            doc.setFontSize(7.5);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(r, g, b);
+            doc.text(
+                `PHP ${stats.revenue.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`,
+                PAGE_W - MARGIN,
+                summaryY + 5,
+                { align: "right" }
+            );
+
+            // Underline below Total Amount
+            doc.setDrawColor(r, g, b);
+            doc.setLineWidth(0.4);
+            doc.line(PAGE_W - MARGIN - 55, summaryY + 7, PAGE_W - MARGIN, summaryY + 7);
+
+            // --- Certification + Signatures ---
+            const certY = summaryY + 16;
+            doc.setFontSize(6.5);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(70, 70, 70);
+            doc.text(
+                "I hereby certify that the above requests and transactions are true and correct based on municipal system logs.",
+                MARGIN,
+                certY
+            );
+
+            const sigY = certY + 10;
+            doc.setDrawColor(60, 60, 60);
+            doc.setLineWidth(0.3);
+            doc.line(MARGIN, sigY, MARGIN + 55, sigY);
+            doc.setFontSize(6);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(90, 90, 90);
+            doc.text("Prepared by / Document Processor", MARGIN, sigY + 3.5);
+
+            doc.line(PAGE_W - MARGIN - 55, sigY, PAGE_W - MARGIN, sigY);
+            doc.text("Noted by / Municipal Administrator", PAGE_W - MARGIN - 55, sigY + 3.5);
+
+            // --- Header/Footer on every page ---
+            const pageCount = (doc.internal as any).getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setDrawColor(20, 20, 20);
+                doc.setLineWidth(0.5);
+                doc.line(MARGIN, PAGE_H - 10, PAGE_W - MARGIN, PAGE_H - 10);
+                doc.setLineWidth(0.15);
+                doc.line(MARGIN, PAGE_H - 9.3, PAGE_W - MARGIN, PAGE_H - 9.3);
+
+                doc.setFontSize(6);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(80, 80, 80);
+                doc.text(`${brand1} ${brand2} — Daily Requests Report`, MARGIN, PAGE_H - 6);
+
+                doc.setFont("helvetica", "italic");
+                doc.setTextColor(130, 130, 130);
+                doc.text("This document is for official audit use only.", PAGE_W / 2, PAGE_H - 6, { align: "center" });
+
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(80, 80, 80);
+                doc.text(`Page ${i} of ${pageCount}`, PAGE_W - MARGIN, PAGE_H - 6, { align: "right" });
+            }
+
+            doc.save(`Daily_Requests_Report_${fileRangeLabel}.pdf`);
             toast.success("PDF report exported successfully!");
         } catch (error) {
             console.error("PDF export error:", error);
@@ -347,8 +661,8 @@ export function DailyRequestsReportClient({
             {/* Header & Back Button */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-200 dark:border-[#2a3040]">
                 <div className="space-y-2">
-                    <Link 
-                        href="/admin/dashboard" 
+                    <Link
+                        href="/admin/dashboard"
                         className="flex items-center gap-2 text-xs font-black uppercase italic tracking-widest text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"
                     >
                         <ArrowLeft className="w-4 h-4" />
