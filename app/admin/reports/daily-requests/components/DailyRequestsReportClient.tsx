@@ -167,6 +167,32 @@ export function DailyRequestsReportClient({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search]);
 
+    // Track page and limit in a ref to avoid recreation of SSE subscription
+    const stateRef = useRef({ currentPage, limit });
+    useEffect(() => {
+        stateRef.current = { currentPage, limit };
+    }, [currentPage, limit]);
+
+    // Real-time updates subscription using Server-Sent Events (SSE)
+    useEffect(() => {
+        const eventSource = new EventSource("/api/admin/reports/daily-requests/stream");
+
+        eventSource.onmessage = (event) => {
+            if (event.data === "refresh") {
+                fetchReportData(stateRef.current.currentPage, stateRef.current.limit);
+            }
+        };
+
+        eventSource.onerror = () => {
+            console.warn("SSE stream connection lost or errored. Reconnecting...");
+        };
+
+        return () => {
+            eventSource.close();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
     };
