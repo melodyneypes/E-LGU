@@ -3519,25 +3519,35 @@ export async function getTransactionReportData(params: {
         let transactions = [];
         let totalCount = 0;
 
+        const selectFields = {
+            id: true,
+            createdAt: true,
+            status: true,
+            type: {
+                select: {
+                    name: true,
+                    category: true
+                }
+            },
+            user: {
+                select: {
+                    name: true,
+                    residentProfile: {
+                        select: {
+                            barangay: true
+                        }
+                    }
+                }
+            },
+            payment: {
+                select: { amount: true, status: true }
+            }
+        };
+
         if (params.exportAll) {
             transactions = await prisma.transaction.findMany({
                 where: whereClause,
-                include: {
-                    type: true,
-                    user: {
-                        select: {
-                            name: true,
-                            residentProfile: {
-                                select: {
-                                    barangay: true
-                                }
-                            }
-                        }
-                    },
-                    payment: {
-                        select: { amount: true, status: true }
-                    }
-                },
+                select: selectFields,
                 orderBy: { createdAt: "desc" }
             });
             totalCount = transactions.length;
@@ -3545,22 +3555,7 @@ export async function getTransactionReportData(params: {
             totalCount = await prisma.transaction.count({ where: whereClause });
             transactions = await prisma.transaction.findMany({
                 where: whereClause,
-                include: {
-                    type: true,
-                    user: {
-                        select: {
-                            name: true,
-                            residentProfile: {
-                                select: {
-                                    barangay: true
-                                }
-                            }
-                        }
-                    },
-                    payment: {
-                        select: { amount: true, status: true }
-                    }
-                },
+                select: selectFields,
                 orderBy: { createdAt: "desc" },
                 skip,
                 take: limit
