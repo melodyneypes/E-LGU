@@ -4,8 +4,8 @@ import React, { useState, useEffect, useTransition } from "react";
 import { format } from "date-fns";
 import { 
     Search, Calendar, Folder, FileSpreadsheet, FileText, 
-    ArrowLeft, ChevronLeft, ChevronRight, Loader2, RefreshCw, 
-    TrendingUp, CheckCircle, Clock, AlertTriangle, Eye 
+    ArrowLeft, ChevronLeft, ChevronRight, Loader2, 
+    CheckCircle, Clock, AlertTriangle, Eye 
 } from "lucide-react";
 import Link from "next/link";
 import { getTransactionReportData } from "@/app/admin/actions";
@@ -60,7 +60,6 @@ interface DailyRequestsReportClientProps {
 export function DailyRequestsReportClient({
     initialData,
     categories,
-    themeColor = "#2563eb",
     initialFrom,
     initialTo,
     initialCategory = "ALL",
@@ -120,6 +119,7 @@ export function DailyRequestsReportClient({
     // Refetch when filters change (debounce or trigger directly on select update)
     useEffect(() => {
         fetchReportData(1);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fromDate, toDate, category, status]);
 
     const handleSearchSubmit = (e: React.FormEvent) => {
