@@ -80,24 +80,7 @@ export function TransactionDashboardView({
   const [fromDate, setFromDate] = useState(initialFrom);
   const [toDate, setToDate] = useState(initialTo);
 
-  // Real-time updates subscription using Server-Sent Events (SSE) for Daily Requests
-  React.useEffect(() => {
-    const eventSource = new EventSource("/api/admin/reports/daily-requests/stream");
 
-    eventSource.onmessage = (event) => {
-      if (event.data === "refresh") {
-        router.refresh();
-      }
-    };
-
-    eventSource.onerror = () => {
-      console.warn("SSE stream connection lost or errored. Reconnecting...");
-    };
-
-    return () => {
-      eventSource.close();
-    };
-  }, [router]);
 
   // Sum calculations for display totals
   const totalRequests = data.reduce((acc, curr) => acc + curr.requests, 0);
