@@ -680,6 +680,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     initialTo={toDate.toISOString().split("T")[0]}
                     categories={categories}
                     activeCategory={selectedCategory}
+                    themeColor={themeColor}
                 />
             </div>
 

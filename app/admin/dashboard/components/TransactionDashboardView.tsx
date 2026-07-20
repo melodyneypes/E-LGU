@@ -2,6 +2,7 @@
 
 import React, { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -11,7 +12,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import { TrendingUp, CheckCircle, Clock, AlertTriangle, Eye, Calendar, Folder, RotateCcw } from "lucide-react";
+import { TrendingUp, CheckCircle, Clock, AlertTriangle, Eye, Calendar, Folder, RotateCcw, FileText } from "lucide-react";
 
 interface ChartDataPoint {
   date: string;
@@ -28,6 +29,7 @@ interface TransactionDashboardViewProps {
   initialTo: string;
   categories: string[];
   activeCategory: string;
+  themeColor?: string;
 }
 
 type FilterType = "requests" | "evaluation" | "processing" | "released" | "rejected";
@@ -68,6 +70,7 @@ export function TransactionDashboardView({
   initialTo,
   categories,
   activeCategory,
+  themeColor = "#2563eb",
 }: TransactionDashboardViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -314,6 +317,20 @@ export function TransactionDashboardView({
           </ResponsiveContainer>
         </div>
       )}
+
+      {/* View Detailed Report Action Button (Bottom Right) */}
+      <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-[#2a3040]/30">
+        <Link
+          href={`/admin/reports/daily-requests?from=${fromDate}&to=${toDate}&category=${activeCategory}&status=${
+            activeFilter === "requests" ? "ALL" : activeFilter === "evaluation" ? "FOR_REQUESTING" : activeFilter === "processing" ? "FOR_PROCESSING" : activeFilter.toUpperCase()
+          }`}
+          className="px-6 py-3 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-2 hover:opacity-90 cursor-pointer"
+          style={{ backgroundColor: themeColor }}
+        >
+          <FileText className="w-4 h-4" />
+          <span>View Detailed Report</span>
+        </Link>
+      </div>
     </div>
   );
 }

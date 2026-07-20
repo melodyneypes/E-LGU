@@ -301,6 +301,7 @@ export function Sidebar({
         { href: "/admin/tourism", label: "Gallery", icon: Map },
         { href: "/admin/church", label: "Church Management", icon: Church },
         { href: "/admin/reports", label: "Public Reports", icon: AlertTriangle, category: "Management", badge: pendingReportsCount },
+        { href: "/admin/reports/daily-requests", label: "Daily Requests Report", icon: FileText, category: "Management" },
         { href: "/admin/logistics", label: "Logistics Control", icon: Truck, category: "Management" },
         { href: "/admin/jobs", label: "Job Postings", icon: Briefcase },
         { href: "/admin/officials", label: "Council Members", icon: Users },

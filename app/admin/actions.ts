@@ -3396,5 +3396,192 @@ export async function assignUserRFID(userId: string, rfid: string | null) {
     }
 }
 
+export async function getTransactionReportData(params: {
+    from?: string;
+    to?: string;
+    category?: string;
+    status?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+    exportAll?: boolean;
+}) {
+    try {
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const userRole = user?.role;
+        if (!session || (userRole !== "ADMIN" && userRole !== "BARANGAY_ADMIN")) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const isBarangayAdmin = userRole === "BARANGAY_ADMIN";
+        const selectedBarangay = isBarangayAdmin ? user.managedBarangay : null;
+
+        const fromDate = params.from ? new Date(params.from) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        fromDate.setHours(0, 0, 0, 0);
+
+        const toDate = params.to ? new Date(params.to) : new Date();
+        toDate.setHours(23, 59, 59, 999);
+
+        const whereClause: any = {
+            createdAt: {
+                gte: fromDate,
+                lte: toDate
+            }
+        };
+
+        if (params.category && params.category !== "ALL") {
+            whereClause.type = {
+                category: params.category
+            };
+        }
+
+        if (params.status && params.status !== "ALL") {
+            whereClause.status = params.status;
+        }
+
+        if (selectedBarangay) {
+            whereClause.user = {
+                residentProfile: {
+                    barangay: selectedBarangay
+                }
+            };
+        }
+
+        if (params.search) {
+            whereClause.OR = [
+                {
+                    id: {
+                        contains: params.search,
+                        mode: "insensitive"
+                    }
+                },
+                {
+                    user: {
+                        name: {
+                            contains: params.search,
+                            mode: "insensitive"
+                        }
+                    }
+                },
+                {
+                    type: {
+                        name: {
+                            contains: params.search,
+                            mode: "insensitive"
+                        }
+                    }
+                }
+            ];
+        }
+
+        // Fetch Stats matching the filtered criteria (except status filter itself, or matching current filter)
+        // We'll compute total, pending (FOR_REQUESTING/FOR_INSPECTION/FOR_REVISION/FOR_PROCESSING), released, rejected
+        const statsTransactions = await prisma.transaction.findMany({
+            where: {
+                ...whereClause,
+                status: undefined // clear status for global breakdown stats
+            },
+            select: {
+                status: true,
+                payment: {
+                    select: { amount: true, status: true }
+                }
+            }
+        });
+
+        let total = 0;
+        let pending = 0;
+        let released = 0;
+        let rejected = 0;
+        let revenue = 0;
+
+        statsTransactions.forEach(tx => {
+            total++;
+            if (tx.status === "FOR_REQUESTING" || tx.status === "FOR_INSPECTION" || tx.status === "FOR_REVISION" || tx.status === "FOR_PROCESSING") {
+                pending++;
+            } else if (tx.status === "RELEASED") {
+                released++;
+            } else if (tx.status === "REJECTED") {
+                rejected++;
+            }
+            if (tx.payment && tx.payment.status === "PAID") {
+                revenue += tx.payment.amount;
+            }
+        });
+
+        const stats = { total, pending, released, rejected, revenue };
+
+        const page = params.page ?? 1;
+        const limit = params.limit ?? 10;
+        const skip = (page - 1) * limit;
+
+        let transactions = [];
+        let totalCount = 0;
+
+        if (params.exportAll) {
+            transactions = await prisma.transaction.findMany({
+                where: whereClause,
+                include: {
+                    type: true,
+                    user: {
+                        select: {
+                            name: true,
+                            residentProfile: {
+                                select: {
+                                    barangay: true
+                                }
+                            }
+                        }
+                    },
+                    payment: {
+                        select: { amount: true, status: true }
+                    }
+                },
+                orderBy: { createdAt: "desc" }
+            });
+            totalCount = transactions.length;
+        } else {
+            totalCount = await prisma.transaction.count({ where: whereClause });
+            transactions = await prisma.transaction.findMany({
+                where: whereClause,
+                include: {
+                    type: true,
+                    user: {
+                        select: {
+                            name: true,
+                            residentProfile: {
+                                select: {
+                                    barangay: true
+                                }
+                            }
+                        }
+                    },
+                    payment: {
+                        select: { amount: true, status: true }
+                    }
+                },
+                orderBy: { createdAt: "desc" },
+                skip,
+                take: limit
+            });
+        }
+
+
+        return {
+            success: true,
+            transactions,
+            totalCount,
+            totalPages: Math.ceil(totalCount / limit),
+            currentPage: page,
+            stats
+        };
+    } catch (error: any) {
+        console.error("Error in getTransactionReportData server action:", error);
+        return { success: false, error: error.message || "Failed to fetch report data." };
+    }
+}
+
+
 
 
