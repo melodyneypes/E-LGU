@@ -8,7 +8,7 @@ import {
     Briefcase, MapPin, Map,
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
-    FileText
+    FileText, BarChart3
 } from "lucide-react";
 import { secureLogoutAction } from "@/app/actions/auth";
 import { useTheme } from "next-themes";
@@ -301,7 +301,6 @@ export function Sidebar({
         { href: "/admin/tourism", label: "Gallery", icon: Map },
         { href: "/admin/church", label: "Church Management", icon: Church },
         { href: "/admin/reports", label: "Public Reports", icon: AlertTriangle, category: "Management", badge: pendingReportsCount },
-        { href: "/admin/reports/daily-requests", label: "Daily Requests Report", icon: FileText, category: "Management" },
         { href: "/admin/logistics", label: "Logistics Control", icon: Truck, category: "Management" },
         { href: "/admin/jobs", label: "Job Postings", icon: Briefcase },
         { href: "/admin/officials", label: "Council Members", icon: Users },
@@ -310,7 +309,8 @@ export function Sidebar({
         { href: "/admin/resident-approvals", label: "Resident Approvals", icon: UserCheck, category: "Resident Management", badge: pendingResidentsCount },
         { href: "/admin/residents", label: "Resident Registry", icon: Users },
         // { href: "/admin/services", label: "Barangay Services", icon: ClipboardList, category: "Citizens & Services" },
-        { href: "/admin/households", label: "Household Map", icon: MapPin, category: "Data & Analysis" },
+        { href: "/admin/reports/daily-requests", label: "Daily Requests", icon: BarChart3, category: "Analytics" },
+        { href: "/admin/households", label: "Household Map", icon: MapPin },
         {
             label: "Registrar Hub",
             icon: FileText,
@@ -428,8 +428,9 @@ export function Sidebar({
 
     const activeCodes = activeTypes ? new Set(activeTypes.map(t => t.code)) : null;
 
-    const allMenuItemsMapped = activeCodes ? baseMenuItems.map(item => {
+    const allMenuItemsMapped = baseMenuItems.map(item => {
         if (item.label === "Registrar Hub" && item.subItems) {
+            if (!activeCodes) return item;
             const filteredSub = item.subItems.filter(sub => {
                 if (sub.label === "Dashboard") return true;
 
@@ -454,7 +455,7 @@ export function Sidebar({
         }
 
         return item;
-    }) : baseMenuItems;
+    });
 
     const isLguAdmin = role === "ADMIN" && (department?.toUpperCase() === "LGU" || !department);
 

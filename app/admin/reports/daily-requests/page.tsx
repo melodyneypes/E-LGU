@@ -16,6 +16,7 @@ export default async function DailyRequestsReportPage(props: {
         category?: string;
         status?: string;
         search?: string;
+        barangay?: string;
     }>;
 }) {
     const session = await getServerSession(authOptions);
@@ -38,6 +39,7 @@ export default async function DailyRequestsReportPage(props: {
     const category = params.category || "ALL";
     const status = params.status || "ALL";
     const search = params.search || "";
+    const barangay = params.barangay || "ALL";
 
     // Fetch initial page of reports matching parameters
     const reportRes = await getTransactionReportData({
@@ -47,7 +49,8 @@ export default async function DailyRequestsReportPage(props: {
         status,
         search,
         page: 1,
-        limit: 10
+        limit: 10,
+        barangay
     });
 
     const initialData = {
@@ -65,6 +68,13 @@ export default async function DailyRequestsReportPage(props: {
     });
     const categories = categoriesList.map((c) => c.category).filter(Boolean);
 
+    // Fetch barangays list dynamically
+    const barangaysList = await prisma.barangayInfo.findMany({
+        select: { name: true },
+        orderBy: { name: "asc" }
+    });
+    const barangays = barangaysList.map(b => b.name);
+
     const themeColor = await getSystemSetting("theme_color", "#2563eb");
 
     return (
@@ -77,6 +87,9 @@ export default async function DailyRequestsReportPage(props: {
             initialCategory={category}
             initialStatus={status}
             initialSearch={search}
+            initialBarangay={barangay}
+            barangays={barangays}
+            session={session}
         />
     );
 }

@@ -3405,6 +3405,7 @@ export async function getTransactionReportData(params: {
     page?: number;
     limit?: number;
     exportAll?: boolean;
+    barangay?: string;
 }) {
     try {
         const session = await getServerSession(authOptions);
@@ -3440,10 +3441,11 @@ export async function getTransactionReportData(params: {
             whereClause.status = params.status;
         }
 
-        if (selectedBarangay) {
+        const targetBarangay = selectedBarangay || (params.barangay && params.barangay !== "ALL" ? params.barangay : null);
+        if (targetBarangay) {
             whereClause.user = {
                 residentProfile: {
-                    barangay: selectedBarangay
+                    barangay: targetBarangay
                 }
             };
         }

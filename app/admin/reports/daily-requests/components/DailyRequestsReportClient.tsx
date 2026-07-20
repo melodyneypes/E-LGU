@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import {
     Search, Calendar, Folder, FileSpreadsheet, FileText,
     ArrowLeft, ChevronLeft, ChevronRight, Loader2,
-    CheckCircle, Clock, AlertTriangle, Eye
+    CheckCircle, Clock, AlertTriangle, Eye, MapPin, RefreshCcw
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -54,6 +54,9 @@ interface DailyRequestsReportClientProps {
     initialCategory?: string;
     initialStatus?: string;
     initialSearch?: string;
+    initialBarangay?: string;
+    barangays?: string[];
+    session?: any;
 }
 
 export function DailyRequestsReportClient({
@@ -63,7 +66,11 @@ export function DailyRequestsReportClient({
     initialTo,
     initialCategory = "ALL",
     initialStatus = "ALL",
-    initialSearch = ""
+    initialSearch = "",
+    initialBarangay = "ALL",
+    barangays = [],
+    session,
+    themeColor = "#2563eb"
 }: DailyRequestsReportClientProps) {
     const [transactions, setTransactions] = useState<Transaction[]>(initialData.transactions);
     const [totalCount, setTotalCount] = useState(initialData.totalCount);
@@ -86,6 +93,7 @@ export function DailyRequestsReportClient({
     const [category, setCategory] = useState(initialCategory);
     const [status, setStatus] = useState(initialStatus);
     const [search, setSearch] = useState(initialSearch);
+    const [barangay, setBarangay] = useState(initialBarangay);
 
     const [isPending, startTransition] = useTransition();
     const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -107,6 +115,7 @@ export function DailyRequestsReportClient({
                     category,
                     status,
                     search,
+                    barangay,
                     page: String(pageNumber),
                     limit: String(currentLimit)
                 });
@@ -146,7 +155,7 @@ export function DailyRequestsReportClient({
     useEffect(() => {
         fetchReportData(1, limit);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fromDate, toDate, category, status]);
+    }, [fromDate, toDate, category, status, barangay]);
 
     // Debounce search input to query server-side as the user types
     useEffect(() => {
@@ -160,6 +169,26 @@ export function DailyRequestsReportClient({
 
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+    };
+
+    const handleRefresh = () => {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        const defaultFrom = d.toISOString().split("T")[0];
+        const defaultTo = new Date().toISOString().split("T")[0];
+
+        let changed = false;
+        if (fromDate !== defaultFrom) { setFromDate(defaultFrom); changed = true; }
+        if (toDate !== defaultTo) { setToDate(defaultTo); changed = true; }
+        if (category !== "ALL") { setCategory("ALL"); changed = true; }
+        if (status !== "ALL") { setStatus("ALL"); changed = true; }
+        if (barangay !== "ALL") { setBarangay("ALL"); changed = true; }
+        if (search !== "") { setSearch(""); changed = true; }
+
+        if (!changed) {
+            fetchReportData(currentPage, limit);
+        }
+        toast.success("Filters reset and data refreshed!");
     };
 
     const handleLimitChange = (newLimit: number) => {
@@ -206,6 +235,7 @@ export function DailyRequestsReportClient({
                 category,
                 status,
                 search,
+                barangay,
                 exportAll: "true"
             });
 
@@ -378,6 +408,7 @@ export function DailyRequestsReportClient({
                 category,
                 status,
                 search,
+                barangay,
                 exportAll: "true"
             });
 
@@ -669,7 +700,7 @@ export function DailyRequestsReportClient({
                         Back to Dashboard
                     </Link>
                     <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">
-                        Daily Requests <span className="text-blue-600 dark:text-blue-500">Report</span>
+                        Daily Requests <span style={{ color: themeColor }}>Report</span>
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic">
                         Generate official audit logs, exports, and breakdowns of municipal kiosk & online requests.
@@ -766,70 +797,102 @@ export function DailyRequestsReportClient({
 
             {/* Filters Dashboard Card */}
             <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2rem] p-6 shadow-md space-y-6">
-                <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
-                    {/* Filters Row */}
-                    <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
-                        {/* Date From */}
-                        <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl">
-                            <Calendar className="w-4 h-4 text-slate-400" />
-                            <input
-                                type="date"
-                                value={fromDate}
-                                onChange={(e) => setFromDate(e.target.value)}
-                                className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer [color-scheme:light|dark]"
-                            />
-                        </div>
+                {/* Top Row: Filters */}
+                <div className="flex flex-wrap items-center gap-4 w-full">
+                    {/* Date From */}
+                    <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl w-full sm:w-[190px]">
+                        <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                        <input
+                            type="date"
+                            value={fromDate}
+                            onChange={(e) => setFromDate(e.target.value)}
+                            className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer [color-scheme:light|dark] w-full"
+                        />
+                    </div>
 
-                        <span className="text-slate-400 text-xs font-bold">to</span>
+                    <span className="text-slate-400 text-xs font-bold shrink-0">to</span>
 
-                        {/* Date To */}
-                        <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl">
-                            <Calendar className="w-4 h-4 text-slate-400" />
-                            <input
-                                type="date"
-                                value={toDate}
-                                onChange={(e) => setToDate(e.target.value)}
-                                className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer [color-scheme:light|dark]"
-                            />
-                        </div>
+                    {/* Date To */}
+                    <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl w-full sm:w-[190px]">
+                        <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                        <input
+                            type="date"
+                            value={toDate}
+                            onChange={(e) => setToDate(e.target.value)}
+                            className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer [color-scheme:light|dark] w-full"
+                        />
+                    </div>
 
-                        {/* Category Dropdown */}
-                        <div className="relative w-full sm:w-[150px]">
-                            <select
-                                value={category}
-                                onChange={(e) => setCategory(e.target.value)}
-                                className="w-full pl-9 pr-10 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] text-xs font-black uppercase italic tracking-wider rounded-xl outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200"
-                            >
-                                <option value="ALL">All Categories</option>
-                                {categories.map((cat) => (
-                                    <option key={cat} value={cat}>{cat}</option>
-                                ))}
-                            </select>
-                            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                                <Folder className="w-3.5 h-3.5 text-slate-400" />
-                            </div>
-                        </div>
-
-                        {/* Status Dropdown */}
-                        <div className="relative w-full sm:w-[150px]">
-                            <select
-                                value={status}
-                                onChange={(e) => setStatus(e.target.value)}
-                                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] text-xs font-black uppercase italic tracking-wider rounded-xl outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200"
-                            >
-                                <option value="ALL">All Statuses</option>
-                                <option value="FOR_REQUESTING">For Requesting</option>
-                                <option value="FOR_INSPECTION">For Inspection</option>
-                                <option value="FOR_REVISION">For Revision</option>
-                                <option value="FOR_PROCESSING">In Processing</option>
-                                <option value="RELEASED">Released</option>
-                                <option value="REJECTED">Rejected</option>
-                            </select>
+                    {/* Category Dropdown */}
+                    <div className="relative w-full sm:w-[190px]">
+                        <select
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
+                            className="w-full pl-9 pr-10 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] text-xs font-black uppercase italic tracking-wider rounded-xl outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200"
+                        >
+                            <option value="ALL">All Categories</option>
+                            {categories.map((cat) => (
+                                <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                        </select>
+                        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                            <Folder className="w-3.5 h-3.5 text-slate-400" />
                         </div>
                     </div>
 
-                    {/* Search Field */}
-                    <form onSubmit={handleSearchSubmit} className="relative w-full lg:w-[280px]">
+                    {/* Status Dropdown */}
+                    <div className="relative w-full sm:w-[190px]">
+                        <select
+                            value={status}
+                            onChange={(e) => setStatus(e.target.value)}
+                            className="w-full pl-9 pr-10 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] text-xs font-black uppercase italic tracking-wider rounded-xl outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200"
+                        >
+                            <option value="ALL">All Statuses</option>
+                            <option value="FOR_REQUESTING">For Requesting</option>
+                            <option value="FOR_INSPECTION">For Inspection</option>
+                            <option value="FOR_REVISION">For Revision</option>
+                            <option value="FOR_PROCESSING">In Processing</option>
+                            <option value="RELEASED">Released</option>
+                            <option value="REJECTED">Rejected</option>
+                        </select>
+                        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                            <CheckCircle className="w-3.5 h-3.5 text-slate-400" />
+                        </div>
+                    </div>
+
+                    {/* Barangay Dropdown (only visible to LGU Admin) */}
+                    {!(session?.user?.role === "BARANGAY_ADMIN") && (
+                        <div className="relative w-full sm:w-[190px]">
+                            <select
+                                value={barangay}
+                                onChange={(e) => setBarangay(e.target.value)}
+                                className="w-full pl-9 pr-10 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] text-xs font-black uppercase italic tracking-wider rounded-xl outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200"
+                            >
+                                <option value="ALL">All Barangays</option>
+                                {barangays.map((b) => (
+                                    <option key={b} value={b}>{b}</option>
+                                ))}
+                            </select>
+                            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                                <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Refresh Button */}
+                    <button
+                        onClick={handleRefresh}
+                        className="h-10 w-10 rounded-xl flex items-center justify-center border border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#1e2330] hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-slate-600 dark:text-slate-300 disabled:opacity-40 cursor-pointer shrink-0"
+                        disabled={isPending}
+                        title="Refresh data"
+                    >
+                        <RefreshCcw className={`w-4 h-4 ${isPending ? "animate-spin" : ""}`} />
+                    </button>
+                </div>
+
+                {/* Bottom Row: Search Bar */}
+                <div className="w-full pt-2 flex justify-end">
+                    <form onSubmit={handleSearchSubmit} className="relative w-full sm:w-[320px] lg:w-[360px]">
                         <input
                             type="text"
                             placeholder="Search Name or Ref ID..."

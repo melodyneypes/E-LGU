@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
         const page = searchParams.get("page") ? Number(searchParams.get("page")) : undefined;
         const limit = searchParams.get("limit") ? Number(searchParams.get("limit")) : undefined;
         const exportAll = searchParams.get("exportAll") === "true";
+        const barangay = searchParams.get("barangay") || undefined;
 
         const result = await getTransactionReportData({
             from,
@@ -31,7 +32,8 @@ export async function GET(req: NextRequest) {
             search,
             page,
             limit,
-            exportAll
+            exportAll,
+            barangay
         });
 
         if (!result.success) {
