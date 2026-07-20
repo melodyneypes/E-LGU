@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useState, useEffect, use, useCallback } from "react";
+import React, { useState, useEffect, use, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -11,8 +11,6 @@ import {
     BadgeCheck,
     Coins,
     Check,
-    Upload,
-    ExternalLink,
     X,
     FileWarning,
     RefreshCw
@@ -28,7 +26,6 @@ import {
     uploadECopyAction,
     reviseBuildingPermitClearancesAction,
     declineBuildingPermitAction,
-    submitZoningClearanceAction
 } from "@/app/admin/transactions/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -68,12 +65,12 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const [themeColor, setThemeColor] = useState<string>("#2563eb");
 
     // Fee form state
-    const [buildingFee, setBuildingFee] = useState<string>("");
-    const [engineerMunicipalCharges, setEngineerMunicipalCharges] = useState<{ name: string, amount: string }[]>([{ name: "", amount: "" }]);
     const [zoningMunicipalCharges, setZoningMunicipalCharges] = useState<{ name: string, amount: string }[]>([{ name: "", amount: "" }]);
+    const [zoningClearanceFile, setZoningClearanceFile] = useState<File | null>(null);
 
     const [zoningClearanceUrl, setZoningClearanceUrl] = useState<string>("");
     const [uploading, setUploading] = useState(false);
+    const zoningClearanceInputRef = useRef<HTMLInputElement>(null);
 
     // Modals state
     const [reviseModalOpen, setReviseModalOpen] = useState(false);
@@ -82,19 +79,23 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const [viewerOpen, setViewerOpen] = useState(false);
     const [viewerUrl, setViewerUrl] = useState<string | null>(null);
     const [viewerTitle, setViewerTitle] = useState("");
-
     const addData = (transaction?.additionalData as any) || {};
     const zoningStatus = addData.zoningStatus;
-    const isZoningActive = userRole === "MPDC_ZONING" && transaction?.status === "EVALUATED";
+    const feeAssessment = transaction?.additionalData?.feeAssessment || null;
+    const engineerEndorsedToZoning = feeAssessment?.engineerEndorsedToZoning === true;
+    const zoningEndorsed = feeAssessment?.zoningEndorsed === true;
 
-    const isEndorsed = zoningStatus === "ENDORSED" || ["UNPAID", "PAYMENT_SUBMITTED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction?.status || "");
+    const isEndorsed = zoningEndorsed || ["UNPAID", "PAYMENT_SUBMITTED", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction?.status || "");
 
-    // ViewOnly for Zoning: if not active phase, if already endorsed, or if zoningStatus is not EVALUATED.
-    // ViewOnly for others (Engineer/Admin): if not EVALUATED status, or if already endorsed.
-    const isViewOnly = isForcedView ||
-        isEndorsed ||
-        (userRole === "MPDC_ZONING" && (!isZoningActive || zoningStatus !== "EVALUATED")) ||
-        (userRole !== "MPDC_ZONING" && transaction && transaction.status !== "EVALUATED");
+    const canEditZoningClearance =
+        userRole === "MPDC_ZONING" &&
+        engineerEndorsedToZoning &&
+        !isEndorsed &&
+        !isForcedView &&
+        transaction?.status !== "REJECTED";
+
+    const isViewOnly = !canEditZoningClearance;
+    const showZoningClearanceUpload = zoningStatus === "EVALUATED" && !isEndorsed;
 
     const fetchTransaction = useCallback(async () => {
         setLoading(true);
@@ -111,12 +112,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                 // Pre-populate if already assessed
                 const assessed = tx.additionalData?.feeAssessment;
                 if (assessed) {
-                    setBuildingFee(String(assessed.buildingPermitFee || ""));
-                    if (assessed.engineerMunicipalCharges && assessed.engineerMunicipalCharges.length > 0) {
-                        setEngineerMunicipalCharges(assessed.engineerMunicipalCharges.map((c: any) => ({ name: c.name, amount: String(c.amount) })));
-                    } else if (assessed.municipalCharges) {
-                        setEngineerMunicipalCharges([{ name: "Other Applicable Municipal Charges", amount: String(assessed.municipalCharges) }]);
-                    }
                     if (assessed.zoningMunicipalCharges && assessed.zoningMunicipalCharges.length > 0) {
                         setZoningMunicipalCharges(assessed.zoningMunicipalCharges.map((c: any) => ({ name: c.name, amount: String(c.amount) })));
                     }
@@ -137,41 +132,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
             if (res.success && res.data) setThemeColor(res.data);
         });
     }, [fetchTransaction]);
-
-    const handleEndorse = async () => {
-        const isZoning = userRole === "MPDC_ZONING";
-
-        if (!isZoning && !buildingFee) {
-            toast.error("Please fill in all required fee fields.");
-            return;
-        }
-
-        const validCharges = engineerMunicipalCharges.filter(c => c.name.trim() && c.amount);
-        const validZoningCharges = zoningMunicipalCharges.filter(c => c.name.trim() && c.amount);
-
-        setActionLoading(true);
-        try {
-            const res = await endorseBuildingPermitFees(id, {
-                ...(isZoning ? {
-                    zoningMunicipalCharges: validZoningCharges.map(c => ({ name: c.name, amount: Number(c.amount) }))
-                } : {
-                    buildingPermitFee: Number(buildingFee),
-                    engineerMunicipalCharges: validCharges.map(c => ({ name: c.name, amount: Number(c.amount) }))
-                })
-            });
-
-            if (res.success) {
-                toast.success("Fees endorsed to Treasury successfully!");
-                router.push(backUrl);
-            } else {
-                toast.error(res.error || "Failed to endorse fees");
-            }
-        } catch {
-            toast.error("An error occurred while submitting fees");
-        } finally {
-            setActionLoading(false);
-        }
-    };
 
     const handleApprove = async () => {
         setActionLoading(true);
@@ -236,47 +196,65 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         }
     };
 
-
-
-    const handleZoningClearanceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0) return;
-        const file = e.target.files[0];
-
+    const handleZoningClearanceUpload = async (file: File) => {
         setUploading(true);
         const toastId = toast.loading("Uploading Zoning Clearance...");
         try {
+            setZoningClearanceFile(file);
             const formData = new FormData();
             formData.append("file", file);
-            const res = await uploadECopyAction(formData); // reuse this for generic file upload
+            const res = await uploadECopyAction(formData);
             if (res.success && res.data) {
                 setZoningClearanceUrl(res.data);
                 toast.success("Zoning Clearance uploaded successfully!", { id: toastId });
             } else {
-                toast.error(res.error || "Failed to upload file", { id: toastId });
+                toast.error(res.error || "Failed to upload Zoning Clearance", { id: toastId });
             }
         } catch {
-            toast.error("Error uploading file", { id: toastId });
+            toast.error("An error occurred while uploading Zoning Clearance", { id: toastId });
         } finally {
             setUploading(false);
         }
     };
+
+    const triggerZoningClearancePicker = () => {
+        if (uploading || isViewOnly) return;
+        zoningClearanceInputRef.current?.click();
+    };
+
+    const handleZoningClearanceInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFile = e.target.files?.[0];
+        if (!selectedFile) return;
+        await handleZoningClearanceUpload(selectedFile);
+        e.target.value = "";
+    };
+
+
 
     const handleSubmitZoningClearance = async () => {
         if (!zoningClearanceUrl) {
             toast.error("Please upload the Zoning Clearance first.");
             return;
         }
+
         setActionLoading(true);
+        const toastId = toast.loading("Submitting fee assessment and Zoning Clearance...");
         try {
-            const res = await submitZoningClearanceAction(id, zoningClearanceUrl);
+            const validCharges = zoningMunicipalCharges.filter(c => c.name.trim() && c.amount);
+            const res = await endorseBuildingPermitFees(id, {
+                actionType: "ZONING_TO_ENGINEER",
+                zoningMunicipalCharges: validCharges.map(c => ({ name: c.name, amount: Number(c.amount) })),
+                zoningClearanceUrl
+            });
+
             if (res.success) {
-                toast.success("Zoning Clearance submitted to Engineer successfully!");
-                fetchTransaction();
+                toast.success("Zoning Clearance and fee assessment endorsed to Engineer successfully!", { id: toastId });
+                router.push(backUrl);
             } else {
-                toast.error(res.error || "Failed to submit Zoning Clearance");
+                toast.error(res.error || "Failed to submit fee assessment", { id: toastId });
             }
         } catch {
-            toast.error("An error occurred while submitting Zoning Clearance");
+            toast.error("An error occurred while submitting fee assessment", { id: toastId });
         } finally {
             setActionLoading(false);
         }
@@ -366,11 +344,20 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
             </header>
 
             <main className="max-w-[1400px] mx-auto px-8 grid grid-cols-12 gap-8 mt-4">
-                {!isEndorsed && (
+                {!engineerEndorsedToZoning && (
+                    <div className="col-span-12 bg-slate-500/10 border border-slate-500/20 text-slate-600 dark:text-slate-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">⏳ Awaiting Engineering Assessment</p>
+                            <p className="text-[11px] font-medium opacity-90">The Municipal Engineer is currently assessing the building permit fees. You will be able to input the Zoning fees once they endorse the application to your department.</p>
+                        </div>
+                    </div>
+                )}
+
+                {engineerEndorsedToZoning && !isEndorsed && (
                     <div className="col-span-12 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
                         <div>
                             <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">⚠️ Awaiting Zoning Endorsement</p>
-                            <p className="text-[11px] font-medium opacity-90">Please specify the Zoning & Locational Clearance charges. The application will be forwarded to Treasury once endorsed.</p>
+                            <p className="text-[11px] font-medium opacity-90">Please specify the Zoning & Locational Clearance charges. The application will be forwarded to the Municipal Engineer once endorsed.</p>
                         </div>
                     </div>
                 )}
@@ -378,8 +365,8 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                 {isEndorsed && !["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(transaction.status) && (
                     <div className="col-span-12 bg-[#006A2E]/10 border border-[#006A2E]/20 text-[#006A2E] dark:text-green-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
                         <div>
-                            <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">✅ Fees Successfully Endorsed to Treasury</p>
-                            <p className="text-[11px] font-medium opacity-90">The building permit fees have been successfully calculated, locked, and endorsed to the Treasury department for collection.</p>
+                            <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">✅ Fees Successfully Endorsed to Engineering</p>
+                            <p className="text-[11px] font-medium opacity-90">The building permit fees have been successfully calculated, locked, and endorsed to the Municipal Engineer for review.</p>
                         </div>
                         <Button onClick={() => router.push(backUrl)} size="sm" className="bg-[#006A2E] hover:bg-emerald-800 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">
                             Return to Dashboard
@@ -406,8 +393,8 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                     <div className="bg-gradient-to-r from-emerald-500/10 to-[#0c4a6e]/10 dark:from-emerald-500/5 dark:to-[#0c4a6e]/5 border border-emerald-500/20 dark:border-emerald-500/10 rounded-[2rem] p-8 flex items-center justify-between shadow-sm relative overflow-hidden">
                         <div className="space-y-2 relative z-10">
                             <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-[0.2em] italic">Phase 4: Fee & Charges Assessment</span>
-                            <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">TREASURY ENDORSEMENT</h2>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Specify the official building fees. These values will be endorsed to Treasury for final verification, penalty calculations, and citizen billing.</p>
+                            <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">ENGINEERING ENDORSEMENT</h2>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Specify the official building fees. These values will be endorsed to the Municipal Engineer for review before final Treasury assessment.</p>
                         </div>
                         <div className="text-5xl font-black italic text-emerald-500/20 select-none hidden md:block">ASSESS</div>
                     </div>
@@ -507,6 +494,86 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                         </div>
                     </div>
 
+                    {/* Zoning Clearance Upload */}
+                    {showZoningClearanceUpload && (
+                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
+                            <div>
+                                <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
+                                    Upload Zoning <span className="text-primary">Clearance</span>
+                                </h2>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">Upload the zoning or locational clearance before endorsing the fee assessment to the Engineer.</p>
+                            </div>
+
+                        <input
+                            ref={zoningClearanceInputRef}
+                            type="file"
+                            accept=".pdf,.png,.jpg,.jpeg"
+                            className="hidden"
+                            onChange={handleZoningClearanceInputChange}
+                        />
+
+                        <div className="rounded-[1.5rem] border border-dashed border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-white/[0.03] p-6 sm:p-8">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                        <ArrowLeft className="w-5 h-5 rotate-90" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-black uppercase tracking-widest italic text-[#1e293b] dark:text-white">
+                                            Upload Zoning Clearance
+                                        </p>
+                                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                            PDF or image file only, max 5MB.
+                                        </p>
+                                        {zoningClearanceFile && (
+                                            <p className="text-[11px] font-bold text-primary break-all">
+                                                Selected: {zoningClearanceFile.name}
+                                            </p>
+                                        )}
+                                        {!zoningClearanceFile && zoningClearanceUrl && (
+                                            <p className="text-[11px] font-bold text-emerald-500 break-all">
+                                                Uploaded: {transaction.additionalData?.zoningClearanceUrl ? "Existing clearance loaded" : zoningClearanceUrl}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col sm:items-end gap-3">
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            onClick={triggerZoningClearancePicker}
+                                            disabled={uploading || isViewOnly}
+                                            className="h-11 rounded-xl bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest italic text-[10px] px-5 disabled:opacity-50"
+                                        >
+                                            {uploading ? "Uploading..." : "Choose File"}
+                                        </Button>
+                                        {(zoningClearanceUrl || transaction.additionalData?.zoningClearanceUrl) && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    const url = zoningClearanceUrl || transaction.additionalData?.zoningClearanceUrl;
+                                                    if (!url) return;
+                                                    setViewerUrl(url);
+                                                    setViewerTitle("Zoning Clearance");
+                                                    setViewerOpen(true);
+                                                }}
+                                                className="h-11 rounded-xl border-primary/20 text-primary hover:bg-primary/5 font-black uppercase tracking-widest italic text-[10px] px-5"
+                                            >
+                                                View
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
+                                        {uploading ? "Uploading document..." : isViewOnly ? "Read-only mode" : "Click Choose File to select a document"}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    )}
+
                     {/* Specify Official Endorsement Fees Block */}
                     <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
                         <div className="flex items-center gap-3">
@@ -515,60 +582,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                            <div className="space-y-3">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Building Permit Fee (₱) *</Label>
-                                <Input
-                                    type="text"
-                                    placeholder="0.00"
-                                    value={formatNumberWithCommas(buildingFee)}
-                                    onChange={(e) => {
-                                        const cleanVal = cleanCommaNumber(e.target.value);
-                                        const decimalCount = (cleanVal.match(/\./g) || []).length;
-                                        if (decimalCount > 1) return;
-                                        setBuildingFee(cleanVal);
-                                    }}
-                                    disabled={isViewOnly || userRole === "MPDC_ZONING"}
-                                    className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100"
-                                />
-                            </div>
 
-                            <div className="col-span-1 md:col-span-2 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Other Applicable Municipal Charges</Label>
-                                </div>
-
-                                {engineerMunicipalCharges.map((charge, index) => (
-                                    <div key={index} className="flex items-center gap-4">
-                                        <Input
-                                            type="text"
-                                            placeholder="Fee Name (e.g. Zoning Fee)"
-                                            value={charge.name}
-                                            onChange={(e) => {
-                                                const newCharges = [...engineerMunicipalCharges];
-                                                newCharges[index].name = e.target.value;
-                                                setEngineerMunicipalCharges(newCharges);
-                                            }}
-                                            disabled={isViewOnly || userRole === "MPDC_ZONING"}
-                                            className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 flex-1"
-                                        />
-                                        <Input
-                                            type="text"
-                                            placeholder="0.00"
-                                            value={formatNumberWithCommas(charge.amount)}
-                                            onChange={(e) => {
-                                                const cleanVal = cleanCommaNumber(e.target.value);
-                                                const decimalCount = (cleanVal.match(/\./g) || []).length;
-                                                if (decimalCount > 1) return;
-                                                const newCharges = [...engineerMunicipalCharges];
-                                                newCharges[index].amount = cleanVal;
-                                                setEngineerMunicipalCharges(newCharges);
-                                            }}
-                                            disabled={isViewOnly || userRole === "MPDC_ZONING"}
-                                            className="h-12 rounded-xl text-slate-700 font-bold dark:text-slate-100 w-[150px]"
-                                        />
-                                    </div>
-                                ))}
-                            </div>
 
                             {/* ZONING CHARGES BLOCK */}
                             {(userRole === "MPDC_ZONING" || zoningMunicipalCharges.some(c => c.name || c.amount) || transaction.additionalData?.feeAssessment?.zoningMunicipalCharges?.length > 0) && (
@@ -643,87 +657,15 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
                             {/* TOTAL AMOUNT BLOCK */}
                             <div className="pt-6 border-t border-dashed border-slate-100 dark:border-white/5 flex justify-between items-center col-span-2">
-                                <span className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Endorsed Amount</span>
+                                <span className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Zoning Amount</span>
                                 <span className="text-xl font-black italic text-primary">
                                     ₱{Number(
-                                        (Number(buildingFee) || 0) +
-                                        engineerMunicipalCharges.reduce((sum, c) => sum + (Number(c.amount) || 0), 0) +
-                                        zoningMunicipalCharges.reduce((sum, c) => sum + (Number(c.amount) || 0), 0) +
-                                        (transaction.additionalData?.feeAssessment?.additionalFees || []).reduce((sum: number, f: any) => sum + Number(f.amount || 0), 0)
+                                        zoningMunicipalCharges.reduce((sum, c) => sum + (Number(c.amount) || 0), 0)
                                     ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                 </span>
                             </div>
                         </div>
                     </div>
-
-                    {/* Zoning Clearance Upload Block for MPDC_ZONING */}
-                    {userRole === "MPDC_ZONING" && isEndorsed && transaction?.additionalData?.zoningStatus === "ENDORSED" && (
-                        <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-300">
-                            <div>
-                                <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
-                                    Upload Zoning <span className="text-primary">Clearance</span>
-                                </h2>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">Upload the scanned or digital copy of the approved Zoning/Locational Clearance to send to the Engineer.</p>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-8 text-center bg-slate-50/50 dark:bg-white/5 hover:bg-slate-100/50 dark:hover:bg-white/10 transition-all duration-300 relative group">
-                                    <input
-                                        type="file"
-                                        id="zoningClearanceUpload"
-                                        onChange={handleZoningClearanceUpload}
-                                        accept="application/pdf,image/*"
-                                        disabled={uploading}
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
-                                    />
-                                    <div className="flex flex-col items-center justify-center gap-4">
-                                        <div className="p-4 bg-primary/10 rounded-2xl group-hover:scale-110 transition-transform">
-                                            <Upload className="w-8 h-8 text-primary" />
-                                        </div>
-                                        <div>
-                                            <span className="text-xs font-black uppercase tracking-wider text-slate-600 block dark:text-slate-300">Drag & Drop or Click to Upload</span>
-                                            <span className="text-[10px] font-bold text-slate-400 block mt-1">PDF or Images up to 10MB</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {zoningClearanceUrl && (
-                                <div className="flex flex-col gap-6">
-                                    <div className="p-6 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-2xl flex items-center justify-between shadow-sm">
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-3 bg-emerald-500/10 rounded-xl">
-                                                <Check className="w-6 h-6 text-emerald-500" />
-                                            </div>
-                                            <div>
-                                                <span className="text-xs font-black uppercase tracking-widest italic text-emerald-500">Clearance Ready</span>
-                                                <span className="text-[11px] font-medium text-slate-400 block mt-0.5">Click preview to view the uploaded file.</span>
-                                            </div>
-                                        </div>
-                                        <Button
-                                            onClick={() => {
-                                                setViewerUrl(zoningClearanceUrl);
-                                                setViewerTitle("Zoning Clearance");
-                                                setViewerOpen(true);
-                                            }}
-                                            variant="outline"
-                                            className="h-10 gap-2 font-black text-[10px] uppercase tracking-wider rounded-xl"
-                                        >
-                                            Preview <ExternalLink className="w-3.5 h-3.5" />
-                                        </Button>
-                                    </div>
-
-                                    <Button
-                                        onClick={handleSubmitZoningClearance}
-                                        disabled={actionLoading || !zoningClearanceUrl}
-                                        className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5"
-                                    >
-                                        {actionLoading ? "Submitting..." : "Submit Zoning Clearance to Engineer"}
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-                    )}
 
                     {/* BFP Clearance Vault */}
                     {transaction.additionalData?.bfpClearanceUrl && (
@@ -827,11 +769,11 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                     <div className="space-y-4">
                         {!isViewOnly && userRole === "MPDC_ZONING" && (
                             <Button
-                                onClick={handleEndorse}
-                                disabled={actionLoading}
+                                onClick={handleSubmitZoningClearance}
+                                disabled={actionLoading || uploading || !zoningClearanceUrl}
                                 className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-xs transition-all shadow-xl shadow-green-900/20 active:scale-95"
                             >
-                                <Check className="w-4 h-4 mr-2" /> Endorse Payment Assessment
+                                <Check className="w-4 h-4 mr-2" /> Endorse Payment Fees + Zoning Clearance
                             </Button>
                         )}
                         {isEndorsed && userRole !== "MPDC_ZONING" && (
@@ -875,18 +817,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                             </div>
                                         )}
 
-                                        {!transaction.additionalData?.zoningClearanceUrl ? (
-                                            <div className="p-4 bg-red-500/5 border border-red-500/20 text-red-500 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
-                                                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 animate-pulse" />
-                                                <span>Awaiting Zoning/Locational Clearance upload from Resident.</span>
-                                            </div>
-                                        ) : (
-                                            <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 rounded-xl text-[9px] font-bold uppercase tracking-wider italic flex items-start gap-2">
-                                                <Check className="w-4 h-4 shrink-0 mt-0.5" />
-                                                <span>Zoning/Locational Clearance Proof has been submitted by Zoning Officer!</span>
-                                            </div>
-                                        )}
-
                                         {(userRole === "ENGINEER" || userRole === "MPDC_ZONING") && (
                                             <div className="pt-2 space-y-3">
                                                 {(transaction.additionalData?.clearanceRevisionCount || 0) > 0 && (
@@ -904,24 +834,6 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                                     <BadgeCheck className="w-4 h-4 mr-2" /> Approve & Process Permit
                                                 </Button>
 
-                                                <div className="flex items-center gap-3">
-                                                    <Button
-                                                        onClick={() => { setReasonText(""); setReviseModalOpen(true); }}
-                                                        disabled={actionLoading || !transaction.additionalData?.bfpClearanceUrl || !transaction.additionalData?.zoningClearanceUrl || !transaction.additionalData?.clearancesSubmitted}
-                                                        variant="outline"
-                                                        className="flex-1 h-12 rounded-xl border-amber-500/50 text-amber-500 hover:bg-amber-500/10 font-black italic uppercase tracking-widest text-[10px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        <RefreshCw className="w-3.5 h-3.5 mr-2" /> Revise Clearances
-                                                    </Button>
-                                                    <Button
-                                                        onClick={() => { setReasonText(""); setDeclineModalOpen(true); }}
-                                                        disabled={actionLoading || !transaction.additionalData?.bfpClearanceUrl || !transaction.additionalData?.zoningClearanceUrl || !transaction.additionalData?.clearancesSubmitted}
-                                                        variant="outline"
-                                                        className="flex-1 h-12 rounded-xl border-red-500/50 text-red-500 hover:bg-red-500/10 font-black italic uppercase tracking-widest text-[10px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        <FileWarning className="w-3.5 h-3.5 mr-2" /> Decline Permit
-                                                    </Button>
-                                                </div>
                                             </div>
                                         )}
                                     </div>

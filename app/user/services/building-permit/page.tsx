@@ -85,7 +85,7 @@ const STEPS = [
   { id: "PROFILE", label: "Profile", icon: User },
   { id: "DOCUMENTS", label: "Upload", icon: Upload },
   { id: "EVALUATION", label: "Evaluation", icon: Building2 },
-  { id: "TREASURY", label: "Treasury & Zoning", icon: Landmark },
+  { id: "BFP", label: "BFP", icon: Landmark },
   { id: "SUBMIT", label: "Submit", icon: CheckCircle2 },
 ];
 
@@ -366,6 +366,39 @@ const getEngineeringStatusLabel = (status: string) => {
     default:
       return status.replace(/_/g, ' ');
   }
+};
+
+const getDisplayStatusDetails = (app: any) => {
+  if (app.isCancelled || app.status === "CANCELLED") {
+    return { label: "CANCELLED", colorClass: "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500" };
+  }
+  if (app.status === "REJECTED" || (app.status === "EVALUATED" && app.additionalData?.zoningStatus === "REJECTED")) {
+    return { 
+      label: app.status === "REJECTED" ? "REJECTED" : "ZONING REJECTED", 
+      colorClass: "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500" 
+    };
+  }
+  if (app.status === "RELEASED" || app.status === "DELIVERED") {
+    return { 
+      label: app.status.replace(/_/g, ' '), 
+      colorClass: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500" 
+    };
+  }
+  
+  if (app.status === "EVALUATED" && app.additionalData?.zoningStatus) {
+    if (app.additionalData.zoningStatus === "EVALUATED") {
+      return { label: "ZONING EVALUATED", colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" };
+    }
+    return { 
+      label: `ZONING ${app.additionalData.zoningStatus.replace(/_/g, ' ')}`, 
+      colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" 
+    };
+  }
+
+  return { 
+    label: app.status ? app.status.replace(/_/g, ' ') : "PENDING", 
+    colorClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" 
+  };
 };
 
 export default function BuildingPermitPage() {
@@ -956,9 +989,6 @@ export default function BuildingPermitPage() {
         "Have them sign the document in the presence of a notary public or barangay official.",
         "If any owner is unavailable or refuses, you may need to secure a barangay certification of posting instead."
       ],
-      infoType: "tip",
-      infoLabel: "Tip",
-      infoText: "Bring a small token or be courteous when requesting signatures. This avoids future boundary disputes."
     },
     {
       id: 8,
@@ -1432,7 +1462,7 @@ export default function BuildingPermitPage() {
       </div>
 
       {/* Progress Stepper */}
-      {currentStep !== "EXISTING" && (() => {
+      {!loading && currentStep !== "EXISTING" && (() => {
         let allowedMaxIdx = 5;
         if (selectedApplication) {
           if (["FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication.status)) {
@@ -1492,7 +1522,25 @@ export default function BuildingPermitPage() {
       {/* Main Content Area */}
       <div className="mt-4 md:mt-8 md:bg-white md:dark:bg-[#11131a] md:rounded-[2.5rem] md:border md:border-slate-200 md:dark:border-white/10 p-0 md:p-12 md:shadow-2xl relative md:overflow-hidden group/container min-h-[400px] md:min-h-[500px] flex flex-col">
 
-        {currentStep === "EXISTING" && (
+        {loading && (
+          <div className="flex-1 min-h-[400px] md:min-h-[500px] flex items-center justify-center animate-in fade-in duration-300">
+            <div className="flex flex-col items-center gap-5 text-center">
+              <div className="w-20 h-20 rounded-3xl border border-primary/20 bg-primary/10 text-primary flex items-center justify-center shadow-xl shadow-primary/10 animate-pulse">
+                <Hourglass className="w-9 h-9" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tight text-slate-900 dark:text-white">
+                  Loading Building Permit
+                </h2>
+                <p className="text-xs md:text-sm font-medium uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
+                  Checking your existing applications...
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!loading && currentStep === "EXISTING" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="text-center mb-8">
               <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter leading-tight">
@@ -1535,7 +1583,7 @@ export default function BuildingPermitPage() {
                       initialStep = "SUBMIT";
                     } else if (["UNPAID", "PAID", "TREASURY_REVISION", "FOR_PROCESSING"].includes(app.status)) {
                       newMaxIdx = 4;
-                      initialStep = "TREASURY";
+                      initialStep = "BFP";
                     }
                     setMaxStepIdx(newMaxIdx);
                     setCurrentStep(initialStep);
@@ -1557,16 +1605,18 @@ export default function BuildingPermitPage() {
                   </div>
                   <div className="flex items-center gap-4">
                     {/* UPDATED: Dynamic styling kapag cancelled, rejected, or released yung application */}
-                    <span className={cn(
-                      "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full",
-                      app.isCancelled || app.status === "CANCELLED" || app.status === "REJECTED"
-                        ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                        : app.status === "RELEASED"
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
-                          : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                    )}>
-                      {app.isCancelled || app.status === "CANCELLED" ? "CANCELLED" : (app.status ? app.status.replace(/_/g, ' ') : "PENDING")}
-                    </span>
+                    {(() => {
+                      const statusDetails = getDisplayStatusDetails(app);
+                      return (
+                        <span className={cn(
+                          "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full",
+                          statusDetails.colorClass
+                        )}>
+                          {statusDetails.label}
+                        </span>
+                      );
+                    })()}
+
                     <span className="text-primary group-hover:translate-x-1 transition-transform font-bold">
                       →
                     </span>
@@ -1644,7 +1694,7 @@ export default function BuildingPermitPage() {
         )}
 
 
-        {currentStep === "GUIDE" && (
+        {!loading && currentStep === "GUIDE" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
             {/* Citizen's Charter Reference */}
             <div className="bg-primary/5 border border-primary/20 p-6 rounded-[2rem] flex flex-col md:flex-row gap-4 md:items-center justify-between shadow-sm mb-12">
@@ -1813,7 +1863,7 @@ export default function BuildingPermitPage() {
           </div>
         )}
 
-        {currentStep === "PROFILE" && (() => {
+        {!loading && currentStep === "PROFILE" && (() => {
           const displayResident = selectedApplication?.residentSnapshot || residentData;
           return (
             <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -2724,7 +2774,7 @@ export default function BuildingPermitPage() {
           );
         })()}
 
-        {currentStep === "DOCUMENTS" && (
+        {!loading && currentStep === "DOCUMENTS" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
             {/* Header */}
             <div className="space-y-3 md:space-y-4 mb-8">
@@ -3137,7 +3187,7 @@ export default function BuildingPermitPage() {
           </div>
         )}
 
-        {currentStep === "EVALUATION" && (
+        {!loading && currentStep === "EVALUATION" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
             {selectedApplication?.isCancelled && (
               <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-[2rem] flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
@@ -3322,10 +3372,10 @@ export default function BuildingPermitPage() {
                               ? "Awaiting Engineering Approval"
                               : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
                                 ? "Scheduled for Zoning Site Inspection"
-                                : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
+                              : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
                                   ? "Scheduled for Zoning Site Re-inspection"
                                   : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
-                                    ? "Zoning Assessment Endorsed"
+                                    ? "Zoning Assessment Approved"
                                     : "Zoning Clearance Under Review"}
                           </p>
                           <p className="text-xs text-slate-500 leading-normal">
@@ -3359,11 +3409,11 @@ export default function BuildingPermitPage() {
                           ? "Cancelled"
                           : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
                             ? "Pending"
-                            : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
-                              ? "Approved"
+                          : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
+                              ? "APPROVED"
                               : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
                                 ? "For Inspection"
-                                : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
+                              : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
                                   ? "For Revision"
                                   : selectedApplication?.additionalData?.zoningStatus === "REJECTED"
                                     ? "Rejected"
@@ -3427,13 +3477,15 @@ export default function BuildingPermitPage() {
                         )}
                       </div>
                       <div className="space-y-1">
-                        <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">Endorsement to Treasury</p>
+                        <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">Endorsement to BFP</p>
                         <p className="text-xs text-slate-500 leading-normal">
-                          {["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
-                            ? "Endorsed successfully to Treasury"
+                          {selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED"
+                            ? "BFP has successfully acknowledged your application"
+                            : ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
+                              ? "Endorsed successfully to BFP"
                             : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
                               ? "Awaiting Engineering and Zoning approval"
-                              : "Awaiting Zoning approval"}
+                              : "Awaiting BFP acknowledgement"}
                         </p>
                       </div>
                     </div>
@@ -3443,7 +3495,7 @@ export default function BuildingPermitPage() {
                         ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
                         : selectedApplication?.status === "UNPAID"
                           ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                          : ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
+                          : selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED" || ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
                             ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
                             : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
                     )}>
@@ -3452,10 +3504,12 @@ export default function BuildingPermitPage() {
                         : selectedApplication?.status === "REJECTED"
                           ? "Rejected"
                           : selectedApplication?.status === "UNPAID"
-                            ? "Unpaid"
-                            : ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
-                              ? "Endorsed"
-                              : "Pending"}
+                            ? "UNPAID"
+                            : selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED"
+                              ? "ACKNOWLEDGED"
+                              : ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
+                              ? "ACKNOWLEDGED"
+                              : "PENDING"}
                     </span>
                   </div>
                 </div>
@@ -3531,16 +3585,19 @@ export default function BuildingPermitPage() {
 
               {!(selectedApplication?.isCancelled || selectedApplication?.status === "CANCELLED" || selectedApplication?.status === "FOR_REVISION") && (
                 <button
-                  disabled={["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "EVALUATED"].includes(selectedApplication?.status || "")}
+                  disabled={selectedApplication?.status !== "UNPAID"}
                   onClick={() => {
-                    setCurrentStep("TREASURY");
+                    if (selectedApplication?.status !== "UNPAID") return;
+                    setCurrentStep("BFP");
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
                   className="px-8 py-3 bg-emerald-500 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-emerald-600 shadow-xl shadow-emerald-500/20 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-800 dark:disabled:text-slate-600"
                 >
-                  {["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "EVALUATED"].includes(selectedApplication?.status || "")
-                    ? "Awaiting Treasury Billing"
-                    : "Next: Treasury & Zoning →"}
+                  {selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED"
+                    ? "AWAITING ENGINEER PAYMENT ENDORSEMENT"
+                    : selectedApplication?.status === "UNPAID"
+                      ? "OPEN PAYMENT ENDORSEMENT"
+                    : "Next: BFP →"}
                 </button>
               )}
             </div>
@@ -3571,18 +3628,18 @@ export default function BuildingPermitPage() {
           </div>
         )}
 
-        {currentStep === "TREASURY" && (
+        {!loading && currentStep === "BFP" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="bg-white dark:bg-black/20 rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-sm">
               <h2 className="text-xl font-black text-slate-800 dark:text-white flex items-center gap-3 mb-6">
                 <Landmark className="w-6 h-6 text-primary" />
-                Treasury & Zoning/BFP Status
+                BFP Acknowledgement Status
               </h2>
 
               <div className="border border-slate-200 dark:border-white/10 rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-6">
                   <Receipt className="w-6 h-6 text-slate-700 dark:text-slate-300" />
-                  <h3 className="font-bold text-slate-800 dark:text-white text-lg">Payment Processing</h3>
+                  <h3 className="font-bold text-slate-800 dark:text-white text-lg">BFP Review Processing</h3>
                 </div>
 
                 {selectedApplication?.fiscalSnapshot && (selectedApplication.fiscalSnapshot as any).lineItems && (
@@ -3733,7 +3790,7 @@ export default function BuildingPermitPage() {
           </div>
         )}
 
-        {currentStep === "SUBMIT" && (
+        {!loading && currentStep === "SUBMIT" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="bg-white dark:bg-black/20 rounded-2xl border border-slate-200 dark:border-white/10 p-10 shadow-sm text-center">
               <div className="w-20 h-20 bg-[#1e293b] dark:bg-white text-white dark:text-slate-900 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
@@ -3757,7 +3814,7 @@ export default function BuildingPermitPage() {
                 )}
               </p>
 
-              {selectedApplication?.eCopyUrl ? (
+              {selectedApplication?.eCopyUrl && ["FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(selectedApplication?.status || "") ? (
                 <div className="max-w-2xl mx-auto space-y-4 mb-6">
                   {/* Official Permit */}
                   <div className="border-2 border-emerald-500/50 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 bg-emerald-500/5">
@@ -3874,7 +3931,7 @@ export default function BuildingPermitPage() {
             <div className="flex justify-start items-center mt-6">
               <button
                 onClick={() => {
-                  setCurrentStep("TREASURY");
+                  setCurrentStep("BFP");
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
                 className="bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-white hover:bg-slate-200 dark:hover:bg-white/20 font-bold uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-2 px-5 py-2.5 border-2 border-slate-200 dark:border-white/20 rounded-full transition-colors shadow-sm"

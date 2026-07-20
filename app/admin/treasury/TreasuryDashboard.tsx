@@ -376,6 +376,10 @@ export default function TreasuryDashboard() {
             if (!allowedStatuses.includes(tx.status)) {
                 return false;
             }
+            // Only show EVALUATED if Engineering has already endorsed it
+            if (tx.status === "EVALUATED" && tx.additionalData?.feeAssessment?.endorsed !== true) {
+                return false;
+            }
         }
 
         // For Civil Registry, Treasury only needs to see FOR_REQUESTING, PAID, and UNPAID when active (EVALUATED is hidden)

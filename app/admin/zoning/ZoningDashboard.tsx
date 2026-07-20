@@ -29,14 +29,18 @@ import { useRouter } from "next/navigation";
 
 const STATUS_TABS = [
     { value: "ALL", label: "All", color: "text-slate-600", activeColor: "bg-slate-900 text-white dark:bg-white dark:text-slate-900" },
-    { value: "FOR_REQUESTING", label: "Evaluation", color: "text-amber-600", activeColor: "bg-amber-500 text-white" },
-    { value: "FOR_REVISION", label: "For Revision", color: "text-amber-600", activeColor: "bg-amber-600 text-white" },
-    { value: "FOR_INSPECTION", label: "For Inspection", color: "text-purple-600", activeColor: "bg-purple-500 text-white" },
-    { value: "FOR_PROCESSING", label: "Processing", color: "text-sky-600", activeColor: "bg-sky-500 text-white" },
-    { value: "FOR_CLAIM", label: "For Claim", color: "text-indigo-600", activeColor: "bg-indigo-500 text-white" },
+    { value: "FOR_REQUESTING", label: "FOR REQUESTING", color: "text-amber-600", activeColor: "bg-amber-500 text-white" },
+    { value: "FOR_REVISION", label: "FOR REVISION", color: "text-amber-600", activeColor: "bg-amber-600 text-white" },
+    { value: "FOR_INSPECTION", label: "FOR INSPECTION", color: "text-purple-600", activeColor: "bg-purple-500 text-white" },
+    { value: "FOR_REINSPECTION", label: "FOR REINSPECTION", color: "text-violet-600", activeColor: "bg-violet-500 text-white" },
+    { value: "EVALUATED", label: "EVALUATED", color: "text-emerald-600", activeColor: "bg-emerald-500 text-white" },
+    { value: "ENDORSED", label: "ENDORSED", color: "text-orange-600", activeColor: "bg-orange-500 text-white" },
     { value: "PAID", label: "Paid", color: "text-emerald-600", activeColor: "bg-emerald-500 text-white" },
+    { value: "FOR_PROCESSING", label: "FOR PROCESSING", color: "text-sky-600", activeColor: "bg-sky-500 text-white" },
+    { value: "FOR_CLAIM", label: "FOR CLAIM", color: "text-indigo-600", activeColor: "bg-indigo-500 text-white" },
     { value: "RELEASED", label: "Released", color: "text-blue-600", activeColor: "bg-blue-500 text-white" },
-    { value: "REJECTED", label: "Rejected", color: "text-red-600", activeColor: "bg-red-500 text-white" },
+    { value: "DELIVERED", label: "DELIVERED", color: "text-cyan-600", activeColor: "bg-cyan-500 text-white" },
+    { value: "REJECTED", label: "ENG. REJECTED", color: "text-red-600", activeColor: "bg-red-500 text-white" },
     { value: "CANCELLED", label: "Cancelled", color: "text-slate-600", activeColor: "bg-slate-500 text-white" }
 ];
 
@@ -60,6 +64,10 @@ function getResidentSnapshot(tx: any): any {
         }
     }
     return tx.residentSnapshot;
+}
+
+function isPendingEngineeringTransaction(tx: any): boolean {
+    return !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED", "REJECTED", "CANCELLED"].includes(tx.status || "");
 }
 
 export default function ZoningDashboard() {
@@ -130,7 +138,14 @@ export default function ZoningDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search, status, itemsPerPage]);
 
-    const filteredTransactions = transactions.filter(tx => {
+    const visibleTransactions = transactions.filter(tx => !isPendingEngineeringTransaction(tx));
+
+    const displayedTabs = STATUS_TABS.filter(tab => {
+        if (tab.value === "ALL") return true;
+        return (statusCounts[tab.value] || 0) > 0 || status === tab.value;
+    });
+
+    const filteredTransactions = visibleTransactions.filter(tx => {
         const rs = getResidentSnapshot(tx);
         const name = `${rs.firstName || ''} ${rs.lastName || ''}`.trim().toLowerCase();
         const refId = tx.id.slice(-8).toUpperCase();
@@ -174,7 +189,7 @@ export default function ZoningDashboard() {
                         {/* Status Tabs */}
                         <div className="px-4 pt-4 flex items-center gap-2 flex-wrap">
                             <TabsList className="bg-transparent p-0 h-auto flex-wrap justify-start gap-2">
-                                {STATUS_TABS.map(tab => {
+                                {displayedTabs.map(tab => {
                                     const isActive = status === tab.value;
                                     const count = tab.value === "ALL"
                                         ? Object.values(statusCounts).reduce((a, b) => a + b, 0)
@@ -311,6 +326,9 @@ export default function ZoningDashboard() {
                                                     } else if (tx.status === "REJECTED") {
                                                         displayStatus = "ENG. REJECTED";
                                                         colorClass = "text-red-600";
+                                                    } else if (tx.status === "RELEASED") {
+                                                        displayStatus = "RELEASED";
+                                                        colorClass = "text-blue-600";
                                                     } else if (isPendingEngineering) {
                                                         displayStatus = "PENDING ENGINEERING";
                                                         colorClass = "text-amber-600 opacity-70";
