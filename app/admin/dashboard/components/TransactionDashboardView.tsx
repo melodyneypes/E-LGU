@@ -70,7 +70,6 @@ export function TransactionDashboardView({
   initialTo,
   categories,
   activeCategory,
-  themeColor = "#2563eb",
 }: TransactionDashboardViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();

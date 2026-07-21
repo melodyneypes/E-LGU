@@ -1,7 +1,6 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 
 /**
  * Server action to securely clear all session cookies and redirect to the login page.

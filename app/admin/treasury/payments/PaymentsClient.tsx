@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef, useTransition } from "react";
+import React, { useState, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import Link from "next/link";
 import {
@@ -13,18 +12,11 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, Copy, Check, RefreshCcw, DollarSign, CheckCircle2, CalendarIcon, X, FileDown, ChevronDown, FileSpreadsheet, ChevronLeft, ChevronRight, Loader2, ArrowLeft, FileText, CheckCircle, Clock, AlertTriangle, Eye, RotateCcw, Folder, TrendingUp } from "lucide-react";
+import { Search, Copy, Check, DollarSign, CalendarIcon, FileSpreadsheet, ChevronLeft, ChevronRight, Loader2, ArrowLeft, FileText, RotateCcw, Folder } from "lucide-react";
 import { toast } from "sonner";
-import { getPaymentsLedger } from "./actions";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface PaymentRecord {
     id: string;
@@ -106,14 +98,22 @@ export default function PaymentsClient({
     const [limit, setLimit] = useState(10);
     const abortControllerRef = useRef<AbortController | null>(null);
 
-    const [loading, setLoading] = useState(false);
     const [isPending, startTransition] = useTransition();
     const [isExportingExcel, setIsExportingExcel] = useState(false);
     const [isExportingPdf, setIsExportingPdf] = useState(false);
 
+    const [searchVal, setSearchVal] = useState(initialSearch);
     const [search, setSearch] = useState(initialSearch);
     const [methodFilter, setMethodFilter] = useState<string>(initialMethod);
     const [categoryFilter, setCategoryFilter] = useState<string>(initialCategory);
+
+    // Debounce search query to reduce database/server pressure
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setSearch(searchVal);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchVal]);
 
     const [fromDate, setFromDate] = useState(() => {
         if (initialFrom) return initialFrom;
@@ -129,15 +129,13 @@ export default function PaymentsClient({
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const router = useRouter();
 
-    const fetchPaymentsData = (pageNumber = 1, currentLimit = limit, silent = false) => {
+    const fetchPaymentsData = (pageNumber = 1, currentLimit = limit) => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
 
         const controller = new AbortController();
         abortControllerRef.current = controller;
-
-        if (!silent) setLoading(true);
 
         startTransition(async () => {
             try {
@@ -178,8 +176,6 @@ export default function PaymentsClient({
                 if (!isAbort) {
                     toast.error(error.message || "Failed to retrieve payments data.");
                 }
-            } finally {
-                if (!silent) setLoading(false);
             }
         });
     };
@@ -195,6 +191,7 @@ export default function PaymentsClient({
         if (toDate !== defaultTo) { setToDate(defaultTo); changed = true; }
         if (categoryFilter !== "ALL") { setCategoryFilter("ALL"); changed = true; }
         if (methodFilter !== "ALL") { setMethodFilter("ALL"); changed = true; }
+        if (searchVal !== "") { setSearchVal(""); changed = true; }
         if (search !== "") { setSearch(""); changed = true; }
 
         if (!changed) {
@@ -239,7 +236,7 @@ export default function PaymentsClient({
         eventSource.onmessage = (event) => {
             if (event.data === "refresh") {
                 console.log("[PaymentsClient] SSE refresh event received, updating ledger...");
-                fetchPaymentsData(currentPage, limit, true);
+                fetchPaymentsData(currentPage, limit);
             }
         };
 
@@ -711,8 +708,6 @@ export default function PaymentsClient({
         }
     };
 
-    const filteredPayments = payments;
-
     const formatDateTime = (dateStr: string) => {
         const d = new Date(dateStr);
         return {
@@ -876,8 +871,8 @@ export default function PaymentsClient({
                         <input
                             type="text"
                             placeholder="Search Name, Ref or Business..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
+                            value={searchVal}
+                            onChange={(e) => setSearchVal(e.target.value)}
                             className="w-full pl-10 pr-4 h-11 bg-slate-50 dark:bg-[#0f1117] border border-slate-200 dark:border-[#2a3040] rounded-xl outline-none text-xs font-medium text-slate-700 dark:text-slate-200 focus:border-blue-500 transition-colors shadow-inner"
                         />
                     </div>
@@ -912,14 +907,19 @@ export default function PaymentsClient({
                         </TableHeader>
                         <TableBody>
                             {isPending ? (
-                                <TableRow>
-                                    <TableCell colSpan={9} className="py-12 text-center">
-                                        <div className="flex items-center justify-center gap-2">
-                                            <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
-                                            <span className="font-bold italic text-slate-500 dark:text-slate-400">Loading ledger data...</span>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
+                                Array.from({ length: 5 }).map((_, i) => (
+                                    <TableRow key={`skeleton-${i}`} className="border-b border-slate-100 dark:border-[#2a3040]/50 animate-pulse">
+                                        <TableCell className="py-4 pl-6 w-12"><div className="h-4 w-4 bg-slate-200 dark:bg-slate-700 rounded mx-auto" /></TableCell>
+                                        <TableCell className="py-4"><div className="h-4 w-28 bg-slate-200 dark:bg-slate-700 rounded" /></TableCell>
+                                        <TableCell><div className="h-4 w-36 bg-slate-200 dark:bg-slate-700 rounded" /></TableCell>
+                                        <TableCell><div className="h-4 w-24 bg-slate-200 dark:bg-slate-700 rounded" /></TableCell>
+                                        <TableCell><div className="h-4 w-12 bg-slate-200 dark:bg-slate-700 rounded" /></TableCell>
+                                        <TableCell><div className="h-4 w-16 bg-slate-200 dark:bg-slate-700 rounded" /></TableCell>
+                                        <TableCell><div className="h-4 w-12 bg-slate-200 dark:bg-slate-700 rounded" /></TableCell>
+                                        <TableCell><div className="h-4 w-24 bg-slate-200 dark:bg-slate-700 rounded" /></TableCell>
+                                        <TableCell className="pr-6"><div className="h-4 w-28 bg-slate-200 dark:bg-slate-700 rounded ml-auto" /></TableCell>
+                                    </TableRow>
+                                ))
                             ) : payments.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={9} className="py-12 text-center font-bold italic text-slate-400">

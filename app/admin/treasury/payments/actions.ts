@@ -156,21 +156,27 @@ export async function getPaymentsLedger(params: {
             }
         }
 
-        // Calculate stats on filtered subset
-        const allMatchingPayments = await prisma.payment.findMany({
-            where: whereClause,
-            select: {
-                amount: true,
-                status: true
-            }
-        });
+        // Calculate stats on filtered subset using database-level aggregation
+        const [statsResult, totalCount] = await Promise.all([
+            prisma.payment.aggregate({
+                where: {
+                    ...whereClause,
+                    status: "PAID"
+                },
+                _sum: {
+                    amount: true
+                },
+                _count: {
+                    id: true
+                }
+            }),
+            prisma.payment.count({
+                where: whereClause
+            })
+        ]);
 
-        const totalPaid = allMatchingPayments
-            .filter(p => p.status === "PAID")
-            .reduce((sum, p) => sum + p.amount, 0);
-
-        const paidCount = allMatchingPayments.filter(p => p.status === "PAID").length;
-        const totalCount = allMatchingPayments.length;
+        const totalPaid = statsResult._sum.amount || 0;
+        const paidCount = statsResult._count.id || 0;
         const totalPages = Math.ceil(totalCount / limit);
 
         // Query paginated items
