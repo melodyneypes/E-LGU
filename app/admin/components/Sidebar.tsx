@@ -724,6 +724,7 @@ export function Sidebar({
                                                                     <Link
                                                                         id={isSubActive ? "active-sidebar-link" : undefined}
                                                                         href={sub.href}
+                                                                        prefetch={false}
                                                                         className={cn(
                                                                             "flex items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg transition-all",
                                                                             isSubActive
@@ -777,6 +778,7 @@ export function Sidebar({
                                         )}
                                         <Link
                                             href={item.href || "#"}
+                                            prefetch={false}
                                             id={isActive ? "active-sidebar-link" : undefined}
                                             className={cn(
                                                 "flex items-center justify-between px-3 py-2.5 rounded-lg font-medium transition-all duration-200 group",

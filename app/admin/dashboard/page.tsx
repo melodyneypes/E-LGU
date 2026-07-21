@@ -17,6 +17,7 @@ import { LatestNewsCard } from "./components/LatestNewsCard";
 import { UpcomingEventsCard } from "./components/UpcomingEventsCard";
 import { LGUProjectsCard } from "./components/LGUProjectsCard";
 import { ActivityLogsCard } from "./components/ActivityLogsCard";
+import { ReportsOverviewCard } from "./components/ReportsOverviewCard";
 import { DashboardClientWrapper } from "./components/DashboardClientWrapper";
 
 function getPhilippineDateString(date: Date): string {
@@ -149,7 +150,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         }
     }
 
-    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays, transactionsList, categoriesList, paymentsList, residentsList, recentAnnouncements, latestNews, upcomingEvents, pastEvents, activeProjects, recentResidents, recentReports, recentPayments, recentTransactions] = await Promise.all([
+    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays, transactionsList, categoriesList, paymentsList, residentsList, recentAnnouncements, latestNews, upcomingEvents, pastEvents, activeProjects, recentResidents, recentReports, recentPayments, recentTransactions, , , , , , , , recentReportsDetailed] = await Promise.all([
         getMultipleSystemSettings(["theme_color"]),
         prisma.resident.count({
             where: {
@@ -393,6 +394,36 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                 type: { select: { name: true } },
                 user: { select: { name: true } }
             }
+        }),
+        // Report stats: counts by status
+        prisma.report.count({ where: selectedBarangay ? { barangay: { name: selectedBarangay } } : {} }),
+        prisma.report.count({ where: { status: "PENDING", ...(selectedBarangay ? { barangay: { name: selectedBarangay } } : {}) } }),
+        prisma.report.count({ where: { status: "SEEN", ...(selectedBarangay ? { barangay: { name: selectedBarangay } } : {}) } }),
+        prisma.report.count({ where: { status: "IN_PROGRESS", ...(selectedBarangay ? { barangay: { name: selectedBarangay } } : {}) } }),
+        prisma.report.count({ where: { status: "COMPLETED", ...(selectedBarangay ? { barangay: { name: selectedBarangay } } : {}) } }),
+        prisma.report.count({ where: { status: "REJECTED", ...(selectedBarangay ? { barangay: { name: selectedBarangay } } : {}) } }),
+        // Report top categories
+        prisma.report.groupBy({
+            by: ["category"],
+            _count: { _all: true },
+            where: selectedBarangay ? { barangay: { name: selectedBarangay } } : {},
+            orderBy: { _count: { category: "desc" } },
+            take: 7
+        }),
+        // Detailed recent reports for feed
+        prisma.report.findMany({
+            where: selectedBarangay ? { barangay: { name: selectedBarangay } } : {},
+            orderBy: { createdAt: "desc" },
+            take: 7,
+            select: {
+                id: true,
+                category: true,
+                status: true,
+                description: true,
+                createdAt: true,
+                user: { select: { name: true } },
+                barangay: { select: { name: true } }
+            }
         })
     ]);
 
@@ -547,7 +578,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         }))
     ]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, 5);
+    .slice(0, 7);
 
     return (
         <div className="p-8 w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -705,6 +736,16 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     activeGender={resGender}
                     activeCivilStatus={resCivil}
                     activeSector={resSector}
+                />
+            </div>
+
+            {/* Citizen Reports Overview Section */}
+            <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                <ReportsOverviewCard
+                    initialReports={recentReportsDetailed.map((r: { id: string; category: string; status: string; description: string; createdAt: Date; user: { name: string | null } | null; barangay: { name: string } | null }) => ({
+                        ...r,
+                        createdAt: r.createdAt.toISOString()
+                    }))}
                 />
             </div>
 
