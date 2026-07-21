@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition, useRef } from "react";
+import React, { useState, useEffect, useTransition, useRef, useMemo } from "react";
 import { format } from "date-fns";
 import {
     Search, Calendar, Folder, FileSpreadsheet, FileText,
@@ -173,6 +173,23 @@ export function DailyRequestsReportClient({
         stateRef.current = { currentPage, limit };
     }, [currentPage, limit]);
 
+    // Check if filters have been modified from default states
+    const isFilterChanged = useMemo(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        const defaultFrom = d.toISOString().split("T")[0];
+        const defaultTo = new Date().toISOString().split("T")[0];
+
+        return (
+            fromDate !== defaultFrom ||
+            toDate !== defaultTo ||
+            category !== "ALL" ||
+            status !== "ALL" ||
+            barangay !== "ALL" ||
+            search !== ""
+        );
+    }, [fromDate, toDate, category, status, barangay, search]);
+
     // Real-time updates subscription using Server-Sent Events (SSE)
     useEffect(() => {
         const eventSource = new EventSource("/api/admin/reports/daily-requests/stream");
@@ -193,9 +210,7 @@ export function DailyRequestsReportClient({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const handleSearchSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-    };
+
 
     const handleRefresh = () => {
         const d = new Date();
@@ -714,7 +729,7 @@ export function DailyRequestsReportClient({
     };
 
     return (
-        <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+        <div className="p-8 w-full space-y-8 animate-in fade-in duration-500">
             {/* Header & Back Button */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-200 dark:border-[#2a3040]">
                 <div className="space-y-2">
@@ -822,9 +837,9 @@ export function DailyRequestsReportClient({
             </div>
 
             {/* Filters Dashboard Card */}
-            <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2rem] p-6 shadow-md space-y-6">
+            <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2rem] p-6 shadow-md">
                 {/* Top Row: Filters */}
-                <div className="flex flex-wrap items-center gap-4 w-full">
+                <div className="flex flex-wrap items-center gap-4 w-full mb-6">
                     {/* Date From */}
                     <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl w-full sm:w-[190px]">
                         <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
@@ -905,31 +920,29 @@ export function DailyRequestsReportClient({
                         </div>
                     )}
 
-                    {/* Refresh Button */}
-                    <button
-                        onClick={handleRefresh}
-                        className="h-10 w-10 rounded-xl flex items-center justify-center border border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#1e2330] hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-slate-600 dark:text-slate-300 disabled:opacity-40 cursor-pointer shrink-0"
-                        disabled={isPending}
-                        title="Refresh data"
-                    >
-                        <RefreshCcw className={`w-4 h-4 ${isPending ? "animate-spin" : ""}`} />
-                    </button>
-                </div>
-
-                {/* Bottom Row: Search Bar */}
-                <div className="w-full pt-2 flex justify-end">
-                    <form onSubmit={handleSearchSubmit} className="relative w-full sm:w-[320px] lg:w-[360px]">
+                    {/* Search Bar inline */}
+                    <div className="relative w-full sm:w-[260px] sm:ml-auto shrink-0">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                         <input
                             type="text"
                             placeholder="Search Name or Ref ID..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] text-xs font-bold rounded-xl outline-none text-slate-700 dark:text-slate-200 placeholder-slate-400"
+                            className="w-full pl-10 pr-4 h-11 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] text-xs font-bold rounded-xl outline-none text-slate-700 dark:text-slate-200 placeholder-slate-400 animate-in fade-in duration-300"
                         />
-                        <button type="submit" className="absolute inset-y-0 left-3 flex items-center">
-                            <Search className="w-4 h-4 text-slate-400" />
+                    </div>
+
+                    {/* Refresh Button */}
+                    {isFilterChanged && (
+                        <button
+                            onClick={handleRefresh}
+                            className="h-11 w-11 rounded-xl flex items-center justify-center border border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#1e2330] hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-slate-600 dark:text-slate-300 disabled:opacity-40 cursor-pointer shrink-0 animate-in zoom-in duration-200"
+                            disabled={isPending}
+                            title="Refresh data"
+                        >
+                            <RefreshCcw className={`w-4 h-4 ${isPending ? "animate-spin" : ""}`} />
                         </button>
-                    </form>
+                    )}
                 </div>
 
                 {/* Table Data View */}

@@ -78,7 +78,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
-import { getSecureUploadUrlAction } from "@/app/auth/actions";
+import { getSecureUploadUrlsAction } from "@/app/auth/actions";
+import { mapWithConcurrency } from "@/lib/async/map-with-concurrency";
 
 const STEPS = [
   { id: "GUIDE", label: "Guide", icon: ClipboardList },
@@ -1153,18 +1154,15 @@ export default function BuildingPermitPage() {
     }
   };
 
-  const uploadFileClientSide = async (file: File | null, folder: string, keyName: string): Promise<string | null> => {
+  const uploadFileClientSide = async (
+    file: File | null,
+    keyName: string,
+    target: { signedUrl: string; publicUrl: string }
+  ): Promise<string | null> => {
     if (!file) return null;
     try {
       const fileToUpload = file.type.startsWith("image/") ? await compressImage(file) : file;
-      const fileExt = fileToUpload.name.split('.').pop() || 'bin';
-      const secureFieldName = `${folder}_${keyName}`;
-      const res = await getSecureUploadUrlAction(secureFieldName, "building_permits", fileExt);
-      if (!res.success || !res.signedUrl || !res.publicUrl) {
-        throw new Error(res.error || "Failed to generate secure upload destination");
-      }
-
-      const uploadRes = await fetch(res.signedUrl, {
+      const uploadRes = await fetch(target.signedUrl, {
         method: "PUT",
         headers: {
           "Content-Type": fileToUpload.type
@@ -1176,7 +1174,7 @@ export default function BuildingPermitPage() {
         throw new Error(`Upload direct to storage failed: ${uploadRes.statusText}`);
       }
 
-      return res.publicUrl;
+      return target.publicUrl;
     } catch (err) {
       console.error(`Failed uploading ${keyName}:`, err);
       throw new Error(`Failed to upload ${file.name}`);
@@ -1204,18 +1202,38 @@ export default function BuildingPermitPage() {
     try {
       toast.loading("Submitting application...", { id: "bp-upload-toast" });
       const displayResident = selectedApplication?.residentSnapshot || residentData;
+      const uploadJobs: Array<() => Promise<void>> = [];
+      const uploadRequests: Array<{ fieldName: string; fileExt: string }> = [];
+      const uploadTargets: Array<{ signedUrl: string; publicUrl: string }> = [];
+      const queueUpload = (
+        file: File,
+        folder: string,
+        keyName: string,
+        onUploaded: (url: string | null) => void
+      ) => {
+        const targetIndex = uploadRequests.length;
+        uploadRequests.push({
+          fieldName: `${folder}_${keyName}`,
+          fileExt: file.name.split(".").pop() || "bin"
+        });
+        uploadJobs.push(async () => {
+          const target = uploadTargets[targetIndex];
+          if (!target) throw new Error("Missing secure upload destination");
+          onUploaded(await uploadFileClientSide(file, keyName, target));
+        });
+      };
 
       // 1. Upload ID
       let idFileUrl: string | null = null;
       let idBackFileUrl: string | null = null;
       if (idChoice === "UPLOAD") {
         if (formData.newIdFile) {
-          idFileUrl = await uploadFileClientSide(formData.newIdFile, "ids", "newIdFile");
+          queueUpload(formData.newIdFile, "ids", "newIdFile", url => { idFileUrl = url; });
         } else if (effectiveDocuments?.newIdFile) {
           idFileUrl = effectiveDocuments.newIdFile;
         }
         if (formData.newIdFileBack) {
-          idBackFileUrl = await uploadFileClientSide(formData.newIdFileBack, "ids", "newIdFileBack");
+          queueUpload(formData.newIdFileBack, "ids", "newIdFileBack", url => { idBackFileUrl = url; });
         } else if (effectiveDocuments?.newIdFileBack) {
           idBackFileUrl = effectiveDocuments.newIdFileBack;
         }
@@ -1225,7 +1243,7 @@ export default function BuildingPermitPage() {
           if (profileIdUrl.startsWith("data:")) {
             const file = dataURLtoFile(profileIdUrl, "profile_id");
             if (file) {
-              idFileUrl = await uploadFileClientSide(file, "ids", "newIdFile");
+              queueUpload(file, "ids", "newIdFile", url => { idFileUrl = url; });
             }
           } else if (profileIdUrl.startsWith("http")) {
             idFileUrl = profileIdUrl;
@@ -1236,7 +1254,7 @@ export default function BuildingPermitPage() {
           if (profileIdBackUrl.startsWith("data:")) {
             const file = dataURLtoFile(profileIdBackUrl, "profile_id_back");
             if (file) {
-              idBackFileUrl = await uploadFileClientSide(file, "ids", "newIdFileBack");
+              queueUpload(file, "ids", "newIdFileBack", url => { idBackFileUrl = url; });
             }
           } else if (profileIdBackUrl.startsWith("http")) {
             idBackFileUrl = profileIdBackUrl;
@@ -1247,7 +1265,7 @@ export default function BuildingPermitPage() {
       // 2. Upload TCT
       let tctFileUrl: string | null = null;
       if (formData.tctFile) {
-        tctFileUrl = await uploadFileClientSide(formData.tctFile, "tct", "tctFile");
+        queueUpload(formData.tctFile, "tct", "tctFile", url => { tctFileUrl = url; });
       } else if (effectiveDocuments?.tctFile) {
         tctFileUrl = effectiveDocuments.tctFile;
       }
@@ -1262,8 +1280,9 @@ export default function BuildingPermitPage() {
         
         const file = uploadedRequirements[i];
         if (file) {
-          const url = await uploadFileClientSide(file, "requirements", `req_${i}`);
-          if (url) finalReqUrls[`req_${i}`] = url;
+          queueUpload(file, "requirements", `req_${i}`, url => {
+            if (url) finalReqUrls[`req_${i}`] = url;
+          });
         } else {
           const existingUrl = effectiveDocuments?.[`req_${i}`];
           if (existingUrl) finalReqUrls[`req_${i}`] = existingUrl;
@@ -1275,8 +1294,9 @@ export default function BuildingPermitPage() {
         if (idx >= 25) {
           const file = uploadedRequirements[idx];
           if (file) {
-            const url = await uploadFileClientSide(file, "requirements", `req_${idx}`);
-            if (url) finalReqUrls[`req_${idx}`] = url;
+            queueUpload(file, "requirements", `req_${idx}`, url => {
+              if (url) finalReqUrls[`req_${idx}`] = url;
+            });
           }
         }
       }
@@ -1296,8 +1316,9 @@ export default function BuildingPermitPage() {
       for (let i = 0; i < 7; i++) {
         const file = uploadedPermits[i];
         if (file) {
-          const url = await uploadFileClientSide(file, "permits", `permit_${i}`);
-          if (url) finalPermitUrls[`permit_${i}`] = url;
+          queueUpload(file, "permits", `permit_${i}`, url => {
+            if (url) finalPermitUrls[`permit_${i}`] = url;
+          });
         } else {
           const existingUrl = effectiveDocuments?.[`permit_${i}`];
           if (existingUrl) finalPermitUrls[`permit_${i}`] = existingUrl;
@@ -1309,8 +1330,9 @@ export default function BuildingPermitPage() {
         if (idx >= 7) {
           const file = uploadedPermits[idx];
           if (file) {
-            const url = await uploadFileClientSide(file, "permits", `permit_${idx}`);
-            if (url) finalPermitUrls[`permit_${idx}`] = url;
+            queueUpload(file, "permits", `permit_${idx}`, url => {
+              if (url) finalPermitUrls[`permit_${idx}`] = url;
+            });
           }
         }
       }
@@ -1324,6 +1346,16 @@ export default function BuildingPermitPage() {
           }
         });
       }
+
+      if (uploadRequests.length > 0) {
+        const batchResult = await getSecureUploadUrlsAction(uploadRequests, "building_permits");
+        if (!batchResult.success || batchResult.data.length !== uploadRequests.length) {
+          throw new Error(batchResult.error || "Failed to allocate secure upload destinations");
+        }
+        uploadTargets.push(...batchResult.data);
+      }
+
+      await mapWithConcurrency(uploadJobs, 4, job => job());
 
       const customLabels: Record<string, string> = {};
       const existingLabels = selectedApplication?.additionalData?.customLabels || {};
@@ -3079,7 +3111,15 @@ export default function BuildingPermitPage() {
                     onSave={async (file) => {
                       if (!file) return;
                       toast.loading("Uploading signature...", { id: "signature-upload-toast" });
-                      const url = await uploadFileClientSide(file, "signature", "signature");
+                      const extension = file.name.split(".").pop() || "bin";
+                      const allocation = await getSecureUploadUrlsAction(
+                        [{ fieldName: "signature_signature", fileExt: extension }],
+                        "building_permits"
+                      );
+                      const target = allocation.success ? allocation.data?.[0] : undefined;
+                      const url = target
+                        ? await uploadFileClientSide(file, "signature", target)
+                        : null;
                       if (url) {
                         setSignatureUrl(url);
                         toast.success("Signature uploaded successfully. Ready to submit!", { id: "signature-upload-toast" });

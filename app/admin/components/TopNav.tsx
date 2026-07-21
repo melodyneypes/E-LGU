@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { secureLogoutAction } from "@/app/actions/auth";
+import { logoutToLogin } from "@/components/auth/logout-to-login";
 import {
     ChevronRight,
     LogOut,
@@ -177,6 +177,10 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
             }).filter(crumb => {
                 // Remove "Public Reports" (reports segment) from breadcrumbs if on daily-requests page
                 if (pathname.includes("/daily-requests") && crumb.seg === "reports") {
+                    return false;
+                }
+                // Remove "Treasury Hub" (treasury segment) from breadcrumbs if on treasury/payments page
+                if (pathname.includes("/treasury/payments") && crumb.seg === "treasury") {
                     return false;
                 }
                 return true;
@@ -388,7 +392,9 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
                         {/* Logout */}
                         <div className="px-2 pb-2 border-t border-slate-100 dark:border-[#2a3040] pt-1">
                             <button
-                                onClick={() => secureLogoutAction()}
+onClick={() => {
+                                    logoutToLogin();
+                                }}
                                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
                             >
                                 <LogOut size={15} />

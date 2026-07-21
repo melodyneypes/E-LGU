@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { getSystemSettingAction } from "@/app/admin/transactions/actions";
+import { createContext, useContext, useState, useEffect, ReactNode, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useSystemTheme } from "@/components/providers/ThemeProvider";
 
 export type ResidentStatus = "PENDING" | "APPROVED" | "DRAFT" | "REJECTED";
 
@@ -156,6 +156,18 @@ type ResidentContextType = {
     totalCount: number;
     page: number;
     limit: number;
+    
+    // Server-side aggregated stats
+    stats: {
+        total: number;
+        categories: {
+            id: string;
+            name: string;
+            count: number;
+        }[];
+    };
+
+    isPending: boolean;
 };
 
 export const ResidentContext = createContext<ResidentContextType | undefined>(undefined);
@@ -165,17 +177,27 @@ export function ResidentProvider({
     initialResidents,
     totalCount,
     page,
-    limit
+    limit,
+    stats
 }: {
     children: ReactNode;
     initialResidents: Resident[];
     totalCount: number;
     page: number;
     limit: number;
+    stats: {
+        total: number;
+        categories: {
+            id: string;
+            name: string;
+            count: number;
+        }[];
+    };
 }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const [isPending, startTransition] = useTransition();
 
     const [residents, setResidents] = useState<Resident[]>(initialResidents);
 
@@ -199,7 +221,9 @@ export function ResidentProvider({
             params.set(key, val);
         }
         params.delete("page"); // Reset page to 1 on filter/search change
-        router.push(`${pathname}?${params.toString()}`);
+        startTransition(() => {
+            router.push(`${pathname}?${params.toString()}`);
+        });
     };
 
     const setSearchQuery = (query: string) => {
@@ -226,7 +250,7 @@ export function ResidentProvider({
     // Form Selection State
     const [formCategoryId, setFormCategoryId] = useState<string | null>(editingData?.categoryId || null);
     const [formCategoryName, setFormCategoryName] = useState<string | null>(editingData?.category?.name || null);
-    const [themeColor, setThemeColor] = useState("#2563eb");
+    const { themeColor } = useSystemTheme();
 
     // Sync formCategoryId with editingData when it changes
     useEffect(() => {
@@ -238,14 +262,6 @@ export function ResidentProvider({
             setFormCategoryName(null);
         }
     }, [editingData]);
-
-    useEffect(() => {
-        getSystemSettingAction("theme_color", "#2563eb").then(res => {
-            if (res.success && res.data) {
-                setThemeColor(res.data);
-            }
-        });
-    }, []);
 
     return (
         <ResidentContext.Provider value={{
@@ -276,7 +292,9 @@ export function ResidentProvider({
             themeColor,
             totalCount,
             page,
-            limit
+            limit,
+            stats,
+            isPending
         }}>
             {children}
         </ResidentContext.Provider>

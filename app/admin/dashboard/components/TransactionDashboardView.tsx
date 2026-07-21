@@ -70,7 +70,6 @@ export function TransactionDashboardView({
   initialTo,
   categories,
   activeCategory,
-  themeColor = "#2563eb",
 }: TransactionDashboardViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -327,7 +326,7 @@ export function TransactionDashboardView({
             activeFilter === "requests" ? "ALL" : activeFilter === "evaluation" ? "FOR_REQUESTING" : activeFilter === "processing" ? "FOR_PROCESSING" : activeFilter.toUpperCase()
           }`}
           className="px-6 py-3 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-2 hover:opacity-90 cursor-pointer"
-          style={{ backgroundColor: themeColor }}
+          style={{ backgroundColor: currentConfig.color }}
         >
           <FileText className="w-4 h-4" />
           <span>View Detailed Report</span>

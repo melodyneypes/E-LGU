@@ -37,21 +37,21 @@ export default function CounterSelectorHeader({
     const dropdownRef = React.useRef<HTMLDivElement>(null);
 
     // Only enable counter selection for authorized staff roles
-const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "MPDC_ZONING"];
+    const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE"];
 
-// Departments that MUST have counter/window selection
-const allowedDepartments = ["Zoning", "MPDC Zoning", "Treasury", "Registrar", "Civil Registry", "BPLO", "Engineer", "Engineering", "RHU", "Health", "Rural Health Unit"];
+    // Departments that MUST have counter/window selection
+    const allowedDepartments = ["Treasury", "Registrar", "Civil Registry", "BPLO", "Engineer", "Engineering", "RHU", "Health", "Rural Health Unit"];
 
-const isLGU = userDepartment?.toUpperCase() === "LGU";
+    const isLGU = userDepartment?.toUpperCase() === "LGU";
 
-const isAuthorized = allowedRoles.includes(userRole) && !isLGU && (
-    (userDepartment && allowedDepartments.some(dept => userDepartment.toLowerCase().includes(dept.toLowerCase()))) ||
-    (!userDepartment && userRole === "BARANGAY_ADMIN")
-);
+    const isAuthorized = allowedRoles.includes(userRole) && !isLGU && (
+        (userDepartment && allowedDepartments.some(dept => userDepartment.toLowerCase().includes(dept.toLowerCase()))) ||
+        (!userDepartment && userRole === "BARANGAY_ADMIN")
+    );
 
     useEffect(() => {
         if (!isAuthorized) return;
-        
+
         // Load initial counter name from localStorage
         const saved = localStorage.getItem("activeCounterName");
         if (saved) {
@@ -182,8 +182,8 @@ const isAuthorized = allowedRoles.includes(userRole) && !isLGU && (
             )}
 
             {/* Enforcer Modal Dialog */}
-            <Dialog open={isEnforcerOpen} onOpenChange={() => {}}>
-                <DialogContent 
+            <Dialog open={isEnforcerOpen} onOpenChange={() => { }}>
+                <DialogContent
                     className="rounded-3xl max-w-md p-6 md:p-8 [&>button]:hidden shadow-2xl border border-slate-200 dark:border-white/10"
                     onPointerDownOutside={(e) => e.preventDefault()}
                     onEscapeKeyDown={(e) => e.preventDefault()}

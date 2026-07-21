@@ -2,7 +2,7 @@ import React from "react";
 
 export default function DashboardLoading() {
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-pulse">
+    <div className="p-8 w-full space-y-8 animate-pulse">
       {/* Header Section Skeleton */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-200 dark:border-[#2a3040]">
         <div className="space-y-3 flex-1">

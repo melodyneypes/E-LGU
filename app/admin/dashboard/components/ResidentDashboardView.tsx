@@ -2,6 +2,7 @@
 
 import React, { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -293,6 +294,18 @@ export function ResidentDashboardView({
           </ResponsiveContainer>
         </div>
       )}
+
+      {/* View Detailed Registry Action Button (Bottom Right) */}
+      <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-[#2a3040]/30">
+        <Link
+          href={`/admin/residents?gender=${activeGender === "ALL" ? "All" : activeGender}`}
+          className="px-6 py-3 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-2 hover:opacity-90 cursor-pointer"
+          style={{ backgroundColor: "#3b82f6" }}
+        >
+          <UserCheck className="w-4 h-4" />
+          <span>View Detailed Registry</span>
+        </Link>
+      </div>
     </div>
   );
 }

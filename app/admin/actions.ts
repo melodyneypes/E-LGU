@@ -1562,6 +1562,39 @@ export async function deleteHousehold(id: string) {
     }
 }
 
+export async function getResidentById(id: string) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const resident = await (prisma as any).resident.findUnique({
+            where: { id },
+            include: {
+                category: true,
+                household: {
+                    include: {
+                        members: true,
+                        head: true
+                    }
+                },
+                familyHead: true,
+                familyMembers: true
+            }
+        });
+
+        if (!resident) {
+            return { success: false, error: "Resident entry not found." };
+        }
+
+        return { success: true, resident };
+    } catch (error: any) {
+        console.error("Failed to fetch resident details by ID:", error);
+        return { success: false, error: error.message || "Failed to fetch resident details" };
+    }
+}
+
 // ==========================================
 // RESIDENT REGISTRATION ACTIONS
 // ==========================================
@@ -1597,6 +1630,7 @@ export async function addResident(formData: FormData) {
         const categoryIds = formData.getAll("categories") as string[];
 
         const result = await prisma.$transaction(async (tx: any) => {
+
             // If not head and selected a head, get their householdId
             if (!isHead && headIdFromForm) {
                 const head = await tx.resident.findUnique({
@@ -2630,6 +2664,30 @@ export async function addCommunityReport(formData: FormData) {
     }
 }
 
+export async function getPendingReportsCount() {
+    try {
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        if (!session?.user?.id) {
+            return { success: false, count: 0 };
+        }
+
+        const isBarangayAdmin = user?.role === "BARANGAY_ADMIN";
+        const managedBarangay = user?.managedBarangay;
+        const whereClause: any = { status: "PENDING" };
+
+        if (isBarangayAdmin && managedBarangay) {
+            whereClause.barangay = { name: managedBarangay };
+        }
+
+        const count = await prisma.report.count({ where: whereClause });
+        return { success: true, count };
+    } catch (error) {
+        console.error("Failed to fetch pending reports count:", error);
+        return { success: false, count: 0 };
+    }
+}
+
 export async function getBarangayList() {
     try {
         const barangays = await prisma.barangayInfo.findMany({
@@ -2752,9 +2810,23 @@ export async function getAdminReports(params?: {
         const [reports, totalCount] = await Promise.all([
             (prisma as any).report.findMany({
                 where: whereClause,
-                include: { 
-                    user: true,
-                    barangay: true
+                select: {
+                    id: true,
+                    category: true,
+                    status: true,
+                    createdAt: true,
+                    user: {
+                        select: {
+                            name: true,
+                            email: true
+                        }
+                    },
+                    barangay: {
+                        select: {
+                            id: true,
+                            name: true
+                        }
+                    }
                 },
                 orderBy: { createdAt: "desc" },
                 skip: (page - 1) * limit,
@@ -2848,9 +2920,31 @@ export async function getReportById(id: string) {
 
         const report = await (prisma as any).report.findUnique({
             where: { id },
-            include: { 
-                user: true,
-                barangay: true
+            select: {
+                id: true,
+                category: true,
+                description: true,
+                status: true,
+                images: true,
+                latitude: true,
+                longitude: true,
+                address: true,
+                adminComment: true,
+                createdAt: true,
+                updatedAt: true,
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true
+                    }
+                },
+                barangay: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                }
             }
         });
 

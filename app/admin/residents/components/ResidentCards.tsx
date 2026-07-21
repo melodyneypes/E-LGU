@@ -4,44 +4,51 @@ import { useResident } from "../providers/ResidentProvider";
 import { Users, UserCheck, Briefcase, MapPin } from "lucide-react";
 
 export function ResidentCards() {
-    const { residents, themeColor } = useResident();
+    const { stats, themeColor } = useResident();
 
-    const totalResidents = residents.length;
-    
-    const getCategoryCount = (name: string) => {
-        return residents.filter(r => r.category?.name === name).length;
+    const getCategoryStyles = (name: string) => {
+        const lower = name.toLowerCase();
+        if (lower.includes("citizen")) {
+            return {
+                icon: <UserCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />,
+                bgColor: "bg-emerald-100 dark:bg-emerald-500/20"
+            };
+        }
+        if (lower.includes("business")) {
+            return {
+                icon: <Briefcase className="w-6 h-6 text-amber-600 dark:text-amber-400" />,
+                bgColor: "bg-amber-100 dark:bg-amber-500/20"
+            };
+        }
+        if (lower.includes("guest")) {
+            return {
+                icon: <MapPin className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />,
+                bgColor: "bg-indigo-100 dark:bg-indigo-500/20"
+            };
+        }
+        return {
+            icon: <Users className="w-6 h-6" style={{ color: themeColor }} />,
+            bgColor: "",
+            style: { backgroundColor: `${themeColor}1a` }
+        };
     };
-
-    const citizensCount = getCategoryCount("Citizen");
-    const businessOwnersCount = getCategoryCount("Business Owner");
-    const guestsCount = getCategoryCount("Guests");
 
     const cards = [
         {
             title: "Total Residents",
-            value: totalResidents.toString(),
+            value: stats.total.toString(),
             icon: <Users className="w-6 h-6" style={{ color: themeColor }} />,
             bgColor: "",
             style: { backgroundColor: `${themeColor}1a` }
         },
-        {
-            title: "Citizens",
-            value: citizensCount.toString(),
-            icon: <UserCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />,
-            bgColor: "bg-emerald-100 dark:bg-emerald-500/20"
-        },
-        {
-            title: "Business Owners",
-            value: businessOwnersCount.toString(),
-            icon: <Briefcase className="w-6 h-6 text-amber-600 dark:text-amber-400" />,
-            bgColor: "bg-amber-100 dark:bg-amber-500/20"
-        },
-        {
-            title: "Guests",
-            value: guestsCount.toString(),
-            icon: <MapPin className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />,
-            bgColor: "bg-indigo-100 dark:bg-indigo-500/20"
-        }
+        ...stats.categories.map(cat => {
+            const styles = getCategoryStyles(cat.name);
+            return {
+                title: cat.name,
+                value: cat.count.toString(),
+                ...styles
+            };
+        })
     ];
 
     return (

@@ -16,7 +16,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toggleResidentDeathStatus } from "../../actions";
+import { toggleResidentDeathStatus, getResidentById } from "../../actions";
 import { RFIDCaptureModal } from "./RFIDCaptureModal";
 import { ResidentReviewModal } from "./ResidentReviewModal";
 import {
@@ -30,7 +30,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Image from "next/image";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -48,8 +48,12 @@ export function ResidentTable() {
         themeColor,
         totalCount,
         page,
-        limit
+        limit,
+        isPending: isFilterPending
     } = useResident();
+
+    const [isPaginationPending, startTransition] = useTransition();
+    const isPending = isFilterPending || isPaginationPending;
 
     const filteredResidents = residents;
 
@@ -64,14 +68,18 @@ export function ResidentTable() {
     const handlePageChange = (newPage: number) => {
         const params = new URLSearchParams(searchParams.toString());
         params.set("page", newPage.toString());
-        router.push(`${pathname}?${params.toString()}`);
+        startTransition(() => {
+            router.push(`${pathname}?${params.toString()}`);
+        });
     };
 
     const handleLimitChange = (newLimit: string) => {
         const params = new URLSearchParams(searchParams.toString());
         params.set("limit", newLimit);
         params.delete("page"); // Reset to page 1
-        router.push(`${pathname}?${params.toString()}`);
+        startTransition(() => {
+            router.push(`${pathname}?${params.toString()}`);
+        });
     };
 
     const handleDelete = async (id: string) => {
@@ -88,8 +96,17 @@ export function ResidentTable() {
         }
     };
 
-    const handleEdit = (resident: Resident) => {
-        setEditingData(resident);
+    const handleEdit = async (resident: Resident) => {
+        try {
+            const res = await getResidentById(resident.id);
+            if (res.success && res.resident) {
+                setEditingData(res.resident as any);
+            } else {
+                setEditingData(resident);
+            }
+        } catch {
+            setEditingData(resident);
+        }
         setIsAddModalOpen(true);
     };
 
@@ -113,13 +130,22 @@ export function ResidentTable() {
         setIsRFIDModalOpen(true);
     };
 
-    const openReviewModal = (resident: Resident, e: React.MouseEvent) => {
+    const openReviewModal = async (resident: Resident, e: React.MouseEvent) => {
         const target = e.target as HTMLElement;
         if (target.closest("button") || target.closest("[role='menuitem']") || target.closest("[data-state]")) {
             return;
         }
         setReviewResident(resident);
         setIsReviewModalOpen(true);
+
+        try {
+            const res = await getResidentById(resident.id);
+            if (res.success && res.resident) {
+                setReviewResident(res.resident as any);
+            }
+        } catch (err) {
+            console.error("Failed to fetch full resident details:", err);
+        }
     };
 
     const handleStatusChange = (id: string, newStatus: "APPROVED" | "REJECTED", remarks?: string) => {
@@ -147,7 +173,45 @@ export function ResidentTable() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredResidents.length === 0 ? (
+                        {isPending ? (
+                            [...Array(5)].map((_, idx) => (
+                                <TableRow key={idx} className="border-b border-slate-100 dark:border-[#2a3040]/50">
+                                    <TableCell className="py-4">
+                                        <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="space-y-2">
+                                            <div className="h-4 w-40 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
+                                            <div className="h-3 w-20 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="h-4 w-24 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="space-y-1.5">
+                                            <div className="h-3.5 w-16 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
+                                            <div className="h-3 w-28 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="h-4 w-28 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="h-4 w-28 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="h-4 w-20 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
+                                    </TableCell>
+                                    <TableCell className="text-right pr-6">
+                                        <div className="h-9 w-9 bg-slate-200 dark:bg-slate-800 rounded-xl ml-auto animate-pulse" />
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : filteredResidents.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={9} className="h-[400px] text-center">
                                     <div className="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
@@ -159,7 +223,7 @@ export function ResidentTable() {
                             </TableRow>
                         ) : (
                             paginatedResidents.map((resident) => (
-                                                    <TableRow key={resident.id}
+                                <TableRow key={resident.id}
                                     className="border-b border-slate-100 dark:border-[#2a3040]/50 hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e]/50 transition-colors cursor-pointer"
                                     onClick={(e) => openReviewModal(resident, e)}
                                 >
