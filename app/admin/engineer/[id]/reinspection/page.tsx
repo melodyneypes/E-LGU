@@ -20,7 +20,6 @@ import { toast } from "sonner";
 import {
     getTransactionById,
     rejectTransaction,
-    sendForRevision,
     evaluateCedulaTransaction,
     markForReinspection,
     getSystemSettingAction
@@ -185,7 +184,6 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
     const [remarks, setRemarks] = useState("");
     const remarksRef = useRef<HTMLTextAreaElement>(null);
     const [isRejecting, setIsRejecting] = useState(false);
-    const [isRequestingRevision, setIsRequestingRevision] = useState(false);
     const [themeColor, setThemeColor] = useState<string>("#2563eb");
 
     // Re-inspection State
@@ -263,22 +261,6 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
             const res = await rejectTransaction(id, remarks);
             if (res.success) {
                 toast.success("Rejected successfully");
-                router.push(backUrl);
-            } else {
-                toast.error(res.error || "Failed");
-            }
-        } finally {
-            setActionLoading(false);
-        }
-    };
-
-    const handleRequestRevision = async () => {
-        if (!remarks) { toast.error("Remarks required"); return; }
-        setActionLoading(true);
-        try {
-            const res = await sendForRevision(id, remarks);
-            if (res.success) {
-                toast.success("Sent back for revision");
                 router.push(backUrl);
             } else {
                 toast.error(res.error || "Failed");
@@ -443,9 +425,6 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 mr-2">
-                        <Badge className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 border border-orange-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
-                            Revision Count: {transaction?.revisionCount || 0} / 3
-                        </Badge>
                         <Badge className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 border border-blue-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
                             Re-inspection Count: {transaction?.additionalData?.reinspectionCount || 0} / 3
                         </Badge>
@@ -880,28 +859,6 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
                                 </Dialog>
 
                                 <div className="flex gap-2 w-full">
-                                    <Dialog open={isRequestingRevision} onOpenChange={(open) => { setIsRequestingRevision(open); if (!open) setRemarks(""); }}>
-                                        <DialogTrigger asChild>
-                                            {(transaction.revisionCount || 0) < 3 && (
-                                                <Button onClick={() => { setIsRequestingRevision(true); setRemarks(""); }} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-amber-500/20 transition-all active:scale-95">
-                                                                                                Request Revision
-                                                                                            </Button>
-                                            )}
-                                        </DialogTrigger>
-                                        <DialogContent className="max-w-md bg-white dark:bg-slate-950 border-none rounded-[2.5rem] shadow-2xl p-10">
-                                            <DialogHeader className="space-y-3">
-                                                <DialogTitle className="text-3xl font-black italic uppercase text-slate-900 dark:text-white leading-none">Request <span className="text-amber-500">Revision</span></DialogTitle>
-                                            </DialogHeader>
-                                            <div className="space-y-6 py-6">
-                                                <Label className="text-[10px] font-black uppercase text-slate-400">Corrections Needed *</Label>
-                                                <Textarea ref={remarksRef} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="min-h-[120px] rounded-2xl border-none bg-slate-50 dark:bg-white/5 font-bold p-6 text-sm" required />
-                                            </div>
-                                            <Button onClick={handleRequestRevision} disabled={actionLoading || !remarks.trim()} className="w-full h-14 bg-amber-500 text-white font-black italic uppercase text-[11px] rounded-2xl">
-                                                Confirm Revision Request
-                                            </Button>
-                                        </DialogContent>
-                                    </Dialog>
-
                                     <Dialog open={isRejecting} onOpenChange={(open) => { setIsRejecting(open); if (!open) setRemarks(""); }}>
                                         <DialogTrigger asChild>
                                             <Button onClick={() => { setIsRejecting(true); setRemarks(""); }} className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black italic uppercase tracking-widest text-[9px] shadow-lg shadow-red-600/20 transition-all active:scale-95">
