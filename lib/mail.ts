@@ -1,4 +1,4 @@
-﻿import nodemailer from "nodemailer";
+import nodemailer from "nodemailer";
 import { getSystemSetting } from "./settings";
 
 
@@ -558,7 +558,7 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
             <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <div style="width: 64px; height: 64px; background: ${primaryBlue}; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                        <span style="color: white; font-size: 32px;">ðŸ“‹</span>
+                        <span style="color: white; font-size: 32px;">&#128203;</span>
                     </div>
                     <h1 style="color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -0.02em;">Evaluation Complete</h1>
                 </div>
@@ -566,19 +566,8 @@ export async function sendEmail({ type, to, name, remarks, transactionId, amount
                 <p style="color: #475569; font-size: 15px; line-height: 1.6;">Good news! Your request for **${serviceName || "Building Permit"}** has been successfully evaluated by the ${department === "ZONING" ? "Zoning Administrator Office" : "Municipal Engineering Office"}.</p>
                 
                 <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 16px; padding: 24px; margin: 32px 0; text-align: center;">
-                    <p style="color: #1e40af; font-size: 12px; font-weight: 800; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">Final Assessment</p>
-                    <p style="color: #1e40af; font-size: 36px; font-weight: 900; margin: 0; letter-spacing: -0.04em;">â‚±${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || "0.00"}</p>
-                    ${feeBreakdown && feeBreakdown.length > 0 ? `
-                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #bfdbfe; text-align: left;">
-                        <p style="color: #1e40af; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">Breakdown:</p>
-                        <table style="width: 100%; font-size: 13px; color: #1e40af;">
-                            ${feeBreakdown.map(fee => `
-                            <tr>
-                                <td style="padding: 4px 0;">${fee.label}</td>
-                                <td style="padding: 4px 0; text-align: right; font-weight: 600;">â‚±${fee.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                            </tr>`).join('')}
-                        </table>
-                    </div>` : ''}
+                    <p style="color: #1e40af; font-size: 12px; font-weight: 800; text-transform: uppercase; margin: 0 0 8px 0; letter-spacing: 0.05em;">Status: Evaluation Complete</p>
+                    <p style="color: #1e40af; font-size: 14px; font-weight: 600; margin: 0;">Your document has been successfully assessed and endorsed.</p>
                     <p style="color: #3b82f6; font-size: 11px; margin: 16px 0 0 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; text-align: center;">Reference ID: ${transactionId || "N/A"}</p>
                 </div>
 
