@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, Copy, Check, RefreshCcw, DollarSign, CheckCircle2, CalendarIcon, X, FileDown, ChevronDown, FileSpreadsheet } from "lucide-react";
+import { Search, Copy, Check, RefreshCcw, DollarSign, CheckCircle2, CalendarIcon, X, FileDown, ChevronDown, FileSpreadsheet, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getPaymentsLedger } from "./actions";
 import jsPDF from "jspdf";
@@ -51,8 +51,22 @@ interface PaymentRecord {
 }
 
 interface PaymentsClientProps {
-    initialPayments: PaymentRecord[];
+    initialData: {
+        payments: PaymentRecord[];
+        totalCount: number;
+        totalPages: number;
+        currentPage: number;
+        stats: {
+            totalPaid: number;
+            paidCount: number;
+        };
+    };
     categories?: string[];
+    initialFrom?: string;
+    initialTo?: string;
+    initialCategory?: string;
+    initialMethod?: string;
+    initialSearch?: string;
 }
 
 function getRequesterName(payment: PaymentRecord) {
@@ -72,39 +86,136 @@ function getRequesterName(payment: PaymentRecord) {
     return tx.user?.name || "Registered Resident";
 }
 
-export default function PaymentsClient({ initialPayments, categories = [] }: PaymentsClientProps) {
-    const [payments, setPayments] = useState<PaymentRecord[]>(initialPayments);
+export default function PaymentsClient({
+    initialData,
+    categories = [],
+    initialFrom,
+    initialTo,
+    initialCategory = "ALL",
+    initialMethod = "ALL",
+    initialSearch = ""
+}: PaymentsClientProps) {
+    const [payments, setPayments] = useState<PaymentRecord[]>(initialData.payments);
+    const [totalCount, setTotalCount] = useState(initialData.totalCount);
+    const [totalPages, setTotalPages] = useState(initialData.totalPages);
+    const [currentPage, setCurrentPage] = useState(initialData.currentPage);
+    const [stats, setStats] = useState(initialData.stats);
+    const [limit, setLimit] = useState(10);
+    const abortControllerRef = useRef<AbortController | null>(null);
+
     const [loading, setLoading] = useState(false);
-    const [search, setSearch] = useState("");
-    const [methodFilter, setMethodFilter] = useState<string>("ALL");
-    const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
-    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+    const [isPending, startTransition] = useTransition();
+
+    const [search, setSearch] = useState(initialSearch);
+    const [methodFilter, setMethodFilter] = useState<string>(initialMethod);
+    const [categoryFilter, setCategoryFilter] = useState<string>(initialCategory);
+
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+        if (initialFrom) {
+            return {
+                from: new Date(initialFrom),
+                to: initialTo ? new Date(initialTo) : undefined
+            };
+        }
+        return undefined;
+    });
+
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const router = useRouter();
 
-    const handleRefresh = async (silent = false) => {
-        if (!silent) setLoading(true);
-        try {
-            const res = await getPaymentsLedger("");
-            if (res.success && res.data) {
-                setPayments(res.data as any);
-                if (!silent) {
-                    toast.success("Payments list updated!");
-                }
-            } else {
-                if (!silent) {
-                    toast.error(res.error || "Failed to update payments.");
-                }
-            }
-        } catch (err) {
-            console.error(err);
-            if (!silent) {
-                toast.error("An unexpected error occurred.");
-            }
-        } finally {
-            if (!silent) setLoading(false);
+    const fetchPaymentsData = (pageNumber = 1, currentLimit = limit, silent = false) => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
         }
+
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
+        const fromStr = dateRange?.from ? dateRange.from.toISOString().split("T")[0] : "";
+        const toStr = dateRange?.to ? dateRange.to.toISOString().split("T")[0] : (dateRange?.from ? dateRange.from.toISOString().split("T")[0] : "");
+
+        if (!silent) setLoading(true);
+
+        startTransition(async () => {
+            try {
+                const queryParams = new URLSearchParams({
+                    search,
+                    method: methodFilter,
+                    category: categoryFilter,
+                    from: fromStr,
+                    to: toStr,
+                    page: String(pageNumber),
+                    limit: String(currentLimit)
+                });
+
+                const res = await fetch(`/api/admin/treasury/payments?${queryParams.toString()}`, {
+                    signal: controller.signal
+                });
+
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.error || "Failed to retrieve payments data.");
+                }
+
+                const data = await res.json();
+
+                if (data.success && data.data) {
+                    setPayments(data.data as PaymentRecord[]);
+                    setTotalCount(data.totalCount ?? 0);
+                    setTotalPages(data.totalPages ?? 1);
+                    setCurrentPage(pageNumber);
+                    if (data.stats) {
+                        setStats(data.stats);
+                    }
+                }
+            } catch (error: any) {
+                const isAbort = error.name === "AbortError" ||
+                    error.message?.includes("aborted") ||
+                    error.message?.includes("abort");
+                if (!isAbort) {
+                    toast.error(error.message || "Failed to retrieve payments data.");
+                }
+            } finally {
+                if (!silent) setLoading(false);
+            }
+        });
     };
+
+    const handleRefresh = (silent = false) => {
+        fetchPaymentsData(currentPage, limit, silent);
+    };
+
+    const fetchExportData = async (): Promise<PaymentRecord[]> => {
+        const fromStr = dateRange?.from ? dateRange.from.toISOString().split("T")[0] : "";
+        const toStr = dateRange?.to ? dateRange.to.toISOString().split("T")[0] : (dateRange?.from ? dateRange.from.toISOString().split("T")[0] : "");
+
+        const queryParams = new URLSearchParams({
+            search,
+            method: methodFilter,
+            category: categoryFilter,
+            from: fromStr,
+            to: toStr,
+            exportAll: "true"
+        });
+
+        const res = await fetch(`/api/admin/treasury/payments?${queryParams.toString()}`);
+        if (!res.ok) {
+            throw new Error("Failed to fetch export data");
+        }
+        const result = await res.json();
+        return (result.data || []) as PaymentRecord[];
+    };
+
+    const isFirstMount = useRef(true);
+
+    useEffect(() => {
+        if (isFirstMount.current) {
+            isFirstMount.current = false;
+            return;
+        }
+        fetchPaymentsData(1, limit);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [search, methodFilter, categoryFilter, dateRange, limit]);
 
     // Real-time updates subscription using Server-Sent Events (SSE)
     useEffect(() => {
@@ -125,7 +236,7 @@ export default function PaymentsClient({ initialPayments, categories = [] }: Pay
             eventSource.close();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [currentPage, limit]);
 
     const handleCopy = (text: string, id: string) => {
         navigator.clipboard.writeText(text);
@@ -135,14 +246,15 @@ export default function PaymentsClient({ initialPayments, categories = [] }: Pay
     };
 
     const handleExport = async () => {
-        if (filteredPayments.length === 0) {
-            toast.error("Walang data para i-export.");
-            return;
-        }
-
         toast.loading("Generating PDF report...", { id: "pdf-export" });
 
         try {
+            const exportPayments = await fetchExportData();
+            if (exportPayments.length === 0) {
+                toast.error("Walang data para i-export.", { id: "pdf-export" });
+                return;
+            }
+
             // --- 1. Fetch branding ---
             let logoUrl = "";
             let brand1 = "MAPANDAN";
@@ -254,7 +366,7 @@ export default function PaymentsClient({ initialPayments, categories = [] }: Pay
             // SECTION B: TABLE (Excel-style grid with serial no.)
             // ====================================================
 
-            const tableRows = filteredPayments.map((p, idx) => {
+            const tableRows = exportPayments.map((p, idx) => {
                 const name = getRequesterName(p);
                 const business = p.transaction?.businessName ? ` / ${p.transaction.businessName}` : "";
                 const date = new Date(p.createdAt).toLocaleDateString("en-PH", {
@@ -430,7 +542,7 @@ export default function PaymentsClient({ initialPayments, categories = [] }: Pay
 
             // --- Save ---
             doc.save(`Treasury_Payments_${fileRangeLabel}.pdf`);
-            toast.success(`PDF exported with ${filteredPayments.length} record(s)!`, { id: "pdf-export" });
+            toast.success(`PDF exported with ${exportPayments.length} record(s)!`, { id: "pdf-export" });
 
         } catch (err) {
             console.error(err);
@@ -439,14 +551,15 @@ export default function PaymentsClient({ initialPayments, categories = [] }: Pay
     };
 
     const handleExportExcel = async () => {
-        if (filteredPayments.length === 0) {
-            toast.error("Walang data para i-export.");
-            return;
-        }
-
         toast.loading("Generating Excel report...", { id: "excel-export" });
 
         try {
+            const exportPayments = await fetchExportData();
+            if (exportPayments.length === 0) {
+                toast.error("Walang data para i-export.", { id: "excel-export" });
+                return;
+            }
+
             // Fetch theme color for header styling
             let themeColor = "2563EB";
             try {
@@ -505,13 +618,13 @@ export default function PaymentsClient({ initialPayments, categories = [] }: Pay
             });
 
             // ── Data rows ────────────────────────────────────────
-            const PAID = filteredPayments.filter(p => p.status === "PAID");
+            const PAID = exportPayments.filter(p => p.status === "PAID");
             const totalPaid = PAID.reduce((a, p) => a + p.amount, 0);
 
             const borderThin: Partial<ExcelJS.Border> = { style: "medium", color: { argb: "FFB0B0B0" } };
             const fullBorder = { top: borderThin, left: borderThin, bottom: borderThin, right: borderThin };
 
-            filteredPayments.forEach((p, idx) => {
+            exportPayments.forEach((p, idx) => {
                 const name = getRequesterName(p);
                 const business = p.transaction?.businessName ? ` / ${p.transaction.businessName}` : "";
                 const date = new Date(p.createdAt).toLocaleDateString("en-PH", {
@@ -583,7 +696,7 @@ export default function PaymentsClient({ initialPayments, categories = [] }: Pay
             dateRangeRow.getCell(2).font = { bold: true, size: 9, name: "Calibri" };
             dateRangeRow.getCell(3).font = { size: 9, name: "Calibri" };
 
-            const totalRecordsRow = sheet.addRow(["", "Total Records:", filteredPayments.length]);
+            const totalRecordsRow = sheet.addRow(["", "Total Records:", exportPayments.length]);
             totalRecordsRow.getCell(2).font = { bold: true, size: 9, name: "Calibri" };
             totalRecordsRow.getCell(3).font = { bold: true, size: 9, name: "Calibri" };
 
@@ -611,7 +724,7 @@ export default function PaymentsClient({ initialPayments, categories = [] }: Pay
             link.click();
             URL.revokeObjectURL(url);
 
-            toast.success(`Excel exported with ${filteredPayments.length} record(s)!`, { id: "excel-export" });
+            toast.success(`Excel exported with ${exportPayments.length} record(s)!`, { id: "excel-export" });
 
         } catch (err) {
             console.error(err);
@@ -629,57 +742,7 @@ export default function PaymentsClient({ initialPayments, categories = [] }: Pay
         return "Pick date range";
     }, [dateRange]);
 
-    const filteredPayments = useMemo(() => {
-        return payments.filter((payment) => {
-            const citizenName = getRequesterName(payment);
-            const businessName = payment.transaction?.businessName || "";
-            const searchLower = search.toLowerCase();
-            
-            const matchesSearch = 
-                payment.reference?.toLowerCase().includes(searchLower) ||
-                payment.transactionId.toLowerCase().includes(searchLower) ||
-                payment.id.toLowerCase().includes(searchLower) ||
-                citizenName.toLowerCase().includes(searchLower) ||
-                businessName.toLowerCase().includes(searchLower);
-
-            const matchesCategory = categoryFilter === "ALL" || payment.transaction?.type?.category === categoryFilter;
-
-            const matchesMethod = methodFilter === "ALL" || payment.method === methodFilter;
-
-            let matchesDate = true;
-            if (dateRange?.from) {
-                const payDate = new Date(payment.createdAt);
-                // Normalize from to start of day
-                const from = new Date(dateRange.from);
-                from.setHours(0, 0, 0, 0);
-
-                if (dateRange.to) {
-                    // Normalize to to end of day
-                    const to = new Date(dateRange.to);
-                    to.setHours(23, 59, 59, 999);
-                    matchesDate = payDate >= from && payDate <= to;
-                } else {
-                    // Only from date selected — show that single day
-                    const fromEnd = new Date(from);
-                    fromEnd.setHours(23, 59, 59, 999);
-                    matchesDate = payDate >= from && payDate <= fromEnd;
-                }
-            }
-
-            return matchesSearch && matchesCategory && matchesMethod && matchesDate;
-        });
-    }, [payments, search, categoryFilter, methodFilter, dateRange]);
-
-    // Statistics calculations
-    const stats = useMemo(() => {
-        const totalPaid = filteredPayments
-            .filter(p => p.status === "PAID")
-            .reduce((acc, p) => acc + p.amount, 0);
-
-        const paidCount = filteredPayments.filter(p => p.status === "PAID").length;
-
-        return { totalPaid, paidCount };
-    }, [filteredPayments]);
+    const filteredPayments = payments;
 
     const formatDateTime = (dateStr: string) => {
         const d = new Date(dateStr);
@@ -865,14 +928,23 @@ export default function PaymentsClient({ initialPayments, categories = [] }: Pay
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredPayments.length === 0 ? (
+                        {isPending ? (
                             <TableRow>
-                                <TableCell colSpan={8} className="h-32 text-center text-slate-500 dark:text-slate-400">
-                                    No payment records found.
+                                <TableCell colSpan={8} className="py-12 text-center">
+                                    <div className="flex items-center justify-center gap-2">
+                                        <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+                                        <span className="font-bold italic text-slate-500 dark:text-slate-400">Loading ledger data...</span>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ) : payments.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={8} className="py-12 text-center font-bold italic text-slate-400">
+                                    No payment logs found matching the filters.
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            filteredPayments.map((payment) => {
+                            payments.map((payment) => {
                                 const formattedDate = formatDateTime(payment.createdAt);
                                 const citizenName = getRequesterName(payment);
                                 const serviceName = payment.transaction?.type?.name || "Service Payment";
@@ -952,6 +1024,61 @@ export default function PaymentsClient({ initialPayments, categories = [] }: Pay
                         )}
                     </TableBody>
                 </Table>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-[#2a3040]">
+                <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                    Showing page <span className="font-bold">{currentPage}</span> of <span className="font-bold">{totalPages}</span> ({totalCount} total records)
+                </p>
+
+                <div className="flex flex-wrap items-center gap-4">
+                    {/* Limit Selector */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400 font-bold">Show:</span>
+                        <div className="relative">
+                            <select
+                                value={limit}
+                                onChange={(e) => {
+                                    const nextLimit = Number(e.target.value);
+                                    setLimit(nextLimit);
+                                    fetchPaymentsData(1, nextLimit);
+                                }}
+                                className="pl-3 pr-8 py-1.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] text-xs font-bold rounded-lg outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200"
+                            >
+                                <option value={10}>10</option>
+                                <option value={20}>20</option>
+                                <option value={30}>30</option>
+                                <option value={50}>50</option>
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center px-1 text-slate-500">
+                                <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Navigation Buttons */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => fetchPaymentsData(currentPage - 1, limit)}
+                                disabled={currentPage === 1 || isPending}
+                                className="p-2 border border-slate-200 dark:border-[#2a3040] hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
+                            >
+                                <ChevronLeft className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                            </button>
+                            <button
+                                onClick={() => fetchPaymentsData(currentPage + 1, limit)}
+                                disabled={currentPage === totalPages || isPending}
+                                className="p-2 border border-slate-200 dark:border-[#2a3040] hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
+                            >
+                                <ChevronRight className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
