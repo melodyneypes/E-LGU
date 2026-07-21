@@ -4,17 +4,12 @@ import { useResident } from "../providers/ResidentProvider";
 import { Users, UserCheck, Briefcase, MapPin } from "lucide-react";
 
 export function ResidentCards() {
-    const { residents, themeColor } = useResident();
+    const { stats, themeColor } = useResident();
 
-    const totalResidents = residents.length;
-    
-    const getCategoryCount = (name: string) => {
-        return residents.filter(r => r.category?.name === name).length;
-    };
-
-    const citizensCount = getCategoryCount("Citizen");
-    const businessOwnersCount = getCategoryCount("Business Owner");
-    const guestsCount = getCategoryCount("Guests");
+    const totalResidents = stats.total;
+    const citizensCount = stats.citizens;
+    const businessOwnersCount = stats.businessOwners;
+    const guestsCount = stats.guests;
 
     const cards = [
         {

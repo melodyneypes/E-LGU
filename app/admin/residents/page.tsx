@@ -53,7 +53,7 @@ export default async function Page({
         ];
     }
 
-    const [residentsRaw, totalCount] = await Promise.all([
+    const [residentsRaw, totalCount, citizenCount, businessOwnerCount, guestCount] = await Promise.all([
         prisma.resident.findMany({
             where,
             select: {
@@ -128,7 +128,25 @@ export default async function Page({
             take: limit,
             skip: skip
         }),
-        prisma.resident.count({ where })
+        prisma.resident.count({ where }),
+        prisma.resident.count({
+            where: {
+                ...where,
+                category: { name: "Citizen" }
+            }
+        }),
+        prisma.resident.count({
+            where: {
+                ...where,
+                category: { name: "Business Owner" }
+            }
+        }),
+        prisma.resident.count({
+            where: {
+                ...where,
+                category: { name: "Guests" }
+            }
+        })
     ]);
 
     // Map virtual fields for frontend convenience
@@ -148,6 +166,12 @@ export default async function Page({
             totalCount={totalCount}
             page={page}
             limit={limit}
+            stats={{
+                total: totalCount,
+                citizens: citizenCount,
+                businessOwners: businessOwnerCount,
+                guests: guestCount
+            }}
         >
             <ResidentsPage />
         </ResidentProvider>

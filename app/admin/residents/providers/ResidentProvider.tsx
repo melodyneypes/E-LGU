@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useTransition } from "react";
 import { getSystemSettingAction } from "@/app/admin/transactions/actions";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
@@ -156,6 +156,16 @@ type ResidentContextType = {
     totalCount: number;
     page: number;
     limit: number;
+    
+    // Server-side aggregated stats
+    stats: {
+        total: number;
+        citizens: number;
+        businessOwners: number;
+        guests: number;
+    };
+
+    isPending: boolean;
 };
 
 export const ResidentContext = createContext<ResidentContextType | undefined>(undefined);
@@ -165,17 +175,25 @@ export function ResidentProvider({
     initialResidents,
     totalCount,
     page,
-    limit
+    limit,
+    stats
 }: {
     children: ReactNode;
     initialResidents: Resident[];
     totalCount: number;
     page: number;
     limit: number;
+    stats: {
+        total: number;
+        citizens: number;
+        businessOwners: number;
+        guests: number;
+    };
 }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const [isPending, startTransition] = useTransition();
 
     const [residents, setResidents] = useState<Resident[]>(initialResidents);
 
@@ -199,7 +217,9 @@ export function ResidentProvider({
             params.set(key, val);
         }
         params.delete("page"); // Reset page to 1 on filter/search change
-        router.push(`${pathname}?${params.toString()}`);
+        startTransition(() => {
+            router.push(`${pathname}?${params.toString()}`);
+        });
     };
 
     const setSearchQuery = (query: string) => {
@@ -276,7 +296,9 @@ export function ResidentProvider({
             themeColor,
             totalCount,
             page,
-            limit
+            limit,
+            stats,
+            isPending
         }}>
             {children}
         </ResidentContext.Provider>
