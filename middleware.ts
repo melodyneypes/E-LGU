@@ -22,6 +22,7 @@ export default withAuth(
     }
 
     const url = req.nextUrl.clone();
+    const requestTarget = `${url.pathname}${url.search}`;
     const token = req.nextauth.token;
 
     const isPublicUserPath = 
@@ -40,6 +41,7 @@ export default withAuth(
     // Clean redirect if trying to access protected paths without a session
     if (!token && (isAdminPath || (isUserPath && !isPublicUserPath))) {
       const redirectUrl = new URL("/auth/login", req.url);
+      redirectUrl.searchParams.set("callbackUrl", requestTarget);
       return NextResponse.redirect(redirectUrl);
     }
 
@@ -115,6 +117,7 @@ export default withAuth(
 
     const requestHeaders = new Headers(req.headers);
     requestHeaders.set("x-pathname", url.pathname);
+    requestHeaders.set("x-request-target", requestTarget);
 
     return NextResponse.next({
       request: {

@@ -79,6 +79,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 import { getSecureUploadUrlAction } from "@/app/auth/actions";
+import { mapWithConcurrency } from "@/lib/async/map-with-concurrency";
 
 const STEPS = [
   { id: "GUIDE", label: "Guide", icon: ClipboardList },
@@ -1204,18 +1205,19 @@ export default function BuildingPermitPage() {
     try {
       toast.loading("Submitting application...", { id: "bp-upload-toast" });
       const displayResident = selectedApplication?.residentSnapshot || residentData;
+      const uploadJobs: Array<() => Promise<void>> = [];
 
       // 1. Upload ID
       let idFileUrl: string | null = null;
       let idBackFileUrl: string | null = null;
       if (idChoice === "UPLOAD") {
         if (formData.newIdFile) {
-          idFileUrl = await uploadFileClientSide(formData.newIdFile, "ids", "newIdFile");
+          uploadJobs.push(async () => { idFileUrl = await uploadFileClientSide(formData.newIdFile, "ids", "newIdFile"); });
         } else if (effectiveDocuments?.newIdFile) {
           idFileUrl = effectiveDocuments.newIdFile;
         }
         if (formData.newIdFileBack) {
-          idBackFileUrl = await uploadFileClientSide(formData.newIdFileBack, "ids", "newIdFileBack");
+          uploadJobs.push(async () => { idBackFileUrl = await uploadFileClientSide(formData.newIdFileBack, "ids", "newIdFileBack"); });
         } else if (effectiveDocuments?.newIdFileBack) {
           idBackFileUrl = effectiveDocuments.newIdFileBack;
         }
@@ -1225,7 +1227,7 @@ export default function BuildingPermitPage() {
           if (profileIdUrl.startsWith("data:")) {
             const file = dataURLtoFile(profileIdUrl, "profile_id");
             if (file) {
-              idFileUrl = await uploadFileClientSide(file, "ids", "newIdFile");
+              uploadJobs.push(async () => { idFileUrl = await uploadFileClientSide(file, "ids", "newIdFile"); });
             }
           } else if (profileIdUrl.startsWith("http")) {
             idFileUrl = profileIdUrl;
@@ -1236,7 +1238,7 @@ export default function BuildingPermitPage() {
           if (profileIdBackUrl.startsWith("data:")) {
             const file = dataURLtoFile(profileIdBackUrl, "profile_id_back");
             if (file) {
-              idBackFileUrl = await uploadFileClientSide(file, "ids", "newIdFileBack");
+              uploadJobs.push(async () => { idBackFileUrl = await uploadFileClientSide(file, "ids", "newIdFileBack"); });
             }
           } else if (profileIdBackUrl.startsWith("http")) {
             idBackFileUrl = profileIdBackUrl;
@@ -1247,7 +1249,7 @@ export default function BuildingPermitPage() {
       // 2. Upload TCT
       let tctFileUrl: string | null = null;
       if (formData.tctFile) {
-        tctFileUrl = await uploadFileClientSide(formData.tctFile, "tct", "tctFile");
+        uploadJobs.push(async () => { tctFileUrl = await uploadFileClientSide(formData.tctFile, "tct", "tctFile"); });
       } else if (effectiveDocuments?.tctFile) {
         tctFileUrl = effectiveDocuments.tctFile;
       }
@@ -1262,8 +1264,10 @@ export default function BuildingPermitPage() {
         
         const file = uploadedRequirements[i];
         if (file) {
-          const url = await uploadFileClientSide(file, "requirements", `req_${i}`);
-          if (url) finalReqUrls[`req_${i}`] = url;
+          uploadJobs.push(async () => {
+            const url = await uploadFileClientSide(file, "requirements", `req_${i}`);
+            if (url) finalReqUrls[`req_${i}`] = url;
+          });
         } else {
           const existingUrl = effectiveDocuments?.[`req_${i}`];
           if (existingUrl) finalReqUrls[`req_${i}`] = existingUrl;
@@ -1275,8 +1279,10 @@ export default function BuildingPermitPage() {
         if (idx >= 25) {
           const file = uploadedRequirements[idx];
           if (file) {
-            const url = await uploadFileClientSide(file, "requirements", `req_${idx}`);
-            if (url) finalReqUrls[`req_${idx}`] = url;
+            uploadJobs.push(async () => {
+              const url = await uploadFileClientSide(file, "requirements", `req_${idx}`);
+              if (url) finalReqUrls[`req_${idx}`] = url;
+            });
           }
         }
       }
@@ -1296,8 +1302,10 @@ export default function BuildingPermitPage() {
       for (let i = 0; i < 7; i++) {
         const file = uploadedPermits[i];
         if (file) {
-          const url = await uploadFileClientSide(file, "permits", `permit_${i}`);
-          if (url) finalPermitUrls[`permit_${i}`] = url;
+          uploadJobs.push(async () => {
+            const url = await uploadFileClientSide(file, "permits", `permit_${i}`);
+            if (url) finalPermitUrls[`permit_${i}`] = url;
+          });
         } else {
           const existingUrl = effectiveDocuments?.[`permit_${i}`];
           if (existingUrl) finalPermitUrls[`permit_${i}`] = existingUrl;
@@ -1309,8 +1317,10 @@ export default function BuildingPermitPage() {
         if (idx >= 7) {
           const file = uploadedPermits[idx];
           if (file) {
-            const url = await uploadFileClientSide(file, "permits", `permit_${idx}`);
-            if (url) finalPermitUrls[`permit_${idx}`] = url;
+            uploadJobs.push(async () => {
+              const url = await uploadFileClientSide(file, "permits", `permit_${idx}`);
+              if (url) finalPermitUrls[`permit_${idx}`] = url;
+            });
           }
         }
       }
@@ -1324,6 +1334,8 @@ export default function BuildingPermitPage() {
           }
         });
       }
+
+      await mapWithConcurrency(uploadJobs, 4, job => job());
 
       const customLabels: Record<string, string> = {};
       const existingLabels = selectedApplication?.additionalData?.customLabels || {};
