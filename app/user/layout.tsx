@@ -16,6 +16,7 @@ export default async function UserLayout({
 }) {
     const headersList = await headers();
     const pathname = headersList.get("x-pathname") || "";
+    const requestTarget = headersList.get("x-request-target") || pathname || "/";
 
     const isPublicPath = 
         pathname.startsWith("/user/dining") ||
@@ -31,7 +32,7 @@ export default async function UserLayout({
 
     if (!isPublicPath) {
         if (!session || !session.user) {
-            redirect("/auth/login");
+            redirect(`/auth/login?callbackUrl=${encodeURIComponent(requestTarget)}`);
         }
 
         // Force REAL-TIME Database Check for Spam/Deactivation Protocol
