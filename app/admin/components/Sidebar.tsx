@@ -435,7 +435,6 @@ export function Sidebar({
         { href: "/admin/settings/cedula", label: "Cedula Settings", icon: FileText, category: "Payment Settings" },
         { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" },
         { href: "/admin/zoning", label: "Zoning Hub", icon: LayoutDashboard, category: "Zoning" },
-        { href: "/admin/zoning/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Zoning" },
         { href: "/admin/bfp", label: "BFP Hub", icon: LayoutDashboard, category: "BFP" },
         { href: "/admin/users", label: "User Accounts", icon: UserCheck, category: "Security & Accounts" },
     ];
@@ -567,8 +566,7 @@ export function Sidebar({
             ];
         } else if (role === "MPDC_ZONING") {
             menuItems = [
-                { href: "/admin/zoning", label: "Zoning Hub", icon: HardHat, category: "Zoning" },
-                { href: "/admin/zoning/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Zoning" }
+                { href: "/admin/zoning", label: "Zoning Hub", icon: HardHat, category: "Zoning" }
             ];
         } else if (role === "BFP") {
             menuItems = [
@@ -910,9 +908,9 @@ export function Sidebar({
                                     )}
                                 </button>
                                 <button
-                                     onClick={() => {
-                                         logoutToLogin();
-                                     }}
+onClick={() => {
+                                    logoutToLogin();
+                                }}
                                      className="p-2 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
                                      title="Log Out"
                                  >
