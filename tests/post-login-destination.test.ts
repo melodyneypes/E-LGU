@@ -27,3 +27,28 @@ test("specialized role destinations take precedence over accessible page orderin
     "/admin/engineer"
   );
 });
+
+test("uses only safe local callback destinations for residents", () => {
+  assert.equal(
+    getPostLoginDestination({ role: "USER" }, "/user/services/building-permit"),
+    "/user/services/building-permit"
+  );
+  assert.equal(
+    getPostLoginDestination({ role: "USER" }, "/user/services/cedula-appointment?step=2"),
+    "/user/services/cedula-appointment?step=2"
+  );
+
+  for (const unsafe of [
+    "https://evil.example/path",
+    "//evil.example/path",
+    "javascript:alert(1)",
+  ]) {
+    assert.equal(getPostLoginDestination({ role: "USER" }, unsafe), "/");
+  }
+
+  assert.equal(getPostLoginDestination({ role: "USER" }, null), "/");
+  assert.equal(
+    getPostLoginDestination({ role: "ADMIN" }, "/user/services/building-permit"),
+    "/admin/dashboard"
+  );
+});

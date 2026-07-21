@@ -4,11 +4,18 @@ export interface PostLoginUser {
     accessiblePages?: readonly string[] | null;
 }
 
-export function getPostLoginDestination(user: PostLoginUser): string {
+export function getPostLoginDestination(
+    user: PostLoginUser,
+    callbackUrl?: string | null
+): string {
     const role = user.role || "";
     const department = user.department?.toUpperCase() || "";
 
-    if (role === "USER") return "/";
+    if (role === "USER") {
+        return callbackUrl?.startsWith("/") && !callbackUrl.startsWith("//")
+            ? callbackUrl
+            : "/";
+    }
     if (role === "TREASURY_STAFF" || (role === "ADMIN" && department === "TREASURY")) {
         return "/admin/treasury?category=CEDULA";
     }
