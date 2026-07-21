@@ -109,10 +109,10 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
 
     const [stats, setStats] = useState(initialStats || {
         total: initialTotalCount,
-        pending: initialReports.filter(r => r.status === "PENDING").length,
-        inProgress: initialReports.filter(r => r.status === "IN_PROGRESS").length,
-        completed: initialReports.filter(r => r.status === "COMPLETED").length,
-        rejected: initialReports.filter(r => r.status === "REJECTED").length
+        pending: (initialReports || []).filter(r => r.status === "PENDING").length,
+        inProgress: (initialReports || []).filter(r => r.status === "IN_PROGRESS").length,
+        completed: (initialReports || []).filter(r => r.status === "COMPLETED").length,
+        rejected: (initialReports || []).filter(r => r.status === "REJECTED").length
     });
 
     const [selectedReport, setSelectedReport] = useState<Report | null>(null);
@@ -658,12 +658,12 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                                         {/* Photos Section */}
                                         <div className="p-5 bg-slate-50 dark:bg-white/[0.02] rounded-2xl border border-slate-100 dark:border-white/5 space-y-3">
                                             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                                <ImageIcon className="w-4 h-4 text-slate-400" /> Attached Photos ({selectedReport.images.length})
+                                                <ImageIcon className="w-4 h-4 text-slate-400" /> Attached Photos ({(selectedReport?.images || []).length})
                                             </h4>
                                             
-                                            {selectedReport.images.length > 0 ? (
+                                            {(selectedReport?.images || []).length > 0 ? (
                                                 <div className="grid grid-cols-3 gap-2">
-                                                    {selectedReport.images.map((img, i) => (
+                                                    {(selectedReport?.images || []).map((img, i) => (
                                                         <div 
                                                             key={i} 
                                                             className="aspect-square relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm group cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200" 
@@ -710,7 +710,7 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                                             {selectedReport.latitude !== null && selectedReport.longitude !== null ? (
                                                 <div className="space-y-3">
                                                     <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-snug line-clamp-2">
-                                                        {selectedReport.address || `${selectedReport.latitude.toFixed(6)}, ${selectedReport.longitude.toFixed(6)}`}
+                                                        {selectedReport.address || `${typeof selectedReport.latitude === 'number' ? selectedReport.latitude.toFixed(6) : selectedReport.latitude}, ${typeof selectedReport.longitude === 'number' ? selectedReport.longitude.toFixed(6) : selectedReport.longitude}`}
                                                     </p>
                                                     <div className="h-40 w-full rounded-xl overflow-hidden border border-slate-200 dark:border-white/5 relative">
                                                         <iframe
@@ -763,7 +763,7 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                 fileUrl={viewerUrl}
                 title={viewerTitle}
                 themeColor="var(--primary-theme)"
-                documents={selectedReport?.images.map((img, idx) => ({ url: img, label: `Photo ${idx + 1}` }))}
+                documents={(selectedReport?.images || []).map((img, idx) => ({ url: img, label: `Photo ${idx + 1}` }))}
                 initialIndex={viewerIndex}
             />
             </div>

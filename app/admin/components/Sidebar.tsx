@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { getBploInspectionCount, getUnviewedLcrCounts, getTransactionTypes } from "@/app/admin/transactions/actions";
+import { getPendingReportsCount } from "@/app/admin/actions";
 import { supabase } from "@/lib/supabase";
 
 interface SidebarProps {
@@ -67,6 +68,7 @@ export function Sidebar({
     const [isEntranceComplete, setIsEntranceComplete] = React.useState(false);
     const [mounted, setMounted] = React.useState(false);
     const [liveLcrCounts, setLiveLcrCounts] = React.useState<Record<string, number>>(unviewedLcrCounts);
+    const [liveReportsCount, setLiveReportsCount] = React.useState(pendingReportsCount);
     const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
 
     const { theme, setTheme } = useTheme();
@@ -191,6 +193,56 @@ export function Sidebar({
         };
     }, [fetchLcrCounts]);
 
+    const fetchReportsCount = React.useCallback(async () => {
+        try {
+            const res = await getPendingReportsCount();
+            if (res && res.success) {
+                setLiveReportsCount(res.count ?? 0);
+            }
+        } catch (err) {
+            console.error("[Sidebar Reports Realtime] Error fetching count:", err);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        fetchReportsCount();
+    }, [pathname, fetchReportsCount]);
+
+    React.useEffect(() => {
+        if (!supabase) return;
+        let channel: any;
+        let debounceTimer: NodeJS.Timeout | null = null;
+
+        try {
+            channel = supabase
+                .channel("sidebar-reports-realtime")
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "Report",
+                    },
+                    () => {
+                        if (debounceTimer) clearTimeout(debounceTimer);
+                        debounceTimer = setTimeout(() => {
+                            fetchReportsCount();
+                        }, 1000);
+                    }
+                )
+                .subscribe();
+        } catch (error) {
+            console.warn("[Sidebar Reports Realtime] Setup error:", error);
+        }
+
+        return () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [fetchReportsCount]);
+
     React.useEffect(() => {
         // Background polling fallback every 20 seconds to keep counts in sync
         const interval = setInterval(() => {
@@ -300,7 +352,7 @@ export function Sidebar({
         { href: "/admin/accommodation", label: "Tuluyan (Stay)", icon: BedDouble },
         { href: "/admin/tourism", label: "Gallery", icon: Map },
         { href: "/admin/church", label: "Church Management", icon: Church },
-        { href: "/admin/reports", label: "Public Reports", icon: AlertTriangle, category: "Management", badge: pendingReportsCount },
+        { href: "/admin/reports", label: "Public Reports", icon: AlertTriangle, category: "Management", badge: liveReportsCount },
         { href: "/admin/logistics", label: "Logistics Control", icon: Truck, category: "Management" },
         { href: "/admin/jobs", label: "Job Postings", icon: Briefcase },
         { href: "/admin/officials", label: "Council Members", icon: Users },

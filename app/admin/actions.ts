@@ -2630,6 +2630,30 @@ export async function addCommunityReport(formData: FormData) {
     }
 }
 
+export async function getPendingReportsCount() {
+    try {
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        if (!session?.user?.id) {
+            return { success: false, count: 0 };
+        }
+
+        const isBarangayAdmin = user?.role === "BARANGAY_ADMIN";
+        const managedBarangay = user?.managedBarangay;
+        const whereClause: any = { status: "PENDING" };
+
+        if (isBarangayAdmin && managedBarangay) {
+            whereClause.barangay = { name: managedBarangay };
+        }
+
+        const count = await prisma.report.count({ where: whereClause });
+        return { success: true, count };
+    } catch (error) {
+        console.error("Failed to fetch pending reports count:", error);
+        return { success: false, count: 0 };
+    }
+}
+
 export async function getBarangayList() {
     try {
         const barangays = await prisma.barangayInfo.findMany({
