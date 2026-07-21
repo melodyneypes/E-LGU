@@ -107,22 +107,14 @@ export function PaymentDashboardView({
     <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl space-y-6">
       {/* Header and Controls Row */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <div>
-            <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              <span>Collections Ledger</span>
-            </h3>
-            <p className="text-slate-500 dark:text-slate-400 text-xs font-medium italic mt-1">
-              Total Revenue: <span className="font-bold text-emerald-600 dark:text-emerald-400">₱{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </p>
-          </div>
-          <Link
-            href="/admin/treasury/payments"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:opacity-85 transition-all border border-emerald-200/50 dark:border-emerald-500/20 shadow-sm shrink-0"
-          >
-            View Full Ledger
-          </Link>
+        <div>
+          <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            <span>Collections Ledger</span>
+          </h3>
+          <p className="text-slate-500 dark:text-slate-400 text-xs font-medium italic mt-1">
+            Total Revenue: <span className="font-bold text-emerald-600 dark:text-emerald-400">₱{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </p>
         </div>
 
         {/* Date Inputs + Category Select + Method Controls */}
