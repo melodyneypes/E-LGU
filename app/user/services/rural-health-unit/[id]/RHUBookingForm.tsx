@@ -11,9 +11,7 @@ import {
     ArrowLeft,
     Calendar,
     User,
-    ChevronDown,
-    Sparkles,
-    Upload
+    Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
