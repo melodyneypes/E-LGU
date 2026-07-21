@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
@@ -79,23 +79,50 @@ export default function PaymentsClient({ initialPayments }: PaymentsClientProps)
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const router = useRouter();
 
-    const handleRefresh = async () => {
-        setLoading(true);
+    const handleRefresh = async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const res = await getPaymentsLedger("");
             if (res.success && res.data) {
                 setPayments(res.data as any);
-                toast.success("Payments list updated!");
+                if (!silent) {
+                    toast.success("Payments list updated!");
+                }
             } else {
-                toast.error(res.error || "Failed to update payments.");
+                if (!silent) {
+                    toast.error(res.error || "Failed to update payments.");
+                }
             }
         } catch (err) {
             console.error(err);
-            toast.error("An unexpected error occurred.");
+            if (!silent) {
+                toast.error("An unexpected error occurred.");
+            }
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
+
+    // Real-time updates subscription using Server-Sent Events (SSE)
+    useEffect(() => {
+        const eventSource = new EventSource("/api/admin/treasury/payments/stream");
+
+        eventSource.onmessage = (event) => {
+            if (event.data === "refresh") {
+                console.log("[PaymentsClient] SSE refresh event received, updating ledger...");
+                handleRefresh(true);
+            }
+        };
+
+        eventSource.onerror = () => {
+            console.warn("SSE stream connection lost or errored. Reconnecting...");
+        };
+
+        return () => {
+            eventSource.close();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleCopy = (text: string, id: string) => {
         navigator.clipboard.writeText(text);
@@ -789,8 +816,13 @@ export default function PaymentsClient({ initialPayments }: PaymentsClientProps)
                         </DropdownMenuContent>
                     </DropdownMenu>
 
+                    <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl font-bold text-[10px] uppercase tracking-wider animate-pulse shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Live
+                    </div>
+
                     <Button
-                        onClick={handleRefresh}
+                        onClick={() => handleRefresh(false)}
                         variant="outline"
                         className="h-11 w-11 rounded-xl p-0 border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117]"
                         disabled={loading}
