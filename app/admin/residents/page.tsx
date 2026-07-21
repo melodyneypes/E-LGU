@@ -53,7 +53,11 @@ export default async function Page({
         ];
     }
 
-    const [residentsRaw, totalCount, citizenCount, businessOwnerCount, guestCount] = await Promise.all([
+    const categories = await prisma.residentCategory.findMany({
+        orderBy: { name: "asc" }
+    });
+
+    const [residentsRaw, totalCount, ...categoryCountsRaw] = await Promise.all([
         prisma.resident.findMany({
             where,
             select: {
@@ -129,25 +133,21 @@ export default async function Page({
             skip: skip
         }),
         prisma.resident.count({ where }),
-        prisma.resident.count({
-            where: {
-                ...where,
-                category: { name: "Citizen" }
-            }
-        }),
-        prisma.resident.count({
-            where: {
-                ...where,
-                category: { name: "Business Owner" }
-            }
-        }),
-        prisma.resident.count({
-            where: {
-                ...where,
-                category: { name: "Guests" }
-            }
-        })
+        ...categories.map(cat =>
+            prisma.resident.count({
+                where: {
+                    ...where,
+                    categoryId: cat.id
+                }
+            })
+        )
     ]);
+
+    const categoryStats = categories.map((cat, idx) => ({
+        id: cat.id,
+        name: cat.name,
+        count: categoryCountsRaw[idx]
+    }));
 
     // Map virtual fields for frontend convenience
     const residents = (residentsRaw as any[]).map((r: any) => ({
@@ -168,9 +168,7 @@ export default async function Page({
             limit={limit}
             stats={{
                 total: totalCount,
-                citizens: citizenCount,
-                businessOwners: businessOwnerCount,
-                guests: guestCount
+                categories: categoryStats
             }}
         >
             <ResidentsPage />

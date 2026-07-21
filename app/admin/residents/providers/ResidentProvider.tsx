@@ -1,8 +1,8 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode, useTransition } from "react";
-import { getSystemSettingAction } from "@/app/admin/transactions/actions";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useSystemTheme } from "@/components/providers/ThemeProvider";
 
 export type ResidentStatus = "PENDING" | "APPROVED" | "DRAFT" | "REJECTED";
 
@@ -160,9 +160,11 @@ type ResidentContextType = {
     // Server-side aggregated stats
     stats: {
         total: number;
-        citizens: number;
-        businessOwners: number;
-        guests: number;
+        categories: {
+            id: string;
+            name: string;
+            count: number;
+        }[];
     };
 
     isPending: boolean;
@@ -185,9 +187,11 @@ export function ResidentProvider({
     limit: number;
     stats: {
         total: number;
-        citizens: number;
-        businessOwners: number;
-        guests: number;
+        categories: {
+            id: string;
+            name: string;
+            count: number;
+        }[];
     };
 }) {
     const router = useRouter();
@@ -246,7 +250,7 @@ export function ResidentProvider({
     // Form Selection State
     const [formCategoryId, setFormCategoryId] = useState<string | null>(editingData?.categoryId || null);
     const [formCategoryName, setFormCategoryName] = useState<string | null>(editingData?.category?.name || null);
-    const [themeColor, setThemeColor] = useState("#2563eb");
+    const { themeColor } = useSystemTheme();
 
     // Sync formCategoryId with editingData when it changes
     useEffect(() => {
@@ -258,14 +262,6 @@ export function ResidentProvider({
             setFormCategoryName(null);
         }
     }, [editingData]);
-
-    useEffect(() => {
-        getSystemSettingAction("theme_color", "#2563eb").then(res => {
-            if (res.success && res.data) {
-                setThemeColor(res.data);
-            }
-        });
-    }, []);
 
     return (
         <ResidentContext.Provider value={{
