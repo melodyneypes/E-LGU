@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { signIn, useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -49,6 +49,8 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
     const [showPassword, setShowPassword] = React.useState(false);
     const [isLoggingIn, setIsLoggingIn] = React.useState(false);
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const callbackUrl = searchParams.get("callbackUrl");
     const { data: session, status } = useSession();
 
     // Auto-logout deactivated accounts and redirect active ones
@@ -85,10 +87,10 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                     return;
                 }
 
-                router.replace(getPostLoginDestination(user));
+                router.replace(getPostLoginDestination(user, callbackUrl));
             }
         }
-    }, [session, status, router, isMaintenanceActive, isLoggingIn]);
+    }, [session, status, router, isMaintenanceActive, isLoggingIn, callbackUrl]);
 
     // Show toast error if sessionStorage contains account_locked_toast flag
     React.useEffect(() => {
@@ -584,7 +586,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                     }
 
                     toast.success("Logged in successfully");
-                    router.replace(getPostLoginDestination(session.user));
+                    router.replace(getPostLoginDestination(session.user, callbackUrl));
                 };
 
 
@@ -612,7 +614,7 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
             console.error("Login error:", error);
             setIsLoggingIn(false);
         }
-    }, [lockout, otpSendLockout, handleFailedAttempt, handleSuccessAttempt, router, triggerLeave, isMaintenanceActive]);
+    }, [lockout, otpSendLockout, handleFailedAttempt, handleSuccessAttempt, router, triggerLeave, isMaintenanceActive, callbackUrl]);
 
 
 

@@ -14,6 +14,9 @@ test("admin logout controls use the client NextAuth logout flow", () => {
 test("login redirects use one canonical destination resolver", () => {
   const source = readFileSync("components/auth/LoginForm.tsx", "utf8");
   assert.match(source, /import \{ getPostLoginDestination \} from "@\/lib\/auth\/post-login-destination"/);
-  assert.ok((source.match(/getPostLoginDestination\(/g) ?? []).length >= 2);
+  assert.match(source, /useSearchParams/);
+  assert.match(source, /searchParams\.get\("callbackUrl"\)/);
+  assert.match(source, /getPostLoginDestination\(user, callbackUrl\)/);
+  assert.match(source, /getPostLoginDestination\(session\.user, callbackUrl\)/);
   assert.doesNotMatch(source, /role === "ENGINEER"[\s\S]{0,120}?router\.push/);
 });
