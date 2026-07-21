@@ -103,20 +103,24 @@ export default async function Page({
             skip: skip
         }),
         prisma.resident.count({ where }),
-        ...categories.map(cat =>
-            prisma.resident.count({
-                where: {
-                    ...where,
-                    categoryId: cat.id
-                }
-            })
-        )
+        prisma.resident.groupBy({
+            by: ['categoryId'],
+            _count: { _all: true },
+            where
+        })
     ]);
 
-    const categoryStats = categories.map((cat, idx) => ({
+    const categoryMap = new Map(
+        (categoryCountsRaw as any[] || []).map(c => [
+            c?.categoryId, 
+            typeof c?._count === 'object' ? c?._count?._all : (typeof c?._count === 'number' ? c._count : 0)
+        ])
+    );
+
+    const categoryStats = categories.map(cat => ({
         id: cat.id,
         name: cat.name,
-        count: categoryCountsRaw[idx]
+        count: categoryMap.get(cat.id) || 0
     }));
 
     // Map virtual fields for frontend convenience
