@@ -511,8 +511,7 @@ export function Sidebar({
             menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue"].includes(item.label));
         } else if (role === "ENGINEER") {
             menuItems = [
-                { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" },
-                { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" }
+                { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" }
             ];
         } else if (role === "MPDC_ZONING") {
             menuItems = [
