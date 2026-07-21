@@ -229,6 +229,12 @@ export default function PaymentsClient({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search, methodFilter, categoryFilter, fromDate, toDate, limit]);
 
+    // Track page and limit in a ref to avoid recreation of SSE subscription
+    const stateRef = useRef({ currentPage, limit });
+    useEffect(() => {
+        stateRef.current = { currentPage, limit };
+    }, [currentPage, limit]);
+
     // Real-time updates subscription using Server-Sent Events (SSE)
     useEffect(() => {
         const eventSource = new EventSource("/api/admin/treasury/payments/stream");
@@ -236,7 +242,7 @@ export default function PaymentsClient({
         eventSource.onmessage = (event) => {
             if (event.data === "refresh") {
                 console.log("[PaymentsClient] SSE refresh event received, updating ledger...");
-                fetchPaymentsData(currentPage, limit);
+                fetchPaymentsData(stateRef.current.currentPage, stateRef.current.limit);
             }
         };
 
@@ -248,7 +254,7 @@ export default function PaymentsClient({
             eventSource.close();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentPage, limit]);
+    }, []);
 
     const handleCopy = (text: string, id: string) => {
         navigator.clipboard.writeText(text);

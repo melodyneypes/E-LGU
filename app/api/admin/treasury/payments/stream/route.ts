@@ -31,9 +31,21 @@ export async function GET(req: NextRequest) {
                 controller.enqueue("data: heartbeat\n\n");
             }, 30000);
 
-            // Handler for db changes in Payment table using Supabase Realtime
+            // Handler for db changes in Transaction & Payment tables using Supabase Realtime
             const channel = supabase
                 .channel("reports-payments-ledger-stream")
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "Transaction"
+                    },
+                    (payload: any) => {
+                        console.log(`[SSE STREAM] Supabase detected Transaction change: ${payload.eventType}`);
+                        controller.enqueue("data: refresh\n\n");
+                    }
+                )
                 .on(
                     "postgres_changes",
                     {

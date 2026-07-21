@@ -179,6 +179,10 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
                 if (pathname.includes("/daily-requests") && crumb.seg === "reports") {
                     return false;
                 }
+                // Remove "Treasury Hub" (treasury segment) from breadcrumbs if on treasury/payments page
+                if (pathname.includes("/treasury/payments") && crumb.seg === "treasury") {
+                    return false;
+                }
                 return true;
             });
 
