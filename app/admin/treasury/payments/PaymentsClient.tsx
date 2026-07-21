@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect, useRef, useTransition } from "reac
 import { useRouter } from "next/navigation";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
+import Link from "next/link";
 import {
     Table,
     TableBody,
@@ -17,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, Copy, Check, RefreshCcw, DollarSign, CheckCircle2, CalendarIcon, X, FileDown, ChevronDown, FileSpreadsheet, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Search, Copy, Check, RefreshCcw, DollarSign, CheckCircle2, CalendarIcon, X, FileDown, ChevronDown, FileSpreadsheet, ChevronLeft, ChevronRight, Loader2, ArrowLeft, FileText, CheckCircle, Clock, AlertTriangle, Eye, RotateCcw, Folder, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { getPaymentsLedger } from "./actions";
 import jsPDF from "jspdf";
@@ -62,6 +63,7 @@ interface PaymentsClientProps {
         };
     };
     categories?: string[];
+    themeColor?: string;
     initialFrom?: string;
     initialTo?: string;
     initialCategory?: string;
@@ -89,6 +91,7 @@ function getRequesterName(payment: PaymentRecord) {
 export default function PaymentsClient({
     initialData,
     categories = [],
+    themeColor = "#2563eb",
     initialFrom,
     initialTo,
     initialCategory = "ALL",
@@ -105,19 +108,22 @@ export default function PaymentsClient({
 
     const [loading, setLoading] = useState(false);
     const [isPending, startTransition] = useTransition();
+    const [isExportingExcel, setIsExportingExcel] = useState(false);
+    const [isExportingPdf, setIsExportingPdf] = useState(false);
 
     const [search, setSearch] = useState(initialSearch);
     const [methodFilter, setMethodFilter] = useState<string>(initialMethod);
     const [categoryFilter, setCategoryFilter] = useState<string>(initialCategory);
 
-    const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-        if (initialFrom) {
-            return {
-                from: new Date(initialFrom),
-                to: initialTo ? new Date(initialTo) : undefined
-            };
-        }
-        return undefined;
+    const [fromDate, setFromDate] = useState(() => {
+        if (initialFrom) return initialFrom;
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        return d.toISOString().split("T")[0];
+    });
+    const [toDate, setToDate] = useState(() => {
+        if (initialTo) return initialTo;
+        return new Date().toISOString().split("T")[0];
     });
 
     const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -131,9 +137,6 @@ export default function PaymentsClient({
         const controller = new AbortController();
         abortControllerRef.current = controller;
 
-        const fromStr = dateRange?.from ? dateRange.from.toISOString().split("T")[0] : "";
-        const toStr = dateRange?.to ? dateRange.to.toISOString().split("T")[0] : (dateRange?.from ? dateRange.from.toISOString().split("T")[0] : "");
-
         if (!silent) setLoading(true);
 
         startTransition(async () => {
@@ -142,8 +145,8 @@ export default function PaymentsClient({
                     search,
                     method: methodFilter,
                     category: categoryFilter,
-                    from: fromStr,
-                    to: toStr,
+                    from: fromDate,
+                    to: toDate,
                     page: String(pageNumber),
                     limit: String(currentLimit)
                 });
@@ -181,20 +184,32 @@ export default function PaymentsClient({
         });
     };
 
-    const handleRefresh = (silent = false) => {
-        fetchPaymentsData(currentPage, limit, silent);
+    const handleRefresh = () => {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        const defaultFrom = d.toISOString().split("T")[0];
+        const defaultTo = new Date().toISOString().split("T")[0];
+
+        let changed = false;
+        if (fromDate !== defaultFrom) { setFromDate(defaultFrom); changed = true; }
+        if (toDate !== defaultTo) { setToDate(defaultTo); changed = true; }
+        if (categoryFilter !== "ALL") { setCategoryFilter("ALL"); changed = true; }
+        if (methodFilter !== "ALL") { setMethodFilter("ALL"); changed = true; }
+        if (search !== "") { setSearch(""); changed = true; }
+
+        if (!changed) {
+            fetchPaymentsData(currentPage, limit);
+        }
+        toast.success("Filters reset and data refreshed!");
     };
 
     const fetchExportData = async (): Promise<PaymentRecord[]> => {
-        const fromStr = dateRange?.from ? dateRange.from.toISOString().split("T")[0] : "";
-        const toStr = dateRange?.to ? dateRange.to.toISOString().split("T")[0] : (dateRange?.from ? dateRange.from.toISOString().split("T")[0] : "");
-
         const queryParams = new URLSearchParams({
             search,
             method: methodFilter,
             category: categoryFilter,
-            from: fromStr,
-            to: toStr,
+            from: fromDate,
+            to: toDate,
             exportAll: "true"
         });
 
@@ -215,7 +230,7 @@ export default function PaymentsClient({
         }
         fetchPaymentsData(1, limit);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [search, methodFilter, categoryFilter, dateRange, limit]);
+    }, [search, methodFilter, categoryFilter, fromDate, toDate, limit]);
 
     // Real-time updates subscription using Server-Sent Events (SSE)
     useEffect(() => {
@@ -224,7 +239,7 @@ export default function PaymentsClient({
         eventSource.onmessage = (event) => {
             if (event.data === "refresh") {
                 console.log("[PaymentsClient] SSE refresh event received, updating ledger...");
-                handleRefresh(true);
+                fetchPaymentsData(currentPage, limit, true);
             }
         };
 
@@ -245,21 +260,24 @@ export default function PaymentsClient({
         setTimeout(() => setCopiedId(null), 2000);
     };
 
+    // EXPORT PDF FUNCTION
     const handleExport = async () => {
-        toast.loading("Generating PDF report...", { id: "pdf-export" });
-
+        setIsExportingPdf(true);
         try {
             const exportPayments = await fetchExportData();
             if (exportPayments.length === 0) {
-                toast.error("Walang data para i-export.", { id: "pdf-export" });
+                toast.error("Walang data para i-export.");
+                setIsExportingPdf(false);
                 return;
             }
+
+            toast.loading("Generating PDF report...", { id: "pdf-export" });
 
             // --- 1. Fetch branding ---
             let logoUrl = "";
             let brand1 = "MAPANDAN";
             let brand2 = "PORTAL";
-            let themeColor = "#2563eb";
+            let activeThemeColor = themeColor;
             try {
                 const res = await fetch("/api/settings");
                 if (res.ok) {
@@ -267,7 +285,7 @@ export default function PaymentsClient({
                     logoUrl = data.logoUrl || "";
                     brand1 = data.brand1 || "MAPANDAN";
                     brand2 = data.brand2 || "PORTAL";
-                    themeColor = data.themeColor || "#2563eb";
+                    activeThemeColor = data.themeColor || themeColor;
                 }
             } catch { /* use defaults */ }
 
@@ -280,14 +298,14 @@ export default function PaymentsClient({
                     b: parseInt(c.substring(4, 6), 16),
                 };
             };
-            const { r, g, b } = hexToRgb(themeColor);
+            const { r, g, b } = hexToRgb(activeThemeColor);
 
             // --- 3. Labels ---
-            const rangeLabel = dateRange?.from && dateRange?.to
-                ? `${format(dateRange.from, "MMMM d, yyyy")} to ${format(dateRange.to, "MMMM d, yyyy")}`
+            const rangeLabel = fromDate && toDate
+                ? `${format(new Date(fromDate), "MMMM d, yyyy")} to ${format(new Date(toDate), "MMMM d, yyyy")}`
                 : `All Records as of ${format(new Date(), "MMMM d, yyyy")}`;
-            const fileRangeLabel = dateRange?.from && dateRange?.to
-                ? `${format(dateRange.from, "MMM-dd-yyyy")}_to_${format(dateRange.to, "MMM-dd-yyyy")}`
+            const fileRangeLabel = fromDate && toDate
+                ? `${format(new Date(fromDate), "MMM-dd-yyyy")}_to_${format(new Date(toDate), "MMM-dd-yyyy")}`
                 : `All_Records_${format(new Date(), "MMM-dd-yyyy")}`;
 
             // --- 4. Landscape A4 ---
@@ -390,64 +408,26 @@ export default function PaymentsClient({
 
             autoTable(doc, {
                 startY: currentY,
-                theme: "grid",
-                head: [["#", "Reference No.", "OR No.", "Name of Payee", "Nature of Collection", "Payment Mode", "Amount Collected", "Status", "Date of Payment"]],
+                head: [["#", "Reference No.", "OR Number", "Name of Payee", "Nature of Collection", "Payment Mode", "Amount Collected", "Status", "Date of Payment"]],
                 body: tableRows,
-                styles: {
-                    fontSize: 6.5,
-                    font: "courier",
-                    cellPadding: { top: 2, right: 2.5, bottom: 2, left: 2.5 },
-                    overflow: "linebreak",
-                    textColor: [20, 20, 20],
-                    lineColor: [180, 180, 180],
-                    lineWidth: 0.2,
-                    valign: "middle",
-                },
-                headStyles: {
-                    fillColor: [r, g, b],
-                    textColor: [255, 255, 255],
-                    font: "helvetica",
-                    fontStyle: "bold",
-                    fontSize: 7,
-                    halign: "center",
-                    lineColor: [r, g, b],
-                    lineWidth: 0.25,
-                    valign: "middle",
-                    minCellHeight: 8,
-                },
-                alternateRowStyles: { fillColor: [245, 247, 250] },
+                theme: "grid",
+                styles: { fontSize: 6.5, cellPadding: 1.5, font: "helvetica", lineColor: [180, 180, 180], lineWidth: 0.15 },
+                headStyles: { fillColor: [r, g, b], textColor: [255, 255, 255], fontStyle: "bold", halign: "center" },
                 columnStyles: {
-                    0: { cellWidth: 8,  halign: "center", textColor: [120, 120, 120] },  // #
-                    1: { cellWidth: 30, fontStyle: "bold", halign: "left" },              // Reference
-                    2: { cellWidth: 20, halign: "center" },                               // OR No.
-                    3: { cellWidth: 48, halign: "left" },                                 // Payee
-                    4: { cellWidth: 40, halign: "left" },                                 // Nature
-                    5: { cellWidth: 24, halign: "center" },                               // Mode
-                    6: { cellWidth: 34, halign: "right", fontStyle: "bold" },             // Amount
-                    7: { cellWidth: 18, halign: "center" },                               // Status
-                    8: { cellWidth: "auto" as any, halign: "center" },                   // Date
-                },
-                willDrawCell: (data) => {
-                    if (data.section === "body" && data.column.index === 7) {
-                        const status = String(data.cell.text[0]);
-                        if (status === "PAID") data.cell.styles.textColor = [21, 128, 61];
-                        else if (status === "PENDING") data.cell.styles.textColor = [161, 98, 7];
-                        else data.cell.styles.textColor = [185, 28, 28];
-                        data.cell.styles.fontStyle = "bold";
-                    }
+                    0: { cellWidth: 8, halign: "center", fontStyle: "bold" },
+                    1: { cellWidth: 26, halign: "left" },
+                    2: { cellWidth: 20, halign: "center" },
+                    3: { cellWidth: 46, halign: "left" },
+                    4: { cellWidth: 42, halign: "left" },
+                    5: { cellWidth: 24, halign: "center" },
+                    6: { cellWidth: 32, halign: "right", fontStyle: "bold" },
+                    7: { cellWidth: 20, halign: "center" },
+                    8: { cellWidth: "auto" as any, halign: "center" },
                 },
                 margin: { left: MARGIN, right: MARGIN, top: MARGIN },
             });
 
-            // ====================================================
-            // SECTION C: SUMMARY BELOW TABLE
-            // ====================================================
-
-            const PAID = filteredPayments.filter(p => p.status === "PAID");
-            const totalPaid = PAID.reduce((a, p) => a + p.amount, 0);
             let summaryY = (doc as any).lastAutoTable.finalY;
-
-            // Thin rule right after table bottom border
             summaryY += 5;
 
             // Left side: Date Range
@@ -466,17 +446,17 @@ export default function PaymentsClient({
             doc.text("Total Records:", PAGE_W - MARGIN - 100, summaryY);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(20, 20, 20);
-            doc.text(String(filteredPayments.length), PAGE_W - MARGIN - 55, summaryY, { align: "right" });
+            doc.text(String(exportPayments.length), PAGE_W - MARGIN - 55, summaryY, { align: "right" });
 
             doc.setFontSize(6.5);
             doc.setFont("helvetica", "normal");
             doc.setTextColor(100, 100, 100);
-            doc.text("Total Amount Collected:", PAGE_W - MARGIN - 100, summaryY + 5);
+            doc.text("Total Collections (Paid):", PAGE_W - MARGIN - 100, summaryY + 5);
             doc.setFontSize(7.5);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(r, g, b);
             doc.text(
-                `PHP ${totalPaid.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`,
+                `PHP ${stats.totalPaid.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`,
                 PAGE_W - MARGIN,
                 summaryY + 5,
                 { align: "right" }
@@ -487,16 +467,13 @@ export default function PaymentsClient({
             doc.setLineWidth(0.4);
             doc.line(PAGE_W - MARGIN - 55, summaryY + 7, PAGE_W - MARGIN, summaryY + 7);
 
-            // ====================================================
-            // SECTION D: CERTIFICATION + SIGNATURE LINES
-            // ====================================================
-
+            // --- Certification + Signatures ---
             const certY = summaryY + 16;
             doc.setFontSize(6.5);
             doc.setFont("helvetica", "italic");
             doc.setTextColor(70, 70, 70);
             doc.text(
-                "I hereby certify that the above records are true and correct based on official records of the Municipal Treasury Office.",
+                "I hereby certify that the above collections and transactions are true and correct based on municipal system logs.",
                 MARGIN,
                 certY
             );
@@ -508,15 +485,12 @@ export default function PaymentsClient({
             doc.setFontSize(6);
             doc.setFont("helvetica", "normal");
             doc.setTextColor(90, 90, 90);
-            doc.text("Prepared by / Treasury Officer", MARGIN, sigY + 3.5);
+            doc.text("Prepared by / Document Processor", MARGIN, sigY + 3.5);
 
             doc.line(PAGE_W - MARGIN - 55, sigY, PAGE_W - MARGIN, sigY);
-            doc.text("Noted by / Municipal Treasurer", PAGE_W - MARGIN - 55, sigY + 3.5);
+            doc.text("Noted by / Municipal Administrator", PAGE_W - MARGIN - 55, sigY + 3.5);
 
-            // ====================================================
-            // SECTION E: FOOTER — every page
-            // ====================================================
-
+            // --- Header/Footer on every page ---
             const pageCount = (doc.internal as any).getNumberOfPages();
             for (let i = 1; i <= pageCount; i++) {
                 doc.setPage(i);
@@ -529,52 +503,55 @@ export default function PaymentsClient({
                 doc.setFontSize(6);
                 doc.setFont("helvetica", "normal");
                 doc.setTextColor(80, 80, 80);
-                doc.text(`${brand1} ${brand2} — Office of the Municipal Treasurer`, MARGIN, PAGE_H - 6);
+                doc.text(`${brand1} ${brand2} — Treasury Payments Ledger`, MARGIN, PAGE_H - 6);
 
                 doc.setFont("helvetica", "italic");
                 doc.setTextColor(130, 130, 130);
-                doc.text("This document is for official use only.", PAGE_W / 2, PAGE_H - 6, { align: "center" });
+                doc.text("This document is for official audit use only.", PAGE_W / 2, PAGE_H - 6, { align: "center" });
 
                 doc.setFont("helvetica", "normal");
                 doc.setTextColor(80, 80, 80);
                 doc.text(`Page ${i} of ${pageCount}`, PAGE_W - MARGIN, PAGE_H - 6, { align: "right" });
             }
 
-            // --- Save ---
             doc.save(`Treasury_Payments_${fileRangeLabel}.pdf`);
             toast.success(`PDF exported with ${exportPayments.length} record(s)!`, { id: "pdf-export" });
-
         } catch (err) {
             console.error(err);
             toast.error("Failed to generate PDF. Please try again.", { id: "pdf-export" });
+        } finally {
+            setIsExportingPdf(false);
         }
     };
 
+    // EXPORT EXCEL FUNCTION
     const handleExportExcel = async () => {
-        toast.loading("Generating Excel report...", { id: "excel-export" });
-
+        setIsExportingExcel(true);
         try {
             const exportPayments = await fetchExportData();
             if (exportPayments.length === 0) {
-                toast.error("Walang data para i-export.", { id: "excel-export" });
+                toast.error("Walang data para i-export.");
+                setIsExportingExcel(false);
                 return;
             }
 
+            toast.loading("Generating Excel report...", { id: "excel-export" });
+
             // Fetch theme color for header styling
-            let themeColor = "2563EB";
+            let activeThemeColor = "2563EB";
             try {
                 const res = await fetch("/api/settings");
                 if (res.ok) {
                     const data = await res.json();
-                    themeColor = (data.themeColor || "#2563EB").replace("#", "");
+                    activeThemeColor = (data.themeColor || "#2563EB").replace("#", "");
                 }
             } catch { /* use default */ }
 
-            const fileRangeLabel = dateRange?.from && dateRange?.to
-                ? `${format(dateRange.from, "MMM-dd-yyyy")}_to_${format(dateRange.to, "MMM-dd-yyyy")}`
+            const fileRangeLabel = fromDate && toDate
+                ? `${format(new Date(fromDate), "MMM-dd-yyyy")}_to_${format(new Date(toDate), "MMM-dd-yyyy")}`
                 : `All_Records_${format(new Date(), "MMM-dd-yyyy")}`;
-            const rangeLabel = dateRange?.from && dateRange?.to
-                ? `${format(dateRange.from, "MMMM d, yyyy")} to ${format(dateRange.to, "MMMM d, yyyy")}`
+            const rangeLabel = fromDate && toDate
+                ? `${format(new Date(fromDate), "MMMM d, yyyy")} to ${format(new Date(toDate), "MMMM d, yyyy")}`
                 : `All Records as of ${format(new Date(), "MMMM d, yyyy")}`;
 
             const workbook = new ExcelJS.Workbook();
@@ -605,7 +582,7 @@ export default function PaymentsClient({
                 cell.fill = {
                     type: "pattern",
                     pattern: "solid",
-                    fgColor: { argb: `FF${themeColor.toUpperCase()}` },
+                    fgColor: { argb: `FF${activeThemeColor.toUpperCase()}` },
                 };
                 cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10, name: "Calibri" };
                 cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
@@ -705,11 +682,11 @@ export default function PaymentsClient({
             totalAmountRow.getCell(3).numFmt = '#,##0.00';
             totalAmountRow.getCell(3).font = {
                 bold: true, size: 11, name: "Calibri",
-                color: { argb: `FF${themeColor.toUpperCase()}` },
+                color: { argb: `FF${activeThemeColor.toUpperCase()}` },
             };
             // Underline the total amount cell
             totalAmountRow.getCell(3).border = {
-                bottom: { style: "double", color: { argb: `FF${themeColor.toUpperCase()}` } },
+                bottom: { style: "double", color: { argb: `FF${activeThemeColor.toUpperCase()}` } },
             };
 
             // ── Write and download ────────────────────────────────
@@ -729,18 +706,10 @@ export default function PaymentsClient({
         } catch (err) {
             console.error(err);
             toast.error("Failed to generate Excel. Please try again.", { id: "excel-export" });
+        } finally {
+            setIsExportingExcel(false);
         }
     };
-
-    const dateRangeLabel = useMemo(() => {
-        if (dateRange?.from && dateRange?.to) {
-            return `${format(dateRange.from, "MMM d, yyyy")} – ${format(dateRange.to, "MMM d, yyyy")}`;
-        }
-        if (dateRange?.from) {
-            return `From ${format(dateRange.from, "MMM d, yyyy")}`;
-        }
-        return "Pick date range";
-    }, [dateRange]);
 
     const filteredPayments = payments;
 
@@ -753,331 +722,350 @@ export default function PaymentsClient({
     };
 
     return (
-        <div className="space-y-6">
-            {/* Top Cards Statistics */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Total Collections */}
-                <div className="bg-white dark:bg-[#151b2b] p-6 rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex items-center justify-between">
-                    <div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Total Paid Amount</span>
-                        <p className="text-2xl font-black italic tracking-tighter text-slate-900 dark:text-white mt-1">
-                            ₱{stats.totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
+        <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Header section with title and actions */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-100 dark:border-[#2a3040]/30 pb-6">
+                <div className="space-y-2">
+                    <Link
+                        href="/admin/dashboard"
+                        className="flex items-center gap-2 text-xs font-black uppercase italic tracking-widest text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        Back to Dashboard
+                    </Link>
+                    <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">
+                        Payments <span style={{ color: themeColor }}>Ledger</span>
+                    </h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic">
+                        Search, filter, and track all citizen payment transactions and reference numbers.
+                    </p>
+                </div>
+
+                {/* Export Buttons */}
+                <div className="flex flex-wrap items-center gap-3">
+                    <button
+                        onClick={handleExportExcel}
+                        disabled={isExportingExcel || isPending}
+                        className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider shadow-lg hover:shadow-xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                    >
+                        {isExportingExcel ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <FileSpreadsheet className="w-4 h-4" />
+                        )}
+                        <span>Excel Export</span>
+                    </button>
+
+                    <button
+                        onClick={handleExport}
+                        disabled={isExportingPdf || isPending}
+                        className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider shadow-lg hover:shadow-xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                    >
+                        {isExportingPdf ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <FileText className="w-4 h-4" />
+                        )}
+                        <span>PDF Report</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Quick KPI Stats Cards Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {/* Total Paid Collections */}
+                <div className="bg-white dark:bg-[#1e2330] rounded-[2rem] p-6 border border-slate-200 dark:border-[#2a3040] shadow-md flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center shrink-0">
+                        <DollarSign className="w-6 h-6 text-emerald-600" />
                     </div>
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-500">
-                        <DollarSign className="w-6 h-6" />
+                    <div>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest italic">Total Collections</p>
+                        <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter italic">
+                            ₱{stats.totalPaid.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </h3>
                     </div>
                 </div>
 
-                {/* Paid Transactions */}
-                <div className="bg-white dark:bg-[#151b2b] p-6 rounded-2xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex items-center justify-between">
-                    <div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Paid Transactions</span>
-                        <p className="text-2xl font-black italic tracking-tighter text-emerald-500 mt-1">
-                            {stats.paidCount}
-                        </p>
+                {/* Total Logs Count */}
+                <div className="bg-white dark:bg-[#1e2330] rounded-[2rem] p-6 border border-slate-200 dark:border-[#2a3040] shadow-md flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center shrink-0">
+                        <FileText className="w-6 h-6 text-purple-600" />
                     </div>
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-500">
-                        <CheckCircle2 className="w-6 h-6" />
+                    <div>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest italic">Total Records</p>
+                        <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter italic">{totalCount.toLocaleString()}</h3>
                     </div>
                 </div>
             </div>
 
-            {/* Filters Bar */}
-            <div className="bg-white dark:bg-[#151b2b] p-4 rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="relative w-full md:w-[350px]">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                    <Input
-                        placeholder="Search ref no, transaction, citizen..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="pl-10 h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] focus-visible:ring-blue-500 rounded-xl"
-                    />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                    {/* Category Filter */}
-                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                        <SelectTrigger className="h-11 w-44 rounded-xl border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117] font-medium text-xs">
-                            <SelectValue placeholder="Category" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-[#151b2b]">
-                            <SelectItem value="ALL">All Categories</SelectItem>
-                            {categories.map((cat) => (
-                                <SelectItem key={cat} value={cat}>
-                                    {cat}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-
-                    {/* Method Filter */}
-                    <Select value={methodFilter} onValueChange={setMethodFilter}>
-                        <SelectTrigger className="h-11 w-40 rounded-xl border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117]">
-                            <SelectValue placeholder="Payment Method" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-[#151b2b]">
-                            <SelectItem value="ALL">All Methods</SelectItem>
-                            <SelectItem value="CASH">Cash</SelectItem>
-                            <SelectItem value="E_PAYMENT">E-Payment</SelectItem>
-                            <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                            <SelectItem value="CASH_ON_DELIVERY">COD</SelectItem>
-                        </SelectContent>
-                    </Select>
-
-                    {/* Date Range Picker */}
-                    <div className="flex items-center gap-1.5">
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    className={`h-11 rounded-xl border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117] font-normal justify-start text-left gap-2 min-w-[200px] ${
-                                        !dateRange ? "text-slate-400" : "text-slate-900 dark:text-white"
-                                    }`}
-                                >
-                                    <CalendarIcon className="w-4 h-4 text-slate-400 shrink-0" />
-                                    <span className="text-xs truncate">{dateRangeLabel}</span>
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent
-                                className="w-auto p-0 bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] shadow-xl rounded-2xl overflow-hidden"
-                                align="end"
-                            >
-                                <Calendar
-                                    initialFocus
-                                    mode="range"
-                                    defaultMonth={dateRange?.from}
-                                    selected={dateRange}
-                                    onSelect={setDateRange}
-                                    numberOfMonths={2}
-                                    className="p-4"
-                                />
-                            </PopoverContent>
-                        </Popover>
-                        {dateRange && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDateRange(undefined)}
-                                className="h-11 w-11 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
-                                title="Clear date filter"
-                            >
-                                <X className="w-4 h-4" />
-                            </Button>
-                        )}
+            {/* Filters Dashboard Card */}
+            <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2rem] p-6 shadow-md">
+                <div className="flex flex-wrap items-center gap-4 w-full">
+                    {/* Date From */}
+                    <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl w-full sm:w-[170px] shrink-0">
+                        <CalendarIcon className="w-4 h-4 text-slate-400 shrink-0" />
+                        <input
+                            type="date"
+                            value={fromDate}
+                            onChange={(e) => setFromDate(e.target.value)}
+                            className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer [color-scheme:light|dark] w-full"
+                        />
                     </div>
 
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                disabled={filteredPayments.length === 0}
-                                className="h-11 rounded-xl gap-2 px-4 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
-                            >
-                                <FileDown className="w-4 h-4" />
-                                <span className="text-xs font-bold">Export Report</span>
-                                <ChevronDown className="w-3.5 h-3.5 opacity-70" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                            align="end"
-                            className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-xl shadow-xl p-1 min-w-[160px]"
+                    <span className="text-slate-400 text-xs font-bold shrink-0">to</span>
+
+                    {/* Date To */}
+                    <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl w-full sm:w-[170px] shrink-0">
+                        <CalendarIcon className="w-4 h-4 text-slate-400 shrink-0" />
+                        <input
+                            type="date"
+                            value={toDate}
+                            onChange={(e) => setToDate(e.target.value)}
+                            className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer [color-scheme:light|dark] w-full"
+                        />
+                    </div>
+
+                    {/* Category Dropdown */}
+                    <div className="relative w-full sm:w-[170px] shrink-0">
+                        <select
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            className="w-full pl-9 pr-10 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] text-xs font-black uppercase italic tracking-wider rounded-xl outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200"
                         >
-                            <DropdownMenuItem
-                                onClick={handleExport}
-                                className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium hover:bg-slate-50 dark:hover:bg-[#1a1f2e]"
-                            >
-                                <FileDown className="w-4 h-4 text-red-500" />
-                                Export as PDF
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={handleExportExcel}
-                                className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium hover:bg-slate-50 dark:hover:bg-[#1a1f2e]"
-                            >
-                                <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-                                Export as Excel
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                            <option value="ALL">All Categories</option>
+                            {categories.map((cat) => (
+                                <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                        </select>
+                        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                            <Folder className="w-3.5 h-3.5 text-slate-400" />
+                        </div>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                            </svg>
+                        </div>
+                    </div>
 
+                    {/* Payment Mode Selector Dropdown */}
+                    <div className="relative w-full sm:w-[170px] shrink-0">
+                        <select
+                            value={methodFilter}
+                            onChange={(e) => setMethodFilter(e.target.value)}
+                            className="w-full pl-9 pr-10 py-2.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] text-xs font-black uppercase italic tracking-wider rounded-xl outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200"
+                        >
+                            <option value="ALL">All Methods</option>
+                            <option value="CASH">Cash</option>
+                            <option value="E_PAYMENT">E-Payment</option>
+                            <option value="BANK_TRANSFER">Bank Transfer</option>
+                            <option value="CASH_ON_DELIVERY">COD</option>
+                        </select>
+                        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                            <span className="text-slate-400 text-xs font-bold font-mono">₱</span>
+                        </div>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                            </svg>
+                        </div>
+                    </div>
 
+                    {/* Search Input inline */}
+                    <div className="relative w-full sm:w-[260px] sm:ml-auto shrink-0">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Search Name, Ref or Business..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full pl-10 pr-4 h-11 bg-slate-50 dark:bg-[#0f1117] border border-slate-200 dark:border-[#2a3040] rounded-xl outline-none text-xs font-medium text-slate-700 dark:text-slate-200 focus:border-blue-500 transition-colors shadow-inner"
+                        />
+                    </div>
 
-                    <Button
-                        onClick={() => handleRefresh(false)}
-                        variant="outline"
-                        className="h-11 w-11 rounded-xl p-0 border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117]"
-                        disabled={loading}
+                    {/* Reset Filters / Refresh Button */}
+                    <button
+                        onClick={handleRefresh}
+                        className="flex items-center justify-center p-2.5 bg-white dark:bg-[#1e2330] text-slate-500 hover:text-red-500 border border-slate-200 dark:border-[#2a3040] hover:border-red-500/30 rounded-xl transition-all shadow-sm active:scale-95 shrink-0 cursor-pointer"
+                        title="Reset Filters"
                     >
-                        <RefreshCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                    </Button>
+                        <RotateCcw className="w-4 h-4" />
+                    </button>
                 </div>
             </div>
 
             {/* Table Card */}
-            <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] shadow-sm overflow-hidden">
-                <Table>
-                    <TableHeader className="bg-slate-50 dark:bg-[#1a1f2e] border-b border-slate-200 dark:border-[#2a3040]">
-                        <TableRow>
-                            <TableHead className="font-bold py-4 pl-6 text-slate-700 dark:text-slate-300">Reference No.</TableHead>
-                            <TableHead className="font-bold text-slate-700 dark:text-slate-300">Citizen / Business</TableHead>
-                            <TableHead className="font-bold text-slate-700 dark:text-slate-300">Service Type</TableHead>
-                            <TableHead className="font-bold text-slate-700 dark:text-slate-300">Method</TableHead>
-                            <TableHead className="font-bold text-slate-700 dark:text-slate-300">Amount</TableHead>
-                            <TableHead className="font-bold text-slate-700 dark:text-slate-300">Status</TableHead>
-                            <TableHead className="font-bold text-slate-700 dark:text-slate-300">Date Paid</TableHead>
-                            <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right pr-6">OR Number</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isPending ? (
+            <div className="bg-white dark:bg-[#151b2b] rounded-[2rem] border border-slate-200 dark:border-[#2a3040] p-6 shadow-md overflow-hidden">
+                <div className="overflow-x-auto">
+                    <Table>
+                        <TableHeader className="bg-slate-50 dark:bg-[#1a1f2e] border-b border-slate-200 dark:border-[#2a3040]">
                             <TableRow>
-                                <TableCell colSpan={8} className="py-12 text-center">
-                                    <div className="flex items-center justify-center gap-2">
-                                        <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
-                                        <span className="font-bold italic text-slate-500 dark:text-slate-400">Loading ledger data...</span>
-                                    </div>
-                                </TableCell>
+                                <TableHead className="font-bold py-4 pl-6 text-slate-700 dark:text-slate-300 w-12 text-center">#</TableHead>
+                                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Reference No.</TableHead>
+                                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Citizen / Business</TableHead>
+                                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Service Type</TableHead>
+                                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Method</TableHead>
+                                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Amount</TableHead>
+                                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Status</TableHead>
+                                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Date Paid</TableHead>
+                                <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right pr-6">OR Number</TableHead>
                             </TableRow>
-                        ) : payments.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={8} className="py-12 text-center font-bold italic text-slate-400">
-                                    No payment logs found matching the filters.
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            payments.map((payment) => {
-                                const formattedDate = formatDateTime(payment.createdAt);
-                                const citizenName = getRequesterName(payment);
-                                const serviceName = payment.transaction?.type?.name || "Service Payment";
-                                const refDisplay = payment.reference || "N/A";
-                                
-                                return (
-                                    <TableRow 
-                                        key={payment.id} 
-                                        onClick={() => router.push(`/admin/treasury/${payment.transactionId}`)}
-                                        className="border-b border-slate-100 dark:border-[#2a3040]/50 hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e]/50 transition-colors cursor-pointer select-none"
-                                    >
-                                        <TableCell className="py-4 pl-6 font-mono text-xs font-bold text-slate-900 dark:text-white">
-                                            <div className="flex items-center gap-2">
-                                                <span>{refDisplay}</span>
-                                                {payment.reference && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleCopy(payment.reference!, payment.id);
-                                                        }}
-                                                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                                                        title="Copy reference number"
-                                                    >
-                                                        {copiedId === payment.id ? (
-                                                            <Check className="w-3.5 h-3.5 text-emerald-500 animate-in zoom-in-50" />
-                                                        ) : (
-                                                            <Copy className="w-3.5 h-3.5" />
-                                                        )}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-col">
-                                                <span className="font-bold text-slate-900 dark:text-white uppercase leading-tight">
-                                                    {citizenName}
-                                                </span>
-                                                {payment.transaction?.businessName && (
-                                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase italic mt-0.5">
-                                                        Business: {payment.transaction.businessName}
+                        </TableHeader>
+                        <TableBody>
+                            {isPending ? (
+                                <TableRow>
+                                    <TableCell colSpan={9} className="py-12 text-center">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+                                            <span className="font-bold italic text-slate-500 dark:text-slate-400">Loading ledger data...</span>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ) : payments.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={9} className="py-12 text-center font-bold italic text-slate-400">
+                                        No payment logs found matching the filters.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                payments.map((payment, idx) => {
+                                    const formattedDate = formatDateTime(payment.createdAt);
+                                    const citizenName = getRequesterName(payment);
+                                    const serviceName = payment.transaction?.type?.name || "Service Payment";
+                                    const refDisplay = payment.reference || "N/A";
+                                    const rowNumber = (currentPage - 1) * limit + idx + 1;
+                                    
+                                    return (
+                                        <TableRow 
+                                            key={payment.id} 
+                                            onClick={() => router.push(`/admin/treasury/${payment.transactionId}`)}
+                                            className="border-b border-slate-100 dark:border-[#2a3040]/50 hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e]/50 transition-colors cursor-pointer select-none"
+                                        >
+                                            <TableCell className="py-4 pl-6 text-center text-xs font-bold text-slate-500 dark:text-slate-400 w-12">
+                                                {rowNumber}
+                                            </TableCell>
+                                            <TableCell className="py-4 font-mono text-xs font-bold text-slate-900 dark:text-white">
+                                                <div className="flex items-center gap-2">
+                                                    <span>{refDisplay}</span>
+                                                    {payment.reference && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleCopy(payment.reference!, payment.id);
+                                                            }}
+                                                            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                                                            title="Copy reference number"
+                                                        >
+                                                            {copiedId === payment.id ? (
+                                                                <Check className="w-3.5 h-3.5 text-emerald-500 animate-in zoom-in-50" />
+                                                            ) : (
+                                                                <Copy className="w-3.5 h-3.5" />
+                                                            )}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-slate-900 dark:text-white uppercase leading-tight">
+                                                        {citizenName}
                                                     </span>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                                            {serviceName}
-                                        </TableCell>
-                                        <TableCell className="text-xs font-bold uppercase text-blue-600 dark:text-blue-400">
-                                            {payment.method?.replace(/_/g, " ")}
-                                        </TableCell>
-                                        <TableCell className="font-bold text-slate-900 dark:text-white">
-                                            ₱{payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                        </TableCell>
-                                        <TableCell>
-                                            <span className={`text-[10px] font-black uppercase italic tracking-wider px-2.5 py-1 rounded-full ${
-                                                payment.status === "PAID"
-                                                    ? "text-emerald-700 bg-emerald-500/10 dark:text-emerald-400 dark:bg-emerald-500/20"
-                                                    : payment.status === "PENDING"
-                                                    ? "text-amber-700 bg-amber-500/10 dark:text-amber-400 dark:bg-amber-500/20"
-                                                    : "text-red-700 bg-red-500/10 dark:text-red-400 dark:bg-red-500/20"
-                                            }`}>
-                                                {payment.status}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{formattedDate.date}</span>
-                                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{formattedDate.time}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-right pr-6 font-mono text-xs font-bold text-slate-900 dark:text-white">
-                                            {payment.orNumber || "—"}
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
+                                                    {payment.transaction?.businessName && (
+                                                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase italic mt-0.5">
+                                                            Business: {payment.transaction.businessName}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                                                {serviceName}
+                                            </TableCell>
+                                            <TableCell className="text-xs font-bold uppercase text-blue-600 dark:text-blue-400">
+                                                {payment.method?.replace(/_/g, " ")}
+                                            </TableCell>
+                                            <TableCell className="font-bold text-slate-900 dark:text-white">
+                                                ₱{payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className={`text-[10px] font-black uppercase italic tracking-wider px-2.5 py-1 rounded-full ${
+                                                    payment.status === "PAID"
+                                                        ? "text-emerald-700 bg-emerald-500/10 dark:text-emerald-400 dark:bg-emerald-500/20"
+                                                        : payment.status === "PENDING"
+                                                        ? "text-amber-700 bg-amber-500/10 dark:text-amber-400 dark:bg-amber-500/20"
+                                                        : "text-red-700 bg-red-500/10 dark:text-red-400 dark:bg-red-500/20"
+                                                }`}>
+                                                    {payment.status}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{formattedDate.date}</span>
+                                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{formattedDate.time}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right pr-6 font-mono text-xs font-bold text-slate-900 dark:text-white">
+                                                {payment.orNumber || "—"}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
 
-            {/* Pagination Controls */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-[#2a3040]">
-                <p className="text-xs text-slate-500 dark:text-slate-400 italic">
-                    Showing page <span className="font-bold">{currentPage}</span> of <span className="font-bold">{totalPages}</span> ({totalCount} total records)
-                </p>
+                {/* Pagination Controls */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-[#2a3040]">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                        Showing page <span className="font-bold">{currentPage}</span> of <span className="font-bold">{totalPages}</span> ({totalCount} total records)
+                    </p>
 
-                <div className="flex flex-wrap items-center gap-4">
-                    {/* Limit Selector */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-400 font-bold">Show:</span>
-                        <div className="relative">
-                            <select
-                                value={limit}
-                                onChange={(e) => {
-                                    const nextLimit = Number(e.target.value);
-                                    setLimit(nextLimit);
-                                    fetchPaymentsData(1, nextLimit);
-                                }}
-                                className="pl-3 pr-8 py-1.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] text-xs font-bold rounded-lg outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200"
-                            >
-                                <option value={10}>10</option>
-                                <option value={20}>20</option>
-                                <option value={30}>30</option>
-                                <option value={50}>50</option>
-                            </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center px-1 text-slate-500">
-                                <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                                </svg>
+                    <div className="flex flex-wrap items-center gap-4">
+                        {/* Limit Selector */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400 font-bold">Show:</span>
+                            <div className="relative">
+                                <select
+                                    value={limit}
+                                    onChange={(e) => {
+                                        const nextLimit = Number(e.target.value);
+                                        setLimit(nextLimit);
+                                        fetchPaymentsData(1, nextLimit);
+                                    }}
+                                    className="pl-3 pr-8 py-1.5 bg-slate-50 dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] text-xs font-bold rounded-lg outline-none cursor-pointer appearance-none text-slate-700 dark:text-slate-200"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={30}>30</option>
+                                    <option value={50}>50</option>
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center px-1 text-slate-500">
+                                    <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                    </svg>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Navigation Buttons */}
-                    {totalPages > 1 && (
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => fetchPaymentsData(currentPage - 1, limit)}
-                                disabled={currentPage === 1 || isPending}
-                                className="p-2 border border-slate-200 dark:border-[#2a3040] hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
-                            >
-                                <ChevronLeft className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                            </button>
-                            <button
-                                onClick={() => fetchPaymentsData(currentPage + 1, limit)}
-                                disabled={currentPage === totalPages || isPending}
-                                className="p-2 border border-slate-200 dark:border-[#2a3040] hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
-                            >
-                                <ChevronRight className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                            </button>
-                        </div>
-                    )}
+                        {/* Navigation Buttons */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => fetchPaymentsData(currentPage - 1, limit)}
+                                    disabled={currentPage === 1 || isPending}
+                                    className="p-2 border border-slate-200 dark:border-[#2a3040] hover:bg-slate-50/50 dark:hover:bg-white/5 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
+                                >
+                                    <ChevronLeft className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                                </button>
+                                <button
+                                    onClick={() => fetchPaymentsData(currentPage + 1, limit)}
+                                    disabled={currentPage === totalPages || isPending}
+                                    className="p-2 border border-slate-200 dark:border-[#2a3040] hover:bg-slate-50/50 dark:hover:bg-white/5 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
+                                >
+                                    <ChevronRight className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
