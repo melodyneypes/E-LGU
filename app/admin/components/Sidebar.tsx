@@ -10,7 +10,7 @@ import {
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
     FileText, BarChart3
 } from "lucide-react";
-import { logoutToLogin } from "@/components/auth/logout-to-login";
+import { secureLogoutAction } from "@/app/actions/auth";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
