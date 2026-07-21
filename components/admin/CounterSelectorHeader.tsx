@@ -40,7 +40,7 @@ export default function CounterSelectorHeader({
 const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "MPDC_ZONING"];
 
 // Departments that MUST have counter/window selection
-const allowedDepartments = ["Zoning", "MPDC Zoning", "Treasury", "Registrar", "Civil Registry", "BPLO", "Engineer", "Engineering"];
+const allowedDepartments = ["Zoning", "MPDC Zoning", "Treasury", "Registrar", "Civil Registry", "BPLO", "Engineer", "Engineering", "RHU", "Health", "Rural Health Unit"];
 
 const isLGU = userDepartment?.toUpperCase() === "LGU";
 
