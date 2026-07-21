@@ -16,7 +16,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toggleResidentDeathStatus } from "../../actions";
+import { toggleResidentDeathStatus, getResidentById } from "../../actions";
 import { RFIDCaptureModal } from "./RFIDCaptureModal";
 import { ResidentReviewModal } from "./ResidentReviewModal";
 import {
@@ -96,8 +96,17 @@ export function ResidentTable() {
         }
     };
 
-    const handleEdit = (resident: Resident) => {
-        setEditingData(resident);
+    const handleEdit = async (resident: Resident) => {
+        try {
+            const res = await getResidentById(resident.id);
+            if (res.success && res.resident) {
+                setEditingData(res.resident as any);
+            } else {
+                setEditingData(resident);
+            }
+        } catch {
+            setEditingData(resident);
+        }
         setIsAddModalOpen(true);
     };
 
@@ -121,13 +130,22 @@ export function ResidentTable() {
         setIsRFIDModalOpen(true);
     };
 
-    const openReviewModal = (resident: Resident, e: React.MouseEvent) => {
+    const openReviewModal = async (resident: Resident, e: React.MouseEvent) => {
         const target = e.target as HTMLElement;
         if (target.closest("button") || target.closest("[role='menuitem']") || target.closest("[data-state]")) {
             return;
         }
         setReviewResident(resident);
         setIsReviewModalOpen(true);
+
+        try {
+            const res = await getResidentById(resident.id);
+            if (res.success && res.resident) {
+                setReviewResident(res.resident as any);
+            }
+        } catch (err) {
+            console.error("Failed to fetch full resident details:", err);
+        }
     };
 
     const handleStatusChange = (id: string, newStatus: "APPROVED" | "REJECTED", remarks?: string) => {
