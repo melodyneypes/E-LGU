@@ -18,22 +18,31 @@ export function DashboardClientWrapper({ children }: DashboardClientWrapperProps
   const [localLoading, setLocalLoading] = useState(false);
   useBarangay(); // Access BarangayContext trigger
 
-  // Real-time updates subscription using Server-Sent Events (SSE) for Dashboard (Daily Requests & Activity Logs)
+  // Real-time updates subscription using Server-Sent Events (SSE) for Dashboard (Daily Requests & Payments)
   useEffect(() => {
-    const eventSource = new EventSource("/api/admin/reports/daily-requests/stream");
+    const dailyRequestsStream = new EventSource("/api/admin/reports/daily-requests/stream");
+    const paymentsStream = new EventSource("/api/admin/treasury/payments/stream");
 
-    eventSource.onmessage = (event) => {
+    const refreshDashboard = (event: MessageEvent) => {
       if (event.data === "refresh") {
+        console.log("[DashboardClientWrapper] Real-time event received, refreshing dashboard...");
         router.refresh();
       }
     };
 
-    eventSource.onerror = () => {
-      console.warn("SSE stream connection lost or errored. Reconnecting...");
+    dailyRequestsStream.onmessage = refreshDashboard;
+    paymentsStream.onmessage = refreshDashboard;
+
+    dailyRequestsStream.onerror = () => {
+      console.warn("Daily requests SSE stream connection lost. Reconnecting...");
+    };
+    paymentsStream.onerror = () => {
+      console.warn("Payments ledger SSE stream connection lost. Reconnecting...");
     };
 
     return () => {
-      eventSource.close();
+      dailyRequestsStream.close();
+      paymentsStream.close();
     };
   }, [router]);
 

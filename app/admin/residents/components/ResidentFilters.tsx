@@ -2,7 +2,6 @@
 
 import { useResident, ResidentCategory } from "../providers/ResidentProvider";
 import { Search, Plus, Filter } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
@@ -77,66 +76,65 @@ export function ResidentFilters() {
     return (
         <div className="flex flex-col border-b border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#151b2b]">
             {/* Filters Row */}
-            <div className="p-4 flex flex-col lg:flex-row items-center justify-between gap-4">
-                <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-                    <div className="relative w-full sm:w-[350px]">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                        <Input
-                            placeholder="Search resident name..."
-                            value={localSearch}
-                            onChange={(e) => setLocalSearch(e.target.value)}
-                            className="pl-10 h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] focus-visible:ring-0 rounded-xl transition-all"
-                        />
+            <div className="p-4 flex flex-wrap items-center gap-3 w-full">
+                {/* Only show/enable Barangay Filter for non-Barangay Admins */}
+                {!isBarangayAdmin ? (
+                    <Select value={selectedBarangay} onValueChange={setSelectedBarangay}>
+                        <SelectTrigger className="h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl flex items-center min-w-[130px] w-full sm:w-[150px]">
+                            <Filter className="w-4 h-4 mr-2 text-slate-400" />
+                            <SelectValue placeholder="Barangay" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] max-h-[300px]">
+                            <SelectItem value="All">All Barangays</SelectItem>
+                            {barangayList.map(bg => (
+                                <SelectItem key={bg} value={bg}>{bg}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                ) : (
+                    <div className="h-11 px-4 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center gap-2 border border-slate-200 dark:border-slate-700 w-full sm:w-auto">
+                        <Filter className="w-3 h-3" style={{ color: themeColor }} />
+                        <span className="text-xs font-black uppercase text-slate-600 dark:text-slate-400">{managedBarangay}</span>
                     </div>
+                )}
 
-                    <div className="w-full sm:w-auto flex flex-wrap gap-2">
-                        {/* Only show/enable Barangay Filter for non-Barangay Admins */}
-                        {!isBarangayAdmin ? (
-                            <Select value={selectedBarangay} onValueChange={setSelectedBarangay}>
-                                <SelectTrigger className="h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl flex items-center min-w-[130px]">
-                                    <Filter className="w-4 h-4 mr-2 text-slate-400" />
-                                    <SelectValue placeholder="Barangay" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] max-h-[300px]">
-                                    <SelectItem value="All">All Barangays</SelectItem>
-                                    {barangayList.map(bg => (
-                                        <SelectItem key={bg} value={bg}>{bg}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        ) : (
-                            <div className="h-11 px-4 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center gap-2 border border-slate-200 dark:border-slate-700">
-                                <Filter className="w-3 h-3" style={{ color: themeColor }} />
-                                <span className="text-xs font-black uppercase text-slate-600 dark:text-slate-400">{managedBarangay}</span>
-                            </div>
-                        )}
+                <Select value={selectedGender} onValueChange={setSelectedGender}>
+                    <SelectTrigger className="h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl flex items-center min-w-[110px] w-full sm:w-[130px]">
+                        <SelectValue placeholder="Gender" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]">
+                        {genders.map(g => (
+                            <SelectItem key={g} value={g}>{g}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
 
-                        <Select value={selectedGender} onValueChange={setSelectedGender}>
-                            <SelectTrigger className="h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl flex items-center min-w-[100px]">
-                                <SelectValue placeholder="Gender" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]">
-                                {genders.map(g => (
-                                    <SelectItem key={g} value={g}>{g}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl flex items-center min-w-[140px] w-full sm:w-[160px]">
+                        <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]">
+                        <SelectItem value="All">All Categories</SelectItem>
+                        {categories.map(cat => (
+                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
 
-                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                            <SelectTrigger className="h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl flex items-center min-w-[140px]">
-                                <SelectValue placeholder="Category" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]">
-                                <SelectItem value="All">All Categories</SelectItem>
-                                {categories.map(cat => (
-                                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                {/* Search Bar inline (aligned to the right) */}
+                <div className="relative w-full sm:w-[260px] sm:ml-auto shrink-0">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                    <input
+                        type="text"
+                        placeholder="Search resident name..."
+                        value={localSearch}
+                        onChange={(e) => setLocalSearch(e.target.value)}
+                        className="w-full pl-10 pr-4 h-11 bg-white dark:bg-[#0f1117] border border-slate-200 dark:border-[#2a3040] text-xs font-bold rounded-xl outline-none text-slate-700 dark:text-slate-200 placeholder-slate-400"
+                    />
                 </div>
 
-                <div className="flex items-center gap-2 w-full lg:w-auto">
+                {/* Action button */}
+                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
                     <Button
                         onClick={() => setIsAddModalOpen(true)}
                         style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
