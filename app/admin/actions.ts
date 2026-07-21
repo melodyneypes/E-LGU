@@ -1562,6 +1562,39 @@ export async function deleteHousehold(id: string) {
     }
 }
 
+export async function getResidentById(id: string) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const resident = await (prisma as any).resident.findUnique({
+            where: { id },
+            include: {
+                category: true,
+                household: {
+                    include: {
+                        members: true,
+                        head: true
+                    }
+                },
+                familyHead: true,
+                familyMembers: true
+            }
+        });
+
+        if (!resident) {
+            return { success: false, error: "Resident entry not found." };
+        }
+
+        return { success: true, resident };
+    } catch (error: any) {
+        console.error("Failed to fetch resident details by ID:", error);
+        return { success: false, error: error.message || "Failed to fetch resident details" };
+    }
+}
+
 // ==========================================
 // RESIDENT REGISTRATION ACTIONS
 // ==========================================
@@ -1597,6 +1630,7 @@ export async function addResident(formData: FormData) {
         const categoryIds = formData.getAll("categories") as string[];
 
         const result = await prisma.$transaction(async (tx: any) => {
+
             // If not head and selected a head, get their householdId
             if (!isHead && headIdFromForm) {
                 const head = await tx.resident.findUnique({
