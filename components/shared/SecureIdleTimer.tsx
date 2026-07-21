@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle } from "lucide-react";
-import { secureLogoutAction } from "@/app/actions/auth";
+import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { toast } from "sonner";
 
 interface SecureIdleTimerProps {
@@ -19,23 +19,11 @@ export default function SecureIdleTimer({
 }: SecureIdleTimerProps) {
     const [idleTime, setIdleTime] = useState(0);
     const [showIdleModal, setShowIdleModal] = useState(false);
+    const hasLoggedOutRef = React.useRef(false);
 
     useEffect(() => {
         const interval = setInterval(() => {
-            setIdleTime(prev => {
-                const nextTime = prev + 1;
-                // At warning threshold, display security alert modal
-                if (nextTime === warningSeconds) {
-                    setShowIdleModal(true);
-                }
-                // At timeout threshold, log out the user automatically
-                if (nextTime >= timeoutSeconds) {
-                    clearInterval(interval);
-                    secureLogoutAction();
-                    toast.warning(`Securely signed out due to ${Math.floor(timeoutSeconds / 60)} minutes of inactivity.`);
-                }
-                return nextTime;
-            });
+            setIdleTime(prev => prev + 1);
         }, 1000);
 
         const resetTimer = () => {
@@ -56,6 +44,18 @@ export default function SecureIdleTimer({
             window.removeEventListener("click", resetTimer);
         };
     }, [timeoutSeconds, warningSeconds]);
+
+    useEffect(() => {
+        if (idleTime === warningSeconds) {
+            setShowIdleModal(true);
+        }
+
+        if (idleTime >= timeoutSeconds && !hasLoggedOutRef.current) {
+            hasLoggedOutRef.current = true;
+            toast.warning(`Securely signed out due to ${Math.floor(timeoutSeconds / 60)} minutes of inactivity.`);
+            void logoutToLogin();
+        }
+    }, [idleTime, timeoutSeconds, warningSeconds]);
 
     return (
         <AnimatePresence>
