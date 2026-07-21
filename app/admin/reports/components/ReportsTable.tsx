@@ -54,7 +54,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { updateReportStatus, getAdminReports } from "@/app/admin/actions";
+import { updateReportStatus, getAdminReports, getReportById } from "@/app/admin/actions";
 
 
 interface Report {
@@ -78,7 +78,21 @@ interface Report {
     } | null;
 }
 
-export function ReportsTable({ initialReports, initialTotalCount, initialTotalPages, themeColor = "#2563eb" }: { initialReports: Report[]; initialTotalCount: number; initialTotalPages: number; themeColor?: string }) {
+interface ReportsTableProps {
+    initialReports: Report[];
+    initialTotalCount: number;
+    initialTotalPages: number;
+    initialStats?: {
+        total: number;
+        pending: number;
+        inProgress: number;
+        completed: number;
+        rejected: number;
+    };
+    themeColor?: string;
+}
+
+export function ReportsTable({ initialReports, initialTotalCount, initialTotalPages, initialStats, themeColor = "#2563eb" }: ReportsTableProps) {
     const { data: session } = useSession();
     const role = (session?.user as any)?.role;
     const isBarangayAdmin = role === "BARANGAY_ADMIN";
@@ -93,6 +107,14 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
     const [barangayFilter, setBarangayFilter] = useState("All");
     const [isLoading, setIsLoading] = useState(false);
 
+    const [stats, setStats] = useState(initialStats || {
+        total: initialTotalCount,
+        pending: (initialReports || []).filter(r => r.status === "PENDING").length,
+        inProgress: (initialReports || []).filter(r => r.status === "IN_PROGRESS").length,
+        completed: (initialReports || []).filter(r => r.status === "COMPLETED").length,
+        rejected: (initialReports || []).filter(r => r.status === "REJECTED").length
+    });
+
     const [selectedReport, setSelectedReport] = useState<Report | null>(null);
     const [adminComment, setAdminComment] = useState("");
     const [isUpdating, setIsUpdating] = useState(false);
@@ -100,8 +122,10 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
 
     const uniqueBarangays = ["Amanoaoac", "Apaya", "Aserda", "Baloling", "Coral", "Golden", "Jimenez", "Lambayan", "Luyan South", "Nilombot", "Pias", "Poblacion", "Primicias", "Sta. Maria", "Torres"];
 
-    const fetchReports = async (page: number, currentLimit: number, search: string, status: string, barangay: string) => {
-        setIsLoading(true);
+    const isFirstMount = React.useRef(true);
+
+    const fetchReports = React.useCallback(async (page: number, currentLimit: number, search: string, status: string, barangay: string, silent = false) => {
+        if (!silent) setIsLoading(true);
         try {
             const res = await getAdminReports({
                 page,
@@ -115,24 +139,58 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                 setTotalCount(res.totalCount || 0);
                 setTotalPages(res.totalPages || 0);
                 setCurrentPage(res.currentPage || 1);
-            } else {
+                if (res.stats) {
+                    setStats(res.stats);
+                }
+            } else if (!silent) {
                 toast.error(res.error || "Failed to load reports.");
             }
         } catch (error) {
             console.error("Error fetching reports:", error);
-            toast.error("An error occurred while loading reports.");
+            if (!silent) toast.error("An error occurred while loading reports.");
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
-    };
+    }, []);
 
+    // Prevent duplicate fetch on initial mount; only fetch when filters actually change
     React.useEffect(() => {
+        if (isFirstMount.current) {
+            isFirstMount.current = false;
+            return;
+        }
+
         const handler = setTimeout(() => {
             fetchReports(1, limit, searchQuery, statusFilter, barangayFilter);
-        }, 300);
+        }, 400);
 
         return () => clearTimeout(handler);
-    }, [searchQuery, statusFilter, barangayFilter, limit]);
+    }, [searchQuery, statusFilter, barangayFilter, limit, fetchReports]);
+
+    // Realtime SSE Subscription for live auto-update with 1.5s debounce
+    React.useEffect(() => {
+        const eventSource = new EventSource("/api/admin/reports/citizen/stream");
+        let debounceTimer: NodeJS.Timeout | null = null;
+
+        eventSource.onmessage = (event) => {
+            if (event.data === "refresh") {
+                if (debounceTimer) clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    console.log("[ReportsTable] Live SSE update received, refreshing table silently...");
+                    fetchReports(currentPage, limit, searchQuery, statusFilter, barangayFilter, true);
+                }, 1500);
+            }
+        };
+
+        eventSource.onerror = () => {
+            console.warn("[ReportsTable] SSE stream connection lost. Reconnecting...");
+        };
+
+        return () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            eventSource.close();
+        };
+    }, [currentPage, limit, searchQuery, statusFilter, barangayFilter, fetchReports]);
 
     const handlePageChange = (newPage: number) => {
         if (newPage >= 1 && newPage <= totalPages) {
@@ -159,91 +217,172 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
             case "SEEN":
                 return <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 font-black uppercase tracking-widest text-[9px] italic"><Eye className="w-3 h-3 mr-1" /> SEEN</Badge>;
             case "IN_PROGRESS":
-                return <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-black uppercase tracking-widest text-[9px] italic"><AlertTriangle className="w-3 h-3 mr-1" /> IN PROGRESS</Badge>;
+                return <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 font-black uppercase tracking-widest text-[9px] italic"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> IN PROGRESS</Badge>;
             case "COMPLETED":
                 return <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 font-black uppercase tracking-widest text-[9px] italic"><CheckCircle2 className="w-3 h-3 mr-1" /> COMPLETED</Badge>;
             case "REJECTED":
-                return <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20 font-black uppercase tracking-widest text-[9px] italic"><XCircle className="w-3 h-3 mr-1" /> REJECTED</Badge>;
+                return <Badge variant="outline" className="bg-rose-500/10 text-rose-500 border-rose-500/20 font-black uppercase tracking-widest text-[9px] italic"><XCircle className="w-3 h-3 mr-1" /> REJECTED</Badge>;
             default:
-                return <Badge variant="outline">{status}</Badge>;
+                return <Badge variant="outline" className="font-black uppercase tracking-widest text-[9px] italic">{status}</Badge>;
         }
     };
 
-    const handleUpdateStatus = async (id: string, newStatus: string) => {
+    const handleUpdateStatus = async (idToUpdate?: string, targetStatus?: string) => {
+        const reportId = idToUpdate || selectedReport?.id;
+        const statusToApply = targetStatus || currentStatus;
+        if (!reportId) return;
+
         setIsUpdating(true);
         try {
-            const res = await updateReportStatus(id, newStatus, adminComment);
+            const res = await updateReportStatus(reportId, statusToApply, adminComment);
             if (res.success) {
-                setReports(prev => prev.map(r => r.id === id ? { ...r, status: newStatus, adminComment: adminComment || r.adminComment } : r));
-                toast.success(`Status updated to ${newStatus}`);
-                if (selectedReport?.id === id) {
-                    setSelectedReport(prev => prev ? { ...prev, status: newStatus, adminComment: adminComment || prev.adminComment } : null);
-                    setCurrentStatus(newStatus);
-                }
+                toast.success(`Report status updated to ${statusToApply}!`);
+                if (!idToUpdate) setSelectedReport(null);
+                fetchReports(currentPage, limit, searchQuery, statusFilter, barangayFilter);
             } else {
-                toast.error(res.error || "Update failed");
+                toast.error(res.error || "Failed to update report status.");
             }
-        } catch {
-            toast.error("An error occurred");
+        } catch (error) {
+            console.error("Error updating report:", error);
+            toast.error("An error occurred while updating status.");
         } finally {
             setIsUpdating(false);
         }
     };
 
-    const handleOpenDetails = (report: Report) => {
+    const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
+    const handleOpenDetails = async (report: Report) => {
+        setIsLoadingDetails(true);
         setSelectedReport(report);
         setAdminComment(report.adminComment || "");
         setCurrentStatus(report.status);
+
+        try {
+            const res = await getReportById(report.id);
+            if (res.success && res.report) {
+                setSelectedReport(res.report as any);
+                setAdminComment(res.report.adminComment || "");
+                setCurrentStatus(res.report.status);
+            }
+        } catch (err) {
+            console.error("Failed to fetch full report details:", err);
+        } finally {
+            setIsLoadingDetails(false);
+        }
     };
 
     return (
-        <div className="space-y-4">
-            {/* Filters Row */}
-            <div className="flex flex-col sm:flex-row items-center gap-4 mb-4">
-                <div className="relative w-full sm:w-[300px]">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                    <Input
-                        placeholder="Search reporter or category..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] focus-visible:ring-0 rounded-xl"
-                    />
+        <div className="space-y-8">
+            {/* Quick KPI Stats Cards Grid (Matching Daily Requests UI) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                {/* Total Stats */}
+                <div className="bg-white dark:bg-[#1e2330] rounded-[2rem] p-6 border border-slate-200 dark:border-[#2a3040] shadow-md flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center shrink-0">
+                        <Eye className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <div>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest italic">Total Reports</p>
+                        <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter italic">{stats.total.toLocaleString()}</h3>
+                    </div>
                 </div>
 
-                <div className="w-full sm:w-auto flex flex-wrap gap-2">
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl min-w-[130px]">
-                            <SelectValue placeholder="Status" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]">
-                            <SelectItem value="All">All Statuses</SelectItem>
-                            <SelectItem value="PENDING">PENDING</SelectItem>
-                            <SelectItem value="SEEN">SEEN</SelectItem>
-                            <SelectItem value="IN_PROGRESS">IN PROGRESS</SelectItem>
-                            <SelectItem value="COMPLETED">COMPLETED</SelectItem>
-                            <SelectItem value="REJECTED">REJECTED</SelectItem>
-                        </SelectContent>
-                    </Select>
+                {/* Pending Stats */}
+                <div className="bg-white dark:bg-[#1e2330] rounded-[2rem] p-6 border border-slate-200 dark:border-[#2a3040] shadow-md flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center shrink-0">
+                        <Clock className="w-6 h-6 text-amber-600" />
+                    </div>
+                    <div>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest italic">Pending</p>
+                        <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter italic">{stats.pending.toLocaleString()}</h3>
+                    </div>
+                </div>
 
-                    {!isBarangayAdmin && (
-                        <Select value={barangayFilter} onValueChange={setBarangayFilter}>
-                            <SelectTrigger className="h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl min-w-[150px]">
-                                <Filter className="w-4 h-4 mr-2 text-slate-400" />
-                                <SelectValue placeholder="Barangay" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]">
-                                <SelectItem value="All">All Barangays</SelectItem>
-                                {uniqueBarangays.map(bg => (
-                                    <SelectItem key={bg} value={bg}>{bg}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
+                {/* In Progress Stats */}
+                <div className="bg-white dark:bg-[#1e2330] rounded-[2rem] p-6 border border-slate-200 dark:border-[#2a3040] shadow-md flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center shrink-0">
+                        <Loader2 className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest italic">In Progress</p>
+                        <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter italic">{stats.inProgress.toLocaleString()}</h3>
+                    </div>
+                </div>
+
+                {/* Completed / Resolved Stats */}
+                <div className="bg-white dark:bg-[#1e2330] rounded-[2rem] p-6 border border-slate-200 dark:border-[#2a3040] shadow-md flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                    </div>
+                    <div>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest italic">Completed</p>
+                        <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter italic">{stats.completed.toLocaleString()}</h3>
+                    </div>
+                </div>
+
+                {/* Rejected Stats */}
+                <div className="bg-white dark:bg-[#1e2330] rounded-[2rem] p-6 border border-slate-200 dark:border-[#2a3040] shadow-md flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center shrink-0">
+                        <XCircle className="w-6 h-6 text-rose-600" />
+                    </div>
+                    <div>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest italic">Rejected</p>
+                        <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter italic">{(stats.rejected || 0).toLocaleString()}</h3>
+                    </div>
                 </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden">
-                <Table>
+            {/* Table Card Container */}
+            <div 
+                style={{ boxShadow: `0 25px 50px -12px color-mix(in srgb, ${themeColor} 10%, transparent)` }}
+                className="bg-white dark:bg-[#151b2b] rounded-[2.5rem] border border-slate-200 dark:border-[#2a3040] p-6 shadow-sm overflow-hidden space-y-4"
+            >
+                {/* Filters Row */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="w-full sm:w-auto flex flex-wrap items-center gap-3">
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl min-w-[150px] font-bold text-xs">
+                                <SelectValue placeholder="All Statuses" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]">
+                                <SelectItem value="All">ALL STATUSES</SelectItem>
+                                <SelectItem value="PENDING">PENDING</SelectItem>
+                                <SelectItem value="SEEN">SEEN</SelectItem>
+                                <SelectItem value="IN_PROGRESS">IN PROGRESS</SelectItem>
+                                <SelectItem value="COMPLETED">COMPLETED</SelectItem>
+                                <SelectItem value="REJECTED">REJECTED</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        {!isBarangayAdmin && (
+                            <Select value={barangayFilter} onValueChange={setBarangayFilter}>
+                                <SelectTrigger className="h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] rounded-xl min-w-[170px] font-bold text-xs">
+                                    <Filter className="w-4 h-4 mr-2 text-slate-400" />
+                                    <SelectValue placeholder="All Barangays" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]">
+                                    <SelectItem value="All">ALL BARANGAYS</SelectItem>
+                                    {uniqueBarangays.map(bg => (
+                                        <SelectItem key={bg} value={bg}>{bg.toUpperCase()}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    </div>
+
+                    <div className="relative w-full sm:w-[320px]">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                        <Input
+                            placeholder="Search reporter or category..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10 h-11 bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] focus-visible:ring-0 rounded-xl text-xs"
+                        />
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <Table>
                     <TableHeader className="bg-slate-50 dark:bg-white/5">
                         <TableRow className="hover:bg-transparent border-slate-200 dark:border-[#2a3040]">
                             <TableHead className="font-black uppercase tracking-widest text-[10px] italic py-5">Reporter</TableHead>
@@ -339,7 +478,7 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
             </div>
 
             {/* Pagination Controls */}
-            <div className="p-6 border-t border-slate-200 dark:border-[#2a3040] flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-[#151b2b]/50 rounded-[1.5rem] mt-4">
+            <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center space-x-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
                     <span className="hidden sm:inline-block">Rows per page:</span>
                     <Select value={limit.toString()} onValueChange={(value) => setLimit(Number(value))}>
@@ -412,8 +551,9 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                                             #{selectedReport.id.slice(-8).toUpperCase()}
                                         </span>
                                     </div>
-                                    <DialogTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-white mt-1">
-                                        Report Summary
+                                    <DialogTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-white mt-1 flex items-center gap-2">
+                                        <span>Report Summary</span>
+                                        {isLoadingDetails && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
                                     </DialogTitle>
                                 </div>
                                 <div className="shrink-0 flex items-center gap-2">
@@ -518,12 +658,12 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                                         {/* Photos Section */}
                                         <div className="p-5 bg-slate-50 dark:bg-white/[0.02] rounded-2xl border border-slate-100 dark:border-white/5 space-y-3">
                                             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                                <ImageIcon className="w-4 h-4 text-slate-400" /> Attached Photos ({selectedReport.images.length})
+                                                <ImageIcon className="w-4 h-4 text-slate-400" /> Attached Photos ({(selectedReport?.images || []).length})
                                             </h4>
                                             
-                                            {selectedReport.images.length > 0 ? (
+                                            {(selectedReport?.images || []).length > 0 ? (
                                                 <div className="grid grid-cols-3 gap-2">
-                                                    {selectedReport.images.map((img, i) => (
+                                                    {(selectedReport?.images || []).map((img, i) => (
                                                         <div 
                                                             key={i} 
                                                             className="aspect-square relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm group cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200" 
@@ -570,7 +710,7 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                                             {selectedReport.latitude !== null && selectedReport.longitude !== null ? (
                                                 <div className="space-y-3">
                                                     <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-snug line-clamp-2">
-                                                        {selectedReport.address || `${selectedReport.latitude.toFixed(6)}, ${selectedReport.longitude.toFixed(6)}`}
+                                                        {selectedReport.address || `${typeof selectedReport.latitude === 'number' ? selectedReport.latitude.toFixed(6) : selectedReport.latitude}, ${typeof selectedReport.longitude === 'number' ? selectedReport.longitude.toFixed(6) : selectedReport.longitude}`}
                                                     </p>
                                                     <div className="h-40 w-full rounded-xl overflow-hidden border border-slate-200 dark:border-white/5 relative">
                                                         <iframe
@@ -623,9 +763,10 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                 fileUrl={viewerUrl}
                 title={viewerTitle}
                 themeColor="var(--primary-theme)"
-                documents={selectedReport?.images.map((img, idx) => ({ url: img, label: `Photo ${idx + 1}` }))}
+                documents={(selectedReport?.images || []).map((img, idx) => ({ url: img, label: `Photo ${idx + 1}` }))}
                 initialIndex={viewerIndex}
             />
+            </div>
         </div>
     );
 }

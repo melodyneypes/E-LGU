@@ -2630,6 +2630,30 @@ export async function addCommunityReport(formData: FormData) {
     }
 }
 
+export async function getPendingReportsCount() {
+    try {
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        if (!session?.user?.id) {
+            return { success: false, count: 0 };
+        }
+
+        const isBarangayAdmin = user?.role === "BARANGAY_ADMIN";
+        const managedBarangay = user?.managedBarangay;
+        const whereClause: any = { status: "PENDING" };
+
+        if (isBarangayAdmin && managedBarangay) {
+            whereClause.barangay = { name: managedBarangay };
+        }
+
+        const count = await prisma.report.count({ where: whereClause });
+        return { success: true, count };
+    } catch (error) {
+        console.error("Failed to fetch pending reports count:", error);
+        return { success: false, count: 0 };
+    }
+}
+
 export async function getBarangayList() {
     try {
         const barangays = await prisma.barangayInfo.findMany({
@@ -2752,9 +2776,23 @@ export async function getAdminReports(params?: {
         const [reports, totalCount] = await Promise.all([
             (prisma as any).report.findMany({
                 where: whereClause,
-                include: { 
-                    user: true,
-                    barangay: true
+                select: {
+                    id: true,
+                    category: true,
+                    status: true,
+                    createdAt: true,
+                    user: {
+                        select: {
+                            name: true,
+                            email: true
+                        }
+                    },
+                    barangay: {
+                        select: {
+                            id: true,
+                            name: true
+                        }
+                    }
                 },
                 orderBy: { createdAt: "desc" },
                 skip: (page - 1) * limit,
@@ -2848,9 +2886,31 @@ export async function getReportById(id: string) {
 
         const report = await (prisma as any).report.findUnique({
             where: { id },
-            include: { 
-                user: true,
-                barangay: true
+            select: {
+                id: true,
+                category: true,
+                description: true,
+                status: true,
+                images: true,
+                latitude: true,
+                longitude: true,
+                address: true,
+                adminComment: true,
+                createdAt: true,
+                updatedAt: true,
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true
+                    }
+                },
+                barangay: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                }
             }
         });
 

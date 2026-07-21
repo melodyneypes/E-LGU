@@ -2,6 +2,7 @@
 
 import React, { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -275,6 +276,17 @@ export function PaymentDashboardView({
           </ResponsiveContainer>
         </div>
       )}
+
+      {/* View Full Ledger Button at the bottom */}
+      <div className="pt-4 border-t border-slate-100 dark:border-[#2a3040]/50 flex justify-end">
+        <Link
+          href="/admin/treasury/payments"
+          className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl shadow-lg transition-all active:scale-95"
+        >
+          <CreditCard className="w-4 h-4" />
+          Go to Payments Ledger
+        </Link>
+      </div>
     </div>
   );
 }

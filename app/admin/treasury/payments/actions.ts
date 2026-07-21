@@ -4,7 +4,16 @@ import prisma from "@/lib/db/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export async function getPaymentsLedger(searchQuery: string = "") {
+export async function getPaymentsLedger(params: {
+    search?: string;
+    method?: string;
+    category?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    limit?: number;
+    exportAll?: boolean;
+} = {}) {
     try {
         const session = await getServerSession(authOptions);
         const role = (session?.user as any)?.role;
@@ -12,6 +21,15 @@ export async function getPaymentsLedger(searchQuery: string = "") {
         if (role !== "TREASURY_STAFF" && role !== "ADMIN") {
             return { success: false, error: "Unauthorized" };
         }
+
+        const searchQuery = params.search || "";
+        const methodFilter = params.method || "ALL";
+        const categoryFilter = params.category || "ALL";
+        const fromStr = params.from;
+        const toStr = params.to;
+        const page = params.page || 1;
+        const limit = params.limit || 10;
+        const exportAll = params.exportAll || false;
 
         const paidTransactionsWithoutPayment = await prisma.transaction.findMany({
             where: {
@@ -76,25 +94,94 @@ export async function getPaymentsLedger(searchQuery: string = "") {
             });
         }
 
-        const payments = await prisma.payment.findMany({
-            where: {
-                OR: [
-                    { reference: { contains: searchQuery, mode: "insensitive" } },
-                    { transactionId: { contains: searchQuery, mode: "insensitive" } },
-                    { 
-                        transaction: {
-                            OR: [
-                                { businessName: { contains: searchQuery, mode: "insensitive" } },
-                                { 
-                                    user: {
-                                        name: { contains: searchQuery, mode: "insensitive" }
-                                    }
+        const whereClause: any = {};
+
+        // Date Range Filter
+        if (fromStr || toStr) {
+            whereClause.createdAt = {};
+            if (fromStr) {
+                const fromDate = new Date(fromStr);
+                fromDate.setHours(0, 0, 0, 0);
+                whereClause.createdAt.gte = fromDate;
+            }
+            if (toStr) {
+                const toDate = new Date(toStr);
+                toDate.setHours(23, 59, 59, 999);
+                whereClause.createdAt.lte = toDate;
+            }
+        }
+
+        // Method Filter
+        if (methodFilter && methodFilter !== "ALL") {
+            whereClause.method = methodFilter;
+        }
+
+        // Category Filter
+        if (categoryFilter && categoryFilter !== "ALL") {
+            whereClause.transaction = {
+                type: {
+                    category: categoryFilter
+                }
+            };
+        }
+
+        // Search Filter
+        if (searchQuery) {
+            const searchOrs = [
+                { reference: { contains: searchQuery, mode: "insensitive" } },
+                { transactionId: { contains: searchQuery, mode: "insensitive" } },
+                { id: { contains: searchQuery, mode: "insensitive" } },
+                {
+                    transaction: {
+                        OR: [
+                            { businessName: { contains: searchQuery, mode: "insensitive" } },
+                            {
+                                user: {
+                                    name: { contains: searchQuery, mode: "insensitive" }
                                 }
-                            ]
-                        }
+                            }
+                        ]
                     }
-                ]
-            },
+                }
+            ];
+
+            if (whereClause.transaction) {
+                whereClause.AND = [
+                    { transaction: whereClause.transaction },
+                    { OR: searchOrs }
+                ];
+                delete whereClause.transaction;
+            } else {
+                whereClause.OR = searchOrs;
+            }
+        }
+
+        // Calculate stats on filtered subset using database-level aggregation
+        const [statsResult, totalCount] = await Promise.all([
+            prisma.payment.aggregate({
+                where: {
+                    ...whereClause,
+                    status: "PAID"
+                },
+                _sum: {
+                    amount: true
+                },
+                _count: {
+                    id: true
+                }
+            }),
+            prisma.payment.count({
+                where: whereClause
+            })
+        ]);
+
+        const totalPaid = statsResult._sum.amount || 0;
+        const paidCount = statsResult._count.id || 0;
+        const totalPages = Math.ceil(totalCount / limit);
+
+        // Query paginated items
+        const payments = await prisma.payment.findMany({
+            where: whereClause,
             include: {
                 transaction: {
                     select: {
@@ -108,7 +195,8 @@ export async function getPaymentsLedger(searchQuery: string = "") {
                             select: {
                                 id: true,
                                 name: true,
-                                code: true
+                                code: true,
+                                category: true
                             }
                         },
                         user: {
@@ -122,10 +210,21 @@ export async function getPaymentsLedger(searchQuery: string = "") {
             },
             orderBy: {
                 createdAt: "desc"
-            }
+            },
+            ...(exportAll ? {} : {
+                skip: (page - 1) * limit,
+                take: limit
+            })
         });
 
-        return { success: true, data: payments };
+        return {
+            success: true,
+            data: payments,
+            totalCount,
+            totalPages,
+            currentPage: page,
+            stats: { totalPaid, paidCount }
+        };
     } catch (error: any) {
         console.error("Failed to fetch payments ledger:", error);
         return { success: false, error: error.message || "Failed to fetch payments" };
