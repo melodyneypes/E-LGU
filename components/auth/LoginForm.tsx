@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthTransitionContext } from "@/components/shared/AuthLayout";
 import { sendOTP } from "@/app/auth/actions";
+import { getPostLoginDestination } from "@/lib/auth/post-login-destination";
 
 const loginSchema = z.object({
     email: z.string().email("Invalid email address"),
@@ -76,29 +77,15 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                     return;
                 }
 
-                const role = (session.user as any).role;
-                const dept = (session.user as any).department ? (session.user as any).department.toUpperCase() : "";
-                if (role === "USER") {
-                    if (isMaintenanceActive) {
-                        signOut({ redirect: false });
-                        document.cookie = "bypass_maintenance=true; path=/; max-age=1800";
-                        router.push("/");
-                    } else {
-                        router.push("/");
-                    }
-                } else if (role === "TREASURY_STAFF" || (role === "ADMIN" && dept === "TREASURY")) {
-                    router.push("/admin/treasury?category=CEDULA");
-                } else if (role === "ADMIN_AIDE" || (role === "ADMIN" && dept === "BPLO")) {
-                    router.push("/admin/bplo");
-                } else if (role === "ENGINEER") {
-                    router.push("/admin/engineer");
-                } else if (role === "MPDC_ZONING") {
-                    router.push("/admin/zoning");
-                } else if (dept === "REGISTRAR" || dept === "CIVIL_REGISTRY") {
-                    router.push("/admin/registrar");
-                } else {
-                    router.push("/admin/dashboard");
+                const user = session.user as any;
+                if (user.role === "USER" && isMaintenanceActive) {
+                    signOut({ redirect: false });
+                    document.cookie = "bypass_maintenance=true; path=/; max-age=1800";
+                    router.replace("/");
+                    return;
                 }
+
+                router.replace(getPostLoginDestination(user));
             }
         }
     }, [session, status, router, isMaintenanceActive, isLoggingIn]);
@@ -591,26 +578,13 @@ export function LoginForm({ themeColor = "#2563eb", isMaintenanceActive = false 
                     if (typeof window !== "undefined") {
                         sessionStorage.removeItem("logging_in_otp");
                     }
-                    if (role === "USER") {
-                        router.push("/");
-                        toast.success("Logged in successfully");
-                    } else {
+                    if (role !== "USER") {
                         // Auto-set admin portal cookie so page.tsx won't redirect to landing
                         document.cookie = `active_portal=admin; path=/; max-age=86400; SameSite=Lax`;
-                        toast.success("Logged in successfully");
-                        
-                        const pages = session.user?.accessiblePages;
-                        if (pages && pages.length > 0) {
-                            router.push(pages[0]);
-                        } else {
-                            const dept = session.user?.department;
-                            if (dept && (dept.toUpperCase() === "REGISTRAR" || dept.toUpperCase() === "CIVIL_REGISTRY")) {
-                                router.push("/admin/registrar");
-                            } else {
-                                router.push("/admin/dashboard");
-                            }
-                        }
                     }
+
+                    toast.success("Logged in successfully");
+                    router.replace(getPostLoginDestination(session.user));
                 };
 
 
