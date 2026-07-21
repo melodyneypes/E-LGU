@@ -506,4 +506,52 @@ export async function getSecureUploadUrlAction(
     }
 }
 
+interface SecureUploadRequest {
+    fieldName: string;
+    fileExt: string;
+}
+
+export async function getSecureUploadUrlsAction(
+    requests: SecureUploadRequest[],
+    serviceType: string
+) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return { success: false, error: "Unauthorized", data: [] };
+        }
+        if (!Array.isArray(requests) || requests.length === 0 || requests.length > 50) {
+            return { success: false, error: "Invalid upload batch", data: [] };
+        }
+        if (!supabaseAdmin) {
+            return { success: false, error: "Supabase Admin client not initialized", data: [] };
+        }
+
+        const sanitizedServiceType = serviceType.replace(/[^a-zA-Z0-9_-]/g, "_");
+        const data = await Promise.all(requests.map(async (request, index) => {
+            const fieldName = request.fieldName.replace(/[^a-zA-Z0-9_-]/g, "_");
+            const fileExt = request.fileExt.replace(/[^a-zA-Z0-9]/g, "");
+            if (!fieldName || !fileExt) throw new Error("Invalid upload metadata");
+
+            const fileName = `${fieldName}_${Date.now()}_${index}_${crypto.randomUUID()}.${fileExt}`;
+            const filePath = `services/${sanitizedServiceType}/${session.user.id}/${fileName}`;
+            const { data: signedData, error } = await supabaseAdmin.storage
+                .from("system-assets")
+                .createSignedUploadUrl(filePath);
+            if (error || !signedData?.signedUrl) {
+                throw new Error("Failed to allocate storage destination");
+            }
+            const { data: publicData } = supabaseAdmin.storage
+                .from("system-assets")
+                .getPublicUrl(filePath);
+            return { signedUrl: signedData.signedUrl, publicUrl: publicData.publicUrl };
+        }));
+
+        return { success: true, data };
+    } catch (error) {
+        console.error("getSecureUploadUrlsAction Error:", error);
+        return { success: false, error: "Failed to allocate upload destinations", data: [] };
+    }
+}
+
 
