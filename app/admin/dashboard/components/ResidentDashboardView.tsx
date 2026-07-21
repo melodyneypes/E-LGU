@@ -2,6 +2,7 @@
 
 import React, { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -109,14 +110,22 @@ export function ResidentDashboardView({
     <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl space-y-6">
       {/* Header and Controls Row */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-        <div>
-          <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white flex items-center gap-2">
-            <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span>Resident Analytics</span>
-          </h3>
-          <p className="text-slate-500 dark:text-slate-400 text-xs font-medium italic mt-1">
-            Approved Onboarded: <span className="font-bold text-blue-600 dark:text-blue-400">{totalCount.toLocaleString()} Residents</span>
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div>
+            <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white flex items-center gap-2">
+              <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <span>Resident Analytics</span>
+            </h3>
+            <p className="text-slate-500 dark:text-slate-400 text-xs font-medium italic mt-1">
+              Approved Onboarded: <span className="font-bold text-blue-600 dark:text-blue-400">{totalCount.toLocaleString()} Residents</span>
+            </p>
+          </div>
+          <Link
+            href="/admin/residents"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:opacity-85 transition-all border border-blue-200/50 dark:border-blue-500/20 shadow-sm shrink-0"
+          >
+            View Registry
+          </Link>
         </div>
 
         {/* Date Inputs + Gender + Civil Status + Sector Controls */}

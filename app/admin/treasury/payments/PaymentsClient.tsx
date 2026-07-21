@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useTransition } from "react";
+import React, { useState, useEffect, useRef, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import Link from "next/link";
@@ -234,6 +234,22 @@ export default function PaymentsClient({
     useEffect(() => {
         stateRef.current = { currentPage, limit };
     }, [currentPage, limit]);
+
+    // Check if filters have been modified from default states
+    const isFilterChanged = useMemo(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        const defaultFrom = d.toISOString().split("T")[0];
+        const defaultTo = new Date().toISOString().split("T")[0];
+
+        return (
+            fromDate !== defaultFrom ||
+            toDate !== defaultTo ||
+            categoryFilter !== "ALL" ||
+            methodFilter !== "ALL" ||
+            searchVal !== ""
+        );
+    }, [fromDate, toDate, categoryFilter, methodFilter, searchVal]);
 
     // Real-time updates subscription using Server-Sent Events (SSE)
     useEffect(() => {
@@ -884,13 +900,15 @@ export default function PaymentsClient({
                     </div>
 
                     {/* Reset Filters / Refresh Button */}
-                    <button
-                        onClick={handleRefresh}
-                        className="flex items-center justify-center p-2.5 bg-white dark:bg-[#1e2330] text-slate-500 hover:text-red-500 border border-slate-200 dark:border-[#2a3040] hover:border-red-500/30 rounded-xl transition-all shadow-sm active:scale-95 shrink-0 cursor-pointer"
-                        title="Reset Filters"
-                    >
-                        <RotateCcw className="w-4 h-4" />
-                    </button>
+                    {isFilterChanged && (
+                        <button
+                            onClick={handleRefresh}
+                            className="flex items-center justify-center p-2.5 bg-white dark:bg-[#1e2330] text-slate-500 hover:text-red-500 border border-slate-200 dark:border-[#2a3040] hover:border-red-500/30 rounded-xl transition-all shadow-sm active:scale-95 shrink-0 cursor-pointer animate-in zoom-in duration-200"
+                            title="Reset Filters"
+                        >
+                            <RotateCcw className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
             </div>
 

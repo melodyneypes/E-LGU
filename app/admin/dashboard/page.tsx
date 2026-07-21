@@ -550,7 +550,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
     .slice(0, 5);
 
     return (
-        <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="p-8 w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header Section */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-200 dark:border-[#2a3040]">
                 <div>
