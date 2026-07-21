@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { secureLogoutAction } from "@/app/actions/auth";
+import { logoutToLogin } from "@/components/auth/logout-to-login";
 import {
     ChevronRight,
     LogOut,

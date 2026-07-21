@@ -83,6 +83,7 @@ import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
 import PrintQueueTicket from "@/components/shared/PrintQueueTicket";
 import { getSecureUploadUrlAction } from "@/app/auth/actions";
+import { mapWithConcurrency } from "@/lib/async/map-with-concurrency";
 import SchedulePicker from "@/components/shared/SchedulePicker";
 
 const STEPS = [
@@ -1176,18 +1177,19 @@ export default function BuildingPermitAppointmentPage() {
       toast.loading("Submitting application...", { id: "bp-upload-toast" });
 
       const displayResident = selectedApplication?.residentSnapshot || residentData;
+      const uploadJobs: Array<() => Promise<void>> = [];
 
       // 1. Upload ID
       let idFileUrl: string | null = null;
       let idBackFileUrl: string | null = null;
       if (idChoice === "UPLOAD") {
         if (formData.newIdFile) {
-          idFileUrl = await uploadFileClientSide(formData.newIdFile, "ids", "newIdFile");
+          uploadJobs.push(async () => { idFileUrl = await uploadFileClientSide(formData.newIdFile, "ids", "newIdFile"); });
         } else if (selectedApplication?.additionalData?.documents?.newIdFile) {
           idFileUrl = selectedApplication.additionalData.documents.newIdFile;
         }
         if (formData.newIdFileBack) {
-          idBackFileUrl = await uploadFileClientSide(formData.newIdFileBack, "ids", "newIdFileBack");
+          uploadJobs.push(async () => { idBackFileUrl = await uploadFileClientSide(formData.newIdFileBack, "ids", "newIdFileBack"); });
         } else if (selectedApplication?.additionalData?.documents?.newIdFileBack) {
           idBackFileUrl = selectedApplication.additionalData.documents.newIdFileBack;
         }
@@ -1197,7 +1199,7 @@ export default function BuildingPermitAppointmentPage() {
           if (profileIdUrl.startsWith("data:")) {
             const file = dataURLtoFile(profileIdUrl, "profile_id");
             if (file) {
-              idFileUrl = await uploadFileClientSide(file, "ids", "newIdFile");
+              uploadJobs.push(async () => { idFileUrl = await uploadFileClientSide(file, "ids", "newIdFile"); });
             }
           } else if (profileIdUrl.startsWith("http")) {
             idFileUrl = profileIdUrl;
@@ -1208,7 +1210,7 @@ export default function BuildingPermitAppointmentPage() {
           if (profileIdBackUrl.startsWith("data:")) {
             const file = dataURLtoFile(profileIdBackUrl, "profile_id_back");
             if (file) {
-              idBackFileUrl = await uploadFileClientSide(file, "ids", "newIdFileBack");
+              uploadJobs.push(async () => { idBackFileUrl = await uploadFileClientSide(file, "ids", "newIdFileBack"); });
             }
           } else if (profileIdBackUrl.startsWith("http")) {
             idBackFileUrl = profileIdBackUrl;
@@ -1219,7 +1221,7 @@ export default function BuildingPermitAppointmentPage() {
       // 2. Upload TCT
       let tctFileUrl: string | null = null;
       if (formData.tctFile) {
-        tctFileUrl = await uploadFileClientSide(formData.tctFile, "tct", "tctFile");
+        uploadJobs.push(async () => { tctFileUrl = await uploadFileClientSide(formData.tctFile, "tct", "tctFile"); });
       } else if (selectedApplication?.additionalData?.documents?.tctFile) {
         tctFileUrl = selectedApplication.additionalData.documents.tctFile;
       }
@@ -1230,8 +1232,10 @@ export default function BuildingPermitAppointmentPage() {
         if (i === 5 || (i === 7 && !isAffidavitOfConsentRequired)) continue;
         const file = uploadedRequirements[i];
         if (file) {
-          const url = await uploadFileClientSide(file, "requirements", `req_${i}`);
-          if (url) finalReqUrls[`req_${i}`] = url;
+          uploadJobs.push(async () => {
+            const url = await uploadFileClientSide(file, "requirements", `req_${i}`);
+            if (url) finalReqUrls[`req_${i}`] = url;
+          });
         } else {
           const existingUrl = selectedApplication?.additionalData?.documents?.[`req_${i}`];
           if (existingUrl) finalReqUrls[`req_${i}`] = existingUrl;
@@ -1243,8 +1247,10 @@ export default function BuildingPermitAppointmentPage() {
         if (idx >= 10) {
           const file = uploadedRequirements[idx];
           if (file) {
-            const url = await uploadFileClientSide(file, "requirements", `req_${idx}`);
-            if (url) finalReqUrls[`req_${idx}`] = url;
+            uploadJobs.push(async () => {
+              const url = await uploadFileClientSide(file, "requirements", `req_${idx}`);
+              if (url) finalReqUrls[`req_${idx}`] = url;
+            });
           }
         }
       }
@@ -1264,8 +1270,10 @@ export default function BuildingPermitAppointmentPage() {
       for (let i = 0; i < 7; i++) {
         const file = uploadedPermits[i];
         if (file) {
-          const url = await uploadFileClientSide(file, "permits", `permit_${i}`);
-          if (url) finalPermitUrls[`permit_${i}`] = url;
+          uploadJobs.push(async () => {
+            const url = await uploadFileClientSide(file, "permits", `permit_${i}`);
+            if (url) finalPermitUrls[`permit_${i}`] = url;
+          });
         } else {
           const existingUrl = selectedApplication?.additionalData?.documents?.[`permit_${i}`];
           if (existingUrl) finalPermitUrls[`permit_${i}`] = existingUrl;
@@ -1277,8 +1285,10 @@ export default function BuildingPermitAppointmentPage() {
         if (idx >= 7) {
           const file = uploadedPermits[idx];
           if (file) {
-            const url = await uploadFileClientSide(file, "permits", `permit_${idx}`);
-            if (url) finalPermitUrls[`permit_${idx}`] = url;
+            uploadJobs.push(async () => {
+              const url = await uploadFileClientSide(file, "permits", `permit_${idx}`);
+              if (url) finalPermitUrls[`permit_${idx}`] = url;
+            });
           }
         }
       }
@@ -1308,13 +1318,17 @@ export default function BuildingPermitAppointmentPage() {
         const file = uploadedRevisionDocs[i];
         if (file) {
           const safeType = (revisionRequests[i]?.type || "REQUIREMENTS").toLowerCase();
-          const url = await uploadFileClientSide(file, `revision_${safeType}`, `revision_${i}`);
-          if (url) finalRevisionUrls[`revision_${i}`] = url;
+          uploadJobs.push(async () => {
+            const url = await uploadFileClientSide(file, `revision_${safeType}`, `revision_${i}`);
+            if (url) finalRevisionUrls[`revision_${i}`] = url;
+          });
         } else {
           const existingUrl = selectedApplication?.additionalData?.documents?.[`revision_${i}`];
           if (existingUrl) finalRevisionUrls[`revision_${i}`] = existingUrl;
         }
       }
+
+      await mapWithConcurrency(uploadJobs, 4, job => job());
 
       const data = new FormData();
       const parts: string[] = [];

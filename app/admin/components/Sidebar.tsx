@@ -10,7 +10,7 @@ import {
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
     FileText, BarChart3
 } from "lucide-react";
-import { secureLogoutAction } from "@/app/actions/auth";
+import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
@@ -563,8 +563,7 @@ export function Sidebar({
             menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue"].includes(item.label));
         } else if (role === "ENGINEER") {
             menuItems = [
-                { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" },
-                { href: "/admin/engineer/appointment-setting", label: "Appointment Setting", icon: Calendar, category: "Engineering" }
+                { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" }
             ];
         } else if (role === "MPDC_ZONING") {
             menuItems = [
