@@ -40,7 +40,8 @@ export default async function PaymentsPage() {
                         select: {
                             id: true,
                             name: true,
-                            code: true
+                            code: true,
+                            category: true
                         }
                     },
                     user: {
@@ -56,6 +57,13 @@ export default async function PaymentsPage() {
             createdAt: "desc"
         }
     });
+
+    // Fetch categories dynamically
+    const categoriesList = await prisma.transactionType.findMany({
+        select: { category: true },
+        distinct: ["category"]
+    });
+    const categories = categoriesList.map((c) => c.category).filter(Boolean);
 
     // Make dates safe for serialization by converting them to strings/dates safely
     const safePayments = JSON.parse(JSON.stringify(initialPayments));
@@ -74,7 +82,7 @@ export default async function PaymentsPage() {
                 </p>
             </div>
 
-            <PaymentsClient initialPayments={safePayments} />
+            <PaymentsClient initialPayments={safePayments} categories={categories} />
         </div>
     );
 }

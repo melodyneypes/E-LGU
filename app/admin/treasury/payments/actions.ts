@@ -108,7 +108,8 @@ export async function getPaymentsLedger(searchQuery: string = "") {
                             select: {
                                 id: true,
                                 name: true,
-                                code: true
+                                code: true,
+                                category: true
                             }
                         },
                         user: {

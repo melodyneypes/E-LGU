@@ -41,6 +41,7 @@ interface PaymentRecord {
         residentSnapshot?: any;
         type: {
             name: string;
+            category?: string;
         };
         user: {
             name: string | null;
@@ -51,6 +52,7 @@ interface PaymentRecord {
 
 interface PaymentsClientProps {
     initialPayments: PaymentRecord[];
+    categories?: string[];
 }
 
 function getRequesterName(payment: PaymentRecord) {
@@ -70,11 +72,12 @@ function getRequesterName(payment: PaymentRecord) {
     return tx.user?.name || "Registered Resident";
 }
 
-export default function PaymentsClient({ initialPayments }: PaymentsClientProps) {
+export default function PaymentsClient({ initialPayments, categories = [] }: PaymentsClientProps) {
     const [payments, setPayments] = useState<PaymentRecord[]>(initialPayments);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
     const [methodFilter, setMethodFilter] = useState<string>("ALL");
+    const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const router = useRouter();
@@ -639,6 +642,8 @@ export default function PaymentsClient({ initialPayments }: PaymentsClientProps)
                 citizenName.toLowerCase().includes(searchLower) ||
                 businessName.toLowerCase().includes(searchLower);
 
+            const matchesCategory = categoryFilter === "ALL" || payment.transaction?.type?.category === categoryFilter;
+
             const matchesMethod = methodFilter === "ALL" || payment.method === methodFilter;
 
             let matchesDate = true;
@@ -661,9 +666,9 @@ export default function PaymentsClient({ initialPayments }: PaymentsClientProps)
                 }
             }
 
-            return matchesSearch && matchesMethod && matchesDate;
+            return matchesSearch && matchesCategory && matchesMethod && matchesDate;
         });
-    }, [payments, search, methodFilter, dateRange]);
+    }, [payments, search, categoryFilter, methodFilter, dateRange]);
 
     // Statistics calculations
     const stats = useMemo(() => {
@@ -728,6 +733,21 @@ export default function PaymentsClient({ initialPayments }: PaymentsClientProps)
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                    {/* Category Filter */}
+                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                        <SelectTrigger className="h-11 w-44 rounded-xl border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117] font-medium text-xs">
+                            <SelectValue placeholder="Category" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-[#151b2b]">
+                            <SelectItem value="ALL">All Categories</SelectItem>
+                            {categories.map((cat) => (
+                                <SelectItem key={cat} value={cat}>
+                                    {cat}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
                     {/* Method Filter */}
                     <Select value={methodFilter} onValueChange={setMethodFilter}>
                         <SelectTrigger className="h-11 w-40 rounded-xl border-slate-200 dark:border-[#2a3040] bg-white dark:bg-[#0f1117]">
@@ -816,10 +836,7 @@ export default function PaymentsClient({ initialPayments }: PaymentsClientProps)
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl font-bold text-[10px] uppercase tracking-wider animate-pulse shrink-0">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        Live
-                    </div>
+
 
                     <Button
                         onClick={() => handleRefresh(false)}
