@@ -54,7 +54,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { updateReportStatus, getAdminReports } from "@/app/admin/actions";
+import { updateReportStatus, getAdminReports, getReportById } from "@/app/admin/actions";
 
 
 interface Report {
@@ -122,8 +122,10 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
 
     const uniqueBarangays = ["Amanoaoac", "Apaya", "Aserda", "Baloling", "Coral", "Golden", "Jimenez", "Lambayan", "Luyan South", "Nilombot", "Pias", "Poblacion", "Primicias", "Sta. Maria", "Torres"];
 
-    const fetchReports = async (page: number, currentLimit: number, search: string, status: string, barangay: string) => {
-        setIsLoading(true);
+    const isFirstMount = React.useRef(true);
+
+    const fetchReports = React.useCallback(async (page: number, currentLimit: number, search: string, status: string, barangay: string, silent = false) => {
+        if (!silent) setIsLoading(true);
         try {
             const res = await getAdminReports({
                 page,
@@ -140,24 +142,55 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                 if (res.stats) {
                     setStats(res.stats);
                 }
-            } else {
+            } else if (!silent) {
                 toast.error(res.error || "Failed to load reports.");
             }
         } catch (error) {
             console.error("Error fetching reports:", error);
-            toast.error("An error occurred while loading reports.");
+            if (!silent) toast.error("An error occurred while loading reports.");
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
-    };
+    }, []);
 
+    // Prevent duplicate fetch on initial mount; only fetch when filters actually change
     React.useEffect(() => {
+        if (isFirstMount.current) {
+            isFirstMount.current = false;
+            return;
+        }
+
         const handler = setTimeout(() => {
             fetchReports(1, limit, searchQuery, statusFilter, barangayFilter);
-        }, 300);
+        }, 400);
 
         return () => clearTimeout(handler);
-    }, [searchQuery, statusFilter, barangayFilter, limit]);
+    }, [searchQuery, statusFilter, barangayFilter, limit, fetchReports]);
+
+    // Realtime SSE Subscription for live auto-update with 1.5s debounce
+    React.useEffect(() => {
+        const eventSource = new EventSource("/api/admin/reports/citizen/stream");
+        let debounceTimer: NodeJS.Timeout | null = null;
+
+        eventSource.onmessage = (event) => {
+            if (event.data === "refresh") {
+                if (debounceTimer) clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    console.log("[ReportsTable] Live SSE update received, refreshing table silently...");
+                    fetchReports(currentPage, limit, searchQuery, statusFilter, barangayFilter, true);
+                }, 1500);
+            }
+        };
+
+        eventSource.onerror = () => {
+            console.warn("[ReportsTable] SSE stream connection lost. Reconnecting...");
+        };
+
+        return () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            eventSource.close();
+        };
+    }, [currentPage, limit, searchQuery, statusFilter, barangayFilter, fetchReports]);
 
     const handlePageChange = (newPage: number) => {
         if (newPage >= 1 && newPage <= totalPages) {
@@ -217,10 +250,26 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
         }
     };
 
-    const handleOpenDetails = (report: Report) => {
+    const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
+    const handleOpenDetails = async (report: Report) => {
+        setIsLoadingDetails(true);
         setSelectedReport(report);
         setAdminComment(report.adminComment || "");
         setCurrentStatus(report.status);
+
+        try {
+            const res = await getReportById(report.id);
+            if (res.success && res.report) {
+                setSelectedReport(res.report as any);
+                setAdminComment(res.report.adminComment || "");
+                setCurrentStatus(res.report.status);
+            }
+        } catch (err) {
+            console.error("Failed to fetch full report details:", err);
+        } finally {
+            setIsLoadingDetails(false);
+        }
     };
 
     return (
@@ -502,8 +551,9 @@ export function ReportsTable({ initialReports, initialTotalCount, initialTotalPa
                                             #{selectedReport.id.slice(-8).toUpperCase()}
                                         </span>
                                     </div>
-                                    <DialogTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-white mt-1">
-                                        Report Summary
+                                    <DialogTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-white mt-1 flex items-center gap-2">
+                                        <span>Report Summary</span>
+                                        {isLoadingDetails && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
                                     </DialogTitle>
                                 </div>
                                 <div className="shrink-0 flex items-center gap-2">

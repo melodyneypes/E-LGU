@@ -2752,9 +2752,23 @@ export async function getAdminReports(params?: {
         const [reports, totalCount] = await Promise.all([
             (prisma as any).report.findMany({
                 where: whereClause,
-                include: { 
-                    user: true,
-                    barangay: true
+                select: {
+                    id: true,
+                    category: true,
+                    status: true,
+                    createdAt: true,
+                    user: {
+                        select: {
+                            name: true,
+                            email: true
+                        }
+                    },
+                    barangay: {
+                        select: {
+                            id: true,
+                            name: true
+                        }
+                    }
                 },
                 orderBy: { createdAt: "desc" },
                 skip: (page - 1) * limit,
@@ -2848,9 +2862,31 @@ export async function getReportById(id: string) {
 
         const report = await (prisma as any).report.findUnique({
             where: { id },
-            include: { 
-                user: true,
-                barangay: true
+            select: {
+                id: true,
+                category: true,
+                description: true,
+                status: true,
+                images: true,
+                latitude: true,
+                longitude: true,
+                address: true,
+                adminComment: true,
+                createdAt: true,
+                updatedAt: true,
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true
+                    }
+                },
+                barangay: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                }
             }
         });
 
