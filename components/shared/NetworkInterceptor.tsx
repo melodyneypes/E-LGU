@@ -43,13 +43,12 @@ export function NetworkInterceptor() {
                 }
                 return response;
             } catch (error: any) {
-                if (shouldIntercept) {
+                const isAbort = error.name === "AbortError" || 
+                                error.message?.includes("aborted") || 
+                                error.message?.includes("abort");
+                if (shouldIntercept && !isAbort) {
                     toast.error(`Network Connection Failed: ${error.message || 'Please check your internet connection'}`);
-                    throw error;
                 }
-                // For external (non-intercepted) requests, silently re-throw so
-                // the calling code's own .catch() handler can deal with it without
-                // the NetworkInterceptor surfacing it as an unhandled error.
                 throw error;
             }
         };

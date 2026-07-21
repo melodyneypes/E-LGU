@@ -260,15 +260,15 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                 ? "/admin/registrar?category=PSA%20Endorsement"
                 : (typeCodeForBack === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" || typeCodeForBack === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" || typeCodeForBack === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT")
                     ? "/admin/registrar?category=Certified%20True%20Copy%20Appointment"
-                : typeCodeForBack === "LCR_DEATH_REG"
-                    ? "/admin/registrar?category=Death%20Registration"
-                    : typeCodeForBack === "LCR_DEATH"
-                        ? "/admin/registrar?category=Death%20Certificate"
-                        : typeCodeForBack === "LCR_MARRIAGE_LICENSE"
-                            ? "/admin/registrar?category=Marriage%20License"
-                            : typeCodeForBack === "LCR_MARRIAGE_REG"
-                                ? "/admin/registrar?category=Marriage%20Registration"
-                                : "/admin/registrar";
+                    : typeCodeForBack === "LCR_DEATH_REG"
+                        ? "/admin/registrar?category=Death%20Registration"
+                        : typeCodeForBack === "LCR_DEATH"
+                            ? "/admin/registrar?category=Death%20Certificate"
+                            : typeCodeForBack === "LCR_MARRIAGE_LICENSE"
+                                ? "/admin/registrar?category=Marriage%20License"
+                                : typeCodeForBack === "LCR_MARRIAGE_REG"
+                                    ? "/admin/registrar?category=Marriage%20Registration"
+                                    : "/admin/registrar";
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [remarks, setRemarks] = useState("");
@@ -659,7 +659,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     };
 
     const handleRelease = useCallback(async () => {
-        const isPsaAppointmentEndorsement = 
+        const isPsaAppointmentEndorsement =
             typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
             typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
             typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT";
@@ -751,7 +751,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                                                     : await releaseCedula(transaction.id, ctcNumber || transaction?.cedula?.ctcNumber || "", eCopyUrl, orUrl);
             if (res.success) {
                 const status = res.data?.status;
-                const isPsaAppointmentEndorsement = 
+                const isPsaAppointmentEndorsement =
                     typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
                     typeCode === "LCR_DEATH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||
                     typeCode === "LCR_MARRIAGE_CERTIFIED_TRUE_COPY_APPOINTMENT";

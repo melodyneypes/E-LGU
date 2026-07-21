@@ -67,6 +67,10 @@ export function RealtimeUserListener() {
                             duration: 6000
                         });
                     } else if (updatedTx.status === "REJECTED") {
+                        const remarks = updatedTx.rejectionRemarks ?? updatedTx.rejectionremarks ?? "";
+                        if (remarks === "Appointment slot expired / missed") {
+                            return;
+                        }
                         toast.error(`Your request (${title}) was rejected. Please check comments.`, {
                             duration: 8000
                         });

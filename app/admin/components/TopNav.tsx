@@ -174,6 +174,12 @@ export function TopNav({ session, themeColor = "#2563eb", brandWord1 = "E", bran
                     href,
                     isLast: i === filteredSegments.length - 1,
                 };
+            }).filter(crumb => {
+                // Remove "Public Reports" (reports segment) from breadcrumbs if on daily-requests page
+                if (pathname.includes("/daily-requests") && crumb.seg === "reports") {
+                    return false;
+                }
+                return true;
             });
 
             const accessiblePages = session?.user?.accessiblePages;

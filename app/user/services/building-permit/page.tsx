@@ -68,7 +68,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getCurrentUserResident, cancelTransaction, getSystemSettingAction } from "@/app/admin/transactions/actions";
 import { submitBuildingPermit, saveTransactionSignature, getExistingBuildingPermits, resubmitBuildingPermit, submitBuildingPermitPaymentProof, checkActivePropertyPermit, getBarangaysAction } from "./actions";
-import { useRouter, notFound } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { compressImage } from "@/lib/image-compression";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -402,10 +402,6 @@ const getDisplayStatusDetails = (app: any) => {
 };
 
 export default function BuildingPermitPage() {
-  const isOffline = typeof window !== "undefined" ? true : true;
-  if (isOffline) {
-    notFound();
-  }
   const router = useRouter();
   const [themeColor, setThemeColor] = useState("var(--primary-theme)");
 

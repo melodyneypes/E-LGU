@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db/prisma";
 import { revalidatePath } from "next/cache";
+import crypto from "crypto";
 
 export async function POST(request: Request) {
     try {
@@ -17,7 +18,28 @@ export async function POST(request: Request) {
         let userId: string;
         try {
             const decoded = JSON.parse(Buffer.from(token, "base64").toString("ascii"));
-            userId = decoded.userId;
+            const { payload, signature } = decoded;
+            
+            if (!payload || !signature) {
+                return NextResponse.json(
+                    { success: false, error: "Unauthorized: Invalid authorization token format" },
+                    { status: 401 }
+                );
+            }
+
+            const secret = process.env.NEXTAUTH_SECRET || "emapandan-fallback-kiosk-secret";
+            const expectedSignature = crypto.createHmac("sha256", secret)
+                .update(JSON.stringify(payload))
+                .digest("hex");
+
+            if (signature !== expectedSignature) {
+                return NextResponse.json(
+                    { success: false, error: "Unauthorized: Token signature mismatch" },
+                    { status: 401 }
+                );
+            }
+
+            userId = payload.userId;
         } catch {
             return NextResponse.json(
                 { success: false, error: "Unauthorized: Invalid authorization token" },

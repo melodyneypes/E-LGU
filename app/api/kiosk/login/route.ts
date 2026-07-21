@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db/prisma";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 export async function POST(request: Request) {
     console.log("[DEBUG KIOSK LOGIN] Request received at /api/kiosk/login");
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
             );
         }
 
-        // Generate a lightweight base64 token containing the user details
+        // Generate a lightweight base64 token containing the user details with cryptographic signature
         const tokenPayload = {
             userId: user.id,
             email: user.email,
@@ -65,8 +66,12 @@ export async function POST(request: Request) {
             department: user.department,
             timestamp: Date.now()
         };
-        const token = Buffer.from(JSON.stringify(tokenPayload)).toString("base64");
-        console.log("[DEBUG KIOSK LOGIN] Token generated successfully");
+        const secret = process.env.NEXTAUTH_SECRET || "emapandan-fallback-kiosk-secret";
+        const signature = crypto.createHmac("sha256", secret)
+            .update(JSON.stringify(tokenPayload))
+            .digest("hex");
+        const token = Buffer.from(JSON.stringify({ payload: tokenPayload, signature })).toString("base64");
+        console.log("[DEBUG KIOSK LOGIN] Signed token generated successfully");
 
         const responseObj = {
             success: true,
