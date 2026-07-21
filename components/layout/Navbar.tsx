@@ -54,13 +54,15 @@ export function Navbar({
         { name: "Business Permit", href: "/user/services/business-permit-appointment", desc: "Apply for New Business & Renewal Permits", icon: Building2, color: "text-emerald-500 bg-emerald-500/10" },
         { name: "Building Permit", href: "/user/services/building-permit", desc: "Construction, Electrical & Occupancy Permits", icon: Hammer, color: "text-amber-500 bg-amber-500/10" },
         { name: "Cedula (CTC)", href: "/user/services/cedula-appointment", desc: "Community Tax Certificate Issuance", icon: CreditCard, color: "text-indigo-500 bg-indigo-500/10" },
+        { name: "Rural Health Unit (RHU)", href: "/user/services/rural-health-unit", desc: "Medical Check-up & Clinical Consultation", icon: Activity, color: "text-rose-500 bg-rose-500/10" },
     ], []);
 
     const [activeCategories, setActiveCategories] = React.useState<string[]>([
         "Civil Registry",
         "Business Permit",
         "Building Permit",
-        "Cedula (CTC)"
+        "Cedula (CTC)",
+        "Rural Health Unit (RHU)"
     ]);
 
     React.useEffect(() => {
@@ -80,6 +82,9 @@ export function Navbar({
                 }
                 if (activeCodes.some(code => code.startsWith("CEDULA"))) {
                     categoriesToShow.push("Cedula (CTC)");
+                }
+                if (activeCodes.some(code => code.startsWith("RHU_"))) {
+                    categoriesToShow.push("Rural Health Unit (RHU)");
                 }
 
                 setActiveCategories(categoriesToShow);
