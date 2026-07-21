@@ -857,7 +857,10 @@ export function Sidebar({
                                     )}
                                 </button>
                                 <button
-                                     onClick={() => secureLogoutAction()}
+                                     onClick={async () => {
+                                         await secureLogoutAction();
+                                         window.location.href = "/auth/login";
+                                     }}
                                      className="p-2 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
                                      title="Log Out"
                                  >

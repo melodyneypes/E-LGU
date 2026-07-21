@@ -24,5 +24,5 @@ export async function secureLogoutAction() {
         cookieStore.delete(cookieName);
     });
 
-    redirect("/auth/login");
+    return { success: true };
 }
