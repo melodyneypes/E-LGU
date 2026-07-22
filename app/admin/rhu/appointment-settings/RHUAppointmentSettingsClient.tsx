@@ -27,7 +27,6 @@ interface RHUAppointmentSettingsClientProps {
 }
 
 export default function RHUAppointmentSettingsClient({ 
-    themeColor,
     appointmentConfig
 }: RHUAppointmentSettingsClientProps) {
     const [maxSlotsAM, setMaxSlotsAM] = useState<number>(appointmentConfig.maxSlotsAM ?? 25);
