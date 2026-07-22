@@ -2,7 +2,9 @@
 
 import React, { useState } from "react";
 import {
+    getPosoOfficers,
     addPosoOfficer,
+    updatePosoOfficer,
     deletePosoOfficer,
 } from "@/app/admin/poso/actions";
 import {
@@ -33,6 +35,7 @@ import {
     Users,
     Eye,
     EyeOff,
+    Edit2,
     ChevronLeft,
     ChevronRight,
     RefreshCw,
@@ -110,8 +113,26 @@ export default function OfficersPage({
         fetchOfficers(newPage, search);
     };
 
+    const [editingData, setEditingData] = useState<OfficerItem | null>(null);
+
     const handleCloseModal = () => {
         setIsAddModalOpen(false);
+        setTimeout(() => {
+            setEditingData(null);
+            setShowPassword(false);
+        }, 200);
+    };
+
+    const handleAddNew = () => {
+        setEditingData(null);
+        setShowPassword(false);
+        setIsAddModalOpen(true);
+    };
+
+    const handleEdit = (item: OfficerItem) => {
+        setEditingData(item);
+        setShowPassword(false);
+        setIsAddModalOpen(true);
     };
 
     const handleDelete = async (id: string, name: string) => {
@@ -135,14 +156,23 @@ export default function OfficersPage({
         const formData = new FormData(e.currentTarget);
 
         try {
-            const res = await addPosoOfficer(formData);
+            let res;
+            if (editingData) {
+                res = await updatePosoOfficer(editingData.id, formData);
+            } else {
+                res = await addPosoOfficer(formData);
+            }
 
             if (res.success) {
-                toast.success("POSO Officer account created successfully!");
+                toast.success(
+                    editingData
+                        ? "POSO Officer account updated successfully!"
+                        : "POSO Officer account created successfully!"
+                );
                 handleCloseModal();
                 router.refresh();
             } else {
-                toast.error(res.error || "Failed to create officer account.");
+                toast.error(res.error || "Failed to save officer account.");
             }
         } catch (err: any) {
             toast.error(err.message || "An error occurred while saving.");
@@ -193,7 +223,7 @@ export default function OfficersPage({
                     </div>
 
                     <Button
-                        onClick={() => setIsAddModalOpen(true)}
+                        onClick={handleAddNew}
                         className="h-11 px-6 text-white font-black uppercase tracking-widest text-[10px] rounded-xl shadow-lg bg-rose-600 hover:bg-rose-700 transition-all hover:scale-[1.02] active:scale-[0.98]"
                     >
                         <Plus className="w-5 h-5 mr-2" />
@@ -263,15 +293,26 @@ export default function OfficersPage({
                                         </TableCell>
 
                                         <TableCell className="text-right pr-8">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => handleDelete(item.id, item.name || "Officer")}
-                                                disabled={deletingId === item.id}
-                                                className="h-9 w-9 rounded-xl text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-all"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
+                                            <div className="flex justify-end gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handleEdit(item)}
+                                                    className="h-9 w-9 rounded-xl text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-all"
+                                                >
+                                                    <Edit2 className="w-4 h-4" />
+                                                </Button>
+
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handleDelete(item.id, item.name || "Officer")}
+                                                    disabled={deletingId === item.id}
+                                                    className="h-9 w-9 rounded-xl text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-all"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -324,10 +365,10 @@ export default function OfficersPage({
                                 </div>
                                 <div>
                                     <DialogTitle className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                                        Register POSO Officer
+                                        {editingData ? "Edit POSO Officer Account" : "Register POSO Officer"}
                                     </DialogTitle>
                                     <DialogDescription className="text-slate-500 dark:text-slate-400 font-medium">
-                                        Create mobile app login account for traffic enforcers.
+                                        {editingData ? "Update officer profile and login credentials." : "Create mobile app login account for traffic enforcers."}
                                     </DialogDescription>
                                 </div>
                             </div>
@@ -344,7 +385,7 @@ export default function OfficersPage({
 
                         {/* Form */}
                         <div className="p-8">
-                            <form id="officerForm" onSubmit={handleSubmit} className="space-y-5">
+                            <form key={editingData?.id || "new-officer-form"} id="officerForm" onSubmit={handleSubmit} className="space-y-5">
                                 <div>
                                     <Label htmlFor="name" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
                                         Officer Full Name <span className="text-red-500">*</span>
@@ -352,6 +393,7 @@ export default function OfficersPage({
                                     <Input
                                         id="name"
                                         name="name"
+                                        defaultValue={editingData?.name || ""}
                                         required
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
                                         placeholder="e.g. Officer Juan Dela Cruz"
@@ -366,6 +408,7 @@ export default function OfficersPage({
                                         id="email"
                                         name="email"
                                         type="email"
+                                        defaultValue={editingData?.email || ""}
                                         required
                                         className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
                                         placeholder="officer.juandelacruz@mapandan.gov.ph"
@@ -374,16 +417,16 @@ export default function OfficersPage({
 
                                 <div>
                                     <Label htmlFor="password" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                        Password <span className="text-red-500">*</span>
+                                        Password {editingData ? <span className="text-xs text-slate-400 font-normal">(Leave blank to keep unchanged)</span> : <span className="text-red-500">*</span>}
                                     </Label>
                                     <div className="relative">
                                         <Input
                                             id="password"
                                             name="password"
                                             type={showPassword ? "text" : "password"}
-                                            required
+                                            required={!editingData}
                                             className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11 pr-10"
-                                            placeholder="••••••••••••"
+                                            placeholder={editingData ? "•••••••••••• (Unchanged)" : "••••••••••••"}
                                         />
                                         <button
                                             type="button"
@@ -422,7 +465,7 @@ export default function OfficersPage({
                                 ) : (
                                     <Save className="w-4 h-4" />
                                 )}
-                                <span>Create Officer Account</span>
+                                <span>{editingData ? "Update Account" : "Create Officer Account"}</span>
                             </Button>
                         </div>
                     </div>

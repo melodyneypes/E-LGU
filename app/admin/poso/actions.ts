@@ -334,6 +334,51 @@ export async function addPosoOfficer(formData: FormData) {
     }
 }
 
+export async function updatePosoOfficer(id: string, formData: FormData) {
+    try {
+        await verifyAdminOrStaff();
+        const name = (formData.get("name") as string)?.trim();
+        const email = (formData.get("email") as string)?.trim()?.toLowerCase();
+        const password = (formData.get("password") as string)?.trim();
+
+        if (!name || !email) {
+            return { success: false, error: "Name and Email are required." };
+        }
+
+        const existingUser = await (prisma as any).user.findFirst({
+            where: {
+                email,
+                NOT: { id },
+            },
+        });
+
+        if (existingUser) {
+            return { success: false, error: "Another user with this email already exists." };
+        }
+
+        const dataToUpdate: any = {
+            name,
+            email,
+        };
+
+        if (password) {
+            const bcrypt = await import("bcryptjs");
+            dataToUpdate.password = await bcrypt.hash(password, 10);
+        }
+
+        const updatedOfficer = await (prisma as any).user.update({
+            where: { id },
+            data: dataToUpdate,
+        });
+
+        revalidatePath("/admin/poso/officers");
+        return { success: true, officer: updatedOfficer };
+    } catch (error: any) {
+        console.error("Failed to update POSO officer:", error);
+        return { success: false, error: error.message || "Failed to update POSO officer account." };
+    }
+}
+
 export async function deletePosoOfficer(id: string) {
     try {
         await verifyAdminOrStaff();
