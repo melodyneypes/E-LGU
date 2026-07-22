@@ -1366,6 +1366,18 @@ export async function updateProject(id: string, formData: FormData) {
     }
 }
 
+export async function getTourismById(id: string) {
+    try {
+        if (!id) return { success: false, error: "Tourism ID is required." };
+        const item = await (prisma as any).tourismSpot.findUnique({ where: { id } });
+        if (!item) return { success: false, error: "Tourism spot entry not found." };
+        return { success: true, data: item, tourism: item };
+    } catch (error) {
+        console.error("Failed to fetch tourism spot details:", error);
+        return { success: false, error: "Failed to fetch tourism spot entry." };
+    }
+}
+
 export async function getAccommodationById(id: string) {
     try {
         if (!id) return { success: false, error: "Accommodation ID is required." };

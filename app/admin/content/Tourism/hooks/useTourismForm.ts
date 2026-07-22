@@ -3,10 +3,13 @@
 import { useState, FormEvent } from "react";
 import { addTourismSpot, updateTourismSpot } from "@/app/admin/actions";
 import { useTourism } from "../providers/TourismProvider";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export function useTourismForm() {
-    const { setIsAddModalOpen, editingData, setEditingData } = useTourism();
+    const { setIsAddModalOpen, editingData, setEditingData, setIsPending } = useTourism();
     const [loading, setLoading] = useState(false);
+    const router = useRouter();
 
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -23,14 +26,17 @@ export function useTourismForm() {
             }
 
             if (res?.success) {
+                toast.success(`Tourism spot ${editingData ? "updated" : "added"} successfully!`);
                 setEditingData(null);
                 setIsAddModalOpen(false);
+                setIsPending(true);
+                router.refresh();
             } else {
-                alert(res?.error || "An error occurred");
+                toast.error(res?.error || "An error occurred");
             }
         } catch (error) {
             console.error("Error saving tourism spot:", error);
-            alert("An error occurred while saving.");
+            toast.error("An error occurred while saving.");
         } finally {
             setLoading(false);
         }
@@ -38,6 +44,6 @@ export function useTourismForm() {
 
     return {
         handleSubmit,
-        loading
+        loading,
     };
 }
