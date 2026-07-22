@@ -440,7 +440,6 @@ export function Sidebar({
     ];
 
     const contentAdminAllowed = [
-        "Dashboard",
         "About Us Content",
         "Announcements",
         "News & Updates",

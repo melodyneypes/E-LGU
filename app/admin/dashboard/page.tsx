@@ -60,6 +60,11 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         redirect("/admin/engineer");
     }
 
+    // Redirect Content Admin directly to announcements hub
+    if (user?.role === "CONTENT_ADMIN") {
+        redirect("/admin/announcements");
+    }
+
     // Redirect BFP to their BFP hub
     if (user?.role === "BFP") {
         redirect("/admin/bfp");
