@@ -53,6 +53,41 @@ function getAnnouncementDelegate() {
 }
 
 /**
+ * GET SINGLE ANNOUNCEMENT BY ID (Full details on-demand)
+ */
+export async function getAnnouncementById(id: string): Promise<ActionResponse> {
+    try {
+        if (!id) {
+            return { success: false, error: "Announcement ID is required." };
+        }
+
+        const { user, error: authError } = await getAuthenticatedUser();
+        if (authError || !user) {
+            return { success: false, error: authError || "Unauthorized access." };
+        }
+
+        const announcementDelegate = getAnnouncementDelegate();
+        const announcement = await announcementDelegate.findUnique({
+            where: { id },
+        });
+
+        if (!announcement) {
+            return { success: false, error: "Announcement not found." };
+        }
+
+        if (user.role === "BARANGAY_ADMIN" && announcement.barangay && announcement.barangay !== user.managedBarangay) {
+            return { success: false, error: "Forbidden: Access denied to this barangay announcement." };
+        }
+
+        return { success: true, data: announcement, announcement };
+    } catch (error) {
+        console.error("[getAnnouncementById Error]:", error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to fetch announcement details.";
+        return { success: false, error: errorMessage };
+    }
+}
+
+/**
  * CREATE ANNOUNCEMENT
  */
 export async function addAnnouncement(formData: FormData): Promise<ActionResponse> {
