@@ -1366,6 +1366,18 @@ export async function updateProject(id: string, formData: FormData) {
     }
 }
 
+export async function getProjectById(id: string) {
+    try {
+        if (!id) return { success: false, error: "Project ID is required." };
+        const item = await (prisma as any).project.findUnique({ where: { id } });
+        if (!item) return { success: false, error: "Project not found." };
+        return { success: true, data: item, project: item };
+    } catch (error) {
+        console.error("Failed to fetch project details:", error);
+        return { success: false, error: "Failed to fetch project entry." };
+    }
+}
+
 export async function deleteProject(id: string) {
     try {
         await verifyAdminOrBarangayAdmin();
