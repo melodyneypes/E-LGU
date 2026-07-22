@@ -126,13 +126,13 @@ export async function getTickets({
     pageSize = 10,
     search = "",
     status = "All",
-    paymentStatus = "All",
+    isPaid = "All",
 }: {
     page?: number;
     pageSize?: number;
     search?: string;
     status?: string;
-    paymentStatus?: string;
+    isPaid?: string;
 }) {
     try {
         await verifyAdminOrStaff();
@@ -143,8 +143,8 @@ export async function getTickets({
             where.status = status;
         }
 
-        if (paymentStatus !== "All") {
-            where.paymentStatus = paymentStatus;
+        if (isPaid !== "All") {
+            where.isPaid = isPaid === "PAID" || isPaid === "true";
         }
 
         if (search.trim()) {
@@ -171,7 +171,7 @@ export async function getTickets({
                     officerName: true,
                     totalAmount: true,
                     status: true,
-                    paymentStatus: true,
+                    isPaid: true,
                     createdAt: true,
                     transactionId: true,
                 },
@@ -220,12 +220,64 @@ export async function getTicketById(id: string) {
     }
 }
 
-export async function updateTicketStatus(id: string, status: string, paymentStatus?: string) {
+export async function getViolatorHistory({
+    licenseNo,
+    violatorName,
+}: {
+    licenseNo?: string | null;
+    violatorName?: string | null;
+}) {
+    try {
+        await verifyAdminOrStaff();
+        if (!licenseNo && !violatorName) {
+            return { success: false, error: "License number or Violator name is required." };
+        }
+
+        const whereOR: any[] = [];
+        if (licenseNo && licenseNo.trim()) {
+            whereOR.push({ licenseNo: { equals: licenseNo.trim(), mode: "insensitive" } });
+        }
+        if (violatorName && violatorName.trim()) {
+            whereOR.push({ violatorName: { equals: violatorName.trim(), mode: "insensitive" } });
+        }
+
+        const tickets = await (prisma as any).ticketHeader.findMany({
+            where: {
+                OR: whereOR,
+            },
+            include: {
+                ticketDetails: {
+                    include: {
+                        violation: true,
+                    },
+                },
+            },
+            orderBy: { dateTime: "desc" },
+        });
+
+        const totalCitations = tickets.length;
+        const totalAmountFined = tickets.reduce((sum: number, t: any) => sum + (t.totalAmount || 0), 0);
+        const unpaidCount = tickets.filter((t: any) => !t.isPaid).length;
+
+        return {
+            success: true,
+            totalCitations,
+            totalAmountFined,
+            unpaidCount,
+            tickets,
+        };
+    } catch (error: any) {
+        console.error("Failed to fetch violator history:", error);
+        return { success: false, error: error.message || "Failed to fetch violator history." };
+    }
+}
+
+export async function updateTicketStatus(id: string, status: string, isPaid?: boolean) {
     try {
         await verifyAdminOrStaff();
         const dataToUpdate: any = { status };
-        if (paymentStatus) {
-            dataToUpdate.paymentStatus = paymentStatus;
+        if (typeof isPaid === "boolean") {
+            dataToUpdate.isPaid = isPaid;
         }
 
         const updatedTicket = await (prisma as any).ticketHeader.update({

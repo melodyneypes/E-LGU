@@ -114,7 +114,7 @@ function ServiceCard({ service, themeColor, isMobile, isMaintenanceActive }: { s
                             : service.code === "CIVIL_REGISTRY"
                                 ? "/user/services/civil-registry"
                                 : service.code === "BUILDING_PERMIT"
-                                    ? "/user/services/building-permit-appointment"
+                                    ? "/user/services/building-permit"
                                     : `/user/services/${service.id}`
             } 
             className="block p-5 md:p-8 h-full"

@@ -1211,6 +1211,13 @@ model TrafficViolation {
   ticketDetails    TicketDetail[]
 }
 
+enum TicketStatus {
+  ISSUED
+  RESOLVED
+  CONTESTED
+  CANCELLED
+}
+
 model TicketHeader {
   id               String   @id @default(cuid())
   ticketNo         String   @unique
@@ -1241,8 +1248,8 @@ model TicketHeader {
 
   // Financial & Status
   totalAmount      Float    @default(0)
-  status           String   @default("ISSUED")
-  paymentStatus    String   @default("UNPAID")
+  status           TicketStatus @default(ISSUED)
+  isPaid           Boolean  @default(false)
   remarks          String?
   driverSignature  String?
 
@@ -1259,7 +1266,7 @@ model TicketHeader {
   @@index([ticketNo])
   @@index([licenseNo])
   @@index([status])
-  @@index([paymentStatus])
+  @@index([isPaid])
 }
 
 model TicketDetail {

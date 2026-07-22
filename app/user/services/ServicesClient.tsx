@@ -45,7 +45,7 @@ const getAppointmentLink = (code: string, originalLink: string) => {
         return "/user/services/business-permit-appointment";
     }
     if (c.includes("BUILDING") || c.includes("ENGINEER")) {
-        return "/user/services/building-permit-appointment";
+        return "/user/services/building-permit";
     }
     if (c.includes("CEDULA")) {
         return "/user/services/cedula-appointment";
