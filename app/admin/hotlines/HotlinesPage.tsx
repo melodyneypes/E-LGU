@@ -1,6 +1,6 @@
 "use client";
 
-import { HotlinesProvider } from "./providers";
+import { HotlinesProvider, Hotline } from "./providers/HotlinesProvider";
 import {
     HotlinesCards,
     HotlinesFilters,
@@ -10,13 +10,34 @@ import {
 import { Phone } from "lucide-react";
 
 interface HotlinesPageProps {
-     
-    initialData: any[];
+    initialData: Hotline[];
+    totalCount?: number;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    category?: string;
+    status?: string;
 }
 
-export function HotlinesPage({ initialData }: HotlinesPageProps) {
+export function HotlinesPage({
+    initialData,
+    totalCount = 0,
+    page = 1,
+    pageSize = 10,
+    search = "",
+    category = "All",
+    status = "All"
+}: HotlinesPageProps) {
     return (
-        <HotlinesProvider initialData={initialData}>
+        <HotlinesProvider
+            initialData={initialData}
+            totalCount={totalCount}
+            page={page}
+            pageSize={pageSize}
+            search={search}
+            category={category}
+            status={status}
+        >
             <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -38,7 +59,6 @@ export function HotlinesPage({ initialData }: HotlinesPageProps) {
                     <HotlinesFilters />
                     <HotlinesTable />
                 </div>
-
 
                 <AddHotlineModal />
             </div>
