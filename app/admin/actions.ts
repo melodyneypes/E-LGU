@@ -949,6 +949,20 @@ export async function deleteNews(id: string) {
     }
 }
 
+export async function getNewsById(id: string) {
+    try {
+        if (!id) return { success: false, error: "News ID is required." };
+        const newsItem = await prisma.news.findUnique({
+            where: { id },
+        });
+        if (!newsItem) return { success: false, error: "News article not found." };
+        return { success: true, news: newsItem, data: newsItem };
+    } catch (error) {
+        console.error("Failed to fetch news details:", error);
+        return { success: false, error: "Failed to fetch news article details." };
+    }
+}
+
 export async function toggleNewsStatus(id: string, isPublished: boolean) {
     try {
         await verifyAdminOrBarangayAdmin();

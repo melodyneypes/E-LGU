@@ -65,10 +65,7 @@ function AnnouncementPageContent() {
 
             <AnnouncementCards />
 
-            <div
-                style={{ boxShadow: "0 25px 50px -12px color-mix(in srgb, var(--primary-theme, #2563eb) 10%, transparent)" }}
-                className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden ring-1 ring-slate-200 dark:ring-white/5"
-            >
+            <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden">
                 <AnnouncementFilters />
                 <AnnouncementTable />
             </div>

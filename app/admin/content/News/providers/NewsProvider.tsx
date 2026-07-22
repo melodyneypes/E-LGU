@@ -5,7 +5,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 export interface News {
     id: string;
     title: string;
-    content: string;
+    content?: string;
     category: string;
     author: string | null;
     imageUrl: string | null;
@@ -30,22 +30,56 @@ interface NewsContextType {
     currentBarangay?: string;
     activeBarangays?: string[];
     themeColor: string;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    isPending: boolean;
+    setIsPending: (pending: boolean) => void;
 }
 
 const NewsContext = createContext<NewsContextType | undefined>(undefined);
 
-export function NewsProvider({ children, initialData, currentBarangay, activeBarangays = [] }: { children: ReactNode; initialData: News[]; currentBarangay?: string; activeBarangays?: string[] }) {
+export function NewsProvider({
+    children,
+    initialData,
+    totalCount = 0,
+    page = 1,
+    pageSize = 10,
+    search = "",
+    category = "All",
+    currentBarangay,
+    activeBarangays = [],
+}: {
+    children: ReactNode;
+    initialData: News[];
+    totalCount?: number;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    category?: string;
+    currentBarangay?: string;
+    activeBarangays?: string[];
+}) {
     const [newsData, setNewsData] = useState<News[]>(initialData);
-    const [searchTerm, setSearchTerm] = useState("");
+    const [searchTerm, setSearchTerm] = useState(search);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-     
-    const [editingData, setEditingData] = useState<any | null>(null);
-    const [selectedCategory, setSelectedCategory] = useState("All");
+    const [editingData, setEditingData] = useState<News | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState(category);
     const [themeColor, setThemeColor] = useState("#2563eb");
+    const [isPending, setIsPending] = useState(false);
 
     useEffect(() => {
         setNewsData(initialData);
+        setIsPending(false);
     }, [initialData]);
+
+    useEffect(() => {
+        setSearchTerm(search);
+    }, [search]);
+
+    useEffect(() => {
+        setSelectedCategory(category);
+    }, [category]);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -78,6 +112,11 @@ export function NewsProvider({ children, initialData, currentBarangay, activeBar
                 currentBarangay,
                 activeBarangays,
                 themeColor,
+                page,
+                pageSize,
+                totalCount,
+                isPending,
+                setIsPending,
             }}
         >
             {children}
