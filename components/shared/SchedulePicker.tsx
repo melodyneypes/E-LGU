@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Calendar, ArrowLeft, ChevronRight, Clock, Check } from "lucide-react";
+import { Calendar, ArrowLeft, ChevronRight, Clock, Check, Infinity as InfinityIcon } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
@@ -248,15 +248,21 @@ export default function SchedulePicker({
                                                 </div>
                                                 <div className="flex justify-between gap-2">
                                                     <span className="text-slate-400 font-bold uppercase tracking-wider text-[8px]">AM Session:</span>
-                                                    <span className="font-black text-white">{stats.bookedAM} / {stats.maxAM}</span>
+                                                    <span className="font-black text-white flex items-center gap-1">
+                                                        {stats.bookedAM} / {stats.maxAM >= 99999 ? <InfinityIcon className="w-3 h-3 text-rose-400 inline" /> : stats.maxAM}
+                                                    </span>
                                                 </div>
                                                 <div className="flex justify-between gap-2">
                                                     <span className="text-slate-400 font-bold uppercase tracking-wider text-[8px]">PM Session:</span>
-                                                    <span className="font-black text-white">{stats.bookedPM} / {stats.maxPM}</span>
+                                                    <span className="font-black text-white flex items-center gap-1">
+                                                        {stats.bookedPM} / {stats.maxPM >= 99999 ? <InfinityIcon className="w-3 h-3 text-rose-400 inline" /> : stats.maxPM}
+                                                    </span>
                                                 </div>
                                                 <div className="flex justify-between gap-2 border-t border-white/5 pt-1 mt-0.5">
                                                     <span className="text-slate-400 font-bold uppercase tracking-wider text-[8px]">Total booked:</span>
-                                                    <span className="font-black text-emerald-450">{stats.totalBooked} / {stats.totalMax}</span>
+                                                    <span className="font-black text-emerald-450 flex items-center gap-1">
+                                                        {stats.totalBooked} / {stats.totalMax >= 99999 ? <InfinityIcon className="w-3 h-3 text-rose-400 inline" /> : stats.totalMax}
+                                                    </span>
                                                 </div>
                                             </div>
                                         )}
@@ -283,7 +289,8 @@ export default function SchedulePicker({
                         <div className="grid grid-cols-1 gap-3.5">
                             {SLOTS.map((slot) => {
                                 const { booked, total } = getSlotDetails(selectedDate, slot);
-                                const available = booked < total;
+                                const isUnlimited = total >= 99999;
+                                const available = isUnlimited || booked < total;
                                 const active = selectedSlot === slot;
                                 return (
                                     <button
@@ -292,7 +299,7 @@ export default function SchedulePicker({
                                         disabled={!available}
                                         onClick={() => setSelectedSlot(slot)}
                                         className={cn(
-                                            "p-5 border rounded-[2rem] flex items-center justify-between text-left transition-all duration-300 shadow-sm relative overflow-hidden group/slot",
+                                            "p-3.5 sm:p-5 border rounded-2xl sm:rounded-[2rem] flex items-start sm:items-center justify-between gap-2.5 sm:gap-4 text-left transition-all duration-300 shadow-sm relative overflow-hidden group/slot w-full",
                                             !available
                                                 ? "opacity-35 cursor-not-allowed bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/5"
                                                 : active
@@ -300,10 +307,10 @@ export default function SchedulePicker({
                                                     : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] hover:border-slate-350 dark:hover:border-white/20 hover:scale-[1.01]"
                                         )}
                                     >
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
                                             {/* Circular selector */}
                                             <div className={cn(
-                                                "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
+                                                "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 mt-0.5 sm:mt-0",
                                                 active
                                                     ? "bg-primary border-primary text-white"
                                                     : "border-slate-300 dark:border-white/20 bg-white dark:bg-black/20"
@@ -312,16 +319,29 @@ export default function SchedulePicker({
                                             >
                                                 {active && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                                             </div>
-                                            <div className="space-y-0.5">
-                                                <span className="font-black text-xs md:text-sm text-slate-800 dark:text-slate-100">{slot}</span>
-                                                <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400">Regular processing hours</p>
-                                                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">
-                                                    {booked} / {total} slots occupied ({Math.max(0, total - booked)} remaining)
+                                            <div className="space-y-0.5 min-w-0 flex-1">
+                                                <span className="font-black text-xs sm:text-sm text-slate-800 dark:text-slate-100 block tracking-tight">
+                                                    {slot}
+                                                </span>
+                                                <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400">
+                                                    Regular processing hours
                                                 </p>
+                                                {isUnlimited ? (
+                                                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1 flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                                                        <span>{booked} slots occupied</span>
+                                                        <span className="text-emerald-500 font-bold flex items-center gap-1">
+                                                            (<InfinityIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 inline text-emerald-500 shrink-0" /> Unlimited)
+                                                        </span>
+                                                    </p>
+                                                ) : (
+                                                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">
+                                                        {booked} / {total} slots occupied ({Math.max(0, total - booked)} remaining)
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                         <span className={cn(
-                                            "text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-full",
+                                            "shrink-0 text-[8px] font-black uppercase tracking-widest px-2.5 sm:px-3 py-1 rounded-full whitespace-nowrap self-start sm:self-auto mt-0.5 sm:mt-0",
                                             available
                                                 ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
                                                 : "bg-red-500/10 text-red-500 border border-red-500/20"

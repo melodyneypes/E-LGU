@@ -8,7 +8,7 @@ import {
     Briefcase, MapPin, Map,
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
-    FileText, BarChart3, Activity
+    FileText, BarChart3, Activity, Package
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -422,23 +422,37 @@ export function Sidebar({
             subItems: [
                 { href: "/admin/rhu", label: "Dashboard" },
                 { href: "/admin/rhu/consultations", label: "All Consultations" },
+                { href: "/admin/rhu/inventory", label: "Medicine & Supplies" },
+                { href: "/admin/rhu/announcements", label: "Announcements" },
             ]
         },
         {
+            href: "/admin/rhu/inventory",
+            label: "Medicine & Supplies",
+            icon: Package,
+            category: "Rural Health Unit"
+        },
+        {
+            href: "/admin/rhu/announcements",
+            label: "Announcements",
+            icon: Megaphone,
+            category: "Rural Health Unit"
+        },
+        {
             href: "/admin/rhu/appointment-settings",
-            label: "RHU Settings",
+            label: "Schedule Settings",
             icon: Calendar,
             category: "Rural Health Unit"
         },
         {
             href: "/admin/rhu/ledger",
-            label: "RHU Consultation Ledger",
+            label: "Consultation Ledger",
             icon: FileText,
             category: "Rural Health Unit"
         },
         {
             href: "/admin/rhu/queue",
-            label: "RHU Counter Queue",
+            label: "Counter Queue",
             icon: Users,
             category: "Rural Health Unit"
         },
