@@ -115,6 +115,7 @@ export function AdminShell({
                 role === "ADMIN_AIDE" ||
                 role === "ENGINEER" ||
                 role === "MPDC_ZONING" ||
+                role === "CONTENT_ADMIN" ||
                 (role === "ADMIN" && (deptUpper === "TREASURY" || deptUpper === "BPLO" || deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY"))
             ) {
                 isRedirecting = true;
@@ -143,6 +144,24 @@ export function AdminShell({
                 ) {
                     isRestricted = true;
                 }
+            }
+        } else if (role === "CONTENT_ADMIN") {
+            const allowedPrefixes = [
+                "/admin/announcements",
+                "/admin/news",
+                "/admin/events",
+                "/admin/projects",
+                "/admin/dining",
+                "/admin/accommodation",
+                "/admin/tourism",
+                "/admin/jobs",
+                "/admin/church",
+                "/admin/about",
+                "/admin/officials",
+                "/admin/hotlines"
+            ];
+            if (!allowedPrefixes.some((prefix) => pathname.startsWith(prefix))) {
+                isRestricted = true;
             }
         } else if (role === "TREASURY_STAFF") {
             if (!pathname.startsWith("/admin/treasury")) {
@@ -188,6 +207,8 @@ export function AdminShell({
                         } else if (deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") {
                             router.push("/admin/rhu");
                         }
+                    } else if (role === "CONTENT_ADMIN") {
+                        router.push("/admin/announcements");
                     } else if (role === "TREASURY_STAFF") {
                         router.push("/admin/treasury?category=CEDULA");
                     } else if (role === "ADMIN_AIDE") {

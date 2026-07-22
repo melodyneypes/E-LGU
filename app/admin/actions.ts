@@ -20,7 +20,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 async function verifyAdminOrBarangayAdmin() {
     const session = await getServerSession(authOptions);
     const role = (session?.user as any)?.role;
-    if (!session || (role !== "ADMIN" && role !== "BARANGAY_ADMIN")) {
+    const allowedRoles = ["ADMIN", "SUPER_ADMIN", "BARANGAY_ADMIN", "CONTENT_ADMIN", "STAFF"];
+    if (!session || (role && !allowedRoles.includes(role))) {
         throw new Error("Unauthorized: Access denied.");
     }
     return session.user;
@@ -855,6 +856,20 @@ export async function deleteEvent(id: string) {
     }
 }
 
+export async function getEventById(id: string) {
+    try {
+        if (!id) return { success: false, error: "Event ID is required." };
+        const eventItem = await (prisma as any).event.findUnique({
+            where: { id },
+        });
+        if (!eventItem) return { success: false, error: "Event not found." };
+        return { success: true, event: eventItem, data: eventItem };
+    } catch (error) {
+        console.error("Failed to fetch event details:", error);
+        return { success: false, error: "Failed to fetch event details." };
+    }
+}
+
 export async function toggleEventStatus(id: string, isPublished: boolean) {
     try {
         await verifyAdminOrBarangayAdmin();
@@ -946,6 +961,20 @@ export async function deleteNews(id: string) {
     } catch (error) {
         console.error("Failed to delete news:", error);
         return { success: false, error: "Failed to delete news entry." };
+    }
+}
+
+export async function getNewsById(id: string) {
+    try {
+        if (!id) return { success: false, error: "News ID is required." };
+        const newsItem = await prisma.news.findUnique({
+            where: { id },
+        });
+        if (!newsItem) return { success: false, error: "News article not found." };
+        return { success: true, news: newsItem, data: newsItem };
+    } catch (error) {
+        console.error("Failed to fetch news details:", error);
+        return { success: false, error: "Failed to fetch news article details." };
     }
 }
 
@@ -1334,6 +1363,54 @@ export async function updateProject(id: string, formData: FormData) {
     } catch (error) {
         console.error("Failed to update project:", error);
         return { success: false, error: "Failed to update project entry." };
+    }
+}
+
+export async function getTourismById(id: string) {
+    try {
+        if (!id) return { success: false, error: "Tourism ID is required." };
+        const item = await (prisma as any).tourismSpot.findUnique({ where: { id } });
+        if (!item) return { success: false, error: "Tourism spot entry not found." };
+        return { success: true, data: item, tourism: item };
+    } catch (error) {
+        console.error("Failed to fetch tourism spot details:", error);
+        return { success: false, error: "Failed to fetch tourism spot entry." };
+    }
+}
+
+export async function getAccommodationById(id: string) {
+    try {
+        if (!id) return { success: false, error: "Accommodation ID is required." };
+        const item = await (prisma as any).accommodation.findUnique({ where: { id } });
+        if (!item) return { success: false, error: "Accommodation entry not found." };
+        return { success: true, data: item, accommodation: item };
+    } catch (error) {
+        console.error("Failed to fetch accommodation details:", error);
+        return { success: false, error: "Failed to fetch accommodation entry." };
+    }
+}
+
+export async function getDiningById(id: string) {
+    try {
+        if (!id) return { success: false, error: "Dining ID is required." };
+        const item = await (prisma as any).dining.findUnique({ where: { id } });
+        if (!item) return { success: false, error: "Dining entry not found." };
+        return { success: true, data: item, dining: item };
+    } catch (error) {
+        console.error("Failed to fetch dining details:", error);
+        return { success: false, error: "Failed to fetch dining entry." };
+    }
+}
+
+export async function getProjectById(id: string) {
+    try {
+        if (!id) return { success: false, error: "Project ID is required." };
+        const item = await (prisma as any).project.findUnique({ where: { id } });
+        if (!item) return { success: false, error: "Project not found." };
+        return { success: true, data: item, project: item };
+    } catch (error) {
+        console.error("Failed to fetch project details:", error);
+        return { success: false, error: "Failed to fetch project entry." };
     }
 }
 
@@ -2506,90 +2583,8 @@ export async function toggleDisasterMapStatus(id: string, isPublished: boolean) 
     }
 }
 
-// -----------------------------------------------------------------------------
-// ANNOUNCEMENTS
-// -----------------------------------------------------------------------------
+// Announcement actions migrated to domain folder: app/admin/content/Announcements/actions/announcements.actions.ts
 
-export async function addAnnouncement(formData: FormData) {
-    try {
-        const expiryDate = formData.get("expiryDate") as string;
-        const barangay = formData.get("barangay") as string || await getSessionBarangay();
-
-        const newAnnouncement = await (prisma as any).announcement.create({
-            data: {
-                title: formData.get("title") as string,
-                content: formData.get("content") as string,
-                category: formData.get("category") as string,
-                priority: formData.get("priority") as string,
-                isPinned: formData.get("isPinned") === "on",
-                isActive: formData.get("isActive") === "on",
-                expiryDate: expiryDate ? new Date(expiryDate) : null,
-                barangay: barangay || null,
-            } as any,
-        });
-        revalidatePath("/admin/announcements");
-        revalidatePath("/");
-        return { success: true, announcement: newAnnouncement };
-    } catch (error) {
-        return { success: false, error: "Failed to create announcement." };
-    }
-}
-
-export async function updateAnnouncement(id: string, formData: FormData) {
-    try {
-        const expiryDate = formData.get("expiryDate") as string;
-        const barangay = formData.get("barangay") as string || await getSessionBarangay();
-
-        const updated = await (prisma as any).announcement.update({
-            where: { id },
-            data: {
-                title: formData.get("title") as string,
-                content: formData.get("content") as string,
-                category: formData.get("category") as string,
-                priority: formData.get("priority") as string,
-                isPinned: formData.get("isPinned") === "on",
-                isActive: formData.get("isActive") === "on",
-                expiryDate: expiryDate ? new Date(expiryDate) : null,
-                barangay: barangay || null,
-            } as any,
-        });
-        revalidatePath("/admin/announcements");
-        revalidatePath("/");
-        return { success: true, announcement: updated };
-    } catch (error) {
-        return { success: false, error: "Failed to update announcement." };
-    }
-}
-
-export async function deleteAnnouncement(id: string) {
-    try {
-        await (prisma as any).announcement.delete({ where: { id } });
-        revalidatePath("/admin/announcements");
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: "Failed to delete announcement." };
-    }
-}
-
-export async function toggleAnnouncementStatus(id: string, isActive: boolean) {
-    try {
-        await (prisma as any).announcement.update({ where: { id }, data: { isActive } });
-        revalidatePath("/admin/announcements");
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: "Failed to update status." };
-    }
-}
-
-export async function toggleAnnouncementPin(id: string, isPinned: boolean) {
-    try {
-        await (prisma as any).announcement.update({ where: { id }, data: { isPinned } });
-        revalidatePath("/admin/announcements");
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: "Failed to update pin status." };
-    }
-}
 
 // -----------------------------------------------------------------------------
 // COMMUNITY REPORTING ACTIONS
@@ -2852,11 +2847,11 @@ export async function getAdminReports(params?: {
             (prisma as any).report.count({ where: { ...statsWhereClause, status: "REJECTED" } }),
         ]);
 
-        return { 
-            success: true, 
-            reports, 
-            totalCount, 
-            totalPages: Math.ceil(totalCount / limit), 
+        return {
+            success: true,
+            reports,
+            totalCount,
+            totalPages: Math.ceil(totalCount / limit),
             currentPage: page,
             stats: {
                 total: totalStats,

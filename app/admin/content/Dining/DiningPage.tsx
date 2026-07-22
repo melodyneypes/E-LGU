@@ -7,6 +7,18 @@ import { DiningFilters } from "./components/filters";
 import { DiningTable } from "./components/table";
 import { AddDiningModal } from "./components/AddDiningModal";
 
+interface DiningPageProps {
+    diningData: Dining[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+    search: string;
+    cuisine: string;
+    status: string;
+    currentBarangay?: string;
+    activeBarangays?: string[];
+}
+
 function DiningDashboard() {
     return (
         <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -21,26 +33,44 @@ function DiningDashboard() {
 
             <DiningCards />
 
-             <motion.div
+            <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.5 }}
-                style={{ boxShadow: '0 25px 50px -12px color-mix(in srgb, var(--primary-theme) 10%, transparent)' }}
-                className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden ring-1 ring-slate-200 dark:ring-white/5"
+                className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden"
             >
                 <DiningFilters />
                 <DiningTable />
             </motion.div>
-
 
             <AddDiningModal />
         </div>
     );
 }
 
-export default function DiningPage({ diningData, currentBarangay, activeBarangays = [] }: { diningData: Dining[]; currentBarangay?: string; activeBarangays?: string[] }) {
+export default function DiningPage({
+    diningData,
+    totalCount,
+    page,
+    pageSize,
+    search,
+    cuisine,
+    status,
+    currentBarangay,
+    activeBarangays = [],
+}: DiningPageProps) {
     return (
-        <DiningProvider initialData={diningData} currentBarangay={currentBarangay} activeBarangays={activeBarangays}>
+        <DiningProvider
+            initialData={diningData}
+            totalCount={totalCount}
+            page={page}
+            pageSize={pageSize}
+            search={search}
+            cuisine={cuisine}
+            status={status}
+            currentBarangay={currentBarangay}
+            activeBarangays={activeBarangays}
+        >
             <DiningDashboard />
         </DiningProvider>
     );

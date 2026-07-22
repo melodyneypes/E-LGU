@@ -478,7 +478,6 @@ export function Sidebar({
     ];
 
     const contentAdminAllowed = [
-        "Dashboard",
         "About Us Content",
         "Announcements",
         "News & Updates",
@@ -487,7 +486,10 @@ export function Sidebar({
         "Kainan (Dining)",
         "Tuluyan (Stay)",
         "Gallery",
+        "Church Management",
         "Job Postings",
+        "Council Members",
+        "Hotlines",
         "Typhoon Alerts"
     ];
 

@@ -33,7 +33,6 @@ export function AddProjectModal() {
 
     useEffect(() => {
         if (editingData?.imageUrl) {
-             
             setImagePreview(editingData.imageUrl);
         } else {
             setImagePreview(null);
@@ -79,13 +78,13 @@ export function AddProjectModal() {
                 }, 200);
             }
         }}>
-            <DialogContent className="sm:max-w-5xl p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-2xl">
+            <DialogContent showCloseButton={false} className="sm:max-w-5xl p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-2xl">
                 <div className="relative flex flex-col h-[90vh] sm:h-auto sm:max-h-[85vh]">
                     <DialogHeader
-                        className="p-8 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040]"
+                        className="p-6 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040] flex flex-row items-center justify-between"
                         style={{ backgroundColor: `${themeColor}14` }}
                     >
-                        <div className="flex items-center space-x-3 mb-1">
+                        <div className="flex items-center space-x-3">
                             <div className="p-2 rounded-lg shadow-lg" style={{ backgroundColor: themeColor, boxShadow: `0 12px 30px -12px ${themeColor}` }}>
                                 <FolderKanban className="w-5 h-5 text-white" />
                             </div>
@@ -98,10 +97,19 @@ export function AddProjectModal() {
                                 </DialogDescription>
                             </div>
                         </div>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setIsAddModalOpen(false)}
+                            className="h-10 w-10 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/50 z-50 shrink-0"
+                        >
+                            <X className="w-5 h-5" />
+                        </Button>
                     </DialogHeader>
 
                     <div className="p-8 pb-28 overflow-y-auto custom-scrollbar">
-                        <form id="projectForm" onSubmit={onSubmit} className="space-y-8">
+                        <form key={editingData?.id || "new-project-form"} id="projectForm" onSubmit={onSubmit} className="space-y-8">
                             {/* Image Upload Area */}
                             <div className="space-y-3">
                                 <Label className="text-sm font-bold text-slate-700 dark:text-slate-300">Project Image / Render</Label>
@@ -234,7 +242,15 @@ export function AddProjectModal() {
                                     <Input
                                         type="date"
                                         name="startDate"
-                                        defaultValue={editingData?.startDate ? format(new Date(editingData.startDate), 'yyyy-MM-dd') : ''}
+                                        defaultValue={(() => {
+                                            if (!editingData?.startDate) return "";
+                                            try {
+                                                const d = new Date(editingData.startDate);
+                                                return isNaN(d.getTime()) ? "" : format(d, "yyyy-MM-dd");
+                                            } catch {
+                                                return "";
+                                            }
+                                        })()}
                                         className="h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] [color-scheme:light] dark:[color-scheme:dark]"
                                     />
                                 </div>
@@ -244,7 +260,15 @@ export function AddProjectModal() {
                                     <Input
                                         type="date"
                                         name="endDate"
-                                        defaultValue={editingData?.endDate ? format(new Date(editingData.endDate), 'yyyy-MM-dd') : ''}
+                                        defaultValue={(() => {
+                                            if (!editingData?.endDate) return "";
+                                            try {
+                                                const d = new Date(editingData.endDate);
+                                                return isNaN(d.getTime()) ? "" : format(d, "yyyy-MM-dd");
+                                            } catch {
+                                                return "";
+                                            }
+                                        })()}
                                         className="h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] [color-scheme:light] dark:[color-scheme:dark]"
                                     />
                                 </div>
@@ -258,7 +282,7 @@ export function AddProjectModal() {
                                         name="progress"
                                         min="0"
                                         max="100"
-                                        defaultValue={editingData?.progress || 0}
+                                        defaultValue={editingData?.progress ?? 0}
                                         className="h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] font-bold text-center"
                                     />
                                 </div>
@@ -274,22 +298,24 @@ export function AddProjectModal() {
                                     />
                                 </div>
                             </div>
-
                         </form>
                     </div>
 
-                    <div className="absolute left-0 right-0 bottom-0 z-50 p-6 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-[#0f1117] dark:via-[#0f1117]/95">
+                    <div className="absolute left-0 right-0 bottom-0 z-50 p-6 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-[#0f1117] dark:via-[#0f1117]/95 border-t border-slate-100 dark:border-white/5">
                         <Button
                             type="submit"
                             form="projectForm"
                             disabled={loading}
-                            className="w-full h-12 text-white font-bold shadow-lg rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
-                            style={{ backgroundColor: themeColor, boxShadow: `0 14px 28px -14px ${themeColor}` }}
+                            className="w-full h-12 text-white font-black uppercase tracking-widest text-sm rounded-xl shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99]"
+                            style={{ backgroundColor: themeColor, boxShadow: `0 12px 30px -10px ${themeColor}` }}
                         >
                             {loading ? (
-                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
+                                <div className="flex items-center gap-2">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span>Saving...</span>
+                                </div>
                             ) : (
-                                editingData ? "Update Project" : "Add Project"
+                                <span>{editingData ? "Update Project" : "Publish Project"}</span>
                             )}
                         </Button>
                     </div>

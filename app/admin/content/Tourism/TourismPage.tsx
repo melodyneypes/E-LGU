@@ -8,23 +8,47 @@ import {
     AddTourismModal
 } from "./components";
 
-
-
 interface TourismPageProps {
     initialData: Tourism[];
+    totalCount?: number;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    category?: string;
+    status?: string;
     currentBarangay?: string | null;
-    activeBarangays: string[];
+    activeBarangays?: string[];
 }
 
-export function TourismPage({ initialData, currentBarangay, activeBarangays }: TourismPageProps) {
+export function TourismPage({
+    initialData,
+    totalCount = 0,
+    page = 1,
+    pageSize = 10,
+    search = "",
+    category = "All",
+    status = "All",
+    currentBarangay,
+    activeBarangays = []
+}: TourismPageProps) {
     return (
-        <TourismProvider initialData={initialData} currentBarangay={currentBarangay} activeBarangays={activeBarangays}>
+        <TourismProvider
+            initialData={initialData}
+            totalCount={totalCount}
+            page={page}
+            pageSize={pageSize}
+            search={search}
+            category={category}
+            status={status}
+            currentBarangay={currentBarangay}
+            activeBarangays={activeBarangays}
+        >
             <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">Gallery Management</h1>
-                        <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">Curate the most amazing landmarks and hidden gems of Mapandan.</p>
+                        <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">Tourism & Pasyalan Management</h1>
+                        <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">Manage parks, landmarks, and tourist attractions in Mapandan.</p>
                     </div>
                 </div>
 

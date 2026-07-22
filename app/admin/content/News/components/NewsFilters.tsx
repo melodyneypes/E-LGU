@@ -6,34 +6,73 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Plus, MapPin } from "lucide-react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useState, type CSSProperties } from "react";
+import { useCallback, useState, useEffect, type CSSProperties } from "react";
 
 export function NewsFilters() {
-    const { searchTerm, setSearchTerm, setIsAddModalOpen, selectedCategory, setSelectedCategory, currentBarangay, activeBarangays = [], themeColor } = useNews();
+    const {
+        searchTerm,
+        setIsAddModalOpen,
+        selectedCategory,
+        currentBarangay,
+        activeBarangays = [],
+        themeColor,
+        setIsPending,
+    } = useNews();
+
     const [locationSearch, setLocationSearch] = useState("");
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+
+    const [searchInput, setSearchInput] = useState(searchTerm || "");
+
     const filteredBarangays = activeBarangays.filter((barangay) =>
         barangay.toLowerCase().includes(locationSearch.toLowerCase())
     );
 
-    // Re-use logic to update URL params
-    const createQueryString = useCallback(
-        (name: string, value: string) => {
+    const updateUrlParam = useCallback(
+        (paramsToUpdate: Record<string, string | null>) => {
             const params = new URLSearchParams(searchParams.toString());
-            if (value === "All") {
-                params.delete(name);
-            } else {
-                params.set(name, value);
-            }
-            return params.toString();
+            // Reset to page 1 whenever search/filter values change
+            params.set("page", "1");
+
+            Object.entries(paramsToUpdate).forEach(([key, value]) => {
+                if (!value || value === "All" || value.trim() === "") {
+                    params.delete(key);
+                } else {
+                    params.set(key, value);
+                }
+            });
+
+            setIsPending(true);
+            router.push(`${pathname}?${params.toString()}`);
         },
-        [searchParams]
+        [searchParams, pathname, router, setIsPending]
     );
 
+    // Keep local search input in sync with URL search parameter
+    useEffect(() => {
+        setSearchInput(searchTerm || "");
+    }, [searchTerm]);
+
+    // Perform 400ms debounced search navigation
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            const currentSearchInUrl = searchParams.get("search") || "";
+            if (searchInput !== currentSearchInUrl) {
+                updateUrlParam({ search: searchInput });
+            }
+        }, 400);
+
+        return () => clearTimeout(handler);
+    }, [searchInput, searchParams, updateUrlParam]);
+
+    const handleCategoryChange = (value: string) => {
+        updateUrlParam({ category: value });
+    };
+
     const handleBarangayChange = (value: string) => {
-        router.push(pathname + "?" + createQueryString("barangay", value));
+        updateUrlParam({ barangay: value });
     };
 
     return (
@@ -44,13 +83,13 @@ export function NewsFilters() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input
                             placeholder="Find articles, press releases..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
                             className="pl-10 h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-bold italic focus-visible:ring-2"
                             style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
                         />
                     </div>
-                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <Select value={selectedCategory || "All"} onValueChange={handleCategoryChange}>
                         <SelectTrigger className="w-full sm:w-[190px] h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-black uppercase tracking-widest text-[9px] focus:ring-2">
                             <SelectValue placeholder="Category" />
                         </SelectTrigger>
@@ -66,10 +105,7 @@ export function NewsFilters() {
 
                     {/* Barangay Filter for Super Admins */}
                     {activeBarangays.length > 0 && (
-                        <Select 
-                            value={currentBarangay || "All"} 
-                            onValueChange={handleBarangayChange}
-                        >
+                        <Select value={currentBarangay || "All"} onValueChange={handleBarangayChange}>
                             <SelectTrigger className="w-full sm:w-[190px] h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-bold italic focus:ring-2">
                                 <MapPin className="w-4 h-4 mr-2" style={{ color: themeColor }} />
                                 <SelectValue placeholder="Barangay" />
@@ -88,9 +124,13 @@ export function NewsFilters() {
                                         />
                                     </div>
                                 </div>
-                                <SelectItem value="All" className="font-bold italic" style={{ color: themeColor }}>All Locations</SelectItem>
-                                {filteredBarangays.map(b => (
-                                    <SelectItem key={b} value={b} className="font-bold italic">{b}</SelectItem>
+                                <SelectItem value="All" className="font-bold italic" style={{ color: themeColor }}>
+                                    All Locations
+                                </SelectItem>
+                                {filteredBarangays.map((b) => (
+                                    <SelectItem key={b} value={b} className="font-bold italic">
+                                        {b}
+                                    </SelectItem>
                                 ))}
                                 {filteredBarangays.length === 0 && (
                                     <div className="px-3 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 italic text-center">

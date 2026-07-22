@@ -36,24 +36,24 @@ export function NewsCards() {
     ];
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {cards.map((card, index) => {
                 const Icon = card.icon;
                 return (
-                    <Card key={index} className="border-none shadow-md shadow-slate-200/50 dark:shadow-none bg-white dark:bg-[#151b2b] rounded-3xl overflow-hidden relative group ring-1 ring-slate-200 dark:ring-white/5">
+                    <Card key={index} className="border-none shadow-sm bg-white dark:bg-[#151b2b] rounded-xl overflow-hidden relative group ring-1 ring-slate-200 dark:ring-white/5">
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent dark:via-white/5 -translate-x-[100%] group-hover:animate-[shimmer_1.5s_infinite]" />
-                        <CardContent className="p-6">
+                        <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] mb-1">
+                                    <p className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-0.5">
                                         {card.title}
                                     </p>
-                                    <h3 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter italic uppercase">
+                                    <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter italic uppercase">
                                         {card.value}
                                     </h3>
                                 </div>
-                                <div className={`p-4 rounded-2xl ${card.bg} shadow-inner`}>
-                                    <Icon className={`w-7 h-7 ${card.color}`} />
+                                <div className={`p-2.5 rounded-xl ${card.bg} shadow-inner shrink-0`}>
+                                    <Icon className={`w-4 h-4 ${card.color}`} />
                                 </div>
                             </div>
                         </CardContent>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Store, UploadCloud, Save } from "lucide-react";
+import { Store, Save, X } from "lucide-react";
 import { useDining } from "../providers/DiningProvider";
 import { useDiningForm } from "../hooks/useDiningForm";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -10,40 +10,48 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-// removed unused containerVariants
-
 export function AddDiningModal() {
     const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, currentBarangay, themeColor } = useDining();
     const { handleSubmit, loading } = useDiningForm();
     const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-    // Sync preview with existing image ONLY when editingData changes initially
     React.useEffect(() => {
         if (editingData?.imageUrl) {
             setImagePreview(editingData.imageUrl);
         } else {
             setImagePreview(null);
         }
-    }, [editingData]);
+    }, [editingData, isAddModalOpen]);
+
+    const handleClose = () => {
+        setIsAddModalOpen(false);
+        setTimeout(() => {
+            setEditingData(null);
+            setImagePreview(null);
+        }, 200);
+    };
 
     return (
         <Dialog
             open={isAddModalOpen}
             onOpenChange={(open) => {
-                if (!open) {
-                    setEditingData(null);
-                }
                 setIsAddModalOpen(open);
+                if (!open) {
+                    setTimeout(() => {
+                        setEditingData(null);
+                        setImagePreview(null);
+                    }, 200);
+                }
             }}
         >
-            <DialogContent className="sm:max-w-5xl p-0 overflow-hidden bg-slate-50 dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-2xl">
+            <DialogContent showCloseButton={false} className="sm:max-w-5xl p-0 overflow-hidden bg-slate-50 dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-2xl">
                 <div className="relative flex flex-col h-[90vh] sm:h-auto sm:max-h-[85vh]">
                     {/* Header */}
                     <DialogHeader
-                        className="p-8 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040]"
+                        className="p-6 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040] flex flex-row items-center justify-between"
                         style={{ backgroundColor: `${themeColor}14` }}
                     >
-                        <div className="flex items-center space-x-3 mb-1">
+                        <div className="flex items-center space-x-3">
                             <div className="p-2 rounded-lg shadow-lg" style={{ backgroundColor: themeColor, boxShadow: `0 12px 30px -12px ${themeColor}` }}>
                                 <Store className="w-5 h-5 text-white" />
                             </div>
@@ -56,167 +64,149 @@ export function AddDiningModal() {
                                 </DialogDescription>
                             </div>
                         </div>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleClose}
+                            className="h-10 w-10 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/50 z-50 shrink-0"
+                        >
+                            <X className="w-5 h-5" />
+                        </Button>
                     </DialogHeader>
 
                     {/* Scrollable Form Body */}
-                    <div className="p-6 pb-28 overflow-y-auto custom-scrollbar">
-                        <form id="diningForm" onSubmit={handleSubmit} className="space-y-6">
-
-                            {/* Inner Boxed Container imitating the image */}
-                            <div className="border border-slate-200 dark:border-[#2a3040] rounded-xl p-6 bg-slate-50/50 dark:bg-[#1e2330]/50 space-y-6">
-
-                                {/* Row 1: Name & Category */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <Label htmlFor="name" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                            Dining Name <span className="text-red-500">*</span>
-                                        </Label>
-                                        <Input id="name" name="name" defaultValue={editingData?.name || ""} required className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="e.g. Mapandan Seafood Restaurant" />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="cuisineType" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                            Cuisine Type / Category
-                                        </Label>
-                                        <Input id="cuisineType" name="cuisineType" defaultValue={editingData?.cuisineType || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="Filipino, Seafood, Cafe..." />
-                                    </div>
-                                </div>
-
-                                {/* Row 2: Description */}
+                    <div className="p-8 pb-28 overflow-y-auto custom-scrollbar">
+                        <form key={editingData?.id || "new-dining-form"} id="diningForm" onSubmit={handleSubmit} className="space-y-6">
+                            {/* Row 1: Name & Category */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <Label htmlFor="description" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                        Description
+                                    <Label htmlFor="name" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                        Dining Name <span className="text-red-500">*</span>
                                     </Label>
-                                    <Textarea id="description" name="description" defaultValue={editingData?.description || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white min-h-[100px] resize-none" placeholder="Describe the offerings, specialties, and ambiance..." />
+                                    <Input id="name" name="name" defaultValue={editingData?.name || ""} required className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="e.g. Mapandan Seafood Restaurant" />
                                 </div>
-
-                                {/* Row 3: Location & Maps */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <Label htmlFor="address" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                            Location / Complete Address <span className="text-red-500">*</span>
-                                        </Label>
-                                        <Input id="address" name="address" defaultValue={editingData?.address || ""} required className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="Brgy. Poblacion, Mapandan" />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="googleMapsUrl" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                            Google Maps Link
-                                        </Label>
-                                        <Input id="googleMapsUrl" name="googleMapsUrl" defaultValue={editingData?.googleMapsUrl || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="https://maps.google.com/..." />
-                                    </div>
-                                </div>
-
-                                {/* Row 4: Contact & Socials */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <Label htmlFor="contactNumber" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                            Contact Number
-                                        </Label>
-                                        <Input id="contactNumber" name="contactNumber" defaultValue={editingData?.contactNumber || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="0912 345 6789" />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="facebookUrl" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                            Facebook Page Link
-                                        </Label>
-                                        <Input id="facebookUrl" name="facebookUrl" defaultValue={editingData?.facebookUrl || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="https://facebook.com/..." />
-                                    </div>
-                                </div>
-
-                                {/* Row 5: Coordinates & Hours */}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <div>
-                                        <Label htmlFor="latitude" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                            Latitude
-                                        </Label>
-                                        <Input id="latitude" name="latitude" type="number" step="any" defaultValue={editingData?.latitude || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="16.123..." />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="longitude" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                            Longitude
-                                        </Label>
-                                        <Input id="longitude" name="longitude" type="number" step="any" defaultValue={editingData?.longitude || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="119.876..." />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="openingHours" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                            Operating Hours
-                                        </Label>
-                                        <Input id="openingHours" name="openingHours" defaultValue={editingData?.openingHours || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="8:00 AM - 10:00 PM" />
-                                    </div>
-                                </div>
-
-                                {/* Row 6: Image Upload UI Representation */}
                                 <div>
-                                    <input type="hidden" name="storageFolder" value="dining" />
-                                    <Label htmlFor="imageFile" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                        Dining Image
+                                    <Label htmlFor="cuisineType" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                        Cuisine Type / Category
                                     </Label>
-                                    {(currentBarangay || editingData?.barangay) && (
-                                        <input 
-                                            type="hidden" 
-                                            name="barangay" 
-                                            value={editingData?.barangay || currentBarangay || ""} 
-                                        />
-                                    )}
-                                    <label
-                                        htmlFor="imageFile"
-                                        className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-slate-100 dark:hover:bg-[#2a3040]/30 transition-colors cursor-pointer group relative overflow-hidden"
-                                        style={{ borderColor: `${themeColor}40` }}
-                                    >
-                                        {imagePreview ? (
-                                            <div className="absolute inset-0 w-full h-full">
-                                                { }
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover opacity-80 group-hover:opacity-50 transition-opacity" />
-                                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <span className="bg-slate-900/70 text-white px-3 py-1 rounded-md text-sm font-medium">Change Image</span>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform" style={{ backgroundColor: `${themeColor}1a` }}>
-                                                    <UploadCloud className="w-6 h-6" style={{ color: themeColor }} />
-                                                </div>
-                                                <p className="text-slate-900 dark:text-slate-200 font-medium text-sm mb-1">Click to upload or drag and drop</p>
-                                                <p className="text-slate-500 dark:text-slate-500 text-xs">PNG, JPG or WEBP</p>
-                                            </>
-                                        )}
-                                        <input
-                                            type="file"
-                                            id="imageFile"
-                                            name="imageFile"
-                                            accept="image/*"
-                                            className="opacity-0 absolute w-0 h-0"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) {
-                                                    const url = URL.createObjectURL(file);
-                                                    setImagePreview(url);
-                                                }
-                                            }}
-                                        />
-                                        <input type="hidden" name="imageUrl" value={editingData?.imageUrl || ""} />
-                                    </label>
+                                    <Input id="cuisineType" name="cuisineType" defaultValue={editingData?.cuisineType || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="Filipino, Seafood, Cafe..." />
                                 </div>
+                            </div>
 
+                            {/* Row 2: Description */}
+                            <div>
+                                <Label htmlFor="description" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                    Description
+                                </Label>
+                                <Textarea id="description" name="description" defaultValue={editingData?.description || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white min-h-[100px] resize-none" placeholder="Describe the offerings, specialties, and ambiance..." />
+                            </div>
+
+                            {/* Row 3: Location & Maps */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <Label htmlFor="address" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                        Location / Complete Address <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Input id="address" name="address" defaultValue={editingData?.address || ""} required className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="Brgy. Poblacion, Mapandan" />
+                                </div>
+                                <div>
+                                    <Label htmlFor="googleMapsUrl" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                        Google Maps Link
+                                    </Label>
+                                    <Input id="googleMapsUrl" name="googleMapsUrl" defaultValue={editingData?.googleMapsUrl || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="https://maps.google.com/..." />
+                                </div>
+                            </div>
+
+                            {/* Row 4: Contact & Socials */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <Label htmlFor="contactNumber" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                        Contact Number
+                                    </Label>
+                                    <Input id="contactNumber" name="contactNumber" defaultValue={editingData?.contactNumber || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="0912 345 6789" />
+                                </div>
+                                <div>
+                                    <Label htmlFor="facebookUrl" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                        Facebook Page / Social Link
+                                    </Label>
+                                    <Input id="facebookUrl" name="facebookUrl" defaultValue={editingData?.facebookUrl || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="https://facebook.com/..." />
+                                </div>
+                            </div>
+
+                            {/* Row 5: Operating Hours & Barangay */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <Label htmlFor="openingHours" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                        Operating Hours
+                                    </Label>
+                                    <Input id="openingHours" name="openingHours" defaultValue={editingData?.openingHours || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="Mon-Sun: 8:00 AM - 9:00 PM" />
+                                </div>
+                                <div>
+                                    <Label htmlFor="barangay" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                        Barangay Location
+                                    </Label>
+                                    <Input id="barangay" name="barangay" defaultValue={editingData?.barangay || currentBarangay || ""} className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11" placeholder="Poblacion" />
+                                </div>
+                            </div>
+
+                            {/* Image Upload Input */}
+                            <div>
+                                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                    Cover / Banner Image
+                                </Label>
+                                <div className="flex items-center gap-4">
+                                    <Input
+                                        type="file"
+                                        name="imageFile"
+                                        accept="image/*"
+                                        className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                const reader = new FileReader();
+                                                reader.onloadend = () => setImagePreview(reader.result as string);
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }}
+                                    />
+                                </div>
+                                {editingData?.imageUrl && imagePreview === editingData.imageUrl && (
+                                    <input type="hidden" name="imageUrl" value={editingData.imageUrl} />
+                                )}
+                                {imagePreview && (
+                                    <div className="mt-4 relative w-32 h-24 rounded-xl overflow-hidden border border-slate-200 dark:border-[#2a3040]">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                    </div>
+                                )}
                             </div>
                         </form>
                     </div>
 
-                    <div className="absolute left-0 right-0 bottom-0 z-50 p-6 bg-gradient-to-t from-slate-50 via-slate-50/95 to-transparent dark:from-[#0f1117] dark:via-[#0f1117]/95">
+                    {/* Footer */}
+                    <div className="p-6 sticky bottom-0 bg-white dark:bg-[#0f1117] border-t border-slate-200 dark:border-[#2a3040] flex justify-end gap-3 z-50">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleClose}
+                            className="h-11 px-6 rounded-xl border-slate-200 dark:border-slate-700 font-bold"
+                        >
+                            Cancel
+                        </Button>
                         <Button
                             type="submit"
                             form="diningForm"
                             disabled={loading}
-                            className="w-full h-12 text-white font-bold shadow-lg rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
-                            style={{ backgroundColor: themeColor, boxShadow: `0 14px 28px -14px ${themeColor}` }}
+                            className="h-11 px-6 text-white font-bold rounded-xl shadow-lg flex items-center gap-2"
+                            style={{ backgroundColor: themeColor }}
                         >
                             {loading ? (
-                                "Saving..."
+                                <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
                             ) : (
-                                <>
-                                    <Save className="w-4 h-4 mr-2" />
-                                    {editingData ? "Update Listing" : "Save Listing"}
-                                </>
+                                <Save className="w-4 h-4" />
                             )}
+                            <span>{editingData ? "Update Dining Place" : "Save Dining Place"}</span>
                         </Button>
                     </div>
                 </div>
