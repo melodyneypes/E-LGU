@@ -591,12 +591,15 @@ export default function TreasuryDashboard() {
                                                                 <span className="font-bold text-slate-900 dark:text-white uppercase leading-tight">
                                                                     {(() => {
                                                                         const rs = getResidentSnapshot(tx);
-                                                                        return `${rs.firstName || 'Unknown'} ${rs.lastName || 'Applicant'}`;
+                                                                        if (rs.firstName || rs.lastName) {
+                                                                            return `${rs.firstName || ''} ${rs.lastName || ''}`.trim();
+                                                                        }
+                                                                        return tx.user?.name || "Registered Resident";
                                                                     })()}
                                                                 </span>
                                                                 <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase italic mt-0.5">
                                                                     {tx.type?.requiresBusinessName
-                                                                        ? `Business: ${tx.businessName || (tx.additionalData as any)?.businessName || "UNNAMED ENTITY"}`
+                                                                        ? `Business: ${tx.businessName || "UNNAMED ENTITY"}`
                                                                         : "Registered Resident"}
                                                                 </span>
                                                             </div>

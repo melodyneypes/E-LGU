@@ -5,16 +5,17 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 export interface Project {
     id: string;
     title: string;
-    description: string;
+    description?: string | null;
     category: string;
     status: string;
     location: string;
-    budget: string | null;
-    contractor: string | null;
-    startDate: Date | null;
-    endDate: Date | null;
+    budget?: string | null;
+    contractor?: string | null;
+    startDate?: Date | null;
+    endDate?: Date | null;
     progress: number;
     imageUrl: string | null;
+    barangay?: string | null;
     isPublished: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -36,33 +37,63 @@ interface ProjectsContextType {
     currentBarangay?: string;
     activeBarangays?: string[];
     themeColor: string;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    isPending: boolean;
+    setIsPending: (pending: boolean) => void;
 }
 
 const ProjectsContext = createContext<ProjectsContextType | undefined>(undefined);
 
-export function ProjectsProvider({ 
-    children, 
-    initialData, 
-    currentBarangay, 
-    activeBarangays = [] 
-}: { 
-    children: ReactNode; 
-    initialData: Project[]; 
-    currentBarangay?: string; 
-    activeBarangays?: string[] 
+export function ProjectsProvider({
+    children,
+    initialData,
+    totalCount = 0,
+    page = 1,
+    pageSize = 10,
+    search = "",
+    category = "All",
+    status = "All",
+    currentBarangay,
+    activeBarangays = [],
+}: {
+    children: ReactNode;
+    initialData: Project[];
+    totalCount?: number;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    category?: string;
+    status?: string;
+    currentBarangay?: string;
+    activeBarangays?: string[];
 }) {
     const [projectsData, setProjectsData] = useState<Project[]>(initialData);
-    const [searchTerm, setSearchTerm] = useState("");
+    const [searchTerm, setSearchTerm] = useState(search);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-     
-    const [editingData, setEditingData] = useState<any | null>(null);
-    const [selectedCategory, setSelectedCategory] = useState("All");
-    const [selectedStatus, setSelectedStatus] = useState("All");
+    const [editingData, setEditingData] = useState<Project | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState(category);
+    const [selectedStatus, setSelectedStatus] = useState(status);
     const [themeColor, setThemeColor] = useState("#2563eb");
+    const [isPending, setIsPending] = useState(false);
 
     useEffect(() => {
         setProjectsData(initialData);
+        setIsPending(false);
     }, [initialData]);
+
+    useEffect(() => {
+        setSearchTerm(search);
+    }, [search]);
+
+    useEffect(() => {
+        setSelectedCategory(category);
+    }, [category]);
+
+    useEffect(() => {
+        setSelectedStatus(status);
+    }, [status]);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -96,7 +127,12 @@ export function ProjectsProvider({
                 setSelectedStatus,
                 currentBarangay,
                 activeBarangays,
-                themeColor
+                themeColor,
+                page,
+                pageSize,
+                totalCount,
+                isPending,
+                setIsPending,
             }}
         >
             {children}

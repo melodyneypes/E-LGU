@@ -3,10 +3,13 @@
 import { useState, FormEvent } from "react";
 import { addAccommodation, updateAccommodation } from "@/app/admin/actions";
 import { useAccommodation } from "../providers/AccommodationProvider";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export function useAccommodationForm() {
-    const { setIsAddModalOpen, editingData, setEditingData } = useAccommodation();
+    const { setIsAddModalOpen, editingData, setEditingData, setIsPending } = useAccommodation();
     const [loading, setLoading] = useState(false);
+    const router = useRouter();
 
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -23,14 +26,17 @@ export function useAccommodationForm() {
             }
 
             if (res?.success) {
+                toast.success(`Accommodation ${editingData ? "updated" : "added"} successfully!`);
                 setEditingData(null);
                 setIsAddModalOpen(false);
+                setIsPending(true);
+                router.refresh();
             } else {
-                alert(res?.error || "An error occurred");
+                toast.error(res?.error || "An error occurred");
             }
         } catch (error) {
             console.error("Error saving accommodation:", error);
-            alert("An error occurred while saving.");
+            toast.error("An error occurred while saving.");
         } finally {
             setLoading(false);
         }
@@ -38,6 +44,6 @@ export function useAccommodationForm() {
 
     return {
         handleSubmit,
-        loading
+        loading,
     };
 }

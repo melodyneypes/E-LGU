@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Megaphone, Info, Calendar, Pin, Loader2 } from "lucide-react";
+import { Megaphone, Info, Calendar, Pin, Loader2, X } from "lucide-react";
 
 export function AddAnnouncementModal() {
     const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, currentBarangay } = useAnnouncements();
@@ -49,7 +49,7 @@ export function AddAnnouncementModal() {
             setIsAddModalOpen(open);
             if (!open) setEditingData(null);
         }}>
-            <DialogContent className="sm:max-w-[1000px] w-[95vw] p-0 overflow-hidden bg-white dark:bg-[#1a1c23] border-none shadow-2xl rounded-[2rem] flex flex-row h-[750px] max-h-[90vh]">
+            <DialogContent showCloseButton={false} className="sm:max-w-[1000px] w-[95vw] p-0 overflow-hidden bg-white dark:bg-[#1a1c23] border-none shadow-2xl rounded-[2rem] flex flex-row h-[750px] max-h-[90vh]">
                 {/* Left Sidebar - Modern Theme Style */}
                 <div 
                     className="hidden md:flex w-[320px] p-10 flex-col justify-between text-white relative overflow-hidden shrink-0 h-full"
@@ -86,11 +86,20 @@ export function AddAnnouncementModal() {
                 </div>
 
                 {/* Right Side - Form Content */}
-                <div className="flex-1 flex flex-col min-w-0 h-full">
-                    <DialogHeader className="p-8 pb-4 border-none shrink-0">
+                <div className="flex-1 flex flex-col min-w-0 h-full relative">
+                    <DialogHeader className="p-8 pb-4 border-none shrink-0 flex flex-row items-center justify-between">
                         <DialogTitle className="text-xl font-bold text-slate-900 dark:text-white">
                             Announcement Details
                         </DialogTitle>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setIsAddModalOpen(false)}
+                            className="h-9 w-9 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+                        >
+                            <X className="w-5 h-5" />
+                        </Button>
                     </DialogHeader>
 
                         <div className="flex-1 px-8 overflow-y-auto custom-scrollbar">

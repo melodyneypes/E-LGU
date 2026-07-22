@@ -72,7 +72,7 @@ export function ResidentTable() {
                 <Table>
                     <TableHeader className="bg-slate-50 border-b border-slate-200 dark:bg-[#1a1f2e] dark:border-[#2a3040]">
                         <TableRow className="hover:bg-transparent">
-                                                <TableHead className="font-bold text-slate-700 dark:text-slate-300 py-5">Profile</TableHead>
+                            <TableHead className="font-bold text-slate-700 dark:text-slate-300 py-5">Profile</TableHead>
                             <TableHead className="font-bold text-slate-700 dark:text-slate-300">Name</TableHead>
                             <TableHead className="font-bold text-slate-700 dark:text-slate-300">Category</TableHead>
                             <TableHead className="font-bold text-slate-700 dark:text-slate-300">Info & Status</TableHead>
@@ -94,7 +94,7 @@ export function ResidentTable() {
                             </TableRow>
                         ) : (
                             paginatedResidents.map((resident) => (
-                                                    <TableRow key={resident.id}
+                                <TableRow key={resident.id}
                                     className="border-b border-slate-100 dark:border-[#2a3040]/50 hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e]/50 transition-colors cursor-pointer"
                                     onClick={(e) => openReviewModal(resident, e)}
                                 >
@@ -114,7 +114,7 @@ export function ResidentTable() {
                                             <span className="font-bold text-slate-900 dark:text-white uppercase leading-tight">
                                                 {resident.lastName}, {resident.firstName} {resident.middleName ? `${resident.middleName[0]}.` : ''} {resident.suffix}
                                             </span>
-                                            
+
                                             {/* Family Relationship Subtext */}
                                             {resident.isHead ? (
                                                 <span className="text-[10px] text-blue-600 dark:text-blue-400 font-black uppercase italic mt-0.5 flex items-center gap-1">
@@ -134,13 +134,12 @@ export function ResidentTable() {
                                                     <Badge variant="outline" className="text-[9px] h-4 bg-purple-50 text-purple-600 dark:bg-purple-900/20 border-purple-200 px-1 font-black">PWD</Badge>
                                                 )}
                                                 {resident.registrationStatus && (
-                                                    <Badge variant="outline" className={`text-[9px] h-4 px-1 font-black uppercase tracking-tighter italic ${
-                                                        resident.registrationStatus === 'APPROVED' 
-                                                        ? 'bg-green-50 text-green-600 border-green-200' 
-                                                        : resident.registrationStatus === 'REJECTED'
-                                                        ? 'bg-red-50 text-red-600 border-red-200'
-                                                        : 'bg-amber-50 text-amber-600 border-amber-200'
-                                                    }`}>
+                                                    <Badge variant="outline" className={`text-[9px] h-4 px-1 font-black uppercase tracking-tighter italic ${resident.registrationStatus === 'APPROVED'
+                                                            ? 'bg-green-50 text-green-600 border-green-200'
+                                                            : resident.registrationStatus === 'REJECTED'
+                                                                ? 'bg-red-50 text-red-600 border-red-200'
+                                                                : 'bg-amber-50 text-amber-600 border-amber-200'
+                                                        }`}>
                                                         {resident.registrationStatus}
                                                     </Badge>
                                                 )}

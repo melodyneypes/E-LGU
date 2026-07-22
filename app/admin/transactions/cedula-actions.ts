@@ -942,8 +942,6 @@ export async function getTreasuryTransactions(params?: string | {
                 businessName: true,
                 isStudent: true,
                 processedBy: true,
-                residentSnapshot: true,
-                additionalData: true,
                 type: {
                     select: {
                         id: true,
@@ -951,6 +949,12 @@ export async function getTreasuryTransactions(params?: string | {
                         name: true,
                         category: true,
                         requiresBusinessName: true
+                    }
+                },
+                user: {
+                    select: {
+                        name: true,
+                        email: true
                     }
                 },
                 cedula: {

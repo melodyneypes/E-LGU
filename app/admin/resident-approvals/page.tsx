@@ -62,7 +62,7 @@ export default async function Page({
     const baseWhereForCounts = { ...where };
     delete baseWhereForCounts.registrationStatus;
 
-    const [residentsRaw, totalCount, pendingCount, approvedCount, rejectedCount] = await Promise.all([
+    const [residentsRaw, totalCount, statusCountsRaw] = await Promise.all([
         prisma.resident.findMany({
             where,
             select: {
@@ -73,9 +73,7 @@ export default async function Page({
                 suffix: true,
                 gender: true,
                 dateOfBirth: true,
-                age: true,
                 civilStatus: true,
-                citizenship: true,
                 houseNumber: true,
                 street: true,
                 sitio: true,
@@ -85,51 +83,21 @@ export default async function Page({
                 email: true,
                 isHead: true,
                 relationshipToHead: true,
-                familyHeadId: true,
                 categoryId: true,
                 registrationStatus: true,
-                isDead: true,
-                rfid: true,
                 imageUrl: true,
                 livenessUrl: true,
                 philhealthNumber: true,
-                degreeProgram: true,
                 isSenior: true,
                 isPWD: true,
-                isSoloParent: true,
-                isIndigenous: true,
                 is4Ps: true,
-                otherSector: true,
                 createdAt: true,
-                updatedAt: true,
-                household: {
+                category: {
                     select: {
                         id: true,
-                        headId: true,
-                        members: {
-                            select: {
-                                id: true,
-                                firstName: true,
-                                lastName: true
-                            }
-                        },
-                        head: {
-                            select: {
-                                id: true,
-                                firstName: true,
-                                lastName: true
-                            }
-                        }
+                        name: true
                     }
-                },
-                familyHead: {
-                    select: {
-                        id: true,
-                        firstName: true,
-                        lastName: true
-                    }
-                },
-                category: true
+                }
             },
             orderBy: {
                 createdAt: 'desc'
@@ -138,10 +106,23 @@ export default async function Page({
             skip: skip
         }),
         prisma.resident.count({ where }),
-        prisma.resident.count({ where: { ...baseWhereForCounts, registrationStatus: "PENDING" } }),
-        prisma.resident.count({ where: { ...baseWhereForCounts, registrationStatus: "APPROVED" } }),
-        prisma.resident.count({ where: { ...baseWhereForCounts, registrationStatus: "REJECTED" } })
+        prisma.resident.groupBy({
+            by: ['registrationStatus'],
+            _count: { _all: true },
+            where: baseWhereForCounts
+        })
     ]);
+
+    const statusMap = new Map(
+        (statusCountsRaw as any[] || []).map(s => [
+            s?.registrationStatus,
+            typeof s?._count === 'object' ? s?._count?._all : (typeof s?._count === 'number' ? s._count : 0)
+        ])
+    );
+
+    const pendingCount = statusMap.get("PENDING") || 0;
+    const approvedCount = statusMap.get("APPROVED") || 0;
+    const rejectedCount = statusMap.get("REJECTED") || 0;
 
     // Map virtual fields for frontend convenience
     const residents = (residentsRaw as any[]).map((r: any) => ({
@@ -155,8 +136,8 @@ export default async function Page({
     })) as Resident[];
 
     return (
-        <ResidentProvider 
-            initialResidents={residents} 
+        <ResidentProvider
+            initialResidents={residents}
             totalCount={totalCount}
             page={page}
             limit={limit}

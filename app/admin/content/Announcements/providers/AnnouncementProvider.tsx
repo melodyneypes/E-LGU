@@ -5,7 +5,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 export interface Announcement {
     id: string;
     title: string;
-    content: string;
+    content?: string;
     priority: string;
     category: string;
     isPinned: boolean;
@@ -32,35 +32,57 @@ interface AnnouncementContextType {
     currentBarangay?: string;
     activeBarangays?: string[];
     themeColor: string;
-    currentPage: number;
-    setCurrentPage: (page: number) => void;
-    itemsPerPage: number;
-    setItemsPerPage: (count: number) => void;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    isPending: boolean;
+    setIsPending: (pending: boolean) => void;
 }
 
 const AnnouncementContext = createContext<AnnouncementContextType | undefined>(undefined);
 
-export function AnnouncementProvider({ children, initialData, currentBarangay, activeBarangays = [] }: { children: ReactNode; initialData: Announcement[]; currentBarangay?: string; activeBarangays?: string[] }) {
-    const [searchTerm, setSearchTerm] = useState("");
+export function AnnouncementProvider({
+    children,
+    initialData,
+    totalCount = 0,
+    page = 1,
+    pageSize = 10,
+    search = "",
+    category = "All",
+    priority = "All",
+    currentBarangay,
+    activeBarangays = [],
+}: {
+    children: ReactNode;
+    initialData: Announcement[];
+    totalCount?: number;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    category?: string;
+    priority?: string;
+    currentBarangay?: string;
+    activeBarangays?: string[];
+}) {
+    const [searchTerm, setSearchTerm] = useState(search);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [announcements, setAnnouncements] = useState<Announcement[]>(initialData);
     const [editingData, setEditingData] = useState<Announcement | null>(null);
-    const [selectedCategory, setSelectedCategory] = useState("All");
-    const [selectedPriority, setSelectedPriority] = useState("All");
+    const [selectedCategory, setSelectedCategory] = useState(category);
+    const [selectedPriority, setSelectedPriority] = useState(priority);
     const [themeColor, setThemeColor] = useState("#2563eb");
-    const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(8);
+    const [isPending, setIsPending] = useState(false);
 
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const response = await fetch('/api/settings');
+                const response = await fetch("/api/settings");
                 const data = await response.json();
                 if (data.themeColor) {
                     setThemeColor(data.themeColor);
                 }
             } catch (error) {
-                console.error('Error fetching theme settings:', error);
+                console.error("Error fetching theme settings:", error);
             }
         };
         fetchSettings();
@@ -68,7 +90,20 @@ export function AnnouncementProvider({ children, initialData, currentBarangay, a
 
     useEffect(() => {
         setAnnouncements(initialData);
+        setIsPending(false);
     }, [initialData]);
+
+    useEffect(() => {
+        setSearchTerm(search);
+    }, [search]);
+
+    useEffect(() => {
+        setSelectedCategory(category);
+    }, [category]);
+
+    useEffect(() => {
+        setSelectedPriority(priority);
+    }, [priority]);
 
     return (
         <AnnouncementContext.Provider
@@ -88,10 +123,11 @@ export function AnnouncementProvider({ children, initialData, currentBarangay, a
                 currentBarangay,
                 activeBarangays,
                 themeColor,
-                currentPage,
-                setCurrentPage,
-                itemsPerPage,
-                setItemsPerPage,
+                page,
+                pageSize,
+                totalCount,
+                isPending,
+                setIsPending,
             }}
         >
             {children}

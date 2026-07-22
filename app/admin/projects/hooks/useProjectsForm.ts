@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useProjects } from "../providers/ProjectsProvider";
 import { addProject, updateProject } from "@/app/admin/actions";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export function useProjectsForm() {
-    const { setIsAddModalOpen, editingData, setEditingData } = useProjects();
+    const { setIsAddModalOpen, editingData, setEditingData, setIsPending } = useProjects();
     const [loading, setLoading] = useState(false);
+    const router = useRouter();
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>, imageFile: File | null) => {
         e.preventDefault();
@@ -30,7 +32,8 @@ export function useProjectsForm() {
             }
             setIsAddModalOpen(false);
             setEditingData(null);
-         
+            setIsPending(true);
+            router.refresh();
         } catch (error: any) {
             console.error("Error saving project:", error);
             toast.error(error.message || "Failed to save project. Please try again.");

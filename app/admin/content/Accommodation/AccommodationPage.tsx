@@ -1,6 +1,6 @@
 "use client";
 
-import { AccommodationProvider } from "./providers";
+import { AccommodationProvider, Accommodation } from "./providers/AccommodationProvider";
 import {
     AccommodationCards,
     AccommodationFilters,
@@ -8,18 +8,41 @@ import {
     AddAccommodationModal
 } from "./components";
 
-
-import { Accommodation } from "./providers/AccommodationProvider";
-
 interface AccommodationPageProps {
     initialData: Accommodation[];
+    totalCount?: number;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    type?: string;
+    status?: string;
     currentBarangay?: string | null;
     activeBarangays?: string[];
 }
 
-export function AccommodationPage({ initialData, currentBarangay, activeBarangays = [] }: AccommodationPageProps) {
+export function AccommodationPage({
+    initialData,
+    totalCount = 0,
+    page = 1,
+    pageSize = 10,
+    search = "",
+    type = "All",
+    status = "All",
+    currentBarangay,
+    activeBarangays = []
+}: AccommodationPageProps) {
     return (
-        <AccommodationProvider initialData={initialData} currentBarangay={currentBarangay} activeBarangays={activeBarangays}>
+        <AccommodationProvider
+            initialData={initialData}
+            totalCount={totalCount}
+            page={page}
+            pageSize={pageSize}
+            search={search}
+            type={type}
+            status={status}
+            currentBarangay={currentBarangay}
+            activeBarangays={activeBarangays}
+        >
             <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

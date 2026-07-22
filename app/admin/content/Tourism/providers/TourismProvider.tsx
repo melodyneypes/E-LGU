@@ -1,20 +1,20 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 export interface Tourism {
     id: string;
     name: string;
-    description: string | null;
-    category: string;
+    description?: string | null;
+    category?: string | null;
     address: string;
-    entranceFee: string | null;
-    bestTimeToVisit: string | null;
-    contactNumber: string | null;
+    entranceFee?: string | null;
+    bestTimeToVisit?: string | null;
+    contactNumber?: string | null;
     imageUrl: string | null;
-    latitude: number | null;
-    longitude: number | null;
-    googleMapsUrl: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    googleMapsUrl?: string | null;
     barangay: string | null;
     isPublished: boolean;
     createdAt: Date;
@@ -23,6 +23,7 @@ export interface Tourism {
 
 interface TourismContextType {
     tourismData: Tourism[];
+    setTourismData: (data: Tourism[]) => void;
     searchTerm: string;
     setSearchTerm: (term: string) => void;
     isAddModalOpen: boolean;
@@ -36,6 +37,11 @@ interface TourismContextType {
     currentBarangay?: string | null;
     activeBarangays?: string[];
     themeColor: string;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    isPending: boolean;
+    setIsPending: (pending: boolean) => void;
 }
 
 const TourismContext = createContext<TourismContextType | undefined>(undefined);
@@ -43,25 +49,51 @@ const TourismContext = createContext<TourismContextType | undefined>(undefined);
 export function TourismProvider({
     children,
     initialData,
+    totalCount = 0,
+    page = 1,
+    pageSize = 10,
+    search = "",
+    category = "All",
+    status = "All",
     currentBarangay,
-    activeBarangays = []
+    activeBarangays = [],
 }: {
-    children: React.ReactNode;
+    children: ReactNode;
     initialData: Tourism[];
+    totalCount?: number;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    category?: string;
+    status?: string;
     currentBarangay?: string | null;
     activeBarangays?: string[];
 }) {
     const [tourismData, setTourismData] = useState<Tourism[]>(initialData);
-    const [searchTerm, setSearchTerm] = useState("");
+    const [searchTerm, setSearchTerm] = useState(search);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [editingData, setEditingData] = useState<any | null>(null);
-    const [selectedCategory, setSelectedCategory] = useState("All");
-    const [selectedStatus, setSelectedStatus] = useState("All");
+    const [editingData, setEditingData] = useState<Tourism | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState(category);
+    const [selectedStatus, setSelectedStatus] = useState(status);
     const [themeColor, setThemeColor] = useState("#2563eb");
+    const [isPending, setIsPending] = useState(false);
 
     useEffect(() => {
         setTourismData(initialData);
+        setIsPending(false);
     }, [initialData]);
+
+    useEffect(() => {
+        setSearchTerm(search);
+    }, [search]);
+
+    useEffect(() => {
+        setSelectedCategory(category);
+    }, [category]);
+
+    useEffect(() => {
+        setSelectedStatus(status);
+    }, [status]);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -82,6 +114,7 @@ export function TourismProvider({
         <TourismContext.Provider
             value={{
                 tourismData,
+                setTourismData,
                 searchTerm,
                 setSearchTerm,
                 isAddModalOpen,
@@ -94,7 +127,12 @@ export function TourismProvider({
                 setSelectedStatus,
                 currentBarangay,
                 activeBarangays,
-                themeColor
+                themeColor,
+                page,
+                pageSize,
+                totalCount,
+                isPending,
+                setIsPending,
             }}
         >
             {children}
