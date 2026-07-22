@@ -5,31 +5,89 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-async function getSessionBarangay(): Promise<string | null> {
-    const session = await getServerSession(authOptions);
-    const user = session?.user as { role?: string; managedBarangay?: string } | undefined;
-    if (user?.role === "BARANGAY_ADMIN" && user.managedBarangay) {
-        return user.managedBarangay;
-    }
-    return null;
+export type ActionResponse<T = unknown> = {
+    success: boolean;
+    data?: T;
+    announcement?: T;
+    error?: string;
+};
+
+interface SessionUser {
+    id?: string;
+    role?: string;
+    managedBarangay?: string;
 }
 
-export async function addAnnouncement(formData: FormData) {
+/**
+ * Helper to get user session and enforce authentication + authorization guards.
+ */
+async function getAuthenticatedUser(): Promise<{ user: SessionUser | null; error?: string }> {
     try {
-        const expiryDate = formData.get("expiryDate") as string;
-        const barangay = (formData.get("barangay") as string) || (await getSessionBarangay());
-
-        const announcementDelegate = (prisma as any).announcement;
-        if (!announcementDelegate) {
-            return { success: false, error: "Database model 'announcement' not found." };
+        const session = await getServerSession(authOptions);
+        if (!session || !session.user) {
+            return { user: null, error: "Unauthorized access. Please sign in." };
+        }
+        
+        const user = session.user as SessionUser;
+        const allowedRoles = ["ADMIN", "SUPER_ADMIN", "BARANGAY_ADMIN", "CONTENT_ADMIN", "STAFF"];
+        if (user.role && !allowedRoles.includes(user.role)) {
+            return { user: null, error: "Forbidden: You do not have administrative privileges." };
         }
 
+        return { user };
+    } catch (err) {
+        console.error("[Auth Guard Error]:", err);
+        return { user: null, error: "Authentication check failed." };
+    }
+}
+
+/**
+ * Helper to verify that the Prisma announcement delegate is ready.
+ */
+function getAnnouncementDelegate() {
+    const delegate = (prisma as any).announcement;
+    if (!delegate) {
+        throw new Error("Database model 'announcement' is not available.");
+    }
+    return delegate;
+}
+
+/**
+ * CREATE ANNOUNCEMENT
+ */
+export async function addAnnouncement(formData: FormData): Promise<ActionResponse> {
+    try {
+        const { user, error: authError } = await getAuthenticatedUser();
+        if (authError || !user) {
+            return { success: false, error: authError || "Unauthorized access." };
+        }
+
+        const title = (formData.get("title") as string)?.trim();
+        const content = (formData.get("content") as string)?.trim();
+        const category = (formData.get("category") as string)?.trim();
+        const priority = (formData.get("priority") as string)?.trim();
+        const expiryDate = formData.get("expiryDate") as string;
+        
+        // Form field validation
+        if (!title || !content) {
+            return { success: false, error: "Title and content are required fields." };
+        }
+
+        let barangay = (formData.get("barangay") as string)?.trim() || null;
+        if (user.role === "BARANGAY_ADMIN") {
+            if (!user.managedBarangay) {
+                return { success: false, error: "Barangay Admin does not have an assigned barangay." };
+            }
+            barangay = user.managedBarangay;
+        }
+
+        const announcementDelegate = getAnnouncementDelegate();
         const newAnnouncement = await announcementDelegate.create({
             data: {
-                title: formData.get("title") as string,
-                content: formData.get("content") as string,
-                category: formData.get("category") as string,
-                priority: formData.get("priority") as string,
+                title,
+                content,
+                category: category || "General",
+                priority: priority || "Normal",
                 isPinned: formData.get("isPinned") === "on",
                 isActive: formData.get("isActive") === "on",
                 expiryDate: expiryDate ? new Date(expiryDate) : null,
@@ -41,28 +99,61 @@ export async function addAnnouncement(formData: FormData) {
         revalidatePath("/");
         return { success: true, announcement: newAnnouncement };
     } catch (error) {
-        console.error("Error creating announcement:", error);
-        return { success: false, error: "Failed to create announcement." };
+        console.error("[addAnnouncement Error]:", error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to create announcement.";
+        return { success: false, error: errorMessage };
     }
 }
 
-export async function updateAnnouncement(id: string, formData: FormData) {
+/**
+ * UPDATE ANNOUNCEMENT
+ */
+export async function updateAnnouncement(id: string, formData: FormData): Promise<ActionResponse> {
     try {
-        const expiryDate = formData.get("expiryDate") as string;
-        const barangay = (formData.get("barangay") as string) || (await getSessionBarangay());
+        if (!id) {
+            return { success: false, error: "Announcement ID is required for update." };
+        }
 
-        const announcementDelegate = (prisma as any).announcement;
-        if (!announcementDelegate) {
-            return { success: false, error: "Database model 'announcement' not found." };
+        const { user, error: authError } = await getAuthenticatedUser();
+        if (authError || !user) {
+            return { success: false, error: authError || "Unauthorized access." };
+        }
+
+        const title = (formData.get("title") as string)?.trim();
+        const content = (formData.get("content") as string)?.trim();
+        const category = (formData.get("category") as string)?.trim();
+        const priority = (formData.get("priority") as string)?.trim();
+        const expiryDate = formData.get("expiryDate") as string;
+
+        if (!title || !content) {
+            return { success: false, error: "Title and content cannot be empty." };
+        }
+
+        const announcementDelegate = getAnnouncementDelegate();
+        
+        // Scope check for Barangay Admin
+        if (user.role === "BARANGAY_ADMIN") {
+            const existing = await announcementDelegate.findUnique({ where: { id } });
+            if (!existing) {
+                return { success: false, error: "Announcement not found." };
+            }
+            if (existing.barangay && existing.barangay !== user.managedBarangay) {
+                return { success: false, error: "Forbidden: You cannot modify announcements outside your barangay." };
+            }
+        }
+
+        let barangay = (formData.get("barangay") as string)?.trim() || null;
+        if (user.role === "BARANGAY_ADMIN") {
+            barangay = user.managedBarangay || null;
         }
 
         const updated = await announcementDelegate.update({
             where: { id },
             data: {
-                title: formData.get("title") as string,
-                content: formData.get("content") as string,
-                category: formData.get("category") as string,
-                priority: formData.get("priority") as string,
+                title,
+                content,
+                category: category || "General",
+                priority: priority || "Normal",
                 isPinned: formData.get("isPinned") === "on",
                 isActive: formData.get("isActive") === "on",
                 expiryDate: expiryDate ? new Date(expiryDate) : null,
@@ -74,16 +165,36 @@ export async function updateAnnouncement(id: string, formData: FormData) {
         revalidatePath("/");
         return { success: true, announcement: updated };
     } catch (error) {
-        console.error("Error updating announcement:", error);
-        return { success: false, error: "Failed to update announcement." };
+        console.error("[updateAnnouncement Error]:", error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to update announcement.";
+        return { success: false, error: errorMessage };
     }
 }
 
-export async function deleteAnnouncement(id: string) {
+/**
+ * DELETE ANNOUNCEMENT
+ */
+export async function deleteAnnouncement(id: string): Promise<ActionResponse> {
     try {
-        const announcementDelegate = (prisma as any).announcement;
-        if (!announcementDelegate) {
-            return { success: false, error: "Database model 'announcement' not found." };
+        if (!id) {
+            return { success: false, error: "Announcement ID is required for deletion." };
+        }
+
+        const { user, error: authError } = await getAuthenticatedUser();
+        if (authError || !user) {
+            return { success: false, error: authError || "Unauthorized access." };
+        }
+
+        const announcementDelegate = getAnnouncementDelegate();
+
+        if (user.role === "BARANGAY_ADMIN") {
+            const existing = await announcementDelegate.findUnique({ where: { id } });
+            if (!existing) {
+                return { success: false, error: "Announcement not found." };
+            }
+            if (existing.barangay && existing.barangay !== user.managedBarangay) {
+                return { success: false, error: "Forbidden: You cannot delete announcements outside your barangay." };
+            }
         }
 
         await announcementDelegate.delete({ where: { id } });
@@ -91,16 +202,36 @@ export async function deleteAnnouncement(id: string) {
         revalidatePath("/");
         return { success: true };
     } catch (error) {
-        console.error("Error deleting announcement:", error);
-        return { success: false, error: "Failed to delete announcement." };
+        console.error("[deleteAnnouncement Error]:", error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to delete announcement.";
+        return { success: false, error: errorMessage };
     }
 }
 
-export async function toggleAnnouncementStatus(id: string, isActive: boolean) {
+/**
+ * TOGGLE ACTIVE STATUS
+ */
+export async function toggleAnnouncementStatus(id: string, isActive: boolean): Promise<ActionResponse> {
     try {
-        const announcementDelegate = (prisma as any).announcement;
-        if (!announcementDelegate) {
-            return { success: false, error: "Database model 'announcement' not found." };
+        if (!id) {
+            return { success: false, error: "Announcement ID is required." };
+        }
+
+        const { user, error: authError } = await getAuthenticatedUser();
+        if (authError || !user) {
+            return { success: false, error: authError || "Unauthorized access." };
+        }
+
+        const announcementDelegate = getAnnouncementDelegate();
+
+        if (user.role === "BARANGAY_ADMIN") {
+            const existing = await announcementDelegate.findUnique({ where: { id } });
+            if (!existing) {
+                return { success: false, error: "Announcement not found." };
+            }
+            if (existing.barangay && existing.barangay !== user.managedBarangay) {
+                return { success: false, error: "Forbidden: You cannot modify status outside your barangay." };
+            }
         }
 
         await announcementDelegate.update({ where: { id }, data: { isActive } });
@@ -108,16 +239,36 @@ export async function toggleAnnouncementStatus(id: string, isActive: boolean) {
         revalidatePath("/");
         return { success: true };
     } catch (error) {
-        console.error("Error updating announcement status:", error);
-        return { success: false, error: "Failed to update status." };
+        console.error("[toggleAnnouncementStatus Error]:", error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to update status.";
+        return { success: false, error: errorMessage };
     }
 }
 
-export async function toggleAnnouncementPin(id: string, isPinned: boolean) {
+/**
+ * TOGGLE PIN STATUS
+ */
+export async function toggleAnnouncementPin(id: string, isPinned: boolean): Promise<ActionResponse> {
     try {
-        const announcementDelegate = (prisma as any).announcement;
-        if (!announcementDelegate) {
-            return { success: false, error: "Database model 'announcement' not found." };
+        if (!id) {
+            return { success: false, error: "Announcement ID is required." };
+        }
+
+        const { user, error: authError } = await getAuthenticatedUser();
+        if (authError || !user) {
+            return { success: false, error: authError || "Unauthorized access." };
+        }
+
+        const announcementDelegate = getAnnouncementDelegate();
+
+        if (user.role === "BARANGAY_ADMIN") {
+            const existing = await announcementDelegate.findUnique({ where: { id } });
+            if (!existing) {
+                return { success: false, error: "Announcement not found." };
+            }
+            if (existing.barangay && existing.barangay !== user.managedBarangay) {
+                return { success: false, error: "Forbidden: You cannot modify pin status outside your barangay." };
+            }
         }
 
         await announcementDelegate.update({ where: { id }, data: { isPinned } });
@@ -125,7 +276,8 @@ export async function toggleAnnouncementPin(id: string, isPinned: boolean) {
         revalidatePath("/");
         return { success: true };
     } catch (error) {
-        console.error("Error updating announcement pin status:", error);
-        return { success: false, error: "Failed to update pin status." };
+        console.error("[toggleAnnouncementPin Error]:", error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to update pin status.";
+        return { success: false, error: errorMessage };
     }
 }

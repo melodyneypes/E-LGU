@@ -114,7 +114,8 @@ export function AnnouncementTable() {
             <Table>
                 <TableHeader>
                     <TableRow className="bg-slate-50/50 dark:bg-[#1a1f2e] hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e] border-y border-slate-200 dark:border-[#2a3040]">
-                        <TableHead className="w-[350px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 h-14 pl-8">Notice Details</TableHead>
+                        <TableHead className="w-[320px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 h-14 pl-8">Notice Details</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">Scope / Barangay</TableHead>
                         <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">Category</TableHead>
                         <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">Priority</TableHead>
                         <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">Date Posted</TableHead>
@@ -136,10 +137,21 @@ export function AnnouncementTable() {
                                             {item.title}
                                         </span>
                                     </div>
-                                    <span className="text-[11px] text-slate-500 font-medium italic line-clamp-1 max-w-[300px]">
+                                    <span className="text-[11px] text-slate-500 font-medium italic line-clamp-1 max-w-[280px]">
                                         {item.content}
                                     </span>
                                 </div>
+                            </TableCell>
+                            <TableCell>
+                                {item.barangay ? (
+                                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50">
+                                        {item.barangay}
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/50">
+                                        Whole Municipality
+                                    </span>
+                                )}
                             </TableCell>
                             <TableCell>
                                 <span className="inline-flex items-center px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
