@@ -143,9 +143,9 @@ export function AnnouncementTable() {
                 {isPending && (
                     <div className="absolute inset-0 bg-white/60 dark:bg-[#151b2b]/60 backdrop-blur-[2px] z-20 flex items-center justify-center transition-all duration-300">
                         <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-white dark:bg-[#1a1f2e] border border-slate-200 dark:border-slate-800 shadow-xl">
-                            <span 
+                            <span
                                 className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
-                                style={{ borderColor: themeColor, borderTopColor: "transparent" }} 
+                                style={{ borderColor: themeColor, borderTopColor: "transparent" }}
                             />
                             <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 italic">
                                 Refreshing notices...
@@ -190,9 +190,11 @@ export function AnnouncementTable() {
                                                 {item.title}
                                             </span>
                                         </div>
-                                        <span className="text-[11px] text-slate-500 font-medium italic line-clamp-1 max-w-[280px]">
-                                            {item.content}
-                                        </span>
+                                        {item.content && (
+                                            <span className="text-[11px] text-slate-500 font-medium italic line-clamp-1 max-w-[280px]">
+                                                {item.content}
+                                            </span>
+                                        )}
                                     </div>
                                 </TableCell>
                                 <TableCell>
@@ -219,10 +221,10 @@ export function AnnouncementTable() {
                                                 item.priority === "Critical"
                                                     ? "bg-red-500 animate-pulse"
                                                     : item.priority === "High"
-                                                    ? "bg-orange-500"
-                                                    : item.priority === "Low"
-                                                    ? "bg-slate-400"
-                                                    : ""
+                                                        ? "bg-orange-500"
+                                                        : item.priority === "Low"
+                                                            ? "bg-slate-400"
+                                                            : ""
                                             )}
                                             style={item.priority === "Normal" ? { backgroundColor: themeColor } : {}}
                                         />

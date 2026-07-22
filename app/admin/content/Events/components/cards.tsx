@@ -45,23 +45,23 @@ export function EventsCards() {
     ];
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {stats.map((stat, index) => (
                 <motion.div
                     key={stat.label}
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
+                    transition={{ delay: index * 0.05 }}
                 >
-                    <Card className="overflow-hidden border-none shadow-md shadow-slate-200/50 dark:shadow-none hover:shadow-xl transition-all duration-300 group rounded-2xl bg-white dark:bg-[#151b2b]">
-                        <CardContent className="p-6">
+                    <Card className="overflow-hidden border-none shadow-sm bg-white dark:bg-[#151b2b] rounded-xl ring-1 ring-slate-200 dark:ring-white/5">
+                        <CardContent className="p-3">
                             <div className="flex items-center justify-between">
-                                <div className={`p-3 rounded-xl ${stat.bg} group-hover:scale-110 transition-transform duration-300`}>
-                                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                                <div className={`p-2.5 rounded-xl ${stat.bg} shrink-0`}>
+                                    <stat.icon className={`w-4 h-4 ${stat.color}`} />
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{stat.label}</p>
-                                    <h3 className="text-3xl font-black text-slate-900 dark:text-white mt-1">{stat.value}</h3>
+                                    <p className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                                    <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter italic uppercase">{stat.value}</h3>
                                 </div>
                             </div>
                         </CardContent>

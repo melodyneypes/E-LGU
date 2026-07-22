@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useEvents } from "../providers/EventsProvider";
 import { addEvent, updateEvent } from "@/app/admin/actions";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export function useEventsForm() {
-    const { setIsAddModalOpen, editingData, setEditingData } = useEvents();
+    const { setIsAddModalOpen, editingData, setEditingData, setIsPending } = useEvents();
     const [loading, setLoading] = useState(false);
+    const router = useRouter();
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -25,11 +27,8 @@ export function useEventsForm() {
             }
             setEditingData(null);
             setIsAddModalOpen(false);
-            
-            // Force a slight delay before reload to ensure DB is updated and toast is visible
-            setTimeout(() => {
-                window.location.reload();
-            }, 500);
+            setIsPending(true);
+            router.refresh();
         } catch (error) {
             console.error("Error saving event:", error);
             toast.error("Failed to save event. Please check the details and try again.");

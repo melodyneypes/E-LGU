@@ -20,7 +20,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 async function verifyAdminOrBarangayAdmin() {
     const session = await getServerSession(authOptions);
     const role = (session?.user as any)?.role;
-    if (!session || (role !== "ADMIN" && role !== "BARANGAY_ADMIN")) {
+    const allowedRoles = ["ADMIN", "SUPER_ADMIN", "BARANGAY_ADMIN", "CONTENT_ADMIN", "STAFF"];
+    if (!session || (role && !allowedRoles.includes(role))) {
         throw new Error("Unauthorized: Access denied.");
     }
     return session.user;
@@ -852,6 +853,20 @@ export async function deleteEvent(id: string) {
     } catch (error) {
         console.error("Failed to delete event:", error);
         return { success: false, error: "Failed to delete event entry." };
+    }
+}
+
+export async function getEventById(id: string) {
+    try {
+        if (!id) return { success: false, error: "Event ID is required." };
+        const eventItem = await (prisma as any).event.findUnique({
+            where: { id },
+        });
+        if (!eventItem) return { success: false, error: "Event not found." };
+        return { success: true, event: eventItem, data: eventItem };
+    } catch (error) {
+        console.error("Failed to fetch event details:", error);
+        return { success: false, error: "Failed to fetch event details." };
     }
 }
 
@@ -2784,11 +2799,11 @@ export async function getAdminReports(params?: {
             (prisma as any).report.count({ where: { ...statsWhereClause, status: "REJECTED" } }),
         ]);
 
-        return { 
-            success: true, 
-            reports, 
-            totalCount, 
-            totalPages: Math.ceil(totalCount / limit), 
+        return {
+            success: true,
+            reports,
+            totalCount,
+            totalPages: Math.ceil(totalCount / limit),
             currentPage: page,
             stats: {
                 total: totalStats,

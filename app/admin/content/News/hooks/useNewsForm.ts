@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useNews } from "../providers/NewsProvider";
 import { addNews, updateNews } from "@/app/admin/actions";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export function useNewsForm() {
-    const { setIsAddModalOpen, editingData, setEditingData } = useNews();
+    const { setIsAddModalOpen, editingData, setEditingData, setIsPending } = useNews();
     const [loading, setLoading] = useState(false);
+    const router = useRouter();
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -25,11 +27,8 @@ export function useNewsForm() {
             }
             setEditingData(null);
             setIsAddModalOpen(false);
-            
-            // Force a slight delay before reload to ensure DB is updated and toast is visible
-            setTimeout(() => {
-                window.location.reload();
-            }, 500);
+            setIsPending(true);
+            router.refresh();
         } catch (error) {
             console.error("Error saving news:", error);
             toast.error("Failed to save news. Please try again.");
