@@ -384,6 +384,15 @@ async function main() {
       role: "RIDER" as const,
       isEmailVerified: true,
       emailVerified: new Date(),
+    },
+    {
+      name: "RHU Administrator",
+      email: "rhu@mapandan.gov.ph",
+      password: commonHashedPassword,
+      role: "ADMIN" as const,
+      department: "RHU",
+      isEmailVerified: true,
+      emailVerified: new Date(),
     }
   ];
 

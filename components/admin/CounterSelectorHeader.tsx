@@ -5,9 +5,11 @@ import { Monitor, ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+import { useSession } from "next-auth/react";
+
 interface CounterSelectorHeaderProps {
     themeColor?: string;
-    userRole: string;
+    userRole?: string;
     userDepartment?: string | null;
 }
 
@@ -27,9 +29,12 @@ const COUNTER_OPTIONS = [
 
 export default function CounterSelectorHeader({
     themeColor = "#2563eb",
-    userRole,
-    userDepartment
+    userRole: propRole,
+    userDepartment: propDept
 }: CounterSelectorHeaderProps) {
+    const { data: session } = useSession();
+    const userRole = propRole || (session?.user as any)?.role || "ADMIN";
+    const userDepartment = propDept !== undefined ? propDept : ((session?.user as any)?.department || "RHU");
     const [counterName, setCounterName] = useState<string | null>(null);
     const [prompted, setPrompted] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
@@ -52,16 +57,22 @@ export default function CounterSelectorHeader({
     useEffect(() => {
         if (!isAuthorized) return;
 
-        // Load initial counter name from localStorage
+        // Load initial counter name from localStorage or default to Counter 1
         const saved = localStorage.getItem("activeCounterName");
         if (saved) {
             setCounterName(saved);
         } else {
-            setCounterName(null);
+            // Default to Counter 1 if not explicitly set yet
+            setCounterName("Counter 1");
+            localStorage.setItem("activeCounterName", "Counter 1");
         }
 
-        const savedPrompted = sessionStorage.getItem("counterSetPrompted") === "true";
+        const savedPrompted = localStorage.getItem("counterSetPrompted") === "true" || sessionStorage.getItem("counterSetPrompted") === "true";
         if (savedPrompted) {
+            setPrompted(true);
+        } else if (saved) {
+            // If counter is already set in localStorage, don't prompt
+            localStorage.setItem("counterSetPrompted", "true");
             setPrompted(true);
         }
     }, [isAuthorized]);
@@ -81,9 +92,10 @@ export default function CounterSelectorHeader({
 
     const handleSelectCounter = (name: string) => {
         localStorage.setItem("activeCounterName", name);
+        localStorage.setItem("counterSetPrompted", "true");
+        sessionStorage.setItem("counterSetPrompted", "true");
         setCounterName(name);
         setIsOpen(false);
-        sessionStorage.setItem("counterSetPrompted", "true");
         setPrompted(true);
 
         // Dispatch storage event to notify other components instantly
@@ -99,6 +111,7 @@ export default function CounterSelectorHeader({
     };
 
     const handleSkip = () => {
+        localStorage.setItem("counterSetPrompted", "true");
         sessionStorage.setItem("counterSetPrompted", "true");
         setPrompted(true);
     };

@@ -186,9 +186,12 @@ export default function AppointmentDetailsPage() {
             case "FOR_REVISION": return { color: "text-amber-500 bg-amber-500/10 border-amber-500/20", label: "REVISION REQUIRED", icon: AlertCircle };
             case "FOR_REQUESTING": {
                 const addData = (request.additionalData as any) || {};
+                const isRHU = request.type?.category === "Rural Health Unit" || request.type?.code?.startsWith("RHU_");
                 return {
-                    color: "text-white bg-primary border-transparent",
-                    label: addData.checkedIn ? "AWAITING EVALUATION" : "AWAITING CHECK-IN",
+                    color: "text-white bg-rose-600 border-transparent",
+                    label: addData.checkedIn
+                        ? "AWAITING EVALUATION"
+                        : (isRHU ? "PROCEED TO RHU TO CHECK-IN" : "PROCEED TO MUNICIPAL HALL TO CHECK-IN"),
                     icon: Clock
                 };
             }
@@ -391,9 +394,11 @@ export default function AppointmentDetailsPage() {
                                         {request.isCancelled
                                             ? `This appointment was cancelled on ${request.updatedAt ? formatPHDate(request.updatedAt) : "N/A"}.`
                                             : request.status === "FOR_REQUESTING"
-                                                ? (isAppointmentPsa
-                                                    ? "Please proceed to the Civil Registrar's office at your scheduled date and time for document verification."
-                                                    : "Your booking is currently queued. Please wait for the municipal assessor/evaluation team to approve.")
+                                                ? ((request.type?.category === "Rural Health Unit" || request.type?.code?.startsWith("RHU_"))
+                                                    ? "Your medical consultation is booked. Please proceed to the Rural Health Unit (RHU) on your scheduled date and time to check in at the counter."
+                                                    : isAppointmentPsa
+                                                        ? "Please proceed to the Civil Registrar's office at the Municipal Hall on your scheduled date and time for document verification."
+                                                        : "Your appointment is confirmed. Please proceed to the designated counter window at the Municipal Hall to check in.")
                                                 : request.status === "PAID"
                                                     ? "Payment received! Please proceed to the Municipal Office on your scheduled date to claim your document."
                                                     : request.status === "UNPAID"

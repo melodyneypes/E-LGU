@@ -130,6 +130,8 @@ export function AdminShell({
                 isRestricted = true;
             } else if ((deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY") && !pathname.startsWith("/admin/registrar") && pathname !== "/admin/treasury/payment-settings") {
                 isRestricted = true;
+            } else if ((deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") && !pathname.startsWith("/admin/rhu")) {
+                isRestricted = true;
             } else if (deptUpper === "TREASURY" && !pathname.startsWith("/admin/treasury") && !pathname.startsWith("/admin/treasury/payments") && !pathname.startsWith("/admin/treasury/payment-settings") && !pathname.startsWith("/admin/treasury/appointment-settings")) {
                 isRestricted = true;
             } else if (deptUpper === "LGU") {
@@ -147,7 +149,7 @@ export function AdminShell({
                 isRestricted = true;
             }
         } else if (role === "ADMIN_AIDE") {
-            if (!pathname.startsWith("/admin/bplo")) {
+            if (!pathname.startsWith("/admin/bplo") && !pathname.startsWith("/admin/rhu")) {
                 isRestricted = true;
             }
         } else if (role === "ENGINEER") {
@@ -183,11 +185,17 @@ export function AdminShell({
                             router.push("/admin/registrar");
                         } else if (deptUpper === "BPLO") {
                             router.push("/admin/bplo");
+                        } else if (deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") {
+                            router.push("/admin/rhu");
                         }
                     } else if (role === "TREASURY_STAFF") {
                         router.push("/admin/treasury?category=CEDULA");
                     } else if (role === "ADMIN_AIDE") {
-                        router.push("/admin/bplo");
+                        if (deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") {
+                            router.push("/admin/rhu");
+                        } else {
+                            router.push("/admin/bplo");
+                        }
                     } else if (role === "ENGINEER") {
                         router.push("/admin/engineer");
                     } else if (role === "MPDC_ZONING") {
