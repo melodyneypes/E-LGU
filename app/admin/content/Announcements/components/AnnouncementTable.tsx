@@ -12,7 +12,7 @@ import { Edit2, Trash2, Calendar, Megaphone, Bell, Pin, PinOff, AlertCircle } fr
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
-import { deleteAnnouncement, toggleAnnouncementStatus, toggleAnnouncementPin } from "@/app/admin/actions";
+import { deleteAnnouncement, toggleAnnouncementStatus, toggleAnnouncementPin } from "../actions/announcements.actions";
 
 export function AnnouncementTable() {
     const { 

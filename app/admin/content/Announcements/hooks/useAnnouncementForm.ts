@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAnnouncements } from "../providers/AnnouncementProvider";
-import { addAnnouncement, updateAnnouncement } from "@/app/admin/actions";
+import { addAnnouncement, updateAnnouncement } from "../actions/announcements.actions";
 import { toast } from "sonner";
 
 export function useAnnouncementForm() {
