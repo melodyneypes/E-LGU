@@ -161,7 +161,7 @@ export async function submitRHUAppointment(formData: FormData) {
         const isAM = appointmentSlot.includes("AM") || appointmentSlot.toUpperCase().includes("08:00 AM");
         const maxLimit = isAM ? maxSlotsAM : maxSlotsPM;
 
-        if (bookedCount >= maxLimit) {
+        if (maxLimit > 0 && maxLimit < 99999 && bookedCount >= maxLimit) {
             return { success: false, error: "This appointment slot is already fully booked." };
         }
 

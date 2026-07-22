@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Activity, Clock, Plus, Trash2 } from "lucide-react";
 import { updateAppointmentConfig } from "@/app/admin/settings/actions";
 import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 
 interface RHUAppointmentSettingsClientProps {
     themeColor?: string;
@@ -29,12 +30,16 @@ interface RHUAppointmentSettingsClientProps {
 export default function RHUAppointmentSettingsClient({ 
     appointmentConfig
 }: RHUAppointmentSettingsClientProps) {
-    const [maxSlotsAM, setMaxSlotsAM] = useState<number>(appointmentConfig.maxSlotsAM ?? 25);
-    const [maxSlotsPM, setMaxSlotsPM] = useState<number>(appointmentConfig.maxSlotsPM ?? 25);
-    const [amTimeLabel, setAmTimeLabel] = useState<string>(appointmentConfig.amTimeLabel ?? "08:00 AM - 11:00 AM");
-    const [pmTimeLabel, setPmTimeLabel] = useState<string>(appointmentConfig.pmTimeLabel ?? "01:00 PM - 04:00 PM");
-    const [activeDays, setActiveDays] = useState<number[]>(appointmentConfig.activeDays || [1, 2, 3, 4, 5]);
-    const [blockedDates, setBlockedDates] = useState<string[]>(appointmentConfig.blockedDates || []);
+    const [isAMEnabled, setIsAMEnabled] = useState<boolean>((appointmentConfig?.maxSlotsAM ?? 25) > 0);
+    const [isPMEnabled, setIsPMEnabled] = useState<boolean>((appointmentConfig?.maxSlotsPM ?? 25) > 0);
+    const [isAMUnlimited, setIsAMUnlimited] = useState<boolean>((appointmentConfig?.maxSlotsAM ?? 25) >= 99999);
+    const [isPMUnlimited, setIsPMUnlimited] = useState<boolean>((appointmentConfig?.maxSlotsPM ?? 25) >= 99999);
+    const [maxSlotsAM, setMaxSlotsAM] = useState<number>(appointmentConfig?.maxSlotsAM && appointmentConfig.maxSlotsAM < 99999 ? appointmentConfig.maxSlotsAM : 25);
+    const [maxSlotsPM, setMaxSlotsPM] = useState<number>(appointmentConfig?.maxSlotsPM && appointmentConfig.maxSlotsPM < 99999 ? appointmentConfig.maxSlotsPM : 25);
+    const [amTimeLabel, setAmTimeLabel] = useState<string>(appointmentConfig?.amTimeLabel || "08:00 AM - 11:00 AM");
+    const [pmTimeLabel, setPmTimeLabel] = useState<string>(appointmentConfig?.pmTimeLabel || "01:00 PM - 04:00 PM");
+    const [activeDays, setActiveDays] = useState<number[]>(appointmentConfig?.activeDays || [1, 2, 3, 4, 5]);
+    const [blockedDates, setBlockedDates] = useState<string[]>(appointmentConfig?.blockedDates || []);
     const [newBlockedDate, setNewBlockedDate] = useState("");
     const [isSavingConfig, setIsSavingConfig] = useState(false);
 
@@ -61,19 +66,37 @@ export default function RHUAppointmentSettingsClient({
     };
 
     const handleSaveAppointmentConfig = async () => {
+        if (!isAMEnabled && !isPMEnabled) {
+            toast.error("At least one session (AM or PM) must be active!");
+            return;
+        }
+
+        if (isAMEnabled && (!amTimeLabel || !amTimeLabel.trim())) {
+            toast.error("AM Session hours cannot be empty!");
+            return;
+        }
+
+        if (isPMEnabled && (!pmTimeLabel || !pmTimeLabel.trim())) {
+            toast.error("PM Session hours cannot be empty!");
+            return;
+        }
+
+        const effectiveAMSlots = isAMEnabled ? (isAMUnlimited ? 99999 : (maxSlotsAM > 0 ? maxSlotsAM : 25)) : 0;
+        const effectivePMSlots = isPMEnabled ? (isPMUnlimited ? 99999 : (maxSlotsPM > 0 ? maxSlotsPM : 25)) : 0;
+
         setIsSavingConfig(true);
         try {
             const res = await updateAppointmentConfig("RHU", {
-                maxSlots: maxSlotsAM + maxSlotsPM,
-                maxSlotsAM,
-                maxSlotsPM,
+                maxSlots: effectiveAMSlots + effectivePMSlots,
+                maxSlotsAM: effectiveAMSlots,
+                maxSlotsPM: effectivePMSlots,
                 activeDays,
                 blockedDates,
-                amTimeLabel,
-                pmTimeLabel
+                amTimeLabel: isAMEnabled ? amTimeLabel.trim() : "Disabled",
+                pmTimeLabel: isPMEnabled ? pmTimeLabel.trim() : "Disabled"
             });
             if (res.success) {
-                toast.success("RHU appointment settings updated successfully!");
+                toast.success("RHU schedule settings updated successfully!");
             } else {
                 toast.error(res.error || "Failed to update configuration");
             }
@@ -86,10 +109,16 @@ export default function RHUAppointmentSettingsClient({
 
     React.useEffect(() => {
         if (appointmentConfig) {
-            setMaxSlotsAM(appointmentConfig.maxSlotsAM ?? 25);
-            setMaxSlotsPM(appointmentConfig.maxSlotsPM ?? 25);
-            setAmTimeLabel(appointmentConfig.amTimeLabel ?? "08:00 AM - 11:00 AM");
-            setPmTimeLabel(appointmentConfig.pmTimeLabel ?? "01:00 PM - 04:00 PM");
+            const amSlots = appointmentConfig.maxSlotsAM ?? 25;
+            const pmSlots = appointmentConfig.maxSlotsPM ?? 25;
+            setIsAMEnabled(amSlots > 0 && appointmentConfig.amTimeLabel !== "Disabled");
+            setIsPMEnabled(pmSlots > 0 && appointmentConfig.pmTimeLabel !== "Disabled");
+            setIsAMUnlimited(amSlots >= 99999);
+            setIsPMUnlimited(pmSlots >= 99999);
+            setMaxSlotsAM(amSlots > 0 && amSlots < 99999 ? amSlots : 25);
+            setMaxSlotsPM(pmSlots > 0 && pmSlots < 99999 ? pmSlots : 25);
+            setAmTimeLabel(appointmentConfig.amTimeLabel && appointmentConfig.amTimeLabel !== "Disabled" ? appointmentConfig.amTimeLabel : "08:00 AM - 11:00 AM");
+            setPmTimeLabel(appointmentConfig.pmTimeLabel && appointmentConfig.pmTimeLabel !== "Disabled" ? appointmentConfig.pmTimeLabel : "01:00 PM - 04:00 PM");
             setActiveDays(appointmentConfig.activeDays || [1, 2, 3, 4, 5]);
             setBlockedDates(appointmentConfig.blockedDates || []);
         }
@@ -114,58 +143,167 @@ export default function RHUAppointmentSettingsClient({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                         {/* Left Side: General Limits & Active Days */}
                         <div className="space-y-6">
-                             <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">AM Slots Capacity</Label>
-                                    <div className="relative inline-flex items-center w-full">
-                                        <Clock className="absolute left-4 w-4 h-4 text-slate-400" />
-                                        <Input 
-                                            type="number" 
-                                            value={maxSlotsAM} 
-                                            onChange={(e) => setMaxSlotsAM(Math.max(0, parseInt(e.target.value) || 0))}
-                                            className="h-12 pl-11 pr-4 rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-sm"
-                                        />
+                            {/* Session Controls: AM & PM Toggles */}
+                            <div className="space-y-4">
+                                {/* AM Session Box */}
+                                <div className={cn(
+                                    "p-4 rounded-2xl border transition-all space-y-3",
+                                    isAMEnabled 
+                                        ? "bg-slate-50/80 dark:bg-black/20 border-rose-500/30" 
+                                        : "bg-slate-100/40 dark:bg-black/40 border-slate-200 dark:border-white/5 opacity-60"
+                                )}>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Clock className={cn("w-4 h-4", isAMEnabled ? "text-rose-500" : "text-slate-400")} />
+                                            <Label className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                                                AM Session (Morning)
+                                            </Label>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className={cn(
+                                                "text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full border",
+                                                isAMEnabled 
+                                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" 
+                                                    : "bg-slate-200 dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-700"
+                                            )}>
+                                                {isAMEnabled ? "Active" : "Disabled"}
+                                            </span>
+                                            <Switch
+                                                checked={isAMEnabled}
+                                                onCheckedChange={(checked) => {
+                                                    setIsAMEnabled(checked);
+                                                    if (checked && maxSlotsAM <= 0) setMaxSlotsAM(25);
+                                                    if (checked && amTimeLabel === "Disabled") setAmTimeLabel("08:00 AM - 11:00 AM");
+                                                }}
+                                            />
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">PM Slots Capacity</Label>
-                                    <div className="relative inline-flex items-center w-full">
-                                        <Clock className="absolute left-4 w-4 h-4 text-slate-400" />
-                                        <Input 
-                                            type="number" 
-                                            value={maxSlotsPM} 
-                                            onChange={(e) => setMaxSlotsPM(Math.max(0, parseInt(e.target.value) || 0))}
-                                            className="h-12 pl-11 pr-4 rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-sm"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">AM Session Hours</Label>
-                                    <div className="relative inline-flex items-center w-full">
-                                        <Clock className="absolute left-4 w-4 h-4 text-slate-400" />
-                                        <Input 
-                                            type="text" 
-                                            value={amTimeLabel} 
-                                            onChange={(e) => setAmTimeLabel(e.target.value)}
-                                            placeholder="08:00 AM - 11:00 AM"
-                                            className="h-12 pl-11 pr-4 rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-sm"
-                                        />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">AM Slots Capacity</Label>
+                                                <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-500 hover:text-rose-500">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isAMUnlimited}
+                                                        disabled={!isAMEnabled}
+                                                        onChange={(e) => setIsAMUnlimited(e.target.checked)}
+                                                        className="rounded border-slate-300 text-rose-600 focus:ring-rose-500 w-3 h-3"
+                                                    />
+                                                    Unlimited
+                                                </label>
+                                            </div>
+                                            {isAMUnlimited ? (
+                                                <div className="h-11 px-4 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 flex items-center justify-between font-bold text-xs text-rose-600 dark:text-rose-400">
+                                                    <span>Unlimited Slots</span>
+                                                    <span className="text-[10px] uppercase font-black tracking-wider bg-rose-500/10 px-2 py-0.5 rounded">No Limit</span>
+                                                </div>
+                                            ) : (
+                                                <Input 
+                                                    type="number" 
+                                                    disabled={!isAMEnabled}
+                                                    value={isAMEnabled ? maxSlotsAM : 0} 
+                                                    onChange={(e) => setMaxSlotsAM(Math.max(1, parseInt(e.target.value) || 1))}
+                                                    className="h-11 px-4 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] font-bold text-xs"
+                                                />
+                                            )}
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">AM Session Hours *</Label>
+                                            <Input 
+                                                type="text" 
+                                                disabled={!isAMEnabled}
+                                                value={isAMEnabled ? amTimeLabel : "Disabled"} 
+                                                onChange={(e) => setAmTimeLabel(e.target.value)}
+                                                placeholder="08:00 AM - 11:00 AM"
+                                                className={cn(
+                                                    "h-11 px-4 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] font-bold text-xs",
+                                                    isAMEnabled && !amTimeLabel.trim() && "border-rose-500 ring-1 ring-rose-500"
+                                                )}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">PM Session Hours</Label>
-                                    <div className="relative inline-flex items-center w-full">
-                                        <Clock className="absolute left-4 w-4 h-4 text-slate-400" />
-                                        <Input 
-                                            type="text" 
-                                            value={pmTimeLabel} 
-                                            onChange={(e) => setPmTimeLabel(e.target.value)}
-                                            placeholder="01:00 PM - 04:00 PM"
-                                            className="h-12 pl-11 pr-4 rounded-xl bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-[#2a3040] font-bold text-sm"
-                                        />
+
+                                {/* PM Session Box */}
+                                <div className={cn(
+                                    "p-4 rounded-2xl border transition-all space-y-3",
+                                    isPMEnabled 
+                                        ? "bg-slate-50/80 dark:bg-black/20 border-rose-500/30" 
+                                        : "bg-slate-100/40 dark:bg-black/40 border-slate-200 dark:border-white/5 opacity-60"
+                                )}>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Clock className={cn("w-4 h-4", isPMEnabled ? "text-rose-500" : "text-slate-400")} />
+                                            <Label className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                                                PM Session (Afternoon)
+                                            </Label>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className={cn(
+                                                "text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full border",
+                                                isPMEnabled 
+                                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" 
+                                                    : "bg-slate-200 dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-700"
+                                            )}>
+                                                {isPMEnabled ? "Active" : "Disabled"}
+                                            </span>
+                                            <Switch
+                                                checked={isPMEnabled}
+                                                onCheckedChange={(checked) => {
+                                                    setIsPMEnabled(checked);
+                                                    if (checked && maxSlotsPM <= 0) setMaxSlotsPM(25);
+                                                    if (checked && pmTimeLabel === "Disabled") setPmTimeLabel("01:00 PM - 04:00 PM");
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">PM Slots Capacity</Label>
+                                                <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-500 hover:text-rose-500">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isPMUnlimited}
+                                                        disabled={!isPMEnabled}
+                                                        onChange={(e) => setIsPMUnlimited(e.target.checked)}
+                                                        className="rounded border-slate-300 text-rose-600 focus:ring-rose-500 w-3 h-3"
+                                                    />
+                                                    Unlimited
+                                                </label>
+                                            </div>
+                                            {isPMUnlimited ? (
+                                                <div className="h-11 px-4 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 flex items-center justify-between font-bold text-xs text-rose-600 dark:text-rose-400">
+                                                    <span>Unlimited Slots</span>
+                                                    <span className="text-[10px] uppercase font-black tracking-wider bg-rose-500/10 px-2 py-0.5 rounded">No Limit</span>
+                                                </div>
+                                            ) : (
+                                                <Input 
+                                                    type="number" 
+                                                    disabled={!isPMEnabled}
+                                                    value={isPMEnabled ? maxSlotsPM : 0} 
+                                                    onChange={(e) => setMaxSlotsPM(Math.max(1, parseInt(e.target.value) || 1))}
+                                                    className="h-11 px-4 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] font-bold text-xs"
+                                                />
+                                            )}
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">PM Session Hours *</Label>
+                                            <Input 
+                                                type="text" 
+                                                disabled={!isPMEnabled}
+                                                value={isPMEnabled ? pmTimeLabel : "Disabled"} 
+                                                onChange={(e) => setPmTimeLabel(e.target.value)}
+                                                placeholder="01:00 PM - 04:00 PM"
+                                                className={cn(
+                                                    "h-11 px-4 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-[#2a3040] font-bold text-xs",
+                                                    isPMEnabled && !pmTimeLabel.trim() && "border-rose-500 ring-1 ring-rose-500"
+                                                )}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>

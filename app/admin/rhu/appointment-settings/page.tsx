@@ -53,7 +53,7 @@ export default async function RHUAppointmentSettingsPage() {
             {/* Elegant Header Banner */}
             <div className="px-6 py-8 rounded-[1.5rem] border bg-rose-500/10 border-rose-500/20">
                 <h1 className="text-3xl md:text-4xl font-black italic uppercase tracking-tighter drop-shadow-sm text-rose-600 dark:text-rose-400">
-                    RHU Appointment <span className="tracking-normal italic">Settings</span>
+                    RHU Schedule <span className="tracking-normal italic">Settings</span>
                 </h1>
                 <p className="text-slate-500 dark:text-slate-400 mt-2 font-black uppercase tracking-[0.2em] text-[10px] opacity-70">
                     Manage booking slot limits, session hours, active weekdays, and blocked dates for Rural Health Unit appointments.

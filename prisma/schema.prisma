@@ -1190,3 +1190,27 @@ model AppointmentConfig {
   updatedAt    DateTime @updatedAt
 }
 
+enum InventoryCategory {
+  MEDICINE
+  MEDICAL_SUPPLY
+}
+
+model RHUInventoryItem {
+  id             String            @id @default(cuid())
+  name           String
+  genericName    String?
+  brandName      String?
+  category       InventoryCategory @default(MEDICINE)
+  dosage         String?
+  unit           String            @default("pcs")
+  quantity       Int               @default(0)
+  reorderLevel   Int               @default(10)
+  expirationDate DateTime?
+  batchNumber    String?
+  remarks        String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([category])
+  @@index([name])
+}
