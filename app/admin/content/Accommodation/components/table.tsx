@@ -1,196 +1,320 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { useAccommodation, Accommodation } from "../providers/AccommodationProvider";
-import Image from "next/image";
-import { BedDouble, MapPin, MoreHorizontal, Map as MapIcon, Trash, EyeOff, Eye, Globe } from "lucide-react";
-import { deleteAccommodation, toggleAccommodationStatus } from "@/app/admin/actions";
-import {
-    Table as UITable,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { deleteAccommodation, toggleAccommodationStatus, getAccommodationById } from "@/app/admin/actions";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
+import { Edit2, Trash2, BedDouble, MapPin } from "lucide-react";
+import { toast } from "sonner";
+import { useState } from "react";
+import Image from "next/image";
+import { cn } from "@/lib/utils";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export function AccommodationTable() {
-    const { accommodationData, searchTerm, selectedType, selectedStatus, setEditingData, setIsAddModalOpen } = useAccommodation();
+    const {
+        accommodationData,
+        setEditingData,
+        setIsAddModalOpen,
+        themeColor,
+        page,
+        pageSize,
+        totalCount,
+        isPending,
+        setIsPending,
+    } = useAccommodation();
 
-    const filteredData = accommodationData.filter((item: Accommodation) => {
-        const query = searchTerm.toLowerCase();
-        const matchesSearch =
-            item.name.toLowerCase().includes(query) ||
-            item.address.toLowerCase().includes(query) ||
-            item.type?.toLowerCase().includes(query);
-        const matchesType = selectedType === "All" || item.type === selectedType;
-        const matchesStatus =
-            selectedStatus === "All" ||
-            (selectedStatus === "Published" && item.isPublished) ||
-            (selectedStatus === "Draft" && !item.isPublished);
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
 
-        return matchesSearch && matchesType && matchesStatus;
-    });
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [togglingId, setTogglingId] = useState<string | null>(null);
+    const [fetchingId, setFetchingId] = useState<string | null>(null);
+
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    const startRange = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+    const endRange = Math.min(page * pageSize, totalCount);
+
+    const updateUrlParam = (paramName: string, value: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set(paramName, value);
+        setIsPending(true);
+        router.push(`${pathname}?${params.toString()}`);
+    };
+
+    const handlePageChange = (newPage: number) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            updateUrlParam("page", newPage.toString());
+        }
+    };
+
+    const handlePageSizeChange = (newSize: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("pageSize", newSize);
+        params.set("page", "1");
+        setIsPending(true);
+        router.push(`${pathname}?${params.toString()}`);
+    };
+
+    const handleEdit = async (item: Accommodation) => {
+        setFetchingId(item.id);
+        try {
+            const res = (await getAccommodationById(item.id)) as { success: boolean; data?: Accommodation; accommodation?: Accommodation; error?: string };
+            if (res.success && (res.data || res.accommodation)) {
+                const fullItem = (res.data || res.accommodation) as Accommodation;
+                setEditingData(fullItem);
+                setIsAddModalOpen(true);
+            } else {
+                toast.error(res.error || "Failed to load accommodation details.");
+            }
+        } catch {
+            toast.error("Error fetching accommodation details.");
+        } finally {
+            setFetchingId(null);
+        }
+    };
+
+    const handleDelete = async (id: string, name: string) => {
+        if (!confirm(`Are you sure you want to delete ${name}?`)) return;
+        setDeletingId(id);
+        setIsPending(true);
+        try {
+            const res = await deleteAccommodation(id);
+            if (!res.success) throw new Error(res.error);
+            toast.success("Accommodation entry deleted successfully!");
+            router.refresh();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to delete accommodation entry.");
+            setIsPending(false);
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
+    const handleToggleStatus = async (id: string, currentStatus: boolean) => {
+        setTogglingId(id);
+        setIsPending(true);
+        try {
+            const res = await toggleAccommodationStatus(id, !currentStatus);
+            if (!res.success) throw new Error(res.error);
+            toast.success(`Accommodation ${!currentStatus ? "published" : "hidden"} successfully!`);
+            router.refresh();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to update status.");
+            setIsPending(false);
+        } finally {
+            setTogglingId(null);
+        }
+    };
+
+    if (accommodationData.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12 text-center border-t border-slate-200 dark:border-[#2a3040]">
+                <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                    <BedDouble className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">No Accommodations Found</h3>
+                <p className="text-sm text-slate-500 max-w-sm mt-1">
+                    No accommodation listings match your current filters. Clear search or add a new entry.
+                </p>
+            </div>
+        );
+    }
 
     return (
-        <div className="overflow-x-auto">
-            <UITable>
-                <TableHeader>
-                    <TableRow className="bg-slate-50/50 dark:bg-[#1e2330] border-slate-200 dark:border-[#2a3040] hover:bg-slate-50 dark:hover:bg-[#1e2330]">
-                        <TableHead className="w-[300px] font-bold text-slate-900 dark:text-slate-100 py-5 pl-6">Tuluyan Details</TableHead>
-                        <TableHead className="font-bold text-slate-900 dark:text-slate-100">Type</TableHead>
-                        <TableHead className="font-bold text-slate-900 dark:text-slate-100">Price/Rate</TableHead>
-                        <TableHead className="font-bold text-slate-900 dark:text-slate-100 text-center">Status</TableHead>
-                        <TableHead className="font-bold text-slate-900 dark:text-slate-100 text-right pr-6">Action</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {filteredData.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={5} className="h-64 text-center">
-                                <div className="flex flex-col items-center justify-center space-y-3">
-                                    <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                                        <BedDouble className="w-8 h-8 text-slate-400" />
-                                    </div>
-                                    <p className="text-slate-500 font-medium">No accommodations found</p>
-                                </div>
-                            </TableCell>
+        <>
+            <div className="overflow-x-auto relative">
+                {isPending && (
+                    <div className="absolute inset-0 bg-white/60 dark:bg-[#151b2b]/60 backdrop-blur-[2px] z-20 flex items-center justify-center transition-all duration-300">
+                        <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-white dark:bg-[#1a1f2e] border border-slate-200 dark:border-slate-800 shadow-xl">
+                            <span
+                                className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
+                                style={{ borderColor: themeColor, borderTopColor: "transparent" }}
+                            />
+                            <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 italic">
+                                Refreshing accommodation listings...
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                <Table className={cn("transition-opacity duration-300", isPending && "opacity-40")}>
+                    <TableHeader>
+                        <TableRow className="bg-slate-50/50 dark:bg-[#1a1f2e] hover:bg-slate-50/50 dark:hover:bg-[#1a1f2e] border-y border-slate-200 dark:border-[#2a3040]">
+                            <TableHead className="w-[320px] font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 h-14 pl-8">
+                                Tuluyan / Property
+                            </TableHead>
+                            <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
+                                Type
+                            </TableHead>
+                            <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
+                                Location & Address
+                            </TableHead>
+                            <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 text-center">
+                                Active
+                            </TableHead>
+                            <TableHead className="text-right font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100 pr-8">
+                                Actions
+                            </TableHead>
                         </TableRow>
-                    ) : (
-                        filteredData.map((item: Accommodation, index: number) => (
-                            <motion.tr
+                    </TableHeader>
+                    <TableBody>
+                        {accommodationData.map((item) => (
+                            <TableRow
                                 key={item.id}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: index * 0.05 }}
-                                className="group border-slate-200 dark:border-[#2a3040] hover:bg-slate-50/50 dark:hover:bg-[#202635] transition-colors"
+                                className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/5 transition-colors border-b border-slate-200 dark:border-[#2a3040]"
                             >
-                                <TableCell className="pl-6 py-4">
-                                    <div className="flex items-center space-x-4">
-                                        <div className="relative w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex-shrink-0 overflow-hidden border border-slate-200 dark:border-[#2a3040]">
+                                <TableCell className="pl-8 py-5">
+                                    <div className="flex items-center gap-3">
+                                        <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 border border-slate-200 dark:border-slate-700">
                                             {item.imageUrl ? (
-                                                <Image src={item.imageUrl} alt={item.name} layout="fill" objectFit="cover" />
+                                                <Image src={item.imageUrl} alt={item.name} fill className="object-cover" />
                                             ) : (
-                                                <div className="w-full h-full flex items-center justify-center">
-                                                    <BedDouble className="w-5 h-5 text-slate-400" />
+                                                <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                                    <BedDouble className="w-5 h-5" />
                                                 </div>
                                             )}
                                         </div>
-                                        <div>
-                                            <p className="font-bold text-slate-900 dark:text-white text-base leading-tight group-hover:text-primary dark:group-hover:text-primary transition-colors">{item.name}</p>
-                                            <div className="flex items-center text-slate-500 dark:text-slate-400 text-xs mt-1">
-                                                <MapPin className="w-3 h-3 mr-1" />
-                                                <span className="truncate max-w-[180px]">{item.address}</span>
-                                            </div>
+                                        <div className="flex flex-col space-y-1">
+                                            <span className="text-sm font-black dark:text-white uppercase italic tracking-tight leading-tight line-clamp-1 max-w-[260px]">
+                                                {item.name}
+                                            </span>
+                                            {item.barangay && (
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                                                    {item.barangay}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 </TableCell>
+
                                 <TableCell>
-                                    <Badge variant="outline" className="bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary border-primary/20 dark:border-primary/30 rounded-lg py-1 px-3">
-                                        {item.type || "Other"}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell>
-                                    <span className="font-semibold text-slate-700 dark:text-slate-300">
-                                        {item.priceRange || "N/A"}
+                                    <span className="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                        {item.type || "General"}
                                     </span>
                                 </TableCell>
+
+                                <TableCell>
+                                    <div className="flex items-center text-slate-600 dark:text-slate-300 text-xs font-bold gap-1">
+                                        <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                        <span className="line-clamp-1 max-w-[240px]">{item.address}</span>
+                                    </div>
+                                </TableCell>
+
                                 <TableCell className="text-center">
-                                    {item.isPublished ? (
-                                        <Badge className="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-50 border-emerald-100 dark:border-emerald-500/30 px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider">
-                                            Published
-                                        </Badge>
-                                    ) : (
-                                        <Badge className="bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-100 border-slate-200 dark:border-slate-700 px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider">
-                                            Draft
-                                        </Badge>
-                                    )}
+                                    <Switch
+                                        checked={item.isPublished}
+                                        disabled={togglingId === item.id}
+                                        onCheckedChange={() => handleToggleStatus(item.id, item.isPublished)}
+                                    />
                                 </TableCell>
-                                <TableCell className="text-right pr-6">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" className="h-9 w-9 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-[#2a3040]">
-                                                <MoreHorizontal className="h-5 w-5 text-slate-500" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-[180px] bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040] shadow-xl rounded-xl p-1">
-                                            <DropdownMenuLabel className="text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider font-bold px-2 py-1.5">Actions</DropdownMenuLabel>
-                                            <DropdownMenuSeparator className="bg-slate-100 dark:bg-[#2a3040] -mx-1" />
-                                            <DropdownMenuItem
-                                                className="text-slate-700 dark:text-slate-300 focus:bg-slate-100 dark:focus:bg-[#2a3040] focus:text-slate-900 dark:focus:text-white cursor-pointer rounded-md mx-1 my-1 flex items-center"
-                                                onClick={() => {
-                                                    setEditingData(item);
-                                                    setIsAddModalOpen(true);
-                                                }}
-                                            >
-                                                <BedDouble className="w-4 h-4 mr-2 text-slate-500" /> Edit details
-                                            </DropdownMenuItem>
 
-                                            <DropdownMenuItem
-                                                className="text-slate-700 dark:text-slate-300 focus:bg-slate-100 dark:focus:bg-[#2a3040] focus:text-slate-900 dark:focus:text-white cursor-pointer rounded-md mx-1 my-1 flex items-center"
-                                                onClick={async () => {
-                                                    const res = await toggleAccommodationStatus(item.id, !item.isPublished);
-                                                    if (!res.success) alert(res.error);
-                                                }}
-                                            >
-                                                {item.isPublished ? (
-                                                    <><EyeOff className="w-4 h-4 mr-2 text-slate-500" /> Hide from public</>
-                                                ) : (
-                                                    <><Eye className="w-4 h-4 mr-2 text-emerald-500" /> Publish entry</>
-                                                )}
-                                            </DropdownMenuItem>
+                                <TableCell className="text-right pr-8">
+                                    <div className="flex justify-end gap-2">
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => handleEdit(item)}
+                                                        disabled={fetchingId === item.id}
+                                                        className="h-9 w-9 rounded-xl transition-all border border-transparent"
+                                                        style={{ color: themeColor }}
+                                                    >
+                                                        {fetchingId === item.id ? (
+                                                            <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                                                        ) : (
+                                                            <Edit2 className="w-4 h-4" />
+                                                        )}
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Edit Accommodation</TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
 
-                                            {item.websiteUrl && (
-                                                <DropdownMenuItem
-                                                    className="text-slate-700 dark:text-slate-300 focus:bg-slate-100 dark:focus:bg-[#2a3040] focus:text-slate-900 dark:focus:text-white cursor-pointer rounded-md mx-1 my-1 flex items-center"
-                                                    onClick={() => window.open(item.websiteUrl as string, "_blank")}
-                                                >
-                                                    <Globe className="w-4 h-4 mr-2 text-primary" /> Visit Website
-                                                </DropdownMenuItem>
-                                            )}
-
-                                            {(item.googleMapsUrl || (item.latitude && item.longitude)) && (
-                                                <DropdownMenuItem
-                                                    className="text-slate-700 dark:text-slate-300 focus:bg-slate-100 dark:focus:bg-[#2a3040] focus:text-slate-900 dark:focus:text-white cursor-pointer rounded-md mx-1 my-1 flex items-center"
-                                                    onClick={() => {
-                                                        const url = item.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${item.latitude},${item.longitude}`;
-                                                        window.open(url, "_blank");
-                                                    }}
-                                                >
-                                                    <MapIcon className="w-4 h-4 mr-2 text-primary" /> View on Map
-                                                </DropdownMenuItem>
-                                            )}
-
-                                            <DropdownMenuSeparator className="bg-slate-100 dark:bg-[#2a3040] -mx-1" />
-                                            <DropdownMenuItem
-                                                onClick={async () => {
-                                                    if (window.confirm(`Are you sure you want to delete ${item.name}?`)) {
-                                                        const res = await deleteAccommodation(item.id);
-                                                        if (!res.success) alert(res.error);
-                                                    }
-                                                }}
-                                                className="text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-500/10 focus:text-red-700 dark:focus:text-red-300 font-medium cursor-pointer rounded-md mx-1 my-1 flex items-center"
-                                            >
-                                                <Trash className="w-4 h-4 mr-2" /> Delete entry
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => handleDelete(item.id, item.name)}
+                                                        disabled={deletingId === item.id}
+                                                        className="h-9 w-9 rounded-xl text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 transition-all"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Delete Accommodation</TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    </div>
                                 </TableCell>
-                            </motion.tr>
-                        ))
-                    )}
-                </TableBody>
-            </UITable>
-        </div>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+
+            {/* Pagination Control Bar */}
+            <div className="px-8 py-5 border-t border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-slate-900/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4 text-xs font-bold text-slate-500 dark:text-slate-400 italic">
+                    <span>
+                        Showing <strong className="text-slate-900 dark:text-white font-black">{startRange}</strong> to{" "}
+                        <strong className="text-slate-900 dark:text-white font-black">{endRange}</strong> of{" "}
+                        <strong className="text-slate-900 dark:text-white font-black">{totalCount}</strong> listings
+                    </span>
+
+                    <div className="flex items-center gap-2 ml-4">
+                        <span className="text-[10px] uppercase font-black tracking-widest text-slate-400">Rows per page:</span>
+                        <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+                            <SelectTrigger className="h-8 w-[70px] bg-white dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-lg text-xs font-bold">
+                                <SelectValue placeholder={pageSize.toString()} />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-[#151b2b]">
+                                <SelectItem value="5">5</SelectItem>
+                                <SelectItem value="10">10</SelectItem>
+                                <SelectItem value="20">20</SelectItem>
+                                <SelectItem value="50">50</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={page <= 1}
+                        onClick={() => handlePageChange(page - 1)}
+                        className="h-9 px-3 rounded-xl border-slate-200 dark:border-slate-700 font-bold text-xs flex items-center gap-1"
+                    >
+                        <ChevronLeft className="w-4 h-4" />
+                        Prev
+                    </Button>
+
+                    <span className="text-xs font-black px-3 py-1 bg-slate-200/60 dark:bg-slate-800 rounded-lg text-slate-800 dark:text-slate-200">
+                        {page} / {totalPages}
+                    </span>
+
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={page >= totalPages}
+                        onClick={() => handlePageChange(page + 1)}
+                        className="h-9 px-3 rounded-xl border-slate-200 dark:border-slate-700 font-bold text-xs flex items-center gap-1"
+                    >
+                        Next
+                        <ChevronRight className="w-4 h-4" />
+                    </Button>
+                </div>
+            </div>
+        </>
     );
 }

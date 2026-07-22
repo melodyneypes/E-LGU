@@ -1366,6 +1366,18 @@ export async function updateProject(id: string, formData: FormData) {
     }
 }
 
+export async function getAccommodationById(id: string) {
+    try {
+        if (!id) return { success: false, error: "Accommodation ID is required." };
+        const item = await (prisma as any).accommodation.findUnique({ where: { id } });
+        if (!item) return { success: false, error: "Accommodation entry not found." };
+        return { success: true, data: item, accommodation: item };
+    } catch (error) {
+        console.error("Failed to fetch accommodation details:", error);
+        return { success: false, error: "Failed to fetch accommodation entry." };
+    }
+}
+
 export async function getDiningById(id: string) {
     try {
         if (!id) return { success: false, error: "Dining ID is required." };

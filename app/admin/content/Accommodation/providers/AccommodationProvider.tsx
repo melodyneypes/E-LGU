@@ -1,21 +1,21 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 export interface Accommodation {
     id: string;
     name: string;
-    description: string | null;
+    description?: string | null;
     address: string;
     type: string;
-    priceRange: string | null;
-    amenities: string | null;
-    contactNumber: string | null;
-    websiteUrl: string | null;
+    priceRange?: string | null;
+    amenities?: string | null;
+    contactNumber?: string | null;
+    websiteUrl?: string | null;
     imageUrl: string | null;
-    latitude: number | null;
-    longitude: number | null;
-    googleMapsUrl: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    googleMapsUrl?: string | null;
     barangay: string | null;
     isPublished: boolean;
     createdAt: Date;
@@ -24,6 +24,7 @@ export interface Accommodation {
 
 interface AccommodationContextType {
     accommodationData: Accommodation[];
+    setAccommodationData: (data: Accommodation[]) => void;
     searchTerm: string;
     setSearchTerm: (term: string) => void;
     isAddModalOpen: boolean;
@@ -37,6 +38,11 @@ interface AccommodationContextType {
     currentBarangay?: string | null;
     activeBarangays?: string[];
     themeColor: string;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    isPending: boolean;
+    setIsPending: (pending: boolean) => void;
 }
 
 const AccommodationContext = createContext<AccommodationContextType | undefined>(undefined);
@@ -44,26 +50,51 @@ const AccommodationContext = createContext<AccommodationContextType | undefined>
 export function AccommodationProvider({
     children,
     initialData,
+    totalCount = 0,
+    page = 1,
+    pageSize = 10,
+    search = "",
+    type = "All",
+    status = "All",
     currentBarangay,
-    activeBarangays = []
+    activeBarangays = [],
 }: {
-    children: React.ReactNode;
+    children: ReactNode;
     initialData: Accommodation[];
+    totalCount?: number;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    type?: string;
+    status?: string;
     currentBarangay?: string | null;
     activeBarangays?: string[];
 }) {
     const [accommodationData, setAccommodationData] = useState<Accommodation[]>(initialData);
-    const [searchTerm, setSearchTerm] = useState("");
+    const [searchTerm, setSearchTerm] = useState(search);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-     
-    const [editingData, setEditingData] = useState<any | null>(null);
-    const [selectedType, setSelectedType] = useState("All");
-    const [selectedStatus, setSelectedStatus] = useState("All");
+    const [editingData, setEditingData] = useState<Accommodation | null>(null);
+    const [selectedType, setSelectedType] = useState(type);
+    const [selectedStatus, setSelectedStatus] = useState(status);
     const [themeColor, setThemeColor] = useState("#2563eb");
+    const [isPending, setIsPending] = useState(false);
 
     useEffect(() => {
         setAccommodationData(initialData);
+        setIsPending(false);
     }, [initialData]);
+
+    useEffect(() => {
+        setSearchTerm(search);
+    }, [search]);
+
+    useEffect(() => {
+        setSelectedType(type);
+    }, [type]);
+
+    useEffect(() => {
+        setSelectedStatus(status);
+    }, [status]);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -84,6 +115,7 @@ export function AccommodationProvider({
         <AccommodationContext.Provider
             value={{
                 accommodationData,
+                setAccommodationData,
                 searchTerm,
                 setSearchTerm,
                 isAddModalOpen,
@@ -96,7 +128,12 @@ export function AccommodationProvider({
                 setSelectedStatus,
                 currentBarangay,
                 activeBarangays,
-                themeColor
+                themeColor,
+                page,
+                pageSize,
+                totalCount,
+                isPending,
+                setIsPending,
             }}
         >
             {children}
