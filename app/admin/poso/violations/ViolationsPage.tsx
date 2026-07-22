@@ -33,6 +33,7 @@ import {
     X,
     Save,
     FileSpreadsheet,
+    RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -57,6 +58,7 @@ export default function ViolationsPage({
     const router = useRouter();
     const [violations, setViolations] = useState<TrafficViolationItem[]>(initialViolations);
     const [search, setSearch] = useState("");
+    const [isPending, setIsPending] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingData, setEditingData] = useState<TrafficViolationItem | null>(null);
     const [loading, setLoading] = useState(false);
@@ -64,6 +66,7 @@ export default function ViolationsPage({
 
     React.useEffect(() => {
         setViolations(initialViolations);
+        setIsPending(false);
     }, [initialViolations]);
 
     const filteredViolations = violations.filter((v) => {
@@ -100,6 +103,7 @@ export default function ViolationsPage({
             const res = await deleteTrafficViolation(id);
             if (!res.success) throw new Error(res.error);
             toast.success("Violation ordinance deleted successfully!");
+            setIsPending(true);
             router.refresh();
         } catch (err: any) {
             toast.error(err.message || "Failed to delete violation.");
@@ -128,6 +132,7 @@ export default function ViolationsPage({
                         : "Violation ordinance added successfully!"
                 );
                 handleCloseModal();
+                setIsPending(true);
                 router.refresh();
             } else {
                 toast.error(res.error || "Failed to save violation.");
@@ -155,7 +160,16 @@ export default function ViolationsPage({
             </div>
 
             {/* Main Table Card */}
-            <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden shadow-xl ring-1 ring-slate-200 dark:ring-white/5">
+            <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden shadow-xl ring-1 ring-slate-200 dark:ring-white/5 relative">
+                {/* Glassmorphic Loading Overlay */}
+                {isPending && (
+                    <div className="absolute inset-0 bg-white/50 dark:bg-[#151b2b]/50 backdrop-blur-sm z-20 flex items-center justify-center">
+                        <div className="flex items-center space-x-2 bg-white dark:bg-[#1a1f2e] px-4 py-2 rounded-full shadow-lg border border-slate-200 dark:border-[#2a3040]">
+                            <RefreshCw className="w-5 h-5 text-rose-600 animate-spin" />
+                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Updating masterlist...</span>
+                        </div>
+                    </div>
+                )}
                 {/* Search & Filter Bar */}
                 <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-[#2a3040]">
                     <div className="relative flex-1 max-w-md group">
@@ -364,10 +378,10 @@ export default function ViolationsPage({
                                             name="firstOffenseFee"
                                             type="number"
                                             step="0.01"
-                                            defaultValue={editingData?.firstOffenseFee ?? 500}
+                                            defaultValue={editingData ? editingData.firstOffenseFee : ""}
                                             required
                                             className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                            placeholder="500.00"
+                                            placeholder="e.g. 500.00"
                                         />
                                     </div>
                                     <div>
@@ -379,10 +393,10 @@ export default function ViolationsPage({
                                             name="secondOffenseFee"
                                             type="number"
                                             step="0.01"
-                                            defaultValue={editingData?.secondOffenseFee ?? 1000}
+                                            defaultValue={editingData ? editingData.secondOffenseFee : ""}
                                             required
                                             className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                            placeholder="1000.00"
+                                            placeholder="e.g. 1000.00"
                                         />
                                     </div>
                                     <div>
@@ -394,10 +408,10 @@ export default function ViolationsPage({
                                             name="thirdOffenseFee"
                                             type="number"
                                             step="0.01"
-                                            defaultValue={editingData?.thirdOffenseFee ?? 1500}
+                                            defaultValue={editingData ? editingData.thirdOffenseFee : ""}
                                             required
                                             className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
-                                            placeholder="1500.00"
+                                            placeholder="e.g. 1500.00"
                                         />
                                     </div>
                                 </div>

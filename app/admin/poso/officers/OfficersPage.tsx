@@ -47,6 +47,7 @@ export interface OfficerItem {
     id: string;
     name: string | null;
     email: string | null;
+    isEmailVerified?: boolean;
     department: string | null;
     createdAt: Date;
 }
@@ -243,6 +244,9 @@ export default function OfficersPage({
                                     Email / Login Username
                                 </TableHead>
                                 <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
+                                    Email Verified
+                                </TableHead>
+                                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
                                     Department
                                 </TableHead>
                                 <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
@@ -256,7 +260,7 @@ export default function OfficersPage({
                         <TableBody>
                             {officers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-64 text-center">
+                                    <TableCell colSpan={6} className="h-64 text-center">
                                         <div className="flex flex-col items-center justify-center text-slate-400">
                                             <Users className="w-12 h-12 mb-3 stroke-[1.5]" />
                                             <p className="font-bold text-slate-700 dark:text-slate-300">
@@ -280,6 +284,18 @@ export default function OfficersPage({
 
                                         <TableCell className="font-semibold text-xs text-slate-600 dark:text-slate-400">
                                             {item.email}
+                                        </TableCell>
+
+                                        <TableCell>
+                                            <span
+                                                className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase italic w-fit ${
+                                                    item.isEmailVerified !== false
+                                                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+                                                        : "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400"
+                                                }`}
+                                            >
+                                                {item.isEmailVerified !== false ? "VERIFIED" : "UNVERIFIED"}
+                                            </span>
                                         </TableCell>
 
                                         <TableCell className="font-bold text-xs text-slate-700 dark:text-slate-300">

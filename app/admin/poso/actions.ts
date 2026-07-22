@@ -275,6 +275,7 @@ export async function getPosoOfficers({
                     id: true,
                     name: true,
                     email: true,
+                    isEmailVerified: true,
                     department: true,
                     createdAt: true,
                 },
