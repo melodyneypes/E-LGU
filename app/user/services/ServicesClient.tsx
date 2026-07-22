@@ -11,7 +11,8 @@ import {
     ShieldCheck,
     Coins,
     ChevronDown,
-    FileText
+    FileText,
+    Activity
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -158,6 +159,15 @@ export default function ServicesClient({ initialServices, themeColor }: Services
             accentBg = "bg-amber-500/10 dark:bg-amber-500/5";
             borderColor = "border-amber-500/10 dark:border-amber-500/5";
             buttonShadow = "shadow-amber-500/10";
+        } else if (categoryName === "RURAL HEALTH UNIT" || categoryName === "RURAL_HEALTH_UNIT" || categoryName === "RHU") {
+            title = "RURAL HEALTH UNIT SERVICES";
+            department = "RHU Office";
+            description = "Schedule medical check-ups and clinical consultations online.";
+            link = "/user/services/rural-health-unit";
+            icon = Activity;
+            accentBg = "bg-rose-500/10 dark:bg-rose-500/5";
+            borderColor = "border-rose-500/10 dark:border-rose-500/5";
+            buttonShadow = "shadow-rose-500/10";
         } else {
             // General or other office categories dynamically added to the DB in the future
             title = `${categoryName} SERVICES`;

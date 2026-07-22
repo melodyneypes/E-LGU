@@ -5,7 +5,7 @@ interface GenerateQueueParams {
   isPriority: boolean;
   appointmentDate: Date;
   appointmentSlot?: string;
-  category?: "CEDULA" | "BUSINESS_PERMIT" | "CIVIL_REGISTRY";
+  category?: "CEDULA" | "BUSINESS_PERMIT" | "CIVIL_REGISTRY" | "RHU";
 }
 
 /**
@@ -62,6 +62,8 @@ export async function generateQueueNumber({
     prefix = isPriority ? "RP" : "R";
   } else if (category === "BUSINESS_PERMIT") {
     prefix = isPriority ? "BP" : "B";
+  } else if (category === "RHU") {
+    prefix = isPriority ? "HP" : "H";
   } else {
     prefix = isPriority ? "P" : "";
   }
