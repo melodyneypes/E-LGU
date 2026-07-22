@@ -8,8 +8,7 @@ import {
     Briefcase, MapPin, Map,
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
-    FileText, BarChart3, ShieldAlert
-    FileText, BarChart3, Activity, Package
+    FileText, BarChart3, ShieldAlert, Activity, Package
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
