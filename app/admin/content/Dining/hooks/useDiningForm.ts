@@ -1,10 +1,13 @@
 import { useState, FormEvent } from "react";
 import { addDining, updateDining } from "@/app/admin/actions";
 import { useDining } from "../providers/DiningProvider";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export function useDiningForm() {
     const [loading, setLoading] = useState(false);
-    const { setIsAddModalOpen, editingData, setEditingData } = useDining();
+    const { setIsAddModalOpen, editingData, setEditingData, setIsPending } = useDining();
+    const router = useRouter();
 
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -21,14 +24,17 @@ export function useDiningForm() {
             }
 
             if (res?.success) {
+                toast.success(`Dining entry ${editingData ? "updated" : "added"} successfully!`);
                 setEditingData(null);
                 setIsAddModalOpen(false);
+                setIsPending(true);
+                router.refresh();
             } else {
-                alert(res?.error || "An error occurred");
+                toast.error(res?.error || "An error occurred");
             }
         } catch (error) {
             console.error("Error saving dining:", error);
-            alert("An error occurred while saving.");
+            toast.error("An error occurred while saving.");
         } finally {
             setLoading(false);
         }
@@ -36,6 +42,6 @@ export function useDiningForm() {
 
     return {
         handleSubmit,
-        loading
+        loading,
     };
 }
