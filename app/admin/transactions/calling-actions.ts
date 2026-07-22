@@ -659,3 +659,147 @@ export async function callSpecificRegistrarTicket(ticketId: string, counterName:
         return { success: false, error: "Internal server error" };
     }
 }
+
+export async function getRHUQueueTickets(counterName: string) {
+    try {
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const allRHUTxs = await prisma.transaction.findMany({
+            where: {
+                OR: [
+                    { type: { category: "Rural Health Unit" } },
+                    { type: { code: { startsWith: "RHU_" } } }
+                ],
+                status: { in: ["FOR_REQUESTING", "FOR_INSPECTION", "EVALUATED", "FOR_PROCESSING"] },
+                isCancelled: false,
+            },
+            include: {
+                type: true,
+                user: { include: { residentProfile: true } }
+            }
+        });
+
+        const filteredWaiting = allRHUTxs.filter(tx => {
+            const addData = tx.additionalData as any;
+            const isCheckedIn = tx.status === "FOR_INSPECTION" || (addData && !!addData.checkedIn);
+            return isCheckedIn && (!addData || !addData.counterName);
+        });
+
+        const serving = allRHUTxs.filter(tx => {
+            const addData = tx.additionalData as any;
+            return (tx.status === "EVALUATED" || tx.status === "FOR_PROCESSING") && addData?.counterName === counterName;
+        });
+
+        const sortedWaiting = filteredWaiting.sort((a, b) => {
+            if (a.isPriority && !b.isPriority) return -1;
+            if (!a.isPriority && b.isPriority) return 1;
+            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+            return aCheckedIn - bCheckedIn;
+        });
+
+        return { success: true, data: { waiting: sortedWaiting, serving } };
+    } catch (error) {
+        console.error("Failed to fetch RHU queue tickets:", error);
+        return { success: false, error: "Internal server error" };
+    }
+}
+
+export async function fetchAndCallNextRHUTicket(counterName: string) {
+    try {
+        const sanitizedCounterName = sanitizeString(counterName);
+
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Forbidden: Unauthorized role" };
+        }
+
+        const allRHUTxs = await prisma.transaction.findMany({
+            where: {
+                OR: [
+                    { type: { category: "Rural Health Unit" } },
+                    { type: { code: { startsWith: "RHU_" } } }
+                ],
+                status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] },
+                isCancelled: false,
+            }
+        });
+
+        const unassigned = allRHUTxs.filter(tx => {
+            const addData = tx.additionalData as any;
+            const isCheckedIn = tx.status === "FOR_INSPECTION" || (addData && !!addData.checkedIn);
+            return isCheckedIn && (!addData || !addData.counterName);
+        });
+
+        if (unassigned.length === 0) {
+            return { success: false, error: "No patients are currently waiting in the RHU queue." };
+        }
+
+        const sorted = unassigned.sort((a, b) => {
+            if (a.isPriority && !b.isPriority) return -1;
+            if (!a.isPriority && b.isPriority) return 1;
+            const aCheckedIn = new Date((a.additionalData as any)?.checkedInAt || a.createdAt).getTime();
+            const bCheckedIn = new Date((b.additionalData as any)?.checkedInAt || b.createdAt).getTime();
+            return aCheckedIn - bCheckedIn;
+        });
+
+        const nextTx = sorted[0];
+        const currentAdditionalData = (nextTx.additionalData as any) || {};
+        const updated = await prisma.transaction.update({
+            where: { id: nextTx.id },
+            data: {
+                status: "FOR_PROCESSING",
+                additionalData: { ...currentAdditionalData, counterName: sanitizedCounterName, servingDepartment: "RHU" },
+                updatedAt: new Date()
+            }
+        });
+
+        revalidatePath("/admin/rhu");
+        revalidatePath("/queue");
+        return { success: true, data: updated };
+    } catch (error) {
+        console.error("Failed to fetch and call next RHU ticket:", error);
+        return { success: false, error: "Internal server error" };
+    }
+}
+
+export async function callSpecificRHUTicket(ticketId: string, counterName: string) {
+    try {
+        const sanitizedCounterName = sanitizeString(counterName);
+
+        const session = await getServerSession(authOptions);
+        const user = session?.user as any;
+        const allowedRoles = ["ADMIN", "BARANGAY_ADMIN", "TREASURY_STAFF", "ADMIN_AIDE", "ENGINEER", "REGISTRAR"];
+        if (!user || !allowedRoles.includes(user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const tx = await prisma.transaction.findUnique({ where: { id: ticketId } });
+        if (!tx) return { success: false, error: "Ticket not found" };
+
+        const currentAdditionalData = (tx.additionalData as any) || {};
+        const updated = await prisma.transaction.update({
+            where: { id: ticketId },
+            data: {
+                status: "FOR_PROCESSING",
+                additionalData: { ...currentAdditionalData, counterName: sanitizedCounterName, servingDepartment: "RHU" },
+                updatedAt: new Date()
+            }
+        });
+
+        revalidatePath("/admin/rhu");
+        revalidatePath("/queue");
+        return { success: true, data: updated };
+    } catch (error) {
+        console.error("Failed to call specific RHU ticket:", error);
+        return { success: false, error: "Internal server error" };
+    }
+}
+

@@ -161,7 +161,7 @@ export async function submitRHUAppointment(formData: FormData) {
         const isAM = appointmentSlot.includes("AM") || appointmentSlot.toUpperCase().includes("08:00 AM");
         const maxLimit = isAM ? maxSlotsAM : maxSlotsPM;
 
-        if (bookedCount >= maxLimit) {
+        if (maxLimit > 0 && maxLimit < 99999 && bookedCount >= maxLimit) {
             return { success: false, error: "This appointment slot is already fully booked." };
         }
 
@@ -180,7 +180,7 @@ export async function submitRHUAppointment(formData: FormData) {
                 data: {
                     userId: session.user.id,
                     typeId,
-                    status: "FOR_PROCESSING", // RHU request goes straight to processing
+                    status: "FOR_REQUESTING", // RHU request initial status when submitted
                     residentSnapshot,
                     additionalData: {
                         ...additionalData,
@@ -225,5 +225,38 @@ export async function submitRHUAppointment(formData: FormData) {
     } catch (error) {
         console.error("Submit RHU appointment error:", error);
         return { success: false, error: "Failed to book appointment" };
+    }
+}
+
+export async function updateRHUAppointmentConfig(data: { maxSlots?: number; activeDays?: number[]; blockedDates?: string[] }) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const updated = await prisma.appointmentConfig.upsert({
+            where: { department: "RHU" },
+            update: {
+                maxSlots: data.maxSlots,
+                activeDays: data.activeDays,
+                blockedDates: data.blockedDates,
+                updatedAt: new Date()
+            },
+            create: {
+                department: "RHU",
+                maxSlots: data.maxSlots || 50,
+                activeDays: data.activeDays || [1, 2, 3, 4, 5],
+                blockedDates: data.blockedDates || []
+            }
+        });
+
+        revalidatePath("/admin/rhu/appointment-settings");
+        revalidatePath("/user/services/rural-health-unit");
+
+        return { success: true, data: updated };
+    } catch (error: any) {
+        console.error("updateRHUAppointmentConfig error:", error);
+        return { success: false, error: error.message || "Failed to update config" };
     }
 }
