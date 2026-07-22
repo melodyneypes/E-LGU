@@ -30,6 +30,9 @@ export function getPostLoginDestination(
     if (department === "REGISTRAR" || department === "CIVIL_REGISTRY") {
         return "/admin/registrar";
     }
+    if (department === "RHU" || department === "HEALTH" || department === "RURAL_HEALTH_UNIT") {
+        return "/admin/rhu";
+    }
     if (user.accessiblePages?.length) return user.accessiblePages[0];
     return "/admin/dashboard";
 }

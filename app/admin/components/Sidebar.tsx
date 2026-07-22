@@ -8,7 +8,7 @@ import {
     Briefcase, MapPin, Map,
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
-    FileText, BarChart3
+    FileText, BarChart3, Activity
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -70,6 +70,7 @@ export function Sidebar({
     const [liveLcrCounts, setLiveLcrCounts] = React.useState<Record<string, number>>(unviewedLcrCounts);
     const [liveReportsCount, setLiveReportsCount] = React.useState(pendingReportsCount);
     const [isTreasuryOpen, setIsTreasuryOpen] = React.useState(pathname.startsWith("/admin/treasury") && !pathname.includes("/payment-settings") && !pathname.includes("/appointment-settings"));
+    const [isRHUOpen, setIsRHUOpen] = React.useState(pathname.startsWith("/admin/rhu") && !pathname.startsWith("/admin/rhu/appointment-settings") && !pathname.startsWith("/admin/rhu/queue"));
 
     const { theme, setTheme } = useTheme();
     React.useEffect(() => {
@@ -405,6 +406,43 @@ export function Sidebar({
         { href: "/admin/registrar/queue", label: "Registrar Queue", icon: Users, category: "Registrar" },
         { href: "/admin/treasury/payment-settings", label: "Payment Settings", icon: CreditCard, category: "Registrar" },
         {
+            label: "Rural Health Unit",
+            icon: Activity,
+            category: "Rural Health Unit",
+            isDropdown: true,
+            isOpen: isRHUOpen,
+            onToggle: () => {
+                if (isRHUOpen) {
+                    setIsRHUOpen(false);
+                } else {
+                    setIsRHUOpen(true);
+                    router.push("/admin/rhu");
+                }
+            },
+            subItems: [
+                { href: "/admin/rhu", label: "Dashboard" },
+                { href: "/admin/rhu/consultations", label: "All Consultations" },
+            ]
+        },
+        {
+            href: "/admin/rhu/appointment-settings",
+            label: "RHU Settings",
+            icon: Calendar,
+            category: "Rural Health Unit"
+        },
+        {
+            href: "/admin/rhu/ledger",
+            label: "RHU Consultation Ledger",
+            icon: FileText,
+            category: "Rural Health Unit"
+        },
+        {
+            href: "/admin/rhu/queue",
+            label: "RHU Counter Queue",
+            icon: Users,
+            category: "Rural Health Unit"
+        },
+        {
             label: "Treasury Hub",
             icon: LayoutDashboard,
             category: "Treasury Department",
@@ -535,6 +573,8 @@ export function Sidebar({
                         ["Treasury Hub", "Payments Ledger", "Treasury Queue"].includes(item.label) ||
                         (item.label === "Appointment Settings" && item.category === "Treasury Department")
                     );
+                } else if (deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") {
+                    menuItems = allMenuItems.filter(item => item.category === "Rural Health Unit");
                 } else if (deptUpper === "LGU") {
                     menuItems = allMenuItems.filter(item =>
                         !["Registrar Hub", "Transaction Ledger", "Registrar Queue", "BPLO Queue", "Treasury Queue"].includes(item.label) &&
@@ -559,7 +599,12 @@ export function Sidebar({
                 (item.label === "Appointment Settings" && item.category === "Treasury Department")
             );
         } else if (role === "ADMIN_AIDE") {
-            menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue"].includes(item.label));
+            const deptUpper = department?.toUpperCase();
+            if (deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") {
+                menuItems = allMenuItems.filter(item => item.category === "Rural Health Unit");
+            } else {
+                menuItems = allMenuItems.filter(item => ["BPLO Permits", "BPLO Appointment Settings", "BPLO Queue"].includes(item.label));
+            }
         } else if (role === "ENGINEER") {
             menuItems = [
                 { href: "/admin/engineer", label: "Engineer Hub", icon: HardHat, category: "Engineering" }
@@ -747,26 +792,36 @@ export function Sidebar({
                                                         className="overflow-hidden mt-1 ml-4 pl-4 border-l border-slate-200 dark:border-[#2a3040] space-y-1"
                                                     >
                                                         {(normalizedQuery && !parentMatches ? subMatches : item.subItems)?.map((sub) => {
-                                                            const currentCategory = searchParams.get("category") || "ALL";
+                                                            const currentCategory = searchParams.get("category");
+                                                            const currentCheckupType = searchParams.get("checkupType");
                                                             const currentTab = searchParams.get("tab") || "general";
                                                             const currentType = searchParams.get("type") || "BIRTH";
 
                                                             const urlObj = new URL(sub.href, "http://localhost");
                                                             const subCategory = urlObj.searchParams.get("category");
+                                                            const subCheckupType = urlObj.searchParams.get("checkupType");
                                                             const subTab = urlObj.searchParams.get("tab");
                                                             const subType = urlObj.searchParams.get("type");
 
-                                                            const isSubActive = (
+                                                            const isPathMatch = (
                                                                 pathname === urlObj.pathname ||
                                                                 (pathname.startsWith("/admin/treasury/") && !pathname.includes("/payment-settings") && !pathname.includes("/payments") && urlObj.pathname === "/admin/treasury") ||
-                                                                (pathname.startsWith("/admin/registrar/") && !pathname.startsWith("/admin/registrar/ledger") && urlObj.pathname === "/admin/registrar")
-                                                            ) &&
-                                                                (urlObj.searchParams.has("category")
-                                                                    ? currentCategory === subCategory
-                                                                    : !searchParams.has("category") || searchParams.get("category") === "ALL"
-                                                                ) &&
-                                                                (subTab ? currentTab === subTab : true) &&
-                                                                (subType ? currentType === subType : true);
+                                                                (pathname.startsWith("/admin/registrar/") && !pathname.startsWith("/admin/registrar/ledger") && urlObj.pathname === "/admin/registrar") ||
+                                                                (pathname.startsWith("/admin/rhu/consultations") && urlObj.pathname === "/admin/rhu/consultations")
+                                                            );
+
+                                                            const isCategoryMatch = urlObj.searchParams.has("category")
+                                                                ? currentCategory === subCategory
+                                                                : true;
+
+                                                            const isCheckupTypeMatch = urlObj.searchParams.has("checkupType")
+                                                                ? currentCheckupType === subCheckupType
+                                                                : !currentCheckupType || currentCheckupType === "ALL";
+
+                                                            const isTabMatch = subTab ? currentTab === subTab : true;
+                                                            const isTypeMatch = subType ? currentType === subType : true;
+
+                                                            const isSubActive = isPathMatch && isCategoryMatch && isCheckupTypeMatch && isTabMatch && isTypeMatch;
                                                             const isDashboard = sub.label === "Dashboard";
                                                             return (
                                                                 <React.Fragment key={sub.href}>
