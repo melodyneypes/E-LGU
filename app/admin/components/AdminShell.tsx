@@ -144,7 +144,21 @@ export function AdminShell({
                 }
             }
         } else if (role === "CONTENT_ADMIN") {
-            if (!pathname.startsWith("/admin/announcements") && !pathname.startsWith("/admin/news") && !pathname.startsWith("/admin/events")) {
+            const allowedPrefixes = [
+                "/admin/announcements",
+                "/admin/news",
+                "/admin/events",
+                "/admin/projects",
+                "/admin/dining",
+                "/admin/accommodation",
+                "/admin/tourism",
+                "/admin/jobs",
+                "/admin/church",
+                "/admin/about",
+                "/admin/officials",
+                "/admin/hotlines"
+            ];
+            if (!allowedPrefixes.some((prefix) => pathname.startsWith(prefix))) {
                 isRestricted = true;
             }
         } else if (role === "TREASURY_STAFF") {

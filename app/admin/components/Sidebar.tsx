@@ -448,7 +448,10 @@ export function Sidebar({
         "Kainan (Dining)",
         "Tuluyan (Stay)",
         "Gallery",
+        "Church Management",
         "Job Postings",
+        "Council Members",
+        "Hotlines",
         "Typhoon Alerts"
     ];
 
