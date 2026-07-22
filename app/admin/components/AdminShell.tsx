@@ -116,7 +116,8 @@ export function AdminShell({
                 role === "ENGINEER" ||
                 role === "MPDC_ZONING" ||
                 role === "CONTENT_ADMIN" ||
-                (role === "ADMIN" && (deptUpper === "TREASURY" || deptUpper === "BPLO" || deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY"))
+                role === "POSO_OFFICER" ||
+                (role === "ADMIN" && (deptUpper === "TREASURY" || deptUpper === "BPLO" || deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY" || deptUpper === "POSO"))
             ) {
                 isRedirecting = true;
             } else {
@@ -133,10 +134,13 @@ export function AdminShell({
                 isRestricted = true;
             } else if (deptUpper === "TREASURY" && !pathname.startsWith("/admin/treasury") && !pathname.startsWith("/admin/treasury/payments") && !pathname.startsWith("/admin/treasury/payment-settings") && !pathname.startsWith("/admin/treasury/appointment-settings")) {
                 isRestricted = true;
+            } else if (deptUpper === "POSO" && !pathname.startsWith("/admin/poso")) {
+                isRestricted = true;
             } else if (deptUpper === "LGU") {
-                // LGU admins are restricted from registrar specialized sub-sections, and queues
+                // LGU admins are restricted from registrar specialized sub-sections, queues, and POSO enforcement
                 if (
                     pathname.startsWith("/admin/registrar") ||
+                    pathname.startsWith("/admin/poso") ||
                     pathname === "/admin/bplo/queue" ||
                     pathname === "/admin/treasury/queue"
                 ) {
@@ -202,9 +206,13 @@ export function AdminShell({
                             router.push("/admin/registrar");
                         } else if (deptUpper === "BPLO") {
                             router.push("/admin/bplo");
+                        } else if (deptUpper === "POSO") {
+                            router.push("/admin/poso/tickets");
                         }
                     } else if (role === "CONTENT_ADMIN") {
                         router.push("/admin/announcements");
+                    } else if (role === "POSO_OFFICER") {
+                        router.push("/admin/poso/tickets");
                     } else if (role === "TREASURY_STAFF") {
                         router.push("/admin/treasury?category=CEDULA");
                     } else if (role === "ADMIN_AIDE") {
