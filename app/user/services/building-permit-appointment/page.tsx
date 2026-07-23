@@ -69,7 +69,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { getCurrentUserResident, cancelTransaction, getSystemSettingAction } from "@/app/admin/transactions/actions";
+import { getCurrentUserResident, cancelTransaction } from "@/app/admin/transactions/actions";
 import { submitBuildingPermit, saveTransactionSignature, getExistingBuildingPermits, resubmitBuildingPermit, submitBuildingPermitPaymentProof, checkActivePropertyPermit, getBarangaysAction, getEngineeringAppointmentConfig } from "./actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -406,16 +406,14 @@ const getDisplayStatusDetails = (app: any) => {
   };
 };
 
+import { notFound } from "next/navigation";
+
 export default function BuildingPermitAppointmentPage() {
   const router = useRouter();
-  const [themeColor, setThemeColor] = useState("var(--primary-theme)");
+  const themeColor = "var(--primary-theme)";
 
   useEffect(() => {
-    getSystemSettingAction("theme_color").then((res) => {
-      if (res.success && res.data) {
-        setThemeColor(res.data);
-      }
-    });
+    notFound();
   }, []);
 
   const [currentStep, setCurrentStep] = useState("APPOINTMENT");

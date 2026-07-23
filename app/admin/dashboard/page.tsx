@@ -468,7 +468,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         const key = getPhilippineDateString(tx.createdAt);
         if (chartDataMap[key]) {
             chartDataMap[key].requests += 1;
-            
+
             if (tx.status === "FOR_REQUESTING" || tx.status === "FOR_INSPECTION" || tx.status === "FOR_REVISION") {
                 chartDataMap[key].evaluation += 1;
             } else if (tx.status === "FOR_PROCESSING") {
@@ -582,8 +582,8 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
             createdAt: t.createdAt
         }))
     ]
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, 7);
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, 7);
 
     return (
         <div className="p-8 w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -611,160 +611,160 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
 
             <DashboardClientWrapper>
                 {/* Stat Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Residents Card */}
-                <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
-                    <div className="absolute -top-4 -right-4 text-blue-100 dark:text-blue-500/10 transition-transform group-hover:scale-110">
-                        <Users size={120} strokeWidth={1} />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {/* Residents Card */}
+                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
+                        <div className="absolute -top-4 -right-4 text-blue-100 dark:text-blue-500/10 transition-transform group-hover:scale-110">
+                            <Users size={120} strokeWidth={1} />
+                        </div>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Total Residents</p>
+                        <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{residentsCount.toLocaleString()}</h2>
+                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-blue-600 italic">
+                            <span className="bg-blue-50 dark:bg-blue-500/10 px-2 py-1 rounded-full">Registered Registry</span>
+                        </div>
                     </div>
-                    <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Total Residents</p>
-                    <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{residentsCount.toLocaleString()}</h2>
-                    <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-blue-600 italic">
-                        <span className="bg-blue-50 dark:bg-blue-500/10 px-2 py-1 rounded-full">Registered Registry</span>
+
+                    {/* Jobs Card */}
+                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
+                        <div className="absolute -top-4 -right-4 text-emerald-100 dark:text-emerald-500/10 transition-transform group-hover:scale-110">
+                            <Briefcase size={120} strokeWidth={1} />
+                        </div>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Jobs Posted</p>
+                        <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{jobsCount.toLocaleString()}</h2>
+                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-emerald-600 italic">
+                            <span className="bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-full">Available Openings</span>
+                        </div>
+                    </div>
+
+                    {/* Reports Card */}
+                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
+                        <div className="absolute -top-4 -right-4 text-orange-100 dark:text-orange-500/10 transition-transform group-hover:scale-110">
+                            <AlertTriangle size={120} strokeWidth={1} />
+                        </div>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Pending Reports</p>
+                        <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{reportsCount.toLocaleString()}</h2>
+                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-orange-600 italic">
+                            <span className="bg-orange-50 dark:bg-orange-500/10 px-2 py-1 rounded-full">Needs Response</span>
+                        </div>
+                    </div>
+
+                    {/* Projects Card */}
+                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
+                        <div className="absolute -top-4 -right-4 text-purple-100 dark:text-purple-500/10 transition-transform group-hover:scale-110">
+                            <Hammer size={120} strokeWidth={1} />
+                        </div>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">LGU Projects</p>
+                        <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{projectsCount.toLocaleString()}</h2>
+                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-purple-600 italic">
+                            <span className="bg-purple-50 dark:bg-purple-500/10 px-2 py-1 rounded-full">Infrastructure Works</span>
+                        </div>
                     </div>
                 </div>
 
-                {/* Jobs Card */}
-                <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
-                    <div className="absolute -top-4 -right-4 text-emerald-100 dark:text-emerald-500/10 transition-transform group-hover:scale-110">
-                        <Briefcase size={120} strokeWidth={1} />
-                    </div>
-                    <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Jobs Posted</p>
-                    <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{jobsCount.toLocaleString()}</h2>
-                    <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-emerald-600 italic">
-                        <span className="bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-full">Available Openings</span>
-                    </div>
-                </div>
-
-                {/* Reports Card */}
-                <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
-                    <div className="absolute -top-4 -right-4 text-orange-100 dark:text-orange-500/10 transition-transform group-hover:scale-110">
-                        <AlertTriangle size={120} strokeWidth={1} />
-                    </div>
-                    <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Pending Reports</p>
-                    <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{reportsCount.toLocaleString()}</h2>
-                    <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-orange-600 italic">
-                        <span className="bg-orange-50 dark:bg-orange-500/10 px-2 py-1 rounded-full">Needs Response</span>
-                    </div>
-                </div>
-
-                {/* Projects Card */}
-                <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
-                    <div className="absolute -top-4 -right-4 text-purple-100 dark:text-purple-500/10 transition-transform group-hover:scale-110">
-                        <Hammer size={120} strokeWidth={1} />
-                    </div>
-                    <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">LGU Projects</p>
-                    <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{projectsCount.toLocaleString()}</h2>
-                    <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-purple-600 italic">
-                        <span className="bg-purple-50 dark:bg-purple-500/10 px-2 py-1 rounded-full">Infrastructure Works</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Strategic Operations & Activity Logs Side-by-Side (Below Cards) */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                {/* Quick Actions (Col-span 2) */}
-                <div className="lg:col-span-2 space-y-6">
-                    <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Administrative Services</h3>
-                    <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[3rem] shadow-xl overflow-hidden">
-                        {[
-                            { title: "Kainan Hub", desc: "Manage local dining and culinary spots.", icon: Utensils, color: "orange", action: "Manage Dining", path: "/admin/dining" },
-                            { title: "Tuluyan Hub", desc: "Update local accommodation and lodging records.", icon: Hotel, color: "blue", action: "Manage Lodging", path: "/admin/accommodation" },
-                            { title: "Tourism Gallery", desc: "Showcase local spots and gallery highlights.", icon: Image, color: "emerald", action: "Manage Gallery", path: "/admin/tourism" },
-                            { title: "Incident Reports", desc: "Monitor and respond to public incident files.", icon: Flag, color: "rose", action: "Review Reports", path: "/admin/reports" },
-                            { title: "Emergency Hotlines", desc: "Update critical emergency hotlines list.", icon: Phone, color: "purple", action: "Manage Hotlines", path: "/admin/hotlines" }
-                        ].map((item, idx) => (
-                            <Link 
-                                key={idx} 
-                                href={item.path}
-                                className="p-8 flex flex-col sm:flex-row sm:items-center justify-between border-b last:border-0 border-slate-100 dark:border-[#2a3040] gap-4 transition-colors hover:bg-slate-50/50 dark:hover:bg-white/5 cursor-pointer block"
-                            >
-                                <div className="flex items-start space-x-6">
-                                    <div className={`w-14 h-14 rounded-2xl bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-50 dark:bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-500/10 flex items-center justify-center shrink-0`}>
-                                        <item.icon className={`w-7 h-7 text-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-600`} />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-xl font-bold text-slate-900 dark:text-white leading-tight uppercase italic">{item.title}</h4>
-                                        <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic mt-1">{item.desc}</p>
-                                    </div>
-                                </div>
-                                <span 
-                                    className="text-center whitespace-nowrap px-6 py-3 rounded-2xl text-xs font-black uppercase italic transition-all shadow-lg hover:shadow-xl active:scale-95 border border-slate-200 dark:border-none text-white hover:opacity-90 inline-block"
-                                    style={{ backgroundColor: themeColor }}
+                {/* Strategic Operations & Activity Logs Side-by-Side (Below Cards) */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                    {/* Quick Actions (Col-span 2) */}
+                    <div className="lg:col-span-2 space-y-6">
+                        <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Administrative Services</h3>
+                        <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[3rem] shadow-xl overflow-hidden">
+                            {[
+                                { title: "Kainan Hub", desc: "Manage local dining and culinary spots.", icon: Utensils, color: "orange", action: "Manage Dining", path: "/admin/dining" },
+                                { title: "Tuluyan Hub", desc: "Update local accommodation and lodging records.", icon: Hotel, color: "blue", action: "Manage Lodging", path: "/admin/accommodation" },
+                                { title: "Tourism Gallery", desc: "Showcase local spots and gallery highlights.", icon: Image, color: "emerald", action: "Manage Gallery", path: "/admin/tourism" },
+                                { title: "Incident Reports", desc: "Monitor and respond to public incident files.", icon: Flag, color: "rose", action: "Review Reports", path: "/admin/reports" },
+                                { title: "Emergency Hotlines", desc: "Update critical emergency hotlines list.", icon: Phone, color: "purple", action: "Manage Hotlines", path: "/admin/hotlines" }
+                            ].map((item, idx) => (
+                                <Link
+                                    key={idx}
+                                    href={item.path}
+                                    className="p-8 flex flex-col sm:flex-row sm:items-center justify-between border-b last:border-0 border-slate-100 dark:border-[#2a3040] gap-4 transition-colors hover:bg-slate-50/50 dark:hover:bg-white/5 cursor-pointer block"
                                 >
-                                    {item.action}
-                                </span>
-                            </Link>
-                        ))}
+                                    <div className="flex items-start space-x-6">
+                                        <div className={`w-14 h-14 rounded-2xl bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-50 dark:bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-500/10 flex items-center justify-center shrink-0`}>
+                                            <item.icon className={`w-7 h-7 text-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-600`} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-xl font-bold text-slate-900 dark:text-white leading-tight uppercase italic">{item.title}</h4>
+                                            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic mt-1">{item.desc}</p>
+                                        </div>
+                                    </div>
+                                    <span
+                                        className="text-center whitespace-nowrap px-6 py-3 rounded-2xl text-xs font-black uppercase italic transition-all shadow-lg hover:shadow-xl active:scale-95 border border-slate-200 dark:border-none text-white hover:opacity-90 inline-block"
+                                        style={{ backgroundColor: themeColor }}
+                                    >
+                                        {item.action}
+                                    </span>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Activity Logs (Col-span 1) */}
+                    <div className="space-y-6">
+                        <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Activity Logs</h3>
+                        <ActivityLogsCard logs={activityLogs} />
                     </div>
                 </div>
 
-                {/* Activity Logs (Col-span 1) */}
-                <div className="space-y-6">
-                    <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Activity Logs</h3>
-                    <ActivityLogsCard logs={activityLogs} />
+
+
+                {/* Chart Section */}
+                <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                    <TransactionDashboardView
+                        data={chartData}
+                        initialFrom={fromDate.toISOString().split("T")[0]}
+                        initialTo={toDate.toISOString().split("T")[0]}
+                        categories={categories}
+                        activeCategory={selectedCategory}
+                        themeColor={themeColor}
+                    />
                 </div>
-            </div>
 
+                {/* Payment Revenue Chart Section */}
+                <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                    <PaymentDashboardView
+                        data={paymentChartData}
+                        initialFrom={payFromDate.toISOString().split("T")[0]}
+                        initialTo={payToDate.toISOString().split("T")[0]}
+                        categories={categories}
+                        activeCategory={payCategory}
+                        activeMethod={payMethod}
+                    />
+                </div>
 
+                {/* Resident Onboarding Chart Section */}
+                <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                    <ResidentDashboardView
+                        data={residentChartData}
+                        initialFrom={resFromDate.toISOString().split("T")[0]}
+                        initialTo={resToDate.toISOString().split("T")[0]}
+                        activeGender={resGender}
+                        activeCivilStatus={resCivil}
+                        activeSector={resSector}
+                    />
+                </div>
 
-            {/* Chart Section */}
-            <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                <TransactionDashboardView 
-                    data={chartData} 
-                    initialFrom={fromDate.toISOString().split("T")[0]}
-                    initialTo={toDate.toISOString().split("T")[0]}
-                    categories={categories}
-                    activeCategory={selectedCategory}
-                    themeColor={themeColor}
-                />
-            </div>
+                {/* Citizen Reports Overview Section */}
+                <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                    <ReportsOverviewCard
+                        initialReports={recentReportsDetailed.map((r: { id: string; category: string; status: string; description: string; createdAt: Date; user: { name: string | null } | null; barangay: { name: string } | null }) => ({
+                            ...r,
+                            createdAt: r.createdAt.toISOString()
+                        }))}
+                    />
+                </div>
 
-            {/* Payment Revenue Chart Section */}
-            <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                <PaymentDashboardView 
-                    data={paymentChartData}
-                    initialFrom={payFromDate.toISOString().split("T")[0]}
-                    initialTo={payToDate.toISOString().split("T")[0]}
-                    categories={categories}
-                    activeCategory={payCategory}
-                    activeMethod={payMethod}
-                />
-            </div>
+                {/* Recent Announcements & Latest News Side-by-Side */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                    <RecentAnnouncementsCard announcements={recentAnnouncements} />
+                    <LatestNewsCard news={latestNews} />
+                </div>
 
-            {/* Resident Onboarding Chart Section */}
-            <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                <ResidentDashboardView 
-                    data={residentChartData}
-                    initialFrom={resFromDate.toISOString().split("T")[0]}
-                    initialTo={resToDate.toISOString().split("T")[0]}
-                    activeGender={resGender}
-                    activeCivilStatus={resCivil}
-                    activeSector={resSector}
-                />
-            </div>
-
-            {/* Citizen Reports Overview Section */}
-            <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                <ReportsOverviewCard
-                    initialReports={recentReportsDetailed.map((r: { id: string; category: string; status: string; description: string; createdAt: Date; user: { name: string | null } | null; barangay: { name: string } | null }) => ({
-                        ...r,
-                        createdAt: r.createdAt.toISOString()
-                    }))}
-                />
-            </div>
-
-            {/* Recent Announcements & Latest News Side-by-Side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                <RecentAnnouncementsCard announcements={recentAnnouncements} />
-                <LatestNewsCard news={latestNews} />
-            </div>
-
-            {/* Upcoming Events & LGU Projects Side-by-Side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                <UpcomingEventsCard events={upcomingEvents} pastEvents={pastEvents} />
-                <LGUProjectsCard projects={activeProjects} />
-            </div>
+                {/* Upcoming Events & LGU Projects Side-by-Side */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                    <UpcomingEventsCard events={upcomingEvents} pastEvents={pastEvents} />
+                    <LGUProjectsCard projects={activeProjects} />
+                </div>
 
 
             </DashboardClientWrapper>

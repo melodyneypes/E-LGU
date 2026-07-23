@@ -682,6 +682,7 @@ model Transaction {
   marriagePsaEndorsementRequest MarriagePsaEndorsementRequest? // One-to-one link to the marriage psa endorsement request
   birthPsaEndorsementRequest BirthPsaEndorsementRequest? // One-to-one link to the birth psa endorsement request
   deathPsaEndorsementRequest DeathPsaEndorsementRequest? // One-to-one link to the death psa endorsement request
+  ticketHeader      TicketHeader?     // One-to-one link to the POSO ticket header
   
   appointmentDate   DateTime?
   appointmentSlot   String?
@@ -1191,26 +1192,31 @@ model AppointmentConfig {
   updatedAt    DateTime @updatedAt
 }
 
-enum InventoryCategory {
-  MEDICINE
-  MEDICAL_SUPPLY
+// ------------------------------------------------------
+// POSO TRAFFIC ENFORCEMENT & TICKETING MODELS
+// ------------------------------------------------------
+
+model TrafficViolation {
+  id               String   @id @default(cuid())
+  violationCode    String?  @unique
+  violationName    String
+  firstOffenseFee  Float    @default(0)
+  secondOffenseFee Float    @default(0)
+  thirdOffenseFee  Float    @default(0)
+  remarks          String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  ticketDetails    TicketDetail[]
 }
 
-model RHUInventoryItem {
-  id             String            @id @default(cuid())
-  name           String
-  genericName    String?
-  brandName      String?
-  category       InventoryCategory @default(MEDICINE)
-  dosage         String?
-  unit           String            @default("pcs")
-  quantity       Int               @default(0)
-  reorderLevel   Int               @default(10)
-  expirationDate DateTime?
-  batchNumber    String?
-  remarks        String?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+enum TicketStatus {
+  ISSUED
+  RESOLVED
+  CONTESTED
+  CANCELLED
+}
 
   batches        RHUInventoryBatch[]
 

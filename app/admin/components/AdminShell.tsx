@@ -116,7 +116,8 @@ export function AdminShell({
                 role === "ENGINEER" ||
                 role === "MPDC_ZONING" ||
                 role === "CONTENT_ADMIN" ||
-                (role === "ADMIN" && (deptUpper === "TREASURY" || deptUpper === "BPLO" || deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY"))
+                role === "POSO_OFFICER" ||
+                (role === "ADMIN" && (deptUpper === "TREASURY" || deptUpper === "BPLO" || deptUpper === "REGISTRAR" || deptUpper === "CIVIL_REGISTRY" || deptUpper === "POSO"))
             ) {
                 isRedirecting = true;
             } else {
@@ -135,10 +136,13 @@ export function AdminShell({
                 isRestricted = true;
             } else if (deptUpper === "TREASURY" && !pathname.startsWith("/admin/treasury") && !pathname.startsWith("/admin/treasury/payments") && !pathname.startsWith("/admin/treasury/payment-settings") && !pathname.startsWith("/admin/treasury/appointment-settings")) {
                 isRestricted = true;
+            } else if (deptUpper === "POSO" && !pathname.startsWith("/admin/poso")) {
+                isRestricted = true;
             } else if (deptUpper === "LGU") {
-                // LGU admins are restricted from registrar specialized sub-sections, and queues
+                // LGU admins are restricted from registrar specialized sub-sections, queues, and POSO enforcement
                 if (
                     pathname.startsWith("/admin/registrar") ||
+                    pathname.startsWith("/admin/poso") ||
                     pathname === "/admin/bplo/queue" ||
                     pathname === "/admin/treasury/queue"
                 ) {
@@ -204,11 +208,13 @@ export function AdminShell({
                             router.push("/admin/registrar");
                         } else if (deptUpper === "BPLO") {
                             router.push("/admin/bplo");
-                        } else if (deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") {
-                            router.push("/admin/rhu");
+                        } else if (deptUpper === "POSO") {
+                            router.push("/admin/poso/tickets");
                         }
                     } else if (role === "CONTENT_ADMIN") {
                         router.push("/admin/announcements");
+                    } else if (role === "POSO_OFFICER") {
+                        router.push("/admin/poso/tickets");
                     } else if (role === "TREASURY_STAFF") {
                         router.push("/admin/treasury?category=CEDULA");
                     } else if (role === "ADMIN_AIDE") {
@@ -253,7 +259,7 @@ export function AdminShell({
                     {isRedirecting ? (
                         <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 bg-slate-50 dark:bg-[#0c111d] transition-colors duration-300">
                             <div className="max-w-md w-full bg-white dark:bg-[#151b28] rounded-[2rem] p-10 text-center shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-100 dark:border-white/5 space-y-6 flex flex-col items-center justify-center">
-                        <div className="w-16 h-16 rounded-3xl bg-blue-500/10 text-blue-600 flex items-center justify-center mx-auto shadow-lg shadow-blue-500/5">
+                                <div className="w-16 h-16 rounded-3xl bg-blue-500/10 text-blue-600 flex items-center justify-center mx-auto shadow-lg shadow-blue-500/5">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 animate-spin">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                                     </svg>

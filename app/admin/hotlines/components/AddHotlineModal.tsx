@@ -8,144 +8,180 @@ import {
     DialogHeader,
     DialogTitle,
     DialogDescription,
-    DialogFooter
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, Phone, PhoneCall, MapPin, Hash } from "lucide-react";
-import type { CSSProperties } from "react";
+import { Phone, X, Save } from "lucide-react";
 
 export function AddHotlineModal() {
     const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, themeColor } = useHotlines();
     const { handleSubmit, loading } = useHotlinesForm();
 
+    const handleClose = () => {
+        setIsAddModalOpen(false);
+        setTimeout(() => {
+            setEditingData(null);
+        }, 200);
+    };
+
     return (
-        <Dialog open={isAddModalOpen} onOpenChange={(open) => {
-            setIsAddModalOpen(open);
-            if (!open) setEditingData(null);
-        }}>
-            <DialogContent className="sm:max-w-4xl p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-[2.5rem]">
-                <div className="flex flex-col h-[90vh] sm:max-h-[85vh]">
+        <Dialog
+            open={isAddModalOpen}
+            onOpenChange={(open) => {
+                setIsAddModalOpen(open);
+                if (!open) {
+                    setTimeout(() => {
+                        setEditingData(null);
+                    }, 200);
+                }
+            }}
+        >
+            <DialogContent showCloseButton={false} className="sm:max-w-4xl p-0 overflow-hidden bg-slate-50 dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-2xl">
+                <div className="relative flex flex-col h-[90vh] sm:h-auto sm:max-h-[85vh]">
+                    {/* Header */}
                     <DialogHeader
-                        className="p-6 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040] relative overflow-hidden shrink-0"
+                        className="p-6 pb-4 sticky top-0 z-50 border-b border-slate-200 dark:border-[#2a3040] flex flex-row items-center justify-between"
                         style={{ backgroundColor: `${themeColor}14` }}
                     >
                         <div className="flex items-center space-x-3">
-                            <div 
-                                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg" 
-                                style={{ backgroundColor: themeColor, boxShadow: `0 12px 30px -12px ${themeColor}` }}
-                            >
-                                <Phone className="w-6 h-6 text-white" />
+                            <div className="p-2 rounded-lg shadow-lg" style={{ backgroundColor: themeColor, boxShadow: `0 12px 30px -12px ${themeColor}` }}>
+                                <Phone className="w-5 h-5 text-white" />
                             </div>
                             <div>
-                                <DialogTitle className="text-2xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">
+                                <DialogTitle className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
                                     {editingData ? "Edit Hotline Entry" : "Add New Hotline"}
                                 </DialogTitle>
-                                <DialogDescription className="text-slate-500 dark:text-slate-400 font-medium italic text-sm">
+                                <DialogDescription className="text-slate-500 dark:text-slate-400 font-medium">
                                     Add important contact numbers for emergency response or public service.
                                 </DialogDescription>
                             </div>
                         </div>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleClose}
+                            className="h-10 w-10 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/50 z-50 shrink-0"
+                        >
+                            <X className="w-5 h-5" />
+                        </Button>
                     </DialogHeader>
 
-                    <div className="flex-1 p-6 pb-20 overflow-y-auto custom-scrollbar">
-                        <form id="hotlineForm" onSubmit={handleSubmit} className="space-y-6">
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2 min-w-0">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Agency / Department Name</Label>
-                                        <Input
-                                            name="name"
-                                            required
-                                            defaultValue={editingData?.name || ""}
-                                            placeholder="e.g. Mapandan Police Station"
-                                            className="h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-bold italic focus:ring-2"
-                                            style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
-                                        />
-                                    </div>
-                                    <div className="space-y-2 min-w-0">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Category</Label>
-                                        <Input
-                                            name="category"
-                                            required
-                                            defaultValue={editingData?.category || ""}
-                                            placeholder="e.g. Police, Health, Fire"
-                                            className="h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-bold italic focus:ring-2"
-                                            style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2 min-w-0">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center">
-                                            <Phone className="w-3.5 h-3.5 mr-1" style={{ color: themeColor }} /> Mobile Number
-                                        </Label>
-                                        <Input
-                                            name="mobileNumber"
-                                            defaultValue={editingData?.mobileNumber || ""}
-                                            placeholder="e.g. 0912 345 6789"
-                                            className="h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-bold italic"
-                                        />
-                                    </div>
-                                    <div className="space-y-2 min-w-0">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center">
-                                            <PhoneCall className="w-3.5 h-3.5 mr-1" style={{ color: themeColor }} /> Telephone / Landline
-                                        </Label>
-                                        <Input
-                                            name="telephone"
-                                            defaultValue={editingData?.telephone || ""}
-                                            placeholder="e.g. (075) 123-4567"
-                                            className="h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-bold italic"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center">
-                                        <MapPin className="w-3.5 h-3.5 mr-1" style={{ color: themeColor }} /> Address Location
+                    {/* Scrollable Form Body */}
+                    <div className="p-8 pb-28 overflow-y-auto custom-scrollbar">
+                        <form key={editingData?.id || "new-hotline-form"} id="hotlineForm" onSubmit={handleSubmit} className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <Label htmlFor="name" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                        Agency / Department Name <span className="text-red-500">*</span>
                                     </Label>
                                     <Input
+                                        id="name"
+                                        name="name"
+                                        defaultValue={editingData?.name || ""}
+                                        required
+                                        className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
+                                        placeholder="e.g. Mapandan Municipal Police Station"
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="category" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                        Category <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Input
+                                        id="category"
+                                        name="category"
+                                        defaultValue={editingData?.category || ""}
+                                        required
+                                        className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
+                                        placeholder="e.g. Police, Fire, Medical, RHU, LGU"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <Label htmlFor="mobileNumber" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                        Mobile Number
+                                    </Label>
+                                    <Input
+                                        id="mobileNumber"
+                                        name="mobileNumber"
+                                        defaultValue={editingData?.mobileNumber || ""}
+                                        className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
+                                        placeholder="0912 345 6789"
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="telephone" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                        Telephone / Landline
+                                    </Label>
+                                    <Input
+                                        id="telephone"
+                                        name="telephone"
+                                        defaultValue={editingData?.telephone || ""}
+                                        className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
+                                        placeholder="(075) 123 4567"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <Label htmlFor="address" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                        Address / Location
+                                    </Label>
+                                    <Input
+                                        id="address"
                                         name="address"
                                         defaultValue={editingData?.address || ""}
-                                        placeholder="Where is this agency located?"
-                                        className="h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-bold italic"
+                                        className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
+                                        placeholder="Poblacion, Mapandan"
                                     />
                                 </div>
-
-                                <div className="space-y-2 max-w-[200px]">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center">
-                                        <Hash className="w-3.5 h-3.5 mr-1" style={{ color: themeColor }} /> Priority Order
+                                <div>
+                                    <Label htmlFor="order" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                                        Display Priority / Order
                                     </Label>
                                     <Input
-                                        type="number"
+                                        id="order"
                                         name="order"
-                                        defaultValue={editingData?.order || 0}
-                                        className="h-14 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-bold italic focus:ring-2"
-                                        style={{ "--tw-ring-color": `${themeColor}40` } as CSSProperties}
+                                        type="number"
+                                        defaultValue={editingData?.order ?? 1}
+                                        className="bg-white dark:bg-[#0f1117] border-slate-300 dark:border-[#2a3040] text-slate-900 dark:text-white h-11"
+                                        placeholder="1"
                                     />
-                                    <p className="text-xs text-slate-500">Lower numbers appear first</p>
                                 </div>
                             </div>
                         </form>
                     </div>
 
-                    <DialogFooter className="p-6 pt-0 bg-white dark:bg-[#0f1117] border-none shrink-0">
+                    {/* Footer */}
+                    <div className="p-6 sticky bottom-0 bg-white dark:bg-[#0f1117] border-t border-slate-200 dark:border-[#2a3040] flex justify-end gap-3 z-50">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleClose}
+                            className="h-11 px-6 rounded-xl border-slate-200 dark:border-slate-700 font-bold"
+                        >
+                            Cancel
+                        </Button>
                         <Button
                             type="submit"
                             form="hotlineForm"
                             disabled={loading}
-                            className="w-full h-12 text-white font-black uppercase tracking-widest text-[10px] rounded-xl shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]"
-                            style={{ backgroundColor: themeColor, boxShadow: `0 14px 28px -14px ${themeColor}` }}
+                            className="h-11 px-6 text-white font-bold rounded-xl shadow-lg flex items-center gap-2"
+                            style={{ backgroundColor: themeColor }}
                         >
                             {loading ? (
-                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
+                                <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
                             ) : (
-                                editingData ? "Apply Changes" : "Add Hotline"
+                                <Save className="w-4 h-4" />
                             )}
+                            <span>{editingData ? "Update Hotline" : "Save Hotline"}</span>
                         </Button>
-                    </DialogFooter>
+                    </div>
                 </div>
             </DialogContent>
         </Dialog>
