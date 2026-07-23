@@ -238,6 +238,7 @@ async function seedPosoData() {
             plateNo: "XYZ-9988",
             ownerName: "Pedro Penduko",
             typeOfVehicle: "Tricycle",
+            vehicleClass: "CLASS_A",
             location: "Torres Bridge, Mapandan",
             barangay: "Torres",
             dateTime: new Date("2026-07-22T08:45:00Z"),
@@ -256,6 +257,78 @@ async function seedPosoData() {
             ],
             totalAmount: 1500,
         },
+        // Violator 3: Juan Dela Cruz (Class A Impounded Ticket)
+        {
+            ticketNo: "TICK-2026-0005",
+            violatorName: "Juan Dela Cruz",
+            violatorAddress: "Brgy. Luyan, Mapandan, Pangasinan",
+            birthDate: "1994-08-15",
+            licenseNo: "N01-18-987654",
+            plateNo: "MC-8812",
+            ownerName: "Juan Dela Cruz",
+            typeOfVehicle: "Motorcycle (Single)",
+            vehicleClass: "CLASS_A",
+            isImpounded: true,
+            impoundYard: "Mapandan POSO Impounding Facility",
+            impoundedAt: new Date("2026-07-23T09:00:00Z"),
+            impoundFee: 2000,
+            location: "Poblacion Public Market, Mapandan",
+            barangay: "Poblacion",
+            dateTime: new Date("2026-07-23T09:00:00Z"),
+            officerName: officerName,
+            badgeNo: "POSO-001",
+            officerUserId: officerId,
+            status: "ISSUED" as any,
+            isPaid: false,
+            details: [
+                {
+                    violationId: seededViolations[3].id, // Unregistered
+                    violationName: seededViolations[3].violationName,
+                    offenseLevel: 1,
+                    amount: 1500,
+                },
+            ],
+            totalAmount: 1500,
+        },
+        // Violator 4: Marco Valenzuela (Class B Impounded Light 4-Wheeler)
+        {
+            ticketNo: "TICK-2026-0006",
+            violatorName: "Marco Valenzuela",
+            violatorAddress: "Brgy. Nilombot, Mapandan, Pangasinan",
+            birthDate: "1985-11-04",
+            licenseNo: "N03-12-456789",
+            plateNo: "NBM-8899",
+            ownerName: "Marco Valenzuela",
+            typeOfVehicle: "SUV (Toyota Fortuner)",
+            vehicleClass: "CLASS_B",
+            isImpounded: true,
+            impoundYard: "Mapandan POSO Impounding Facility",
+            impoundedAt: new Date("2026-07-23T10:30:00Z"),
+            impoundFee: 5000,
+            location: "Primark Town Center Highway, Mapandan",
+            barangay: "Poblacion",
+            dateTime: new Date("2026-07-23T10:30:00Z"),
+            officerName: officerName,
+            badgeNo: "POSO-001",
+            officerUserId: officerId,
+            status: "ISSUED" as any,
+            isPaid: false,
+            details: [
+                {
+                    violationId: seededViolations[1].id, // Driving Without License
+                    violationName: seededViolations[1].violationName,
+                    offenseLevel: 1,
+                    amount: 1000,
+                },
+                {
+                    violationId: seededViolations[2].id, // Illegal Parking / Obstruction
+                    violationName: seededViolations[2].violationName,
+                    offenseLevel: 1,
+                    amount: 500,
+                },
+            ],
+            totalAmount: 1500,
+        },
     ];
 
     for (const t of ticketsToCreate) {
@@ -269,14 +342,18 @@ async function seedPosoData() {
             await (prisma as any).ticketHeader.create({
                 data: {
                     ...headerData,
-                    ticketDetails: {
+                    details: {
                         create: details,
                     },
                 },
             });
             console.log(`  + Created ticket ${headerData.ticketNo} for ${headerData.violatorName}`);
         } else {
-            console.log(`  ~ Ticket ${headerData.ticketNo} already exists, skipping.`);
+            await (prisma as any).ticketHeader.update({
+                where: { id: existingTicket.id },
+                data: headerData,
+            });
+            console.log(`  ~ Updated ticket ${headerData.ticketNo} impound details.`);
         }
     }
 

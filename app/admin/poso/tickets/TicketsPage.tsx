@@ -293,7 +293,7 @@ export default function TicketsPage({
                                     Enforcer Officer
                                 </TableHead>
                                 <TableHead className="text-center font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
-                                    Total Fine
+                                    Total Amount
                                 </TableHead>
                                 <TableHead className="text-center font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
                                     Payment Status
@@ -381,7 +381,12 @@ export default function TicketsPage({
                                         </TableCell>
 
                                         <TableCell className="font-bold text-xs text-slate-700 dark:text-slate-300">
-                                            {item.plateNo || "N/A"}
+                                            <div>{item.plateNo || "N/A"}</div>
+                                            {item.isImpounded && (
+                                                <span className="inline-block mt-0.5 px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[9px] font-black uppercase">
+                                                    Impounded
+                                                </span>
+                                            )}
                                         </TableCell>
 
                                         <TableCell className="font-semibold text-xs text-slate-600 dark:text-slate-400">
@@ -389,7 +394,7 @@ export default function TicketsPage({
                                         </TableCell>
 
                                         <TableCell className="text-center font-black text-sm text-rose-600 dark:text-rose-400 italic">
-                                            ₱ {item.totalAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                            ₱ {(item.totalAmount + (item.isImpounded ? Number(item.impoundFee || 0) : 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                                         </TableCell>
 
                                         <TableCell className="text-center">

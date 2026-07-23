@@ -174,6 +174,9 @@ export async function getTickets({
                     isPaid: true,
                     createdAt: true,
                     transactionId: true,
+                    isImpounded: true,
+                    impoundFee: true,
+                    vehicleClass: true,
                 },
                 orderBy: { createdAt: "desc" },
                 skip,
@@ -182,7 +185,7 @@ export async function getTickets({
             (prisma as any).ticketHeader.count({ where }),
         ]);
 
-        return { success: true, tickets, totalCount };
+        return { success: true, tickets: JSON.parse(JSON.stringify(tickets)), totalCount };
     } catch (error: any) {
         console.error("Failed to fetch POSO tickets:", error);
         return { success: false, error: error.message || "Failed to fetch citation tickets." };
