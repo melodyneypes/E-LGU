@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Page() {
     const res = await getTickets({ page: 1, pageSize: 10 });
-    const initialTickets = res.success && res.tickets ? res.tickets : [];
+    const initialTickets = res.success && res.tickets ? JSON.parse(JSON.stringify(res.tickets)) : [];
     const totalCount = res.totalCount || 0;
 
     return <TicketsPage initialTickets={initialTickets} initialTotalCount={totalCount} />;

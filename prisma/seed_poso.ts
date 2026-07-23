@@ -8,7 +8,59 @@ async function seedPosoData() {
     const officerId = "cmrvxmol90000vpdkidkni38x";
     const officerName = "Jhon Emil Nilo";
 
-    // 1. Seed Traffic Violations Masterlist
+    // 1. Seed POSO TransactionType
+    console.log("📌 Seeding POSO TransactionType...");
+    await (prisma as any).transactionType.upsert({
+        where: { code: "POSO_TRAFFIC_FINE" },
+        update: {
+            name: "POSO Traffic Violation Fine",
+            category: "POSO",
+            processorRole: "TREASURY_STAFF",
+            isActive: true,
+        },
+        create: {
+            code: "POSO_TRAFFIC_FINE",
+            name: "POSO Traffic Violation Fine",
+            description: "Payment settlement for POSO municipal traffic citations and ordinance apprehendings",
+            category: "POSO",
+            processorRole: "TREASURY_STAFF",
+            isFixed: false,
+            isActive: true,
+        },
+    });
+
+    // 2. Seed Vehicle Classifications (Class A, Class B, Class C)
+    console.log("📌 Seeding Vehicle Classifications...");
+    const vehicleClassificationsData = [
+        {
+            code: "CLASS_A",
+            className: "Class A: Motorcycles/Tricycles",
+            description: "Motorcycles, Tricycles, E-Bikes",
+            impoundFee: 2000,
+        },
+        {
+            code: "CLASS_B",
+            className: "Class B: Light 4-Wheeled Vehicles",
+            description: "Sedan, AUV, SUV, Vans, Light Pickups",
+            impoundFee: 5000,
+        },
+        {
+            code: "CLASS_C",
+            className: "Class C: Heavy 4-Wheeled/6-Wheeled+",
+            description: "Trucks, Buses, Heavy Equipment, Trailers",
+            impoundFee: 10000,
+        },
+    ];
+
+    for (const vc of vehicleClassificationsData) {
+        await (prisma as any).vehicleClassification.upsert({
+            where: { code: vc.code },
+            update: vc,
+            create: vc,
+        });
+    }
+
+    // 3. Seed Traffic Violations Masterlist
     console.log("📌 Seeding Traffic Violations Ordinance Masterlist...");
     const violationsData = [
         {
@@ -55,11 +107,17 @@ async function seedPosoData() {
 
     const seededViolations: any[] = [];
     for (const item of violationsData) {
-        const v = await (prisma as any).trafficViolation.upsert({
-            where: { violationCode: item.violationCode },
-            update: item,
-            create: item,
+        let v = await (prisma as any).trafficViolation.findFirst({
+            where: { violationName: item.violationName },
         });
+        if (!v) {
+            v = await (prisma as any).trafficViolation.create({ data: item });
+        } else {
+            v = await (prisma as any).trafficViolation.update({
+                where: { id: v.id },
+                data: item,
+            });
+        }
         seededViolations.push(v);
     }
     console.log(`✅ Seeded ${seededViolations.length} Traffic Violations!`);
@@ -180,6 +238,7 @@ async function seedPosoData() {
             plateNo: "XYZ-9988",
             ownerName: "Pedro Penduko",
             typeOfVehicle: "Tricycle",
+            vehicleClass: "CLASS_A",
             location: "Torres Bridge, Mapandan",
             barangay: "Torres",
             dateTime: new Date("2026-07-22T08:45:00Z"),
@@ -198,12 +257,84 @@ async function seedPosoData() {
             ],
             totalAmount: 1500,
         },
+        // Violator 3: Juan Dela Cruz (Class A Impounded Ticket)
+        {
+            ticketNo: "TICK-2026-0005",
+            violatorName: "Juan Dela Cruz",
+            violatorAddress: "Brgy. Luyan, Mapandan, Pangasinan",
+            birthDate: "1994-08-15",
+            licenseNo: "N01-18-987654",
+            plateNo: "MC-8812",
+            ownerName: "Juan Dela Cruz",
+            typeOfVehicle: "Motorcycle (Single)",
+            vehicleClass: "CLASS_A",
+            isImpounded: true,
+            impoundYard: "Mapandan POSO Impounding Facility",
+            impoundedAt: new Date("2026-07-23T09:00:00Z"),
+            impoundFee: 2000,
+            location: "Poblacion Public Market, Mapandan",
+            barangay: "Poblacion",
+            dateTime: new Date("2026-07-23T09:00:00Z"),
+            officerName: officerName,
+            badgeNo: "POSO-001",
+            officerUserId: officerId,
+            status: "ISSUED" as any,
+            isPaid: false,
+            details: [
+                {
+                    violationId: seededViolations[3].id, // Unregistered
+                    violationName: seededViolations[3].violationName,
+                    offenseLevel: 1,
+                    amount: 1500,
+                },
+            ],
+            totalAmount: 1500,
+        },
+        // Violator 4: Marco Valenzuela (Class B Impounded Light 4-Wheeler)
+        {
+            ticketNo: "TICK-2026-0006",
+            violatorName: "Marco Valenzuela",
+            violatorAddress: "Brgy. Nilombot, Mapandan, Pangasinan",
+            birthDate: "1985-11-04",
+            licenseNo: "N03-12-456789",
+            plateNo: "NBM-8899",
+            ownerName: "Marco Valenzuela",
+            typeOfVehicle: "SUV (Toyota Fortuner)",
+            vehicleClass: "CLASS_B",
+            isImpounded: true,
+            impoundYard: "Mapandan POSO Impounding Facility",
+            impoundedAt: new Date("2026-07-23T10:30:00Z"),
+            impoundFee: 5000,
+            location: "Primark Town Center Highway, Mapandan",
+            barangay: "Poblacion",
+            dateTime: new Date("2026-07-23T10:30:00Z"),
+            officerName: officerName,
+            badgeNo: "POSO-001",
+            officerUserId: officerId,
+            status: "ISSUED" as any,
+            isPaid: false,
+            details: [
+                {
+                    violationId: seededViolations[1].id, // Driving Without License
+                    violationName: seededViolations[1].violationName,
+                    offenseLevel: 1,
+                    amount: 1000,
+                },
+                {
+                    violationId: seededViolations[2].id, // Illegal Parking / Obstruction
+                    violationName: seededViolations[2].violationName,
+                    offenseLevel: 1,
+                    amount: 500,
+                },
+            ],
+            totalAmount: 1500,
+        },
     ];
 
     for (const t of ticketsToCreate) {
         const { details, ...headerData } = t;
 
-        const existingTicket = await (prisma as any).ticketHeader.findUnique({
+        const existingTicket = await (prisma as any).ticketHeader.findFirst({
             where: { ticketNo: headerData.ticketNo },
         });
 
@@ -211,14 +342,18 @@ async function seedPosoData() {
             await (prisma as any).ticketHeader.create({
                 data: {
                     ...headerData,
-                    ticketDetails: {
+                    details: {
                         create: details,
                     },
                 },
             });
             console.log(`  + Created ticket ${headerData.ticketNo} for ${headerData.violatorName}`);
         } else {
-            console.log(`  ~ Ticket ${headerData.ticketNo} already exists, skipping.`);
+            await (prisma as any).ticketHeader.update({
+                where: { id: existingTicket.id },
+                data: headerData,
+            });
+            console.log(`  ~ Updated ticket ${headerData.ticketNo} impound details.`);
         }
     }
 

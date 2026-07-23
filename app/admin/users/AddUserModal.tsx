@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { UserRole } from "@prisma/client";
-import { Loader2, UserPlus } from "lucide-react";
+import { Loader2, UserPlus, Eye, EyeOff } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { createUser, getBarangaysList } from "../actions";
@@ -37,6 +37,7 @@ export function AddUserModal({
   themeColor,
 }: AddUserModalProps) {
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [barangays, setBarangays] = useState<{ id: string; name: string }[]>(
     [],
   );
@@ -176,14 +177,28 @@ export function AddUserModal({
                   >
                     Account Password
                   </Label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    placeholder="••••••••"
-                    required
-                    className="!h-12 !w-full rounded-xl border-slate-200 dark:border-white/10 dark:bg-white/5 italic font-medium px-3 text-sm"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      required
+                      className="!h-12 !w-full rounded-xl border-slate-200 dark:border-white/10 dark:bg-white/5 italic font-medium pl-3 pr-10 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
