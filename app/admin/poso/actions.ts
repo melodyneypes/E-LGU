@@ -192,23 +192,28 @@ export async function getTickets({
 export async function getTicketById(id: string) {
     try {
         await verifyAdminOrStaff();
-        const ticket = await (prisma as any).ticketHeader.findUnique({
-            where: { id },
-            include: {
-                details: {
-                    include: {
-                        violation: true,
+        const [ticket, themeSetting] = await Promise.all([
+            (prisma as any).ticketHeader.findUnique({
+                where: { id },
+                include: {
+                    details: {
+                        include: {
+                            violation: true,
+                        },
                     },
+                    ticketPhotos: true,
                 },
-                ticketPhotos: true,
-            },
-        });
+            }),
+            (prisma as any).systemSetting.findUnique({
+                where: { key: "theme_color" },
+            }),
+        ]);
 
         if (!ticket) {
             return { success: false, error: "Ticket not found." };
         }
 
-        return { success: true, ticket };
+        return { success: true, ticket, themeColor: themeSetting?.value || null };
     } catch (error: any) {
         console.error("Failed to fetch ticket details:", error);
         return { success: false, error: error.message || "Failed to fetch ticket details." };
@@ -285,6 +290,238 @@ export async function updateTicketStatus(id: string, status: string, isPaid?: bo
     } catch (error: any) {
         console.error("Failed to update ticket status:", error);
         return { success: false, error: error.message || "Failed to update ticket status." };
+    }
+}
+
+export async function processTicketSettlement(id: string) {
+    try {
+        const user = await verifyAdminOrStaff();
+
+        const ticket = await (prisma as any).ticketHeader.findUnique({
+            where: { id },
+            include: {
+                details: true,
+            },
+        });
+
+        if (!ticket) {
+            return { success: false, error: "Ticket not found." };
+        }
+
+        if (ticket.isPaid) {
+            return { success: false, error: "Ticket has already been settled." };
+        }
+
+        let transactionType = await (prisma as any).transactionType.findUnique({
+            where: { code: "POSO_TRAFFIC_FINE" },
+        });
+
+        if (!transactionType) {
+            transactionType = await (prisma as any).transactionType.create({
+                data: {
+                    code: "POSO_TRAFFIC_FINE",
+                    name: "POSO Traffic Violation Fine",
+                    description: "Payment settlement for POSO municipal traffic citations and ordinance apprehendings",
+                    category: "POSO",
+                    processorRole: "TREASURY_STAFF",
+                    isFixed: false,
+                    isActive: true,
+                },
+            });
+        }
+
+        const residentSnapshot = {
+            fullName: ticket.violatorName || "Unknown Violator",
+            licenseNo: ticket.licenseNo || null,
+            plateNo: ticket.plateNo || null,
+            address: ticket.violatorAddress || null,
+            isRegisteredUser: false,
+        };
+
+        const impoundFee = ticket.isImpounded ? (ticket.impoundFee || 0) : 0;
+        const grandTotal = (ticket.totalAmount || 0) + impoundFee;
+
+        const additionalData = {
+            ticketNo: ticket.ticketNo,
+            ticketHeaderId: ticket.id,
+            location: ticket.location || null,
+            officerName: ticket.officerName || null,
+            isImpounded: ticket.isImpounded || false,
+            vehicleClass: ticket.vehicleClass || null,
+            impoundFee: impoundFee,
+            violations: (ticket.details || []).map((d: any) => ({
+                name: d.violationName,
+                level: d.offenseLevel,
+                fine: d.amount,
+            })),
+        };
+
+        const fiscalSnapshot = {
+            violationFineTotal: ticket.totalAmount || 0,
+            impoundFee: impoundFee,
+            totalAmount: grandTotal,
+        };
+
+        const result = await (prisma as any).$transaction(async (tx: any) => {
+            const newTransaction = await tx.transaction.create({
+                data: {
+                    userId: user.id,
+                    typeId: transactionType.id,
+                    status: "UNPAID",
+                    residentSnapshot,
+                    additionalData,
+                    fiscalSnapshot,
+                    totalAmount: grandTotal,
+                    isPaid: false,
+                    processedBy: user.name || user.email,
+                },
+            });
+
+            const updatedTicket = await tx.ticketHeader.update({
+                where: { id },
+                data: {
+                    transactionId: newTransaction.id,
+                    isPaid: false,
+                    status: "UNPAID",
+                },
+            });
+
+            return { transaction: newTransaction, ticket: updatedTicket };
+        });
+
+        revalidatePath("/admin/poso/tickets");
+        revalidatePath(`/admin/poso/tickets/${id}`);
+        revalidatePath("/admin/treasury/payments");
+
+        return { success: true, transaction: result.transaction, ticket: result.ticket };
+    } catch (error: any) {
+        console.error("Failed to process ticket settlement:", error);
+        return { success: false, error: error.message || "Failed to process ticket settlement." };
+    }
+}
+
+export async function getVehicleClassifications(onlyActive: boolean = true) {
+    try {
+        await verifyAdminOrStaff();
+        const where = onlyActive ? { isActive: true } : {};
+        const list = await (prisma as any).vehicleClassification.findMany({
+            where,
+            orderBy: { code: "asc" },
+        });
+        return { success: true, classifications: JSON.parse(JSON.stringify(list)) };
+    } catch (error: any) {
+        console.error("Failed to fetch vehicle classifications:", error);
+        return { success: false, error: error.message || "Failed to fetch vehicle classifications." };
+    }
+}
+
+export async function addVehicleClassification(formData: FormData) {
+    try {
+        await verifyAdminOrStaff();
+        const code = (formData.get("code") as string)?.trim().toUpperCase();
+        const className = (formData.get("className") as string)?.trim();
+        const description = (formData.get("description") as string)?.trim() || null;
+        const impoundFee = parseFloat((formData.get("impoundFee") as string) || "0");
+
+        if (!code || !className) {
+            return { success: false, error: "Classification code and name are required." };
+        }
+
+        const newClass = await (prisma as any).vehicleClassification.create({
+            data: {
+                code,
+                className,
+                description,
+                impoundFee,
+                isActive: true,
+            },
+        });
+
+        revalidatePath("/admin/poso/vehicle-classes");
+        return { success: true, classification: newClass };
+    } catch (error: any) {
+        console.error("Failed to add vehicle classification:", error);
+        return { success: false, error: error.message || "Failed to add vehicle classification." };
+    }
+}
+
+export async function updateVehicleClassification(formData: FormData) {
+    try {
+        await verifyAdminOrStaff();
+        const id = formData.get("id") as string;
+        const className = (formData.get("className") as string)?.trim();
+        const description = (formData.get("description") as string)?.trim() || null;
+        const impoundFee = parseFloat((formData.get("impoundFee") as string) || "0");
+
+        if (!id || !className) {
+            return { success: false, error: "ID and class name are required." };
+        }
+
+        const updatedClass = await (prisma as any).vehicleClassification.update({
+            where: { id },
+            data: {
+                className,
+                description,
+                impoundFee,
+            },
+        });
+
+        revalidatePath("/admin/poso/vehicle-classes");
+        return { success: true, classification: updatedClass };
+    } catch (error: any) {
+        console.error("Failed to update vehicle classification:", error);
+        return { success: false, error: error.message || "Failed to update vehicle classification." };
+    }
+}
+
+export async function toggleVehicleClassificationStatus(id: string, isActive: boolean) {
+    try {
+        await verifyAdminOrStaff();
+        const updatedClass = await (prisma as any).vehicleClassification.update({
+            where: { id },
+            data: { isActive },
+        });
+
+        revalidatePath("/admin/poso/vehicle-classes");
+        return { success: true, classification: updatedClass };
+    } catch (error: any) {
+        console.error("Failed to toggle vehicle classification status:", error);
+        return { success: false, error: error.message || "Failed to toggle status." };
+    }
+}
+
+export async function updateTicketImpoundStatus({
+    ticketId,
+    isImpounded,
+    vehicleClass,
+    impoundYard,
+    impoundFee,
+}: {
+    ticketId: string;
+    isImpounded: boolean;
+    vehicleClass?: string | null;
+    impoundYard?: string | null;
+    impoundFee?: number;
+}) {
+    try {
+        await verifyAdminOrStaff();
+        const updatedTicket = await (prisma as any).ticketHeader.update({
+            where: { id: ticketId },
+            data: {
+                isImpounded,
+                vehicleClass: vehicleClass || null,
+                impoundYard: isImpounded ? (impoundYard || "Mapandan POSO Impounding Yard") : null,
+                impoundedAt: isImpounded ? new Date() : null,
+                impoundFee: isImpounded ? (impoundFee || 0) : 0,
+            },
+        });
+
+        revalidatePath("/admin/poso/tickets");
+        revalidatePath(`/admin/poso/tickets/${ticketId}`);
+        return { success: true, ticket: updatedTicket };
+    } catch (error: any) {
+        console.error("Failed to update ticket impound status:", error);
+        return { success: false, error: error.message || "Failed to update impound status." };
     }
 }
 

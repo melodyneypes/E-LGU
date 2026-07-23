@@ -6,13 +6,13 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import {
     ArrowLeft, MapPin, UserCheck, Shield, Award,
-    FileText, Camera, CreditCard, RefreshCw, Car, ShieldAlert
+    FileText, Camera, CreditCard, RefreshCw, Car, ShieldAlert, Clock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { getTicketById, updateTicketStatus } from "@/app/admin/poso/actions";
+import { getTicketById, processTicketSettlement } from "@/app/admin/poso/actions";
 
 interface TicketDetailsPageProps {
     params: Promise<{ id: string }>;
@@ -24,6 +24,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
 
     const [loading, setLoading] = useState(true);
     const [ticket, setTicket] = useState<any>(null);
+    const [themeColor, setThemeColor] = useState<string | null>(null);
     const [paying, setPaying] = useState(false);
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
@@ -35,6 +36,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                 const res = await getTicketById(id);
                 if (res.success && isMounted) {
                     setTicket(res.ticket);
+                    if (res.themeColor) setThemeColor(res.themeColor);
                 } else if (!res.success) {
                     toast.error(res.error || "Citation Ticket not found");
                 }
@@ -52,15 +54,20 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
         if (!ticket) return;
         setPaying(true);
         try {
-            const res = await updateTicketStatus(ticket.id, "RESOLVED", true);
+            const res = await processTicketSettlement(ticket.id);
             if (res.success) {
-                toast.success("Ticket settlement processed successfully!");
-                setTicket((prev: any) => ({ ...prev, isPaid: true, status: "RESOLVED" }));
+                toast.success("Ticket settlement transaction created and sent to Treasury!");
+                setTicket((prev: any) => ({
+                    ...prev,
+                    isPaid: false,
+                    status: "UNPAID",
+                    transactionId: res.transaction?.id,
+                }));
             } else {
-                toast.error(res.error || "Failed to process payment");
+                toast.error(res.error || "Failed to process settlement transaction");
             }
         } catch {
-            toast.error("An unexpected error occurred while processing payment");
+            toast.error("An unexpected error occurred while processing settlement transaction");
         } finally {
             setPaying(false);
         }
@@ -83,7 +90,11 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                 <ShieldAlert className="w-16 h-16 text-rose-500 stroke-[1.5]" />
                 <h1 className="text-2xl font-black uppercase text-slate-800 dark:text-white italic">Ticket Not Found</h1>
                 <p className="text-slate-500 text-sm max-w-md">The apprehension citation ticket record you are looking for does not exist or may have been archived.</p>
-                <Button onClick={() => router.push("/admin/poso/tickets")} className="bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl">
+                <Button
+                    onClick={() => router.push("/admin/poso/tickets")}
+                    style={{ backgroundColor: themeColor || undefined }}
+                    className="bg-rose-600 hover:opacity-90 text-white font-bold rounded-xl"
+                >
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back to POSO Tickets
                 </Button>
             </div>
@@ -100,6 +111,14 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                 <Button
                     variant="outline"
                     onClick={() => router.push("/admin/poso/tickets")}
+                    style={
+                        themeColor
+                            ? {
+                                  color: themeColor,
+                                  borderColor: `${themeColor}40`,
+                              }
+                            : undefined
+                    }
                     className="rounded-2xl border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 font-bold text-xs"
                 >
                     <ArrowLeft className="w-4 h-4 mr-2" /> Return to Tickets List
@@ -114,10 +133,12 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                             className={
                                 ticket.isPaid
                                     ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 px-3 py-1 font-black"
+                                    : ticket.transactionId
+                                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 px-3 py-1 font-black"
                                     : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 px-3 py-1 font-black"
                             }
                         >
-                            {ticket.isPaid ? "SETTLED / PAID" : "UNPAID CITATION"}
+                            {ticket.isPaid ? "SETTLED / PAID" : ticket.transactionId ? "PENDING TREASURY PAYMENT" : "UNPAID CITATION"}
                         </Badge>
                     </div>
                     <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 italic">
@@ -191,10 +212,15 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vehicle Type & Plate No.</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vehicle Type & Classification</span>
                                 <p className="text-base font-black text-slate-900 dark:text-white uppercase italic mt-0.5">
                                     {ticket.plateNo || "No Plate"} ({ticket.typeOfVehicle || "N/A"})
                                 </p>
+                                {ticket.vehicleClass && (
+                                    <span className="inline-block mt-1 px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-black uppercase">
+                                        {ticket.vehicleClass === "CLASS_A" ? "Class A (Motorcycle/Tricycle)" : ticket.vehicleClass === "CLASS_B" ? "Class B (Light 4-Wheel)" : ticket.vehicleClass === "CLASS_C" ? "Class C (Heavy 4-Wheel+)" : ticket.vehicleClass}
+                                    </span>
+                                )}
                             </div>
 
                             {ticket.puvBodyName && (
@@ -218,7 +244,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Apprehending POSO Officer</span>
                                 <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-0.5 flex items-center">
                                     <Shield className="w-4 h-4 mr-1 text-slate-400" />
-                                    {ticket.officerName || "POSO Enforcer"} {ticket.badgeNo ? `(Badge #${ticket.badgeNo})` : ""}
+                                    {ticket.officerName || "POSO Enforcer"}
                                 </p>
                             </div>
                         </div>
@@ -249,37 +275,55 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {violationsList.length === 0 ? (
+                                {violationsList.length === 0 && !ticket.isImpounded ? (
                                     <TableRow>
                                         <TableCell colSpan={3} className="text-center py-6 text-xs text-slate-400 font-medium">
                                             No violation breakdown items recorded.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    violationsList.map((item: any) => (
-                                        <TableRow key={item.id} className="border-b border-slate-100 dark:border-[#2a3040]">
-                                            <TableCell className="font-bold text-sm text-slate-900 dark:text-white">{item.violationName}</TableCell>
-                                            <TableCell className="text-center font-bold text-xs">
-                                                <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 font-black">
-                                                    {item.offenseLevel === 1 ? "1st Offense" : item.offenseLevel === 2 ? "2nd Offense" : "3rd Offense"}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-right font-black text-sm text-rose-600 dark:text-rose-400 pr-6">
-                                                ₱ {Number(item.amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
+                                    <>
+                                        {violationsList.map((item: any) => (
+                                            <TableRow key={item.id} className="border-b border-slate-100 dark:border-[#2a3040]">
+                                                <TableCell className="font-bold text-sm text-slate-900 dark:text-white">{item.violationName}</TableCell>
+                                                <TableCell className="text-center font-bold text-xs">
+                                                    <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 font-black">
+                                                        {item.offenseLevel === 1 ? "1st Offense" : item.offenseLevel === 2 ? "2nd Offense" : "3rd Offense"}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell className="text-right font-black text-sm text-rose-600 dark:text-rose-400 pr-6">
+                                                    ₱ {Number(item.amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+
+                                        {ticket.isImpounded && (
+                                            <TableRow className="border-b border-amber-200/50 bg-amber-50/40 dark:bg-amber-950/20">
+                                                <TableCell className="font-bold text-sm text-amber-900 dark:text-amber-200">
+                                                    Vehicle Impounding Fee ({ticket.vehicleClass === "CLASS_A" ? "Class A: Motorcycles/Tricycles" : ticket.vehicleClass === "CLASS_B" ? "Class B: Light 4-Wheeled" : ticket.vehicleClass === "CLASS_C" ? "Class C: Heavy 4-Wheeled+" : ticket.vehicleClass || "Standard Impound"})
+                                                </TableCell>
+                                                <TableCell className="text-center font-bold text-xs">
+                                                    <span className="px-3 py-1 rounded-full bg-amber-200/60 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 font-black">
+                                                        Impounded
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell className="text-right font-black text-sm text-amber-600 dark:text-amber-400 pr-6">
+                                                    ₱ {Number(ticket.impoundFee || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </>
                                 )}
                             </TableBody>
                         </Table>
 
                         <div className="pt-4 flex justify-between items-center border-t border-slate-200 dark:border-[#2a3040]">
                             <div>
-                                <span className="font-black uppercase text-xs text-slate-700 dark:text-slate-300">Total Penalty Fine</span>
+                                <span className="font-black uppercase text-xs text-slate-700 dark:text-slate-300">Total Payable Fine</span>
                                 <p className="text-[10px] text-slate-500 font-semibold italic">Payable at LGU Treasury Department</p>
                             </div>
                             <span className="font-black text-2xl text-rose-600 dark:text-rose-400 italic">
-                                ₱ {Number(ticket.totalAmount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                ₱ {(Number(ticket.totalAmount || 0) + (ticket.isImpounded ? Number(ticket.impoundFee || 0) : 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                             </span>
                         </div>
                     </div>
@@ -352,17 +396,32 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                         )}
                     </div>
 
-                    {/* Settlement Payment Action Button Below Driver Signature */}
-                    {!ticket.isPaid && (
+                    {/* Settlement Action or Pending Treasury Payment Notice */}
+                    {ticket.transactionId && !ticket.isPaid ? (
+                        <div className="bg-amber-50 dark:bg-amber-950/30 rounded-3xl p-6 border border-amber-200 dark:border-amber-500/20 shadow-sm space-y-3">
+                            <div className="flex items-center space-x-2.5 text-amber-700 dark:text-amber-400">
+                                <Clock className="w-5 h-5 stroke-[2.5]" />
+                                <span className="font-black text-xs uppercase tracking-wider">Pending Treasury Settlement</span>
+                            </div>
+                            <p className="text-xs font-semibold text-amber-900/80 dark:text-amber-200/90 leading-relaxed italic">
+                                This citation ticket has been processed into an active <strong>UNPAID Treasury Transaction</strong>. The violator must settle the fine at the Municipal Treasury Department.
+                            </p>
+                            <div className="pt-3 border-t border-amber-200/60 dark:border-amber-500/20 flex items-center justify-between text-[11px] font-bold text-amber-900 dark:text-amber-200">
+                                <span className="uppercase tracking-wider text-[10px] text-amber-600 dark:text-amber-400">Transaction Reference</span>
+                                <span className="font-mono bg-amber-100 dark:bg-amber-900/40 px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-700/40">{ticket.transactionId}</span>
+                            </div>
+                        </div>
+                    ) : !ticket.isPaid ? (
                         <Button
                             onClick={handleSettlePayment}
                             disabled={paying}
-                            className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl text-xs shadow-lg shadow-emerald-600/20 flex items-center justify-center space-x-2"
+                            style={{ backgroundColor: themeColor || undefined }}
+                            className="w-full h-12 bg-emerald-600 hover:opacity-95 text-white font-bold rounded-2xl text-xs shadow-lg flex items-center justify-center space-x-2 transition-all"
                         >
                             {paying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
                             <span>Process Settlement Payment</span>
                         </Button>
-                    )}
+                    ) : null}
 
                     {/* Enforcer Remarks Card */}
                     {ticket.remarks && (

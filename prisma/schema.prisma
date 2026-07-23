@@ -624,6 +624,7 @@ model Transaction {
   marriagePsaEndorsementRequest MarriagePsaEndorsementRequest?
   marriageRegistration          MarriageRegistration?
   payment                       Payment?
+  ticketHeaders                 TicketHeader[]
   driver                        User?                          @relation("DriverTransactions", fields: [driverId], references: [id])
   type                          TransactionType                @relation(fields: [typeId], references: [id])
   user                          User                           @relation("ResidentTransactions", fields: [userId], references: [id])
@@ -1043,11 +1044,21 @@ model TicketHeader {
   remarks         String?
   driverSignature String?
   transactionId   String?
+  vehicleClass    String?
+  isImpounded     Boolean        @default(false)
+  impoundYard     String?
+  impoundedAt     DateTime?
+  impoundFee      Float          @default(0)
+  isReleased      Boolean        @default(false)
+  releasedAt      DateTime?
   syncedAt        DateTime       @default(now())
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   details         TicketDetail[]
   ticketPhotos    TicketPhoto[]
+  transaction     Transaction?   @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([transactionId])
 }
 
 model TicketDetail {
@@ -1181,11 +1192,23 @@ enum PaymentStatus {
 
 enum TicketStatus {
   ISSUED
-  RESOLVED
-  CONTESTED
-  CANCELLED
+  UNPAID
   PAID
   SETTLED
+  CANCELLED
+  RESOLVED
+  CONTESTED
+}
+
+model VehicleClassification {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  className   String
+  description String?
+  impoundFee  Float    @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 enum InventoryCategory {

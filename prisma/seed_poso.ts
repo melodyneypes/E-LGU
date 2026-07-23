@@ -8,7 +8,59 @@ async function seedPosoData() {
     const officerId = "cmrvxmol90000vpdkidkni38x";
     const officerName = "Jhon Emil Nilo";
 
-    // 1. Seed Traffic Violations Masterlist
+    // 1. Seed POSO TransactionType
+    console.log("📌 Seeding POSO TransactionType...");
+    await (prisma as any).transactionType.upsert({
+        where: { code: "POSO_TRAFFIC_FINE" },
+        update: {
+            name: "POSO Traffic Violation Fine",
+            category: "POSO",
+            processorRole: "TREASURY_STAFF",
+            isActive: true,
+        },
+        create: {
+            code: "POSO_TRAFFIC_FINE",
+            name: "POSO Traffic Violation Fine",
+            description: "Payment settlement for POSO municipal traffic citations and ordinance apprehendings",
+            category: "POSO",
+            processorRole: "TREASURY_STAFF",
+            isFixed: false,
+            isActive: true,
+        },
+    });
+
+    // 2. Seed Vehicle Classifications (Class A, Class B, Class C)
+    console.log("📌 Seeding Vehicle Classifications...");
+    const vehicleClassificationsData = [
+        {
+            code: "CLASS_A",
+            className: "Class A: Motorcycles/Tricycles",
+            description: "Motorcycles, Tricycles, E-Bikes",
+            impoundFee: 2000,
+        },
+        {
+            code: "CLASS_B",
+            className: "Class B: Light 4-Wheeled Vehicles",
+            description: "Sedan, AUV, SUV, Vans, Light Pickups",
+            impoundFee: 5000,
+        },
+        {
+            code: "CLASS_C",
+            className: "Class C: Heavy 4-Wheeled/6-Wheeled+",
+            description: "Trucks, Buses, Heavy Equipment, Trailers",
+            impoundFee: 10000,
+        },
+    ];
+
+    for (const vc of vehicleClassificationsData) {
+        await (prisma as any).vehicleClassification.upsert({
+            where: { code: vc.code },
+            update: vc,
+            create: vc,
+        });
+    }
+
+    // 3. Seed Traffic Violations Masterlist
     console.log("📌 Seeding Traffic Violations Ordinance Masterlist...");
     const violationsData = [
         {
@@ -55,11 +107,17 @@ async function seedPosoData() {
 
     const seededViolations: any[] = [];
     for (const item of violationsData) {
-        const v = await (prisma as any).trafficViolation.upsert({
-            where: { violationCode: item.violationCode },
-            update: item,
-            create: item,
+        let v = await (prisma as any).trafficViolation.findFirst({
+            where: { violationName: item.violationName },
         });
+        if (!v) {
+            v = await (prisma as any).trafficViolation.create({ data: item });
+        } else {
+            v = await (prisma as any).trafficViolation.update({
+                where: { id: v.id },
+                data: item,
+            });
+        }
         seededViolations.push(v);
     }
     console.log(`✅ Seeded ${seededViolations.length} Traffic Violations!`);
@@ -203,7 +261,7 @@ async function seedPosoData() {
     for (const t of ticketsToCreate) {
         const { details, ...headerData } = t;
 
-        const existingTicket = await (prisma as any).ticketHeader.findUnique({
+        const existingTicket = await (prisma as any).ticketHeader.findFirst({
             where: { ticketNo: headerData.ticketNo },
         });
 

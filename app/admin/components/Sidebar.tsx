@@ -8,7 +8,7 @@ import {
     Briefcase, MapPin, Map,
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
-    FileText, BarChart3, ShieldAlert, Activity, Package
+    FileText, BarChart3, ShieldAlert, Activity, Package, Car
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -490,6 +490,7 @@ export function Sidebar({
         { href: "/admin/bfp", label: "BFP Hub", icon: LayoutDashboard, category: "BFP" },
         { href: "/admin/poso/tickets", label: "Citations & Tickets", icon: ShieldAlert, category: "Public Order & Safety" },
         { href: "/admin/poso/violations", label: "Violations Masterlist", icon: FileText, category: "Public Order & Safety" },
+        { href: "/admin/poso/vehicle-classes", label: "Vehicle Classifications", icon: Car, category: "Public Order & Safety" },
         { href: "/admin/poso/officers", label: "POSO Officers", icon: UserCheck, category: "Public Order & Safety" },
         { href: "/admin/users", label: "User Accounts", icon: UserCheck, category: "Security & Accounts" },
     ];
@@ -593,7 +594,7 @@ export function Sidebar({
                         (item.label === "Appointment Settings" && item.category === "Treasury Department")
                     );
                 } else if (deptUpper === "POSO") {
-                    menuItems = allMenuItems.filter(item => ["Citations & Tickets", "Violations Masterlist", "POSO Officers"].includes(item.label));
+                    menuItems = allMenuItems.filter(item => ["Citations & Tickets", "Violations Masterlist", "Vehicle Classifications", "POSO Officers"].includes(item.label));
                 } else if (deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") {
                     menuItems = allMenuItems.filter(item => item.category === "Rural Health Unit");
                 } else if (deptUpper === "LGU") {
