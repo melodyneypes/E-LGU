@@ -63,6 +63,7 @@ import BirthPsaEndorsementView from "./views/BirthPsaEndorsement";
 import DeathPsaEndorsementView from "./views/DeathPsaEndorsement";
 import MarriagePsaEndorsementView from "./views/MarriagePsaEndorsement";
 import MarraigeCertificateView from "./views/MarraigeCertificateView";
+import PosoView from "./views/PosoView";
 
 /*
 interface PageProps {
@@ -2088,6 +2089,8 @@ export default function TreasuryDetailPage() {
         renderView = <BusinessPermitView {...viewProps} />;
     } else if (isBuildingPermit) {
         renderView = <BuildingPermitView {...viewProps} />;
+    } else if (typeCode === "POSO_TRAFFIC_FINE" || transaction?.type?.category === "POSO") {
+        renderView = <PosoView {...viewProps} />;
     } else if (typeCode.includes("CEDULA")) {
         renderView = <GenericServiceView {...viewProps} />;
     } else if (typeCode === "LCR_PSA_ENDORSEMENT" || typeCode === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT") {

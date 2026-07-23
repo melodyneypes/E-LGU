@@ -1,5 +1,5 @@
 import { getEnforcerLeaderboard } from "@/app/admin/poso/actions";
-import LeaderboardPage from "./LeaderboardPage";
+import LeaderboardPage from "@/app/admin/poso/leaderboard/LeaderboardPage";
 
 export const dynamic = "force-dynamic";
 

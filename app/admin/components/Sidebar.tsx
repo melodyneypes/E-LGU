@@ -473,6 +473,7 @@ export function Sidebar({
                 { href: "/admin/treasury?category=Business Permit", label: "Business Permit" },
                 { href: "/admin/treasury?category=Civil Registry", label: "Civil Registry" },
                 { href: "/admin/treasury?category=Building Permit", label: "Building Permit" },
+                { href: "/admin/treasury?category=POSO", label: "POSO Traffic Citations" },
             ]
         },
         { href: "/admin/treasury/payments", label: "Payments Ledger", icon: CreditCard, category: "Treasury Department" },
