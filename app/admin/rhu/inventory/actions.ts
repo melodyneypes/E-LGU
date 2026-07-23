@@ -29,6 +29,25 @@ export interface RHUInventoryInput {
     remarks?: string;
 }
 
+export interface RHUStockBatchInput {
+    itemId: string;
+    batchNumber: string;
+    expirationDate?: string;
+    quantity: number;
+    remarks?: string;
+}
+
+export interface RHUBatchData {
+    id: string;
+    itemId: string;
+    batchNumber: string;
+    expirationDate?: Date | string | null;
+    quantity: number;
+    initialQuantity: number;
+    receivedDate: Date | string;
+    remarks?: string | null;
+}
+
 function getInventoryModel() {
     const p = prisma as any;
     const model = p.rHUInventoryItem || p.rHUInventoryItem || p.rhuInventoryItem || p.RHUInventoryItem;
@@ -36,6 +55,11 @@ function getInventoryModel() {
         throw new Error("RHUInventoryItem model is not available on Prisma client. Please restart dev server.");
     }
     return model;
+}
+
+function getBatchModel() {
+    const p = prisma as any;
+    return p.rHUInventoryBatch || p.rHUInventoryBatch || p.rhuInventoryBatch || p.RHUInventoryBatch || null;
 }
 
 export async function getRHUInventoryItems(params?: {
@@ -67,15 +91,61 @@ export async function getRHUInventoryItems(params?: {
             ];
         }
 
-        const items = await getInventoryModel().findMany({
+        const batchModel = getBatchModel();
+        const findOptions: any = {
             where: whereClause,
             orderBy: { name: "asc" }
+        };
+
+        if (batchModel) {
+            findOptions.include = {
+                batches: {
+                    orderBy: { expirationDate: "asc" }
+                }
+            };
+        }
+
+        const items = await getInventoryModel().findMany(findOptions);
+
+        // Process items to calculate total stock quantity and FEFO earliest expiration date
+        const processedItems = items.map((item: any) => {
+            const batches: RHUBatchData[] = item.batches || [];
+            let totalQuantity = item.quantity || 0;
+            let earliestExpiration = item.expirationDate ? new Date(item.expirationDate) : null;
+
+            if (batches.length > 0) {
+                totalQuantity = batches.reduce((sum, b) => sum + (b.quantity || 0), 0);
+                
+                // Find earliest non-expired/active batch with stock for FEFO
+                const activeBatchesWithExpiry = batches
+                    .filter(b => (b.quantity || 0) > 0 && b.expirationDate)
+                    .sort((a, b) => new Date(a.expirationDate!).getTime() - new Date(b.expirationDate!).getTime());
+                
+                if (activeBatchesWithExpiry.length > 0) {
+                    earliestExpiration = new Date(activeBatchesWithExpiry[0].expirationDate!);
+                } else if (batches.some(b => b.expirationDate)) {
+                    // Fallback to earliest batch expiry even if stock 0
+                    const allExpiries = batches
+                        .filter(b => b.expirationDate)
+                        .sort((a, b) => new Date(a.expirationDate!).getTime() - new Date(b.expirationDate!).getTime());
+                    if (allExpiries.length > 0) {
+                        earliestExpiration = new Date(allExpiries[0].expirationDate!);
+                    }
+                }
+            }
+
+            return {
+                ...item,
+                quantity: totalQuantity,
+                expirationDate: earliestExpiration,
+                batches
+            };
         });
 
-        // Map status or filter in-memory if stockStatus requested
-        let filteredItems = items;
+        // Filter stock status
+        let filteredItems = processedItems;
         if (params?.stockStatus && params.stockStatus !== "ALL") {
-            filteredItems = items.filter((item: any) => {
+            filteredItems = processedItems.filter((item: any) => {
                 if (params.stockStatus === "OUT_OF_STOCK") return item.quantity <= 0;
                 if (params.stockStatus === "LOW_STOCK") return item.quantity > 0 && item.quantity <= item.reorderLevel;
                 if (params.stockStatus === "IN_STOCK") return item.quantity > item.reorderLevel;
@@ -98,6 +168,10 @@ export async function createRHUInventoryItem(input: RHUInventoryInput) {
             return { success: false, error: "Item name is required" };
         }
 
+        const quantityNum = Number(input.quantity) || 0;
+        const expDate = input.expirationDate ? new Date(input.expirationDate) : null;
+        const batchNo = input.batchNumber?.trim() || null;
+
         const newItem = await getInventoryModel().create({
             data: {
                 name: input.name.trim(),
@@ -106,19 +180,100 @@ export async function createRHUInventoryItem(input: RHUInventoryInput) {
                 category: input.category || "MEDICINE",
                 dosage: input.dosage?.trim() || null,
                 unit: input.unit?.trim() || "pcs",
-                quantity: Number(input.quantity) || 0,
+                quantity: quantityNum,
                 reorderLevel: Number(input.reorderLevel) || 10,
-                expirationDate: input.expirationDate ? new Date(input.expirationDate) : null,
-                batchNumber: input.batchNumber?.trim() || null,
+                expirationDate: expDate,
+                batchNumber: batchNo,
                 remarks: input.remarks?.trim() || null,
             }
         });
+
+        // If batch model exists and initial stock/batch details were provided, create batch record
+        const batchModel = getBatchModel();
+        if (batchModel && (quantityNum > 0 || batchNo)) {
+            await batchModel.create({
+                data: {
+                    itemId: newItem.id,
+                    batchNumber: batchNo || `BATCH-${Date.now().toString().slice(-6)}`,
+                    expirationDate: expDate,
+                    quantity: quantityNum,
+                    initialQuantity: quantityNum,
+                    receivedDate: new Date(),
+                    remarks: input.remarks?.trim() || "Initial Batch Creation"
+                }
+            });
+        }
 
         revalidatePath("/admin/rhu/inventory");
         return { success: true, data: newItem };
     } catch (error: any) {
         console.error("Error creating RHU inventory item:", error);
         return { success: false, error: error?.message || "Failed to create inventory item" };
+    }
+}
+
+export async function receiveRHUStockBatch(input: RHUStockBatchInput) {
+    try {
+        await checkAuth();
+
+        if (!input.itemId) {
+            return { success: false, error: "Target item ID is required" };
+        }
+
+        if (!input.batchNumber || !input.batchNumber.trim()) {
+            return { success: false, error: "Batch / Lot Number is required" };
+        }
+
+        const quantityNum = Math.max(1, Number(input.quantity) || 0);
+        const expDate = input.expirationDate ? new Date(input.expirationDate) : null;
+        const batchNo = input.batchNumber.trim();
+
+        const batchModel = getBatchModel();
+        if (batchModel) {
+            await batchModel.create({
+                data: {
+                    itemId: input.itemId,
+                    batchNumber: batchNo,
+                    expirationDate: expDate,
+                    quantity: quantityNum,
+                    initialQuantity: quantityNum,
+                    receivedDate: new Date(),
+                    remarks: input.remarks?.trim() || "Stock In Delivery"
+                }
+            });
+        }
+
+        // Also update master item summary fields
+        const currentItem = await getInventoryModel().findUnique({ 
+            where: { id: input.itemId },
+            include: batchModel ? { batches: true } : undefined
+        });
+
+        if (currentItem) {
+            const batches: any[] = currentItem.batches || [];
+            const newTotalQty = batches.length > 0 
+                ? batches.reduce((sum, b) => sum + (b.quantity || 0), 0)
+                : currentItem.quantity + quantityNum;
+
+            const updatePayload: any = {
+                quantity: newTotalQty,
+                batchNumber: batchNo
+            };
+            if (expDate) {
+                updatePayload.expirationDate = expDate;
+            }
+
+            await getInventoryModel().update({
+                where: { id: input.itemId },
+                data: updatePayload
+            });
+        }
+
+        revalidatePath("/admin/rhu/inventory");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error receiving RHU stock batch:", error);
+        return { success: false, error: error?.message || "Failed to log stock delivery batch" };
     }
 }
 
@@ -153,6 +308,76 @@ export async function updateRHUInventoryItem(id: string, input: Partial<RHUInven
     } catch (error: any) {
         console.error("Error updating RHU inventory item:", error);
         return { success: false, error: error?.message || "Failed to update inventory item" };
+    }
+}
+
+export async function adjustRHUBatchQuantity(batchId: string, delta: number) {
+    try {
+        await checkAuth();
+
+        const batchModel = getBatchModel();
+        if (!batchModel) {
+            return { success: false, error: "Batch model unavailable" };
+        }
+
+        const currentBatch = await batchModel.findUnique({ where: { id: batchId } });
+        if (!currentBatch) {
+            return { success: false, error: "Batch record not found" };
+        }
+
+        const newQty = Math.max(0, currentBatch.quantity + delta);
+        await batchModel.update({
+            where: { id: batchId },
+            data: { quantity: newQty }
+        });
+
+        // Sync master item total
+        const allBatches = await batchModel.findMany({ where: { itemId: currentBatch.itemId } });
+        const totalQty = allBatches.reduce((sum: number, b: any) => sum + b.quantity, 0);
+
+        await getInventoryModel().update({
+            where: { id: currentBatch.itemId },
+            data: { quantity: totalQty }
+        });
+
+        revalidatePath("/admin/rhu/inventory");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error adjusting batch quantity:", error);
+        return { success: false, error: error?.message || "Failed to adjust batch quantity" };
+    }
+}
+
+export async function deleteRHUInventoryBatch(batchId: string) {
+    try {
+        await checkAuth();
+
+        const batchModel = getBatchModel();
+        if (!batchModel) {
+            return { success: false, error: "Batch model unavailable" };
+        }
+
+        const batch = await batchModel.findUnique({ where: { id: batchId } });
+        if (!batch) {
+            return { success: false, error: "Batch record not found" };
+        }
+
+        await batchModel.delete({ where: { id: batchId } });
+
+        // Sync master item total
+        const remainingBatches = await batchModel.findMany({ where: { itemId: batch.itemId } });
+        const totalQty = remainingBatches.reduce((sum: number, b: any) => sum + b.quantity, 0);
+
+        await getInventoryModel().update({
+            where: { id: batch.itemId },
+            data: { quantity: totalQty }
+        });
+
+        revalidatePath("/admin/rhu/inventory");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error deleting batch:", error);
+        return { success: false, error: error?.message || "Failed to delete batch" };
     }
 }
 

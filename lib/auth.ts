@@ -190,6 +190,7 @@ export const authOptions: NextAuthOptions = {
     },
     pages: {
         signIn: "/auth/login",
+        error: "/auth/login",
     },
     session: {
         strategy: "jwt",
@@ -224,5 +225,5 @@ export const authOptions: NextAuthOptions = {
             },
         },
     },
-    secret: process.env.NEXTAUTH_SECRET,
+    secret: process.env.NEXTAUTH_SECRET || "emapandan_fallback_secret_key_2026",
 };

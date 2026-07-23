@@ -15,7 +15,12 @@ import {
     Filter,
     Calendar,
     RefreshCw,
-    Clock
+    Clock,
+    ChevronDown,
+    ChevronUp,
+    Truck,
+    Boxes,
+    CheckCircle2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,7 +56,12 @@ import {
     adjustRHUStockQuantity,
     deleteRHUInventoryItem,
     getRHUInventoryItems,
-    RHUInventoryInput
+    receiveRHUStockBatch,
+    adjustRHUBatchQuantity,
+    deleteRHUInventoryBatch,
+    RHUInventoryInput,
+    RHUStockBatchInput,
+    RHUBatchData
 } from "./actions";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +80,7 @@ interface RHUInventoryItemData {
     remarks?: string | null;
     createdAt?: string | Date;
     updatedAt?: string | Date;
+    batches?: RHUBatchData[];
 }
 
 interface RHUInventoryClientProps {
@@ -124,16 +135,34 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
     const [stockFilter, setStockFilter] = useState<"ALL" | "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" | "EXPIRING_SOON" | "EXPIRED">("ALL");
     const [isPending, startTransition] = useTransition();
 
-    // Modal states
+    // Accordion expanded rows
+    const [expandedItemIds, setExpandedItemIds] = useState<string[]>([]);
+
+    // Master Item Modal states
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<RHUInventoryItemData | null>(null);
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+
+    // Stock In / Batch Delivery Modal states
+    const [isStockInModalOpen, setIsStockInModalOpen] = useState(false);
+    const [stockInFormData, setStockInFormData] = useState<RHUStockBatchInput>({
+        itemId: "",
+        batchNumber: "",
+        expirationDate: "",
+        quantity: 100,
+        remarks: ""
+    });
+    const [stockInFormErrors, setStockInFormErrors] = useState<{ itemId?: string; batchNumber?: string }>({});
+
+    // Adjust Stock Modal states
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
     const [stockAdjustItem, setStockAdjustItem] = useState<RHUInventoryItemData | null>(null);
     const [stockDelta, setStockDelta] = useState<number>(0);
 
-    // Form state
+    // Delete Modal states
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+
+    // Form state for Master Item
     const [formData, setFormData] = useState<RHUInventoryInput>({
         name: "",
         genericName: "",
@@ -148,6 +177,12 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
         remarks: ""
     });
     const [formErrors, setFormErrors] = useState<{ name?: string; unit?: string; category?: string }>({});
+
+    const toggleExpandRow = (itemId: string) => {
+        setExpandedItemIds(prev =>
+            prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+        );
+    };
 
     const refreshData = async () => {
         startTransition(async () => {
@@ -206,6 +241,19 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
         setIsItemModalOpen(true);
     };
 
+    const handleOpenStockInModal = (item?: RHUInventoryItemData) => {
+        const defaultItemId = item ? item.id : (items.length > 0 ? items[0].id : "");
+        setStockInFormErrors({});
+        setStockInFormData({
+            itemId: defaultItemId,
+            batchNumber: `BAT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+            expirationDate: "",
+            quantity: 100,
+            remarks: "Delivery Shipment"
+        });
+        setIsStockInModalOpen(true);
+    };
+
     const handleSaveItem = async (e: React.FormEvent) => {
         e.preventDefault();
         
@@ -230,21 +278,53 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
             if (editingItem) {
                 const res = await updateRHUInventoryItem(editingItem.id, formData);
                 if (res.success) {
-                    toast.success("Inventory item updated successfully");
+                    toast.success("Master catalog item updated");
                     setIsItemModalOpen(false);
                     await refreshData();
                 } else {
-                    toast.error(res.error || "Failed to update item");
+                    setFormErrors({ name: res.error || "Failed to update item" });
                 }
             } else {
                 const res = await createRHUInventoryItem(formData);
                 if (res.success) {
-                    toast.success("New inventory item created successfully");
+                    toast.success("Master item added to catalog");
                     setIsItemModalOpen(false);
                     await refreshData();
                 } else {
-                    toast.error(res.error || "Failed to create item");
+                    setFormErrors({ name: res.error || "Failed to create item" });
                 }
+            }
+        });
+    };
+
+    const handleSaveStockInBatch = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        const errors: { itemId?: string; batchNumber?: string } = {};
+        if (!stockInFormData.itemId) {
+            errors.itemId = "Please select an item";
+        }
+        if (!stockInFormData.batchNumber || !stockInFormData.batchNumber.trim()) {
+            errors.batchNumber = "Batch number is required";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setStockInFormErrors(errors);
+            return;
+        }
+        setStockInFormErrors({});
+
+        startTransition(async () => {
+            const res = await receiveRHUStockBatch(stockInFormData);
+            if (res.success) {
+                toast.success(`Batch #${stockInFormData.batchNumber} logged successfully!`);
+                setIsStockInModalOpen(false);
+                setExpandedItemIds(prev => 
+                    prev.includes(stockInFormData.itemId) ? prev : [...prev, stockInFormData.itemId]
+                );
+                await refreshData();
+            } else {
+                toast.error(res.error || "Failed to log stock batch");
             }
         });
     };
@@ -261,6 +341,30 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                 await refreshData();
             } else {
                 toast.error(res.error || "Failed to delete item");
+            }
+        });
+    };
+
+    const handleDeleteBatch = async (batchId: string) => {
+        startTransition(async () => {
+            const res = await deleteRHUInventoryBatch(batchId);
+            if (res.success) {
+                toast.success("Batch removed");
+                await refreshData();
+            } else {
+                toast.error(res.error || "Failed to delete batch");
+            }
+        });
+    };
+
+    const handleAdjustBatchQty = async (batchId: string, delta: number) => {
+        startTransition(async () => {
+            const res = await adjustRHUBatchQuantity(batchId, delta);
+            if (res.success) {
+                toast.success(`Batch quantity updated`);
+                await refreshData();
+            } else {
+                toast.error(res.error || "Failed to adjust batch stock");
             }
         });
     };
@@ -305,23 +409,25 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
             const genericMatch = item.genericName?.toLowerCase().includes(q);
             const brandMatch = item.brandName?.toLowerCase().includes(q);
             const batchMatch = item.batchNumber?.toLowerCase().includes(q);
-            return nameMatch || genericMatch || brandMatch || batchMatch;
+            const hasMatchingBatch = item.batches?.some(b => b.batchNumber.toLowerCase().includes(q));
+            return nameMatch || genericMatch || brandMatch || batchMatch || hasMatchingBatch;
         }
 
         return true;
     });
 
-    // Counts for stats summary cards
+    // Overview Stats
     const totalItems = items.length;
     const totalMedicines = items.filter(i => i.category === "MEDICINE").length;
     const totalSupplies = items.filter(i => i.category === "MEDICAL_SUPPLY").length;
-    const lowStockCount = items.filter(i => i.quantity <= i.reorderLevel).length;
+    const lowStockCount = items.filter(i => i.quantity > 0 && i.quantity <= i.reorderLevel).length;
+    const outOfStockCount = items.filter(i => i.quantity <= 0).length;
     const expiringSoonCount = items.filter(i => getExpirationStatus(i.expirationDate).status === "EXPIRING_SOON").length;
     const expiredCount = items.filter(i => getExpirationStatus(i.expirationDate).status === "EXPIRED").length;
 
     return (
         <div className="p-2 md:p-4 max-w-full mx-auto space-y-6 pb-20">
-            {/* Elegant Header Banner */}
+            {/* Header Banner */}
             <div className="px-6 py-8 rounded-[1.5rem] border bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border-rose-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl md:text-4xl font-black italic uppercase tracking-tighter drop-shadow-sm text-rose-600 dark:text-rose-400 flex items-center gap-3">
@@ -329,26 +435,36 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                         RHU <span className="tracking-normal italic">Inventory</span>
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-2 font-black uppercase tracking-[0.2em] text-[10px] opacity-70">
-                        Manage medicine supplies, medical inventory, stock levels, and expiration dates.
+                        Manage medicine catalog, multi-batch delivery shipments, stock levels, and FEFO expiration dates.
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
                     <Button
                         onClick={refreshData}
                         variant="outline"
                         size="sm"
                         disabled={isPending}
-                        className="rounded-xl border-rose-200 hover:bg-rose-50 dark:border-rose-900/40 dark:hover:bg-rose-950/30"
+                        className="rounded-xl border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold h-10 px-3.5"
                     >
                         <RefreshCw className={`w-4 h-4 mr-2 ${isPending ? "animate-spin" : ""}`} />
                         Refresh
                     </Button>
                     <Button
+                        onClick={() => handleOpenStockInModal()}
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-bold h-10 px-3.5"
+                    >
+                        <Truck className="w-4 h-4 mr-2 text-emerald-500" />
+                        + Stock In
+                    </Button>
+                    <Button
                         onClick={handleOpenCreateModal}
-                        className="bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/20 font-bold rounded-xl"
+                        size="sm"
+                        className="bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/20 font-bold rounded-xl h-10 px-4"
                     >
                         <Plus className="w-4 h-4 mr-2" />
-                        Add New Item
+                        Add Master Item
                     </Button>
                 </div>
             </div>
@@ -394,18 +510,24 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                         <AlertTriangle className="w-4 h-4 text-amber-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-black text-amber-700 dark:text-amber-300">{lowStockCount}</div>
-                        <p className="text-xs text-amber-600/70 dark:text-amber-400/70 mt-1">Require reordering</p>
+                        <div className="text-2xl font-black text-amber-700 dark:text-amber-300">
+                            {lowStockCount + outOfStockCount}
+                        </div>
+                        <p className="text-xs text-amber-600/70 dark:text-amber-400/70 mt-1">
+                            {outOfStockCount > 0 ? `${outOfStockCount} Out, ${lowStockCount} Low` : "Require reordering"}
+                        </p>
                     </CardContent>
                 </Card>
 
                 <Card className="border-rose-200 dark:border-rose-900/40 bg-rose-50/30 dark:bg-rose-950/20 backdrop-blur-md shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                         <CardTitle className="text-sm font-semibold text-rose-600 dark:text-rose-400">Expiring / Expired</CardTitle>
-                        <Clock className="w-4 h-4 text-rose-500" />
+                        <Calendar className="w-4 h-4 text-rose-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-black text-rose-700 dark:text-rose-300">{expiringSoonCount + expiredCount}</div>
+                        <div className="text-2xl font-black text-rose-700 dark:text-rose-300">
+                            {expiringSoonCount + expiredCount}
+                        </div>
                         <p className="text-xs text-rose-600/70 dark:text-rose-400/70 mt-1">
                             {expiredCount > 0 ? `${expiredCount} Expired, ${expiringSoonCount} Soon` : `${expiringSoonCount} Expiring within 30d`}
                         </p>
@@ -476,7 +598,7 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                         <div className="relative w-full sm:w-[240px]">
                             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
                             <Input
-                                placeholder="Search by name, brand..."
+                                placeholder="Search by name, brand, batch..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="pl-9 h-9 text-xs rounded-lg"
@@ -486,27 +608,28 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                 </CardContent>
             </Card>
 
-            {/* Inventory Table */}
+            {/* Inventory Table with FEFO Multi-Batch Drawer */}
             <Card className="border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader className="bg-slate-50 dark:bg-slate-800/40">
                             <TableRow>
+                                <TableHead className="w-8"></TableHead>
                                 <TableHead className="font-bold text-xs">Item Name / Generic</TableHead>
                                 <TableHead className="font-bold text-xs">Category</TableHead>
                                 <TableHead className="font-bold text-xs">Dosage / Unit</TableHead>
-                                <TableHead className="font-bold text-xs">Stock Quantity</TableHead>
-                                <TableHead className="font-bold text-xs">Expiration Date</TableHead>
+                                <TableHead className="font-bold text-xs">Total Stock</TableHead>
+                                <TableHead className="font-bold text-xs">FEFO Earliest Expiry</TableHead>
                                 <TableHead className="font-bold text-xs text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredItems.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-12 text-slate-400">
+                                    <TableCell colSpan={7} className="text-center py-12 text-slate-400">
                                         <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
                                         <p className="font-semibold text-sm">No inventory items found</p>
-                                        <p className="text-xs opacity-70 mt-1">Try adjusting your filters or click &quot;Add New Item&quot;.</p>
+                                        <p className="text-xs opacity-70 mt-1">Try adjusting your filters or click &quot;Add Master Item&quot;.</p>
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -514,115 +637,256 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                                     const isOutOfStock = item.quantity <= 0;
                                     const isLowStock = item.quantity > 0 && item.quantity <= item.reorderLevel;
                                     const expInfo = getExpirationStatus(item.expirationDate);
+                                    const isExpanded = expandedItemIds.includes(item.id);
+                                    const batchList = item.batches || [];
 
                                     return (
-                                        <TableRow key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                                            <TableCell>
-                                                <div className="font-bold text-slate-800 dark:text-slate-100">
-                                                    {item.name}
-                                                </div>
-                                                <div className="text-[11px] text-slate-400 space-x-2">
-                                                    {item.genericName && <span>Generic: {item.genericName}</span>}
-                                                    {item.brandName && <span>• Brand: {item.brandName}</span>}
-                                                    {item.batchNumber && <span>• Batch: #{item.batchNumber}</span>}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                {item.category === "MEDICINE" ? (
-                                                    <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 gap-1 text-[10px]">
-                                                        <Pill className="w-3 h-3" /> Medicine
-                                                    </Badge>
-                                                ) : (
-                                                    <Badge variant="outline" className="border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10 gap-1 text-[10px]">
-                                                        <Stethoscope className="w-3 h-3" /> Medical Supply
-                                                    </Badge>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-xs text-slate-600 dark:text-slate-300">
-                                                {item.dosage ? `${item.dosage} / ${item.unit}` : item.unit}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-black text-sm">{item.quantity}</span>
-                                                    <span className="text-xs text-slate-400">{item.unit}</span>
+                                        <React.Fragment key={item.id}>
+                                            <TableRow className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                                <TableCell className="pr-0">
+                                                    <Button
+                                                        onClick={() => toggleExpandRow(item.id)}
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
+                                                        title="Toggle Batches Breakdown"
+                                                    >
+                                                        {isExpanded ? (
+                                                            <ChevronUp className="w-4 h-4" />
+                                                        ) : (
+                                                            <ChevronDown className="w-4 h-4" />
+                                                        )}
+                                                    </Button>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                                        {item.name}
+                                                        {batchList.length > 0 && (
+                                                            <Badge variant="outline" className="text-[9px] bg-slate-100 dark:bg-slate-800 font-medium">
+                                                                {batchList.length} {batchList.length === 1 ? 'batch' : 'batches'}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[11px] text-slate-400 space-x-2">
+                                                        {item.genericName && <span>Generic: {item.genericName}</span>}
+                                                        {item.brandName && <span>• Brand: {item.brandName}</span>}
+                                                        {item.batchNumber && <span>• Latest Batch: #{item.batchNumber}</span>}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {item.category === "MEDICINE" ? (
+                                                        <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 gap-1 text-[10px]">
+                                                            <Pill className="w-3 h-3" /> Medicine
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge variant="outline" className="border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10 gap-1 text-[10px]">
+                                                            <Stethoscope className="w-3 h-3" /> Medical Supply
+                                                        </Badge>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-xs text-slate-600 dark:text-slate-300">
+                                                    {item.dosage ? `${item.dosage} / ${item.unit}` : item.unit}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-black text-sm">{item.quantity}</span>
+                                                        <span className="text-xs text-slate-400">{item.unit}</span>
 
-                                                    {isOutOfStock && (
-                                                        <Badge variant="destructive" className="text-[9px] uppercase px-1.5 py-0.5">
-                                                            Out of Stock
-                                                        </Badge>
-                                                    )}
-                                                    {isLowStock && (
-                                                        <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[9px] uppercase px-1.5 py-0.5">
-                                                            Low Stock
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-xs text-slate-600 dark:text-slate-300">
-                                                {expInfo.status === "EXPIRED" ? (
-                                                    <div className="flex flex-col gap-1">
-                                                        <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-bold">
-                                                            <Calendar className="w-3.5 h-3.5 text-rose-500" />
+                                                        {isOutOfStock && (
+                                                            <Badge variant="destructive" className="text-[9px] uppercase px-1.5 py-0.5">
+                                                                Out of Stock
+                                                            </Badge>
+                                                        )}
+                                                        {isLowStock && (
+                                                            <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[9px] uppercase px-1.5 py-0.5">
+                                                                Low Stock
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-xs text-slate-600 dark:text-slate-300">
+                                                    {expInfo.status === "EXPIRED" ? (
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-bold">
+                                                                <Calendar className="w-3.5 h-3.5 text-rose-500" />
+                                                                {expInfo.label}
+                                                            </div>
+                                                            <Badge variant="destructive" className="w-fit text-[9px] uppercase px-1.5 py-0.5 flex items-center gap-1">
+                                                                <AlertTriangle className="w-3 h-3" /> {expInfo.badgeText}
+                                                            </Badge>
+                                                        </div>
+                                                    ) : expInfo.status === "EXPIRING_SOON" ? (
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-bold">
+                                                                <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                                                                {expInfo.label}
+                                                            </div>
+                                                            <Badge className="w-fit bg-amber-500 hover:bg-amber-600 text-white text-[9px] uppercase px-1.5 py-0.5 flex items-center gap-1">
+                                                                <Clock className="w-3 h-3" /> {expInfo.badgeText}
+                                                            </Badge>
+                                                        </div>
+                                                    ) : expInfo.status === "GOOD" ? (
+                                                        <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium">
+                                                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
                                                             {expInfo.label}
                                                         </div>
-                                                        <Badge variant="destructive" className="w-fit text-[9px] uppercase px-1.5 py-0.5 flex items-center gap-1">
-                                                            <AlertTriangle className="w-3 h-3" /> {expInfo.badgeText}
-                                                        </Badge>
+                                                    ) : (
+                                                        <span className="text-slate-400">N/A</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <Button
+                                                            onClick={() => handleOpenStockInModal(item)}
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                                                            title="Receive Delivery Stock In"
+                                                        >
+                                                            <Truck className="w-3.5 h-3.5 mr-1" />
+                                                            <span className="text-xs font-semibold hidden sm:inline">Stock In</span>
+                                                        </Button>
+                                                        <Button
+                                                            onClick={() => handleOpenStockModal(item)}
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                                                            title="Quick Adjust Total Stock"
+                                                        >
+                                                            <ArrowUpDown className="w-3.5 h-3.5" />
+                                                        </Button>
+                                                        <Button
+                                                            onClick={() => handleOpenEditModal(item)}
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 px-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                            title="Edit Item Catalog"
+                                                        >
+                                                            <Edit3 className="w-3.5 h-3.5" />
+                                                        </Button>
+                                                        <Button
+                                                            onClick={() => {
+                                                                setDeletingItemId(item.id);
+                                                                setIsDeleteModalOpen(true);
+                                                            }}
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 px-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                                            title="Delete Item"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </Button>
                                                     </div>
-                                                ) : expInfo.status === "EXPIRING_SOON" ? (
-                                                    <div className="flex flex-col gap-1">
-                                                        <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-bold">
-                                                            <Calendar className="w-3.5 h-3.5 text-amber-500" />
-                                                            {expInfo.label}
+                                                </TableCell>
+                                            </TableRow>
+
+                                            {/* FEFO Batches Drawer */}
+                                            {isExpanded && (
+                                                <TableRow className="bg-slate-50/80 dark:bg-slate-900/40">
+                                                    <TableCell colSpan={7} className="p-4 pl-10">
+                                                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-inner space-y-3">
+                                                            <div className="flex items-center justify-between border-b pb-2">
+                                                                <h4 className="text-xs font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                                                                    <Boxes className="w-4 h-4 text-rose-500" />
+                                                                    Batch Shipments & FEFO Priority Breakdown ({item.name})
+                                                                </h4>
+                                                                <Button
+                                                                    onClick={() => handleOpenStockInModal(item)}
+                                                                    size="sm"
+                                                                    className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-2.5"
+                                                                >
+                                                                    <Plus className="w-3 h-3 mr-1" /> Add Batch Delivery
+                                                                </Button>
+                                                            </div>
+
+                                                            {batchList.length === 0 ? (
+                                                                <div className="text-xs text-slate-400 italic py-3 text-center">
+                                                                    No specific batch deliveries logged yet. Click &quot;Add Batch Delivery&quot; to log shipments.
+                                                                </div>
+                                                            ) : (
+                                                                <div className="overflow-x-auto">
+                                                                    <Table>
+                                                                        <TableHeader>
+                                                                            <TableRow className="border-b text-[11px]">
+                                                                                <TableHead className="h-7 text-[10px] font-bold">FEFO Order</TableHead>
+                                                                                <TableHead className="h-7 text-[10px] font-bold">Batch / Lot No.</TableHead>
+                                                                                <TableHead className="h-7 text-[10px] font-bold">Current Stock</TableHead>
+                                                                                <TableHead className="h-7 text-[10px] font-bold">Expiration Date</TableHead>
+                                                                                <TableHead className="h-7 text-[10px] font-bold text-right">Actions</TableHead>
+                                                                            </TableRow>
+                                                                        </TableHeader>
+                                                                        <TableBody>
+                                                                            {batchList.map((batch, bIndex) => {
+                                                                                const batchExpInfo = getExpirationStatus(batch.expirationDate);
+                                                                                const isFefoTarget = bIndex === 0 && batch.quantity > 0;
+
+                                                                                return (
+                                                                                    <TableRow key={batch.id || bIndex} className={cn("text-xs", isFefoTarget && "bg-emerald-500/5")}>
+                                                                                        <TableCell className="py-2">
+                                                                                            {isFefoTarget ? (
+                                                                                                <Badge className="bg-emerald-600 text-white text-[9px] uppercase font-bold px-2 py-0.5 gap-1">
+                                                                                                    <CheckCircle2 className="w-3 h-3" /> Dispense First (FEFO P1)
+                                                                                                </Badge>
+                                                                                            ) : (
+                                                                                                <span className="text-slate-400 font-mono text-[10px]">Priority #{bIndex + 1}</span>
+                                                                                            )}
+                                                                                        </TableCell>
+                                                                                        <TableCell className="font-mono font-bold text-slate-800 dark:text-slate-200 py-2">
+                                                                                            #{batch.batchNumber}
+                                                                                        </TableCell>
+                                                                                        <TableCell className="py-2 font-black">
+                                                                                            {batch.quantity} <span className="text-[10px] font-normal text-slate-400">{item.unit}</span>
+                                                                                        </TableCell>
+                                                                                        <TableCell className="py-2">
+                                                                                            {batchExpInfo.status === "EXPIRED" ? (
+                                                                                                <span className="text-rose-600 font-bold">{batchExpInfo.label} (Expired)</span>
+                                                                                            ) : batchExpInfo.status === "EXPIRING_SOON" ? (
+                                                                                                <span className="text-amber-600 font-bold">{batchExpInfo.label} ({batchExpInfo.badgeText})</span>
+                                                                                            ) : (
+                                                                                                <span>{batchExpInfo.label}</span>
+                                                                                            )}
+                                                                                        </TableCell>
+                                                                                        <TableCell className="text-right py-2 space-x-1">
+                                                                                            <Button
+                                                                                                onClick={() => handleAdjustBatchQty(batch.id, 10)}
+                                                                                                variant="outline"
+                                                                                                size="sm"
+                                                                                                className="h-6 px-1.5 text-[10px]"
+                                                                                                title="Add +10 to batch"
+                                                                                            >
+                                                                                                +10
+                                                                                            </Button>
+                                                                                            <Button
+                                                                                                onClick={() => handleAdjustBatchQty(batch.id, -10)}
+                                                                                                variant="outline"
+                                                                                                size="sm"
+                                                                                                className="h-6 px-1.5 text-[10px]"
+                                                                                                title="Deduct -10 from batch"
+                                                                                            >
+                                                                                                -10
+                                                                                            </Button>
+                                                                                            <Button
+                                                                                                onClick={() => handleDeleteBatch(batch.id)}
+                                                                                                variant="ghost"
+                                                                                                size="sm"
+                                                                                                className="h-6 px-1.5 text-rose-500 hover:text-rose-700"
+                                                                                                title="Delete Batch"
+                                                                                            >
+                                                                                                <Trash2 className="w-3 h-3" />
+                                                                                            </Button>
+                                                                                        </TableCell>
+                                                                                    </TableRow>
+                                                                                );
+                                                                            })}
+                                                                        </TableBody>
+                                                                    </Table>
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                        <Badge className="w-fit bg-amber-500 hover:bg-amber-600 text-white text-[9px] uppercase px-1.5 py-0.5 flex items-center gap-1">
-                                                            <Clock className="w-3 h-3" /> {expInfo.badgeText}
-                                                        </Badge>
-                                                    </div>
-                                                ) : expInfo.status === "GOOD" ? (
-                                                    <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium">
-                                                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                                                        {expInfo.label}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-slate-400">N/A</span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <Button
-                                                        onClick={() => handleOpenStockModal(item)}
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                                                        title="Adjust Stock"
-                                                    >
-                                                        <ArrowUpDown className="w-3.5 h-3.5" />
-                                                    </Button>
-                                                    <Button
-                                                        onClick={() => handleOpenEditModal(item)}
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 px-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                                        title="Edit Item"
-                                                    >
-                                                        <Edit3 className="w-3.5 h-3.5" />
-                                                    </Button>
-                                                    <Button
-                                                        onClick={() => {
-                                                            setDeletingItemId(item.id);
-                                                            setIsDeleteModalOpen(true);
-                                                        }}
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 px-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                                        title="Delete Item"
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </React.Fragment>
                                     );
                                 })
                             )}
@@ -631,16 +895,16 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                 </div>
             </Card>
 
-            {/* Create / Edit Dialog */}
+            {/* Master Item Dialog (Catalog Only) */}
             <Dialog open={isItemModalOpen} onOpenChange={setIsItemModalOpen}>
                 <DialogContent className="sm:max-w-[540px] rounded-2xl">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-bold flex items-center gap-2 text-rose-600">
                             {editingItem ? <Edit3 className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-                            {editingItem ? "Edit Inventory Item" : "Add New Inventory Item"}
+                            {editingItem ? "Edit Master Catalog Item" : "Add Master Inventory Item (Catalog)"}
                         </DialogTitle>
                         <DialogDescription className="text-xs">
-                            Fill in medicine or medical supply details below.
+                            Define item master metadata. Delivery batch numbers and expiration dates are logged separately per shipment.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -650,131 +914,81 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                                 <Label className="text-xs font-semibold">Category *</Label>
                                 <Select
                                     value={formData.category}
-                                    onValueChange={(val: any) => {
-                                        setFormData(prev => ({ ...prev, category: val }));
-                                        if (formErrors.category) setFormErrors(prev => ({ ...prev, category: undefined }));
-                                    }}
+                                    onValueChange={(val: any) => setFormData({ ...formData, category: val })}
                                 >
-                                    <SelectTrigger className={cn("rounded-xl text-xs", formErrors.category && "border-rose-500 ring-1 ring-rose-500/20")}>
-                                        <SelectValue placeholder="Category" />
+                                    <SelectTrigger className="h-9 text-xs rounded-xl">
+                                        <SelectValue placeholder="Select Category" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="MEDICINE">Medicine</SelectItem>
                                         <SelectItem value="MEDICAL_SUPPLY">Medical Supply</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                {formErrors.category && (
-                                    <p className="text-[11px] font-medium text-rose-500 mt-1">{formErrors.category}</p>
-                                )}
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label className="text-xs font-semibold">Item Name *</Label>
+                                <Label className="text-xs font-semibold">Unit of Measure *</Label>
                                 <Input
-                                    placeholder="e.g. Paracetamol, Latex Gloves"
-                                    value={formData.name}
-                                    onChange={(e) => {
-                                        setFormData(prev => ({ ...prev, name: e.target.value }));
-                                        if (formErrors.name) setFormErrors(prev => ({ ...prev, name: undefined }));
-                                    }}
-                                    className={cn("rounded-xl text-xs", formErrors.name && "border-rose-500 focus-visible:ring-rose-500")}
+                                    placeholder="e.g. pcs, tablets, boxes, bottles"
+                                    value={formData.unit}
+                                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                                    className="h-9 text-xs rounded-xl"
                                 />
-                                {formErrors.name && (
-                                    <p className="text-[11px] font-medium text-rose-500 mt-1">{formErrors.name}</p>
-                                )}
+                                {formErrors.unit && <p className="text-[10px] text-red-500 font-medium">{formErrors.unit}</p>}
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold">Item Name *</Label>
+                            <Input
+                                placeholder="e.g. Paracetamol, Amoxicillin, Surgical Gloves"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                className="h-9 text-xs rounded-xl"
+                            />
+                            {formErrors.name && <p className="text-[10px] text-red-500 font-medium">{formErrors.name}</p>}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Generic Name (Optional)</Label>
+                                <Input
+                                    placeholder="e.g. Acetaminophen"
+                                    value={formData.genericName || ""}
+                                    onChange={(e) => setFormData({ ...formData, genericName: e.target.value })}
+                                    className="h-9 text-xs rounded-xl"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Brand Name (Optional)</Label>
+                                <Input
+                                    placeholder="e.g. Biogesic"
+                                    value={formData.brandName || ""}
+                                    onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
+                                    className="h-9 text-xs rounded-xl"
+                                />
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <Label className="text-xs font-semibold">Generic Name</Label>
+                                <Label className="text-xs font-semibold">Dosage / Formulation</Label>
                                 <Input
-                                    placeholder="e.g. Paracetamol"
-                                    value={formData.genericName || ""}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, genericName: e.target.value }))}
-                                    className="rounded-xl text-xs"
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-semibold">Brand Name</Label>
-                                <Input
-                                    placeholder="e.g. Biogesic"
-                                    value={formData.brandName || ""}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, brandName: e.target.value }))}
-                                    className="rounded-xl text-xs"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-semibold">Dosage</Label>
-                                <Input
-                                    placeholder="e.g. 500mg, 10ml"
+                                    placeholder="e.g. 500mg, 250mg/5ml, Large"
                                     value={formData.dosage || ""}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, dosage: e.target.value }))}
-                                    className="rounded-xl text-xs"
+                                    onChange={(e) => setFormData({ ...formData, dosage: e.target.value })}
+                                    className="h-9 text-xs rounded-xl"
                                 />
                             </div>
-
                             <div className="space-y-1.5">
-                                <Label className="text-xs font-semibold">Unit *</Label>
-                                <Input
-                                    placeholder="pcs, box, bottle"
-                                    value={formData.unit}
-                                    onChange={(e) => {
-                                        setFormData(prev => ({ ...prev, unit: e.target.value }));
-                                        if (formErrors.unit) setFormErrors(prev => ({ ...prev, unit: undefined }));
-                                    }}
-                                    className={cn("rounded-xl text-xs", formErrors.unit && "border-rose-500 focus-visible:ring-rose-500")}
-                                />
-                                {formErrors.unit && (
-                                    <p className="text-[11px] font-medium text-rose-500 mt-1">{formErrors.unit}</p>
-                                )}
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-semibold">Initial Quantity</Label>
+                                <Label className="text-xs font-semibold">Reorder Threshold Alert</Label>
                                 <Input
                                     type="number"
                                     min="0"
-                                    value={formData.quantity}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, quantity: parseInt(e.target.value) || 0 }))}
-                                    className="rounded-xl text-xs"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-semibold">Reorder Level</Label>
-                                <Input
-                                    type="number"
-                                    min="1"
+                                    placeholder="10"
                                     value={formData.reorderLevel}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, reorderLevel: parseInt(e.target.value) || 10 }))}
-                                    className="rounded-xl text-xs"
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-semibold">Expiration Date</Label>
-                                <Input
-                                    type="date"
-                                    value={formData.expirationDate || ""}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, expirationDate: e.target.value }))}
-                                    className="rounded-xl text-xs"
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-semibold">Batch No.</Label>
-                                <Input
-                                    placeholder="e.g. B-202607"
-                                    value={formData.batchNumber || ""}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, batchNumber: e.target.value }))}
-                                    className="rounded-xl text-xs"
+                                    onChange={(e) => setFormData({ ...formData, reorderLevel: parseInt(e.target.value) || 0 })}
+                                    className="h-9 text-xs rounded-xl"
                                 />
                             </div>
                         </div>
@@ -782,10 +996,10 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                         <div className="space-y-1.5">
                             <Label className="text-xs font-semibold">Remarks / Storage Notes</Label>
                             <Input
-                                placeholder="e.g. Store below 30°C, Keep dry"
+                                placeholder="e.g. Store below 30°C, Protect from light"
                                 value={formData.remarks || ""}
-                                onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
-                                className="rounded-xl text-xs"
+                                onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                                className="h-9 text-xs rounded-xl"
                             />
                         </div>
 
@@ -794,102 +1008,198 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                                 type="button"
                                 variant="outline"
                                 onClick={() => setIsItemModalOpen(false)}
-                                className="rounded-xl text-xs"
+                                className="rounded-xl text-xs h-9"
                             >
                                 Cancel
                             </Button>
                             <Button
                                 type="submit"
                                 disabled={isPending}
-                                className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold"
+                                className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs h-9 font-bold"
                             >
-                                {editingItem ? "Save Changes" : "Create Item"}
+                                {isPending ? "Saving..." : editingItem ? "Update Item" : "Create Master Item"}
                             </Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
             </Dialog>
 
-            {/* Quick Stock Adjustment Dialog */}
-            <Dialog open={isStockModalOpen} onOpenChange={setIsStockModalOpen}>
-                <DialogContent className="sm:max-w-[460px] rounded-2xl">
+            {/* Stock In / Receive Delivery Batch Dialog */}
+            <Dialog open={isStockInModalOpen} onOpenChange={setIsStockInModalOpen}>
+                <DialogContent className="sm:max-w-[500px] rounded-2xl">
                     <DialogHeader>
-                        <DialogTitle className="text-lg font-bold text-rose-600 flex items-center gap-2">
-                            <ArrowUpDown className="w-5 h-5" /> Adjust Stock Level
+                        <DialogTitle className="text-xl font-bold flex items-center gap-2 text-emerald-600">
+                            <Truck className="w-5 h-5 text-emerald-600" />
+                            Receive Stock Delivery (Stock In)
                         </DialogTitle>
                         <DialogDescription className="text-xs">
-                            {stockAdjustItem?.name} (Current Stock: <span className="font-bold text-slate-800 dark:text-slate-200">{stockAdjustItem?.quantity} {stockAdjustItem?.unit}</span>)
+                            Log a new delivery shipment with batch number and expiration date for FEFO tracking.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-5 py-3">
-                        <div className="flex items-center justify-center gap-2 sm:gap-3">
-                            <div className="flex gap-1">
+                    <form onSubmit={handleSaveStockInBatch} className="space-y-4 py-2">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold">Select Inventory Item *</Label>
+                            <Select
+                                value={stockInFormData.itemId}
+                                onValueChange={(val) => setStockInFormData({ ...stockInFormData, itemId: val })}
+                            >
+                                <SelectTrigger className="h-9 text-xs rounded-xl">
+                                    <SelectValue placeholder="Choose item" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {items.map((i) => (
+                                        <SelectItem key={i.id} value={i.id}>
+                                            {i.name} {i.dosage ? `(${i.dosage})` : ''} - [{i.category}]
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {stockInFormErrors.itemId && <p className="text-[10px] text-red-500 font-medium">{stockInFormErrors.itemId}</p>}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Batch / Lot Number *</Label>
+                                <Input
+                                    placeholder="e.g. LOT-2027A-01"
+                                    value={stockInFormData.batchNumber}
+                                    onChange={(e) => setStockInFormData({ ...stockInFormData, batchNumber: e.target.value })}
+                                    className="h-9 text-xs rounded-xl font-mono"
+                                />
+                                {stockInFormErrors.batchNumber && <p className="text-[10px] text-red-500 font-medium">{stockInFormErrors.batchNumber}</p>}
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Quantity Received *</Label>
+                                <Input
+                                    type="number"
+                                    min="1"
+                                    placeholder="100"
+                                    value={stockInFormData.quantity}
+                                    onChange={(e) => setStockInFormData({ ...stockInFormData, quantity: parseInt(e.target.value) || 0 })}
+                                    className="h-9 text-xs rounded-xl font-bold"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold">Expiration Date *</Label>
+                            <Input
+                                type="date"
+                                value={stockInFormData.expirationDate || ""}
+                                onChange={(e) => setStockInFormData({ ...stockInFormData, expirationDate: e.target.value })}
+                                className="h-9 text-xs rounded-xl"
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold">Delivery Remarks / Supplier Notes</Label>
+                            <Input
+                                placeholder="e.g. DOH Central Office Delivery Box #4"
+                                value={stockInFormData.remarks || ""}
+                                onChange={(e) => setStockInFormData({ ...stockInFormData, remarks: e.target.value })}
+                                className="h-9 text-xs rounded-xl"
+                            />
+                        </div>
+
+                        <DialogFooter className="pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsStockInModalOpen(false)}
+                                className="rounded-xl text-xs h-9"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={isPending}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs h-9 font-bold"
+                            >
+                                {isPending ? "Logging Shipment..." : "Log Stock In Batch"}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Quick Adjust Stock Dialog */}
+            <Dialog open={isStockModalOpen} onOpenChange={setIsStockModalOpen}>
+                <DialogContent className="sm:max-w-[400px] rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-bold flex items-center gap-2 text-rose-600">
+                            <ArrowUpDown className="w-5 h-5" /> Adjust Total Stock
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Adjust overall quantity on hand for &quot;{stockAdjustItem?.name}&quot;.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-3">
+                        <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl flex items-center justify-between text-xs">
+                            <span className="text-slate-500">Current Stock:</span>
+                            <span className="font-bold text-sm">{stockAdjustItem?.quantity} {stockAdjustItem?.unit}</span>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold">Stock Adjustment (+ / -)</Label>
+                            <div className="flex gap-2">
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    size="sm"
-                                    onClick={() => setStockDelta(prev => prev - 10)}
-                                    className="rounded-xl font-bold h-10 px-3 border-slate-300 dark:border-slate-700 hover:bg-rose-50 hover:border-rose-200 dark:hover:bg-rose-950/30"
+                                    onClick={() => setStockDelta(-10)}
+                                    className="h-9 px-3 text-xs"
                                 >
                                     -10
                                 </Button>
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    size="sm"
-                                    onClick={() => setStockDelta(prev => prev - 1)}
-                                    className="rounded-xl font-bold h-10 px-3 border-slate-300 dark:border-slate-700 hover:bg-rose-50 hover:border-rose-200 dark:hover:bg-rose-950/30"
+                                    onClick={() => setStockDelta(-1)}
+                                    className="h-9 px-3 text-xs"
                                 >
                                     -1
                                 </Button>
-                            </div>
-
-                            <div className="text-center px-1">
                                 <Input
                                     type="number"
                                     value={stockDelta}
                                     onChange={(e) => setStockDelta(parseInt(e.target.value) || 0)}
-                                    className="w-20 text-center font-black text-lg h-10 rounded-xl border-rose-500/40 focus-visible:ring-rose-500"
+                                    className="h-9 text-center text-xs font-bold rounded-xl"
                                 />
-                                <span className="text-[10px] font-medium text-slate-400 block mt-1">Adjustment</span>
-                            </div>
-
-                            <div className="flex gap-1">
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    size="sm"
-                                    onClick={() => setStockDelta(prev => prev + 1)}
-                                    className="rounded-xl font-bold h-10 px-3 border-slate-300 dark:border-slate-700 hover:bg-rose-50 hover:border-rose-200 dark:hover:bg-rose-950/30"
+                                    onClick={() => setStockDelta(1)}
+                                    className="h-9 px-3 text-xs"
                                 >
                                     +1
                                 </Button>
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    size="sm"
-                                    onClick={() => setStockDelta(prev => prev + 10)}
-                                    className="rounded-xl font-bold h-10 px-3 border-slate-300 dark:border-slate-700 hover:bg-rose-50 hover:border-rose-200 dark:hover:bg-rose-950/30"
+                                    onClick={() => setStockDelta(10)}
+                                    className="h-9 px-3 text-xs"
                                 >
                                     +10
                                 </Button>
                             </div>
                         </div>
 
-                        {stockAdjustItem && (
-                            <div className="text-center text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/80 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-                                New Total Stock: <span className="font-black text-sm text-rose-600 dark:text-rose-400">{Math.max(0, stockAdjustItem.quantity + stockDelta)}</span> <span className="font-medium text-slate-400">{stockAdjustItem.unit}</span>
-                            </div>
-                        )}
+                        <div className="bg-rose-50 dark:bg-rose-950/30 p-3 rounded-xl flex items-center justify-between text-xs border border-rose-200 dark:border-rose-900/40">
+                            <span className="text-rose-700 dark:text-rose-300 font-semibold">New Total Stock:</span>
+                            <span className="font-black text-sm text-rose-700 dark:text-rose-300">
+                                {Math.max(0, (stockAdjustItem?.quantity || 0) + stockDelta)} {stockAdjustItem?.unit}
+                            </span>
+                        </div>
                     </div>
 
-                    <DialogFooter className="gap-2 sm:gap-0">
+                    <DialogFooter>
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => setIsStockModalOpen(false)}
-                            className="rounded-xl text-xs"
+                            className="rounded-xl text-xs h-9"
                         >
                             Cancel
                         </Button>
@@ -897,31 +1207,32 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                             type="button"
                             onClick={handleSaveStockAdjust}
                             disabled={isPending || stockDelta === 0}
-                            className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-600/20"
+                            className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs h-9 font-bold"
                         >
-                            Apply Stock Adjustment
+                            Save Adjustment
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            {/* Delete Confirmation Dialog */}
+            {/* Confirm Delete Dialog */}
             <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-                <DialogContent className="sm:max-w-[400px] rounded-2xl">
+                <DialogContent className="sm:max-w-[420px] rounded-2xl">
                     <DialogHeader>
-                        <DialogTitle className="text-lg font-bold text-red-600 flex items-center gap-2">
-                            <AlertTriangle className="w-5 h-5" /> Confirm Deletion
+                        <DialogTitle className="text-lg font-bold flex items-center gap-2 text-red-600">
+                            <AlertTriangle className="w-5 h-5 text-red-500" /> Confirm Deletion
                         </DialogTitle>
                         <DialogDescription className="text-xs">
-                            Are you sure you want to delete this inventory item? This action cannot be undone.
+                            Are you sure you want to remove this item and all linked batches from the RHU inventory? This action cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
+
                     <DialogFooter className="pt-2">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => setIsDeleteModalOpen(false)}
-                            className="rounded-xl text-xs"
+                            className="rounded-xl text-xs h-9"
                         >
                             Cancel
                         </Button>
@@ -929,9 +1240,9 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                             type="button"
                             onClick={handleConfirmDelete}
                             disabled={isPending}
-                            className="bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold"
+                            className="bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs h-9 font-bold"
                         >
-                            Delete Item
+                            {isPending ? "Deleting..." : "Delete Item"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

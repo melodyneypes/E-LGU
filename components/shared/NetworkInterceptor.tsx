@@ -20,7 +20,7 @@ export function NetworkInterceptor() {
 
             try {
                 const response = await originalFetch.apply(this, args);
-                if (!response.ok && shouldIntercept) {
+                if (!response.ok && shouldIntercept && response.status !== 404) {
                     try {
                         const clone = response.clone();
                         const contentType = clone.headers.get("content-type");
@@ -28,26 +28,22 @@ export function NetworkInterceptor() {
                             const data = await clone.json();
                             const msg = data.error || data.message || `Server returned code ${response.status}`;
                             toast.error(`Network Request Failed: ${msg}`);
-                        } else {
-                            const text = await clone.text();
-                            const isHtml = text.trim().startsWith("<") || text.trim().toLowerCase().startsWith("<!doctype");
-                            if (isHtml) {
-                                toast.error(`Error ${response.status}: An unexpected server error occurred. Please try again later.`);
-                            } else {
-                                toast.error(`Error ${response.status}: ${text.slice(0, 100) || response.statusText}`);
-                            }
                         }
                     } catch {
-                        toast.error(`Request Failed: Server responded with status ${response.status}`);
+                        // Silent catch for clone/parse errors
                     }
                 }
                 return response;
             } catch (error: any) {
-                const isAbort = error.name === "AbortError" || 
-                                error.message?.includes("aborted") || 
-                                error.message?.includes("abort");
-                if (shouldIntercept && !isAbort) {
-                    toast.error(`Network Connection Failed: ${error.message || 'Please check your internet connection'}`);
+                const isAbortOrFetchErr = 
+                    error?.name === "AbortError" || 
+                    error?.message?.includes("aborted") || 
+                    error?.message?.includes("abort") ||
+                    error?.message?.includes("Failed to fetch") ||
+                    error?.message?.includes("Load failed");
+
+                if (shouldIntercept && !isAbortOrFetchErr) {
+                    toast.error(`Network Connection Failed: ${error.message || 'Please check your connection'}`);
                 }
                 throw error;
             }
