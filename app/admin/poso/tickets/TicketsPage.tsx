@@ -270,6 +270,7 @@ export default function TicketsPage({
                                 <SelectItem value="All">All Payment Status</SelectItem>
                                 <SelectItem value="UNPAID">UNPAID</SelectItem>
                                 <SelectItem value="PAID">PAID</SelectItem>
+                                <SelectItem value="SETTLED">SETTLED</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -403,12 +404,22 @@ export default function TicketsPage({
                                         <TableCell className="text-center">
                                             <span
                                                 className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase italic w-fit ${
-                                                    item.isPaid
+                                                    item.status === "SETTLED"
+                                                        ? "bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400"
+                                                        : item.isPaid || item.status === "PAID"
                                                         ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+                                                        : item.transactionId
+                                                        ? "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400"
                                                         : "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400"
                                                 }`}
                                             >
-                                                {item.isPaid ? "PAID" : "UNPAID"}
+                                                {item.status === "SETTLED"
+                                                    ? "SETTLED"
+                                                    : item.isPaid || item.status === "PAID"
+                                                    ? "PAID"
+                                                    : item.transactionId
+                                                    ? "PENDING TREASURY"
+                                                    : "UNPAID"}
                                             </span>
                                         </TableCell>
 

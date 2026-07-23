@@ -4,15 +4,16 @@ import Image from "next/image";
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
     ArrowLeft, MapPin, UserCheck, Shield, Award,
-    FileText, Camera, CreditCard, RefreshCw, Car, ShieldAlert, Clock, Truck, Building2
+    FileText, Camera, CreditCard, RefreshCw, Car, ShieldAlert, Clock, Truck, Building2, CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { getTicketById, processTicketSettlement } from "@/app/admin/poso/actions";
+import { getTicketById, processTicketSettlement, markTicketAsSettled } from "@/app/admin/poso/actions";
 
 interface TicketDetailsPageProps {
     params: Promise<{ id: string }>;
@@ -22,10 +23,16 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
     const { id } = use(params);
     const router = useRouter();
 
+    const { data: session } = useSession();
+    const userRole = (session?.user as any)?.role;
+    const userDept = (session?.user as any)?.department;
+    const isPosoStaff = userRole === "ADMIN" || userRole === "POSO_OFFICER" || userDept === "POSO";
+
     const [loading, setLoading] = useState(true);
     const [ticket, setTicket] = useState<any>(null);
     const [themeColor, setThemeColor] = useState<string | null>(null);
     const [paying, setPaying] = useState(false);
+    const [settling, setSettling] = useState(false);
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
     useEffect(() => {
@@ -70,6 +77,24 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
             toast.error("An unexpected error occurred while processing settlement transaction");
         } finally {
             setPaying(false);
+        }
+    };
+
+    const handleMarkAsSettled = async () => {
+        if (!ticket) return;
+        setSettling(true);
+        try {
+            const res = await markTicketAsSettled(ticket.id);
+            if (res.success) {
+                toast.success("Citation Ticket successfully marked as SETTLED!");
+                router.push("/admin/poso/tickets");
+            } else {
+                toast.error(res.error || "Failed to mark ticket as settled");
+            }
+        } catch {
+            toast.error("An unexpected error occurred while settling ticket");
+        } finally {
+            setSettling(false);
         }
     };
 
@@ -131,14 +156,16 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                         </h1>
                         <Badge
                             className={
-                                ticket.isPaid
+                                ticket.status === "SETTLED"
+                                    ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 px-3 py-1 font-black"
+                                    : ticket.isPaid || ticket.status === "PAID"
                                     ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 px-3 py-1 font-black"
                                     : ticket.transactionId
                                     ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 px-3 py-1 font-black"
                                     : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 px-3 py-1 font-black"
                             }
                         >
-                            {ticket.isPaid ? "SETTLED / PAID" : ticket.transactionId ? "PENDING TREASURY PAYMENT" : "UNPAID CITATION"}
+                            {ticket.status === "SETTLED" ? "SETTLED" : ticket.isPaid || ticket.status === "PAID" ? "PAID" : ticket.transactionId ? "PENDING TREASURY PAYMENT" : "UNPAID CITATION"}
                         </Badge>
                     </div>
                     <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 italic">
@@ -468,7 +495,66 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                     </div>
 
                     {/* Settlement Action or Pending Treasury Payment Notice */}
-                    {ticket.transactionId && !ticket.isPaid ? (
+                    {ticket.status === "SETTLED" || ticket.isReleased ? (
+                        <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-3xl p-6 border border-emerald-200 dark:border-emerald-500/20 shadow-sm space-y-3">
+                            <div className="flex items-center space-x-2.5 text-emerald-700 dark:text-emerald-400">
+                                <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
+                                <span className="font-black text-xs uppercase tracking-wider">Ticket Settled & Released</span>
+                            </div>
+                            <p className="text-xs font-semibold text-emerald-900/80 dark:text-emerald-200/90 leading-relaxed italic">
+                                This citation ticket has been officially settled and any confiscated driver&apos;s license or impounded vehicle has been released.
+                            </p>
+                            {ticket.releasedAt && (
+                                <div className="pt-3 border-t border-emerald-200/60 dark:border-emerald-500/20 flex items-center justify-between text-[11px] font-bold text-emerald-900 dark:text-emerald-200">
+                                    <span className="uppercase tracking-wider text-[10px] text-emerald-600 dark:text-emerald-400">Released Timestamp</span>
+                                    <span className="font-mono bg-emerald-100 dark:bg-emerald-900/40 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-700/40">
+                                        {new Date(ticket.releasedAt).toLocaleString("en-PH", { dateStyle: "short", timeStyle: "short" })}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    ) : ticket.isPaid ? (
+                        <div className="space-y-4">
+                            <div className="space-y-2 py-2">
+                                <div className="flex items-center space-x-2 text-emerald-600 dark:text-emerald-400">
+                                    <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                                    <span className="font-black text-xs uppercase tracking-wider">Treasury Fine Paid</span>
+                                </div>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Official Receipt (O.R.) No:</span>
+                                    <span className="font-mono font-bold text-slate-900 dark:text-white">
+                                        {ticket.transaction?.payment?.orNumber || (ticket.transaction?.additionalData as any)?.orNumber || "OR-ISSUED"}
+                                    </span>
+                                </div>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Payment Reference:</span>
+                                    <span className="font-mono font-bold text-slate-900 dark:text-white">
+                                        {ticket.transaction?.payment?.reference || ticket.transaction?.paymentReference || (ticket.transaction?.additionalData as any)?.paymentReference || "N/A (Cash)"}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {isPosoStaff && (
+                                <Button
+                                    onClick={handleMarkAsSettled}
+                                    disabled={settling}
+                                    style={{ backgroundColor: themeColor || undefined }}
+                                    className="w-full h-14 bg-emerald-600 hover:opacity-95 text-white font-black italic uppercase tracking-widest text-xs rounded-2xl shadow-xl shadow-emerald-500/20 flex items-center justify-center space-x-2 transition-all active:scale-95 disabled:opacity-50"
+                                >
+                                    {settling ? (
+                                        <RefreshCw className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <CheckCircle2 className="w-4 h-4" />
+                                    )}
+                                    <span>
+                                        {ticket.isImpounded
+                                            ? "Mark as Settled & Release Vehicle"
+                                            : "Mark as Settled"}
+                                    </span>
+                                </Button>
+                            )}
+                        </div>
+                    ) : ticket.transactionId && !ticket.isPaid ? (
                         <div className="bg-amber-50 dark:bg-amber-950/30 rounded-3xl p-6 border border-amber-200 dark:border-amber-500/20 shadow-sm space-y-3">
                             <div className="flex items-center space-x-2.5 text-amber-700 dark:text-amber-400">
                                 <Clock className="w-5 h-5 stroke-[2.5]" />

@@ -205,6 +205,11 @@ export async function getTicketById(id: string) {
                     },
                 },
                 ticketPhotos: true,
+                transaction: {
+                    include: {
+                        payment: true,
+                    },
+                },
             },
         });
 
@@ -223,6 +228,11 @@ export async function getTicketById(id: string) {
                         },
                     },
                     ticketPhotos: true,
+                    transaction: {
+                        include: {
+                            payment: true,
+                        },
+                    },
                 },
             });
         }
@@ -455,6 +465,47 @@ export async function processTicketSettlement(id: string) {
     } catch (error: any) {
         console.error("Failed to process ticket settlement:", error);
         return { success: false, error: error.message || "Failed to process ticket settlement." };
+    }
+}
+
+export async function markTicketAsSettled(id: string) {
+    try {
+        await verifyAdminOrStaff();
+
+        const ticket = await (prisma as any).ticketHeader.findUnique({
+            where: { id },
+        });
+
+        if (!ticket) {
+            return { success: false, error: "Ticket not found." };
+        }
+
+        const now = new Date();
+        const updatedTicket = await (prisma as any).ticketHeader.update({
+            where: { id },
+            data: {
+                status: "SETTLED",
+                isReleased: true,
+                releasedAt: now,
+            },
+        });
+
+        if (ticket.transactionId) {
+            await (prisma as any).transaction.update({
+                where: { id: ticket.transactionId },
+                data: {
+                    status: "RELEASED",
+                },
+            }).catch(() => null);
+        }
+
+        revalidatePath("/admin/poso/tickets");
+        revalidatePath(`/admin/poso/tickets/${id}`);
+
+        return { success: true, ticket: updatedTicket };
+    } catch (error: any) {
+        console.error("Failed to mark ticket as settled:", error);
+        return { success: false, error: error.message || "Failed to mark ticket as settled." };
     }
 }
 
