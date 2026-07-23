@@ -43,6 +43,7 @@ import { releaseBirthRegistry } from "@/app/admin/transactions/birth-regis-actio
 import { releaseBirthCertificate } from "@/app/admin/transactions/birth-cert-actions";
 import { releaseDeathRegistry, evaluateDeathRegistrationTransaction } from "@/app/admin/transactions/death-regis-actions";
 import { releaseDeathCertificate, evaluateDeathCertificateTransaction } from "@/app/admin/transactions/death-cert-actions";
+import { isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
 import { releaseMarriageLicense, evaluateMarriageLicenseTransaction, processMarriageLicenseRequest } from "@/app/admin/transactions/marriage-license-actions";
 import { releaseMarriageRegistry, evaluateMarriageRegistrationTransaction } from "@/app/admin/transactions/marriage-regis-actions";
 import { releaseMarriageCertificate, evaluateMarriageCertificateTransaction } from "@/app/admin/transactions/marriage-cert-actions";
@@ -421,7 +422,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
     };
 
     const isBusinessPermit = transaction?.type?.code?.startsWith("BUSINESS_PERMIT") ?? false;
-    const isBuildingPermit = transaction?.type?.code?.startsWith("BUILDING_PERMIT") ?? false;
+    const isBuildingPermit = isEngineeringPermitCode(transaction?.type?.code);
     const isLCR = (transaction?.type?.code?.startsWith("LCR_") ?? false) || (transaction?.type?.code?.startsWith("CIVIL_REGISTRY") ?? false);
     const typeCode = (transaction?.type?.code || "").toUpperCase();
     const isLcrCertifiedCopy = typeCode === "LCR_BIRTH" || typeCode === "LCR_DEATH" || typeCode === "LCR_MARRIAGE" || (transaction?.type?.name && (transaction.type.name.includes("Birth Certificate") || transaction.type.name.includes("Death Certificate") || transaction.type.name.includes("Marriage Certificate"))) || false;
@@ -463,7 +464,7 @@ export default function RegistrarDetailPage({ params }: PageProps) {
                     }
                 }
 
-                if (tx && tx.type?.code?.startsWith("BUILDING_PERMIT")) {
+                if (tx && isEngineeringPermitCode(tx.type?.code)) {
                     const assessed = tx.additionalData?.feeAssessment;
                     if (assessed && assessed.endorsed) {
                         setFeeLineItems([

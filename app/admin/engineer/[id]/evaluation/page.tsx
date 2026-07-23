@@ -20,6 +20,7 @@ import {
     Trash2
 } from "lucide-react";
 import { toast } from "sonner";
+import { getEngineeringPermitLabel } from "@/lib/transactions/engineering-permit";
 import {
     getTransactionById,
     rejectTransaction,
@@ -193,6 +194,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     const backUrl = userRole === "ENGINEER" ? "/admin/engineer" : userRole === "MPDC_ZONING" ? "/admin/zoning" : "/admin/treasury";
 
     const [transaction, setTransaction] = useState<any>(null);
+    const permitLabel = getEngineeringPermitLabel(transaction?.type?.code) || "Building Permit";
     const isViewOnly = isForcedView || (transaction && transaction.status !== "FOR_REQUESTING" && transaction.status !== "FOR_REVISION");
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
@@ -485,7 +487,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                     <div className="col-span-12 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
                         <div>
                             <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">📜 Archival Phase View Mode</p>
-                            <p className="text-[11px] font-medium opacity-90">{transaction?.status === "REJECTED" ? "This building permit application has been officially rejected." : "You are reviewing the historical Evaluation phase record in read-only mode."}</p>
+                            <p className="text-[11px] font-medium opacity-90">{transaction?.status === "REJECTED" ? `This ${permitLabel.toLowerCase()} application has been officially rejected.` : "You are reviewing the historical Evaluation phase record in read-only mode."}</p>
                         </div>
                         {transaction?.status !== "REJECTED" && (
                             <Button onClick={() => router.push(`/admin/engineer/${id}`)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">
@@ -501,7 +503,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                     <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/5 dark:to-teal-500/5 border border-emerald-500/20 dark:border-emerald-500/10 rounded-[2rem] p-8 flex items-center justify-between shadow-sm relative overflow-hidden">
                         <div className="space-y-2 relative z-10">
                             <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-[0.2em] italic">Phase 1: Initial Assessment</span>
-                            <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">BUILDING PERMIT EVALUATION</h2>
+                            <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">{permitLabel.toUpperCase()} EVALUATION</h2>
                             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Verify the applicant&apos;s architectural details and plans, then schedule the mandatory site inspection.</p>
                         </div>
                         <div className="text-5xl font-black italic text-emerald-500/20 select-none hidden md:block">EVALUATION</div>
@@ -701,7 +703,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                             <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
                                 Application <span className="text-primary">Details</span>
                             </h2>
-                            <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">Building Permit Questionnaire</p>
+                            <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">{permitLabel} Questionnaire</p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">

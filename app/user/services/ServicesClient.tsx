@@ -159,6 +159,15 @@ export default function ServicesClient({ initialServices, themeColor }: Services
             accentBg = "bg-amber-500/10 dark:bg-amber-500/5";
             borderColor = "border-amber-500/10 dark:border-amber-500/5";
             buttonShadow = "shadow-amber-500/10";
+        } else if (categoryName === "OCCUPANCY" || categoryName === "OCCUPANCY_PERMIT" || categoryName === "OCCUPANCY-PERMIT") {
+            title = "OCCUPANCY PERMIT SERVICES";
+            department = "Engineering Office";
+            description = "Apply for occupancy permits and certificates of occupancy online.";
+            link = "/user/services/occupancy";
+            icon = Building2;
+            accentBg = "bg-cyan-500/10 dark:bg-cyan-500/5";
+            borderColor = "border-cyan-500/10 dark:border-cyan-500/5";
+            buttonShadow = "shadow-cyan-500/10";
         } else if (categoryName === "RURAL HEALTH UNIT" || categoryName === "RURAL_HEALTH_UNIT" || categoryName === "RHU") {
             title = "RURAL HEALTH UNIT SERVICES";
             department = "RHU Office";

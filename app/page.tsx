@@ -345,6 +345,18 @@ export default async function Home({
         });
     }
 
+    // 5. Occupancy Permit Card
+    const activeOcc = transactionTypes.find(t => t.code === "OCCUPANCY_PERMIT" || t.category?.toLowerCase() === "occupancy permit" || t.category?.toLowerCase() === "occupancy");
+    if (activeOcc) {
+        services.push({
+            id: activeOcc.id,
+            code: "OCCUPANCY",
+            name: "Occupancy Permit",
+            description: "Apply for a new occupancy permit online. Manage your building occupancy requirements.",
+            fee: activeOcc.baseFee
+        });
+    }
+
     // Sort services alphabetically to match original layout
     services.sort((a, b) => a.name.localeCompare(b.name));
 

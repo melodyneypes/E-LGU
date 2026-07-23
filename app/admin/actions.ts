@@ -3363,6 +3363,7 @@ export async function deleteUser(userId: string) {
         await (prisma as any).cedula.deleteMany({ where: { transaction: { userId } } }).catch(() => { });
         await (prisma as any).businessPermit.deleteMany({ where: { transaction: { userId } } }).catch(() => { });
         await (prisma as any).buildingPermit.deleteMany({ where: { transaction: { userId } } }).catch(() => { });
+        await (prisma as any).occupancyPermit.deleteMany({ where: { transaction: { userId } } }).catch(() => { });
         await (prisma as any).birthCertificateRequest.deleteMany({ where: { transaction: { userId } } }).catch(() => { });
         await (prisma as any).deathCertificateRequest.deleteMany({ where: { transaction: { userId } } }).catch(() => { });
         await (prisma as any).marriageCertificateRequest.deleteMany({ where: { transaction: { userId } } }).catch(() => { });

@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 import { getUserTransactions } from "@/app/admin/transactions/actions";
+import { getEngineeringPermitCitizenRoute } from "@/lib/transactions/engineering-permit";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 
@@ -261,9 +262,9 @@ export default function UserAppointmentsPage() {
                             <div 
                                 key={req.id} 
                                 onClick={() => {
-                                    const isBuildingPermit = req.type?.code?.startsWith("BUILDING_PERMIT");
-                                    if (isBuildingPermit && req.status !== "UNPAID") {
-                                        router.push("/user/services/building-permit");
+                                    const engineeringPermitRoute = getEngineeringPermitCitizenRoute(req.type?.code);
+                                    if (engineeringPermitRoute && req.status !== "UNPAID") {
+                                        router.push(engineeringPermitRoute);
                                     } else {
                                         router.push(`/user/appointment/${req.id}`);
                                     }

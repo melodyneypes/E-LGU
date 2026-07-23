@@ -625,10 +625,12 @@ export async function getTreasuryTransactions(params?: string | {
             ]
         };
 
-        const bpBuildingFilter = {
+        const engineeringPermitFilter = {
             OR: [
                 { type: { code: { startsWith: "BUILDING_PERMIT" } } },
-                { type: { name: { contains: "BUILDING PERMIT", mode: "insensitive" } } }
+                { type: { code: { startsWith: "OCCUPANCY_PERMIT" } } },
+                { type: { name: { contains: "BUILDING PERMIT", mode: "insensitive" } } },
+                { type: { name: { contains: "OCCUPANCY PERMIT", mode: "insensitive" } } }
             ]
         };
 
@@ -689,10 +691,10 @@ export async function getTreasuryTransactions(params?: string | {
                 // Building Permit Conditions
                 {
                     OR: [
-                        { NOT: bpBuildingFilter },
+                        { NOT: engineeringPermitFilter },
                         {
                             AND: [
-                                bpBuildingFilter,
+                                engineeringPermitFilter,
                                 { status: { in: ["EVALUATED", "UNPAID", "PAID", "REJECTED"] } }
                             ]
                         }
@@ -712,11 +714,11 @@ export async function getTreasuryTransactions(params?: string | {
                 },
                 {
                     OR: [
-                        { NOT: { type: { code: { startsWith: "BUILDING_PERMIT" } } } },
+                        { NOT: engineeringPermitFilter },
                         {
                             NOT: {
                                 AND: [
-                                    { type: { code: { startsWith: "BUILDING_PERMIT" } } },
+                                    engineeringPermitFilter,
                                     { status: "EVALUATED" },
                                     {
                                         NOT: {

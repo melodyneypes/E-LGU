@@ -43,6 +43,9 @@ next-env.d.ts
 
 /lib/generated/prisma
 
+# isolated development worktrees
+/.worktrees/
+
 # custom seed/restore scripts
 seed-custom-users.ts
 seed-engineer.ts
