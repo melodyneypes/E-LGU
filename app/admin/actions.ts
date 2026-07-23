@@ -1366,6 +1366,18 @@ export async function updateProject(id: string, formData: FormData) {
     }
 }
 
+export async function getHotlineById(id: string) {
+    try {
+        if (!id) return { success: false, error: "Hotline ID is required." };
+        const item = await (prisma as any).hotline.findUnique({ where: { id } });
+        if (!item) return { success: false, error: "Hotline entry not found." };
+        return { success: true, data: item, hotline: item };
+    } catch (error) {
+        console.error("Failed to fetch hotline details:", error);
+        return { success: false, error: "Failed to fetch hotline entry." };
+    }
+}
+
 export async function getTourismById(id: string) {
     try {
         if (!id) return { success: false, error: "Tourism ID is required." };

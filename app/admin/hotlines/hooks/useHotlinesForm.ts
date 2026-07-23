@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useHotlines } from "../providers/HotlinesProvider";
 import { addHotline, updateHotline } from "@/app/admin/actions";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export function useHotlinesForm() {
-    const { setIsAddModalOpen, editingData, setEditingData } = useHotlines();
+    const { setIsAddModalOpen, editingData, setEditingData, setIsPending } = useHotlines();
     const [loading, setLoading] = useState(false);
+    const router = useRouter();
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -24,6 +26,8 @@ export function useHotlinesForm() {
                 toast.success(editingData ? "Hotline updated successfully!" : "Hotline added successfully!");
                 setIsAddModalOpen(false);
                 setEditingData(null);
+                setIsPending(true);
+                router.refresh();
             } else {
                 const errMsg = response && "error" in response ? response.error : "Failed to save hotline.";
                 toast.error(errMsg || "Failed to save hotline.");

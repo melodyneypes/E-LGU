@@ -559,6 +559,7 @@ enum UserRole {
   ENGINEER
   MPDC_ZONING
   BFP
+  POSO_OFFICER
 }
 
 enum ResidentStatus {
@@ -681,6 +682,7 @@ model Transaction {
   marriagePsaEndorsementRequest MarriagePsaEndorsementRequest? // One-to-one link to the marriage psa endorsement request
   birthPsaEndorsementRequest BirthPsaEndorsementRequest? // One-to-one link to the birth psa endorsement request
   deathPsaEndorsementRequest DeathPsaEndorsementRequest? // One-to-one link to the death psa endorsement request
+  ticketHeader      TicketHeader?     // One-to-one link to the POSO ticket header
   
   appointmentDate   DateTime?
   appointmentSlot   String?
@@ -1190,27 +1192,111 @@ model AppointmentConfig {
   updatedAt    DateTime @updatedAt
 }
 
-enum InventoryCategory {
-  MEDICINE
-  MEDICAL_SUPPLY
+// ------------------------------------------------------
+// POSO TRAFFIC ENFORCEMENT & TICKETING MODELS
+// ------------------------------------------------------
+
+model TrafficViolation {
+  id               String   @id @default(cuid())
+  violationCode    String?  @unique
+  violationName    String
+  firstOffenseFee  Float    @default(0)
+  secondOffenseFee Float    @default(0)
+  thirdOffenseFee  Float    @default(0)
+  remarks          String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  ticketDetails    TicketDetail[]
 }
 
-model RHUInventoryItem {
-  id             String            @id @default(cuid())
-  name           String
-  genericName    String?
-  brandName      String?
-  category       InventoryCategory @default(MEDICINE)
-  dosage         String?
-  unit           String            @default("pcs")
-  quantity       Int               @default(0)
-  reorderLevel   Int               @default(10)
-  expirationDate DateTime?
-  batchNumber    String?
-  remarks        String?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-
-  @@index([category])
-  @@index([name])
+enum TicketStatus {
+  ISSUED
+  RESOLVED
+  CONTESTED
+  CANCELLED
 }
+
+model TicketHeader {
+  id               String   @id @default(cuid())
+  ticketNo         String   @unique
+  localId          Int?
+  deviceId         String?
+
+  // Violator Info
+  violatorName     String
+  violatorAddress  String?
+  birthDate        String?
+  licenseNo        String?
+  licenseImage     String?
+
+  // Vehicle Info
+  plateNo          String?
+  ownerName        String?
+  typeOfVehicle    String?
+  puvBodyName      String?
+  puvBodyNo        String?
+
+  // Apprehension Details
+  location         String?
+  barangay         String?
+  dateTime         DateTime @default(now())
+  officerName      String?
+  badgeNo          String?
+  officerUserId    String?
+
+  // Financial & Status
+  totalAmount      Float    @default(0)
+  status           TicketStatus @default(ISSUED)
+  isPaid           Boolean  @default(false)
+  remarks          String?
+  driverSignature  String?
+
+  transactionId    String?  @unique
+  transaction      Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  syncedAt         DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  ticketDetails    TicketDetail[]
+  ticketPhotos     TicketPhoto[]
+
+  @@index([ticketNo])
+  @@index([licenseNo])
+  @@index([status])
+  @@index([isPaid])
+}
+
+model TicketDetail {
+  id               String   @id @default(cuid())
+  ticketHeaderId   String
+  ticketHeader     TicketHeader @relation(fields: [ticketHeaderId], references: [id], onDelete: Cascade)
+
+  violationId      String?
+  violation        TrafficViolation? @relation(fields: [violationId], references: [id], onDelete: SetNull)
+
+  violationName    String
+  offenseLevel     Int      @default(1)
+  amount           Float    @default(0)
+
+  createdAt        DateTime @default(now())
+
+  @@index([ticketHeaderId])
+}
+
+model TicketPhoto {
+  id               String   @id @default(cuid())
+  ticketHeaderId   String
+  ticketHeader     TicketHeader @relation(fields: [ticketHeaderId], references: [id], onDelete: Cascade)
+
+  photoUrl         String
+  caption          String?
+
+  createdAt        DateTime @default(now())
+
+  @@index([ticketHeaderId])
+}
+
+
