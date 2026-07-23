@@ -994,60 +994,6 @@ model AppointmentConfig {
   updatedAt    DateTime @updatedAt
 }
 
-// ------------------------------------------------------
-// POSO TRAFFIC ENFORCEMENT & TICKETING MODELS
-// ------------------------------------------------------
-
-model RHUInventoryItem {
-  id             String   @id @default(cuid())
-  name           String
-  genericName    String?
-  brandName      String?
-  category       String   @default("MEDICINE")
-  dosage         String?
-  unit           String   @default("pcs")
-  quantity       Int      @default(0)
-  reorderLevel   Int      @default(10)
-  expirationDate DateTime?
-  batchNumber    String?
-  remarks        String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  batches        RHUInventoryBatch[]
-
-  @@index([category])
-  @@index([name])
-}
-
-model RHUInventoryBatch {
-  id              String            @id @default(cuid())
-  itemId          String
-  batchNumber     String
-  expirationDate  DateTime?
-  quantity        Int               @default(0)
-  initialQuantity Int               @default(0)
-  receivedDate    DateTime          @default(now())
-  remarks         String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-
-  item            RHUInventoryItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
-
-  @@index([itemId])
-  @@index([batchNumber])
-  @@index([expirationDate])
-}
-
-enum TicketStatus {
-  ISSUED
-  PAID
-  CANCELLED
-  SETTLED
-  RESOLVED
-  CONTESTED
-}
-
 model TrafficViolation {
   id               String         @id @default(cuid())
   violationCode    String?

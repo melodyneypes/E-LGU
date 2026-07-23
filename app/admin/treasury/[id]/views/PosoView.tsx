@@ -70,7 +70,7 @@ export default function PosoView({
 
             if (res.success) {
                 toast.success("POSO Citation Payment successfully settled!");
-                router.refresh();
+                router.push("/admin/treasury?category=POSO");
             } else {
                 toast.error(res.error || "Failed to settle POSO payment.");
             }
@@ -302,20 +302,6 @@ export default function PosoView({
                                     PAID
                                 </span>
                             </div>
-
-                            {/* Step 4: RELEASED */}
-                            <div className="flex items-center gap-4">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-black ${
-                                    isPaid ? "bg-emerald-500 text-white" : "bg-slate-100 dark:bg-white/5 text-slate-400"
-                                }`}>
-                                    {isPaid ? <Check className="w-5 h-5" /> : "4"}
-                                </div>
-                                <span className={`text-xs font-black uppercase tracking-wider italic ${
-                                    isPaid ? "text-emerald-500" : "text-slate-400"
-                                }`}>
-                                    RELEASED
-                                </span>
-                            </div>
                         </div>
                     </div>
 
@@ -326,11 +312,14 @@ export default function PosoView({
                                 <CheckCircle2 className="w-8 h-8" />
                             </div>
                             <h4 className="text-sm font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200">
-                                Document Paid & Released
+                                POSO Citation Transaction Paid
                             </h4>
                             <p className="text-xs text-slate-400 italic max-w-sm mx-auto">
-                                Official Receipt No: <span className="font-mono font-bold text-slate-200">{transaction.paymentReference || additional.orNumber || "OR-ISSUED"}</span>
+                                Official Receipt No: <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{additional.orNumber || transaction.paymentReference || "OR-ISSUED"}</span>
                             </p>
+                            <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 text-[11px] font-bold text-emerald-500 uppercase tracking-wider italic">
+                                Note: This POSO citation fine has been fully paid & settled at Municipal Treasury.
+                            </div>
                         </div>
                     ) : isTreasuryStaff ? (
                         <div className="space-y-4">
@@ -396,7 +385,7 @@ export default function PosoView({
                                 disabled={actionLoading || !orNumberInput.trim() || (paymentMethod !== "CASH" && !paymentReference.trim())}
                                 className="w-full h-14 bg-rose-500 hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-rose-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
                             >
-                                {actionLoading ? "Processing..." : "Mark as Paid & Released"}
+                                {actionLoading ? "Processing..." : "Mark as Paid"}
                             </Button>
                         </div>
                     ) : (
