@@ -11,6 +11,7 @@ export interface Announcement {
     isPinned: boolean;
     isActive: boolean;
     barangay: string | null;
+    imageUrl?: string | null;
     expiryDate: Date | null;
     createdAt: Date;
     updatedAt: Date;

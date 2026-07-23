@@ -148,10 +148,10 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
         itemId: "",
         batchNumber: "",
         expirationDate: "",
-        quantity: 100,
+        quantity: 0,
         remarks: ""
     });
-    const [stockInFormErrors, setStockInFormErrors] = useState<{ itemId?: string; batchNumber?: string }>({});
+    const [stockInFormErrors, setStockInFormErrors] = useState<{ itemId?: string; batchNumber?: string; quantity?: string; expirationDate?: string }>({});
 
     // Adjust Stock Modal states
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
@@ -161,13 +161,18 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
     // Delete Modal states
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+    const [deletingItemName, setDeletingItemName] = useState<string>("");
+    
+    const [isDeleteBatchModalOpen, setIsDeleteBatchModalOpen] = useState(false);
+    const [deletingBatchId, setDeletingBatchId] = useState<string | null>(null);
+    const [deletingBatchNo, setDeletingBatchNo] = useState<string>("");
 
     // Form state for Master Item
     const [formData, setFormData] = useState<RHUInventoryInput>({
         name: "",
         genericName: "",
         brandName: "",
-        category: "MEDICINE",
+        category: "",
         dosage: "",
         unit: "pcs",
         quantity: 0,
@@ -204,7 +209,7 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
             name: "",
             genericName: "",
             brandName: "",
-            category: categoryTab === "MEDICAL_SUPPLY" ? "MEDICAL_SUPPLY" : "MEDICINE",
+            category: "",
             dosage: "",
             unit: "pcs",
             quantity: 0,
@@ -248,8 +253,8 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
             itemId: defaultItemId,
             batchNumber: `BAT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
             expirationDate: "",
-            quantity: 100,
-            remarks: "Delivery Shipment"
+            quantity: 0,
+            remarks: ""
         });
         setIsStockInModalOpen(true);
     };
@@ -300,12 +305,18 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
     const handleSaveStockInBatch = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        const errors: { itemId?: string; batchNumber?: string } = {};
+        const errors: { itemId?: string; batchNumber?: string; quantity?: string; expirationDate?: string } = {};
         if (!stockInFormData.itemId) {
             errors.itemId = "Please select an item";
         }
         if (!stockInFormData.batchNumber || !stockInFormData.batchNumber.trim()) {
             errors.batchNumber = "Batch number is required";
+        }
+        if (!stockInFormData.quantity || stockInFormData.quantity <= 0) {
+            errors.quantity = "Quantity must be greater than 0";
+        }
+        if (!stockInFormData.expirationDate || !stockInFormData.expirationDate.trim()) {
+            errors.expirationDate = "Expiration date is required for batch tracking";
         }
 
         if (Object.keys(errors).length > 0) {
@@ -338,6 +349,7 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                 toast.success("Item removed from inventory");
                 setIsDeleteModalOpen(false);
                 setDeletingItemId(null);
+                setDeletingItemName("");
                 await refreshData();
             } else {
                 toast.error(res.error || "Failed to delete item");
@@ -345,11 +357,22 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
         });
     };
 
-    const handleDeleteBatch = async (batchId: string) => {
+    const handleOpenDeleteBatchModal = (batchId: string, batchNumber: string) => {
+        setDeletingBatchId(batchId);
+        setDeletingBatchNo(batchNumber);
+        setIsDeleteBatchModalOpen(true);
+    };
+
+    const handleConfirmDeleteBatch = async () => {
+        if (!deletingBatchId) return;
+
         startTransition(async () => {
-            const res = await deleteRHUInventoryBatch(batchId);
+            const res = await deleteRHUInventoryBatch(deletingBatchId);
             if (res.success) {
-                toast.success("Batch removed");
+                toast.success(`Batch #${deletingBatchNo} removed`);
+                setIsDeleteBatchModalOpen(false);
+                setDeletingBatchId(null);
+                setDeletingBatchNo("");
                 await refreshData();
             } else {
                 toast.error(res.error || "Failed to delete batch");
@@ -369,7 +392,8 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
         });
     };
 
-    const handleOpenStockModal = (item: RHUInventoryItemData) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _handleOpenStockModal = (item: RHUInventoryItemData) => {
         setStockAdjustItem(item);
         setStockDelta(0);
         setIsStockModalOpen(true);
@@ -514,7 +538,9 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                             {lowStockCount + outOfStockCount}
                         </div>
                         <p className="text-xs text-amber-600/70 dark:text-amber-400/70 mt-1">
-                            {outOfStockCount > 0 ? `${outOfStockCount} Out, ${lowStockCount} Low` : "Require reordering"}
+                            {outOfStockCount === 0 && lowStockCount === 0 
+                                ? "Stock levels healthy" 
+                                : `${outOfStockCount} Out of Stock${lowStockCount > 0 ? `, ${lowStockCount} Low Stock` : ''}`}
                         </p>
                     </CardContent>
                 </Card>
@@ -529,7 +555,9 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                             {expiringSoonCount + expiredCount}
                         </div>
                         <p className="text-xs text-rose-600/70 dark:text-rose-400/70 mt-1">
-                            {expiredCount > 0 ? `${expiredCount} Expired, ${expiringSoonCount} Soon` : `${expiringSoonCount} Expiring within 30d`}
+                            {expiredCount === 0 && expiringSoonCount === 0
+                                ? "No expiration alerts"
+                                : `${expiredCount} Expired${expiringSoonCount > 0 ? `, ${expiringSoonCount} Expiring Soon` : ''}`}
                         </p>
                     </CardContent>
                 </Card>
@@ -747,15 +775,6 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                                                             <span className="text-xs font-semibold hidden sm:inline">Stock In</span>
                                                         </Button>
                                                         <Button
-                                                            onClick={() => handleOpenStockModal(item)}
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8 px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                                                            title="Quick Adjust Total Stock"
-                                                        >
-                                                            <ArrowUpDown className="w-3.5 h-3.5" />
-                                                        </Button>
-                                                        <Button
                                                             onClick={() => handleOpenEditModal(item)}
                                                             variant="ghost"
                                                             size="sm"
@@ -767,6 +786,7 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                                                         <Button
                                                             onClick={() => {
                                                                 setDeletingItemId(item.id);
+                                                                setDeletingItemName(item.name);
                                                                 setIsDeleteModalOpen(true);
                                                             }}
                                                             variant="ghost"
@@ -816,68 +836,102 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                                                                             </TableRow>
                                                                         </TableHeader>
                                                                         <TableBody>
-                                                                            {batchList.map((batch, bIndex) => {
-                                                                                const batchExpInfo = getExpirationStatus(batch.expirationDate);
-                                                                                const isFefoTarget = bIndex === 0 && batch.quantity > 0;
+                                                                            {(() => {
+                                                                                // Separate active non-expired batches vs expired / zero-stock batches
+                                                                                const sortedBatches = [...batchList].sort((a, b) => {
+                                                                                    const aExp = getExpirationStatus(a.expirationDate);
+                                                                                    const bExp = getExpirationStatus(b.expirationDate);
+                                                                                    const aIsExpired = aExp.status === "EXPIRED";
+                                                                                    const bIsExpired = bExp.status === "EXPIRED";
 
-                                                                                return (
-                                                                                    <TableRow key={batch.id || bIndex} className={cn("text-xs", isFefoTarget && "bg-emerald-500/5")}>
-                                                                                        <TableCell className="py-2">
-                                                                                            {isFefoTarget ? (
-                                                                                                <Badge className="bg-emerald-600 text-white text-[9px] uppercase font-bold px-2 py-0.5 gap-1">
-                                                                                                    <CheckCircle2 className="w-3 h-3" /> Dispense First (FEFO P1)
-                                                                                                </Badge>
-                                                                                            ) : (
-                                                                                                <span className="text-slate-400 font-mono text-[10px]">Priority #{bIndex + 1}</span>
-                                                                                            )}
-                                                                                        </TableCell>
-                                                                                        <TableCell className="font-mono font-bold text-slate-800 dark:text-slate-200 py-2">
-                                                                                            #{batch.batchNumber}
-                                                                                        </TableCell>
-                                                                                        <TableCell className="py-2 font-black">
-                                                                                            {batch.quantity} <span className="text-[10px] font-normal text-slate-400">{item.unit}</span>
-                                                                                        </TableCell>
-                                                                                        <TableCell className="py-2">
-                                                                                            {batchExpInfo.status === "EXPIRED" ? (
-                                                                                                <span className="text-rose-600 font-bold">{batchExpInfo.label} (Expired)</span>
-                                                                                            ) : batchExpInfo.status === "EXPIRING_SOON" ? (
-                                                                                                <span className="text-amber-600 font-bold">{batchExpInfo.label} ({batchExpInfo.badgeText})</span>
-                                                                                            ) : (
-                                                                                                <span>{batchExpInfo.label}</span>
-                                                                                            )}
-                                                                                        </TableCell>
-                                                                                        <TableCell className="text-right py-2 space-x-1">
-                                                                                            <Button
-                                                                                                onClick={() => handleAdjustBatchQty(batch.id, 10)}
-                                                                                                variant="outline"
-                                                                                                size="sm"
-                                                                                                className="h-6 px-1.5 text-[10px]"
-                                                                                                title="Add +10 to batch"
-                                                                                            >
-                                                                                                +10
-                                                                                            </Button>
-                                                                                            <Button
-                                                                                                onClick={() => handleAdjustBatchQty(batch.id, -10)}
-                                                                                                variant="outline"
-                                                                                                size="sm"
-                                                                                                className="h-6 px-1.5 text-[10px]"
-                                                                                                title="Deduct -10 from batch"
-                                                                                            >
-                                                                                                -10
-                                                                                            </Button>
-                                                                                            <Button
-                                                                                                onClick={() => handleDeleteBatch(batch.id)}
-                                                                                                variant="ghost"
-                                                                                                size="sm"
-                                                                                                className="h-6 px-1.5 text-rose-500 hover:text-rose-700"
-                                                                                                title="Delete Batch"
-                                                                                            >
-                                                                                                <Trash2 className="w-3 h-3" />
-                                                                                            </Button>
-                                                                                        </TableCell>
-                                                                                    </TableRow>
-                                                                                );
-                                                                            })}
+                                                                                    if (!aIsExpired && bIsExpired) return -1;
+                                                                                    if (aIsExpired && !bIsExpired) return 1;
+
+                                                                                    const aTime = a.expirationDate ? new Date(a.expirationDate).getTime() : Infinity;
+                                                                                    const bTime = b.expirationDate ? new Date(b.expirationDate).getTime() : Infinity;
+                                                                                    return aTime - bTime;
+                                                                                });
+
+                                                                                // Find the first valid non-expired batch with quantity > 0 for FEFO P1
+                                                                                const fefoP1BatchId = sortedBatches.find(b => {
+                                                                                    const exp = getExpirationStatus(b.expirationDate);
+                                                                                    return exp.status !== "EXPIRED" && (b.quantity || 0) > 0;
+                                                                                })?.id;
+
+                                                                                let nonExpiredPriorityIndex = 0;
+
+                                                                                return sortedBatches.map((batch, bIndex) => {
+                                                                                    const batchExpInfo = getExpirationStatus(batch.expirationDate);
+                                                                                    const isExpired = batchExpInfo.status === "EXPIRED";
+                                                                                    const isFefoTarget = !isExpired && batch.id === fefoP1BatchId;
+
+                                                                                    if (!isExpired) {
+                                                                                        nonExpiredPriorityIndex++;
+                                                                                    }
+
+                                                                                    return (
+                                                                                        <TableRow key={batch.id || bIndex} className={cn("text-xs", isFefoTarget && "bg-emerald-500/5", isExpired && "bg-rose-500/5 opacity-80")}>
+                                                                                            <TableCell className="py-2">
+                                                                                                {isExpired ? (
+                                                                                                    <Badge variant="destructive" className="text-[9px] uppercase font-bold px-2 py-0.5 gap-1">
+                                                                                                        <AlertTriangle className="w-3 h-3" /> Expired (Do Not Dispense)
+                                                                                                    </Badge>
+                                                                                                ) : isFefoTarget ? (
+                                                                                                    <Badge className="bg-emerald-600 text-white text-[9px] uppercase font-bold px-2 py-0.5 gap-1">
+                                                                                                        <CheckCircle2 className="w-3 h-3" /> Dispense First (FEFO P1)
+                                                                                                    </Badge>
+                                                                                                ) : (
+                                                                                                    <span className="text-slate-400 font-mono text-[10px]">Priority #{nonExpiredPriorityIndex}</span>
+                                                                                                )}
+                                                                                            </TableCell>
+                                                                                            <TableCell className="font-mono font-bold text-slate-800 dark:text-slate-200 py-2">
+                                                                                                #{batch.batchNumber}
+                                                                                            </TableCell>
+                                                                                            <TableCell className="py-2 font-black">
+                                                                                                {batch.quantity} <span className="text-[10px] font-normal text-slate-400">{item.unit}</span>
+                                                                                            </TableCell>
+                                                                                            <TableCell className="py-2">
+                                                                                                {batchExpInfo.status === "EXPIRED" ? (
+                                                                                                    <span className="text-rose-600 font-bold">{batchExpInfo.label} (Expired)</span>
+                                                                                                ) : batchExpInfo.status === "EXPIRING_SOON" ? (
+                                                                                                    <span className="text-amber-600 font-bold">{batchExpInfo.label} ({batchExpInfo.badgeText})</span>
+                                                                                                ) : (
+                                                                                                    <span>{batchExpInfo.label}</span>
+                                                                                                )}
+                                                                                            </TableCell>
+                                                                                            <TableCell className="text-right py-2 space-x-1">
+                                                                                                <Button
+                                                                                                    onClick={() => handleAdjustBatchQty(batch.id, 10)}
+                                                                                                    variant="outline"
+                                                                                                    size="sm"
+                                                                                                    className="h-6 px-1.5 text-[10px]"
+                                                                                                    title="Add +10 to batch"
+                                                                                                >
+                                                                                                    +10
+                                                                                                </Button>
+                                                                                                <Button
+                                                                                                    onClick={() => handleAdjustBatchQty(batch.id, -10)}
+                                                                                                    variant="outline"
+                                                                                                    size="sm"
+                                                                                                    className="h-6 px-1.5 text-[10px]"
+                                                                                                    title="Deduct -10 from batch"
+                                                                                                >
+                                                                                                    -10
+                                                                                                </Button>
+                                                                                                <Button
+                                                                                                    onClick={() => handleOpenDeleteBatchModal(batch.id, batch.batchNumber)}
+                                                                                                    variant="ghost"
+                                                                                                    size="sm"
+                                                                                                    className="h-6 px-1.5 text-rose-500 hover:text-rose-700"
+                                                                                                    title="Delete Batch"
+                                                                                                >
+                                                                                                    <Trash2 className="w-3 h-3" />
+                                                                                                </Button>
+                                                                                            </TableCell>
+                                                                                        </TableRow>
+                                                                                    );
+                                                                                });
+                                                                            })()}
                                                                         </TableBody>
                                                                     </Table>
                                                                 </div>
@@ -913,10 +967,10 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                             <div className="space-y-1.5">
                                 <Label className="text-xs font-semibold">Category *</Label>
                                 <Select
-                                    value={formData.category}
+                                    value={formData.category || ""}
                                     onValueChange={(val: any) => setFormData({ ...formData, category: val })}
                                 >
-                                    <SelectTrigger className="h-9 text-xs rounded-xl">
+                                    <SelectTrigger className={cn("h-9 text-xs rounded-xl", formErrors.category && "border-red-500 focus:ring-red-500")}>
                                         <SelectValue placeholder="Select Category" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -924,6 +978,7 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                                         <SelectItem value="MEDICAL_SUPPLY">Medical Supply</SelectItem>
                                     </SelectContent>
                                 </Select>
+                                {formErrors.category && <p className="text-[10px] text-red-500 font-medium">{formErrors.category}</p>}
                             </div>
 
                             <div className="space-y-1.5">
@@ -932,7 +987,7 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                                     placeholder="e.g. pcs, tablets, boxes, bottles"
                                     value={formData.unit}
                                     onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                                    className="h-9 text-xs rounded-xl"
+                                    className={cn("h-9 text-xs rounded-xl", formErrors.unit && "border-red-500 focus-visible:ring-red-500")}
                                 />
                                 {formErrors.unit && <p className="text-[10px] text-red-500 font-medium">{formErrors.unit}</p>}
                             </div>
@@ -944,7 +999,7 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                                 placeholder="e.g. Paracetamol, Amoxicillin, Surgical Gloves"
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                className="h-9 text-xs rounded-xl"
+                                className={cn("h-9 text-xs rounded-xl", formErrors.name && "border-red-500 focus-visible:ring-red-500")}
                             />
                             {formErrors.name && <p className="text-[10px] text-red-500 font-medium">{formErrors.name}</p>}
                         </div>
@@ -1044,7 +1099,7 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                                 value={stockInFormData.itemId}
                                 onValueChange={(val) => setStockInFormData({ ...stockInFormData, itemId: val })}
                             >
-                                <SelectTrigger className="h-9 text-xs rounded-xl">
+                                <SelectTrigger className={cn("h-9 text-xs rounded-xl", stockInFormErrors.itemId && "border-red-500 focus:ring-red-500")}>
                                     <SelectValue placeholder="Choose item" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1065,7 +1120,7 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                                     placeholder="e.g. LOT-2027A-01"
                                     value={stockInFormData.batchNumber}
                                     onChange={(e) => setStockInFormData({ ...stockInFormData, batchNumber: e.target.value })}
-                                    className="h-9 text-xs rounded-xl font-mono"
+                                    className={cn("h-9 text-xs rounded-xl font-mono", stockInFormErrors.batchNumber && "border-red-500 focus-visible:ring-red-500")}
                                 />
                                 {stockInFormErrors.batchNumber && <p className="text-[10px] text-red-500 font-medium">{stockInFormErrors.batchNumber}</p>}
                             </div>
@@ -1075,11 +1130,12 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                                 <Input
                                     type="number"
                                     min="1"
-                                    placeholder="100"
-                                    value={stockInFormData.quantity}
+                                    placeholder="e.g. 100"
+                                    value={stockInFormData.quantity || ""}
                                     onChange={(e) => setStockInFormData({ ...stockInFormData, quantity: parseInt(e.target.value) || 0 })}
-                                    className="h-9 text-xs rounded-xl font-bold"
+                                    className={cn("h-9 text-xs rounded-xl font-bold", stockInFormErrors.quantity && "border-red-500 focus-visible:ring-red-500")}
                                 />
+                                {stockInFormErrors.quantity && <p className="text-[10px] text-red-500 font-medium">{stockInFormErrors.quantity}</p>}
                             </div>
                         </div>
 
@@ -1089,18 +1145,9 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                                 type="date"
                                 value={stockInFormData.expirationDate || ""}
                                 onChange={(e) => setStockInFormData({ ...stockInFormData, expirationDate: e.target.value })}
-                                className="h-9 text-xs rounded-xl"
+                                className={cn("h-9 text-xs rounded-xl", stockInFormErrors.expirationDate && "border-red-500 focus-visible:ring-red-500")}
                             />
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <Label className="text-xs font-semibold">Delivery Remarks / Supplier Notes</Label>
-                            <Input
-                                placeholder="e.g. DOH Central Office Delivery Box #4"
-                                value={stockInFormData.remarks || ""}
-                                onChange={(e) => setStockInFormData({ ...stockInFormData, remarks: e.target.value })}
-                                className="h-9 text-xs rounded-xl"
-                            />
+                            {stockInFormErrors.expirationDate && <p className="text-[10px] text-red-500 font-medium">{stockInFormErrors.expirationDate}</p>}
                         </div>
 
                         <DialogFooter className="pt-2">
@@ -1215,15 +1262,15 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                 </DialogContent>
             </Dialog>
 
-            {/* Confirm Delete Dialog */}
+            {/* Confirm Delete Item Dialog */}
             <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
                 <DialogContent className="sm:max-w-[420px] rounded-2xl">
                     <DialogHeader>
                         <DialogTitle className="text-lg font-bold flex items-center gap-2 text-red-600">
-                            <AlertTriangle className="w-5 h-5 text-red-500" /> Confirm Deletion
+                            <AlertTriangle className="w-5 h-5 text-red-500" /> Confirm Item Deletion
                         </DialogTitle>
                         <DialogDescription className="text-xs">
-                            Are you sure you want to remove this item and all linked batches from the RHU inventory? This action cannot be undone.
+                            Are you sure you want to remove <strong className="text-slate-900 dark:text-slate-100">&quot;{deletingItemName}&quot;</strong> and all its linked batch shipments from the RHU inventory? This action cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1243,6 +1290,39 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                             className="bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs h-9 font-bold"
                         >
                             {isPending ? "Deleting..." : "Delete Item"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Confirm Delete Batch Dialog */}
+            <Dialog open={isDeleteBatchModalOpen} onOpenChange={setIsDeleteBatchModalOpen}>
+                <DialogContent className="sm:max-w-[420px] rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-bold flex items-center gap-2 text-red-600">
+                            <AlertTriangle className="w-5 h-5 text-red-500" /> Confirm Batch Deletion
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Are you sure you want to delete Batch <strong className="text-slate-900 dark:text-slate-100">#{deletingBatchNo}</strong>? The batch stock will be removed and total stock recalculation will occur immediately.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <DialogFooter className="pt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsDeleteBatchModalOpen(false)}
+                            className="rounded-xl text-xs h-9"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleConfirmDeleteBatch}
+                            disabled={isPending}
+                            className="bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs h-9 font-bold"
+                        >
+                            {isPending ? "Deleting..." : "Delete Batch"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

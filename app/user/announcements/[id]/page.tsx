@@ -110,7 +110,18 @@ export default async function AnnouncementDetailPage({ params }: { params: Promi
 
                 {/* Content Body */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12">
-                    <div className="lg:col-span-8 space-y-10">
+                    <div className="lg:col-span-8 space-y-8">
+                        {announcement.imageUrl && (
+                            <div className="relative w-full rounded-3xl overflow-hidden border border-slate-200 dark:border-white/10 bg-slate-950 p-2 shadow-xl flex items-center justify-center">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                    src={announcement.imageUrl}
+                                    alt={announcement.title}
+                                    className="w-full max-h-[500px] object-contain rounded-2xl"
+                                />
+                            </div>
+                        )}
+
                         <div className="prose prose-xl md:prose-2xl prose-slate dark:prose-invert max-w-none">
                             <p className="text-sm md:text-3xl text-slate-600 dark:text-slate-300 font-medium italic leading-relaxed md:leading-[1.6] whitespace-pre-wrap">
                                 {announcement.content}

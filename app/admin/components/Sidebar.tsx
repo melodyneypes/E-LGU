@@ -422,8 +422,6 @@ export function Sidebar({
             subItems: [
                 { href: "/admin/rhu", label: "Dashboard" },
                 { href: "/admin/rhu/consultations", label: "All Consultations" },
-                { href: "/admin/rhu/inventory", label: "Medicine & Supplies" },
-                { href: "/admin/rhu/announcements", label: "Announcements" },
             ]
         },
         {

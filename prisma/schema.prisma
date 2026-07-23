@@ -624,7 +624,6 @@ model Transaction {
   marriageLicenseApplication    MarriageLicenseApplication?
   marriagePsaEndorsementRequest MarriagePsaEndorsementRequest?
   marriageRegistration          MarriageRegistration?
-  occupancyPermit               OccupancyPermit?
   payment                       Payment?
   ticketHeaders                 TicketHeader[]
   driver                        User?                          @relation("DriverTransactions", fields: [driverId], references: [id])
@@ -741,22 +740,6 @@ model BusinessPermit {
 }
 
 model BuildingPermit {
-  id             String      @id @default(cuid())
-  transactionId  String      @unique
-  permitNumber   String      @unique
-  dateIssued     DateTime    @default(now())
-  applicantName  String
-  projectType    String
-  occupancyUse   String
-  location       String?
-  estimatedCost  Float
-  documentUrl    String?
-  issuedBy       String
-  verificationId String      @unique @default(cuid())
-  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-}
-
-model OccupancyPermit {
   id             String      @id @default(cuid())
   transactionId  String      @unique
   permitNumber   String      @unique
@@ -1009,6 +992,60 @@ model AppointmentConfig {
   activeDays   Int[]    @default([1, 2, 3, 4, 5])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// ------------------------------------------------------
+// POSO TRAFFIC ENFORCEMENT & TICKETING MODELS
+// ------------------------------------------------------
+
+model RHUInventoryItem {
+  id             String   @id @default(cuid())
+  name           String
+  genericName    String?
+  brandName      String?
+  category       String   @default("MEDICINE")
+  dosage         String?
+  unit           String   @default("pcs")
+  quantity       Int      @default(0)
+  reorderLevel   Int      @default(10)
+  expirationDate DateTime?
+  batchNumber    String?
+  remarks        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  batches        RHUInventoryBatch[]
+
+  @@index([category])
+  @@index([name])
+}
+
+model RHUInventoryBatch {
+  id              String            @id @default(cuid())
+  itemId          String
+  batchNumber     String
+  expirationDate  DateTime?
+  quantity        Int               @default(0)
+  initialQuantity Int               @default(0)
+  receivedDate    DateTime          @default(now())
+  remarks         String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  item            RHUInventoryItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@index([batchNumber])
+  @@index([expirationDate])
+}
+
+enum TicketStatus {
+  ISSUED
+  PAID
+  CANCELLED
+  SETTLED
+  RESOLVED
+  CONTESTED
 }
 
 model TrafficViolation {

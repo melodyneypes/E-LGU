@@ -67,9 +67,16 @@ export async function getAnnouncementById(id: string): Promise<ActionResponse> {
         }
 
         const announcementDelegate = getAnnouncementDelegate();
-        const announcement = await announcementDelegate.findUnique({
-            where: { id },
-        });
+        let announcement;
+        try {
+            announcement = await announcementDelegate.findUnique({
+                where: { id },
+            });
+        } catch (err: any) {
+            console.warn("[getAnnouncementById warning]: findUnique failed, using fallback query", err?.message);
+            const rows = await (prisma as any).$queryRawUnsafe(`SELECT * FROM "Announcement" WHERE id = $1 LIMIT 1`, id);
+            announcement = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+        }
 
         if (!announcement) {
             return { success: false, error: "Announcement not found." };
@@ -102,6 +109,7 @@ export async function addAnnouncement(formData: FormData): Promise<ActionRespons
         const category = (formData.get("category") as string)?.trim();
         const priority = (formData.get("priority") as string)?.trim();
         const expiryDate = formData.get("expiryDate") as string;
+        const imageUrl = (formData.get("imageUrl") as string)?.trim() || null;
         
         // Form field validation
         if (!title || !content) {
@@ -117,18 +125,38 @@ export async function addAnnouncement(formData: FormData): Promise<ActionRespons
         }
 
         const announcementDelegate = getAnnouncementDelegate();
-        const newAnnouncement = await announcementDelegate.create({
-            data: {
-                title,
-                content,
-                category: category || "General",
-                priority: priority || "Normal",
-                isPinned: formData.get("isPinned") === "on",
-                isActive: formData.get("isActive") === "on",
-                expiryDate: expiryDate ? new Date(expiryDate) : null,
-                barangay: barangay || null,
-            },
-        });
+        
+        const createData: Record<string, any> = {
+            title,
+            content,
+            category: category || "General",
+            priority: priority || "Normal",
+            isPinned: formData.get("isPinned") === "on",
+            isActive: formData.get("isActive") === "on",
+            expiryDate: expiryDate ? new Date(expiryDate) : null,
+            barangay: barangay || null,
+        };
+
+        if (imageUrl) {
+            createData.imageUrl = imageUrl;
+        }
+
+        let newAnnouncement;
+        try {
+            newAnnouncement = await announcementDelegate.create({
+                data: createData,
+            });
+        } catch (err: any) {
+            const errStr = String(err?.message || err);
+            if (errStr.includes("imageUrl") || errStr.includes("Unknown arg") || errStr.includes("Unknown field")) {
+                delete createData.imageUrl;
+                newAnnouncement = await announcementDelegate.create({
+                    data: createData,
+                });
+            } else {
+                throw err;
+            }
+        }
 
         revalidatePath("/admin/announcements");
         revalidatePath("/");
@@ -159,6 +187,7 @@ export async function updateAnnouncement(id: string, formData: FormData): Promis
         const category = (formData.get("category") as string)?.trim();
         const priority = (formData.get("priority") as string)?.trim();
         const expiryDate = formData.get("expiryDate") as string;
+        const imageUrl = (formData.get("imageUrl") as string)?.trim();
 
         if (!title || !content) {
             return { success: false, error: "Title and content cannot be empty." };
@@ -182,19 +211,39 @@ export async function updateAnnouncement(id: string, formData: FormData): Promis
             barangay = user.managedBarangay || null;
         }
 
-        const updated = await announcementDelegate.update({
-            where: { id },
-            data: {
-                title,
-                content,
-                category: category || "General",
-                priority: priority || "Normal",
-                isPinned: formData.get("isPinned") === "on",
-                isActive: formData.get("isActive") === "on",
-                expiryDate: expiryDate ? new Date(expiryDate) : null,
-                barangay: barangay || null,
-            },
-        });
+        const updateData: Record<string, any> = {
+            title,
+            content,
+            category: category || "General",
+            priority: priority || "Normal",
+            isPinned: formData.get("isPinned") === "on",
+            isActive: formData.get("isActive") === "on",
+            expiryDate: expiryDate ? new Date(expiryDate) : null,
+            barangay: barangay || null,
+        };
+
+        if (imageUrl !== undefined) {
+            updateData.imageUrl = imageUrl || null;
+        }
+
+        let updated;
+        try {
+            updated = await announcementDelegate.update({
+                where: { id },
+                data: updateData,
+            });
+        } catch (err: any) {
+            const errStr = String(err?.message || err);
+            if (errStr.includes("imageUrl") || errStr.includes("Unknown arg") || errStr.includes("Unknown field")) {
+                delete updateData.imageUrl;
+                updated = await announcementDelegate.update({
+                    where: { id },
+                    data: updateData,
+                });
+            } else {
+                throw err;
+            }
+        }
 
         revalidatePath("/admin/announcements");
         revalidatePath("/");
