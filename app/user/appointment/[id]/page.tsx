@@ -20,6 +20,7 @@ import {
     Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
 import { toast } from "sonner";
 import Image from "next/image";
 import Link from "next/link";
@@ -240,7 +241,7 @@ export default function AppointmentDetailsPage() {
     }
 
     const isCedula = request.type?.code?.startsWith("CEDULA");
-    const isBuildingPermit = request.type?.code?.startsWith("BUILDING_PERMIT");
+    const isBuildingPermit = isEngineeringPermitCode(request.type?.code);
     const isBusinessPermit = request.type?.code?.startsWith("BUSINESS_PERMIT");
     const isCivilRegistry = request.type?.code?.startsWith("LCR_") || request.type?.code?.startsWith("CIVIL_REGISTRY");
     const isAppointmentPsa = request.type?.code === "LCR_BIRTH_CERTIFIED_TRUE_COPY_APPOINTMENT" ||

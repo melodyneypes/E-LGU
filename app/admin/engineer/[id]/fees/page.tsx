@@ -41,6 +41,7 @@ import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import LightboxView from "../../../treasury/[id]/components/LightboxView";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import { Checkbox } from "@/components/ui/checkbox";
+import { getEngineeringPermitLabel } from "@/lib/transactions/engineering-permit";
 
 const formatNumberWithCommas = (value: string | number) => {
     if (value === undefined || value === null || value === "") return "";
@@ -68,6 +69,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
     const backUrl = userRole === "ENGINEER" ? "/admin/engineer" : userRole === "MPDC_ZONING" ? "/admin/zoning" : "/admin/treasury";
 
     const [transaction, setTransaction] = useState<any>(null);
+    const permitLabel = getEngineeringPermitLabel(transaction?.type?.code) || "Building Permit";
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [themeColor, setThemeColor] = useState<string>("#2563eb");
@@ -290,7 +292,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         try {
             const res = await approveBuildingPermit(id);
             if (res.success) {
-                toast.success("Building Permit approved & moved to processing successfully!");
+            toast.success(`${permitLabel} approved & moved to processing successfully!`);
                 fetchTransaction();
             } else {
                 toast.error(res.error || "Failed to approve permit");
@@ -355,7 +357,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
         // Auto-upload
         setUploading(true);
-        const toastId = toast.loading("Uploading building permit E-copy...");
+        const toastId = toast.loading(`Uploading ${permitLabel.toLowerCase()} E-copy...`);
         try {
             const formData = new FormData();
             formData.append("file", file);
@@ -376,7 +378,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
     const handleSaveECopy = async () => {
         if (!eCopyUrl) {
-            toast.error("Please upload the building permit E-copy first.");
+            toast.error(`Please upload the ${permitLabel.toLowerCase()} E-copy first.`);
             return;
         }
 
@@ -384,7 +386,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         try {
             const res = await saveBuildingPermitECopyAction(id, eCopyUrl);
             if (res.success) {
-                toast.success("Building Permit E-copy saved and moved to Submit phase successfully!");
+                toast.success(`${permitLabel} E-copy saved and moved to Submit phase successfully!`);
                 fetchTransaction();
             } else {
                 toast.error(res.error || "Failed to save e-copy");
@@ -398,7 +400,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
     const handleSubmitPermit = async () => {
         if (!eCopyUrl) {
-            toast.error("Please upload the building permit E-copy first.");
+            toast.error(`Please upload the ${permitLabel.toLowerCase()} E-copy first.`);
             return;
         }
 
@@ -406,7 +408,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         try {
             const res = await submitBuildingPermitAction(id, eCopyUrl);
             if (res.success) {
-                toast.success("Building Permit submitted to citizen successfully!");
+                toast.success(`${permitLabel} submitted to citizen successfully!`);
                 fetchTransaction();
             } else {
                 toast.error(res.error || "Failed to submit permit");
@@ -423,7 +425,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         try {
             const res = await releaseBuildingPermitAction(id);
             if (res.success) {
-                toast.success("Building Permit released successfully!");
+                toast.success(`${permitLabel} released successfully!`);
                 fetchTransaction();
             } else {
                 toast.error(res.error || "Failed to release permit");
@@ -520,7 +522,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                     <div className="col-span-12 bg-[#006A2E]/10 border border-[#006A2E]/20 text-[#006A2E] dark:text-green-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
                         <div>
                             <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">✅ Fees Successfully Endorsed to Treasury</p>
-                            <p className="text-[11px] font-medium opacity-90">The building permit fees have been successfully calculated, locked, and endorsed to the Treasury department for collection.</p>
+                            <p className="text-[11px] font-medium opacity-90">The {permitLabel.toLowerCase()} fees have been successfully calculated, locked, and endorsed to the Treasury department for collection.</p>
                         </div>
                         <Button onClick={() => router.push(backUrl)} size="sm" className="bg-[#006A2E] hover:bg-emerald-800 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">
                             Return to Dashboard
@@ -532,7 +534,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                     <div className="col-span-12 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
                         <div>
                             <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">📜 Archival Phase View Mode</p>
-                            <p className="text-[11px] font-medium opacity-90">{transaction?.status === "REJECTED" ? "This building permit application has been officially rejected." : "You are reviewing the historical Fee Assessment phase record in read-only mode."}</p>
+                            <p className="text-[11px] font-medium opacity-90">{transaction?.status === "REJECTED" ? `This ${permitLabel.toLowerCase()} application has been officially rejected.` : "You are reviewing the historical Fee Assessment phase record in read-only mode."}</p>
                         </div>
                         {transaction?.status !== "REJECTED" && (
                             <Button onClick={() => router.push(`/admin/engineer/${id}`)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">Return to Active Phase
@@ -746,7 +748,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                             <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
                                 Application <span className="text-primary">Details</span>
                             </h2>
-                            <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">Building Permit Questionnaire</p>
+                            <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">{permitLabel} Questionnaire</p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -784,7 +786,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                             <div className="space-y-3">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Building Permit Fee (₱) *</Label>
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{permitLabel} Fee (₱) *</Label>
                                 <Input
                                     type="text"
                                     placeholder="0.00"
@@ -980,7 +982,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                 <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
                                     Upload Building <span className="text-primary">Permit E-Copy</span>
                                 </h2>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">Upload the scanned or digital copy of the approved building permit. Supported formats: PDF, PNG, JPG.</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">Upload the scanned or digital copy of the approved {permitLabel.toLowerCase()}. Supported formats: PDF, PNG, JPG.</p>
                             </div>
 
                             <div className="space-y-4">
@@ -997,7 +999,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                         />
 
                                         <div className="space-y-1">
-                                            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Building Permit E-Copy</h3>
+                                            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">{permitLabel} E-Copy</h3>
                                             <p className="text-[10px] font-medium opacity-80 text-slate-500">
                                                 Upload once, review the preview, then replace it if needed before saving.
                                             </p>
@@ -1018,11 +1020,11 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                                                     <FileText className="w-16 h-16" />
                                                                 </div>
                                                             ) : (
-                                                                <img src={eCopyUrl} alt="Building Permit E-Copy" className="object-cover w-full h-full" />
+                                                                <img src={eCopyUrl} alt={`${permitLabel} E-Copy`} className="object-cover w-full h-full" />
                                                             )}
                                                         </div>
                                                     </DialogTrigger>
-                                                    <LightboxView src={eCopyUrl} alt="Building Permit E-Copy" label="Building Permit E-Copy" />
+                                                    <LightboxView src={eCopyUrl} alt={`${permitLabel} E-Copy`} label={`${permitLabel} E-Copy`} />
                                                 </Dialog>
 
                                                 <div className="flex flex-col sm:flex-row gap-3">
@@ -1061,7 +1063,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                 ) : (
                                     <div className="bg-[#151b28] rounded-[2rem] p-6 border border-white/5 space-y-4">
                                         <div className="space-y-1">
-                                            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">Building Permit E-Copy</h3>
+                                            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">{permitLabel} E-Copy</h3>
                                             <p className="text-[10px] font-medium opacity-80 text-slate-500">Prepared by the Engineer and ready for citizen release.</p>
                                         </div>
                                         {eCopyUrl ? (
@@ -1078,11 +1080,11 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                                                 <FileText className="w-16 h-16" />
                                                             </div>
                                                         ) : (
-                                                            <img src={eCopyUrl} alt="Building Permit E-Copy" className="object-cover w-full h-full" />
+                                                            <img src={eCopyUrl} alt={`${permitLabel} E-Copy`} className="object-cover w-full h-full" />
                                                         )}
                                                     </div>
                                                 </DialogTrigger>
-                                                <LightboxView src={eCopyUrl} alt="Building Permit E-Copy" label="Building Permit E-Copy" />
+                                                <LightboxView src={eCopyUrl} alt={`${permitLabel} E-Copy`} label={`${permitLabel} E-Copy`} />
                                             </Dialog>
                                         ) : (
                                             <div className="rounded-xl border border-dashed border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 p-4 text-slate-400">
@@ -1287,7 +1289,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                         )}
                                         {!paymentEndorsementReady && (
                                             <p className="text-[10px] font-medium text-amber-200/80">
-                                                Set the Building Permit Fee and make sure the Zoning payment is already present before endorsing to Resident.
+                                Set the {permitLabel} Fee and make sure the Zoning payment is already present before endorsing to Resident.
                                             </p>
                                         )}
                                     </div>
@@ -1425,7 +1427,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
                                 </Button>
                                 {!paymentEndorsementReady && (
                                     <p className="text-[10px] font-medium text-emerald-200/80">
-                                        Set the Building Permit Fee and make sure the Zoning payment is already present before endorsing to Resident.
+                                        Set the {permitLabel} Fee and make sure the Zoning payment is already present before endorsing to Resident.
                                     </p>
                                 )}
                             </div>

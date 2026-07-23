@@ -624,6 +624,7 @@ model Transaction {
   marriageLicenseApplication    MarriageLicenseApplication?
   marriagePsaEndorsementRequest MarriagePsaEndorsementRequest?
   marriageRegistration          MarriageRegistration?
+  occupancyPermit               OccupancyPermit?
   payment                       Payment?
   ticketHeaders                 TicketHeader[]
   driver                        User?                          @relation("DriverTransactions", fields: [driverId], references: [id])
@@ -740,6 +741,22 @@ model BusinessPermit {
 }
 
 model BuildingPermit {
+  id             String      @id @default(cuid())
+  transactionId  String      @unique
+  permitNumber   String      @unique
+  dateIssued     DateTime    @default(now())
+  applicantName  String
+  projectType    String
+  occupancyUse   String
+  location       String?
+  estimatedCost  Float
+  documentUrl    String?
+  issuedBy       String
+  verificationId String      @unique @default(cuid())
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model OccupancyPermit {
   id             String      @id @default(cuid())
   transactionId  String      @unique
   permitNumber   String      @unique

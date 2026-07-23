@@ -15,8 +15,15 @@ import { uploadFile, validatePayloadFiles } from "@/lib/storage";
 import { sanitizeString, sanitizeObject, sanitizeUrl } from "@/lib/validation";
 import { updateDeceasedResidentStatus } from "./death-regis-actions";
 import { cleanupPastDueCedulaAppointments } from "@/app/user/services/cedula-appointment/actions";
+import {
+    ENGINEERING_PERMIT_CODES,
+    isEngineeringPermitCode,
+} from "@/lib/transactions/engineering-permit";
 
 const isUserAdminAide = (u: any) => u?.role === "ADMIN_AIDE" || (u?.role === "ADMIN" && u?.department?.toUpperCase() === "BPLO");
+const engineeringPermitTypeWhere = {
+    type: { code: { in: [...ENGINEERING_PERMIT_CODES] } }
+};
 
 
 async function getSession() {
@@ -257,6 +264,31 @@ export async function ensureBuildingPermitTransactionTypes() {
                 ],
                 formSchema: {
                     type: "BUILDING_PERMIT",
+                    fields: ["applicantName", "projectType", "floorArea", "estimatedCost", "location"]
+                },
+                requiresBusinessName: false,
+                supportsECopy: true
+            },
+            {
+                code: "OCCUPANCY_PERMIT",
+                name: "Occupancy Permit",
+                description: "Apply for a new occupancy permit online. Manage your occupancy requirements.",
+                level: 1,
+                category: "Occupancy Permit",
+                baseFee: 1000.00,
+                deliveryFee: 100.00,
+                isFixed: false,
+                requiredDocs: [
+                    "Plans duly signed & sealed by licensed professional",
+                    "Certified true copy of Tax Declaration",
+                    "Xerox copy of land title",
+                    "Community Tax Certificate (Cedula)",
+                    "Electrical & Sanitary permit",
+                    "Locational clearance",
+                    "Fire Safety clearance"
+                ],
+                formSchema: {
+                    type: "OCCUPANCY_PERMIT",
                     fields: ["applicantName", "projectType", "floorArea", "estimatedCost", "location"]
                 },
                 requiresBusinessName: false,
@@ -1388,9 +1420,9 @@ export async function getTransactionById(id: string) {
         }
 
         // ENGINEER should only be able to view Building Permit transactions
-        const isBuildingPermit = transaction.type.code.startsWith("BUILDING_PERMIT");
-        if ((user?.role === "ENGINEER" || user?.role === "MPDC_ZONING") && !isBuildingPermit) {
-            return { success: false, error: "Forbidden: Engineers and Zoning Officers can only access Building Permit transactions." };
+        const isEngineeringPermit = isEngineeringPermitCode(transaction.type.code);
+        if ((user?.role === "ENGINEER" || user?.role === "MPDC_ZONING") && !isEngineeringPermit) {
+            return { success: false, error: "Forbidden: Engineers and Zoning Officers can only access engineering permit transactions." };
         }
 
         // Ordinary resident check: can only fetch their own transactions
@@ -1667,7 +1699,7 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
         if (!transaction) return { success: false, error: "Transaction not found" };
 
         const isBusinessPermit = transaction.type.code.startsWith("BUSINESS_PERMIT");
-        const isBuildingPermit = transaction.type.code.startsWith("BUILDING_PERMIT");
+        const isEngineeringPermit = isEngineeringPermitCode(transaction.type.code);
         const isLCR = transaction.type.code.startsWith("LCR_");
 
         // ADMIN_AIDE can only evaluate Business Permits in the inspection phases (FOR_INSPECTION or FOR_REINSPECTION)
@@ -1682,7 +1714,7 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
         const isCedula = transaction.type.code.includes("CEDULA");
 
         // Allow Cedula, Business Permit, Civil Registry (LCR), and Building Permit transactions to be evaluated here.
-        if (!isCedula && !isBusinessPermit && !isLCR && !isBuildingPermit) {
+        if (!isCedula && !isBusinessPermit && !isLCR && !isEngineeringPermit) {
             return { success: false, error: "Unsupported transaction type" };
         }
 
@@ -1725,7 +1757,7 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
             totalAmount: 0
         };
 
-        if (isBusinessPermit || isBuildingPermit) {
+        if (isBusinessPermit || isEngineeringPermit) {
             if (sanitizedBpFeeLineItems && sanitizedBpFeeLineItems.length > 0) {
                 const itemsSum = sanitizedBpFeeLineItems.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
                 const deliveryFee = transaction.fulfillmentType === "DELIVERY"
@@ -1838,7 +1870,7 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
             };
         }
 
-        if (!isBusinessPermit && !isBuildingPermit && sanitizedBpFeeLineItems && sanitizedBpFeeLineItems.length > 0 && !isLCR) {
+        if (!isBusinessPermit && !isEngineeringPermit && sanitizedBpFeeLineItems && sanitizedBpFeeLineItems.length > 0 && !isLCR) {
             const itemsSum = sanitizedBpFeeLineItems.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
             result.totalAmount += itemsSum;
         }
@@ -1847,7 +1879,7 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
         // New BPLO requests that pass inspection move to Treasury requesting.
         // Re-inspection keeps the existing later-phase flow and returns to processing.
         let newStatus = (isUserAdminAide(user) && isBusinessPermit) ? "FOR_REQUESTING" : "FOR_INSPECTION" as any;
-        if (isBuildingPermit) {
+        if (isEngineeringPermit) {
             if (user.role === "MPDC_ZONING") {
                 newStatus = transaction.status;
             } else if (transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION") {
@@ -1892,10 +1924,10 @@ export async function evaluateCedulaTransaction(id: string, deliveryFeeOverride?
                     ...(sanitizedScannedDocUrl ? { scannedDocUrl: sanitizedScannedDocUrl } : {}),
                     ...(sanitizedOrSeriesNumber ? { orSeriesNumber: sanitizedOrSeriesNumber } : {}),
                     ...(sanitizedMiscFeeOverride !== undefined ? { miscFee: sanitizedMiscFeeOverride } : {}),
-                    ...(isBuildingPermit && (user.role === "ENGINEER" || user.role === "ADMIN") && (transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION")
+                    ...(isEngineeringPermit && (user.role === "ENGINEER" || user.role === "ADMIN") && (transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REINSPECTION")
                         ? { zoningStatus: "WAITING_ENDORSEMENT" }
                         : {}),
-                    ...(isBuildingPermit && user.role === "MPDC_ZONING" && (additionalData?.zoningStatus === "FOR_INSPECTION" || additionalData?.zoningStatus === "FOR_REINSPECTION")
+                    ...(isEngineeringPermit && user.role === "MPDC_ZONING" && (additionalData?.zoningStatus === "FOR_INSPECTION" || additionalData?.zoningStatus === "FOR_REINSPECTION")
                         ? { zoningStatus: "EVALUATED" }
                         : {})
                 },
@@ -1986,15 +2018,15 @@ export async function finalizeTransactionFulfillment(formData: FormData) {
         const fiscal = (typeof transaction.fiscalSnapshot === "string" ? JSON.parse(transaction.fiscalSnapshot) : transaction.fiscalSnapshot) as any || {};
         
         // Sum any line items inside fiscalSnapshot (excluding Business/Building permits as their lineItems are already in basicTax)
-        const isBusinessOrBuilding = transaction.type.code.startsWith("BUSINESS_PERMIT") || transaction.type.code.startsWith("BUILDING_PERMIT");
-        const lineItemsSum = (!isBusinessOrBuilding && Array.isArray(fiscal.lineItems))
+        const isBusinessOrEngineering = transaction.type.code.startsWith("BUSINESS_PERMIT") || isEngineeringPermitCode(transaction.type.code);
+        const lineItemsSum = (!isBusinessOrEngineering && Array.isArray(fiscal.lineItems))
             ? fiscal.lineItems.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
             : 0;
 
         const baseAmount = Number(fiscal.basicTax || 0) + 
                            Number(fiscal.additionalTax || 0) + 
                            Number(fiscal.penaltyCharge || fiscal.penalty || 0) +
-                           (!isBusinessOrBuilding ? Number(fiscal.miscFee || 0) : 0) +
+                           (!isBusinessOrEngineering ? Number(fiscal.miscFee || 0) : 0) +
                            lineItemsSum;
 
         // Subtract any previously saved delivery fee to get a clean base amount
@@ -2587,8 +2619,8 @@ export async function rejectTransaction(id: string, remarks: string) {
             const activeRejectedTransactions = rejectedTransactions;
 
             let maxCategoryRejections;
-            if (tx.type?.code === "BUILDING_PERMIT") {
-                maxCategoryRejections = activeRejectedTransactions.filter((rTx: any) => rTx.type?.code === "BUILDING_PERMIT").length;
+            if (isEngineeringPermitCode(tx.type?.code)) {
+                maxCategoryRejections = activeRejectedTransactions.filter((rTx: any) => rTx.type?.code === tx.type?.code).length;
             } else {
                 // Group and find the maximum rejection count in any single category
                 const categoryCounts: Record<string, number> = {};
@@ -2711,8 +2743,8 @@ export async function sendForRevision(
                 });
 
                 let maxCategoryRejections;
-                if (tx.type?.code === "BUILDING_PERMIT") {
-                    maxCategoryRejections = rejectedTransactions.filter((rTx: any) => rTx.type?.code === "BUILDING_PERMIT").length;
+                if (isEngineeringPermitCode(tx.type?.code)) {
+                    maxCategoryRejections = rejectedTransactions.filter((rTx: any) => rTx.type?.code === tx.type?.code).length;
                 } else {
                     const categoryCounts: Record<string, number> = {};
                     for (const rTx of rejectedTransactions) {
@@ -3458,7 +3490,7 @@ export async function getEngineerTransactions(params?: string | {
         const skip = limit === 999999 ? 0 : (page - 1) * limit;
 
         const where: any = {
-            type: { code: { startsWith: "BUILDING_PERMIT" } }
+            ...engineeringPermitTypeWhere
         };
 
         if (user.role === "MPDC_ZONING") {
@@ -3617,7 +3649,7 @@ export async function getEngineerPendingCount() {
         assertUserRoles(user, ["ENGINEER", "MPDC_ZONING", "ADMIN"]);
 
         const where: any = {
-            type: { code: { startsWith: "BUILDING_PERMIT" } }
+            ...engineeringPermitTypeWhere
         };
 
         if (user.role === "MPDC_ZONING") {
@@ -3655,7 +3687,7 @@ export async function getEngineerStatusCounts() {
         assertUserRoles(user, ["ENGINEER", "MPDC_ZONING", "ADMIN"]);
 
         const where: any = {
-            type: { code: { startsWith: "BUILDING_PERMIT" } },
+            ...engineeringPermitTypeWhere,
             isCancelled: false
         };
 
@@ -3681,7 +3713,7 @@ export async function getEngineerStatusCounts() {
                 counts[effectiveStatus] = (counts[effectiveStatus] || 0) + 1;
             }
             const cancelledCount = await prisma.transaction.count({ 
-                where: { type: { code: { startsWith: "BUILDING_PERMIT" } }, isCancelled: true } 
+                where: { ...engineeringPermitTypeWhere, isCancelled: true }
             });
             if (cancelledCount > 0) counts["CANCELLED"] = cancelledCount;
             return { success: true, data: counts };
@@ -3700,7 +3732,7 @@ export async function getEngineerStatusCounts() {
 
         const cancelledCount = await prisma.transaction.count({
             where: {
-                type: { code: { startsWith: "BUILDING_PERMIT" } },
+                ...engineeringPermitTypeWhere,
                 isCancelled: true,
                 ...(user.role === "MPDC_ZONING" ? { 
                     AND: [
@@ -3743,8 +3775,8 @@ export async function scheduleBuildingInspection(id: string, details: any) {
 
         if (!transaction) return { success: false, error: "Transaction not found" };
 
-        if (!transaction.type.code.startsWith("BUILDING_PERMIT")) {
-            return { success: false, error: "Not a Building Permit transaction" };
+        if (!isEngineeringPermitCode(transaction.type.code)) {
+            return { success: false, error: "Not an engineering permit transaction" };
         }
 
         const existingAdditionalData = (transaction.additionalData as any) || {};
@@ -4515,10 +4547,18 @@ export async function releaseBuildingPermitAction(id: string) {
 
         const transaction = await prisma.transaction.findUnique({
             where: { id },
-            include: { user: { include: { residentProfile: true } } }
+            include: {
+                type: true,
+                user: { include: { residentProfile: true } }
+            }
         });
 
         if (!transaction) return { success: false, error: "Transaction not found" };
+        const isBuildingPermit = transaction.type.code === "BUILDING_PERMIT";
+        const isOccupancyPermit = transaction.type.code === "OCCUPANCY_PERMIT";
+        if (!isBuildingPermit && !isOccupancyPermit) {
+            return { success: false, error: "Unsupported permit transaction type" };
+        }
 
         const additionalData = (transaction.additionalData as any) || {};
         const resident = transaction.user?.residentProfile || (transaction as any).residentSnapshot || {};
@@ -4534,20 +4574,39 @@ export async function releaseBuildingPermitAction(id: string) {
                 include: { user: true, type: true }
             });
 
-            // Save to BuildingPermit table
-            await tx.buildingPermit.create({
-                data: {
-                    transactionId: id,
-                    permitNumber: `BP-${new Date().getFullYear()}-${Math.floor(Math.random() * 100000).toString().padStart(5, '0')}`,
-                    applicantName: applicantName,
-                    projectType: additionalData.descriptionOfWork || "Building Construction",
-                    occupancyUse: additionalData.occupancyUse || "Residential",
-                    location: additionalData.location || resident.address || "Mapandan, Pangasinan",
-                    estimatedCost: parseFloat(additionalData.estimatedCost) || 0,
-                    documentUrl: transaction.eCopyUrl,
-                    issuedBy: user.name || user.email || "Municipal Engineer"
-                }
-            });
+            const permitData = {
+                applicantName: applicantName,
+                projectType: additionalData.descriptionOfWork || "Building Construction",
+                occupancyUse: additionalData.occupancyUse || "Residential",
+                location: additionalData.location || resident.address || "Mapandan, Pangasinan",
+                estimatedCost: parseFloat(additionalData.estimatedCost) || 0,
+                documentUrl: transaction.eCopyUrl,
+                issuedBy: user.name || user.email || "Municipal Engineer"
+            };
+
+            if (transaction.type.code === "BUILDING_PERMIT") {
+                await tx.buildingPermit.upsert({
+                    where: { transactionId: id },
+                    create: {
+                        transactionId: id,
+                        permitNumber: `BP-${new Date().getFullYear()}-${Math.floor(Math.random() * 100000).toString().padStart(5, '0')}`,
+                        ...permitData
+                    },
+                    update: permitData
+                });
+            }
+
+            if (transaction.type.code === "OCCUPANCY_PERMIT") {
+                await tx.occupancyPermit.upsert({
+                    where: { transactionId: id },
+                    create: {
+                        transactionId: id,
+                        permitNumber: `OP-${new Date().getFullYear()}-${Math.floor(Math.random() * 100000).toString().padStart(5, '0')}`,
+                        ...permitData
+                    },
+                    update: permitData
+                });
+            }
 
             return updatedTx;
         });
@@ -4561,7 +4620,7 @@ export async function releaseBuildingPermitAction(id: string) {
                 name: residentSnap?.firstName ? `${residentSnap.firstName} ${residentSnap.lastName}` : updatedTransaction.user.name || "Resident",
                 transactionId: id.slice(-8).toUpperCase(),
                 serviceName: updatedTransaction.type?.name || "Building Permit",
-                remarks: "Your Building Permit has been officially released."
+                remarks: `Your ${updatedTransaction.type?.name || "permit"} has been officially released.`
             });
         }
 
@@ -4569,6 +4628,7 @@ export async function releaseBuildingPermitAction(id: string) {
         revalidatePath("/admin/zoning");
         revalidatePath("/admin/treasury");
         revalidatePath("/user/services/building-permit");
+        revalidatePath("/user/services/occupancy");
         return { success: true, data: updatedTransaction };
     } catch (error) {
         console.error("Release building permit error:", error);
@@ -4594,9 +4654,9 @@ export async function declinePaymentProofAction(id: string, reason: string) {
         const updatedAdditionalData = { ...currentAdditionalData };
 
         // Only apply 3x limit rule for Building Permits
-        const isBuildingPermit = transaction.type?.code?.startsWith("BUILDING_PERMIT");
+        const isEngineeringPermit = isEngineeringPermitCode(transaction.type?.code);
 
-        if (isBuildingPermit) {
+        if (isEngineeringPermit) {
             const nextPaymentRevisionCount = (currentAdditionalData.paymentRevisionCount || 0) + 1;
 
             if (nextPaymentRevisionCount >= 3) {
@@ -5087,15 +5147,15 @@ export async function saveLogisticsDetails(
         const fiscal = (typeof transaction.fiscalSnapshot === "string" ? JSON.parse(transaction.fiscalSnapshot) : transaction.fiscalSnapshot) as any || {};
         
         // Sum any line items inside fiscalSnapshot (excluding Business/Building permits as their lineItems are already in basicTax)
-        const isBusinessOrBuilding = transaction.type.code.startsWith("BUSINESS_PERMIT") || transaction.type.code.startsWith("BUILDING_PERMIT");
-        const lineItemsSum = (!isBusinessOrBuilding && Array.isArray(fiscal.lineItems))
+        const isBusinessOrEngineering = transaction.type.code.startsWith("BUSINESS_PERMIT") || isEngineeringPermitCode(transaction.type.code);
+        const lineItemsSum = (!isBusinessOrEngineering && Array.isArray(fiscal.lineItems))
             ? fiscal.lineItems.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
             : 0;
 
         const baseAmount = Number(fiscal.basicTax || 0) + 
                            Number(fiscal.additionalTax || 0) + 
                            Number(fiscal.penaltyCharge || 0) +
-                           (!isBusinessOrBuilding ? Number(fiscal.miscFee || 0) : 0) +
+                           (!isBusinessOrEngineering ? Number(fiscal.miscFee || 0) : 0) +
                            lineItemsSum;
 
         // Subtract any previously saved delivery fee to prevent accumulation on re-clicks
@@ -5697,7 +5757,7 @@ export async function getBFPTransactions(status?: string, searchTerm?: string, d
         assertUserRoles(user, ["BFP", "ADMIN"]);
 
         const where: any = {
-            type: { code: "BUILDING_PERMIT" }
+            ...engineeringPermitTypeWhere
         };
 
         // BFP only sees transactions that the Engineer explicitly forwarded and that already have Zoning endorsement
@@ -5784,7 +5844,7 @@ export async function getBFPStatusCounts() {
 
         const transactions = await prisma.transaction.findMany({
             where: {
-                type: { code: "BUILDING_PERMIT" }
+                ...engineeringPermitTypeWhere
             },
             select: { additionalData: true }
         });

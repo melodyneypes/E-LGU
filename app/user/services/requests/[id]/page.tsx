@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { compressImage } from "@/lib/image-compression";
 import { calculateCedula } from "@/lib/cedula";
+import { isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -749,7 +750,7 @@ export default function RequestHubPage() {
                 if (request?.type?.code?.startsWith("LCR_") || request?.type?.code?.startsWith("CIVIL_REGISTRY")) {
                     return { label: "APPOINTMENT CONFIRMED", color: "bg-emerald-600 text-white border-transparent", icon: CheckCircle2 };
                 }
-                if (request?.type?.code?.startsWith("BUILDING_PERMIT") && !request?.fiscalSnapshot) {
+                if (isEngineeringPermitCode(request?.type?.code) && !request?.fiscalSnapshot) {
                     return { label: "AWAITING TREASURY ASSESSMENT", color: "bg-amber-500 text-white border-amber-500", icon: Clock };
                 }
                 return { label: "EVALUATED", color: "bg-primary text-white border-primary", icon: DollarSign };
@@ -792,9 +793,10 @@ export default function RequestHubPage() {
     const statusConfig = request ? getStatusConfig(request.status) : null;
     const typeCode = request?.type?.code || "";
     const isPsaAppointmentEndorsement = checkIsPsaAppointmentEndorsement(typeCode);
-    const isActionable = (request?.status === "EVALUATED" && (!typeCode.startsWith("BUILDING_PERMIT") || !!request.fiscalSnapshot) && !isPsaAppointmentEndorsement) || (request?.status === "UNPAID" && (typeCode.startsWith("BUSINESS_PERMIT") || typeCode.startsWith("CEDULA") || typeCode.startsWith("BUILDING_PERMIT")));
+    const isEngineeringPermit = isEngineeringPermitCode(typeCode);
+    const isActionable = (request?.status === "EVALUATED" && (!isEngineeringPermit || !!request.fiscalSnapshot) && !isPsaAppointmentEndorsement) || (request?.status === "UNPAID" && (typeCode.startsWith("BUSINESS_PERMIT") || typeCode.startsWith("CEDULA") || isEngineeringPermit));
     const isBusinessPermit = typeCode.startsWith("BUSINESS_PERMIT");
-    const isBuildingPermit = typeCode.startsWith("BUILDING_PERMIT");
+    const isBuildingPermit = isEngineeringPermit;
     const isCedula = typeCode.startsWith("CEDULA");
     const estimatedCedulaAmount = useMemo(() => {
         if (!isCedula || !request) return 0;

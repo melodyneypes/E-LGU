@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
 import { supabase } from "@/lib/supabase";
 
 const STATUS_TABS = [
@@ -370,7 +371,7 @@ export default function TreasuryDashboard() {
         }
 
         // For Building Permits, Treasury only needs to see EVALUATED, UNPAID, PAID, and REJECTED
-        const isBuildingPermitTx = tx.type?.code?.startsWith("BUILDING_PERMIT") || tx.type?.name?.toUpperCase().includes("BUILDING PERMIT");
+        const isBuildingPermitTx = isEngineeringPermitCode(tx.type?.code);
         if (isBuildingPermitTx) {
             const allowedStatuses = ["EVALUATED", "UNPAID", "PAID", "REJECTED"];
             if (!allowedStatuses.includes(tx.status)) {

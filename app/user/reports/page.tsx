@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getUserReports, getUserTransactions } from "@/app/admin/actions";
 import { useRouter } from "next/navigation";
+import { getEngineeringPermitCitizenRoute } from "@/lib/transactions/engineering-permit";
 
 interface Report {
     id: string;
@@ -140,8 +141,9 @@ export default function UserReportsPage() {
                             key={report.id}
                             onClick={() => {
                                 if (report.isTransaction) {
-                                    if (report.transactionCode === "BUILDING_PERMIT") {
-                                        router.push(`/user/services/building-permit`);
+                                    const engineeringPermitRoute = getEngineeringPermitCitizenRoute(report.transactionCode);
+                                    if (engineeringPermitRoute) {
+                                        router.push(engineeringPermitRoute);
                                     } else if (report.transactionCode === "BUSINESS_PERMIT") {
                                         router.push(`/user/services/business-permit`);
                                     } else {

@@ -4,6 +4,7 @@ import React, { useEffect, useState, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getTransactionById } from "@/app/admin/transactions/actions";
 import { toast } from "sonner";
+import { isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -20,8 +21,8 @@ export default function ZoningDetailPage({ params }: PageProps) {
             const res = await getTransactionById(id);
             if (res.success && res.data) {
                 const tx = res.data;
-                const isBuildingPermit = tx.type?.code?.startsWith("BUILDING_PERMIT") ?? false;
-                if (isBuildingPermit) {
+                const isEngineeringPermit = isEngineeringPermitCode(tx.type?.code);
+                if (isEngineeringPermit) {
                     const addData = (tx.additionalData as any) || {};
                     const zoningStatus = addData.zoningStatus;
 

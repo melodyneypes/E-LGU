@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db/prisma";
 import { sendEmail } from "@/lib/mail";
+import { isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
 
 async function runCleanup() {
     // Get start of today Manila time
@@ -80,16 +81,18 @@ async function runCleanup() {
 
             let maxCategoryRejections = 0;
             const buildingPermitRejections = rejectedTransactions.filter((rTx: any) => rTx.type?.code === "BUILDING_PERMIT").length;
+            const occupancyPermitRejections = rejectedTransactions.filter((rTx: any) => rTx.type?.code === "OCCUPANCY_PERMIT").length;
 
             const categoryCounts: Record<string, number> = {};
             for (const rTx of rejectedTransactions) {
-                if (rTx.type?.code === "BUILDING_PERMIT") continue;
+                if (isEngineeringPermitCode(rTx.type?.code)) continue;
                 const category = rTx.type?.category || "General";
                 categoryCounts[category] = (categoryCounts[category] || 0) + 1;
             }
 
             maxCategoryRejections = Math.max(
                 buildingPermitRejections,
+                occupancyPermitRejections,
                 0,
                 ...Object.values(categoryCounts)
             );

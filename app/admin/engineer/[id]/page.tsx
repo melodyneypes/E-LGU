@@ -43,6 +43,7 @@ import {
 } from "@/app/admin/transactions/cedula-actions";
 import { cn } from "@/lib/utils";
 import { calculateCedula } from "@/lib/cedula";
+import { isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -331,7 +332,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
     };
 
     const isBusinessPermit = transaction?.type?.code?.startsWith("BUSINESS_PERMIT") ?? false;
-    const isBuildingPermit = transaction?.type?.code?.startsWith("BUILDING_PERMIT") ?? false;
+    const isBuildingPermit = isEngineeringPermitCode(transaction?.type?.code);
     const isLCR = (transaction?.type?.code?.startsWith("LCR_") ?? false) || (transaction?.type?.code?.startsWith("CIVIL_REGISTRY") ?? false);
     const typeCode = (transaction?.type?.code || "").toUpperCase();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -417,7 +418,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
 
     useEffect(() => {
         if (transaction) {
-            const isBuildingPermit = transaction.type?.code?.startsWith("BUILDING_PERMIT") ?? false;
+            const isBuildingPermit = isEngineeringPermitCode(transaction.type?.code);
             if (isBuildingPermit) {
                 if (transaction.status === "FOR_REQUESTING" || transaction.status === "FOR_REVISION" || transaction.status === "REJECTED") {
                     router.replace(`/admin/engineer/${id}/evaluation`);

@@ -42,6 +42,7 @@ import { releaseMarriagePsaEndorsement } from "@/app/admin/transactions/marriage
 import { releaseBirthPsaEndorsement } from "@/app/admin/transactions/birth-endorsement-actions";
 import { releaseDeathPsaEndorsement } from "@/app/admin/transactions/death-endorsement-actions";
 import { calculateCivilRegistryFee } from "@/lib/civil-registry";
+import { getEngineeringPermitLabel, isEngineeringPermitCode } from "@/lib/transactions/engineering-permit";
 import { collectPsaAppointmentPayment } from "@/app/admin/transactions/civil-registry-appointment-actions";
 import { calculateCedula } from "@/lib/cedula";
 import { getCedulaSettings } from "@/app/admin/transactions/cedula-actions";
@@ -252,8 +253,8 @@ export default function TreasuryDetailPage() {
             ? "CEDULA"
             : (typeCodeForBack.startsWith("BUSINESS_PERMIT")
                 ? "Business Permit"
-                : (typeCodeForBack.startsWith("BUILDING_PERMIT")
-                    ? "Building Permit"
+                : (isEngineeringPermitCode(typeCodeForBack)
+                    ? getEngineeringPermitLabel(typeCodeForBack)
                     : null)));
 
     const activeCategory = categoryQuery || fallbackCategory;
@@ -443,7 +444,7 @@ export default function TreasuryDetailPage() {
     };
 
     const isBusinessPermit = transaction?.type?.code?.startsWith("BUSINESS_PERMIT") ?? false;
-    const isBuildingPermit = transaction?.type?.code?.startsWith("BUILDING_PERMIT") ?? false;
+    const isBuildingPermit = isEngineeringPermitCode(transaction?.type?.code);
     const isLCR = (transaction?.type?.code?.startsWith("LCR_") ?? false) || (transaction?.type?.code?.startsWith("CIVIL_REGISTRY") ?? false);
     const isCedula = transaction?.type?.code?.includes("CEDULA") ?? false;
     const typeCode = (transaction?.type?.code || "").toUpperCase();
@@ -481,7 +482,7 @@ export default function TreasuryDetailPage() {
                 }
 
                 // Pre-populate feeLineItems for building permit if assessed by engineer
-                if (tx && tx.type?.code?.startsWith("BUILDING_PERMIT")) {
+                if (tx && isEngineeringPermitCode(tx.type?.code)) {
                     const assessed = tx.additionalData?.feeAssessment;
                     if (assessed && assessed.endorsed) {
                         setFeeLineItems([

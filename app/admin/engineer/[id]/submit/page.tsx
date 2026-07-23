@@ -26,6 +26,7 @@ import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import LightboxView from "../../../treasury/[id]/components/LightboxView";
 import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import PremiumDocumentUpload from "@/components/shared/PremiumDocumentUpload";
+import { getEngineeringPermitLabel } from "@/lib/transactions/engineering-permit";
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -41,6 +42,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
     const backUrl = userRole === "ENGINEER" ? "/admin/engineer" : userRole === "MPDC_ZONING" ? "/admin/zoning" : "/admin/treasury";
 
     const [transaction, setTransaction] = useState<any>(null);
+    const permitLabel = getEngineeringPermitLabel(transaction?.type?.code) || "Building Permit";
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [themeColor, setThemeColor] = useState<string>("#2563eb");
@@ -88,7 +90,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
 
         // Auto-upload
         setUploading(true);
-        const toastId = toast.loading("Uploading building permit E-copy...");
+        const toastId = toast.loading(`Uploading ${permitLabel.toLowerCase()} E-copy...`);
         try {
             const formData = new FormData();
             formData.append("file", file);
@@ -108,7 +110,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
 
     const handleSubmitPermit = async () => {
         if (!eCopyUrl) {
-            toast.error("Please upload the building permit E-copy first.");
+            toast.error(`Please upload the ${permitLabel.toLowerCase()} E-copy first.`);
             return;
         }
 
@@ -116,7 +118,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
         try {
             const res = await submitBuildingPermitAction(id, eCopyUrl);
             if (res.success) {
-                toast.success("Building Permit submitted and released successfully!");
+                toast.success(`${permitLabel} submitted and released successfully!`);
                 router.push(backUrl);
             } else {
                 toast.error(res.error || "Failed to submit permit");
@@ -209,7 +211,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
                         </Badge>
                     </div>
                     <Badge variant="outline" className="font-black italic uppercase tracking-widest text-[10px] border-primary/20 text-primary bg-primary/5 px-4 py-1">
-                        Building Permit Submit Phase
+                                {permitLabel} Submit Phase
                     </Badge>
                 </div>
             </header>
@@ -218,8 +220,8 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
                 {isSubmitted && (
                     <div className="col-span-12 bg-[#006A2E]/10 border border-[#006A2E]/20 text-[#006A2E] dark:text-green-400 p-6 rounded-[1.5rem] flex items-center justify-between shadow-sm animate-in fade-in duration-300">
                         <div>
-                            <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">✅ Building Permit Released & Submitted</p>
-                            <p className="text-[11px] font-medium opacity-90">The digital copy of the building permit has been successfully submitted. Current transaction status is: <span className="font-bold">{transaction.status}</span>.</p>
+                            <p className="text-xs font-black uppercase tracking-widest italic flex items-center gap-2">✅ {permitLabel} Released & Submitted</p>
+                            <p className="text-[11px] font-medium opacity-90">The digital copy of the {permitLabel.toLowerCase()} has been successfully submitted. Current transaction status is: <span className="font-bold">{transaction.status}</span>.</p>
                         </div>
                         <Button onClick={() => router.push(backUrl)} size="sm" className="bg-[#006A2E] hover:bg-emerald-800 text-white font-bold text-xs uppercase h-10 px-4 rounded-xl active:scale-95 transition-all border-none">
                             Return to Dashboard
@@ -233,9 +235,9 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
                     {/* Header Banner */}
                     <div className="bg-gradient-to-r from-blue-500/10 to-teal-500/10 dark:from-blue-500/5 dark:to-teal-500/5 border border-blue-500/20 dark:border-blue-500/10 rounded-[2rem] p-8 flex items-center justify-between shadow-sm relative overflow-hidden">
                         <div className="space-y-2 relative z-10">
-                            <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-[0.2em] italic">Phase 5: Building Permit Submission</span>
+                            <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-[0.2em] italic">Phase 5: {permitLabel} Submission</span>
                             <h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">SUBMIT E-COPY</h2>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Upload the digital building permit file (E-Copy) to officially release it to the Resident.</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Upload the digital {permitLabel.toLowerCase()} file (E-Copy) to officially release it to the Resident.</p>
                         </div>
                         <div className="text-5xl font-black italic text-blue-500/20 select-none hidden md:block">SUBMIT</div>
                     </div>
@@ -414,7 +416,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
                             <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
                                 Application <span className="text-primary">Details</span>
                             </h2>
-                            <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">Building Permit Questionnaire</p>
+                            <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">{permitLabel} Questionnaire</p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -450,11 +452,11 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
                             <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
                                 Upload Building <span className="text-primary">Permit E-Copy</span>
                             </h2>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">Upload the scanned or digital copy of the approved building permit. Supported formats: PDF, PNG, JPG.</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">Upload the scanned or digital copy of the approved {permitLabel.toLowerCase()}. Supported formats: PDF, PNG, JPG.</p>
                         </div>
 
                         <PremiumDocumentUpload
-                            label="Building Permit E-Copy"
+                            label={`${permitLabel} E-Copy`}
                             required={true}
                             file={null}
                             existingUrl={eCopyUrl}
@@ -464,7 +466,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
                             }}
                             onView={() => {
                                 setViewerUrl(eCopyUrl);
-                                setViewerTitle("Building Permit E-Copy");
+                                setViewerTitle(`${permitLabel} E-Copy`);
                                 setViewerOpen(true);
                             }}
                             disabled={isViewOnly || uploading}
@@ -527,7 +529,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
                             <div className="bg-amber-500/10 border border-amber-500/20 text-amber-500 p-6 rounded-[2rem] space-y-2">
                                 <p className="text-[10px] font-black uppercase tracking-widest italic flex items-center gap-2">⚠️ Clearance Approval Pending</p>
                                 <p className="text-[11px] font-medium leading-relaxed">
-                                    You cannot upload the building permit E-copy or submit it yet. Please verify and approve the Residents submitted BFP and Zoning clearances first from the **Fee Assessment** tab.
+                                    You cannot upload the {permitLabel.toLowerCase()} E-copy or submit it yet. Please verify and approve the Residents submitted BFP and Zoning clearances first from the **Fee Assessment** tab.
                                 </p>
                             </div>
                         )}
