@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { getTickets, getViolatorHistory } from "@/app/admin/poso/actions";
+import { getTickets, getViolatorHistory, processTicketSettlement } from "@/app/admin/poso/actions";
 import {
     Table,
     TableBody,
@@ -48,6 +48,9 @@ export interface TicketItem {
     isPaid: boolean;
     createdAt: Date;
     transactionId?: string | null;
+    isImpounded?: boolean;
+    impoundFee?: number;
+    vehicleClass?: string | null;
 }
 
 export default function TicketsPage({
@@ -172,9 +175,9 @@ export default function TicketsPage({
         setBatchPaying(true);
         try {
             const results = await Promise.all(
-                selectedTicketIds.map((id) => updateTicketStatus(id, "RESOLVED", true))
+                selectedTicketIds.map((id) => processTicketSettlement(id))
             );
-            const allSuccess = results.every((r) => r.success);
+            const allSuccess = results.every((r: any) => r.success);
             if (allSuccess) {
                 toast.success(`Successfully marked ${selectedTicketIds.length} ticket(s) as PAID!`);
                 // Update local modal data
