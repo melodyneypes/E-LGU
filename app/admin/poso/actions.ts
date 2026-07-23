@@ -683,3 +683,127 @@ export async function deletePosoOfficer(id: string) {
     }
 }
 
+// ----------------------------------------
+// POSO ENFORCER LEADERBOARD ACTIONS
+// ----------------------------------------
+
+export async function getEnforcerLeaderboard({
+    fromDate,
+    toDate,
+    sortBy = "ALL",
+}: {
+    fromDate?: string;
+    toDate?: string;
+    sortBy?: "ALL" | "TICKETS" | "AMOUNT";
+} = {}) {
+    try {
+        await verifyAdminOrStaff();
+
+        const where: any = {};
+
+        if (fromDate || toDate) {
+            where.dateTime = {};
+            if (fromDate) {
+                where.dateTime.gte = new Date(`${fromDate}T00:00:00.000Z`);
+            }
+            if (toDate) {
+                where.dateTime.lte = new Date(`${toDate}T23:59:59.999Z`);
+            }
+        }
+
+        const tickets = await (prisma as any).ticketHeader.findMany({
+            where,
+            select: {
+                id: true,
+                ticketNo: true,
+                officerName: true,
+                badgeNo: true,
+                officerUserId: true,
+                totalAmount: true,
+                impoundFee: true,
+                isImpounded: true,
+                isPaid: true,
+                dateTime: true,
+            },
+        });
+
+        const map = new Map<string, {
+            officerName: string;
+            badgeNo: string;
+            totalTickets: number;
+            totalAmount: number;
+            paidTickets: number;
+            unpaidTickets: number;
+        }>();
+
+        for (const t of tickets) {
+            const key = (t.officerName || "POSO Enforcer").trim();
+            const badgeNo = t.badgeNo || "POSO-001";
+            const ticketTotal = (t.totalAmount || 0) + (t.isImpounded ? (t.impoundFee || 0) : 0);
+
+            if (!map.has(key)) {
+                map.set(key, {
+                    officerName: key,
+                    badgeNo,
+                    totalTickets: 0,
+                    totalAmount: 0,
+                    paidTickets: 0,
+                    unpaidTickets: 0,
+                });
+            }
+
+            const record = map.get(key)!;
+            record.totalTickets += 1;
+            record.totalAmount += ticketTotal;
+            if (t.isPaid) {
+                record.paidTickets += 1;
+            } else {
+                record.unpaidTickets += 1;
+            }
+        }
+
+        const list = Array.from(map.values()).map((officer) => ({
+            ...officer,
+            settlementRate: officer.totalTickets > 0
+                ? Math.round((officer.paidTickets / officer.totalTickets) * 100)
+                : 0,
+        }));
+
+        list.sort((a, b) => {
+            if (sortBy === "TICKETS") {
+                if (b.totalTickets !== a.totalTickets) return b.totalTickets - a.totalTickets;
+                return b.totalAmount - a.totalAmount;
+            } else if (sortBy === "AMOUNT") {
+                if (b.totalAmount !== a.totalAmount) return b.totalAmount - a.totalAmount;
+                return b.totalTickets - a.totalTickets;
+            } else {
+                if (b.totalTickets !== a.totalTickets) return b.totalTickets - a.totalTickets;
+                return b.totalAmount - a.totalAmount;
+            }
+        });
+
+        const leaderboard = list.map((item, index) => ({
+            rank: index + 1,
+            ...item,
+        }));
+
+        const totalCitations = tickets.length;
+        const totalRevenue = tickets.reduce((sum: number, t: any) => sum + (t.totalAmount || 0) + (t.isImpounded ? (t.impoundFee || 0) : 0), 0);
+        const topOfficer = leaderboard.length > 0 ? leaderboard[0].officerName : "N/A";
+
+        return {
+            success: true,
+            leaderboard: JSON.parse(JSON.stringify(leaderboard)),
+            summary: {
+                totalCitations,
+                totalRevenue,
+                topOfficer,
+                officersCount: leaderboard.length,
+            },
+        };
+    } catch (error: any) {
+        console.error("Failed to fetch enforcer leaderboard:", error);
+        return { success: false, error: error.message || "Failed to fetch leaderboard." };
+    }
+}
+
