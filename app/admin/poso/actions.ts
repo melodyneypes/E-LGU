@@ -351,6 +351,8 @@ export async function processTicketSettlement(id: string) {
             officerName: ticket.officerName || null,
             isImpounded: ticket.isImpounded || false,
             vehicleClass: ticket.vehicleClass || null,
+            impoundYard: ticket.isImpounded ? (ticket.impoundYard || "Mapandan POSO Impounding Facility") : null,
+            impoundedAt: ticket.isImpounded ? (ticket.impoundedAt || ticket.dateTime) : null,
             impoundFee: impoundFee,
             violations: (ticket.details || []).map((d: any) => ({
                 name: d.violationName,
@@ -360,7 +362,7 @@ export async function processTicketSettlement(id: string) {
         };
 
         const fiscalSnapshot = {
-            violationFineTotal: ticket.totalAmount || 0,
+            baseFineTotal: ticket.totalAmount || 0,
             impoundFee: impoundFee,
             totalAmount: grandTotal,
         };

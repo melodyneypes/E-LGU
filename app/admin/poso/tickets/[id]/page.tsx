@@ -6,7 +6,7 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import {
     ArrowLeft, MapPin, UserCheck, Shield, Award,
-    FileText, Camera, CreditCard, RefreshCw, Car, ShieldAlert, Clock
+    FileText, Camera, CreditCard, RefreshCw, Car, ShieldAlert, Clock, Truck, Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -249,6 +249,77 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                             </div>
                         </div>
                     </div>
+
+                    {/* Vehicle Impounding Custody & Yard Location Card */}
+                    {ticket.isImpounded && (
+                        <div className="bg-amber-50/60 dark:bg-amber-950/20 rounded-3xl p-6 md:p-8 border border-amber-200 dark:border-amber-500/30 shadow-sm space-y-6">
+                            <div className="flex items-center justify-between pb-4 border-b border-amber-200/60 dark:border-amber-500/20">
+                                <div className="flex items-center space-x-3">
+                                    <div className="p-3 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-2xl">
+                                        <Truck className="w-6 h-6 stroke-[2]" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-black uppercase italic tracking-tight text-amber-950 dark:text-amber-100">
+                                            Vehicle Impoundment Custody Record
+                                        </h2>
+                                        <p className="text-xs text-amber-700/80 dark:text-amber-300/80 font-medium italic">
+                                            Official LGU Municipal Impounding Facility Tracking
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <Badge
+                                    className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-xl ${
+                                        ticket.isReleased
+                                            ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300"
+                                            : "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/60 dark:text-amber-200"
+                                    }`}
+                                >
+                                    {ticket.isReleased ? "Released from Yard" : "Held at Impound Yard"}
+                                </Badge>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Impounding Facility Location</span>
+                                    <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 flex items-center">
+                                        <Building2 className="w-4 h-4 mr-1.5 text-amber-600" />
+                                        {ticket.impoundYard || "Mapandan POSO Impounding Facility"}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date & Time Impounded</span>
+                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-0.5 flex items-center">
+                                        <Clock className="w-4 h-4 mr-1.5 text-amber-600" />
+                                        {new Date(ticket.impoundedAt || ticket.dateTime).toLocaleString("en-PH", {
+                                            month: "short",
+                                            day: "numeric",
+                                            year: "numeric",
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                        })}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vehicle Classification</span>
+                                    <div className="mt-0.5">
+                                        <span className="inline-block px-3 py-1 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 text-xs font-black uppercase italic">
+                                            {ticket.vehicleClass === "CLASS_A" ? "Class A: Motorcycles/Tricycles" : ticket.vehicleClass === "CLASS_B" ? "Class B: Light 4-Wheeled" : ticket.vehicleClass === "CLASS_C" ? "Class C: Heavy 4-Wheeled+" : ticket.vehicleClass || "Standard Impound"}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Standard Impound Fee</span>
+                                    <p className="text-base font-black text-amber-600 dark:text-amber-400 italic mt-0.5">
+                                        ₱ {Number(ticket.impoundFee || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Violations & Fines Table Card */}
                     <div className="bg-white dark:bg-[#151b2b] rounded-3xl p-6 md:p-8 border border-slate-200 dark:border-[#2a3040] shadow-sm space-y-6">
