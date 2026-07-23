@@ -11,6 +11,8 @@ import { useBarangay } from "@/components/providers/BarangayProvider";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
+import { HighPriorityAnnouncementModal } from "./HighPriorityAnnouncementModal";
+
 interface Announcement {
     id: string;
     title: string;
@@ -18,6 +20,7 @@ interface Announcement {
     priority: string;
     category: string;
     isPinned: boolean;
+    imageUrl?: string | null;
     createdAt: Date;
 }
 
@@ -51,7 +54,10 @@ export function AnnouncementsNews({ announcements, news }: AnnouncementsNewsProp
     const filteredNews = news;
 
     return (
-        <section id="news" className="pt-8 md:pt-12 pb-8 md:pb-12 px-6 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16">
+        <>
+            <HighPriorityAnnouncementModal announcements={announcements} />
+
+            <section id="news" className="pt-8 md:pt-12 pb-8 md:pb-12 px-6 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16">
             
             {/* Left Column: Public Announcements */}
             <div className="flex flex-col h-full">
@@ -121,6 +127,7 @@ export function AnnouncementsNews({ announcements, news }: AnnouncementsNewsProp
                 </Link>
             </div>
         </section>
+        </>
     );
 }
 
@@ -154,6 +161,16 @@ function AnnouncementCard({ item, idx, isMobile }: { item: Announcement; idx: nu
                     <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-tight group-hover:text-primary transition-colors">
                         {item.title}
                     </h3>
+                    {item.imageUrl && (
+                        <div className="relative w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 bg-slate-950 p-1.5 shadow-md flex items-center justify-center my-2">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={item.imageUrl}
+                                alt={item.title}
+                                className="w-full max-h-[260px] object-contain rounded-xl"
+                            />
+                        </div>
+                    )}
                     <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-medium italic line-clamp-2">
                         {item.content}
                     </p>

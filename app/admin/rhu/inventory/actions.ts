@@ -19,7 +19,7 @@ export interface RHUInventoryInput {
     name: string;
     genericName?: string;
     brandName?: string;
-    category: InventoryCategory;
+    category?: InventoryCategory | "";
     dosage?: string;
     unit: string;
     quantity: number;
