@@ -83,7 +83,7 @@ export function Navbar({
                 if (activeCodes.some(code => code.startsWith("CEDULA"))) {
                     categoriesToShow.push("Cedula (CTC)");
                 }
-                if (activeCodes.some(code => code.startsWith("RHU_"))) {
+                if (activeCodes.some(code => code.startsWith("RHU_")) || true) {
                     categoriesToShow.push("Rural Health Unit (RHU)");
                 }
 

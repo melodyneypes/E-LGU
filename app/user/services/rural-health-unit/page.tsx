@@ -18,13 +18,37 @@ export default async function RHUPage() {
     ]);
     const themeColor = settings.get("theme_color") || "#2563eb";
 
-    // Fetch RHU transaction types
-    const rhuTypes = await prisma.transactionType.findMany({
+    // Fetch RHU transaction types with auto-seed fallback
+    let rhuTypes = await prisma.transactionType.findMany({
         where: {
-            isActive: true,
             code: "RHU_MEDICAL_CERT"
         }
     });
+
+    if (rhuTypes.length === 0) {
+        try {
+            const created = await prisma.transactionType.create({
+                data: {
+                    code: "RHU_MEDICAL_CERT",
+                    name: "Medical Consultation & Health Certificate",
+                    description: "Rural Health Unit clinical check-up, general consultation, and medical clearance certificate issuance.",
+                    level: 1,
+                    category: "RHU",
+                    baseFee: 50.00,
+                    deliveryFee: 0.00,
+                    isFixed: true,
+                    requiredDocs: ["Valid Government ID", "Medical History / Records"],
+                    logicCode: "rhu_consultation_v1",
+                    slaDays: 1,
+                    pickupAddress: "Rural Health Unit (RHU) Main Office",
+                    processingTime: "15-30 Minutes"
+                }
+            });
+            rhuTypes = [created];
+        } catch (err) {
+            console.error("Auto-seeding RHU_MEDICAL_CERT failed:", err);
+        }
+    }
 
     return (
         <RHUClient

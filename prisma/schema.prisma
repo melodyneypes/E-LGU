@@ -1218,85 +1218,98 @@ enum TicketStatus {
   CANCELLED
 }
 
-model TicketHeader {
-  id               String   @id @default(cuid())
-  ticketNo         String   @unique
-  localId          Int?
-  deviceId         String?
+  batches        RHUInventoryBatch[]
 
-  // Violator Info
-  violatorName     String
-  violatorAddress  String?
-  birthDate        String?
-  licenseNo        String?
-  licenseImage     String?
+  @@index([category])
+  @@index([name])
+}
 
-  // Vehicle Info
-  plateNo          String?
-  ownerName        String?
-  typeOfVehicle    String?
-  puvBodyName      String?
-  puvBodyNo        String?
+model RHUInventoryBatch {
+  id              String            @id @default(cuid())
+  itemId          String
+  batchNumber     String
+  expirationDate  DateTime?
+  quantity        Int               @default(0)
+  initialQuantity Int               @default(0)
+  receivedDate    DateTime          @default(now())
+  remarks         String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
-  // Apprehension Details
-  location         String?
-  barangay         String?
-  dateTime         DateTime @default(now())
-  officerName      String?
-  badgeNo          String?
-  officerUserId    String?
+  item            RHUInventoryItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
-  // Financial & Status
-  totalAmount      Float    @default(0)
-  status           TicketStatus @default(ISSUED)
-  isPaid           Boolean  @default(false)
+  @@index([itemId])
+  @@index([batchNumber])
+  @@index([expirationDate])
+}
+
+enum TicketStatus {
+  ISSUED
+  PAID
+  CANCELLED
+  SETTLED
+  RESOLVED
+  CONTESTED
+}
+
+model TrafficViolation {
+  id               String         @id @default(cuid())
+  violationCode    String?
+  violationName    String
+  firstOffenseFee  Float          @default(0)
+  secondOffenseFee Float          @default(0)
+  thirdOffenseFee  Float          @default(0)
   remarks          String?
-  driverSignature  String?
+  isActive         Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
-  transactionId    String?  @unique
-  transaction      Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  details          TicketDetail[]
+}
 
-  syncedAt         DateTime @default(now())
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+model TicketHeader {
+  id              String         @id @default(cuid())
+  ticketNo        String
+  localId         Int?
+  deviceId        String?
+  violatorName    String
+  violatorAddress String?
+  birthDate       String?
+  licenseNo       String?
+  licenseImage    String?
+  plateNo         String?
+  ownerName       String?
+  typeOfVehicle   String?
+  puvBodyName     String?
+  puvBodyNo       String?
+  location        String?
+  barangay        String?
+  dateTime        DateTime       @default(now())
+  officerName     String?
+  badgeNo         String?
+  officerUserId   String?
+  totalAmount     Float          @default(0)
+  remarks         String?
+  driverSignature String?
+  transactionId   String?
+  syncedAt        DateTime       @default(now())
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  isPaid          Boolean        @default(false)
+  status          TicketStatus   @default(ISSUED)
 
-  ticketDetails    TicketDetail[]
-  ticketPhotos     TicketPhoto[]
-
-  @@index([ticketNo])
-  @@index([licenseNo])
-  @@index([status])
-  @@index([isPaid])
+  details         TicketDetail[]
 }
 
 model TicketDetail {
-  id               String   @id @default(cuid())
-  ticketHeaderId   String
-  ticketHeader     TicketHeader @relation(fields: [ticketHeaderId], references: [id], onDelete: Cascade)
+  id             String            @id @default(cuid())
+  ticketHeaderId String
+  violationId    String?
+  violationName  String
+  offenseLevel   Int               @default(1)
+  amount         Float             @default(0)
+  createdAt      DateTime          @default(now())
 
-  violationId      String?
-  violation        TrafficViolation? @relation(fields: [violationId], references: [id], onDelete: SetNull)
-
-  violationName    String
-  offenseLevel     Int      @default(1)
-  amount           Float    @default(0)
-
-  createdAt        DateTime @default(now())
-
-  @@index([ticketHeaderId])
+  header         TicketHeader      @relation(fields: [ticketHeaderId], references: [id], onDelete: Cascade)
+  violation      TrafficViolation? @relation(fields: [violationId], references: [id])
 }
-
-model TicketPhoto {
-  id               String   @id @default(cuid())
-  ticketHeaderId   String
-  ticketHeader     TicketHeader @relation(fields: [ticketHeaderId], references: [id], onDelete: Cascade)
-
-  photoUrl         String
-  caption          String?
-
-  createdAt        DateTime @default(now())
-
-  @@index([ticketHeaderId])
-}
-
-

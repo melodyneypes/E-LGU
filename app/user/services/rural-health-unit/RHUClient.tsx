@@ -42,11 +42,17 @@ export function RHUClient({
 }: RHUClientProps) {
     const router = useRouter();
 
-    const medicalCertType = transactionTypes.find(t => t.code === "RHU_MEDICAL_CERT");
+    const medicalCertType = transactionTypes.find((t) => t.code === "RHU_MEDICAL_CERT");
+    const fallbackType = medicalCertType || {
+        id: "rhu-default-service",
+        code: "RHU_MEDICAL_CERT",
+        baseFee: 50,
+        name: "Medical Consultation & Health Certificate"
+    };
 
     const activeServices = [
         {
-            db: medicalCertType,
+            db: fallbackType,
             code: "RHU_MEDICAL_CERT",
             title: "Medical Check-up / Consultation",
             desc: "Book an appointment for a clinical check-up, general consultation, or pre-marital medical screening at the Rural Health Unit (RHU).",
@@ -55,10 +61,10 @@ export function RHUClient({
             borderColor: "border-rose-500/20",
             accentBg: "bg-rose-500/5",
             reqs: ["Valid Government ID", "Previous Medical Records / Mother's Book (if any)"],
-            fee: `₱${medicalCertType?.baseFee?.toFixed(2) || "50.00"}`,
+            fee: `₱${fallbackType.baseFee?.toFixed(2) || "50.00"}`,
             time: "Scheduled Date & Time"
         }
-    ].filter(s => s.db);
+    ];
 
     return (
         <div className="container max-w-5xl mx-auto px-4 pt-0 pb-32 space-y-12">
