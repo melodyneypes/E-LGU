@@ -103,6 +103,10 @@ export default function TreasuryDashboard() {
             // Business Permit category should show evaluation, assessment, paid, and unpaid statuses
             return STATUS_TABS.filter(tab => ["ALL", "FOR_REQUESTING", "EVALUATED", "PAID", "UNPAID"].includes(tab.value));
         }
+        if (categoryParam === "POSO") {
+            // POSO Traffic Citation category shows UNPAID, PAID, and FOR_REQUESTING statuses
+            return STATUS_TABS.filter(tab => ["ALL", "UNPAID", "PAID", "FOR_REQUESTING", "RELEASED"].includes(tab.value));
+        }
         // Treasury Staff should see everything EXCEPT BPLO-exclusive inspection phases
         return STATUS_TABS.filter(tab => !["FOR_INSPECTION", "FOR_REINSPECTION"].includes(tab.value));
     }, [isAdminAide, categoryParam]);
@@ -397,6 +401,14 @@ export default function TreasuryDashboard() {
         // For Business Permit, Treasury only needs to see FOR_REQUESTING, EVALUATED, PAID, and UNPAID when they are active
         if (categoryParam === "Business Permit") {
             const allowedStatuses = ["FOR_REQUESTING", "EVALUATED", "PAID", "UNPAID"];
+            if (!allowedStatuses.includes(tx.status)) {
+                return false;
+            }
+        }
+
+        // For POSO Traffic Citations, Treasury only needs to see UNPAID, PAID, FOR_REQUESTING, and RELEASED
+        if (categoryParam === "POSO") {
+            const allowedStatuses = ["UNPAID", "PAID", "FOR_REQUESTING", "RELEASED", "CANCELLED", "RESOLVED"];
             if (!allowedStatuses.includes(tx.status)) {
                 return false;
             }

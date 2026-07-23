@@ -195,9 +195,27 @@ export async function getTickets({
 export async function getTicketById(id: string) {
     try {
         await verifyAdminOrStaff();
-        const [ticket, themeSetting] = await Promise.all([
-            (prisma as any).ticketHeader.findUnique({
-                where: { id },
+
+        let ticket = await (prisma as any).ticketHeader.findUnique({
+            where: { id },
+            include: {
+                details: {
+                    include: {
+                        violation: true,
+                    },
+                },
+                ticketPhotos: true,
+            },
+        });
+
+        if (!ticket) {
+            ticket = await (prisma as any).ticketHeader.findFirst({
+                where: {
+                    OR: [
+                        { transactionId: id },
+                        { ticketNo: id },
+                    ],
+                },
                 include: {
                     details: {
                         include: {
@@ -206,11 +224,12 @@ export async function getTicketById(id: string) {
                     },
                     ticketPhotos: true,
                 },
-            }),
-            (prisma as any).systemSetting.findUnique({
-                where: { key: "theme_color" },
-            }),
-        ]);
+            });
+        }
+
+        const themeSetting = await (prisma as any).systemSetting.findUnique({
+            where: { key: "theme_color" },
+        });
 
         if (!ticket) {
             return { success: false, error: "Ticket not found." };
@@ -333,12 +352,46 @@ export async function processTicketSettlement(id: string) {
             });
         }
 
+        let violatorUserId: string | null = null;
+        if (ticket.violatorName) {
+            // 1. Try matching User table directly by name
+            const matchedUser = await (prisma as any).user.findFirst({
+                where: {
+                    name: { equals: ticket.violatorName, mode: "insensitive" },
+                },
+                select: { id: true },
+            });
+
+            if (matchedUser) {
+                violatorUserId = matchedUser.id;
+            } else {
+                // 2. Try matching Resident profile table by name
+                const nameParts = ticket.violatorName.trim().split(" ");
+                const firstName = nameParts[0] || "";
+                const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+
+                const matchedResident = await (prisma as any).resident.findFirst({
+                    where: {
+                        AND: [
+                            { firstName: { equals: firstName, mode: "insensitive" } },
+                            ...(lastName ? [{ lastName: { equals: lastName, mode: "insensitive" } }] : []),
+                        ],
+                    },
+                    select: { userId: true },
+                });
+
+                if (matchedResident?.userId) {
+                    violatorUserId = matchedResident.userId;
+                }
+            }
+        }
+
         const residentSnapshot = {
             fullName: ticket.violatorName || "Unknown Violator",
             licenseNo: ticket.licenseNo || null,
             plateNo: ticket.plateNo || null,
             address: ticket.violatorAddress || null,
-            isRegisteredUser: false,
+            isRegisteredUser: Boolean(violatorUserId),
         };
 
         const impoundFee = ticket.isImpounded ? (ticket.impoundFee || 0) : 0;
@@ -370,7 +423,7 @@ export async function processTicketSettlement(id: string) {
         const result = await (prisma as any).$transaction(async (tx: any) => {
             const newTransaction = await tx.transaction.create({
                 data: {
-                    userId: user.id,
+                    userId: violatorUserId,
                     typeId: transactionType.id,
                     status: "UNPAID",
                     residentSnapshot,

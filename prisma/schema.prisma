@@ -574,7 +574,7 @@ model TransactionType {
 
 model Transaction {
   id                            String                         @id @default(cuid())
-  userId                        String
+  userId                        String?
   driverId                      String?
   typeId                        String
   status                        TransactionStatus              @default(DRAFT)
@@ -628,7 +628,7 @@ model Transaction {
   ticketHeaders                 TicketHeader[]
   driver                        User?                          @relation("DriverTransactions", fields: [driverId], references: [id])
   type                          TransactionType                @relation(fields: [typeId], references: [id])
-  user                          User                           @relation("ResidentTransactions", fields: [userId], references: [id])
+  user                          User?                          @relation("ResidentTransactions", fields: [userId], references: [id])
 
   @@index([userId])
   @@index([driverId])

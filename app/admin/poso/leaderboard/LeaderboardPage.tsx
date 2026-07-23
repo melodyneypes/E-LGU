@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Table,
     TableBody,
@@ -21,7 +21,9 @@ import {
     Users,
     Award,
     Calendar,
-    Search
+    Search,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getEnforcerLeaderboard } from "@/app/admin/poso/actions";
@@ -56,12 +58,25 @@ export default function LeaderboardPage({
     const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>(initialLeaderboard);
     const [summary, setSummary] = useState<SummaryData>(initialSummary);
 
-    // Filters
+    // Filters & Pagination
     const [fromDate, setFromDate] = useState("");
     const [toDate, setToDate] = useState("");
     const [sortBy, setSortBy] = useState<"ALL" | "TICKETS" | "AMOUNT">("ALL");
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
     const [isPending, setIsPending] = useState(false);
+
+    // 400ms Search Debounce
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+            setCurrentPage(1);
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [search]);
 
     const handleFetchData = async (
         overrideFromDate?: string,
@@ -91,6 +106,7 @@ export default function LeaderboardPage({
 
     const handleSortChange = (value: "ALL" | "TICKETS" | "AMOUNT") => {
         setSortBy(value);
+        setCurrentPage(1);
         handleFetchData(fromDate, toDate, value);
     };
 
@@ -99,17 +115,23 @@ export default function LeaderboardPage({
         setToDate("");
         setSortBy("ALL");
         setSearch("");
+        setDebouncedSearch("");
+        setCurrentPage(1);
         handleFetchData("", "", "ALL");
     };
 
     const filteredList = leaderboard.filter((item) => {
-        const query = search.toLowerCase().trim();
+        const query = debouncedSearch.toLowerCase().trim();
         if (!query) return true;
         return (
             item.officerName.toLowerCase().includes(query) ||
             item.badgeNo.toLowerCase().includes(query)
         );
     });
+
+    const totalPages = Math.max(1, Math.ceil(filteredList.length / itemsPerPage));
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedList = filteredList.slice(startIndex, startIndex + itemsPerPage);
 
     return (
         <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -342,7 +364,7 @@ export default function LeaderboardPage({
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredList.map((item) => (
+                                paginatedList.map((item) => (
                                     <TableRow key={item.officerName} className="border-b border-slate-100 dark:border-[#2a3040]">
                                         <TableCell className="text-center py-5">
                                             {item.rank === 1 ? (
@@ -397,6 +419,43 @@ export default function LeaderboardPage({
                         </TableBody>
                     </Table>
                 </div>
+
+                {/* Pagination Controls Footer */}
+                {filteredList.length > 0 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-[#2a3040]">
+                        <p className="text-xs font-semibold text-slate-500">
+                            Showing <span className="font-bold text-slate-800 dark:text-slate-200">{Math.min(startIndex + 1, filteredList.length)}</span> to{" "}
+                            <span className="font-bold text-slate-800 dark:text-slate-200">{Math.min(startIndex + itemsPerPage, filteredList.length)}</span> of{" "}
+                            <span className="font-bold text-slate-800 dark:text-slate-200">{filteredList.length}</span> officers
+                        </p>
+
+                        <div className="flex items-center space-x-2">
+                            <Button
+                                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1 || isPending}
+                                variant="outline"
+                                className="h-9 px-3 text-xs font-bold rounded-xl border-slate-200 dark:border-white/10"
+                            >
+                                <ChevronLeft className="w-4 h-4 mr-1" />
+                                Previous
+                            </Button>
+
+                            <div className="px-3 py-1 bg-slate-100 dark:bg-white/5 rounded-xl text-xs font-black text-slate-700 dark:text-slate-300">
+                                Page {currentPage} of {totalPages}
+                            </div>
+
+                            <Button
+                                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage >= totalPages || isPending}
+                                variant="outline"
+                                className="h-9 px-3 text-xs font-bold rounded-xl border-slate-200 dark:border-white/10"
+                            >
+                                Next
+                                <ChevronRight className="w-4 h-4 ml-1" />
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
