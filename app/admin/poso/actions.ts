@@ -195,17 +195,12 @@ export async function getTicketById(id: string) {
         const ticket = await (prisma as any).ticketHeader.findUnique({
             where: { id },
             include: {
-                ticketDetails: {
+                details: {
                     include: {
                         violation: true,
                     },
                 },
                 ticketPhotos: true,
-                transaction: {
-                    include: {
-                        payment: true,
-                    },
-                },
             },
         });
 
@@ -246,7 +241,7 @@ export async function getViolatorHistory({
                 OR: whereOR,
             },
             include: {
-                ticketDetails: {
+                details: {
                     include: {
                         violation: true,
                     },

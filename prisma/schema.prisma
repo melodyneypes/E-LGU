@@ -9,32 +9,32 @@ datasource db {
 }
 
 model User {
-  id                String    @id @default(cuid())
-  name              String?
-  email             String?   @unique
-  emailVerified     DateTime?
-  password          String?
-  role              UserRole  @default(USER)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  isEmailVerified   Boolean   @default(false)
-  isPasswordChanged Boolean   @default(false)
-  rejectionCount    Int       @default(0)
-  rejectionResetAt  DateTime?
-  managedBarangay   String?
-  department        String?
-  accessiblePages   String[]  @default([])
-  accessibleCategories String[] @default([])
-  accessibleStatuses String[] @default([])
-  accounts          Account[]
-  reports           Report[]
-  residentProfile   Resident?
-  sessions          Session[]
-  transactions      Transaction[] @relation("ResidentTransactions")
-  driverTransactions Transaction[] @relation("DriverTransactions")
-  isSynced          Boolean   @default(false)
-  rfid              String?   @unique
-  reviews           Review[]
+  id                   String        @id @default(cuid())
+  name                 String?
+  email                String?       @unique
+  emailVerified        DateTime?
+  password             String?
+  role                 UserRole      @default(USER)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  isEmailVerified      Boolean       @default(false)
+  isPasswordChanged    Boolean       @default(false)
+  rejectionCount       Int           @default(0)
+  rejectionResetAt     DateTime?
+  managedBarangay      String?
+  department           String?
+  accessiblePages      String[]      @default([])
+  accessibleCategories String[]      @default([])
+  accessibleStatuses   String[]      @default([])
+  isSynced             Boolean       @default(false)
+  rfid                 String?       @unique
+  accounts             Account[]
+  reports              Report[]
+  residentProfile      Resident?
+  reviews              Review[]
+  sessions             Session[]
+  driverTransactions   Transaction[] @relation("DriverTransactions")
+  transactions         Transaction[] @relation("ResidentTransactions")
 }
 
 model Account {
@@ -363,7 +363,6 @@ model Resident {
   @@index([createdAt])
 }
 
-
 model DisasterMap {
   id          String         @id @default(cuid())
   title       String
@@ -425,21 +424,21 @@ model ResidentCategory {
 }
 
 model Report {
-  id           String       @id @default(cuid())
+  id           String        @id @default(cuid())
   userId       String
   category     String
   description  String
-  status       ReportStatus @default(PENDING)
-  images       String[]     @default([])
+  status       ReportStatus  @default(PENDING)
+  images       String[]      @default([])
   latitude     Float?
   longitude    Float?
   address      String?
   adminComment String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  user         User         @relation(fields: [userId], references: [id])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   barangayId   String?
   barangay     BarangayInfo? @relation(fields: [barangayId], references: [id])
+  user         User          @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([status])
@@ -447,7 +446,6 @@ model Report {
   @@index([createdAt])
   @@index([barangayId])
 }
-
 
 model AboutPage {
   id                      String   @id @default(cuid())
@@ -539,13 +537,568 @@ model BarangayInfo {
   coreValues              String?
   coverImages             Json?    @default("[]")
   geographyOrDemographics String?
-  
-  // Logistics Configuration
   deliveryFee             Float    @default(0)
   isLogisticsActive       Boolean  @default(true)
   estimatedDeliveryDays   Int      @default(3)
-
   reports                 Report[]
+}
+
+model TransactionType {
+  id                   String        @id @default(cuid())
+  code                 String        @unique
+  name                 String
+  description          String?
+  level                Int           @default(1)
+  category             String
+  baseFee              Float         @default(0)
+  deliveryFee          Float         @default(0)
+  isFixed              Boolean       @default(true)
+  requiresBusinessName Boolean       @default(false)
+  supportsECopy        Boolean       @default(false)
+  requiredDocs         Json          @default("[]")
+  formSchema           Json          @default("{}")
+  logicCode            String?
+  defaultFees          Json          @default("[]")
+  pickupAddress        String?
+  processingTime       String?
+  slaDays              Int           @default(3)
+  processorRole        UserRole      @default(TREASURY_STAFF)
+  isActive             Boolean       @default(true)
+  studentFee           Float?        @default(0)
+  lateFee              Float?        @default(0)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  transactions         Transaction[]
+}
+
+model Transaction {
+  id                            String                         @id @default(cuid())
+  userId                        String
+  driverId                      String?
+  typeId                        String
+  status                        TransactionStatus              @default(DRAFT)
+  residentSnapshot              Json
+  additionalData                Json
+  fulfillmentType               FulfillmentType?
+  deliveryAddress               Json?
+  deliveryLat                   Float?
+  deliveryLng                   Float?
+  deliveryLandmark              String?
+  paymentType                   PaymentType?
+  paymentReference              String?
+  totalAmount                   Float                          @default(0)
+  fiscalSnapshot                Json?
+  revisionCount                 Int                            @default(0)
+  businessName                  String?
+  eCopyUrl                      String?
+  orUrl                         String?
+  isStudent                     Boolean                        @default(false)
+  isPaid                        Boolean                        @default(false)
+  processedBy                   String?
+  rejectionRemarks              String?
+  podUrl                        String?
+  podData                       Json?
+  inRouteAt                     DateTime?
+  deliveredAt                   DateTime?
+  disputeReason                 String?
+  disputeRemarks                String?
+  disputeProofUrl               String?
+  appointmentDate               DateTime?
+  appointmentSlot               String?
+  queueNumber                   String?
+  isPriority                    Boolean                        @default(false)
+  isCancelled                   Boolean                        @default(false)
+  createdAt                     DateTime                       @default(now())
+  updatedAt                     DateTime                       @updatedAt
+  birthCertificateRegistry      BirthCertificateRegistry?
+  birthCertificateRequest       BirthCertificateRequest?
+  birthPsaEndorsementRequest    BirthPsaEndorsementRequest?
+  buildingPermit                BuildingPermit?
+  businessPermit                BusinessPermit?
+  cedula                        Cedula?
+  deathCertificateRequest       DeathCertificateRequest?
+  deathPsaEndorsementRequest    DeathPsaEndorsementRequest?
+  deathRegistration             DeathRegistration?
+  marriageCertificateRequest    MarriageCertificateRequest?
+  marriageLicenseApplication    MarriageLicenseApplication?
+  marriagePsaEndorsementRequest MarriagePsaEndorsementRequest?
+  marriageRegistration          MarriageRegistration?
+  payment                       Payment?
+  driver                        User?                          @relation("DriverTransactions", fields: [driverId], references: [id])
+  type                          TransactionType                @relation(fields: [typeId], references: [id])
+  user                          User                           @relation("ResidentTransactions", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([driverId])
+  @@index([status])
+  @@index([typeId])
+  @@index([createdAt])
+  @@index([appointmentDate])
+  @@index([appointmentDate, appointmentSlot])
+}
+
+model Cedula {
+  id             String      @id @default(cuid())
+  transactionId  String      @unique
+  ctcNumber      String?     @unique
+  taxYear        Int
+  dateIssued     DateTime    @default(now())
+  expiryDate     DateTime
+  basicTax       Float
+  additionalTax  Float
+  penalty        Float
+  totalPaid      Float
+  businessName   String?
+  documentUrl    String?
+  issuedBy       String
+  verificationId String      @unique @default(cuid())
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model DeathRegistration {
+  id             String       @id @default(cuid())
+  transactionId  String?      @unique
+  registryNumber String?      @unique
+  dateOfEvent    DateTime?
+  placeOfEvent   String?
+  subjectName    String?
+  fatherName     String?
+  motherName     String?
+  documentUrl    String?
+  issuedBy       String?
+  verificationId String       @unique @default(cuid())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  transaction    Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model MarriageRegistration {
+  id             String      @id @default(cuid())
+  transactionId  String      @unique
+  ctcNumber      String?     @unique
+  taxYear        Int
+  dateIssued     DateTime    @default(now())
+  expiryDate     DateTime
+  basicTax       Float
+  additionalTax  Float
+  penalty        Float
+  totalPaid      Float
+  businessName   String?
+  documentUrl    String?
+  issuedBy       String
+  verificationId String      @unique @default(cuid())
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model MarriageLicenseApplication {
+  id              String      @id @default(cuid())
+  transactionId   String      @unique
+  registryNumber  String?     @unique
+  dateIssued      DateTime    @default(now())
+  expiryDate      DateTime?
+  app1FullName    String
+  app1BirthDate   DateTime?
+  app1BirthPlace  String?
+  app1Citizenship String?
+  app2FullName    String
+  app2BirthDate   DateTime?
+  app2BirthPlace  String?
+  app2Citizenship String?
+  documentUrl     String?
+  issuedBy        String
+  verificationId  String      @unique @default(cuid())
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model BusinessPermit {
+  id                String      @id @default(cuid())
+  transactionId     String      @unique
+  permitNumber      String
+  taxYear           Int
+  dateIssued        DateTime    @default(now())
+  expiryDate        DateTime
+  businessName      String
+  tradeName         String?
+  orgType           String
+  dtiSecNumber      String?
+  lineOfBusiness    String
+  capitalInvestment Float
+  grossSales        Float       @default(0)
+  employeeCount     Int         @default(1)
+  businessArea      Float?
+  documentUrl       String?
+  stickerNumber     String?
+  issuedBy          String
+  verificationId    String      @unique @default(cuid())
+  transaction       Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model BuildingPermit {
+  id             String      @id @default(cuid())
+  transactionId  String      @unique
+  permitNumber   String      @unique
+  dateIssued     DateTime    @default(now())
+  applicantName  String
+  projectType    String
+  occupancyUse   String
+  location       String?
+  estimatedCost  Float
+  documentUrl    String?
+  issuedBy       String
+  verificationId String      @unique @default(cuid())
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model BirthCertificateRequest {
+  id             String      @id @default(cuid())
+  transactionId  String      @unique
+  registryNumber String?     @unique
+  dateIssued     DateTime    @default(now())
+  subjectName    String
+  subjectName2   String?
+  dateOfEvent    DateTime
+  placeOfEvent   String
+  fatherName     String?
+  motherName     String?
+  documentUrl    String?
+  issuedBy       String
+  verificationId String      @unique @default(cuid())
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model DeathCertificateRequest {
+  id             String      @id @default(cuid())
+  transactionId  String      @unique
+  registryNumber String?     @unique
+  dateIssued     DateTime    @default(now())
+  subjectName    String
+  dateOfEvent    DateTime
+  placeOfEvent   String
+  fatherName     String?
+  motherName     String?
+  documentUrl    String?
+  issuedBy       String?
+  verificationId String      @unique @default(cuid())
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model MarriageCertificateRequest {
+  id             String      @id @default(cuid())
+  transactionId  String      @unique
+  registryNumber String?     @unique
+  dateIssued     DateTime    @default(now())
+  subjectName    String
+  spouseName     String
+  dateOfEvent    DateTime
+  placeOfEvent   String
+  documentUrl    String?
+  issuedBy       String
+  verificationId String      @unique @default(cuid())
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model MarriagePsaEndorsementRequest {
+  id                   String      @id @default(cuid())
+  transactionId        String      @unique
+  registryNumber       String?     @unique
+  dateIssued           DateTime    @default(now())
+  husbandFullName      String
+  wifeFullName         String
+  dateOfMarriage       DateTime
+  placeOfMarriage      String
+  relationship         String
+  contactNumber        String
+  email                String?
+  informantFirstName   String
+  informantMiddleName  String?
+  informantLastName    String
+  informantSuffix      String?
+  informantBirthDate   DateTime?
+  informantAge         Int?
+  informantCivilStatus String?
+  informantCitizenship String?
+  informantOccupation  String?
+  informantAddress     String?
+  psaNegativeCert      String
+  form3a               String
+  documentUrl          String?
+  issuedBy             String?
+  verificationId       String      @unique @default(cuid())
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  transaction          Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model BirthPsaEndorsementRequest {
+  id                   String      @id @default(cuid())
+  transactionId        String      @unique
+  registryNumber       String?     @unique
+  dateIssued           DateTime    @default(now())
+  subjectFullName      String
+  subjectDateOfBirth   DateTime?
+  mothersMaidenName    String?
+  relationship         String
+  contactNumber        String
+  email                String?
+  informantFirstName   String
+  informantMiddleName  String?
+  informantLastName    String
+  informantSuffix      String?
+  informantBirthDate   DateTime?
+  informantAge         Int?
+  informantCivilStatus String?
+  informantCitizenship String?
+  informantOccupation  String?
+  informantAddress     String?
+  psaNegativeCert      String
+  form1a               String
+  documentUrl          String?
+  issuedBy             String?
+  verificationId       String      @unique @default(cuid())
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  transaction          Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model DeathPsaEndorsementRequest {
+  id                   String      @id @default(cuid())
+  transactionId        String      @unique
+  registryNumber       String?     @unique
+  dateIssued           DateTime    @default(now())
+  subjectFullName      String
+  subjectDateOfDeath   DateTime?
+  mothersMaidenName    String?
+  fathersName          String?
+  placeOfDeath         String?
+  causeOfDeath         String?
+  relationship         String
+  contactNumber        String
+  email                String?
+  informantFirstName   String
+  informantMiddleName  String?
+  informantLastName    String
+  informantSuffix      String?
+  informantBirthDate   DateTime?
+  informantAge         Int?
+  informantCivilStatus String?
+  informantCitizenship String?
+  informantOccupation  String?
+  informantAddress     String?
+  psaNegativeCert      String
+  form2a               String
+  documentUrl          String?
+  issuedBy             String?
+  verificationId       String      @unique @default(cuid())
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  transaction          Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model BirthCertificateRegistry {
+  id                      String       @id @default(cuid())
+  transactionId           String?      @unique
+  registryNumber          String       @unique
+  dateIssued              DateTime     @default(now())
+  issuedBy                String?
+  subjectName             String
+  dateOfEvent             DateTime
+  placeOfEvent            String
+  fatherName              String?
+  motherName              String?
+  supportingEvidence1Type String?
+  supportingEvidence2Type String?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  transaction             Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  transactionId String        @unique
+  amount        Float         @default(0)
+  method        PaymentType   @default(CASH)
+  status        PaymentStatus @default(PENDING)
+  reference     String?
+  orNumber      String?
+  meta          Json?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  transaction   Transaction   @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model RateLimit {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  email     String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
+model Review {
+  id              String         @id @default(cuid())
+  rating          Int
+  comment         String?
+  mediaUrl        String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  userId          String
+  accommodationId String?
+  diningId        String?
+  accommodation   Accommodation? @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
+  dining          Dining?        @relation(fields: [diningId], references: [id], onDelete: Cascade)
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([accommodationId])
+  @@index([diningId])
+}
+
+model AppointmentConfig {
+  id           String   @id @default(cuid())
+  department   String   @unique
+  maxSlots     Int      @default(50)
+  maxSlotsAM   Int      @default(25)
+  maxSlotsPM   Int      @default(25)
+  amTimeLabel  String   @default("08:00 AM - 11:00 AM")
+  pmTimeLabel  String   @default("01:00 PM - 04:00 PM")
+  blockedDates String[] @default([])
+  activeDays   Int[]    @default([1, 2, 3, 4, 5])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model TrafficViolation {
+  id               String         @id @default(cuid())
+  violationCode    String?
+  violationName    String
+  firstOffenseFee  Float          @default(0)
+  secondOffenseFee Float          @default(0)
+  thirdOffenseFee  Float          @default(0)
+  remarks          String?
+  isActive         Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  details          TicketDetail[]
+}
+
+model TicketPhoto {
+  id             String       @id @default(cuid())
+  ticketHeaderId String
+  photoUrl       String
+  createdAt      DateTime     @default(now())
+  ticketHeader   TicketHeader @relation(fields: [ticketHeaderId], references: [id], onDelete: Cascade)
+
+  @@index([ticketHeaderId])
+}
+
+model TicketHeader {
+  id              String         @id @default(cuid())
+  ticketNo        String
+  localId         Int?
+  deviceId        String?
+  violatorName    String
+  violatorAddress String?
+  birthDate       String?
+  licenseNo       String?
+  licenseImage    String?
+  plateNo         String?
+  ownerName       String?
+  typeOfVehicle   String?
+  puvBodyName     String?
+  puvBodyNo       String?
+  location        String?
+  barangay        String?
+  dateTime        DateTime       @default(now())
+  officerName     String?
+  badgeNo         String?
+  officerUserId   String?
+  totalAmount     Float          @default(0)
+  status          TicketStatus   @default(ISSUED)
+  isPaid          Boolean        @default(false)
+  remarks         String?
+  driverSignature String?
+  transactionId   String?
+  syncedAt        DateTime       @default(now())
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  details         TicketDetail[]
+  ticketPhotos    TicketPhoto[]
+}
+
+model TicketDetail {
+  id             String            @id @default(cuid())
+  ticketHeaderId String
+  violationId    String?
+  violationName  String
+  offenseLevel   Int               @default(1)
+  amount         Float             @default(0)
+  createdAt      DateTime          @default(now())
+  header         TicketHeader      @relation(fields: [ticketHeaderId], references: [id], onDelete: Cascade)
+  violation      TrafficViolation? @relation(fields: [violationId], references: [id])
+}
+
+model RHUInventoryBatch {
+  id               String           @id
+  itemId           String
+  batchNumber      String
+  expirationDate   DateTime?
+  quantity         Int              @default(0)
+  initialQuantity  Int              @default(0)
+  receivedDate     DateTime         @default(now())
+  remarks          String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime
+  RHUInventoryItem RHUInventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([batchNumber])
+  @@index([expirationDate])
+  @@index([itemId])
+}
+
+model RHUInventoryItem {
+  id                String              @id
+  name              String
+  genericName       String?
+  brandName         String?
+  category          InventoryCategory   @default(MEDICINE)
+  dosage            String?
+  unit              String              @default("pcs")
+  quantity          Int                 @default(0)
+  reorderLevel      Int                 @default(10)
+  expirationDate    DateTime?
+  batchNumber       String?
+  remarks           String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime
+  RHUInventoryBatch RHUInventoryBatch[]
+
+  @@index([category])
+  @@index([name])
 }
 
 enum UserRole {
@@ -577,497 +1130,6 @@ enum ReportStatus {
   REJECTED
 }
 
-model TransactionType {
-  id            String   @id @default(cuid())
-  code          String   @unique // e.g., "CEDULA_IND", "CEDULA_JUR", "BRGY_CLEARANCE"
-  name          String   // Official Title (e.g., "Community Tax Certificate - Individual")
-  description   String?  @db.Text
-  level         Int      @default(1) // 1: Municipality, 2: Barangay
-  category      String   // "Treasurer", "Permits", "Civil Registry"
-  
-  // Fees
-  baseFee       Float    @default(0)
-  deliveryFee   Float    @default(0)
-  isFixed       Boolean  @default(true) // false = triggers custom math (like Cedula)
-  
-  // Service Capabilities
-  requiresBusinessName Boolean @default(false)
-  supportsECopy        Boolean @default(false)
-  
-  // Dynamic Configuration
-  requiredDocs  Json     @default("[]") // e.g., ["Valid ID", "Proof of Income"]
-  formSchema    Json     @default("{}") // Definitions for extra fields needed
-  logicCode     String?  // Code-hook for backend calculator (e.g., "cedula_calc_v1")
-  defaultFees   Json     @default("[]")
-  pickupAddress String?  // The physical location/office where the document or certificate should be claimed
-  processingTime String? // Estimated minutes or days of process for the transaction
-
-
-  
-  
-  // Operations
-  slaDays       Int      @default(3)
-  processorRole UserRole @default(TREASURY_STAFF)
-  isActive      Boolean  @default(true)
-  studentFee    Float?   @default(0)
-  lateFee       Float?   @default(0)
-
-  transactions  Transaction[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-model Transaction {
-  id                String            @id @default(cuid())
-  userId            String
-  user              User              @relation("ResidentTransactions", fields: [userId], references: [id])
-  driverId          String?
-  driver            User?             @relation("DriverTransactions", fields: [driverId], references: [id])
-  typeId            String
-  type              TransactionType   @relation(fields: [typeId], references: [id])
-  status            TransactionStatus @default(DRAFT)
-  
-  // Data Snapshots
-  residentSnapshot  Json              // Captured Name, Address, etc. from Resident table
-  additionalData    Json              // Inputs for extra fields (e.g., Gross Income)
-  
-  // Fulfillment & Payment
-  fulfillmentType   FulfillmentType?
-  deliveryAddress   Json?             // Structured address for logistics
-  deliveryLat       Float?            // Pin location latitude
-  deliveryLng       Float?            // Pin location longitude
-  deliveryLandmark  String?           // Landmark to help delivery
-  paymentType       PaymentType?
-  paymentReference  String?           // Reference No. for E-Payments
-  
-  // Financials (Final computed amounts)
-  totalAmount       Float             @default(0)
-  fiscalSnapshot    Json?             // { basicTax, additionalTax, penaltyCharge, totalAmount }
-  
-  // Tracking limits
-  revisionCount     Int               @default(0)
-  
-  // Specific Context
-  businessName      String?           // For Juridical requests
-  eCopyUrl          String?           // Link to generated digital file
-  orUrl             String?           // Link to Official Receipt file
-  isStudent         Boolean           @default(false)
-  isPaid            Boolean           @default(false)
-
-  // Audit & Workflow
-  processedBy       String?           // User ID of the Treasury Staff who handled it
-  rejectionRemarks  String?
-  podUrl            String?           // Proof of Delivery Image URL
-  podData           Json?             // Stores paidAmount, change, timestamp, etc.
-  inRouteAt         DateTime?         // Tracking for when the delivery started
-  deliveredAt       DateTime?
-
-  payment           Payment?          // One-to-one payment record
-
-  // Dispute / Return / Refund
-  disputeReason     String?
-  disputeRemarks    String?
-  disputeProofUrl   String?
-  
-  cedula            Cedula?           // One-to-one link to the issued document
-  businessPermit    BusinessPermit?   // One-to-one link to the issued business permit
-  buildingPermit    BuildingPermit?   // One-to-one link to the issued building permit
-  birthCertificateRequest BirthCertificateRequest? // One-to-one link to the birth certificate request
-  birthCertificateRegistry BirthCertificateRegistry? // One-to-one link for new registrations
-  deathRegistration DeathRegistration? // One-to-one link for death registrations
-  deathCertificateRequest DeathCertificateRequest? // One-to-one link to the death certificate request
-  marriageRegistration MarriageRegistration? // One-to-one link for marriage registrations
-  marriageLicenseApplication MarriageLicenseApplication? // One-to-one link for marriage license applications
-  marriageCertificateRequest MarriageCertificateRequest? // One-to-one link to the marriage certificate request
-  marriagePsaEndorsementRequest MarriagePsaEndorsementRequest? // One-to-one link to the marriage psa endorsement request
-  birthPsaEndorsementRequest BirthPsaEndorsementRequest? // One-to-one link to the birth psa endorsement request
-  deathPsaEndorsementRequest DeathPsaEndorsementRequest? // One-to-one link to the death psa endorsement request
-  ticketHeader      TicketHeader?     // One-to-one link to the POSO ticket header
-  
-  appointmentDate   DateTime?
-  appointmentSlot   String?
-  queueNumber       String?           // Formatted queue ticket number (e.g. 06272026-AM-P002)
-  isPriority        Boolean           @default(false)
-  
-  isCancelled       Boolean           @default(false)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-
-  @@index([userId])
-  @@index([driverId])
-  @@index([status])
-  @@index([typeId])
-  @@index([createdAt])
-  @@index([appointmentDate])
-  @@index([appointmentDate, appointmentSlot])
-}
-
-
-model Cedula {
-  id             String      @id @default(cuid())
-  transactionId  String      @unique
-  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  
-  ctcNumber      String?     @unique // The physical serial number from the booklet
-  taxYear        Int         // e.g., 2026
-  dateIssued     DateTime    @default(now())
-  expiryDate     DateTime    // Automatically calculated based on tax year
-  
-  // Official Tax Breakdown (For Certificate Printing)
-  basicTax       Float
-  additionalTax  Float
-  penalty        Float
-  totalPaid      Float
-  
-  businessName   String?     // Official Name for Juridical entities
-  documentUrl    String?     // Link for E-Copy downloads
-  
-  issuedBy       String      // Name of the Treasury Personnel
-  verificationId String      @unique @default(cuid()) // Unique hash for the QR Code
-}
-
-model DeathRegistration {
-  id             String      @id @default(cuid())
-  transactionId  String?     @unique
-  transaction    Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-
-  registryNumber String?     @unique
-  dateOfEvent    DateTime?   // Date of death
-  placeOfEvent   String?
-
-  subjectName    String?     // Deceased full name
-  fatherName     String?
-  motherName     String?
-
-  documentUrl    String?     // Link for E-Copy or scanned record
-  issuedBy       String?     // LCR Officer Name
-  verificationId String      @unique @default(cuid()) // Secure hash for verification QR Code
-
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-}
-
-model MarriageRegistration {
-  id             String      @id @default(cuid())
-  transactionId  String      @unique
-  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  
-  ctcNumber      String?     @unique // The physical serial number from the booklet
-  taxYear        Int         // e.g., 2026
-  dateIssued     DateTime    @default(now())
-  expiryDate     DateTime    // Automatically calculated based on tax year
-  
-  // Official Tax Breakdown (For Certificate Printing)
-  basicTax       Float
-  additionalTax  Float
-  penalty        Float
-  totalPaid      Float
-  
-  businessName   String?     // Official Name for Juridical entities
-  documentUrl    String?     // Link for E-Copy downloads
-  
-  issuedBy       String      // Name of the LCR/Treasury Personnel
-  verificationId String      @unique @default(cuid()) // Unique hash for the QR Code
-
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-}
-
-model MarriageLicenseApplication {
-  id                  String      @id @default(cuid())
-  transactionId       String      @unique
-  transaction         Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-
-  registryNumber      String?     @unique // Book/Page number or Registry ID
-  dateIssued          DateTime    @default(now())
-  expiryDate          DateTime?   // Valid for 120 days from the date of issue
-
-  // Applicant 1
-  app1FullName        String
-  app1BirthDate       DateTime?
-  app1BirthPlace      String?
-  app1Citizenship     String?
-
-  // Applicant 2
-  app2FullName        String
-  app2BirthDate       DateTime?
-  app2BirthPlace      String?
-  app2Citizenship     String?
-
-  documentUrl         String?     // Link to official generated E-Copy PDF
-  issuedBy            String      // LCR Officer Name
-  verificationId      String      @unique @default(cuid()) // Secure hash for verification QR Code
-
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
-}
-
-model BusinessPermit {
-  id                 String      @id @default(cuid())
-  transactionId      String      @unique
-  transaction        Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  
-  permitNumber       String // The physical serial number from the booklet / license index
-  taxYear            Int         // e.g., 2026
-  dateIssued         DateTime    @default(now())
-  expiryDate         DateTime    // Standard BPLO permit expiration is Dec 31
-  
-  businessName       String      // Legal Entity Name
-  tradeName          String?     // Operating Trade Name
-  orgType            String      // Sole Proprietorship, Partnership, Corp, Coop
-  dtiSecNumber       String?     // Business Registration ID
-  lineOfBusiness     String      // Primary Industry Classification
-  
-  capitalInvestment  Float
-  grossSales         Float       @default(0)
-  employeeCount      Int         @default(1)
-  businessArea       Float?      // In square meters
-  
-  documentUrl        String?     // Link to official generated E-Permit PDF
-  stickerNumber      String?     // BPLO physical permit sticker registration
-  issuedBy           String      // BPLO / Treasury Approver Name
-  verificationId     String      @unique @default(cuid()) // Secure hash for verification QR Code
-}
-
-model BuildingPermit {
-  id                 String      @id @default(cuid())
-  transactionId      String      @unique
-  transaction        Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  
-  permitNumber       String      @unique
-  dateIssued         DateTime    @default(now())
-  
-  applicantName      String
-  projectType        String
-  occupancyUse       String
-  location           String?
-  estimatedCost      Float
-  
-  documentUrl        String?     // Link to official generated E-Permit PDF
-  issuedBy           String      // Engineering Approver Name
-  verificationId     String      @unique @default(cuid()) // Secure hash for verification QR Code
-}
-
-model BirthCertificateRequest {
-  id              String      @id @default(cuid())
-  transactionId   String      @unique
-  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-
-  registryNumber  String?     @unique // Book/Page number or Registry ID
-  dateIssued      DateTime    @default(now())
-  
-  // Subject Details (Generic names to cover all types)
-  subjectName     String      // Person on the cert (Child)
-  subjectName2    String?     // Spouse name (if applicable)
-  dateOfEvent     DateTime    // Date of Birth
-  placeOfEvent    String      // Location of the event
-  
-  // Parental details (Commonly requested for verification)
-  fatherName      String?
-  motherName      String?
-  
-  documentUrl     String?     // Link to official generated E-Copy PDF
-  issuedBy        String      // LCR Officer Name
-  verificationId  String      @unique @default(cuid()) // Secure hash for verification QR Code
-
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-}
-
-model DeathCertificateRequest {
-  id              String      @id @default(cuid())
-  transactionId   String      @unique
-  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-
-  registryNumber  String?     @unique // Book/Page number or Registry ID
-  dateIssued      DateTime    @default(now())
-  
-  // Subject Details (Deceased)
-  subjectName     String      // Deceased full name
-  dateOfEvent     DateTime    // Date of Death
-  placeOfEvent    String      // Location of the event
-  
-  // Parental details
-  fatherName      String?
-  motherName      String?
-  
-  documentUrl     String?     // Link to official generated E-Copy PDF
-  issuedBy        String?     // LCR Officer Name
-  verificationId  String      @unique @default(cuid()) // Secure hash for verification QR Code
-
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-}
-
-model MarriageCertificateRequest {
-  id              String      @id @default(cuid())
-  transactionId   String      @unique
-  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-
-  registryNumber  String?     @unique // Book/Page number or Registry ID
-  dateIssued      DateTime    @default(now())
-  
-  // Contracting Couple details
-  subjectName     String      // Husband's Full Name
-  spouseName      String      // Wife's Maiden Full Name
-  dateOfEvent     DateTime    // Date of Marriage
-  placeOfEvent    String      // Location of the Marriage
-  
-  documentUrl     String?     // Link to official generated E-Copy PDF
-  issuedBy        String      // LCR Officer Name
-  verificationId  String      @unique @default(cuid()) // Secure hash for verification QR Code
-
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-}
-
-model MarriagePsaEndorsementRequest {
-  id              String      @id @default(cuid())
-  transactionId   String      @unique
-  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-
-  registryNumber  String?     @unique // Book/Page number or Registry ID
-  dateIssued      DateTime    @default(now())
-
-  // Contracting Couple details
-  husbandFullName String      // Husband's Full Name
-  wifeFullName    String      // Wife's Maiden Full Name
-  dateOfMarriage  DateTime    // Date of Marriage
-  placeOfMarriage String      // Location of the Marriage
-
-  // Informant / Requester Details
-  relationship         String
-  contactNumber        String
-  email                String?
-  informantFirstName   String
-  informantMiddleName  String?
-  informantLastName    String
-  informantSuffix      String?
-  informantBirthDate   DateTime?
-  informantAge         Int?
-  informantCivilStatus String?
-  informantCitizenship String?
-  informantOccupation  String?
-  informantAddress     String?
-
-  // Required documents
-  psaNegativeCert String      // PSA Negative Certification URL
-  form3a          String      // Form 3A URL
-
-  documentUrl     String?     // Link to official generated E-Copy PDF / proof of endorsement
-  issuedBy        String?     // LCR Officer Name
-  verificationId  String      @unique @default(cuid()) // Secure hash for verification QR Code
-
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-}
-
-model BirthPsaEndorsementRequest {
-  id              String      @id @default(cuid())
-  transactionId   String      @unique
-  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-
-  registryNumber  String?     @unique // Book/Page number or Registry ID
-  dateIssued      DateTime    @default(now())
-
-  // Subject (Child) details
-  subjectFullName    String      // Full name of the child
-  subjectDateOfBirth DateTime?   // Date of birth
-  mothersMaidenName  String?     // Mother's maiden name
-
-  // Informant / Requester Details
-  relationship         String
-  contactNumber        String
-  email                String?
-  informantFirstName   String
-  informantMiddleName  String?
-  informantLastName    String
-  informantSuffix      String?
-  informantBirthDate   DateTime?
-  informantAge         Int?
-  informantCivilStatus String?
-  informantCitizenship String?
-  informantOccupation  String?
-  informantAddress     String?
-
-  // Required documents
-  psaNegativeCert String      // PSA Negative Certification URL
-  form1a          String      // Form 1A URL
-
-  documentUrl     String?     // Link to official generated E-Copy PDF / proof of endorsement
-  issuedBy        String?     // LCR Officer Name
-  verificationId  String      @unique @default(cuid()) // Secure hash for verification QR Code
-
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-}
-
-model DeathPsaEndorsementRequest {
-  id              String      @id @default(cuid())
-  transactionId   String      @unique
-  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-
-  registryNumber  String?     @unique // Book/Page number or Registry ID
-  dateIssued      DateTime    @default(now())
-
-  // Subject (Deceased) details
-  subjectFullName    String      // Full name of the deceased
-  subjectDateOfDeath DateTime?   // Date of death
-  mothersMaidenName  String?     // Mother's maiden name
-  fathersName        String?     // Father's name
-  placeOfDeath       String?     // Place of death
-  causeOfDeath       String?     // Cause of death
-
-  // Informant / Requester Details
-  relationship         String
-  contactNumber        String
-  email                String?
-  informantFirstName   String
-  informantMiddleName  String?
-  informantLastName    String
-  informantSuffix      String?
-  informantBirthDate   DateTime?
-  informantAge         Int?
-  informantCivilStatus String?
-  informantCitizenship String?
-  informantOccupation  String?
-  informantAddress     String?
-
-  // Required documents
-  psaNegativeCert String      // PSA Negative Certification URL
-  form2a          String      // Form 2A URL
-
-  documentUrl     String?     // Link to official generated E-Copy PDF / proof of endorsement
-  issuedBy        String?     // LCR Officer Name
-  verificationId  String      @unique @default(cuid()) // Secure hash for verification QR Code
-
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-}
-
-model BirthCertificateRegistry {
-  id              String      @id @default(cuid())
-  transactionId   String?     @unique
-  transaction     Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-
-  registryNumber  String      @unique // Book/Page number or Registry ID
-  dateIssued      DateTime    @default(now())
-  issuedBy        String?     // Name of the staff member who issued this registry
-  
-  subjectName     String      // Child's name
-  dateOfEvent     DateTime    // Date of Birth
-  placeOfEvent    String      // Place of Birth
-  
-  fatherName      String?
-  motherName      String?
-  
-  supportingEvidence1Type String?
-  supportingEvidence2Type String?
-
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-}
-
 enum RegistryType {
   BIRTH
   MARRIAGE
@@ -1090,8 +1152,6 @@ enum TransactionStatus {
   PAID
   RELEASED
   REJECTED
-  
-  // Dispute Lifecycle
   RETURN_REQUESTED
   REFUND_REQUESTED
   RETURNED
@@ -1119,197 +1179,16 @@ enum PaymentStatus {
   REFUNDED
 }
 
-model Payment {
-  id            String        @id @default(cuid())
-  transactionId String        @unique
-  transaction   Transaction   @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  amount        Float         @default(0)
-  method        PaymentType   @default(CASH)
-  status        PaymentStatus @default(PENDING)
-  reference     String?
-  orNumber      String?
-  meta          Json?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-}
-
-model RateLimit {
-  id         String   @id @default(cuid())
-  key        String   @unique // Action + email/IP combination
-  attempts   Int      @default(0)
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@index([expiresAt])
-}
-
-model PasswordResetToken {
-  id        String    @id @default(cuid())
-  token     String    @unique
-  email     String
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([email])
-  @@index([expiresAt])
-}
-
-model Review {
-  id              String         @id @default(cuid())
-  rating          Int            // Rating from 1 to 5
-  comment         String?
-  mediaUrl        String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  userId          String
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  accommodationId String?
-  accommodation   Accommodation? @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
-
-  diningId        String?
-  dining          Dining?        @relation(fields: [diningId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([accommodationId])
-  @@index([diningId])
-}
-
-model AppointmentConfig {
-  id           String   @id @default(cuid())
-  department   String   @unique // "TREASURY", "BPLO", "REGISTRAR", "ENGINEER"
-  maxSlots     Int      @default(50)
-  maxSlotsAM   Int      @default(25)
-  maxSlotsPM   Int      @default(25)
-  amTimeLabel  String   @default("08:00 AM - 11:00 AM")
-  pmTimeLabel  String   @default("01:00 PM - 04:00 PM")
-  blockedDates String[] @default([]) // Array of ISO strings (e.g., ["2026-12-25"])
-  activeDays   Int[]    @default([1, 2, 3, 4, 5]) // Days of week active (1 = Monday, 5 = Friday, etc.)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-
-// ------------------------------------------------------
-// POSO TRAFFIC ENFORCEMENT & TICKETING MODELS
-// ------------------------------------------------------
-
-model TrafficViolation {
-  id               String   @id @default(cuid())
-  violationCode    String?  @unique
-  violationName    String
-  firstOffenseFee  Float    @default(0)
-  secondOffenseFee Float    @default(0)
-  thirdOffenseFee  Float    @default(0)
-  remarks          String?
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  ticketDetails    TicketDetail[]
-}
-
 enum TicketStatus {
   ISSUED
   RESOLVED
   CONTESTED
   CANCELLED
-}
-
-  batches        RHUInventoryBatch[]
-
-  @@index([category])
-  @@index([name])
-}
-
-model RHUInventoryBatch {
-  id              String            @id @default(cuid())
-  itemId          String
-  batchNumber     String
-  expirationDate  DateTime?
-  quantity        Int               @default(0)
-  initialQuantity Int               @default(0)
-  receivedDate    DateTime          @default(now())
-  remarks         String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-
-  item            RHUInventoryItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
-
-  @@index([itemId])
-  @@index([batchNumber])
-  @@index([expirationDate])
-}
-
-enum TicketStatus {
-  ISSUED
   PAID
-  CANCELLED
   SETTLED
-  RESOLVED
-  CONTESTED
 }
 
-model TrafficViolation {
-  id               String         @id @default(cuid())
-  violationCode    String?
-  violationName    String
-  firstOffenseFee  Float          @default(0)
-  secondOffenseFee Float          @default(0)
-  thirdOffenseFee  Float          @default(0)
-  remarks          String?
-  isActive         Boolean        @default(true)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-
-  details          TicketDetail[]
-}
-
-model TicketHeader {
-  id              String         @id @default(cuid())
-  ticketNo        String
-  localId         Int?
-  deviceId        String?
-  violatorName    String
-  violatorAddress String?
-  birthDate       String?
-  licenseNo       String?
-  licenseImage    String?
-  plateNo         String?
-  ownerName       String?
-  typeOfVehicle   String?
-  puvBodyName     String?
-  puvBodyNo       String?
-  location        String?
-  barangay        String?
-  dateTime        DateTime       @default(now())
-  officerName     String?
-  badgeNo         String?
-  officerUserId   String?
-  totalAmount     Float          @default(0)
-  remarks         String?
-  driverSignature String?
-  transactionId   String?
-  syncedAt        DateTime       @default(now())
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  isPaid          Boolean        @default(false)
-  status          TicketStatus   @default(ISSUED)
-
-  details         TicketDetail[]
-}
-
-model TicketDetail {
-  id             String            @id @default(cuid())
-  ticketHeaderId String
-  violationId    String?
-  violationName  String
-  offenseLevel   Int               @default(1)
-  amount         Float             @default(0)
-  createdAt      DateTime          @default(now())
-
-  header         TicketHeader      @relation(fields: [ticketHeaderId], references: [id], onDelete: Cascade)
-  violation      TrafficViolation? @relation(fields: [violationId], references: [id])
+enum InventoryCategory {
+  MEDICINE
+  MEDICAL_SUPPLY
 }
