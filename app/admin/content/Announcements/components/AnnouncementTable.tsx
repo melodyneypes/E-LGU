@@ -19,6 +19,7 @@ export function AnnouncementTable() {
         announcements,
         setEditingData,
         setIsAddModalOpen,
+        hideCategory,
         themeColor,
         page,
         pageSize,
@@ -162,9 +163,11 @@ export function AnnouncementTable() {
                             <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
                                 Scope / Barangay
                             </TableHead>
-                            <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
-                                Category
-                            </TableHead>
+                            {!hideCategory && (
+                                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
+                                    Category
+                                </TableHead>
+                            )}
                             <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-900 dark:text-slate-100">
                                 Priority
                             </TableHead>
@@ -208,11 +211,13 @@ export function AnnouncementTable() {
                                         </span>
                                     )}
                                 </TableCell>
-                                <TableCell>
-                                    <span className="inline-flex items-center px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                                        {item.category}
-                                    </span>
-                                </TableCell>
+                                {!hideCategory && (
+                                    <TableCell>
+                                        <span className="inline-flex items-center px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                            {item.category}
+                                        </span>
+                                    </TableCell>
+                                )}
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                         <div
