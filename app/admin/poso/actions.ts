@@ -121,40 +121,126 @@ export async function deleteTrafficViolation(id: string) {
 // POSO CITATION TICKETS ACTIONS
 // ----------------------------------------
 
-export async function getTickets({
-    page = 1,
-    pageSize = 10,
-    search = "",
-    status = "All",
-    isPaid = "All",
-}: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    status?: string;
-    isPaid?: string;
-}) {
+// ----------------------------------------
+// POSO SYSTEM SETTINGS (DUE DAYS)
+// ----------------------------------------
+
+export async function getPosoDueDaysSetting() {
     try {
         await verifyAdminOrStaff();
+        const setting = await (prisma as any).systemSetting.findUnique({
+            where: { key: "poso_ticket_due_days" },
+        });
+        const dueDays = setting ? parseInt(setting.value, 10) : 7;
+        return { success: true, dueDays: isNaN(dueDays) ? 7 : dueDays };
+    } catch (error: any) {
+        console.error("Failed to fetch POSO due days setting:", error);
+        return { success: false, dueDays: 7, error: error.message };
+    }
+}
+
+export async function updatePosoDueDaysSetting(days: number) {
+    try {
+        await verifyAdminOrStaff();
+        const validDays = Math.max(1, Math.min(365, days || 7));
+        await (prisma as any).systemSetting.upsert({
+            where: { key: "poso_ticket_due_days" },
+            update: { value: String(validDays) },
+            create: {
+                key: "poso_ticket_due_days",
+                value: String(validDays),
+                description: "Number of grace period days before POSO traffic citations become overdue",
+            },
+        });
+        revalidatePath("/admin/poso/tickets");
+        return { success: true, dueDays: validDays };
+    } catch (error: any) {
+        console.error("Failed to update POSO due days setting:", error);
+        return { success: false, error: error.message || "Failed to update setting." };
+    }
+}
+
+export async function getTickets(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    isImpounded?: boolean;
+    from?: string;
+    to?: string;
+} = {}) {
+    try {
+        await verifyAdminOrStaff();
+
+        const page = params.page || 1;
+        const pageSize = params.limit || 10;
         const skip = (page - 1) * pageSize;
+
+        const dueDaysRes = await getPosoDueDaysSetting();
+        const posoDueDays = dueDaysRes.dueDays || 7;
+
         const where: any = {};
 
-        if (status !== "All") {
-            where.status = status;
+        if (params.isImpounded !== undefined) {
+            where.isImpounded = params.isImpounded;
         }
 
-        if (isPaid !== "All") {
-            where.isPaid = isPaid === "PAID" || isPaid === "true";
+        // Date Range Filter
+        if (params.from || params.to) {
+            where.dateTime = {};
+            if (params.from) {
+                const fromDate = new Date(params.from);
+                fromDate.setHours(0, 0, 0, 0);
+                where.dateTime.gte = fromDate;
+            }
+            if (params.to) {
+                const toDate = new Date(params.to);
+                toDate.setHours(23, 59, 59, 999);
+                where.dateTime.lte = toDate;
+            }
         }
 
-        if (search.trim()) {
-            where.OR = [
-                { ticketNo: { contains: search.trim(), mode: "insensitive" } },
-                { violatorName: { contains: search.trim(), mode: "insensitive" } },
-                { licenseNo: { contains: search.trim(), mode: "insensitive" } },
-                { plateNo: { contains: search.trim(), mode: "insensitive" } },
-                { officerName: { contains: search.trim(), mode: "insensitive" } },
+        // Status Filter
+        if (params.status && params.status !== "ALL" && params.status !== "All") {
+            if (params.status === "OVERDUE") {
+                const cutoffDate = new Date(Date.now() - posoDueDays * 24 * 60 * 60 * 1000);
+                where.dateTime = {
+                    ...(where.dateTime || {}),
+                    lt: cutoffDate,
+                };
+                where.isPaid = false;
+                where.status = { notIn: ["PAID", "SETTLED"] };
+            } else if (params.status === "PAID") {
+                where.OR = [{ isPaid: true }, { status: "PAID" }];
+            } else if (params.status === "UNPAID") {
+                where.isPaid = false;
+                where.status = { notIn: ["PAID", "SETTLED"] };
+            } else {
+                where.status = params.status;
+            }
+        }
+
+        if (params.search) {
+            const query = params.search.trim();
+            const searchOrs = [
+                { ticketNo: { contains: query, mode: "insensitive" } },
+                { violatorName: { contains: query, mode: "insensitive" } },
+                { licenseNo: { contains: query, mode: "insensitive" } },
+                { plateNo: { contains: query, mode: "insensitive" } },
+                { officerName: { contains: query, mode: "insensitive" } },
+                { location: { contains: query, mode: "insensitive" } },
             ];
+
+            if (where.OR) {
+                const existingOR = where.OR;
+                delete where.OR;
+                where.AND = [
+                    { OR: existingOR },
+                    { OR: searchOrs }
+                ];
+            } else {
+                where.OR = searchOrs;
+            }
         }
 
         const [tickets, totalCount] = await Promise.all([
@@ -185,7 +271,7 @@ export async function getTickets({
             (prisma as any).ticketHeader.count({ where }),
         ]);
 
-        return { success: true, tickets: JSON.parse(JSON.stringify(tickets)), totalCount };
+        return { success: true, tickets: JSON.parse(JSON.stringify(tickets)), totalCount, posoDueDays };
     } catch (error: any) {
         console.error("Failed to fetch POSO tickets:", error);
         return { success: false, error: error.message || "Failed to fetch citation tickets." };
@@ -195,6 +281,9 @@ export async function getTickets({
 export async function getTicketById(id: string) {
     try {
         await verifyAdminOrStaff();
+
+        const dueDaysRes = await getPosoDueDaysSetting();
+        const posoDueDays = dueDaysRes.dueDays || 7;
 
         let ticket = await (prisma as any).ticketHeader.findUnique({
             where: { id },
@@ -318,6 +407,7 @@ export async function getTicketById(id: string) {
             otherPaidTickets,
             otherUnpaidTotal,
             themeColor: themeSetting?.value || null,
+            posoDueDays,
         };
     } catch (error: any) {
         console.error("Failed to fetch ticket details:", error);

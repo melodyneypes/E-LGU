@@ -34,6 +34,7 @@ export default function TicketDetailsPage() {
     const [themeColor, setThemeColor] = useState<string | null>(null);
     const [settling, setSettling] = useState(false);
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+    const [posoDueDays, setPosoDueDays] = useState<number>(7);
 
     useEffect(() => {
         if (!id) return;
@@ -48,6 +49,7 @@ export default function TicketDetailsPage() {
                     if (res.otherPaidTickets) setOtherPaidTickets(res.otherPaidTickets);
                     if (res.otherUnpaidTotal) setOtherUnpaidTotal(res.otherUnpaidTotal);
                     if (res.themeColor) setThemeColor(res.themeColor);
+                    if (res.posoDueDays) setPosoDueDays(res.posoDueDays);
                 } else if (!res.success) {
                     toast.error(res.error || "Citation Ticket not found");
                 }
@@ -61,7 +63,10 @@ export default function TicketDetailsPage() {
         return () => { isMounted = false; };
     }, [id]);
 
-
+    const apprehensionDate = ticket ? new Date(ticket.dateTime) : null;
+    const dueDate = apprehensionDate ? new Date(apprehensionDate.getTime() + posoDueDays * 24 * 60 * 60 * 1000) : null;
+    const isOverdue = ticket && dueDate && !ticket.isPaid && ticket.status !== "SETTLED" && ticket.status !== "PAID" && new Date() > dueDate;
+    const daysOverdue = isOverdue && dueDate ? Math.ceil((new Date().getTime() - dueDate.getTime()) / (1000 * 3600 * 24)) : 0;
 
     const handleMarkAsSettled = async () => {
         if (!ticket) return;
@@ -186,10 +191,22 @@ export default function TicketDetailsPage() {
                         >
                             {ticket.status === "SETTLED" ? "SETTLED" : ticket.isPaid || ticket.status === "PAID" ? "PAID" : ticket.transactionId ? "PENDING TREASURY PAYMENT" : "UNPAID CITATION"}
                         </Badge>
+                        {isOverdue && (
+                            <Badge className="bg-rose-600 text-white font-black text-[10px] px-2.5 py-1 rounded-lg uppercase animate-pulse">
+                                OVERDUE ({daysOverdue} {daysOverdue === 1 ? "DAY" : "DAYS"})
+                            </Badge>
+                        )}
                     </div>
-                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 italic">
-                        Apprehended on {new Date(ticket.dateTime).toLocaleString("en-PH", { dateStyle: "full", timeStyle: "short" })}
-                    </p>
+                    <div className="text-left sm:text-right">
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 italic">
+                            Apprehended: {apprehensionDate?.toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}
+                        </p>
+                        {dueDate && (
+                            <p className={`text-xs font-bold font-mono ${isOverdue ? "text-rose-600 dark:text-rose-400 font-black" : "text-slate-700 dark:text-slate-300"}`}>
+                                Payment Due: {dueDate.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })} ({posoDueDays}-day grace period)
+                            </p>
+                        )}
+                    </div>
                 </div>
             </div>
 
