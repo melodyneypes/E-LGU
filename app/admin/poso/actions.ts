@@ -555,13 +555,40 @@ export async function processMultipleTicketsSettlement(ticketIds: string[]) {
         }
 
         const firstTicket = tickets[0];
-        let violatorUserId = firstTicket.violatorUserId;
-        if (!violatorUserId && firstTicket.licenseNo) {
-            const resident = await (prisma as any).resident.findFirst({
-                where: { licenseNo: firstTicket.licenseNo },
-                select: { userId: true },
+        let violatorUserId = firstTicket.violatorUserId || null;
+        if (!violatorUserId && firstTicket.violatorName) {
+            // 1. Try matching User table directly by name
+            const matchedUser = await (prisma as any).user.findFirst({
+                where: {
+                    name: { equals: firstTicket.violatorName, mode: "insensitive" },
+                },
+                select: { id: true },
             });
-            if (resident?.userId) violatorUserId = resident.userId;
+
+            if (matchedUser) {
+                violatorUserId = matchedUser.id;
+            } else {
+                // 2. Try matching Resident profile table by first and last name
+                const nameParts = firstTicket.violatorName.trim().split(" ");
+                const firstName = nameParts[0] || "";
+                const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+
+                if (firstName) {
+                    const matchedResident = await (prisma as any).resident.findFirst({
+                        where: {
+                            AND: [
+                                { firstName: { equals: firstName, mode: "insensitive" } },
+                                ...(lastName ? [{ lastName: { equals: lastName, mode: "insensitive" } }] : []),
+                            ],
+                        },
+                        select: { userId: true },
+                    });
+
+                    if (matchedResident?.userId) {
+                        violatorUserId = matchedResident.userId;
+                    }
+                }
+            }
         }
 
         let transactionType = await (prisma as any).transactionType.findFirst({

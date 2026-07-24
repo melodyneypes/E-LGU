@@ -174,7 +174,9 @@ export default function TicketsPage({
 
     const handleSelectAllUnpaid = () => {
         if (!historyData?.tickets) return;
-        const unpaidIds = historyData.tickets.filter((t: any) => !t.isPaid).map((t: any) => t.id);
+        const unpaidIds = historyData.tickets
+            .filter((t: any) => !t.isPaid && !t.transactionId)
+            .map((t: any) => t.id);
         if (selectedTicketIds.length === unpaidIds.length) {
             setSelectedTicketIds([]);
         } else {
@@ -572,7 +574,7 @@ export default function TicketsPage({
                                             <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                                 Citation Tickets Timeline ({historyData.tickets.length})
                                             </h3>
-                                            {historyData.unpaidCount > 0 && (
+                                            {historyData.tickets.some((t: any) => !t.isPaid && !t.transactionId) && (
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
@@ -581,7 +583,7 @@ export default function TicketsPage({
                                                     style={themeColor ? { color: themeColor } : undefined}
                                                     className="h-8 text-xs font-bold text-blue-600 hover:opacity-80"
                                                 >
-                                                    {selectedTicketIds.length === historyData.unpaidCount
+                                                    {selectedTicketIds.length === historyData.tickets.filter((t: any) => !t.isPaid && !t.transactionId).length
                                                         ? "Deselect All Unpaid"
                                                         : "Select All Unpaid"}
                                                 </Button>
@@ -592,6 +594,7 @@ export default function TicketsPage({
                                             {historyData.tickets.map((t: any, index: number) => {
                                                 const isSelected = selectedTicketIds.includes(t.id);
                                                 const ticketTotal = (t.totalAmount || 0) + (t.isImpounded ? Number(t.impoundFee || 0) : 0);
+                                                const isSelectable = !t.isPaid && !t.transactionId;
                                                 return (
                                                     <div
                                                         key={t.id}
@@ -603,7 +606,7 @@ export default function TicketsPage({
                                                     >
                                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-[#2a3040] pb-3">
                                                             <div className="flex items-center space-x-3">
-                                                                {!t.isPaid && (
+                                                                {isSelectable && (
                                                                     <input
                                                                         type="checkbox"
                                                                         checked={isSelected}
@@ -632,6 +635,11 @@ export default function TicketsPage({
                                                                     <span className="text-xs text-slate-400 block font-medium">
                                                                         Apprehended by: {t.officerName || "POSO Officer"}
                                                                     </span>
+                                                                    {!t.isPaid && t.transactionId && (
+                                                                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block mt-0.5">
+                                                                            ⚠️ Pending in Treasury
+                                                                        </span>
+                                                                    )}
                                                                 </div>
                                                             </div>
 
@@ -643,10 +651,12 @@ export default function TicketsPage({
                                                                     className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase italic ${
                                                                         t.isPaid
                                                                             ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+                                                                            : t.transactionId
+                                                                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
                                                                             : "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400"
                                                                     }`}
                                                                 >
-                                                                    {t.isPaid ? "PAID" : "UNPAID"}
+                                                                    {t.isPaid ? "PAID" : t.transactionId ? "PENDING IN TREASURY" : "UNPAID"}
                                                                 </span>
                                                                 <Button
                                                                     type="button"
