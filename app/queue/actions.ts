@@ -86,7 +86,7 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             }
 
             // Fallback by original category or code prefix
-            if (["CEDULA", "Treasurer"].includes(category) || code.startsWith("CEDULA")) return 0;
+            if (["CEDULA", "Treasurer", "POSO"].includes(category) || code.startsWith("CEDULA") || code.startsWith("POSO")) return 0;
             if (["Business Permit"].includes(category) || code.startsWith("BUSINESS_PERMIT")) return 1;
             if (["Civil Registry"].includes(category) || code.startsWith("LCR_") || code.startsWith("CIVIL_REGISTRY")) return 2;
             if (["Building Permit", "Engineer"].includes(category) || code.startsWith("ENGINEER") || code.startsWith("BUILDING")) return 3;
@@ -182,6 +182,10 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             if (hasCounter) return false;
 
             const category = tx.type?.category || "";
+            if (category === "POSO" || code.startsWith("POSO") || code === "POSO_TRAFFIC_FINE") {
+                return ["UNPAID", "FOR_REQUESTING", "FOR_INSPECTION"].includes(tx.status);
+            }
+
             if (category === "Business Permit" || code.startsWith("BUSINESS_PERMIT")) {
                 return ["FOR_REQUESTING", "FOR_INSPECTION", "FOR_REINSPECTION", "FOR_CLAIM", "UNPAID"].includes(tx.status);
             }
