@@ -30,14 +30,11 @@ export function AddNewsModal() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        if (editingData) {
-            // Only set preview from data if NOT already uploading a new one locally
-            if (editingData.imageUrl && !imagePreview?.startsWith("data:")) {
-                setImagePreview(editingData.imageUrl);
-            }
+        if (isAddModalOpen) {
+            // Reset and sync image preview to active article data
+            setImagePreview(editingData?.imageUrl || null);
 
-            // Handle editing existing category
-            if (editingData.category) {
+            if (editingData?.category) {
                 if (categories.includes(editingData.category)) {
                     setSelectedCategory(editingData.category);
                     setOtherCategory("");
@@ -45,22 +42,25 @@ export function AddNewsModal() {
                     setSelectedCategory("Other");
                     setOtherCategory(editingData.category);
                 }
+            } else if (!editingData) {
+                setSelectedCategory("Local News");
+                setOtherCategory("");
             }
+
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+        } else {
+            setImagePreview(null);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [editingData]);
+    }, [editingData?.id, isAddModalOpen]);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImagePreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+            setImagePreview(URL.createObjectURL(file));
         }
     };
-
 
     const formatDateForInput = (dateInput: Date | string | undefined) => {
         if (!dateInput) return "";
@@ -76,6 +76,9 @@ export function AddNewsModal() {
                 setImagePreview(null);
                 setSelectedCategory("Local News");
                 setOtherCategory("");
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                }
             }
         }}>
             <DialogContent showCloseButton={false} className="sm:max-w-5xl p-0 overflow-hidden bg-white dark:bg-[#0f1117] border-slate-200 dark:border-[#2a3040] shadow-2xl rounded-[2.5rem]">
@@ -110,6 +113,12 @@ export function AddNewsModal() {
 
                     <div className="p-10 overflow-y-auto custom-scrollbar">
                         <form id="newsForm" onSubmit={handleSubmit} className="space-y-10">
+                            {/* Hidden input to retain existing imageUrl when updating without a new file */}
+                            <input
+                                type="hidden"
+                                name="imageUrl"
+                                value={imagePreview && !imagePreview.startsWith("blob:") && !imagePreview.startsWith("data:") ? imagePreview : (editingData?.imageUrl || "")}
+                            />
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                                 {/* Left Column: Article Logic */}
                                 <div className="space-y-6">
@@ -267,7 +276,6 @@ export function AddNewsModal() {
                                         >
                                             {imagePreview ? (
                                                 <>
-                                                    { }
                                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                                     <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-[1.8rem]" />
                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -288,52 +296,59 @@ export function AddNewsModal() {
                                                     </Button>
                                                 </>
                                             ) : (
-                                                <div className="flex flex-col items-center text-slate-400 transition-colors">
-                                                    <div className="w-16 h-16 bg-white dark:bg-white/5 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
+                                                <div className="text-center p-6 space-y-3">
+                                                    <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center transition-transform group-hover:scale-110" style={{ backgroundColor: `${themeColor}1a`, color: themeColor }}>
                                                         <ImageIcon className="w-8 h-8" />
                                                     </div>
-                                                    <p className="text-[10px] font-black uppercase tracking-widest">Upload Photo</p>
-                                                    <p className="text-[9px] font-medium mt-1 italic">Click or drag image file</p>
+                                                    <div>
+                                                        <p className="font-black text-sm text-slate-700 dark:text-slate-200 uppercase tracking-wide">Upload Featured Image</p>
+                                                        <p className="text-xs text-slate-400 font-medium italic mt-1">PNG, JPG or WEBP up to 5MB</p>
+                                                    </div>
                                                 </div>
                                             )}
-                                            <input
-                                                type="file"
-                                                name="imageFile"
-                                                accept="image/*"
-                                                className="hidden"
-                                                ref={fileInputRef}
-                                                onChange={handleImageChange}
-                                            />
-                                            {editingData?.imageUrl && imagePreview === editingData.imageUrl && (
-                                                <input type="hidden" name="imageUrl" value={editingData.imageUrl} />
-                                            )}
                                         </div>
-                                    </div>
 
-                                    <div className="p-6 rounded-2xl border" style={{ backgroundColor: `${themeColor}14`, borderColor: `${themeColor}40` }}>
-                                        <p className="text-[10px] font-bold italic text-slate-600 dark:text-slate-200">
-                                            Tip: Use high-quality landscape photos (16:9) to make the news article stand out on the main landing page.
-                                        </p>
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            name="image"
+                                            accept="image/*"
+                                            onChange={handleImageChange}
+                                            className="hidden"
+                                        />
                                     </div>
                                 </div>
                             </div>
                         </form>
                     </div>
 
-                    <DialogFooter className="p-6 pt-0 bg-white dark:bg-[#0f1117] border-none shrink-0">
-                        <Button
-                            type="submit"
-                            form="newsForm"
-                            disabled={loading}
-                            className="w-full h-12 text-white font-black uppercase tracking-widest text-[10px] rounded-xl shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]"
-                            style={{ backgroundColor: themeColor, boxShadow: `0 14px 28px -14px ${themeColor}` }}
-                        >
-                            {loading ? (
-                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Publishing...</>
-                            ) : (
-                                editingData ? "Apply Changes" : "Publish Article"
-                            )}
-                        </Button>
+                    <DialogFooter className="p-6 border-t border-slate-200 dark:border-[#2a3040] bg-slate-50/50 dark:bg-[#151b2b]/50">
+                        <div className="flex items-center justify-end space-x-3 w-full">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsAddModalOpen(false)}
+                                className="h-12 px-6 rounded-xl font-bold border-slate-200 dark:border-[#2a3040]"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                form="newsForm"
+                                disabled={loading}
+                                style={{ backgroundColor: themeColor }}
+                                className="h-12 px-8 text-white font-black uppercase tracking-widest text-xs rounded-xl shadow-lg hover:opacity-90 transition-all flex items-center space-x-2"
+                            >
+                                {loading ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        <span>Saving...</span>
+                                    </>
+                                ) : (
+                                    <span>{editingData ? "Update News Article" : "Publish News"}</span>
+                                )}
+                            </Button>
+                        </div>
                     </DialogFooter>
                 </div>
             </DialogContent>

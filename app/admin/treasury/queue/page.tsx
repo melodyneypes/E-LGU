@@ -20,6 +20,32 @@ import {
     fetchAndCallNextTicket
 } from "@/app/admin/transactions/calling-actions";
 
+function getCitizenName(item: any): string {
+    if (!item) return "NON-RESIDENT / WALK-IN";
+    if (item.user?.residentProfile?.firstName || item.user?.residentProfile?.lastName) {
+        return `${item.user.residentProfile.firstName || ""} ${item.user.residentProfile.lastName || ""}`.trim();
+    }
+    if (item.user?.name) {
+        return item.user.name;
+    }
+    const snap = item.residentSnapshot || {};
+    if (snap.fullName && typeof snap.fullName === "string") {
+        return snap.fullName;
+    }
+    if (snap.name && typeof snap.name === "string") {
+        return snap.name;
+    }
+    if (snap.firstName || snap.lastName) {
+        const full = `${snap.firstName || ""} ${snap.lastName || ""}`.trim();
+        if (full) return full;
+    }
+    const addData = item.additionalData || {};
+    if (addData.violatorName && typeof addData.violatorName === "string") {
+        return addData.violatorName;
+    }
+    return "NON-RESIDENT / WALK-IN";
+}
+
 export default function TreasuryQueuePage() {
     const router = useRouter();
     const [counterName, setCounterName] = useState<string | null>(null);
@@ -310,9 +336,7 @@ export default function TreasuryQueuePage() {
                                                         {/* Mid: Resident Details & Service type */}
                                                         <div className="space-y-1 text-left">
                                                             <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase leading-tight truncate max-w-[160px] sm:max-w-[200px]">
-                                                                {ticket.user?.residentProfile
-                                                                    ? `${ticket.user.residentProfile.firstName} ${ticket.user.residentProfile.lastName}`
-                                                                    : (ticket.residentSnapshot ? `${ticket.residentSnapshot?.firstName} ${ticket.residentSnapshot?.lastName}` : "UNKNOWN")}
+                                                                {getCitizenName(ticket)}
                                                             </h3>
                                                             <div className="flex flex-wrap items-center gap-1.5">
                                                                 <span className="text-[9px] font-bold text-primary uppercase bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10 truncate max-w-[140px] inline-block">
@@ -398,9 +422,7 @@ export default function TreasuryQueuePage() {
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase truncate max-w-[180px] leading-tight">
-                                                        {tx.user?.residentProfile
-                                                            ? `${tx.user.residentProfile.firstName} ${tx.user.residentProfile.lastName}`
-                                                            : (tx.residentSnapshot ? `${tx.residentSnapshot?.firstName} ${tx.residentSnapshot?.lastName}` : "UNKNOWN")}
+                                                        {getCitizenName(tx)}
                                                     </p>
                                                 </div>
                                             </div>

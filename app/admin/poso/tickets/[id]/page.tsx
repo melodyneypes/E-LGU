@@ -734,16 +734,6 @@ export default function TicketDetailsPage() {
                                 </div>
                             </div>
                         </div>
-                    ) : !ticket.isPaid ? (
-                        <Button
-                            onClick={handleSettlePayment}
-                            disabled={paying}
-                            style={{ backgroundColor: themeColor || undefined }}
-                            className="w-full h-12 bg-emerald-600 hover:opacity-95 text-white font-bold rounded-2xl text-xs shadow-lg flex items-center justify-center space-x-2 transition-all"
-                        >
-                            {paying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-                            <span>Process Settlement Payment</span>
-                        </Button>
                     ) : null}
 
                     {/* Enforcer Remarks Card */}

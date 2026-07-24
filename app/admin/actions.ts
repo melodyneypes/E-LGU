@@ -59,8 +59,8 @@ async function deleteUploadedFile(imageUrl: string | null | undefined) {
     }
 }
 
-async function processImageUpload(formData: FormData, fieldName: string = "imageFile"): Promise<string | null> {
-    const fileItem = formData.get(fieldName);
+async function processImageUpload(formData: FormData, fieldName: string = "image"): Promise<string | null> {
+    const fileItem = formData.get(fieldName) || formData.get("image") || formData.get("imageFile");
     const fileItemAlt = formData.get(`${fieldName}File`);
 
     let file: File | null = null;
@@ -892,7 +892,7 @@ export async function toggleEventStatus(id: string, isPublished: boolean) {
 export async function addNews(formData: FormData) {
     try {
         await verifyAdminOrBarangayAdmin();
-        const imageUrl = await processImageUpload(formData);
+        const imageUrl = await processImageUpload(formData, "image");
         const barangay = formData.get("barangay") as string || await getSessionBarangay();
 
         const newNews = await (prisma as any).news.create({
@@ -920,7 +920,7 @@ export async function updateNews(id: string, formData: FormData) {
     try {
         await verifyAdminOrBarangayAdmin();
         const oldItem = await (prisma as any).news.findUnique({ where: { id } });
-        const imageUrl = await processImageUpload(formData);
+        const imageUrl = await processImageUpload(formData, "image");
 
         if (imageUrl && oldItem?.imageUrl && oldItem.imageUrl !== imageUrl) {
             await deleteUploadedFile(oldItem.imageUrl);
