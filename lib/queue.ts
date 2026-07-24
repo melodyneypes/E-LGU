@@ -5,7 +5,7 @@ interface GenerateQueueParams {
   isPriority: boolean;
   appointmentDate: Date;
   appointmentSlot?: string;
-  category?: "CEDULA" | "BUSINESS_PERMIT" | "CIVIL_REGISTRY" | "RHU" | "POSO";
+  category?: "CEDULA" | "BUSINESS_PERMIT" | "CIVIL_REGISTRY" | "RHU";
 }
 
 /**
@@ -39,35 +39,21 @@ export async function generateQueueNumber({
     : true;
   const shiftStr = isAM ? "AM" : "PM";
 
-  let shiftCount = 0;
-
-  if (category === "POSO") {
-    // Count TicketHeaders checked in today
-    const posoCount = await prisma.ticketHeader.count({
-      where: {
-        createdAt: {
-          gte: startOfDay,
-          lte: endOfDay
-        }
-      }
-    });
-    shiftCount = posoCount;
-  } else {
-    // Count existing transactions for this shift on target date
-    shiftCount = await prisma.transaction.count({
-      where: {
-        appointmentDate: {
-          gte: startOfDay,
-          lte: endOfDay
-        },
-        appointmentSlot: {
-          contains: shiftStr
-        },
-        isCancelled: false,
-        isPriority: isPriority,
-      } as any
-    });
-  }
+  // Count existing transactions for this shift on target date
+  // using the direct isPriority column
+  const shiftCount = await prisma.transaction.count({
+    where: {
+      appointmentDate: {
+        gte: startOfDay,
+        lte: endOfDay
+      },
+      appointmentSlot: {
+        contains: shiftStr
+      },
+      isCancelled: false,
+      isPriority: isPriority,
+    } as any
+  });
 
   let prefix = "";
   if (category === "CEDULA") {
@@ -78,8 +64,6 @@ export async function generateQueueNumber({
     prefix = isPriority ? "BP" : "B";
   } else if (category === "RHU") {
     prefix = isPriority ? "HP" : "H";
-  } else if (category === "POSO") {
-    prefix = isPriority ? "POP" : "PO";
   } else {
     prefix = isPriority ? "P" : "";
   }
