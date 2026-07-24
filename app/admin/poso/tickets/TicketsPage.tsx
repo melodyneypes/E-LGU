@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { getTickets, getViolatorHistory, processTicketSettlement, processMultipleTicketsSettlement } from "@/app/admin/poso/actions";
+import { getSystemSettingAction } from "@/app/admin/transactions/actions";
 import {
     Table,
     TableBody,
@@ -79,6 +80,13 @@ export default function TicketsPage({
     const [historyData, setHistoryData] = useState<any | null>(null);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [loadingHistory, setLoadingHistory] = useState(false);
+    const [themeColor, setThemeColor] = useState<string | null>(null);
+
+    React.useEffect(() => {
+        getSystemSettingAction("theme_color").then((res) => {
+            if (res.success && res.data) setThemeColor(res.data);
+        });
+    }, []);
 
     React.useEffect(() => {
         setTickets(initialTickets);
@@ -570,7 +578,8 @@ export default function TicketsPage({
                                                     variant="ghost"
                                                     size="sm"
                                                     onClick={handleSelectAllUnpaid}
-                                                    className="h-8 text-xs font-bold text-blue-600 hover:text-blue-700"
+                                                    style={themeColor ? { color: themeColor } : undefined}
+                                                    className="h-8 text-xs font-bold text-blue-600 hover:opacity-80"
                                                 >
                                                     {selectedTicketIds.length === historyData.unpaidCount
                                                         ? "Deselect All Unpaid"
@@ -718,7 +727,8 @@ export default function TicketsPage({
                                 <Button
                                     onClick={handleBatchPay}
                                     disabled={batchPaying}
-                                    className="h-10 px-5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-lg flex items-center gap-2"
+                                    style={{ backgroundColor: themeColor || undefined }}
+                                    className="h-10 px-5 text-xs font-bold bg-emerald-600 hover:opacity-95 text-white rounded-xl shadow-lg flex items-center gap-2 transition-all"
                                 >
                                     {batchPaying ? (
                                         <RefreshCw className="w-4 h-4 animate-spin" />

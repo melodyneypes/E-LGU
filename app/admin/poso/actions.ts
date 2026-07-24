@@ -245,7 +245,51 @@ export async function getTicketById(id: string) {
             return { success: false, error: "Ticket not found." };
         }
 
-        return { success: true, ticket, themeColor: themeSetting?.value || null };
+        let otherUnpaidTickets: any[] = [];
+        let otherUnpaidTotal = 0;
+
+        if (ticket.licenseNo || ticket.violatorName) {
+            const whereOR: any[] = [];
+            if (ticket.licenseNo && ticket.licenseNo.trim()) {
+                whereOR.push({ licenseNo: { equals: ticket.licenseNo.trim(), mode: "insensitive" } });
+            }
+            if (ticket.violatorName && ticket.violatorName.trim()) {
+                whereOR.push({ violatorName: { equals: ticket.violatorName.trim(), mode: "insensitive" } });
+            }
+
+            if (whereOR.length > 0) {
+                otherUnpaidTickets = await (prisma as any).ticketHeader.findMany({
+                    where: {
+                        OR: whereOR,
+                        NOT: { id: ticket.id },
+                        isPaid: false,
+                    },
+                    select: {
+                        id: true,
+                        ticketNo: true,
+                        totalAmount: true,
+                        isImpounded: true,
+                        impoundFee: true,
+                        dateTime: true,
+                        status: true,
+                    },
+                    orderBy: { dateTime: "desc" },
+                });
+
+                otherUnpaidTotal = otherUnpaidTickets.reduce(
+                    (sum: number, t: any) => sum + (t.totalAmount || 0) + (t.isImpounded ? Number(t.impoundFee || 0) : 0),
+                    0
+                );
+            }
+        }
+
+        return {
+            success: true,
+            ticket,
+            otherUnpaidTickets,
+            otherUnpaidTotal,
+            themeColor: themeSetting?.value || null,
+        };
     } catch (error: any) {
         console.error("Failed to fetch ticket details:", error);
         return { success: false, error: error.message || "Failed to fetch ticket details." };

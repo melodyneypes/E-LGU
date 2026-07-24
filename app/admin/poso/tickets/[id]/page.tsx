@@ -7,7 +7,8 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
     ArrowLeft, MapPin, UserCheck, Shield, Award,
-    FileText, Camera, CreditCard, RefreshCw, Car, ShieldAlert, Clock, Truck, Building2, CheckCircle2
+    FileText, Camera, CreditCard, RefreshCw, Car, ShieldAlert, Clock, Truck, Building2, CheckCircle2,
+    AlertTriangle, ExternalLink, History
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,8 @@ export default function TicketDetailsPage() {
 
     const [loading, setLoading] = useState(true);
     const [ticket, setTicket] = useState<any>(null);
+    const [otherUnpaidTickets, setOtherUnpaidTickets] = useState<any[]>([]);
+    const [otherUnpaidTotal, setOtherUnpaidTotal] = useState(0);
     const [themeColor, setThemeColor] = useState<string | null>(null);
     const [paying, setPaying] = useState(false);
     const [settling, setSettling] = useState(false);
@@ -41,6 +44,8 @@ export default function TicketDetailsPage() {
                 const res = await getTicketById(id);
                 if (res.success && isMounted) {
                     setTicket(res.ticket);
+                    if (res.otherUnpaidTickets) setOtherUnpaidTickets(res.otherUnpaidTickets);
+                    if (res.otherUnpaidTotal) setOtherUnpaidTotal(res.otherUnpaidTotal);
                     if (res.themeColor) setThemeColor(res.themeColor);
                 } else if (!res.success) {
                     toast.error(res.error || "Citation Ticket not found");
@@ -171,6 +176,70 @@ export default function TicketDetailsPage() {
                     </p>
                 </div>
             </div>
+
+            {/* Outstanding Unpaid Citation Records Warning Banner */}
+            {otherUnpaidTickets.length > 0 && (
+                <div className="bg-amber-50 dark:bg-amber-950/30 rounded-3xl p-6 border-2 border-amber-300 dark:border-amber-500/40 shadow-md space-y-4 animate-in fade-in duration-300">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-start space-x-3.5">
+                            <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-lg shadow-amber-500/20 shrink-0 mt-0.5">
+                                <AlertTriangle className="w-6 h-6 animate-pulse" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-base font-black uppercase tracking-tight text-amber-950 dark:text-amber-100">
+                                        Outstanding Unpaid Citation Records ({otherUnpaidTickets.length})
+                                    </h3>
+                                    <Badge className="bg-amber-600 text-white font-black text-[10px] px-2 py-0.5 rounded-lg uppercase">
+                                        Pending Fine Notice
+                                    </Badge>
+                                </div>
+                                <p className="text-xs font-semibold text-amber-900/80 dark:text-amber-200/90 mt-1 italic">
+                                    This violator ({ticket.violatorName}) has <strong>{otherUnpaidTickets.length} other unpaid citation ticket(s)</strong> registered in POSO records with an accumulated pending fine of <strong>₱{otherUnpaidTotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</strong>.
+                                </p>
+                            </div>
+                        </div>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push("/admin/poso/tickets")}
+                            className="bg-white dark:bg-[#151b2b] border-amber-300 dark:border-amber-500/30 text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40 font-bold text-xs rounded-xl shrink-0"
+                        >
+                            <History className="w-4 h-4 mr-1.5 text-amber-600" /> View All Tickets
+                        </Button>
+                    </div>
+
+                    {/* List of Other Pending Unpaid Tickets */}
+                    <div className="pt-3 border-t border-amber-200/80 dark:border-amber-500/20 flex flex-wrap gap-2.5 items-center">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                            Other Unpaid Tickets:
+                        </span>
+                        {otherUnpaidTickets.map((ot: any) => {
+                            const total = (ot.totalAmount || 0) + (ot.isImpounded ? Number(ot.impoundFee || 0) : 0);
+                            return (
+                                <button
+                                    key={ot.id}
+                                    type="button"
+                                    onClick={() => router.push(`/admin/poso/tickets/${ot.id}`)}
+                                    className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#151b2b] border border-amber-300 dark:border-amber-500/30 hover:border-amber-500 text-slate-800 dark:text-slate-200 font-mono text-xs font-bold flex items-center gap-2 shadow-sm transition-all hover:scale-[1.02]"
+                                >
+                                    <span className="font-black text-rose-600 dark:text-rose-400">{ot.ticketNo}</span>
+                                    <span className="text-[11px] text-slate-500">
+                                        (₱{total.toLocaleString("en-PH", { minimumFractionDigits: 2 })})
+                                    </span>
+                                    {ot.isImpounded && (
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-black uppercase">
+                                            Impounded
+                                        </span>
+                                    )}
+                                    <ExternalLink className="w-3 h-3 text-amber-600" />
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* Main Details Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
