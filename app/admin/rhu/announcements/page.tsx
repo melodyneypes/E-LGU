@@ -115,6 +115,7 @@ export default async function RHUAnnouncementsPage({
             priority={priority}
             currentBarangay={isBarangayAdmin ? user.managedBarangay : barangayParam || undefined}
             activeBarangays={activeBarangays.map((b) => b.name)}
+            hideCategory={true}
         />
     );
 }

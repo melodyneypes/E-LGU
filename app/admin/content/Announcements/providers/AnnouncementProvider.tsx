@@ -32,6 +32,7 @@ interface AnnouncementContextType {
     setSelectedPriority: (priority: string) => void;
     currentBarangay?: string;
     activeBarangays?: string[];
+    hideCategory?: boolean;
     themeColor: string;
     page: number;
     pageSize: number;
@@ -53,6 +54,7 @@ export function AnnouncementProvider({
     priority = "All",
     currentBarangay,
     activeBarangays = [],
+    hideCategory = false,
 }: {
     children: ReactNode;
     initialData: Announcement[];
@@ -64,6 +66,7 @@ export function AnnouncementProvider({
     priority?: string;
     currentBarangay?: string;
     activeBarangays?: string[];
+    hideCategory?: boolean;
 }) {
     const [searchTerm, setSearchTerm] = useState(search);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -123,6 +126,7 @@ export function AnnouncementProvider({
                 setSelectedPriority,
                 currentBarangay,
                 activeBarangays,
+                hideCategory,
                 themeColor,
                 page,
                 pageSize,

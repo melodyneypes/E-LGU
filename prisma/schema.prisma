@@ -998,21 +998,26 @@ model AppointmentConfig {
 // POSO TRAFFIC ENFORCEMENT & TICKETING MODELS
 // ------------------------------------------------------
 
+enum InventoryCategory {
+  MEDICINE
+  MEDICAL_SUPPLY
+}
+
 model RHUInventoryItem {
-  id             String   @id @default(cuid())
+  id             String              @id @default(cuid())
   name           String
   genericName    String?
   brandName      String?
-  category       String   @default("MEDICINE")
+  category       InventoryCategory   @default(MEDICINE)
   dosage         String?
-  unit           String   @default("pcs")
-  quantity       Int      @default(0)
-  reorderLevel   Int      @default(10)
+  unit           String              @default("pcs")
+  quantity       Int                 @default(0)
+  reorderLevel   Int                 @default(10)
   expirationDate DateTime?
   batchNumber    String?
   remarks        String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   batches        RHUInventoryBatch[]
 
@@ -1046,6 +1051,7 @@ enum TicketStatus {
   SETTLED
   RESOLVED
   CONTESTED
+  UNPAID
 }
 
 model TrafficViolation {
@@ -1126,45 +1132,6 @@ model TicketDetail {
   createdAt      DateTime          @default(now())
   header         TicketHeader      @relation(fields: [ticketHeaderId], references: [id], onDelete: Cascade)
   violation      TrafficViolation? @relation(fields: [violationId], references: [id])
-}
-
-model RHUInventoryBatch {
-  id               String           @id
-  itemId           String
-  batchNumber      String
-  expirationDate   DateTime?
-  quantity         Int              @default(0)
-  initialQuantity  Int              @default(0)
-  receivedDate     DateTime         @default(now())
-  remarks          String?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime
-  RHUInventoryItem RHUInventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-
-  @@index([batchNumber])
-  @@index([expirationDate])
-  @@index([itemId])
-}
-
-model RHUInventoryItem {
-  id                String              @id
-  name              String
-  genericName       String?
-  brandName         String?
-  dosage            String?
-  unit              String              @default("pcs")
-  quantity          Int                 @default(0)
-  reorderLevel      Int                 @default(10)
-  expirationDate    DateTime?
-  batchNumber       String?
-  remarks           String?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime
-  category          InventoryCategory   @default(MEDICINE)
-  RHUInventoryBatch RHUInventoryBatch[]
-
-  @@index([category])
-  @@index([name])
 }
 
 model VehicleClassification {
@@ -1256,17 +1223,3 @@ enum PaymentStatus {
   REFUNDED
 }
 
-enum TicketStatus {
-  ISSUED
-  PAID
-  CANCELLED
-  SETTLED
-  RESOLVED
-  CONTESTED
-  UNPAID
-}
-
-enum InventoryCategory {
-  MEDICINE
-  MEDICAL_SUPPLY
-}

@@ -17,6 +17,7 @@ interface AnnouncementPageProps {
     priority: string;
     currentBarangay?: string;
     activeBarangays?: string[];
+    hideCategory?: boolean;
 }
 
 export function AnnouncementPage({
@@ -29,6 +30,7 @@ export function AnnouncementPage({
     priority,
     currentBarangay,
     activeBarangays,
+    hideCategory,
 }: AnnouncementPageProps) {
     return (
         <AnnouncementProvider
@@ -41,6 +43,7 @@ export function AnnouncementPage({
             priority={priority}
             currentBarangay={currentBarangay}
             activeBarangays={activeBarangays}
+            hideCategory={hideCategory}
         >
             <AnnouncementPageContent />
         </AnnouncementProvider>

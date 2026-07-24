@@ -36,20 +36,26 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 
 export function AddAnnouncementModal() {
-    const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, currentBarangay } = useAnnouncements();
+    const { isAddModalOpen, setIsAddModalOpen, editingData, setEditingData, currentBarangay, hideCategory } = useAnnouncements();
     const { handleSubmit, loading } = useAnnouncementForm();
     const [themeColor, setThemeColor] = useState("#2563eb");
 
     // Real-time Form States for Live Preview
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
-    const [category, setCategory] = useState("General");
+    const [category, setCategory] = useState(hideCategory ? "Health" : "General");
     const [priority, setPriority] = useState("Normal");
     const [isPinned, setIsPinned] = useState(false);
     
     // Image upload / URL states
-    const [imageUrl, setImageUrl] = useState<string>("");
-    const [imageTab, setImageTab] = useState<"file" | "url">("file");
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [imageTab, setImageTab] = useState<"upload" | "url">("upload");
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [expiryDate, setExpiryDate] = useState("");
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -67,23 +73,29 @@ export function AddAnnouncementModal() {
         fetchSettings();
     }, []);
 
+    // Populate modal when editing existing notice
     useEffect(() => {
         if (editingData) {
             setTitle(editingData.title || "");
             setContent(editingData.content || "");
-            setCategory(editingData.category || "General");
+            setCategory(editingData.category || (hideCategory ? "Health" : "General"));
             setPriority(editingData.priority || "Normal");
-            setIsPinned(editingData.isPinned || false);
-            setImageUrl(editingData.imageUrl || "");
+            setIsPinned(Boolean(editingData.isPinned));
+            setImageUrl(editingData.imageUrl || null);
+            setImagePreview(editingData.imageUrl || null);
+            setExpiryDate(editingData.expiryDate ? format(new Date(editingData.expiryDate), "yyyy-MM-dd") : "");
         } else {
             setTitle("");
             setContent("");
-            setCategory("General");
+            setCategory(hideCategory ? "Health" : "General");
             setPriority("Normal");
             setIsPinned(false);
-            setImageUrl("");
+            setImageUrl(null);
+            setImagePreview(null);
+            setImageFile(null);
+            setExpiryDate("");
         }
-    }, [editingData, isAddModalOpen]);
+    }, [editingData, isAddModalOpen, hideCategory]);
 
     const formatDateForInput = (dateInput: Date | string | null | undefined) => {
         if (!dateInput) return "";
@@ -294,26 +306,26 @@ export function AddAnnouncementModal() {
                                     <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                                         Content Details *
                                     </Label>
-                                    <span className={`text-[10px] font-mono ${content.length >= 1000 ? "text-red-500 font-bold" : "text-slate-400"}`}>
-                                        {content.length} / 1000 max
+                                    <span className={`text-[10px] font-mono ${content.length >= 500 ? "text-red-500 font-bold" : "text-slate-400"}`}>
+                                        {content.length} / 500 max
                                     </span>
                                 </div>
                                 <Textarea
                                     name="content"
                                     required
-                                    maxLength={1000}
+                                    maxLength={500}
                                     value={content}
                                     onChange={(e) => setContent(e.target.value)}
                                     placeholder="Provide detailed information regarding schedules, affected areas, and guidelines..."
                                     className={`min-h-[130px] bg-slate-50 dark:bg-white/5 rounded-xl p-4 resize-none text-xs font-medium leading-relaxed ${
-                                        content.length >= 1000 || (content.trim().length === 0 && editingData)
+                                        content.length >= 500 || (content.trim().length === 0 && editingData)
                                             ? "border-red-500 focus-visible:ring-red-500"
                                             : "border-slate-200 dark:border-white/10 focus:ring-2 focus:ring-primary/20"
                                     }`}
                                 />
-                                {content.length >= 1000 && (
+                                {content.length >= 500 && (
                                     <p className="text-[10px] text-red-500 font-medium">
-                                        Content details cannot exceed 1,000 characters to maintain clean layout formatting.
+                                        Content details cannot exceed 500 characters to maintain clean layout formatting.
                                     </p>
                                 )}
                             </div>
@@ -404,22 +416,28 @@ export function AddAnnouncementModal() {
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Category</Label>
-                                    <Select name="category" value={category} onValueChange={setCategory}>
-                                        <SelectTrigger className="h-11 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="General">General</SelectItem>
-                                            <SelectItem value="Weather">Weather</SelectItem>
-                                            <SelectItem value="Health">Health</SelectItem>
-                                            <SelectItem value="Emergency">Emergency</SelectItem>
-                                            <SelectItem value="Public Service">Public Service</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                            {hideCategory ? (
+                                <input type="hidden" name="category" value={category || "Health"} />
+                            ) : null}
+
+                            <div className={hideCategory ? "grid grid-cols-1 gap-4" : "grid grid-cols-2 gap-4"}>
+                                {!hideCategory && (
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Category</Label>
+                                        <Select name="category" value={category} onValueChange={setCategory}>
+                                            <SelectTrigger className="h-11 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl text-xs">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="General">General</SelectItem>
+                                                <SelectItem value="Weather">Weather</SelectItem>
+                                                <SelectItem value="Health">Health</SelectItem>
+                                                <SelectItem value="Emergency">Emergency</SelectItem>
+                                                <SelectItem value="Public Service">Public Service</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
 
                                 <div className="space-y-1.5">
                                     <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Priority</Label>
