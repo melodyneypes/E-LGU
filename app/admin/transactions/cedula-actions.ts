@@ -943,6 +943,8 @@ export async function getTreasuryTransactions(params?: string | {
                 isCancelled: true,
                 businessName: true,
                 isStudent: true,
+                residentSnapshot: true,
+                additionalData: true,
                 processedBy: true,
                 type: {
                     select: {

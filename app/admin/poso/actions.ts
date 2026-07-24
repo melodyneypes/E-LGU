@@ -122,42 +122,178 @@ export async function deleteTrafficViolation(id: string) {
 // ----------------------------------------
 
 // ----------------------------------------
-// POSO SYSTEM SETTINGS (DUE DAYS)
+// POSO SYSTEM SETTINGS (DUE DAYS & PENALTIES)
 // ----------------------------------------
 
-export async function getPosoDueDaysSetting() {
+export interface POSOPenaltySettings {
+    dueDays: number;
+    surchargeRate: number;
+    monthlyInterestRate: number;
+}
+
+export interface POSOPenaltyBreakdown {
+    baseFine: number;
+    impoundFee: number;
+    subtotal: number;
+    isOverdue: boolean;
+    daysOverdue: number;
+    monthsOverdue: number;
+    surchargeRate: number;
+    surchargeAmount: number;
+    monthlyInterestRate: number;
+    interestAmount: number;
+    totalPenalty: number;
+    grandTotalPayable: number;
+}
+
+export async function getPosoPenaltySettings(): Promise<{ success: boolean; settings: POSOPenaltySettings; error?: string }> {
     try {
         await verifyAdminOrStaff();
-        const setting = await (prisma as any).systemSetting.findUnique({
-            where: { key: "poso_ticket_due_days" },
+        const settingsList = await (prisma as any).systemSetting.findMany({
+            where: {
+                key: {
+                    in: ["poso_ticket_due_days", "poso_surcharge_rate", "poso_monthly_interest_rate"],
+                },
+            },
         });
-        const dueDays = setting ? parseInt(setting.value, 10) : 7;
-        return { success: true, dueDays: isNaN(dueDays) ? 7 : dueDays };
+
+        const dueDaysSetting = settingsList.find((s: any) => s.key === "poso_ticket_due_days");
+        const surchargeSetting = settingsList.find((s: any) => s.key === "poso_surcharge_rate");
+        const interestSetting = settingsList.find((s: any) => s.key === "poso_monthly_interest_rate");
+
+        const dueDays = dueDaysSetting ? parseInt(dueDaysSetting.value, 10) : 7;
+        const surchargeRate = surchargeSetting ? parseFloat(surchargeSetting.value) : 25;
+        const monthlyInterestRate = interestSetting ? parseFloat(interestSetting.value) : 2;
+
+        return {
+            success: true,
+            settings: {
+                dueDays: isNaN(dueDays) ? 7 : dueDays,
+                surchargeRate: isNaN(surchargeRate) ? 25 : surchargeRate,
+                monthlyInterestRate: isNaN(monthlyInterestRate) ? 2 : monthlyInterestRate,
+            },
+        };
     } catch (error: any) {
-        console.error("Failed to fetch POSO due days setting:", error);
-        return { success: false, dueDays: 7, error: error.message };
+        console.error("Failed to fetch POSO penalty settings:", error);
+        return {
+            success: false,
+            settings: { dueDays: 7, surchargeRate: 25, monthlyInterestRate: 2 },
+            error: error.message,
+        };
     }
 }
 
-export async function updatePosoDueDaysSetting(days: number) {
+export async function updatePosoPenaltySettings(data: {
+    dueDays: number;
+    surchargeRate: number;
+    monthlyInterestRate: number;
+}) {
     try {
         await verifyAdminOrStaff();
-        const validDays = Math.max(1, Math.min(365, days || 7));
-        await (prisma as any).systemSetting.upsert({
-            where: { key: "poso_ticket_due_days" },
-            update: { value: String(validDays) },
-            create: {
-                key: "poso_ticket_due_days",
-                value: String(validDays),
-                description: "Number of grace period days before POSO traffic citations become overdue",
-            },
-        });
+        const validDays = Math.max(1, Math.min(365, data.dueDays || 7));
+        const validSurcharge = Math.max(0, Math.min(100, data.surchargeRate ?? 25));
+        const validInterest = Math.max(0, Math.min(100, data.monthlyInterestRate ?? 2));
+
+        await Promise.all([
+            (prisma as any).systemSetting.upsert({
+                where: { key: "poso_ticket_due_days" },
+                update: { value: String(validDays) },
+                create: {
+                    key: "poso_ticket_due_days",
+                    value: String(validDays),
+                    description: "Number of grace period days before POSO traffic citations become overdue",
+                },
+            }),
+            (prisma as any).systemSetting.upsert({
+                where: { key: "poso_surcharge_rate" },
+                update: { value: String(validSurcharge) },
+                create: {
+                    key: "poso_surcharge_rate",
+                    value: String(validSurcharge),
+                    description: "Percentage late payment surcharge for overdue POSO citations (RA 7160)",
+                },
+            }),
+            (prisma as any).systemSetting.upsert({
+                where: { key: "poso_monthly_interest_rate" },
+                update: { value: String(validInterest) },
+                create: {
+                    key: "poso_monthly_interest_rate",
+                    value: String(validInterest),
+                    description: "Monthly interest rate percentage for overdue POSO citations (RA 7160)",
+                },
+            }),
+        ]);
+
         revalidatePath("/admin/poso/tickets");
-        return { success: true, dueDays: validDays };
+        revalidatePath("/admin/poso/settings");
+        return { success: true };
     } catch (error: any) {
-        console.error("Failed to update POSO due days setting:", error);
-        return { success: false, error: error.message || "Failed to update setting." };
+        console.error("Failed to update POSO penalty settings:", error);
+        return { success: false, error: error.message || "Failed to update penalty settings." };
     }
+}
+
+export async function calculatePosoTicketPenalty(
+    ticket: {
+        totalAmount?: number;
+        impoundFee?: number;
+        isImpounded?: boolean;
+        dateTime?: Date | string;
+        isPaid?: boolean;
+        status?: string;
+    },
+    settings: POSOPenaltySettings,
+    targetDate: Date = new Date()
+): Promise<POSOPenaltyBreakdown> {
+    const baseFine = Number(ticket.totalAmount || 0);
+    const impoundFee = ticket.isImpounded ? Number(ticket.impoundFee || 0) : 0;
+    const subtotal = baseFine + impoundFee;
+
+    const apprehensionDate = ticket.dateTime ? new Date(ticket.dateTime) : new Date();
+    const dueDate = new Date(apprehensionDate.getTime() + settings.dueDays * 24 * 60 * 60 * 1000);
+
+    const isPaidOrSettled = Boolean(ticket.isPaid) || ticket.status === "PAID" || ticket.status === "SETTLED";
+    const isOverdue = !isPaidOrSettled && targetDate > dueDate;
+
+    if (!isOverdue) {
+        return {
+            baseFine,
+            impoundFee,
+            subtotal,
+            isOverdue: false,
+            daysOverdue: 0,
+            monthsOverdue: 0,
+            surchargeRate: settings.surchargeRate,
+            surchargeAmount: 0,
+            monthlyInterestRate: settings.monthlyInterestRate,
+            interestAmount: 0,
+            totalPenalty: 0,
+            grandTotalPayable: subtotal,
+        };
+    }
+
+    const diffTime = targetDate.getTime() - dueDate.getTime();
+    const daysOverdue = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    const monthsOverdue = Math.max(1, Math.ceil(daysOverdue / 30));
+
+    const surchargeAmount = (subtotal * settings.surchargeRate) / 100;
+    const interestAmount = (subtotal * (settings.monthlyInterestRate / 100)) * monthsOverdue;
+    const totalPenalty = surchargeAmount + interestAmount;
+
+    return {
+        baseFine,
+        impoundFee,
+        subtotal,
+        isOverdue: true,
+        daysOverdue,
+        monthsOverdue,
+        surchargeRate: settings.surchargeRate,
+        surchargeAmount,
+        monthlyInterestRate: settings.monthlyInterestRate,
+        interestAmount,
+        totalPenalty,
+        grandTotalPayable: subtotal + totalPenalty,
+    };
 }
 
 export async function getTickets(params: {
@@ -176,8 +312,8 @@ export async function getTickets(params: {
         const pageSize = params.limit || 10;
         const skip = (page - 1) * pageSize;
 
-        const dueDaysRes = await getPosoDueDaysSetting();
-        const posoDueDays = dueDaysRes.dueDays || 7;
+        const penaltySettingsRes = await getPosoPenaltySettings();
+        const posoDueDays = penaltySettingsRes.settings?.dueDays || 7;
 
         const where: any = {};
 
@@ -282,8 +418,8 @@ export async function getTicketById(id: string) {
     try {
         await verifyAdminOrStaff();
 
-        const dueDaysRes = await getPosoDueDaysSetting();
-        const posoDueDays = dueDaysRes.dueDays || 7;
+        const penaltySettingsRes = await getPosoPenaltySettings();
+        const posoDueDays = penaltySettingsRes.settings?.dueDays || 7;
 
         let ticket = await (prisma as any).ticketHeader.findUnique({
             where: { id },
@@ -573,8 +709,12 @@ export async function processTicketSettlement(id: string) {
             isRegisteredUser: Boolean(violatorUserId),
         };
 
+        const penaltySettingsRes = await getPosoPenaltySettings();
+        const penaltySettings = penaltySettingsRes.settings;
+        const penaltyBreakdown = await calculatePosoTicketPenalty(ticket, penaltySettings);
+
         const impoundFee = ticket.isImpounded ? (ticket.impoundFee || 0) : 0;
-        const grandTotal = (ticket.totalAmount || 0) + impoundFee;
+        const grandTotal = penaltyBreakdown.grandTotalPayable;
 
         const additionalData = {
             ticketNo: ticket.ticketNo,
@@ -594,6 +734,7 @@ export async function processTicketSettlement(id: string) {
                 level: d.offenseLevel,
                 fine: d.amount,
             })),
+            penaltyBreakdown,
             ticketsBreakdown: [
                 {
                     ticketId: ticket.id,
@@ -601,6 +742,8 @@ export async function processTicketSettlement(id: string) {
                     baseFine: ticket.totalAmount || 0,
                     impoundFee,
                     isImpounded: ticket.isImpounded || false,
+                    surchargeAmount: penaltyBreakdown.surchargeAmount,
+                    interestAmount: penaltyBreakdown.interestAmount,
                     totalFine: grandTotal,
                 },
             ],
@@ -609,6 +752,9 @@ export async function processTicketSettlement(id: string) {
         const fiscalSnapshot = {
             baseFineTotal: ticket.totalAmount || 0,
             impoundFee: impoundFee,
+            surchargeAmount: penaltyBreakdown.surchargeAmount,
+            interestAmount: penaltyBreakdown.interestAmount,
+            totalPenalty: penaltyBreakdown.totalPenalty,
             totalAmount: grandTotal,
         };
 

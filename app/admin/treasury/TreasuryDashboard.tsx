@@ -264,8 +264,13 @@ export default function TreasuryDashboard() {
                                 const snap = typeof newTx.residentSnapshot === "string"
                                     ? JSON.parse(newTx.residentSnapshot)
                                     : newTx.residentSnapshot;
-                                if (snap && (snap.firstName || snap.lastName)) {
-                                    applicantName = `${snap.firstName || ""} ${snap.lastName || ""}`.trim();
+                                if (snap) {
+                                    const fullName = snap.fullName || snap.violatorName || snap.applicantName || snap.name || (newTx.additionalData as any)?.violatorName;
+                                    if (fullName && String(fullName).trim()) {
+                                        applicantName = String(fullName).trim();
+                                    } else if (snap.firstName || snap.lastName) {
+                                        applicantName = `${snap.firstName || ""} ${snap.lastName || ""}`.trim();
+                                    }
                                 }
                             } catch (e) {
                                 console.error("Failed to parse residentSnapshot from payload:", e);
@@ -309,7 +314,8 @@ export default function TreasuryDashboard() {
 
     const filteredTransactions = transactions.filter(tx => {
         const rs = getResidentSnapshot(tx);
-        const name = `${rs.firstName || ''} ${rs.lastName || ''}`.trim().toLowerCase();
+        const fullName = rs.fullName || rs.violatorName || rs.applicantName || rs.name || (tx.additionalData as any)?.violatorName || '';
+        const name = `${fullName} ${rs.firstName || ''} ${rs.lastName || ''} ${tx.user?.name || ''}`.trim().toLowerCase();
         const refId = tx.id.slice(-8).toUpperCase();
         const searchUpper = search.toUpperCase();
 
@@ -602,19 +608,24 @@ export default function TreasuryDashboard() {
                                                         <TableCell>
                                                             <div className="flex flex-col">
                                                                 <span className="font-bold text-slate-900 dark:text-white uppercase leading-tight">
-                                                                    {(() => {
-                                                                        const rs = getResidentSnapshot(tx);
-                                                                        if (rs.firstName || rs.lastName) {
-                                                                            return `${rs.firstName || ''} ${rs.lastName || ''}`.trim();
-                                                                        }
-                                                                        return tx.user?.name || "Registered Resident";
-                                                                    })()}
-                                                                </span>
-                                                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase italic mt-0.5">
-                                                                    {tx.type?.requiresBusinessName
-                                                                        ? `Business: ${tx.businessName || "UNNAMED ENTITY"}`
-                                                                        : "Registered Resident"}
-                                                                </span>
+                                                                     {(() => {
+                                                                         const rs = getResidentSnapshot(tx);
+                                                                         const add = (tx.additionalData as any) || {};
+                                                                         const fullName = rs.fullName || rs.violatorName || rs.applicantName || rs.name || add.violatorName || add.fullName || add.applicantName;
+                                                                         if (fullName && String(fullName).trim()) {
+                                                                             return String(fullName).trim();
+                                                                         }
+                                                                         if (rs.firstName || rs.lastName) {
+                                                                             return `${rs.firstName || ''} ${rs.lastName || ''}`.trim();
+                                                                         }
+                                                                         return tx.user?.name || "WALK-IN / CITATION CITIZEN";
+                                                                     })()}
+                                                                 </span>
+                                                                 <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase italic mt-0.5">
+                                                                     {tx.type?.requiresBusinessName
+                                                                         ? `Business: ${tx.businessName || "UNNAMED ENTITY"}`
+                                                                         : tx.userId ? "Registered Resident" : "Walk-in / Citation Record"}
+                                                                 </span>
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>

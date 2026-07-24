@@ -60,6 +60,17 @@ export default function PosoView({
     const baseFineTotal = fiscal?.baseFineTotal ?? (additional?.violations ? additional.violations.reduce((sum: number, v: any) => sum + Number(v.fine || 0), 0) : grandTotal);
     const impoundFee = fiscal?.impoundFee ?? Number(additional?.impoundFee || 0);
 
+    const pb = additional?.penaltyBreakdown || {};
+    const surchargeAmount = fiscal?.surchargeAmount !== undefined ? Number(fiscal.surchargeAmount) : Number(pb?.surchargeAmount || 0);
+    const interestAmount = fiscal?.interestAmount !== undefined ? Number(fiscal.interestAmount) : Number(pb?.interestAmount || 0);
+    const surchargeRate = pb?.surchargeRate ?? 25;
+    const monthlyInterestRate = pb?.monthlyInterestRate ?? 2;
+    const monthsOverdue = pb?.monthsOverdue ?? 1;
+
+    const displayGrandTotal = (surchargeAmount > 0 || interestAmount > 0)
+        ? (baseFineTotal + impoundFee + surchargeAmount + interestAmount)
+        : grandTotal;
+
     const isPaid = transaction?.isPaid || transaction?.status === "PAID" || transaction?.status === "SETTLED" || transaction?.status === "RELEASED";
 
     const handleConfirmPayment = async () => {
@@ -336,17 +347,37 @@ export default function PosoView({
                                             </div>
                                         )}
 
-                                        <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-400 italic">
-                                            <span>Penalty Charge</span>
-                                            <span className="font-mono text-slate-800 dark:text-slate-200">₱0.00</span>
-                                        </div>
+                                        {surchargeAmount > 0 && (
+                                            <div className="flex items-center justify-between text-xs font-bold text-amber-600 dark:text-amber-400 italic">
+                                                <span>Late Penalty Fee ({surchargeRate}%)</span>
+                                                <span className="font-mono">
+                                                    ₱{surchargeAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {interestAmount > 0 && (
+                                            <div className="flex items-center justify-between text-xs font-bold text-purple-600 dark:text-purple-400 italic">
+                                                <span>Accrued Interest ({monthsOverdue} mo @ {monthlyInterestRate}%)</span>
+                                                <span className="font-mono">
+                                                    ₱{interestAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {surchargeAmount === 0 && interestAmount === 0 && (
+                                            <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-400 italic">
+                                                <span>Penalty Charge</span>
+                                                <span className="font-mono text-slate-800 dark:text-slate-200">₱0.00</span>
+                                            </div>
+                                        )}
 
                                         <div className="pt-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-between">
                                             <span className="text-base font-black italic uppercase tracking-tight text-slate-900 dark:text-white">
                                                 TOTAL AMOUNT
                                             </span>
                                             <span className="text-3xl font-black italic text-rose-500 font-mono tracking-tighter">
-                                                ₱{grandTotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                                ₱{displayGrandTotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                                             </span>
                                         </div>
                                     </div>

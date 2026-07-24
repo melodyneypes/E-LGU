@@ -32,6 +32,7 @@ interface PaymentRecord {
         id: string;
         businessName: string | null;
         residentSnapshot?: any;
+        additionalData?: any;
         type: {
             name: string;
             category?: string;
@@ -73,6 +74,10 @@ function getRequesterName(payment: PaymentRecord) {
         } catch {
             snap = {};
         }
+    }
+    const fullName = snap.fullName || snap.violatorName || snap.applicantName || snap.name || (tx.additionalData as any)?.violatorName;
+    if (fullName && fullName.trim()) {
+        return fullName.trim();
     }
     if (snap.firstName || snap.lastName) {
         return `${snap.firstName || ""} ${snap.lastName || ""}`.trim();

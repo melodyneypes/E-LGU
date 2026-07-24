@@ -3,12 +3,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Metadata } from "next";
-import { getPosoDueDaysSetting } from "@/app/admin/poso/actions";
+import { getPosoPenaltySettings } from "@/app/admin/poso/actions";
 import PosoSettingsClient from "./PosoSettingsClient";
 
 export const metadata: Metadata = {
     title: "POSO Settings | Mapandan Portal",
-    description: "System settings and citation grace period configuration for POSO.",
+    description: "System settings, late payment surcharges, and citation grace period configuration for POSO.",
 };
 
 export default async function PosoSettingsPage() {
@@ -19,8 +19,8 @@ export default async function PosoSettingsPage() {
         redirect("/admin/dashboard");
     }
 
-    const dueDaysRes = await getPosoDueDaysSetting();
-    const initialDueDays = dueDaysRes.dueDays || 7;
+    const settingsRes = await getPosoPenaltySettings();
+    const initialSettings = settingsRes.settings || { dueDays: 7, surchargeRate: 25, monthlyInterestRate: 2 };
 
-    return <PosoSettingsClient initialDueDays={initialDueDays} />;
+    return <PosoSettingsClient initialSettings={initialSettings} />;
 }
