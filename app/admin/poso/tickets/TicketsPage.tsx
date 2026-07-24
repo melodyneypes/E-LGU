@@ -222,6 +222,16 @@ export default function TicketsPage({
                         Real-time tracking of traffic apprehensions, violator citation tickets, and treasury payment status.
                     </p>
                 </div>
+
+                <div>
+                    <Button
+                        onClick={() => router.push("/admin/poso/queue")}
+                        className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl h-11 px-5 gap-2 shadow-lg shadow-rose-600/20 active:scale-95 transition-all"
+                    >
+                        <ShieldAlert className="w-4 h-4" />
+                        Open POSO Queue Board
+                    </Button>
+                </div>
             </div>
 
             {/* Main Table Card */}

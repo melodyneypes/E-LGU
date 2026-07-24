@@ -1055,6 +1055,7 @@ model TicketHeader {
   isReleased      Boolean        @default(false)
   releasedAt      DateTime?
   vehicleClass    String?
+  queueData       Json?
   details         TicketDetail[]
   transaction     Transaction?   @relation(fields: [transactionId], references: [id])
   ticketPhotos    TicketPhoto[]

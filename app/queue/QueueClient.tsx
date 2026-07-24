@@ -33,7 +33,8 @@ const DEPT_ICONS: Record<string, any> = {
     "Treasury": Coins,
     "BPLO": Building2,
     "Registrar": Scroll,
-    "Engineering": Ruler
+    "Engineering": Ruler,
+    "POSO": ShieldAlert
 };
 
 const DEPT_THEMES: Record<string, { bg: string; border: string; glow: string; text: string }> = {
@@ -60,6 +61,12 @@ const DEPT_THEMES: Record<string, { bg: string; border: string; glow: string; te
         border: "border-amber-500/20",
         glow: "shadow-amber-500/10",
         text: "text-amber-400"
+    },
+    "POSO": {
+        bg: "bg-rose-500/5",
+        border: "border-rose-500/20",
+        glow: "shadow-rose-500/10",
+        text: "text-rose-400"
     }
 };
 
@@ -202,6 +209,18 @@ export default function QueueClient({
                     },
                     async (payload: any) => {
                         console.log("Realtime Update: Transaction change detected", payload);
+                        await fetchUpdates();
+                    }
+                )
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "TicketHeader"
+                    },
+                    async (payload: any) => {
+                        console.log("Realtime Update: TicketHeader change detected", payload);
                         await fetchUpdates();
                     }
                 )
@@ -626,7 +645,7 @@ export default function QueueClient({
             </header>
 
             {/* Main Queuing Board */}
-            <main className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 z-10 min-h-0 overflow-hidden">
+            <main className="flex-1 p-3 xl:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-4 z-10 min-h-0 overflow-hidden">
                 {queueData.filter(dept => dept.department !== "Engineering").map((dept) => {
                     const Icon = DEPT_ICONS[dept.department] || Coins;
                     const theme = DEPT_THEMES[dept.department] || DEPT_THEMES["Treasury"];

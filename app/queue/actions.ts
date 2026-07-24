@@ -40,12 +40,61 @@ export async function getActiveQueueData(): Promise<QueueDepartmentData[]> {
             }
         });
 
-        const deptNames = ["Treasury", "BPLO", "Registrar", "Engineering"];
+        const deptNames = ["Treasury", "BPLO", "Registrar", "Engineering", "POSO"];
         const queueData: QueueDepartmentData[] = deptNames.map(name => ({
             department: name,
             nowServing: [],
             waiting: []
         }));
+
+        // Fetch active POSO TicketHeaders checked in today
+        const posoTickets = await prisma.ticketHeader.findMany({
+            orderBy: {
+                updatedAt: "desc"
+            }
+        });
+
+        const checkedInPosoTickets = posoTickets.filter(t => {
+            const q = (t.queueData as any) || {};
+            return q.checkedIn === true;
+        });
+
+        // Map POSO Now Serving
+        const posoServing = checkedInPosoTickets.filter(t => {
+            const q = (t.queueData as any) || {};
+            return q.queueStatus === "SERVING";
+        });
+
+        for (const t of posoServing) {
+            const q = (t.queueData as any) || {};
+            queueData[4].nowServing.push({
+                queueNumber: q.queueNumber || t.ticketNo,
+                residentName: t.violatorName || "Citizen",
+                counterName: q.counterName || "POSO Desk",
+                updatedAt: t.updatedAt.toISOString()
+            });
+        }
+
+        // Map POSO Waiting
+        const posoWaiting = checkedInPosoTickets
+            .filter(t => {
+                const q = (t.queueData as any) || {};
+                return q.queueStatus === "WAITING";
+            })
+            .sort((a, b) => {
+                const qa = (a.queueData as any) || {};
+                const qb = (b.queueData as any) || {};
+                if (qa.isPriority && !qb.isPriority) return -1;
+                if (!qa.isPriority && qb.isPriority) return 1;
+                const aTime = new Date(qa.checkedInAt || a.createdAt).getTime();
+                const bTime = new Date(qb.checkedInAt || b.createdAt).getTime();
+                return aTime - bTime;
+            });
+
+        queueData[4].waiting = posoWaiting
+            .map(t => ((t.queueData as any)?.queueNumber || t.ticketNo))
+            .filter((num): num is string => !!num)
+            .slice(0, 8);
 
         const getDeptIndex = (tx: any, isWaiting: boolean) => {
             const category = tx.type?.category || "";
