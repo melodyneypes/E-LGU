@@ -7,7 +7,8 @@ import { ShieldAlert, AlertTriangle, Calendar, Tag, X, BellRing, Sparkles, Pin }
 import {
     Dialog,
     DialogContent,
-    DialogFooter
+    DialogFooter,
+    DialogTitle
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -149,9 +150,9 @@ export function HighPriorityAnnouncementModal({ announcements }: HighPriorityAnn
                                 </span>
                             </div>
 
-                            <h2 className="text-base sm:text-lg md:text-xl font-black uppercase italic tracking-tighter text-white leading-tight drop-shadow-md break-words">
+                            <DialogTitle className="text-base sm:text-lg md:text-xl font-black uppercase italic tracking-tighter text-white leading-tight drop-shadow-md break-words">
                                 {activeAnnouncement.title}
-                            </h2>
+                            </DialogTitle>
                         </div>
                     </div>
                 </div>
