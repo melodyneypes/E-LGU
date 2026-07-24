@@ -246,6 +246,7 @@ export async function getTicketById(id: string) {
         }
 
         let otherUnpaidTickets: any[] = [];
+        let otherPaidTickets: any[] = [];
         let otherUnpaidTotal = 0;
 
         if (ticket.licenseNo || ticket.violatorName) {
@@ -280,6 +281,33 @@ export async function getTicketById(id: string) {
                     (sum: number, t: any) => sum + (t.totalAmount || 0) + (t.isImpounded ? Number(t.impoundFee || 0) : 0),
                     0
                 );
+
+                otherPaidTickets = await (prisma as any).ticketHeader.findMany({
+                    where: {
+                        AND: [
+                            { OR: whereOR },
+                            { NOT: { id: ticket.id } },
+                            {
+                                OR: [
+                                    { isPaid: true },
+                                    { status: "PAID" }
+                                ]
+                            },
+                            { NOT: { status: "SETTLED" } }
+                        ]
+                    },
+                    select: {
+                        id: true,
+                        ticketNo: true,
+                        totalAmount: true,
+                        isImpounded: true,
+                        impoundFee: true,
+                        dateTime: true,
+                        status: true,
+                        isPaid: true,
+                    },
+                    orderBy: { dateTime: "desc" },
+                });
             }
         }
 
@@ -287,6 +315,7 @@ export async function getTicketById(id: string) {
             success: true,
             ticket,
             otherUnpaidTickets,
+            otherPaidTickets,
             otherUnpaidTotal,
             themeColor: themeSetting?.value || null,
         };
@@ -960,6 +989,7 @@ export async function addPosoOfficer(formData: FormData) {
         const bcrypt = await import("bcryptjs");
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        const now = new Date();
         const newOfficer = await (prisma as any).user.create({
             data: {
                 name,
@@ -968,6 +998,7 @@ export async function addPosoOfficer(formData: FormData) {
                 role: "POSO_OFFICER",
                 department: "POSO",
                 isEmailVerified: true,
+                emailVerified: now,
                 isPasswordChanged: true,
             },
         });
