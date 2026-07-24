@@ -288,14 +288,20 @@ export async function getViolatorHistory({
         });
 
         const totalCitations = tickets.length;
-        const totalAmountFined = tickets.reduce((sum: number, t: any) => sum + (t.totalAmount || 0), 0);
+        const totalAmountFined = tickets.reduce((sum: number, t: any) => sum + (t.totalAmount || 0) + (t.isImpounded ? Number(t.impoundFee || 0) : 0), 0);
         const unpaidCount = tickets.filter((t: any) => !t.isPaid).length;
+        const impoundedTickets = tickets.filter((t: any) => t.isImpounded);
+        const activeImpoundedCount = impoundedTickets.filter((t: any) => !t.isReleased && !t.isPaid).length;
+        const totalImpoundFees = tickets.reduce((sum: number, t: any) => sum + (t.isImpounded ? Number(t.impoundFee || 0) : 0), 0);
 
         return {
             success: true,
             totalCitations,
             totalAmountFined,
             unpaidCount,
+            totalImpoundedCount: impoundedTickets.length,
+            activeImpoundedCount,
+            totalImpoundFees,
             tickets,
         };
     } catch (error: any) {
@@ -465,6 +471,149 @@ export async function processTicketSettlement(id: string) {
     } catch (error: any) {
         console.error("Failed to process ticket settlement:", error);
         return { success: false, error: error.message || "Failed to process ticket settlement." };
+    }
+}
+
+export async function processMultipleTicketsSettlement(ticketIds: string[]) {
+    try {
+        const user = await verifyAdminOrStaff();
+        if (!ticketIds || ticketIds.length === 0) {
+            return { success: false, error: "No tickets selected for settlement." };
+        }
+
+        const tickets = await (prisma as any).ticketHeader.findMany({
+            where: { id: { in: ticketIds } },
+            include: {
+                details: {
+                    include: {
+                        violation: true,
+                    },
+                },
+            },
+        });
+
+        if (tickets.length === 0) {
+            return { success: false, error: "Selected citation tickets were not found." };
+        }
+
+        const firstTicket = tickets[0];
+        let violatorUserId = firstTicket.violatorUserId;
+        if (!violatorUserId && firstTicket.licenseNo) {
+            const resident = await (prisma as any).resident.findFirst({
+                where: { licenseNo: firstTicket.licenseNo },
+                select: { userId: true },
+            });
+            if (resident?.userId) violatorUserId = resident.userId;
+        }
+
+        let transactionType = await (prisma as any).transactionType.findFirst({
+            where: { code: "POSO_TRAFFIC_FINE" },
+        });
+
+        if (!transactionType) {
+            transactionType = await (prisma as any).transactionType.create({
+                data: {
+                    name: "Traffic Citation Fine Settlement",
+                    code: "POSO_TRAFFIC_FINE",
+                    category: "POSO",
+                    amount: 0,
+                    isActive: true,
+                },
+            });
+        }
+
+        const residentSnapshot = {
+            fullName: firstTicket.violatorName || "Unknown Violator",
+            licenseNo: firstTicket.licenseNo || null,
+            plateNo: firstTicket.plateNo || null,
+            address: firstTicket.violatorAddress || null,
+            isRegisteredUser: Boolean(violatorUserId),
+        };
+
+        let baseFineTotal = 0;
+        let totalImpoundFee = 0;
+        const allTicketNos: string[] = [];
+        const allViolations: any[] = [];
+        const impoundDetails: any[] = [];
+
+        for (const t of tickets) {
+            baseFineTotal += (t.totalAmount || 0);
+            const impFee = t.isImpounded ? Number(t.impoundFee || 0) : 0;
+            totalImpoundFee += impFee;
+            allTicketNos.push(t.ticketNo);
+
+            if (t.isImpounded) {
+                impoundDetails.push({
+                    ticketNo: t.ticketNo,
+                    vehicleClass: t.vehicleClass || "Standard",
+                    impoundYard: t.impoundYard || "Mapandan POSO Impounding Facility",
+                    impoundFee: impFee,
+                });
+            }
+
+            for (const d of (t.details || [])) {
+                allViolations.push({
+                    ticketNo: t.ticketNo,
+                    name: d.violationName,
+                    level: d.offenseLevel,
+                    fine: d.amount,
+                });
+            }
+        }
+
+        const grandTotal = baseFineTotal + totalImpoundFee;
+
+        const additionalData = {
+            ticketNumbers: allTicketNos,
+            ticketHeaderIds: ticketIds,
+            ticketCount: tickets.length,
+            violatorName: firstTicket.violatorName,
+            licenseNo: firstTicket.licenseNo,
+            isImpounded: impoundDetails.length > 0,
+            impoundDetails,
+            violations: allViolations,
+        };
+
+        const fiscalSnapshot = {
+            baseFineTotal,
+            impoundFee: totalImpoundFee,
+            totalAmount: grandTotal,
+        };
+
+        const result = await (prisma as any).$transaction(async (tx: any) => {
+            const newTransaction = await tx.transaction.create({
+                data: {
+                    userId: violatorUserId,
+                    typeId: transactionType.id,
+                    status: "UNPAID",
+                    residentSnapshot,
+                    additionalData,
+                    fiscalSnapshot,
+                    totalAmount: grandTotal,
+                    isPaid: false,
+                    processedBy: user.name || user.email,
+                },
+            });
+
+            await tx.ticketHeader.updateMany({
+                where: { id: { in: ticketIds } },
+                data: {
+                    transactionId: newTransaction.id,
+                    isPaid: false,
+                    status: "UNPAID",
+                },
+            });
+
+            return newTransaction;
+        });
+
+        revalidatePath("/admin/poso/tickets");
+        revalidatePath("/admin/treasury/payments");
+
+        return { success: true, transaction: result, count: tickets.length, grandTotal };
+    } catch (error: any) {
+        console.error("Failed to process batch tickets settlement:", error);
+        return { success: false, error: error.message || "Failed to process batch tickets settlement." };
     }
 }
 
