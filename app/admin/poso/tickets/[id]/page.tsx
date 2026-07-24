@@ -640,6 +640,30 @@ export default function TicketDetailsPage() {
                             <p className="text-xs font-semibold text-emerald-900/80 dark:text-emerald-200/90 leading-relaxed italic">
                                 This citation ticket has been officially settled and any confiscated driver&apos;s license or impounded vehicle has been released.
                             </p>
+
+                            <div className="space-y-2 py-2 border-t border-emerald-200/60 dark:border-emerald-500/20">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Official Receipt (O.R.) No:</span>
+                                    <span className="font-mono font-bold text-slate-900 dark:text-white">
+                                        {ticket.transaction?.payment?.orNumber || (ticket.transaction?.additionalData as any)?.orNumber || (ticket.transaction?.additionalData as any)?.orSeriesNumber || "OR-ISSUED"}
+                                    </span>
+                                </div>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Payment Reference:</span>
+                                    <span className="font-mono font-bold text-slate-900 dark:text-white">
+                                        {ticket.transaction?.payment?.reference || ticket.transaction?.paymentReference || (ticket.transaction?.additionalData as any)?.paymentReference || (ticket.transaction?.additionalData as any)?.gcashReferenceNo || (ticket.transaction?.additionalData as any)?.referenceNo || "N/A (Cash)"}
+                                    </span>
+                                </div>
+                                {ticket.transaction?.payment?.method && (
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                        <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Payment Method:</span>
+                                        <span className="font-mono font-bold text-slate-900 dark:text-white uppercase">
+                                            {ticket.transaction.payment.method.replace(/_/g, " ")}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
                             {ticket.releasedAt && (
                                 <div className="pt-3 border-t border-emerald-200/60 dark:border-emerald-500/20 flex items-center justify-between text-[11px] font-bold text-emerald-900 dark:text-emerald-200">
                                     <span className="uppercase tracking-wider text-[10px] text-emerald-600 dark:text-emerald-400">Released Timestamp</span>

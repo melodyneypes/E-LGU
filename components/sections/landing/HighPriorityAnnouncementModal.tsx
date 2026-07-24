@@ -19,7 +19,8 @@ import {
 import {
     Dialog,
     DialogContent,
-    DialogFooter
+    DialogFooter,
+    DialogTitle
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -123,6 +124,7 @@ export function HighPriorityAnnouncementModal({ announcements }: HighPriorityAnn
                     hasImage ? "w-[92vw] sm:max-w-[660px] md:max-w-[780px]" : "w-[90vw] sm:max-w-[540px]"
                 }`}
             >
+                <DialogTitle className="sr-only">{activeAnnouncement.title}</DialogTitle>
 
 
                 {/* Main Front Modal Container */}

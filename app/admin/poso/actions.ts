@@ -1193,4 +1193,3 @@ export async function getEnforcerLeaderboard({
         return { success: false, error: error.message || "Failed to fetch leaderboard." };
     }
 }
-
