@@ -4597,7 +4597,7 @@ export async function releaseBuildingPermitAction(id: string) {
             }
 
             if (transaction.type.code === "OCCUPANCY_PERMIT") {
-                await tx.occupancyPermit.upsert({
+                await (tx as any).occupancyPermit.upsert({
                     where: { transactionId: id },
                     create: {
                         transactionId: id,
