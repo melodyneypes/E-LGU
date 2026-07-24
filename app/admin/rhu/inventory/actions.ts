@@ -91,21 +91,34 @@ export async function getRHUInventoryItems(params?: {
             ];
         }
 
-        const batchModel = getBatchModel();
-        const findOptions: any = {
-            where: whereClause,
-            orderBy: { name: "asc" }
-        };
-
-        if (batchModel) {
-            findOptions.include = {
-                batches: {
-                    orderBy: { expirationDate: "asc" }
-                }
-            };
+        let items: any[] = [];
+        try {
+            items = await prisma.$queryRaw`
+                SELECT i.*, 
+                    COALESCE(
+                        json_agg(
+                            json_build_object(
+                                'id', b.id,
+                                'itemId', b."itemId",
+                                'batchNumber', b."batchNumber",
+                                'expirationDate', b."expirationDate",
+                                'quantity', b.quantity,
+                                'initialQuantity', b."initialQuantity",
+                                'receivedDate', b."receivedDate",
+                                'remarks', b.remarks
+                            )
+                        ) FILTER (WHERE b.id IS NOT NULL), '[]'
+                    ) as batches
+                FROM "RHUInventoryItem" i
+                LEFT JOIN "RHUInventoryBatch" b ON b."itemId" = i.id
+                GROUP BY i.id
+                ORDER BY i.name ASC
+            `;
+        } catch (rawErr) {
+            console.warn("Raw SQL query failed, attempting Prisma delegate:", rawErr);
+            const model = getInventoryModel();
+            items = await model.findMany({ where: whereClause, orderBy: { name: "asc" } });
         }
-
-        const items = await getInventoryModel().findMany(findOptions);
 
         // Process items to calculate total stock quantity and FEFO earliest expiration date
         const processedItems = items.map((item: any) => {
@@ -316,29 +329,43 @@ export async function adjustRHUBatchQuantity(batchId: string, delta: number) {
         await checkAuth();
 
         const batchModel = getBatchModel();
-        if (!batchModel) {
-            return { success: false, error: "Batch model unavailable" };
+        if (batchModel) {
+            const currentBatch = await batchModel.findUnique({ where: { id: batchId } });
+            if (currentBatch) {
+                const newQty = Math.max(0, currentBatch.quantity + delta);
+                await batchModel.update({
+                    where: { id: batchId },
+                    data: { quantity: newQty }
+                });
+
+                const allBatches = await batchModel.findMany({ where: { itemId: currentBatch.itemId } });
+                const totalQty = allBatches.reduce((sum: number, b: any) => sum + b.quantity, 0);
+
+                await getInventoryModel().update({
+                    where: { id: currentBatch.itemId },
+                    data: { quantity: totalQty }
+                });
+
+                revalidatePath("/admin/rhu/inventory");
+                return { success: true };
+            }
         }
 
-        const currentBatch = await batchModel.findUnique({ where: { id: batchId } });
-        if (!currentBatch) {
+        // Fallback using raw SQL
+        const batches: any[] = await prisma.$queryRaw`SELECT * FROM "RHUInventoryBatch" WHERE id = ${batchId} LIMIT 1`;
+        if (!batches || batches.length === 0) {
             return { success: false, error: "Batch record not found" };
         }
 
-        const newQty = Math.max(0, currentBatch.quantity + delta);
-        await batchModel.update({
-            where: { id: batchId },
-            data: { quantity: newQty }
-        });
+        const b = batches[0];
+        const newQty = Math.max(0, b.quantity + delta);
 
-        // Sync master item total
-        const allBatches = await batchModel.findMany({ where: { itemId: currentBatch.itemId } });
-        const totalQty = allBatches.reduce((sum: number, b: any) => sum + b.quantity, 0);
+        await prisma.$executeRaw`UPDATE "RHUInventoryBatch" SET quantity = ${newQty}, "updatedAt" = NOW() WHERE id = ${batchId}`;
 
-        await getInventoryModel().update({
-            where: { id: currentBatch.itemId },
-            data: { quantity: totalQty }
-        });
+        const sumResult: any[] = await prisma.$queryRaw`SELECT COALESCE(SUM(quantity), 0) as total FROM "RHUInventoryBatch" WHERE "itemId" = ${b.itemId}`;
+        const totalQty = Number(sumResult[0]?.total || 0);
+
+        await prisma.$executeRaw`UPDATE "RHUInventoryItem" SET quantity = ${totalQty}, "updatedAt" = NOW() WHERE id = ${b.itemId}`;
 
         revalidatePath("/admin/rhu/inventory");
         return { success: true };

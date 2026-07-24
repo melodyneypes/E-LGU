@@ -167,6 +167,35 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
     const [deletingBatchId, setDeletingBatchId] = useState<string | null>(null);
     const [deletingBatchNo, setDeletingBatchNo] = useState<string>("");
 
+    // Batch Stock Adjustment Popup Modal states
+    const [isBatchAdjustModalOpen, setIsBatchAdjustModalOpen] = useState(false);
+    const [batchAdjustTarget, setBatchAdjustTarget] = useState<{
+        batchId: string;
+        batchNumber: string;
+        itemName: string;
+        unit: string;
+        currentQuantity: number;
+    } | null>(null);
+    const [batchAdjustAmount, setBatchAdjustAmount] = useState<number>(0);
+
+    const handleOpenBatchAdjustModal = (
+        batchId: string,
+        batchNumber: string,
+        itemName: string,
+        unit: string,
+        currentQuantity: number
+    ) => {
+        setBatchAdjustTarget({
+            batchId,
+            batchNumber,
+            itemName,
+            unit,
+            currentQuantity
+        });
+        setBatchAdjustAmount(currentQuantity);
+        setIsBatchAdjustModalOpen(true);
+    };
+
     // Form state for Master Item
     const [formData, setFormData] = useState<RHUInventoryInput>({
         name: "",
@@ -380,7 +409,8 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
         });
     };
 
-    const handleAdjustBatchQty = async (batchId: string, delta: number) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _handleAdjustBatchQty = async (batchId: string, delta: number) => {
         startTransition(async () => {
             const res = await adjustRHUBatchQuantity(batchId, delta);
             if (res.success) {
@@ -901,23 +931,21 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                                                                                             </TableCell>
                                                                                             <TableCell className="text-right py-2 space-x-1">
                                                                                                 <Button
-                                                                                                    onClick={() => handleAdjustBatchQty(batch.id, 10)}
-                                                                                                    variant="outline"
-                                                                                                    size="sm"
-                                                                                                    className="h-6 px-1.5 text-[10px]"
-                                                                                                    title="Add +10 to batch"
-                                                                                                >
-                                                                                                    +10
-                                                                                                </Button>
-                                                                                                <Button
-                                                                                                    onClick={() => handleAdjustBatchQty(batch.id, -10)}
-                                                                                                    variant="outline"
-                                                                                                    size="sm"
-                                                                                                    className="h-6 px-1.5 text-[10px]"
-                                                                                                    title="Deduct -10 from batch"
-                                                                                                >
-                                                                                                    -10
-                                                                                                </Button>
+                                                                                                     onClick={() => handleOpenBatchAdjustModal(
+                                                                                                         batch.id,
+                                                                                                         batch.batchNumber,
+                                                                                                         item.name,
+                                                                                                         item.unit,
+                                                                                                         batch.quantity
+                                                                                                     )}
+                                                                                                     variant="outline"
+                                                                                                     size="sm"
+                                                                                                     className="h-7 px-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-800/60 gap-1.5"
+                                                                                                     title="Adjust batch stock quantity"
+                                                                                                 >
+                                                                                                     <ArrowUpDown className="w-3.5 h-3.5" />
+                                                                                                     Adjust Stock
+                                                                                                 </Button>
                                                                                                 <Button
                                                                                                     onClick={() => handleOpenDeleteBatchModal(batch.id, batch.batchNumber)}
                                                                                                     variant="ghost"
@@ -1323,6 +1351,115 @@ export default function RHUInventoryClient({ initialItems }: RHUInventoryClientP
                             className="bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs h-9 font-bold"
                         >
                             {isPending ? "Deleting..." : "Delete Batch"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Batch Stock Adjustment Modal Popup */}
+            <Dialog open={isBatchAdjustModalOpen} onOpenChange={setIsBatchAdjustModalOpen}>
+                <DialogContent className="sm:max-w-[400px] rounded-2xl p-6">
+                    <DialogHeader className="space-y-1">
+                        <DialogTitle className="text-base font-bold flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                            <ArrowUpDown className="w-4 h-4 text-rose-500" />
+                            Adjust Batch Stock
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            {batchAdjustTarget && (
+                                <>
+                                    {batchAdjustTarget.itemName} • Batch <strong className="text-slate-900 dark:text-slate-100">#{batchAdjustTarget.batchNumber}</strong>
+                                </>
+                            )}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {batchAdjustTarget && (
+                        <div className="space-y-4 py-3">
+                            {/* Input Field with -10 and +10 Quick Step Buttons */}
+                            <div className="space-y-2">
+                                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                    Current Stock Quantity ({batchAdjustTarget.unit})
+                                </Label>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-11 px-3.5 font-bold text-xs shrink-0 rounded-xl hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/30"
+                                        onClick={() => setBatchAdjustAmount(prev => Math.max(0, prev - 10))}
+                                    >
+                                        -10
+                                    </Button>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        value={batchAdjustAmount}
+                                        onChange={(e) => setBatchAdjustAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                                        className="h-11 text-center text-base font-black rounded-xl border-2 focus-visible:ring-rose-500"
+                                        placeholder="Current Stock..."
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-11 px-3.5 font-bold text-xs shrink-0 rounded-xl hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-950/30"
+                                        onClick={() => setBatchAdjustAmount(prev => prev + 10)}
+                                    >
+                                        +10
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Stock Delta Summary */}
+                            {(() => {
+                                const diff = batchAdjustAmount - batchAdjustTarget.currentQuantity;
+                                return (
+                                    <div className="bg-slate-100 dark:bg-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs border border-slate-200 dark:border-slate-700">
+                                        <span className="text-slate-500 font-medium">Initial: {batchAdjustTarget.currentQuantity.toLocaleString()} {batchAdjustTarget.unit}</span>
+                                        <span className={cn(
+                                            "font-bold text-xs px-2 py-0.5 rounded-md",
+                                            diff > 0 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
+                                            diff < 0 ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-slate-200 dark:bg-slate-700 text-slate-500"
+                                        )}>
+                                            {diff > 0 ? `+${diff.toLocaleString()}` : diff < 0 ? diff.toLocaleString() : "No Change"}
+                                        </span>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    )}
+
+                    <DialogFooter className="gap-2 sm:gap-0 pt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsBatchAdjustModalOpen(false)}
+                            disabled={isPending}
+                            className="rounded-xl text-xs h-9"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={() => {
+                                if (!batchAdjustTarget) return;
+                                const delta = batchAdjustAmount - batchAdjustTarget.currentQuantity;
+
+                                startTransition(async () => {
+                                    const res = await adjustRHUBatchQuantity(batchAdjustTarget.batchId, delta);
+                                    if (res.success) {
+                                        toast.success(`Batch #${batchAdjustTarget.batchNumber} stock updated!`);
+                                        setIsBatchAdjustModalOpen(false);
+                                        await refreshData();
+                                    } else {
+                                        toast.error(res.error || "Failed to adjust batch stock");
+                                    }
+                                });
+                            }}
+                            disabled={isPending}
+                            className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs h-9 font-bold px-5"
+                        >
+                            {isPending ? "Saving..." : "Save Stock"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

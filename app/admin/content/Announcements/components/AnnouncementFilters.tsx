@@ -12,10 +12,12 @@ export function AnnouncementFilters() {
     const {
         searchTerm,
         setIsAddModalOpen,
+        setEditingData,
         selectedCategory,
         selectedPriority,
         currentBarangay,
         activeBarangays = [],
+        hideCategory,
         themeColor,
         setIsPending,
     } = useAnnouncements();
@@ -89,19 +91,21 @@ export function AnnouncementFilters() {
                         />
                     </div>
 
-                    <Select value={selectedCategory || "All"} onValueChange={handleCategoryChange}>
-                        <SelectTrigger className="w-[150px] h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-black uppercase tracking-widest text-[9px]">
-                            <SelectValue placeholder="Category" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]">
-                            <SelectItem value="All">All Types</SelectItem>
-                            <SelectItem value="General">General</SelectItem>
-                            <SelectItem value="Weather">Weather</SelectItem>
-                            <SelectItem value="Public Service">Public Service</SelectItem>
-                            <SelectItem value="Emergency">Emergency</SelectItem>
-                            <SelectItem value="Health">Health</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    {!hideCategory && (
+                        <Select value={selectedCategory || "All"} onValueChange={handleCategoryChange}>
+                            <SelectTrigger className="w-[150px] h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-black uppercase tracking-widest text-[9px]">
+                                <SelectValue placeholder="Category" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-[#151b2b] border-slate-200 dark:border-[#2a3040]">
+                                <SelectItem value="All">All Types</SelectItem>
+                                <SelectItem value="General">General</SelectItem>
+                                <SelectItem value="Weather">Weather</SelectItem>
+                                <SelectItem value="Public Service">Public Service</SelectItem>
+                                <SelectItem value="Emergency">Emergency</SelectItem>
+                                <SelectItem value="Health">Health</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    )}
 
                     <Select value={selectedPriority || "All"} onValueChange={handlePriorityChange}>
                         <SelectTrigger className="w-[150px] h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] rounded-xl font-black uppercase tracking-widest text-[9px]">
@@ -138,7 +142,10 @@ export function AnnouncementFilters() {
                 </div>
 
                 <Button
-                    onClick={() => setIsAddModalOpen(true)}
+                    onClick={() => {
+                        setEditingData(null);
+                        setIsAddModalOpen(true);
+                    }}
                     className="w-full sm:w-auto h-12 text-white font-black uppercase tracking-widest text-[10px] px-8 rounded-xl transition-all shadow-xl flex items-center gap-2 hover:opacity-90 active:scale-95"
                     style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${themeColor}33` }}
                 >
