@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { getTickets, getViolatorHistory, processTicketSettlement, processMultipleTicketsSettlement } from "@/app/admin/poso/actions";
+import { getTickets, getViolatorHistory, processMultipleTicketsSettlement } from "@/app/admin/poso/actions";
 import { getSystemSettingAction } from "@/app/admin/transactions/actions";
 import {
     Table,
@@ -32,8 +32,6 @@ import {
     History,
     AlertTriangle,
     Truck,
-    Building2,
-    Clock,
     ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";

@@ -7,14 +7,14 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
     ArrowLeft, MapPin, UserCheck, Shield, Award,
-    FileText, Camera, CreditCard, RefreshCw, Car, ShieldAlert, Clock, Truck, Building2, CheckCircle2,
+    FileText, Camera, RefreshCw, Car, ShieldAlert, Clock, Truck, Building2, CheckCircle2,
     AlertTriangle, ExternalLink, History
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { getTicketById, processTicketSettlement, markTicketAsSettled } from "@/app/admin/poso/actions";
+import { getTicketById, markTicketAsSettled } from "@/app/admin/poso/actions";
 
 export default function TicketDetailsPage() {
     const routeParams = useParams();
@@ -32,7 +32,6 @@ export default function TicketDetailsPage() {
     const [otherPaidTickets, setOtherPaidTickets] = useState<any[]>([]);
     const [otherUnpaidTotal, setOtherUnpaidTotal] = useState(0);
     const [themeColor, setThemeColor] = useState<string | null>(null);
-    const [paying, setPaying] = useState(false);
     const [settling, setSettling] = useState(false);
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
@@ -62,28 +61,7 @@ export default function TicketDetailsPage() {
         return () => { isMounted = false; };
     }, [id]);
 
-    const handleSettlePayment = async () => {
-        if (!ticket) return;
-        setPaying(true);
-        try {
-            const res = await processTicketSettlement(ticket.id);
-            if (res.success) {
-                toast.success("Ticket settlement transaction created and sent to Treasury!");
-                setTicket((prev: any) => ({
-                    ...prev,
-                    isPaid: false,
-                    status: "UNPAID",
-                    transactionId: res.transaction?.id,
-                }));
-            } else {
-                toast.error(res.error || "Failed to process settlement transaction");
-            }
-        } catch {
-            toast.error("An unexpected error occurred while processing settlement transaction");
-        } finally {
-            setPaying(false);
-        }
-    };
+
 
     const handleMarkAsSettled = async () => {
         if (!ticket) return;

@@ -53,7 +53,7 @@ export function AddNewsModal() {
         } else {
             setImagePreview(null);
         }
-    }, [editingData?.id, isAddModalOpen]);
+    }, [editingData, isAddModalOpen]);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];

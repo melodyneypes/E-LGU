@@ -9,12 +9,7 @@ import {
     ChevronDown,
     CheckCircle2,
     Check,
-    UserCheck,
-    Car,
     Truck,
-    ExternalLink,
-    FileText,
-    ShieldAlert,
     ListChecks,
     Clock
 } from "lucide-react";
