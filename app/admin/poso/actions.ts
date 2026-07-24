@@ -245,7 +245,80 @@ export async function getTicketById(id: string) {
             return { success: false, error: "Ticket not found." };
         }
 
-        return { success: true, ticket, themeColor: themeSetting?.value || null };
+        let otherUnpaidTickets: any[] = [];
+        let otherPaidTickets: any[] = [];
+        let otherUnpaidTotal = 0;
+
+        if (ticket.licenseNo || ticket.violatorName) {
+            const whereOR: any[] = [];
+            if (ticket.licenseNo && ticket.licenseNo.trim()) {
+                whereOR.push({ licenseNo: { equals: ticket.licenseNo.trim(), mode: "insensitive" } });
+            }
+            if (ticket.violatorName && ticket.violatorName.trim()) {
+                whereOR.push({ violatorName: { equals: ticket.violatorName.trim(), mode: "insensitive" } });
+            }
+
+            if (whereOR.length > 0) {
+                otherUnpaidTickets = await (prisma as any).ticketHeader.findMany({
+                    where: {
+                        OR: whereOR,
+                        NOT: { id: ticket.id },
+                        isPaid: false,
+                    },
+                    select: {
+                        id: true,
+                        ticketNo: true,
+                        totalAmount: true,
+                        isImpounded: true,
+                        impoundFee: true,
+                        dateTime: true,
+                        status: true,
+                    },
+                    orderBy: { dateTime: "desc" },
+                });
+
+                otherUnpaidTotal = otherUnpaidTickets.reduce(
+                    (sum: number, t: any) => sum + (t.totalAmount || 0) + (t.isImpounded ? Number(t.impoundFee || 0) : 0),
+                    0
+                );
+
+                otherPaidTickets = await (prisma as any).ticketHeader.findMany({
+                    where: {
+                        AND: [
+                            { OR: whereOR },
+                            { NOT: { id: ticket.id } },
+                            {
+                                OR: [
+                                    { isPaid: true },
+                                    { status: "PAID" }
+                                ]
+                            },
+                            { NOT: { status: "SETTLED" } }
+                        ]
+                    },
+                    select: {
+                        id: true,
+                        ticketNo: true,
+                        totalAmount: true,
+                        isImpounded: true,
+                        impoundFee: true,
+                        dateTime: true,
+                        status: true,
+                        isPaid: true,
+                    },
+                    orderBy: { dateTime: "desc" },
+                });
+            }
+        }
+
+        return {
+            success: true,
+            ticket,
+            otherUnpaidTickets,
+            otherPaidTickets,
+            otherUnpaidTotal,
+            themeColor: themeSetting?.value || null,
+        };
     } catch (error: any) {
         console.error("Failed to fetch ticket details:", error);
         return { success: false, error: error.message || "Failed to fetch ticket details." };
@@ -288,14 +361,20 @@ export async function getViolatorHistory({
         });
 
         const totalCitations = tickets.length;
-        const totalAmountFined = tickets.reduce((sum: number, t: any) => sum + (t.totalAmount || 0), 0);
+        const totalAmountFined = tickets.reduce((sum: number, t: any) => sum + (t.totalAmount || 0) + (t.isImpounded ? Number(t.impoundFee || 0) : 0), 0);
         const unpaidCount = tickets.filter((t: any) => !t.isPaid).length;
+        const impoundedTickets = tickets.filter((t: any) => t.isImpounded);
+        const activeImpoundedCount = impoundedTickets.filter((t: any) => !t.isReleased && !t.isPaid).length;
+        const totalImpoundFees = tickets.reduce((sum: number, t: any) => sum + (t.isImpounded ? Number(t.impoundFee || 0) : 0), 0);
 
         return {
             success: true,
             totalCitations,
             totalAmountFined,
             unpaidCount,
+            totalImpoundedCount: impoundedTickets.length,
+            activeImpoundedCount,
+            totalImpoundFees,
             tickets,
         };
     } catch (error: any) {
@@ -410,6 +489,9 @@ export async function processTicketSettlement(id: string) {
         const additionalData = {
             ticketNo: ticket.ticketNo,
             ticketHeaderId: ticket.id,
+            ticketHeaderIds: [ticket.id],
+            ticketNumbers: [ticket.ticketNo],
+            ticketCount: 1,
             location: ticket.location || null,
             officerName: ticket.officerName || null,
             isImpounded: ticket.isImpounded || false,
@@ -422,6 +504,16 @@ export async function processTicketSettlement(id: string) {
                 level: d.offenseLevel,
                 fine: d.amount,
             })),
+            ticketsBreakdown: [
+                {
+                    ticketId: ticket.id,
+                    ticketNo: ticket.ticketNo,
+                    baseFine: ticket.totalAmount || 0,
+                    impoundFee,
+                    isImpounded: ticket.isImpounded || false,
+                    totalFine: grandTotal,
+                },
+            ],
         };
 
         const fiscalSnapshot = {
@@ -433,6 +525,7 @@ export async function processTicketSettlement(id: string) {
         const result = await (prisma as any).$transaction(async (tx: any) => {
             const newTransaction = await tx.transaction.create({
                 data: {
+                    queueNumber: ticket.ticketNo,
                     userId: violatorUserId,
                     typeId: transactionType.id,
                     status: "UNPAID",
@@ -465,6 +558,194 @@ export async function processTicketSettlement(id: string) {
     } catch (error: any) {
         console.error("Failed to process ticket settlement:", error);
         return { success: false, error: error.message || "Failed to process ticket settlement." };
+    }
+}
+
+export async function processMultipleTicketsSettlement(ticketIds: string[]) {
+    try {
+        const user = await verifyAdminOrStaff();
+        if (!ticketIds || ticketIds.length === 0) {
+            return { success: false, error: "No tickets selected for settlement." };
+        }
+
+        const tickets = await (prisma as any).ticketHeader.findMany({
+            where: { id: { in: ticketIds } },
+            include: {
+                details: {
+                    include: {
+                        violation: true,
+                    },
+                },
+            },
+        });
+
+        if (tickets.length === 0) {
+            return { success: false, error: "Selected citation tickets were not found." };
+        }
+
+        const firstTicket = tickets[0];
+        let violatorUserId = firstTicket.violatorUserId || null;
+        if (!violatorUserId && firstTicket.violatorName) {
+            // 1. Try matching User table directly by name
+            const matchedUser = await (prisma as any).user.findFirst({
+                where: {
+                    name: { equals: firstTicket.violatorName, mode: "insensitive" },
+                },
+                select: { id: true },
+            });
+
+            if (matchedUser) {
+                violatorUserId = matchedUser.id;
+            } else {
+                // 2. Try matching Resident profile table by first and last name
+                const nameParts = firstTicket.violatorName.trim().split(" ");
+                const firstName = nameParts[0] || "";
+                const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+
+                if (firstName) {
+                    const matchedResident = await (prisma as any).resident.findFirst({
+                        where: {
+                            AND: [
+                                { firstName: { equals: firstName, mode: "insensitive" } },
+                                ...(lastName ? [{ lastName: { equals: lastName, mode: "insensitive" } }] : []),
+                            ],
+                        },
+                        select: { userId: true },
+                    });
+
+                    if (matchedResident?.userId) {
+                        violatorUserId = matchedResident.userId;
+                    }
+                }
+            }
+        }
+
+        let transactionType = await (prisma as any).transactionType.findFirst({
+            where: { code: "POSO_TRAFFIC_FINE" },
+        });
+
+        if (!transactionType) {
+            transactionType = await (prisma as any).transactionType.create({
+                data: {
+                    name: "Traffic Citation Fine Settlement",
+                    code: "POSO_TRAFFIC_FINE",
+                    category: "POSO",
+                    amount: 0,
+                    isActive: true,
+                },
+            });
+        }
+
+        const residentSnapshot = {
+            fullName: firstTicket.violatorName || "Unknown Violator",
+            licenseNo: firstTicket.licenseNo || null,
+            plateNo: firstTicket.plateNo || null,
+            address: firstTicket.violatorAddress || null,
+            isRegisteredUser: Boolean(violatorUserId),
+        };
+
+        let baseFineTotal = 0;
+        let totalImpoundFee = 0;
+        const allTicketNos: string[] = [];
+        const allViolations: any[] = [];
+        const impoundDetails: any[] = [];
+        const ticketsBreakdown: any[] = [];
+
+        for (const t of tickets) {
+            const baseFine = t.totalAmount || 0;
+            const impFee = t.isImpounded ? Number(t.impoundFee || 0) : 0;
+            baseFineTotal += baseFine;
+            totalImpoundFee += impFee;
+            allTicketNos.push(t.ticketNo);
+
+            ticketsBreakdown.push({
+                ticketId: t.id,
+                ticketNo: t.ticketNo,
+                baseFine,
+                impoundFee: impFee,
+                isImpounded: t.isImpounded || false,
+                totalFine: baseFine + impFee,
+            });
+
+            if (t.isImpounded) {
+                impoundDetails.push({
+                    ticketNo: t.ticketNo,
+                    vehicleClass: t.vehicleClass || "Standard",
+                    impoundYard: t.impoundYard || "Mapandan POSO Impounding Facility",
+                    impoundFee: impFee,
+                });
+            }
+
+            for (const d of (t.details || [])) {
+                allViolations.push({
+                    ticketNo: t.ticketNo,
+                    name: d.violationName,
+                    level: d.offenseLevel,
+                    fine: d.amount,
+                });
+            }
+        }
+
+        const grandTotal = baseFineTotal + totalImpoundFee;
+        const queueNumber = tickets.length === 1
+            ? firstTicket.ticketNo
+            : `${firstTicket.ticketNo}-${tickets.length - 1}`;
+
+        const additionalData = {
+            ticketNo: firstTicket.ticketNo,
+            ticketHeaderId: firstTicket.id,
+            ticketHeaderIds: ticketIds,
+            ticketNumbers: allTicketNos,
+            ticketCount: tickets.length,
+            violatorName: firstTicket.violatorName,
+            licenseNo: firstTicket.licenseNo,
+            isImpounded: impoundDetails.length > 0,
+            impoundDetails,
+            violations: allViolations,
+            ticketsBreakdown,
+        };
+
+        const fiscalSnapshot = {
+            baseFineTotal,
+            impoundFee: totalImpoundFee,
+            totalAmount: grandTotal,
+        };
+
+        const result = await (prisma as any).$transaction(async (tx: any) => {
+            const newTransaction = await tx.transaction.create({
+                data: {
+                    queueNumber,
+                    userId: violatorUserId,
+                    typeId: transactionType.id,
+                    status: "UNPAID",
+                    residentSnapshot,
+                    additionalData,
+                    fiscalSnapshot,
+                    totalAmount: grandTotal,
+                    isPaid: false,
+                    processedBy: user.name || user.email,
+                },
+            });
+
+            await tx.ticketHeader.updateMany({
+                where: { id: { in: ticketIds } },
+                data: {
+                    transactionId: newTransaction.id,
+                    isPaid: false,
+                    status: "UNPAID",
+                },
+            });
+
+            return newTransaction;
+        });
+
+        revalidatePath("/admin/poso/tickets");
+        revalidatePath("/admin/treasury/payments");
+
+        return { success: true, transaction: result, count: tickets.length, grandTotal };
+    } catch (error: any) {
+        console.error("Failed to process batch tickets settlement:", error);
+        return { success: false, error: error.message || "Failed to process batch tickets settlement." };
     }
 }
 
@@ -708,6 +989,7 @@ export async function addPosoOfficer(formData: FormData) {
         const bcrypt = await import("bcryptjs");
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        const now = new Date();
         const newOfficer = await (prisma as any).user.create({
             data: {
                 name,
@@ -716,6 +998,7 @@ export async function addPosoOfficer(formData: FormData) {
                 role: "POSO_OFFICER",
                 department: "POSO",
                 isEmailVerified: true,
+                emailVerified: now,
                 isPasswordChanged: true,
             },
         });

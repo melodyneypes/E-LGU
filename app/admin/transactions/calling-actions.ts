@@ -394,9 +394,16 @@ export async function getTreasuryQueueTickets(counterName: string) {
         endOfDay.setUTCHours(23, 59, 59, 999);
 
         // Fetch waiting tickets
-        const waiting = await prisma.transaction.findMany({
+        const allRawWaiting = await prisma.transaction.findMany({
             where: {
                 OR: [
+                    // POSO Citation Fine transactions waiting to pay at Treasury
+                    {
+                        type: {
+                            category: "POSO"
+                        },
+                        status: "UNPAID"
+                    },
                     // CEDULA walk-ins waiting at treasury
                     {
                         type: {
@@ -440,19 +447,23 @@ export async function getTreasuryQueueTickets(counterName: string) {
                         }
                     }
                 ],
-                isCancelled: false,
-                additionalData: {
-                    path: ["checkedIn"],
-                    equals: true
-                }
+                isCancelled: false
             },
             include: {
+                type: true,
                 user: {
                     include: {
                         residentProfile: true
                     }
                 }
             }
+        });
+
+        // Filter in JS: checked-in tickets that have not yet been assigned to a counter
+        const waiting = allRawWaiting.filter(tx => {
+            const addData = (tx.additionalData as any) || {};
+            const isCheckedIn = Boolean(addData.checkedIn || addData.checkedInAt || addData.checkInData || addData.kioskCheckIn);
+            return isCheckedIn && !addData.counterName;
         });
 
         // Fetch currently serving at this counter

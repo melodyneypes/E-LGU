@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { getTickets, getViolatorHistory, processTicketSettlement } from "@/app/admin/poso/actions";
+import { getTickets, getViolatorHistory, processMultipleTicketsSettlement } from "@/app/admin/poso/actions";
+import { getSystemSettingAction } from "@/app/admin/transactions/actions";
 import {
     Table,
     TableBody,
@@ -30,6 +31,8 @@ import {
     ChevronRight,
     History,
     AlertTriangle,
+    Truck,
+    ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -75,6 +78,13 @@ export default function TicketsPage({
     const [historyData, setHistoryData] = useState<any | null>(null);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [loadingHistory, setLoadingHistory] = useState(false);
+    const [themeColor, setThemeColor] = useState<string | null>(null);
+
+    React.useEffect(() => {
+        getSystemSettingAction("theme_color").then((res) => {
+            if (res.success && res.data) setThemeColor(res.data);
+        });
+    }, []);
 
     React.useEffect(() => {
         setTickets(initialTickets);
@@ -103,15 +113,28 @@ export default function TicketsPage({
         }
     }, [pageSize]);
 
+    const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+    React.useEffect(() => {
+        return () => {
+            if (searchTimerRef.current) {
+                clearTimeout(searchTimerRef.current);
+            }
+        };
+    }, []);
+
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
         setSearch(val);
         setPage(1);
 
-        const timeout = setTimeout(() => {
+        if (searchTimerRef.current) {
+            clearTimeout(searchTimerRef.current);
+        }
+
+        searchTimerRef.current = setTimeout(() => {
             fetchTickets(1, val, statusFilter, paymentFilter);
         }, 400);
-        return () => clearTimeout(timeout);
     };
 
     const handleStatusChange = (val: string) => {
@@ -162,7 +185,9 @@ export default function TicketsPage({
 
     const handleSelectAllUnpaid = () => {
         if (!historyData?.tickets) return;
-        const unpaidIds = historyData.tickets.filter((t: any) => !t.isPaid).map((t: any) => t.id);
+        const unpaidIds = historyData.tickets
+            .filter((t: any) => !t.isPaid && !t.transactionId)
+            .map((t: any) => t.id);
         if (selectedTicketIds.length === unpaidIds.length) {
             setSelectedTicketIds([]);
         } else {
@@ -174,32 +199,26 @@ export default function TicketsPage({
         if (selectedTicketIds.length === 0) return;
         setBatchPaying(true);
         try {
-            const results = await Promise.all(
-                selectedTicketIds.map((id) => processTicketSettlement(id))
-            );
-            const allSuccess = results.every((r: any) => r.success);
-            if (allSuccess) {
-                toast.success(`Successfully marked ${selectedTicketIds.length} ticket(s) as PAID!`);
-                // Update local modal data
+            const res = await processMultipleTicketsSettlement(selectedTicketIds);
+            if (res.success) {
+                toast.success(`Successfully created Treasury settlement transaction for ${res.count} ticket(s) (Total: ₱${res.grandTotal?.toLocaleString()})!`);
                 setHistoryData((prev: any) => {
                     if (!prev) return prev;
                     const updatedTickets = prev.tickets.map((t: any) =>
-                        selectedTicketIds.includes(t.id) ? { ...t, status: "RESOLVED", isPaid: true } : t
+                        selectedTicketIds.includes(t.id) ? { ...t, transactionId: res.transaction?.id } : t
                     );
-                    const newUnpaidCount = updatedTickets.filter((t: any) => !t.isPaid).length;
                     return {
                         ...prev,
                         tickets: updatedTickets,
-                        unpaidCount: newUnpaidCount,
                     };
                 });
                 setSelectedTicketIds([]);
                 router.refresh();
             } else {
-                toast.error("Some tickets failed to update.");
+                toast.error(res.error || "Failed to process batch settlement transaction.");
             }
         } catch (err: any) {
-            toast.error(err.message || "Failed to process batch payment.");
+            toast.error(err.message || "Failed to process batch settlement.");
         } finally {
             setBatchPaying(false);
         }
@@ -226,16 +245,6 @@ export default function TicketsPage({
 
             {/* Main Table Card */}
             <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] overflow-hidden shadow-xl ring-1 ring-slate-200 dark:ring-white/5 relative">
-                {/* Glassmorphic Loading Overlay */}
-                {isPending && (
-                    <div className="absolute inset-0 bg-white/50 dark:bg-[#151b2b]/50 backdrop-blur-sm z-20 flex items-center justify-center">
-                        <div className="flex items-center space-x-2 bg-white dark:bg-[#1a1f2e] px-4 py-2 rounded-full shadow-lg border border-slate-200 dark:border-[#2a3040]">
-                            <RefreshCw className="w-5 h-5 text-rose-600 animate-spin" />
-                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Updating tickets...</span>
-                        </div>
-                    </div>
-                )}
-
                 {/* Search & Filter Bar */}
                 <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-[#2a3040]">
                     <div className="relative flex-1 max-w-md group">
@@ -513,7 +522,7 @@ export default function TicketsPage({
                             {historyData ? (
                                 <>
                                     {/* Violator Overview Cards */}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                         <div className="p-4 rounded-2xl bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] shadow-sm flex flex-col">
                                             <span className="text-[10px] font-black uppercase text-slate-400">Total Citations</span>
                                             <span className="text-3xl font-black text-slate-900 dark:text-white mt-1">
@@ -532,6 +541,15 @@ export default function TicketsPage({
                                             <span className="text-[10px] font-black uppercase text-rose-500">Total Fines Accumulation</span>
                                             <span className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
                                                 ₱ {(historyData.totalAmountFined || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+
+                                        <div className="p-4 rounded-2xl bg-white dark:bg-[#151b2b] border border-amber-200/60 dark:border-amber-500/30 bg-amber-50/30 dark:bg-amber-950/20 shadow-sm flex flex-col">
+                                            <span className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                                                <Truck className="w-3.5 h-3.5 text-amber-600" /> Impound Yard Custody
+                                            </span>
+                                            <span className="text-2xl font-black text-amber-800 dark:text-amber-200 mt-1">
+                                                {historyData.activeImpoundedCount || 0} <span className="text-xs text-slate-400 font-normal">held</span>
                                             </span>
                                         </div>
                                     </div>
@@ -557,15 +575,16 @@ export default function TicketsPage({
                                             <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                                 Citation Tickets Timeline ({historyData.tickets.length})
                                             </h3>
-                                            {historyData.unpaidCount > 0 && (
+                                            {historyData.tickets.some((t: any) => !t.isPaid && !t.transactionId) && (
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
                                                     onClick={handleSelectAllUnpaid}
-                                                    className="h-8 text-xs font-bold text-blue-600 hover:text-blue-700"
+                                                    style={themeColor ? { color: themeColor } : undefined}
+                                                    className="h-8 text-xs font-bold text-blue-600 hover:opacity-80"
                                                 >
-                                                    {selectedTicketIds.length === historyData.unpaidCount
+                                                    {selectedTicketIds.length === historyData.tickets.filter((t: any) => !t.isPaid && !t.transactionId).length
                                                         ? "Deselect All Unpaid"
                                                         : "Select All Unpaid"}
                                                 </Button>
@@ -575,56 +594,121 @@ export default function TicketsPage({
                                         <div className="space-y-3">
                                             {historyData.tickets.map((t: any, index: number) => {
                                                 const isSelected = selectedTicketIds.includes(t.id);
+                                                const ticketTotal = (t.totalAmount || 0) + (t.isImpounded ? Number(t.impoundFee || 0) : 0);
+                                                const isSelectable = !t.isPaid && !t.transactionId;
                                                 return (
                                                     <div
                                                         key={t.id}
-                                                        onClick={() => !t.isPaid && handleToggleSelectTicket(t.id)}
                                                         className={`p-5 rounded-2xl bg-white dark:bg-[#151b2b] border space-y-3 shadow-sm transition-all ${
-                                                            !t.isPaid ? "cursor-pointer hover:border-blue-500/50" : "opacity-90"
-                                                        } ${
                                                             isSelected
                                                                 ? "border-blue-600 dark:border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/20 dark:bg-blue-950/10"
-                                                                : "border-slate-200 dark:border-[#2a3040]"
+                                                                : "border-slate-200 dark:border-[#2a3040] hover:border-slate-300 dark:hover:border-slate-700"
                                                         }`}
                                                     >
                                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-[#2a3040] pb-3">
                                                             <div className="flex items-center space-x-3">
-                                                                {!t.isPaid && (
+                                                                {isSelectable && (
                                                                     <input
                                                                         type="checkbox"
                                                                         checked={isSelected}
-                                                                        onChange={() => {}}
-                                                                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 pointer-events-none"
+                                                                        onChange={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleToggleSelectTicket(t.id);
+                                                                        }}
+                                                                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
                                                                     />
                                                                 )}
                                                                 <span className="w-7 h-7 rounded-full bg-slate-100 dark:bg-[#1a1f2e] text-slate-700 dark:text-slate-200 flex items-center justify-center font-black text-xs">
                                                                     #{historyData.tickets.length - index}
                                                                 </span>
                                                                 <div>
-                                                                    <span className="text-sm font-black text-rose-600 dark:text-rose-400 tracking-tight">
-                                                                        {t.ticketNo}
-                                                                    </span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setIsHistoryModalOpen(false);
+                                                                            router.push(`/admin/poso/tickets/${t.id}`);
+                                                                        }}
+                                                                        className="text-sm font-black text-rose-600 dark:text-rose-400 tracking-tight hover:underline flex items-center gap-1.5 group/btn text-left"
+                                                                    >
+                                                                        <span>{t.ticketNo}</span>
+                                                                        <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover/btn:opacity-100 transition-opacity" />
+                                                                    </button>
                                                                     <span className="text-xs text-slate-400 block font-medium">
                                                                         Apprehended by: {t.officerName || "POSO Officer"}
                                                                     </span>
+                                                                    {!t.isPaid && t.transactionId && (
+                                                                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block mt-0.5">
+                                                                            ⚠️ Pending in Treasury
+                                                                        </span>
+                                                                    )}
                                                                 </div>
                                                             </div>
 
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-3">
                                                                 <span className="text-xs font-black text-slate-700 dark:text-slate-200">
-                                                                    ₱{t.totalAmount?.toLocaleString()}
+                                                                    ₱{ticketTotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                                                                 </span>
                                                                 <span
                                                                     className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase italic ${
-                                                                        t.isPaid
+                                                                        t.status === "SETTLED"
+                                                                            ? "bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400"
+                                                                            : t.isPaid || t.status === "PAID"
                                                                             ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+                                                                            : t.status === "DISMISSED" || t.status === "CANCELLED"
+                                                                            ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                                                            : t.transactionId || t.status === "PENDING"
+                                                                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
                                                                             : "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400"
                                                                     }`}
                                                                 >
-                                                                    {t.isPaid ? "PAID" : "UNPAID"}
+                                                                    {t.status === "SETTLED"
+                                                                        ? "SETTLED"
+                                                                        : t.isPaid || t.status === "PAID"
+                                                                        ? "PAID"
+                                                                        : t.status === "DISMISSED"
+                                                                        ? "DISMISSED"
+                                                                        : t.status === "CANCELLED"
+                                                                        ? "CANCELLED"
+                                                                        : t.transactionId || t.status === "PENDING"
+                                                                        ? "PENDING IN TREASURY"
+                                                                        : t.status || "UNPAID"}
                                                                 </span>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        setIsHistoryModalOpen(false);
+                                                                        router.push(`/admin/poso/tickets/${t.id}`);
+                                                                    }}
+                                                                    className="h-8 px-2.5 text-[11px] font-bold rounded-lg border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5"
+                                                                >
+                                                                    <ExternalLink className="w-3 h-3 mr-1 text-slate-500" /> View Details
+                                                                </Button>
                                                             </div>
                                                         </div>
+
+                                                        {/* Impound Facility Banner */}
+                                                        {t.isImpounded && (
+                                                            <div className="p-3 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-500/30 flex items-center justify-between text-xs font-semibold text-amber-900 dark:text-amber-200">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Truck className="w-4 h-4 text-amber-600 shrink-0" />
+                                                                    <span>
+                                                                        Impounded at: <strong>{t.impoundYard || "POSO Impounding Facility"}</strong> ({t.vehicleClass || "Class Standard"})
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2 shrink-0">
+                                                                    <span className="font-bold text-amber-700 dark:text-amber-300">
+                                                                        + ₱{Number(t.impoundFee || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })} Impound Fee
+                                                                    </span>
+                                                                    <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded ${
+                                                                        t.isReleased ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                                                                    }`}>
+                                                                        {t.isReleased ? "Released" : "Held in Yard"}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        )}
 
                                                         {/* Violations List */}
                                                         <div className="space-y-1.5 pt-1">
@@ -657,20 +741,26 @@ export default function TicketsPage({
                         {/* Sticky Batch Pay Footer */}
                         {selectedTicketIds.length > 0 && (
                             <div className="p-4 bg-white dark:bg-[#0f1117] border-t border-slate-200 dark:border-[#2a3040] flex justify-between items-center z-50 shrink-0">
-                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                    Selected <strong className="text-blue-600">{selectedTicketIds.length} unpaid ticket(s)</strong> for settlement
-                                </span>
+                                <div>
+                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+                                        Selected <strong className="text-blue-600">{selectedTicketIds.length} unpaid ticket(s)</strong>
+                                    </span>
+                                    <span className="text-[11px] font-black text-rose-600 dark:text-rose-400">
+                                        Combined Total Fine: ₱{historyData.tickets.filter((t: any) => selectedTicketIds.includes(t.id)).reduce((sum: number, t: any) => sum + (t.totalAmount || 0) + (t.isImpounded ? Number(t.impoundFee || 0) : 0), 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
                                 <Button
                                     onClick={handleBatchPay}
                                     disabled={batchPaying}
-                                    className="h-10 px-5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-lg flex items-center gap-2"
+                                    style={{ backgroundColor: themeColor || undefined }}
+                                    className="h-10 px-5 text-xs font-bold bg-emerald-600 hover:opacity-95 text-white rounded-xl shadow-lg flex items-center gap-2 transition-all"
                                 >
                                     {batchPaying ? (
                                         <RefreshCw className="w-4 h-4 animate-spin" />
                                     ) : (
                                         <CheckCircle2 className="w-4 h-4" />
                                     )}
-                                    <span>Process Selected Batch Payment</span>
+                                    <span>Send Selected to Payment</span>
                                 </Button>
                             </div>
                         )}

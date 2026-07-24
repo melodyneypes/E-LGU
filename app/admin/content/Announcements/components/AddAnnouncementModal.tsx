@@ -48,10 +48,10 @@ export function AddAnnouncementModal() {
     const [isPinned, setIsPinned] = useState(false);
     
     // Image upload / URL states
-    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [imageUrl, setImageUrl] = useState<string>("");
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [imagePreview, setImagePreview] = useState<string | null>(null);
-    const [imageTab, setImageTab] = useState<"upload" | "url">("upload");
+    const [imageTab, setImageTab] = useState<"upload" | "url" | "file">("upload");
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [imageFile, setImageFile] = useState<File | null>(null);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -81,7 +81,7 @@ export function AddAnnouncementModal() {
             setCategory(editingData.category || (hideCategory ? "Health" : "General"));
             setPriority(editingData.priority || "Normal");
             setIsPinned(Boolean(editingData.isPinned));
-            setImageUrl(editingData.imageUrl || null);
+            setImageUrl(editingData.imageUrl || "");
             setImagePreview(editingData.imageUrl || null);
             setExpiryDate(editingData.expiryDate ? format(new Date(editingData.expiryDate), "yyyy-MM-dd") : "");
         } else {
@@ -90,7 +90,7 @@ export function AddAnnouncementModal() {
             setCategory(hideCategory ? "Health" : "General");
             setPriority("Normal");
             setIsPinned(false);
-            setImageUrl(null);
+            setImageUrl("");
             setImagePreview(null);
             setImageFile(null);
             setExpiryDate("");

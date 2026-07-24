@@ -48,7 +48,15 @@ export async function confirmPosoTrafficFinePayment({
         }
 
         const additional = (transaction.additionalData as any) || {};
-        const ticketHeaderId = additional.ticketHeaderId;
+        let ticketHeaderIds: string[] = Array.isArray(additional.ticketHeaderIds)
+            ? additional.ticketHeaderIds
+            : additional.ticketHeaderId
+            ? [additional.ticketHeaderId]
+            : [];
+
+        if (ticketHeaderIds.length === 0 && Array.isArray(additional.ticketsBreakdown)) {
+            ticketHeaderIds = additional.ticketsBreakdown.map((tb: any) => tb.ticketId).filter(Boolean);
+        }
 
         // Map input paymentMethod string to Prisma PaymentType enum
         let mappedPaymentType: PaymentType = PaymentType.CASH;
@@ -60,7 +68,7 @@ export async function confirmPosoTrafficFinePayment({
 
         const cleanReference = paymentMethod === "CASH" ? null : (paymentReference?.trim() || null);
 
-        // Execute DB updates inside a transaction
+        // Execute DB updates inside an atomic transaction
         await prisma.$transaction(async (tx) => {
             // 1. Update Transaction status and O.R. Reference
             await tx.transaction.update({
@@ -83,17 +91,29 @@ export async function confirmPosoTrafficFinePayment({
                 },
             });
 
-            // 2. Update TicketHeader status to PAID
-            if (ticketHeaderId) {
-                await tx.ticketHeader.update({
-                    where: { id: ticketHeaderId },
-                    data: {
-                        status: TicketStatus.PAID,
-                        isPaid: true,
-                        transactionId: transactionId,
-                    },
-                });
+            // 2. Atomically update ALL associated TicketHeader statuses to PAID
+            const ticketOrConditions: any[] = [];
+            if (ticketHeaderIds.length > 0) {
+                ticketOrConditions.push({ id: { in: ticketHeaderIds } });
             }
+            ticketOrConditions.push({ transactionId: transactionId });
+            if (additional.ticketNo) {
+                ticketOrConditions.push({ ticketNo: additional.ticketNo });
+            }
+            if (Array.isArray(additional.ticketNumbers) && additional.ticketNumbers.length > 0) {
+                ticketOrConditions.push({ ticketNo: { in: additional.ticketNumbers } });
+            }
+
+            await tx.ticketHeader.updateMany({
+                where: {
+                    OR: ticketOrConditions,
+                },
+                data: {
+                    status: TicketStatus.PAID,
+                    isPaid: true,
+                    transactionId: transactionId,
+                },
+            });
 
             // 3. Upsert Payment table record
             await tx.payment.upsert({

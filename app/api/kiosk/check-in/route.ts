@@ -73,10 +73,20 @@ export async function POST(request: Request) {
             include: { type: true }
         });
 
-        // Fallback: If not found by ID CUID, search by queueNumber
+        // Fallback: If not found by ID CUID, search by queueNumber or ticketNo
         if (!transaction) {
             const txs = await prisma.transaction.findMany({
-                where: { queueNumber: transactionId },
+                where: {
+                    OR: [
+                        { queueNumber: transactionId },
+                        {
+                            additionalData: {
+                                path: ["ticketNo"],
+                                equals: transactionId
+                            }
+                        }
+                    ]
+                },
                 include: { type: true }
             });
             if (txs.length > 0) {
@@ -109,7 +119,8 @@ export async function POST(request: Request) {
             );
         }
 
-        const isPaymentOrClaiming = ["UNPAID", "PAID", "FOR_CLAIM"].includes(transaction.status);
+        const isPosoTransaction = transaction.type?.category === "POSO" || transaction.type?.code === "POSO_TRAFFIC_FINE";
+        const isPaymentOrClaiming = isPosoTransaction || ["PAID", "FOR_CLAIM"].includes(transaction.status);
         const today = new Date();
 
         if (!transaction.appointmentDate && !isPaymentOrClaiming) {
@@ -206,6 +217,8 @@ export async function POST(request: Request) {
         });
 
         revalidatePath("/admin/treasury");
+        revalidatePath("/admin/treasury/queue");
+        revalidatePath("/admin/treasury/payments");
         revalidatePath("/queue");
 
         return NextResponse.json({
