@@ -630,9 +630,17 @@ export default function TicketDetailsPage() {
                             <p className="text-xs font-semibold text-amber-900/80 dark:text-amber-200/90 leading-relaxed italic">
                                 This citation ticket has been processed into an active <strong>UNPAID Treasury Transaction</strong>. The violator must settle the fine at the Municipal Treasury Department.
                             </p>
-                            <div className="pt-3 border-t border-amber-200/60 dark:border-amber-500/20 flex items-center justify-between text-[11px] font-bold text-amber-900 dark:text-amber-200">
-                                <span className="uppercase tracking-wider text-[10px] text-amber-600 dark:text-amber-400">Transaction Reference</span>
-                                <span className="font-mono bg-amber-100 dark:bg-amber-900/40 px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-700/40">{ticket.transactionId}</span>
+                            <div className="pt-3 border-t border-amber-200/60 dark:border-amber-500/20 space-y-1.5 text-[11px] font-bold text-amber-900 dark:text-amber-200">
+                                <div className="flex items-center justify-between">
+                                    <span className="uppercase tracking-wider text-[10px] text-amber-600 dark:text-amber-400">Treasury Queue Number</span>
+                                    <span className="font-mono font-black text-rose-600 dark:text-rose-400 bg-amber-100 dark:bg-amber-900/40 px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-700/40">
+                                        {ticket.transaction?.queueNumber || ticket.ticketNo}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="uppercase tracking-wider text-[10px] text-amber-600 dark:text-amber-400">Transaction Reference</span>
+                                    <span className="font-mono bg-amber-100 dark:bg-amber-900/40 px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-700/40 text-[10px]">{ticket.transactionId}</span>
+                                </div>
                             </div>
                         </div>
                     ) : !ticket.isPaid ? (

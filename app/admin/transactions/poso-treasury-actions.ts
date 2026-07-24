@@ -48,7 +48,11 @@ export async function confirmPosoTrafficFinePayment({
         }
 
         const additional = (transaction.additionalData as any) || {};
-        const ticketHeaderId = additional.ticketHeaderId;
+        const ticketHeaderIds: string[] = Array.isArray(additional.ticketHeaderIds)
+            ? additional.ticketHeaderIds
+            : additional.ticketHeaderId
+            ? [additional.ticketHeaderId]
+            : [];
 
         // Map input paymentMethod string to Prisma PaymentType enum
         let mappedPaymentType: PaymentType = PaymentType.CASH;
@@ -83,10 +87,10 @@ export async function confirmPosoTrafficFinePayment({
                 },
             });
 
-            // 2. Update TicketHeader status to PAID
-            if (ticketHeaderId) {
-                await tx.ticketHeader.update({
-                    where: { id: ticketHeaderId },
+            // 2. Update all associated TicketHeader statuses to PAID
+            if (ticketHeaderIds.length > 0) {
+                await tx.ticketHeader.updateMany({
+                    where: { id: { in: ticketHeaderIds } },
                     data: {
                         status: TicketStatus.PAID,
                         isPaid: true,

@@ -460,6 +460,9 @@ export async function processTicketSettlement(id: string) {
         const additionalData = {
             ticketNo: ticket.ticketNo,
             ticketHeaderId: ticket.id,
+            ticketHeaderIds: [ticket.id],
+            ticketNumbers: [ticket.ticketNo],
+            ticketCount: 1,
             location: ticket.location || null,
             officerName: ticket.officerName || null,
             isImpounded: ticket.isImpounded || false,
@@ -472,6 +475,16 @@ export async function processTicketSettlement(id: string) {
                 level: d.offenseLevel,
                 fine: d.amount,
             })),
+            ticketsBreakdown: [
+                {
+                    ticketId: ticket.id,
+                    ticketNo: ticket.ticketNo,
+                    baseFine: ticket.totalAmount || 0,
+                    impoundFee,
+                    isImpounded: ticket.isImpounded || false,
+                    totalFine: grandTotal,
+                },
+            ],
         };
 
         const fiscalSnapshot = {
@@ -483,6 +496,7 @@ export async function processTicketSettlement(id: string) {
         const result = await (prisma as any).$transaction(async (tx: any) => {
             const newTransaction = await tx.transaction.create({
                 data: {
+                    queueNumber: ticket.ticketNo,
                     userId: violatorUserId,
                     typeId: transactionType.id,
                     status: "UNPAID",
@@ -579,12 +593,23 @@ export async function processMultipleTicketsSettlement(ticketIds: string[]) {
         const allTicketNos: string[] = [];
         const allViolations: any[] = [];
         const impoundDetails: any[] = [];
+        const ticketsBreakdown: any[] = [];
 
         for (const t of tickets) {
-            baseFineTotal += (t.totalAmount || 0);
+            const baseFine = t.totalAmount || 0;
             const impFee = t.isImpounded ? Number(t.impoundFee || 0) : 0;
+            baseFineTotal += baseFine;
             totalImpoundFee += impFee;
             allTicketNos.push(t.ticketNo);
+
+            ticketsBreakdown.push({
+                ticketId: t.id,
+                ticketNo: t.ticketNo,
+                baseFine,
+                impoundFee: impFee,
+                isImpounded: t.isImpounded || false,
+                totalFine: baseFine + impFee,
+            });
 
             if (t.isImpounded) {
                 impoundDetails.push({
@@ -606,16 +631,22 @@ export async function processMultipleTicketsSettlement(ticketIds: string[]) {
         }
 
         const grandTotal = baseFineTotal + totalImpoundFee;
+        const queueNumber = tickets.length === 1
+            ? firstTicket.ticketNo
+            : `${firstTicket.ticketNo}-${tickets.length - 1}`;
 
         const additionalData = {
-            ticketNumbers: allTicketNos,
+            ticketNo: firstTicket.ticketNo,
+            ticketHeaderId: firstTicket.id,
             ticketHeaderIds: ticketIds,
+            ticketNumbers: allTicketNos,
             ticketCount: tickets.length,
             violatorName: firstTicket.violatorName,
             licenseNo: firstTicket.licenseNo,
             isImpounded: impoundDetails.length > 0,
             impoundDetails,
             violations: allViolations,
+            ticketsBreakdown,
         };
 
         const fiscalSnapshot = {
@@ -627,6 +658,7 @@ export async function processMultipleTicketsSettlement(ticketIds: string[]) {
         const result = await (prisma as any).$transaction(async (tx: any) => {
             const newTransaction = await tx.transaction.create({
                 data: {
+                    queueNumber,
                     userId: violatorUserId,
                     typeId: transactionType.id,
                     status: "UNPAID",

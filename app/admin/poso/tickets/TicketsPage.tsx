@@ -735,7 +735,7 @@ export default function TicketsPage({
                                     ) : (
                                         <CheckCircle2 className="w-4 h-4" />
                                     )}
-                                    <span>Send Selected to Treasury</span>
+                                    <span>Send Selected to Payment</span>
                                 </Button>
                             </div>
                         )}
