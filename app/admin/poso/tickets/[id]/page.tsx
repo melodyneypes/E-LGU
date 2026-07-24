@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 
-import { useState, useEffect, use } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
     ArrowLeft, MapPin, UserCheck, Shield, Award,
@@ -15,12 +15,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import { getTicketById, processTicketSettlement, markTicketAsSettled } from "@/app/admin/poso/actions";
 
-interface TicketDetailsPageProps {
-    params: Promise<{ id: string }>;
-}
-
-export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
-    const { id } = use(params);
+export default function TicketDetailsPage() {
+    const routeParams = useParams();
+    const id = (routeParams?.id as string) || "";
     const router = useRouter();
 
     const { data: session } = useSession();
@@ -36,6 +33,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
     useEffect(() => {
+        if (!id) return;
         let isMounted = true;
         async function fetchTicket() {
             setLoading(true);

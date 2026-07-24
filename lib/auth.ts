@@ -148,6 +148,8 @@ export const authOptions: NextAuthOptions = {
                 const dbUser = await prisma.user.findUnique({
                     where: { id: token.id as string },
                     select: {
+                        role: true,
+                        department: true,
                         accessiblePages: true,
                         isPasswordChanged: true,
                         isEmailVerified: true
@@ -155,6 +157,8 @@ export const authOptions: NextAuthOptions = {
                 });
 
                 if (dbUser) {
+                    token.role = dbUser.role;
+                    token.department = dbUser.department;
                     token.accessiblePages = dbUser.accessiblePages || [];
                     token.isPasswordChanged = dbUser.isPasswordChanged;
                     token.isEmailVerified = dbUser.isEmailVerified;
