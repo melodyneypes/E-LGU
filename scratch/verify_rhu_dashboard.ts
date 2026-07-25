@@ -22,7 +22,7 @@ async function verifyRHUDashboard() {
   console.log(`Total Bookings Count: ${total}`);
   console.log(`Sample Transactions:`, txs.map(t => ({
     id: t.id,
-    controlNumber: t.controlNumber,
+    controlNumber: (t as any).controlNumber,
     status: t.status,
     category: t.type?.category,
     typeName: t.type?.name
