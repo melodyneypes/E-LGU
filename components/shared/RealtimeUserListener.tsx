@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { secureLogoutAction } from "@/app/actions/auth";
+import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -36,7 +36,7 @@ export function RealtimeUserListener() {
                         if (typeof window !== "undefined") {
                             sessionStorage.setItem("account_locked_toast", "true");
                         }
-                        secureLogoutAction();
+                        logoutToLogin();
                         return;
                     }
                     // Refresh NextJS server components state
