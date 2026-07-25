@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { deleteEvent, getEventById } from "@/app/admin/actions";
 import { toast } from "sonner";
 import { formatDate } from "@/app/admin/content/Tourism/utils/date_and_time";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -25,6 +26,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 export function EventsTable() {
     const {
         events,
+        setEvents,
         setEditingData,
         setIsAddModalOpen,
         themeColor,
@@ -40,6 +42,7 @@ export function EventsTable() {
     const searchParams = useSearchParams();
 
     const [fetchingId, setFetchingId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
     const startRange = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -84,16 +87,15 @@ export function EventsTable() {
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm("Are you sure you want to delete this event? This action cannot be undone.")) {
-            setIsPending(true);
-            try {
-                await deleteEvent(id);
-                toast.success("Event deleted successfully.");
-                router.refresh();
-            } catch {
-                toast.error("Failed to delete event. Please try again.");
-                setIsPending(false);
-            }
+        if (!confirm("Are you sure you want to delete this event? This action cannot be undone.")) return;
+        setDeletingId(id);
+        try {
+            await deleteEvent(id);
+            setEvents(events.filter((item) => item.id !== id));
+            toast.success("Event deleted successfully.");
+        } catch {
+            toast.error("Failed to delete event. Please try again.");
+            setDeletingId(null);
         }
     };
 
@@ -137,14 +139,59 @@ export function EventsTable() {
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            events.map((event) => (
-                                <TableRow
-                                    key={event.id}
-                                    className={cn(
-                                        "group border-b dark:border-[#2a3040] hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors",
-                                        !event.isPublished && "bg-slate-50/60 dark:bg-slate-900/40 opacity-75"
-                                    )}
-                                >
+                            events.map((event) => {
+                                const isRowLoading = deletingId === event.id || fetchingId === event.id;
+                                if (isRowLoading) {
+                                    return (
+                                        <TableRow
+                                            key={event.id}
+                                            className="border-b dark:border-[#2a3040] bg-slate-50/40 dark:bg-slate-900/40"
+                                        >
+                                            <TableCell className="py-4 pl-8">
+                                                <div className="flex items-center space-x-4">
+                                                    <Skeleton className="w-14 h-14 rounded-xl shrink-0" />
+                                                    <div className="space-y-2">
+                                                        <Skeleton className="h-4 w-44 rounded-md" />
+                                                        <Skeleton className="h-4 w-20 rounded-md" />
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="py-4">
+                                                <div className="space-y-2">
+                                                    <Skeleton className="h-3.5 w-32 rounded-md" />
+                                                    <Skeleton className="h-3.5 w-32 rounded-md" />
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="py-4">
+                                                <div className="space-y-2">
+                                                    <Skeleton className="h-4 w-36 rounded-md" />
+                                                    <Skeleton className="h-3 w-48 rounded-md" />
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="py-4">
+                                                <Skeleton className="h-5 w-28 rounded-md" />
+                                            </TableCell>
+                                            <TableCell className="py-4">
+                                                <Skeleton className="h-5 w-20 rounded-md" />
+                                            </TableCell>
+                                            <TableCell className="py-4 text-right pr-8">
+                                                <div className="flex justify-end gap-2">
+                                                    <Skeleton className="h-9 w-9 rounded-xl" />
+                                                    <Skeleton className="h-9 w-9 rounded-xl" />
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                }
+
+                                return (
+                                    <TableRow
+                                        key={event.id}
+                                        className={cn(
+                                            "group border-b dark:border-[#2a3040] hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors",
+                                            !event.isPublished && "bg-slate-50/60 dark:bg-slate-900/40 opacity-75"
+                                        )}
+                                    >
                                     <TableCell className="py-4 pl-8">
                                         <div className="flex items-center space-x-4">
                                             <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0 border border-slate-200 dark:border-slate-700 shadow-sm">
@@ -251,8 +298,9 @@ export function EventsTable() {
                                         </div>
                                     </TableCell>
                                 </TableRow>
-                            ))
-                        )}
+                            );
+                        })
+                    )}
                     </TableBody>
                 </Table>
             </div>

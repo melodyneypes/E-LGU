@@ -56,9 +56,22 @@ export function AddEventModal() {
             setLng(editingData.longitude ? String(editingData.longitude) : "");
             setVenueName(editingData.venueName || "");
             setAddress(editingData.address || "");
+        } else {
+            // Reset modal state cleanly when adding a brand-new event
+            setImagePreview(null);
+            setSelectedCategory("Community");
+            setOtherCategory("");
+            setGoogleMapsUrl("");
+            setLat("");
+            setLng("");
+            setVenueName("");
+            setAddress("");
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [editingData]);
+    }, [editingData, isAddModalOpen]);
 
     const extractCoordsFromUrl = (url: string) => {
         // Handle @lat,lng format (most common)
