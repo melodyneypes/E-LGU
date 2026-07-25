@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Edit2, Trash2, Calendar, Newspaper, User, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -17,6 +17,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 export function NewsTable() {
     const {
         newsData,
+        setNewsData,
         setEditingData,
         setIsAddModalOpen,
         themeColor,
@@ -82,10 +83,10 @@ export function NewsTable() {
         setDeletingId(id);
         try {
             await deleteNews(id);
+            setNewsData(newsData.filter((item) => item.id !== id));
             toast.success("News deleted successfully!");
         } catch {
             toast.error("Failed to delete news.");
-        } finally {
             setDeletingId(null);
         }
     };
@@ -94,6 +95,11 @@ export function NewsTable() {
         setTogglingId(id);
         try {
             await toggleNewsStatus(id, !currentStatus);
+            setNewsData(
+                newsData.map((item) =>
+                    item.id === id ? { ...item, isPublished: !currentStatus } : item
+                )
+            );
             toast.success(`News ${!currentStatus ? "published" : "unpublished"} successfully!`);
         } catch {
             toast.error("Failed to update status.");
@@ -162,100 +168,138 @@ export function NewsTable() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {newsData.map((item) => (
-                            <TableRow
-                                key={item.id}
-                                className="group hover:bg-[color-mix(in_srgb,var(--primary-theme)_8%,transparent)] transition-colors border-b border-slate-200 dark:border-[#2a3040]"
-                            >
-                                <TableCell className="pl-8">
-                                    <div className="w-12 h-12 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                                        {item.imageUrl ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <Newspaper className="w-5 h-5 text-slate-300" />
-                                        )}
-                                    </div>
-                                </TableCell>
-                                <TableCell className="py-5">
-                                    <div className="flex flex-col space-y-1.5">
-                                        <span className="text-slate-900 dark:text-white font-black uppercase italic tracking-tight leading-tight transition-colors">
-                                            {item.title}
-                                        </span>
-                                        {item.content && (
-                                            <span className="text-[11px] text-slate-500 font-medium italic line-clamp-1 max-w-[300px]">
-                                                {item.content}
-                                            </span>
-                                        )}
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    <span className="inline-flex items-center px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                                        {item.category}
-                                    </span>
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center text-slate-500 dark:text-slate-400 text-[11px] font-medium italic">
-                                        <User className="w-3.5 h-3.5 mr-2 text-blue-600" />
-                                        {item.author || "Admin"}
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center text-slate-500 dark:text-slate-400 text-[11px] font-medium italic">
-                                        <Calendar className="w-3.5 h-3.5 mr-2 text-blue-600" />
-                                        {format(new Date(item.publishDate), "MMM d, yyyy")}
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                    <Switch
-                                        checked={item.isPublished}
-                                        onCheckedChange={() => handleToggleStatus(item.id, item.isPublished)}
-                                        disabled={togglingId === item.id}
-                                    />
-                                </TableCell>
-                                <TableCell className="text-right pr-8">
-                                    <div className="flex justify-end gap-2">
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => handleEdit(item)}
-                                                        disabled={fetchingId === item.id}
-                                                        className="h-9 w-9 rounded-xl border border-transparent transition-all hover:bg-[color-mix(in_srgb,var(--primary-theme)_10%,transparent)] hover:border-[color-mix(in_srgb,var(--primary-theme)_20%,transparent)] text-blue-600"
-                                                    >
-                                                        {fetchingId === item.id ? (
-                                                            <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                                                        ) : (
-                                                            <Edit2 className="w-4 h-4" />
-                                                        )}
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>Edit News</TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
+                        {newsData.map((item) => {
+                            const isRowLoading = deletingId === item.id || togglingId === item.id || fetchingId === item.id;
+                            if (isRowLoading) {
+                                return (
+                                    <TableRow
+                                        key={item.id}
+                                        className="border-b border-slate-200 dark:border-[#2a3040] bg-slate-50/40 dark:bg-slate-900/40"
+                                    >
+                                        <TableCell className="pl-8">
+                                            <Skeleton className="w-12 h-12 rounded-xl" />
+                                        </TableCell>
+                                        <TableCell className="py-5">
+                                            <div className="flex flex-col space-y-2">
+                                                <Skeleton className="h-4 w-48 rounded-md" />
+                                                <Skeleton className="h-3 w-64 rounded-md" />
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Skeleton className="h-6 w-20 rounded-lg" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Skeleton className="h-4 w-24 rounded-md" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Skeleton className="h-4 w-28 rounded-md" />
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <div className="flex justify-center">
+                                                <Skeleton className="h-5 w-9 rounded-full" />
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-right pr-8">
+                                            <div className="flex justify-end gap-2">
+                                                <Skeleton className="h-9 w-9 rounded-xl" />
+                                                <Skeleton className="h-9 w-9 rounded-xl" />
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            }
 
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => handleDelete(item.id)}
-                                                        disabled={deletingId === item.id}
-                                                        className="h-9 w-9 rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/40 border border-transparent hover:border-red-200 transition-all"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>Delete News</TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                            return (
+                                <TableRow
+                                    key={item.id}
+                                    className="group hover:bg-[color-mix(in_srgb,var(--primary-theme)_8%,transparent)] transition-colors border-b border-slate-200 dark:border-[#2a3040]"
+                                >
+                                    <TableCell className="pl-8">
+                                        <div className="w-12 h-12 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                                            {item.imageUrl ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <Newspaper className="w-5 h-5 text-slate-300" />
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="py-5">
+                                        <div className="flex flex-col space-y-1.5">
+                                            <span className="text-slate-900 dark:text-white font-black uppercase italic tracking-tight leading-tight transition-colors">
+                                                {item.title}
+                                            </span>
+                                            {item.content && (
+                                                <span className="text-[11px] text-slate-500 font-medium italic line-clamp-1 max-w-[300px]">
+                                                    {item.content}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <span className="inline-flex items-center px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                            {item.category}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center text-slate-500 dark:text-slate-400 text-[11px] font-medium italic">
+                                            <User className="w-3.5 h-3.5 mr-2 text-blue-600" />
+                                            {item.author || "Admin"}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center text-slate-500 dark:text-slate-400 text-[11px] font-medium italic">
+                                            <Calendar className="w-3.5 h-3.5 mr-2 text-blue-600" />
+                                            {item.publishDate ? new Date(item.publishDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        <Switch
+                                            checked={item.isPublished}
+                                            onCheckedChange={() => handleToggleStatus(item.id, item.isPublished)}
+                                            disabled={togglingId === item.id}
+                                        />
+                                    </TableCell>
+                                    <TableCell className="text-right pr-8">
+                                        <div className="flex justify-end gap-2">
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => handleEdit(item)}
+                                                            disabled={fetchingId === item.id}
+                                                            className="h-9 w-9 rounded-xl border border-transparent transition-all hover:bg-[color-mix(in_srgb,var(--primary-theme)_10%,transparent)] hover:border-[color-mix(in_srgb,var(--primary-theme)_20%,transparent)] text-blue-600"
+                                                        >
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>Edit News</TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => handleDelete(item.id)}
+                                                            disabled={deletingId === item.id}
+                                                            className="h-9 w-9 rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/40 border border-transparent hover:border-red-200 transition-all"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>Delete News</TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
                     </TableBody>
                 </Table>
             </div>
