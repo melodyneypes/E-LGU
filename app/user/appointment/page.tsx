@@ -122,7 +122,7 @@ export default function UserAppointmentsPage() {
         switch (status) {
             case "FOR_REVISION": return { color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20", icon: AlertCircle, label: "NEEDS REVISION", opacity: 1 };
             case "FOR_REQUESTING": {
-                const isRHU = req.type?.category === "Rural Health Unit" || req.type?.code?.startsWith("RHU_");
+                const isRHU = ["RHU", "Rural Health Unit", "Rural Health Unit (RHU)", "HEALTH", "RURAL_HEALTH_UNIT"].includes(req.type?.category) || req.type?.code?.startsWith("RHU_");
                 return {
                     color: "text-white",
                     bg: "bg-rose-600",

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Activity, Clock, CheckCircle2, XCircle, Volume2, Calendar,
-    ArrowRight, Users, ArrowUpRight
+    ArrowRight, ArrowUpRight, Building2
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -236,17 +236,17 @@ export default function RHUDashboard() {
                     </div>
 
                     <div
-                        onClick={() => router.push("/admin/rhu/queue")}
+                        onClick={() => router.push("/admin/rhu/centers")}
                         className="bg-slate-900 text-white rounded-3xl p-6 shadow-md cursor-pointer hover:bg-slate-800 transition-all flex flex-col justify-between min-h-[140px] border border-slate-800"
                     >
                         <div className="flex items-center justify-between">
-                            <span className="text-xs font-black uppercase tracking-widest text-slate-400">Queue Manager</span>
-                            <Users className="w-6 h-6 text-rose-500" />
+                            <span className="text-xs font-black uppercase tracking-widest text-slate-400">Locations & Facilities</span>
+                            <Building2 className="w-6 h-6 text-rose-500" />
                         </div>
                         <div>
-                            <h4 className="text-lg font-black uppercase italic tracking-tight">Counter Window Queue</h4>
+                            <h4 className="text-lg font-black uppercase italic tracking-tight">Health Centers & Stations</h4>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">
-                                Call next waiting patient to counter window
+                                Manage municipal health centers and barangay stations
                             </p>
                         </div>
                     </div>

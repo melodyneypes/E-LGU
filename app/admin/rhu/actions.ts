@@ -32,7 +32,9 @@ export async function getRHUAdminTransactions(params?: {
 
         const whereClause: any = {
             type: {
-                category: "Rural Health Unit"
+                category: {
+                    in: ["RHU", "Rural Health Unit", "Rural Health Unit (RHU)", "HEALTH", "RURAL_HEALTH_UNIT"]
+                }
             }
         };
 
@@ -152,7 +154,9 @@ export async function getRHUDashboardStats() {
 
         const baseWhere = {
             type: {
-                category: "Rural Health Unit"
+                category: {
+                    in: ["RHU", "Rural Health Unit", "Rural Health Unit (RHU)", "HEALTH", "RURAL_HEALTH_UNIT"]
+                }
             }
         };
 

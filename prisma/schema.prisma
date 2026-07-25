@@ -1044,6 +1044,28 @@ model RHUInventoryBatch {
   @@index([expirationDate])
 }
 
+model RHUHealthCenter {
+  id              String   @id @default(cuid())
+  name            String
+  code            String?  @unique
+  location        String
+  latitude        Float?
+  longitude       Float?
+  barangay        String?
+  contactNumber   String?
+  operatingHours  String?  @default("Mon-Fri 8:00 AM - 5:00 PM")
+  headPersonnel   String?
+  servicesOffered String?
+  status          String   @default("ACTIVE")
+  remarks         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([name])
+  @@index([barangay])
+  @@index([status])
+}
+
 enum TicketStatus {
   ISSUED
   PAID

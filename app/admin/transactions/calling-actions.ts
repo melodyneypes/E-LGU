@@ -683,7 +683,7 @@ export async function getRHUQueueTickets(counterName: string) {
         const allRHUTxs = await prisma.transaction.findMany({
             where: {
                 OR: [
-                    { type: { category: "Rural Health Unit" } },
+                    { type: { category: { in: ["RHU", "Rural Health Unit", "Rural Health Unit (RHU)", "HEALTH", "RURAL_HEALTH_UNIT"] } } },
                     { type: { code: { startsWith: "RHU_" } } }
                 ],
                 status: { in: ["FOR_REQUESTING", "FOR_INSPECTION", "EVALUATED", "FOR_PROCESSING"] },
@@ -735,7 +735,7 @@ export async function fetchAndCallNextRHUTicket(counterName: string) {
         const allRHUTxs = await prisma.transaction.findMany({
             where: {
                 OR: [
-                    { type: { category: "Rural Health Unit" } },
+                    { type: { category: { in: ["RHU", "Rural Health Unit", "Rural Health Unit (RHU)", "HEALTH", "RURAL_HEALTH_UNIT"] } } },
                     { type: { code: { startsWith: "RHU_" } } }
                 ],
                 status: { in: ["FOR_REQUESTING", "FOR_INSPECTION"] },

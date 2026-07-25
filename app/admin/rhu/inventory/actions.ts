@@ -184,37 +184,73 @@ export async function createRHUInventoryItem(input: RHUInventoryInput) {
         const quantityNum = Number(input.quantity) || 0;
         const expDate = input.expirationDate ? new Date(input.expirationDate) : null;
         const batchNo = input.batchNumber?.trim() || null;
+        const itemId = `cmr${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
 
-        const newItem = await getInventoryModel().create({
-            data: {
-                name: input.name.trim(),
-                genericName: input.genericName?.trim() || null,
-                brandName: input.brandName?.trim() || null,
-                category: input.category || "MEDICINE",
-                dosage: input.dosage?.trim() || null,
-                unit: input.unit?.trim() || "pcs",
-                quantity: quantityNum,
-                reorderLevel: Number(input.reorderLevel) || 10,
-                expirationDate: expDate,
-                batchNumber: batchNo,
-                remarks: input.remarks?.trim() || null,
-            }
-        });
-
-        // If batch model exists and initial stock/batch details were provided, create batch record
-        const batchModel = getBatchModel();
-        if (batchModel && (quantityNum > 0 || batchNo)) {
-            await batchModel.create({
+        let newItem: any = null;
+        try {
+            newItem = await getInventoryModel().create({
                 data: {
-                    itemId: newItem.id,
-                    batchNumber: batchNo || `BATCH-${Date.now().toString().slice(-6)}`,
-                    expirationDate: expDate,
+                    id: itemId,
+                    name: input.name.trim(),
+                    genericName: input.genericName?.trim() || null,
+                    brandName: input.brandName?.trim() || null,
+                    category: input.category || "MEDICINE",
+                    dosage: input.dosage?.trim() || null,
+                    unit: input.unit?.trim() || "pcs",
                     quantity: quantityNum,
-                    initialQuantity: quantityNum,
-                    receivedDate: new Date(),
-                    remarks: input.remarks?.trim() || "Initial Batch Creation"
+                    reorderLevel: Number(input.reorderLevel) || 10,
+                    expirationDate: expDate,
+                    batchNumber: batchNo,
+                    remarks: input.remarks?.trim() || null,
                 }
             });
+        } catch {
+            await prisma.$executeRaw`
+                INSERT INTO "RHUInventoryItem" (
+                    "id", "name", "genericName", "brandName", "category", "dosage", "unit", "quantity", "reorderLevel", "expirationDate", "batchNumber", "remarks", "createdAt", "updatedAt"
+                ) VALUES (
+                    ${itemId}, ${input.name.trim()}, ${input.genericName?.trim() || null}, ${input.brandName?.trim() || null}, ${input.category || "MEDICINE"}::"InventoryCategory", ${input.dosage?.trim() || null}, ${input.unit?.trim() || "pcs"}, ${quantityNum}, ${Number(input.reorderLevel) || 10}, ${expDate}, ${batchNo}, ${input.remarks?.trim() || null}, NOW(), NOW()
+                )
+            `;
+            newItem = { id: itemId };
+        }
+
+        // If initial stock/batch details were provided, create batch record
+        if (quantityNum > 0 || batchNo) {
+            const batchId = `cmr${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
+            const bNo = batchNo || `BATCH-${Date.now().toString().slice(-6)}`;
+            const batchModel = getBatchModel();
+
+            let batchCreated = false;
+            if (batchModel) {
+                try {
+                    await batchModel.create({
+                        data: {
+                            id: batchId,
+                            itemId: newItem.id,
+                            batchNumber: bNo,
+                            expirationDate: expDate,
+                            quantity: quantityNum,
+                            initialQuantity: quantityNum,
+                            receivedDate: new Date(),
+                            remarks: input.remarks?.trim() || "Initial Batch Creation"
+                        }
+                    });
+                    batchCreated = true;
+                } catch {
+                    batchCreated = false;
+                }
+            }
+
+            if (!batchCreated) {
+                await prisma.$executeRaw`
+                    INSERT INTO "RHUInventoryBatch" (
+                        "id", "itemId", "batchNumber", "expirationDate", "quantity", "initialQuantity", "receivedDate", "remarks", "createdAt", "updatedAt"
+                    ) VALUES (
+                        ${batchId}, ${newItem.id}, ${bNo}, ${expDate}, ${quantityNum}, ${quantityNum}, NOW(), ${input.remarks?.trim() || "Initial Batch Creation"}, NOW(), NOW()
+                    )
+                `;
+            }
         }
 
         revalidatePath("/admin/rhu/inventory");
@@ -240,47 +276,56 @@ export async function receiveRHUStockBatch(input: RHUStockBatchInput) {
         const quantityNum = Math.max(1, Number(input.quantity) || 0);
         const expDate = input.expirationDate ? new Date(input.expirationDate) : null;
         const batchNo = input.batchNumber.trim();
+        const batchId = `cmr${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
 
+        let createdSuccess = false;
         const batchModel = getBatchModel();
         if (batchModel) {
-            await batchModel.create({
-                data: {
-                    itemId: input.itemId,
-                    batchNumber: batchNo,
-                    expirationDate: expDate,
-                    quantity: quantityNum,
-                    initialQuantity: quantityNum,
-                    receivedDate: new Date(),
-                    remarks: input.remarks?.trim() || "Stock In Delivery"
-                }
-            });
-        }
-
-        // Also update master item summary fields
-        const currentItem = await getInventoryModel().findUnique({ 
-            where: { id: input.itemId },
-            include: batchModel ? { batches: true } : undefined
-        });
-
-        if (currentItem) {
-            const batches: any[] = currentItem.batches || [];
-            const newTotalQty = batches.length > 0 
-                ? batches.reduce((sum, b) => sum + (b.quantity || 0), 0)
-                : currentItem.quantity + quantityNum;
-
-            const updatePayload: any = {
-                quantity: newTotalQty,
-                batchNumber: batchNo
-            };
-            if (expDate) {
-                updatePayload.expirationDate = expDate;
+            try {
+                await batchModel.create({
+                    data: {
+                        id: batchId,
+                        itemId: input.itemId,
+                        batchNumber: batchNo,
+                        expirationDate: expDate,
+                        quantity: quantityNum,
+                        initialQuantity: quantityNum,
+                        receivedDate: new Date(),
+                        remarks: input.remarks?.trim() || "Stock In Delivery"
+                    }
+                });
+                createdSuccess = true;
+            } catch (err) {
+                console.warn("Prisma batchModel create failed, falling back to raw SQL:", err);
             }
-
-            await getInventoryModel().update({
-                where: { id: input.itemId },
-                data: updatePayload
-            });
         }
+
+        if (!createdSuccess) {
+            await prisma.$executeRaw`
+                INSERT INTO "RHUInventoryBatch" (
+                    "id", "itemId", "batchNumber", "expirationDate", "quantity", "initialQuantity", "receivedDate", "remarks", "createdAt", "updatedAt"
+                ) VALUES (
+                    ${batchId}, ${input.itemId}, ${batchNo}, ${expDate}, ${quantityNum}, ${quantityNum}, NOW(), ${input.remarks?.trim() || "Stock In Delivery"}, NOW(), NOW()
+                )
+            `;
+        }
+
+        // Always sync total quantity accurately using raw SQL sum
+        const sumResult: any[] = await prisma.$queryRaw`
+            SELECT COALESCE(SUM(quantity), 0) as total 
+            FROM "RHUInventoryBatch" 
+            WHERE "itemId" = ${input.itemId}
+        `;
+        const totalQty = Number(sumResult[0]?.total || quantityNum);
+
+        await prisma.$executeRaw`
+            UPDATE "RHUInventoryItem" 
+            SET "quantity" = ${totalQty}, 
+                "batchNumber" = ${batchNo}, 
+                "expirationDate" = COALESCE(${expDate}, "expirationDate"),
+                "updatedAt" = NOW() 
+            WHERE "id" = ${input.itemId}
+        `;
 
         revalidatePath("/admin/rhu/inventory");
         return { success: true };
