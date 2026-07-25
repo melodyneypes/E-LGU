@@ -1430,6 +1430,14 @@ export async function getTransactionById(id: string) {
             return { success: false, error: "Forbidden" };
         }
 
+        // Pre-compute POSO penalty charges on the server side so client views render instantly
+        const isPosoTx = transaction.type.code === "POSO_TRAFFIC_FINE" || transaction.type.category === "POSO";
+        if (isPosoTx) {
+            const { preComputePosoTransactionPenalty } = await import("@/app/admin/transactions/poso-treasury-actions");
+            const processedTx = await preComputePosoTransactionPenalty(transaction);
+            return { success: true, data: processedTx as any };
+        }
+
         return { success: true, data: transaction as any };
     } catch (error: any) {
         console.error("Fetch transaction by id error:", error);

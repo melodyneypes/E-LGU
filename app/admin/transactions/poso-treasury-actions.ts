@@ -156,3 +156,75 @@ export async function confirmPosoTrafficFinePayment({
         return { success: false, error: error.message || "Failed to process payment." };
     }
 }
+
+/**
+ * Pre-compute POSO penalty charges on the server side so client views render instantly
+ */
+export async function preComputePosoTransactionPenalty(transaction: any) {
+    try {
+        const addData = (transaction.additionalData as any) || {};
+        const fiscalSnap = (transaction.fiscalSnapshot as any) || {};
+        const headerId = addData.ticketHeaderId || addData.ticketId;
+
+        let apprehensionDate = addData.apprehensionDate || transaction.createdAt;
+        let ticketHeaderObj: any = null;
+
+        if (headerId) {
+            ticketHeaderObj = await prisma.ticketHeader.findUnique({
+                where: { id: headerId },
+            });
+            if (ticketHeaderObj?.dateTime) {
+                apprehensionDate = ticketHeaderObj.dateTime;
+            }
+        }
+
+        const { getPosoPenaltySettings, calculatePosoTicketPenalty } = await import("@/app/admin/poso/actions");
+        const settingsRes = await getPosoPenaltySettings();
+        const settings = settingsRes.settings || { dueDays: 7, surchargeRate: 25, monthlyInterestRate: 2 };
+
+        const baseFine = fiscalSnap.baseFineTotal ?? (ticketHeaderObj?.totalAmount || transaction.totalAmount || 0);
+        const impoundFee = fiscalSnap.impoundFee ?? Number(ticketHeaderObj?.impoundFee || addData.impoundFee || 0);
+
+        const penaltyBreakdown = await calculatePosoTicketPenalty(
+            {
+                totalAmount: baseFine,
+                impoundFee: impoundFee,
+                isImpounded: Boolean(impoundFee > 0 || ticketHeaderObj?.isImpounded || addData.isImpounded),
+                dateTime: apprehensionDate,
+                isPaid: transaction.isPaid || transaction.status === "PAID" || transaction.status === "SETTLED" || transaction.status === "RELEASED",
+                status: transaction.status,
+            },
+            settings
+        );
+
+        const surchargeAmount = penaltyBreakdown.surchargeAmount;
+        const interestAmount = penaltyBreakdown.interestAmount;
+        const grandTotal = penaltyBreakdown.grandTotalPayable;
+
+        const updatedFiscalSnapshot = {
+            ...fiscalSnap,
+            baseFineTotal: baseFine,
+            impoundFee: impoundFee,
+            surchargeAmount,
+            interestAmount,
+            totalPenalty: penaltyBreakdown.totalPenalty,
+            totalAmount: grandTotal,
+        };
+
+        const updatedAdditionalData = {
+            ...addData,
+            penaltyBreakdown,
+        };
+
+        return {
+            ...transaction,
+            totalAmount: grandTotal,
+            fiscalSnapshot: updatedFiscalSnapshot,
+            additionalData: updatedAdditionalData,
+        };
+    } catch (posoErr) {
+        console.error("Failed to pre-compute POSO penalty on server:", posoErr);
+        return transaction;
+    }
+}
+

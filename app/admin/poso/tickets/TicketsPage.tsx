@@ -33,6 +33,7 @@ import {
     AlertTriangle,
     Truck,
     ExternalLink,
+    RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -68,7 +69,6 @@ export default function TicketsPage({
     const [totalCount, setTotalCount] = useState(initialTotalCount);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
-    const [paymentFilter, setPaymentFilter] = useState("All");
     const [page, setPage] = useState(1);
     const pageSize = 10;
 
@@ -79,6 +79,7 @@ export default function TicketsPage({
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [themeColor, setThemeColor] = useState<string | null>(null);
+    const [posoDueDays, setPosoDueDays] = useState<number>(7);
 
     React.useEffect(() => {
         getSystemSettingAction("theme_color").then((res) => {
@@ -91,27 +92,34 @@ export default function TicketsPage({
         setTotalCount(initialTotalCount);
     }, [initialTickets, initialTotalCount]);
 
-    const fetchTickets = React.useCallback(async (p: number, s: string, st: string, pst: string) => {
+    const [fromDate, setFromDate] = useState("");
+    const [toDate, setToDate] = useState("");
+
+    const fetchTickets = React.useCallback(async (p: number, s: string, st: string, from?: string, to?: string) => {
         setIsPending(true);
         try {
             const res = await getTickets({
                 page: p,
-                pageSize,
+                limit: pageSize,
                 search: s,
                 status: st,
-                isPaid: pst,
+                from: from !== undefined ? from : fromDate,
+                to: to !== undefined ? to : toDate,
             });
 
             if (res.success && res.tickets) {
                 setTickets(res.tickets);
                 setTotalCount(res.totalCount || 0);
+                if (res.posoDueDays) {
+                    setPosoDueDays(res.posoDueDays);
+                }
             }
         } catch (err: any) {
             toast.error(err.message || "Failed to load tickets.");
         } finally {
             setIsPending(false);
         }
-    }, [pageSize]);
+    }, [pageSize, fromDate, toDate]);
 
     const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -133,25 +141,44 @@ export default function TicketsPage({
         }
 
         searchTimerRef.current = setTimeout(() => {
-            fetchTickets(1, val, statusFilter, paymentFilter);
+            fetchTickets(1, val, statusFilter, fromDate, toDate);
         }, 400);
     };
 
     const handleStatusChange = (val: string) => {
         setStatusFilter(val);
         setPage(1);
-        fetchTickets(1, search, val, paymentFilter);
+        fetchTickets(1, search, val, fromDate, toDate);
     };
 
-    const handlePaymentFilterChange = (val: string) => {
-        setPaymentFilter(val);
+    const handleFromDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setFromDate(val);
         setPage(1);
-        fetchTickets(1, search, statusFilter, val);
+        fetchTickets(1, search, statusFilter, val, toDate);
     };
+
+    const handleToDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setToDate(val);
+        setPage(1);
+        fetchTickets(1, search, statusFilter, fromDate, val);
+    };
+
+    const handleResetFilters = () => {
+        setSearch("");
+        setStatusFilter("All");
+        setFromDate("");
+        setToDate("");
+        setPage(1);
+        fetchTickets(1, "", "All", "", "");
+    };
+
+    const isFilterActive = search !== "" || statusFilter !== "All" || fromDate !== "" || toDate !== "";
 
     const handlePageChange = (newPage: number) => {
         setPage(newPage);
-        fetchTickets(newPage, search, statusFilter, paymentFilter);
+        fetchTickets(newPage, search, statusFilter, fromDate, toDate);
     };
 
     // Batch Pay Selection State
@@ -257,31 +284,53 @@ export default function TicketsPage({
                         />
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* Status Filter */}
                         <Select value={statusFilter} onValueChange={handleStatusChange}>
-                            <SelectTrigger className="w-[160px] h-11 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] font-bold text-xs">
-                                <SelectValue placeholder="Status" />
+                            <SelectTrigger className="w-[190px] h-11 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] font-bold text-xs">
+                                <SelectValue placeholder="Status Filter" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="All">All Ticket Status</SelectItem>
-                                <SelectItem value="ISSUED">ISSUED</SelectItem>
-                                <SelectItem value="RESOLVED">RESOLVED</SelectItem>
-                                <SelectItem value="CONTESTED">CONTESTED</SelectItem>
-                                <SelectItem value="CANCELLED">CANCELLED</SelectItem>
+                                <SelectItem value="All">All Statuses</SelectItem>
+                                <SelectItem value="UNPAID">UNPAID CITATIONS</SelectItem>
+                                <SelectItem value="OVERDUE">OVERDUE CITATIONS</SelectItem>
+                                <SelectItem value="PAID">PAID CITATIONS</SelectItem>
+                                <SelectItem value="SETTLED">RESOLVED / SETTLED</SelectItem>
                             </SelectContent>
                         </Select>
 
-                        <Select value={paymentFilter} onValueChange={handlePaymentFilterChange}>
-                            <SelectTrigger className="w-[160px] h-11 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] font-bold text-xs">
-                                <SelectValue placeholder="Payment" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="All">All Payment Status</SelectItem>
-                                <SelectItem value="UNPAID">UNPAID</SelectItem>
-                                <SelectItem value="PAID">PAID</SelectItem>
-                                <SelectItem value="SETTLED">SETTLED</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        {/* Date Range Inputs */}
+                        <div className="flex items-center gap-2 h-11 bg-slate-50 dark:bg-[#1a1f2e] border border-slate-200 dark:border-[#2a3040] rounded-2xl px-4 shadow-sm">
+                            <input
+                                type="date"
+                                value={fromDate}
+                                onChange={handleFromDateChange}
+                                className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+                                title="From Date"
+                            />
+                            <span className="text-xs text-slate-400 font-bold px-0.5">-</span>
+                            <input
+                                type="date"
+                                value={toDate}
+                                onChange={handleToDateChange}
+                                className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+                                title="To Date"
+                            />
+                        </div>
+
+                        {/* Reset Filters Button */}
+                        {isFilterActive && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleResetFilters}
+                                className="h-11 px-3 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-bold text-xs"
+                                title="Reset Filters"
+                            >
+                                <RotateCcw className="w-4 h-4 mr-1.5" />
+                                Reset
+                            </Button>
+                        )}
                     </div>
                 </div>
 
@@ -364,90 +413,108 @@ export default function TicketsPage({
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                 tickets.map((item) => (
-                                    <TableRow
-                                        key={item.id}
-                                        onClick={() => router.push(`/admin/poso/tickets/${item.id}`)}
-                                        className="group hover:bg-rose-50/30 dark:hover:bg-rose-950/20 transition-colors border-b border-slate-200 dark:border-[#2a3040] cursor-pointer"
-                                    >
-                                        <TableCell className="pl-8 py-5 font-black text-xs text-rose-600 dark:text-rose-400 italic uppercase">
-                                            {item.ticketNo}
-                                        </TableCell>
+                                tickets.map((item) => {
+                                    const appDate = new Date(item.dateTime || item.createdAt);
+                                    const itemDueDate = new Date(appDate.getTime() + posoDueDays * 24 * 60 * 60 * 1000);
+                                    const isOverdue = !item.isPaid && item.status !== "SETTLED" && item.status !== "PAID" && new Date() > itemDueDate;
 
-                                        <TableCell className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                                            {new Date(item.dateTime || item.createdAt).toLocaleDateString("en-PH", {
-                                                month: "short",
-                                                day: "numeric",
-                                                year: "numeric"
-                                            })}
-                                        </TableCell>
+                                    return (
+                                        <TableRow
+                                            key={item.id}
+                                            onClick={() => router.push(`/admin/poso/tickets/${item.id}`)}
+                                            className="group hover:bg-rose-50/30 dark:hover:bg-rose-950/20 transition-colors border-b border-slate-200 dark:border-[#2a3040] cursor-pointer"
+                                        >
+                                            <TableCell className="pl-8 py-5 font-black text-xs text-rose-600 dark:text-rose-400 italic uppercase">
+                                                {item.ticketNo}
+                                            </TableCell>
 
-                                        <TableCell>
-                                            <div className="flex flex-col space-y-1">
-                                                <span className="text-sm font-black dark:text-white uppercase italic tracking-tight leading-tight">
-                                                    {item.violatorName}
-                                                </span>
-                                                <span className="text-xs text-slate-500 italic">
-                                                    License: {item.licenseNo || "N/A"}
-                                                </span>
-                                            </div>
-                                        </TableCell>
+                                            <TableCell className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                                                <div>
+                                                    {appDate.toLocaleDateString("en-PH", {
+                                                        month: "short",
+                                                        day: "numeric",
+                                                        year: "numeric"
+                                                    })}
+                                                </div>
+                                                <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                                    Due: {itemDueDate.toLocaleDateString("en-PH", { month: "short", day: "numeric" })}
+                                                </div>
+                                            </TableCell>
 
-                                        <TableCell className="font-bold text-xs text-slate-700 dark:text-slate-300">
-                                            <div>{item.plateNo || "N/A"}</div>
-                                            {item.isImpounded && (
-                                                <span className="inline-block mt-0.5 px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[9px] font-black uppercase">
-                                                    Impounded
-                                                </span>
-                                            )}
-                                        </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col space-y-1">
+                                                    <span className="text-sm font-black dark:text-white uppercase italic tracking-tight leading-tight">
+                                                        {item.violatorName}
+                                                    </span>
+                                                    <span className="text-xs text-slate-500 italic">
+                                                        License: {item.licenseNo || "N/A"}
+                                                    </span>
+                                                </div>
+                                            </TableCell>
 
-                                        <TableCell className="font-semibold text-xs text-slate-600 dark:text-slate-400">
-                                            {item.officerName || "POSO Enforcer"}
-                                        </TableCell>
+                                            <TableCell className="font-bold text-xs text-slate-700 dark:text-slate-300">
+                                                <div>{item.plateNo || "N/A"}</div>
+                                                {item.isImpounded && (
+                                                    <span className="inline-block mt-0.5 px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[9px] font-black uppercase">
+                                                        Impounded
+                                                    </span>
+                                                )}
+                                            </TableCell>
 
-                                        <TableCell className="text-center font-black text-sm text-rose-600 dark:text-rose-400 italic">
-                                            ₱ {(item.totalAmount + (item.isImpounded ? Number(item.impoundFee || 0) : 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                                        </TableCell>
+                                            <TableCell className="font-semibold text-xs text-slate-600 dark:text-slate-400">
+                                                {item.officerName || "POSO Enforcer"}
+                                            </TableCell>
 
-                                        <TableCell className="text-center">
-                                            <span
-                                                className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase italic w-fit ${
-                                                    item.status === "SETTLED"
-                                                        ? "bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400"
-                                                        : item.isPaid || item.status === "PAID"
-                                                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
-                                                        : item.transactionId
-                                                        ? "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400"
-                                                        : "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400"
-                                                }`}
-                                            >
-                                                {item.status === "SETTLED"
-                                                    ? "SETTLED"
-                                                    : item.isPaid || item.status === "PAID"
-                                                    ? "PAID"
-                                                    : item.transactionId
-                                                    ? "PENDING TREASURY"
-                                                    : "UNPAID"}
-                                            </span>
-                                        </TableCell>
+                                            <TableCell className="text-center font-black text-sm text-rose-600 dark:text-rose-400 italic">
+                                                ₱ {(item.totalAmount + (item.isImpounded ? Number(item.impoundFee || 0) : 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                            </TableCell>
 
-                                        <TableCell className="text-right pr-8" onClick={(e) => e.stopPropagation()}>
-                                            <div className="flex justify-end gap-2">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleViewHistory(item.licenseNo, item.violatorName)}
-                                                    disabled={loadingHistory}
-                                                    className="h-9 px-3 rounded-xl text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50 font-bold text-xs transition-all"
-                                                >
-                                                    <History className="w-4 h-4 mr-1.5" />
-                                                    History
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
+                                            <TableCell className="text-center">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <span
+                                                        className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase italic w-fit ${
+                                                            item.status === "SETTLED"
+                                                                ? "bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400"
+                                                                : item.isPaid || item.status === "PAID"
+                                                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+                                                                : item.transactionId
+                                                                ? "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400"
+                                                                : "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400"
+                                                        }`}
+                                                    >
+                                                        {item.status === "SETTLED"
+                                                            ? "SETTLED"
+                                                            : item.isPaid || item.status === "PAID"
+                                                            ? "PAID"
+                                                            : item.transactionId
+                                                            ? "PENDING TREASURY"
+                                                            : "UNPAID"}
+                                                    </span>
+                                                    {isOverdue && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-rose-600 text-white font-black text-[9px] uppercase tracking-wider animate-pulse">
+                                                            OVERDUE
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+
+                                            <TableCell className="text-right pr-8" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex justify-end gap-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleViewHistory(item.licenseNo, item.violatorName)}
+                                                        disabled={loadingHistory}
+                                                        className="h-9 px-3 rounded-xl text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50 font-bold text-xs transition-all"
+                                                    >
+                                                        <History className="w-4 h-4 mr-1.5" />
+                                                        History
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
                             )}
                         </TableBody>
                     </Table>
@@ -767,6 +834,7 @@ export default function TicketsPage({
                     </div>
                 </DialogContent>
             </Dialog>
+
         </div>
     );
 }

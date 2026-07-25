@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { getTicketById, markTicketAsSettled } from "@/app/admin/poso/actions";
+import { getTicketById, markTicketAsSettled, getPosoPenaltySettings, calculatePosoTicketPenalty, POSOPenaltyBreakdown } from "@/app/admin/poso/actions";
 
 export default function TicketDetailsPage() {
     const routeParams = useParams();
@@ -34,6 +34,8 @@ export default function TicketDetailsPage() {
     const [themeColor, setThemeColor] = useState<string | null>(null);
     const [settling, setSettling] = useState(false);
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+    const [penaltySettings, setPenaltySettings] = useState<{ dueDays: number; surchargeRate: number; monthlyInterestRate: number }>({ dueDays: 7, surchargeRate: 25, monthlyInterestRate: 2 });
+    const [penaltyBreakdown, setPenaltyBreakdown] = useState<POSOPenaltyBreakdown | null>(null);
 
     useEffect(() => {
         if (!id) return;
@@ -41,13 +43,25 @@ export default function TicketDetailsPage() {
         async function fetchTicket() {
             setLoading(true);
             try {
-                const res = await getTicketById(id);
+                const [res, settingsRes] = await Promise.all([
+                    getTicketById(id),
+                    getPosoPenaltySettings(),
+                ]);
+
                 if (res.success && isMounted) {
                     setTicket(res.ticket);
                     if (res.otherUnpaidTickets) setOtherUnpaidTickets(res.otherUnpaidTickets);
                     if (res.otherPaidTickets) setOtherPaidTickets(res.otherPaidTickets);
                     if (res.otherUnpaidTotal) setOtherUnpaidTotal(res.otherUnpaidTotal);
                     if (res.themeColor) setThemeColor(res.themeColor);
+                    
+                    const settings = settingsRes.settings || { dueDays: 7, surchargeRate: 25, monthlyInterestRate: 2 };
+                    setPenaltySettings(settings);
+
+                    if (res.ticket) {
+                        const breakdown = await calculatePosoTicketPenalty(res.ticket, settings);
+                        setPenaltyBreakdown(breakdown);
+                    }
                 } else if (!res.success) {
                     toast.error(res.error || "Citation Ticket not found");
                 }
@@ -61,7 +75,10 @@ export default function TicketDetailsPage() {
         return () => { isMounted = false; };
     }, [id]);
 
-
+    const apprehensionDate = ticket ? new Date(ticket.dateTime) : null;
+    const dueDate = apprehensionDate ? new Date(apprehensionDate.getTime() + penaltySettings.dueDays * 24 * 60 * 60 * 1000) : null;
+    const isOverdue = penaltyBreakdown?.isOverdue || false;
+    const daysOverdue = penaltyBreakdown?.daysOverdue || 0;
 
     const handleMarkAsSettled = async () => {
         if (!ticket) return;
@@ -186,10 +203,22 @@ export default function TicketDetailsPage() {
                         >
                             {ticket.status === "SETTLED" ? "SETTLED" : ticket.isPaid || ticket.status === "PAID" ? "PAID" : ticket.transactionId ? "PENDING TREASURY PAYMENT" : "UNPAID CITATION"}
                         </Badge>
+                        {isOverdue && (
+                            <Badge className="bg-rose-600 text-white font-black text-[10px] px-2.5 py-1 rounded-lg uppercase animate-pulse">
+                                OVERDUE ({daysOverdue} {daysOverdue === 1 ? "DAY" : "DAYS"})
+                            </Badge>
+                        )}
                     </div>
-                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 italic">
-                        Apprehended on {new Date(ticket.dateTime).toLocaleString("en-PH", { dateStyle: "full", timeStyle: "short" })}
-                    </p>
+                    <div className="text-left sm:text-right">
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 italic">
+                            Apprehended: {apprehensionDate?.toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}
+                        </p>
+                        {dueDate && (
+                            <p className={`text-xs font-bold font-mono ${isOverdue ? "text-rose-600 dark:text-rose-400 font-black" : "text-slate-700 dark:text-slate-300"}`}>
+                                Payment Due: {dueDate.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })} ({penaltySettings.dueDays}-day grace period)
+                            </p>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -551,13 +580,48 @@ export default function TicketDetailsPage() {
                             </TableBody>
                         </Table>
 
+                        {/* Itemized Penalty Breakdown for Overdue Citations */}
+                        {penaltyBreakdown?.isOverdue && (
+                            <div className="p-5 bg-rose-50/70 dark:bg-rose-950/20 rounded-2xl border border-rose-200 dark:border-rose-500/30 space-y-3">
+                                <div className="flex items-center justify-between pb-2 border-b border-rose-200/60 dark:border-rose-500/20">
+                                    <span className="font-black text-xs uppercase tracking-wider text-rose-800 dark:text-rose-200 flex items-center gap-1.5">
+                                        <AlertTriangle className="w-4 h-4 text-rose-600" /> Overdue Fine & Surcharge Breakdown (RA 7160)
+                                    </span>
+                                    <Badge className="bg-rose-600 text-white font-black text-[9px] uppercase px-2 py-0.5">
+                                        {penaltyBreakdown.monthsOverdue} {penaltyBreakdown.monthsOverdue === 1 ? "Month" : "Months"} Overdue
+                                    </Badge>
+                                </div>
+
+                                <div className="space-y-1.5 text-xs font-semibold">
+                                    <div className="flex justify-between text-slate-700 dark:text-slate-300">
+                                        <span>Base Citation Subtotal:</span>
+                                        <span className="font-mono">₱ {penaltyBreakdown.subtotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div className="flex justify-between text-amber-700 dark:text-amber-300">
+                                        <span>+ Late Payment Fee ({penaltyBreakdown.surchargeRate}%):</span>
+                                        <span className="font-mono font-bold">₱ {penaltyBreakdown.surchargeAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div className="flex justify-between text-purple-700 dark:text-purple-300">
+                                        <span>+ Monthly Accrued Interest ({penaltyBreakdown.monthsOverdue} mo @ {penaltyBreakdown.monthlyInterestRate}%):</span>
+                                        <span className="font-mono font-bold">₱ {penaltyBreakdown.interestAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div className="pt-2 border-t border-rose-200/60 dark:border-rose-500/20 flex justify-between font-black text-rose-600 dark:text-rose-400 text-sm">
+                                        <span>Total Penalty Surcharge:</span>
+                                        <span className="font-mono">₱ {penaltyBreakdown.totalPenalty.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="pt-4 flex justify-between items-center border-t border-slate-200 dark:border-[#2a3040]">
                             <div>
                                 <span className="font-black uppercase text-xs text-slate-700 dark:text-slate-300">Total Payable Fine</span>
-                                <p className="text-[10px] text-slate-500 font-semibold italic">Payable at LGU Treasury Department</p>
+                                <p className="text-[10px] text-slate-500 font-semibold italic">
+                                    {penaltyBreakdown?.isOverdue ? "Includes 25% Surcharge & 2% Interest" : "Payable at LGU Treasury Department"}
+                                </p>
                             </div>
                             <span className="font-black text-2xl text-rose-600 dark:text-rose-400 italic">
-                                ₱ {(Number(ticket.totalAmount || 0) + (ticket.isImpounded ? Number(ticket.impoundFee || 0) : 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                ₱ {(penaltyBreakdown?.grandTotalPayable || (Number(ticket.totalAmount || 0) + (ticket.isImpounded ? Number(ticket.impoundFee || 0) : 0))).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                             </span>
                         </div>
                     </div>
@@ -640,6 +704,30 @@ export default function TicketDetailsPage() {
                             <p className="text-xs font-semibold text-emerald-900/80 dark:text-emerald-200/90 leading-relaxed italic">
                                 This citation ticket has been officially settled and any confiscated driver&apos;s license or impounded vehicle has been released.
                             </p>
+
+                            <div className="space-y-2 py-2 border-t border-emerald-200/60 dark:border-emerald-500/20">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Official Receipt (O.R.) No:</span>
+                                    <span className="font-mono font-bold text-slate-900 dark:text-white">
+                                        {ticket.transaction?.payment?.orNumber || (ticket.transaction?.additionalData as any)?.orNumber || (ticket.transaction?.additionalData as any)?.orSeriesNumber || "OR-ISSUED"}
+                                    </span>
+                                </div>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Payment Reference:</span>
+                                    <span className="font-mono font-bold text-slate-900 dark:text-white">
+                                        {ticket.transaction?.payment?.reference || ticket.transaction?.paymentReference || (ticket.transaction?.additionalData as any)?.paymentReference || (ticket.transaction?.additionalData as any)?.gcashReferenceNo || (ticket.transaction?.additionalData as any)?.referenceNo || "N/A (Cash)"}
+                                    </span>
+                                </div>
+                                {ticket.transaction?.payment?.method && (
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                        <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Payment Method:</span>
+                                        <span className="font-mono font-bold text-slate-900 dark:text-white uppercase">
+                                            {ticket.transaction.payment.method.replace(/_/g, " ")}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
                             {ticket.releasedAt && (
                                 <div className="pt-3 border-t border-emerald-200/60 dark:border-emerald-500/20 flex items-center justify-between text-[11px] font-bold text-emerald-900 dark:text-emerald-200">
                                     <span className="uppercase tracking-wider text-[10px] text-emerald-600 dark:text-emerald-400">Released Timestamp</span>

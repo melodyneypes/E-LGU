@@ -8,7 +8,7 @@ import {
     Briefcase, MapPin, Map,
     UtensilsCrossed, Calendar, Phone, FolderKanban, BedDouble, AlertTriangle, Settings, Megaphone, UserCheck,
     ChevronDown, ChevronUp, LogOut, Search, Info, Church, CreditCard, Truck, HardHat, Moon, Sun,
-    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy
+    FileText, BarChart3, ShieldAlert, Activity, Package, Car, Trophy, DollarSign
 } from "lucide-react";
 import { logoutToLogin } from "@/components/auth/logout-to-login";
 import { useTheme } from "next-themes";
@@ -492,6 +492,8 @@ export function Sidebar({
         { href: "/admin/poso/vehicle-classes", label: "Vehicle Classifications", icon: Car, category: "Public Order & Safety" },
         { href: "/admin/poso/leaderboard", label: "Enforcer Leaderboard", icon: Trophy, category: "Public Order & Safety" },
         { href: "/admin/poso/officers", label: "POSO Officers", icon: UserCheck, category: "Public Order & Safety" },
+        { href: "/admin/poso/payment-ledger", label: "POSO Payment Ledger", icon: DollarSign, category: "Public Order & Safety" },
+        { href: "/admin/poso/settings", label: "POSO Settings", icon: Settings, category: "Public Order & Safety" },
         { href: "/admin/users", label: "User Accounts", icon: UserCheck, category: "Security & Accounts" },
     ];
 
@@ -594,7 +596,7 @@ export function Sidebar({
                         (item.label === "Appointment Settings" && item.category === "Treasury Department")
                     );
                 } else if (deptUpper === "POSO") {
-                    menuItems = allMenuItems.filter(item => ["Citations & Tickets", "Violations Masterlist", "Vehicle Classifications", "Enforcer Leaderboard", "POSO Officers"].includes(item.label));
+                    menuItems = allMenuItems.filter(item => ["Citations & Tickets", "Violations Masterlist", "Vehicle Classifications", "Enforcer Leaderboard", "POSO Officers", "POSO Payment Ledger", "POSO Settings"].includes(item.label));
                 } else if (deptUpper === "RHU" || deptUpper === "HEALTH" || deptUpper === "RURAL_HEALTH_UNIT") {
                     menuItems = allMenuItems.filter(item => item.category === "Rural Health Unit");
                 } else if (deptUpper === "LGU") {

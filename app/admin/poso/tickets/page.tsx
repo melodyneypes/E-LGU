@@ -4,7 +4,7 @@ import TicketsPage from "@/app/admin/poso/tickets/TicketsPage";
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-    const res = await getTickets({ page: 1, pageSize: 10 });
+    const res = await getTickets({ page: 1, limit: 10 });
     const initialTickets = res.success && res.tickets ? JSON.parse(JSON.stringify(res.tickets)) : [];
     const totalCount = res.totalCount || 0;
 
