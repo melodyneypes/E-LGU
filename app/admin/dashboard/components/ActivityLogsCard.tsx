@@ -57,12 +57,11 @@ export function ActivityLogsCard({ logs: initialLogs, selectedBarangay = "" }: A
   }, [selectedBarangay]);
 
   useEffect(() => {
-    console.log("[ActivityLogsCard] Connecting to SSE stream...");
+    console.log("[ActivityLogsCard] Connecting to Supabase Realtime SSE stream...");
     const eventSource = new EventSource("/api/admin/activity-logs/stream");
     let debounceTimer: NodeJS.Timeout | null = null;
 
     eventSource.onmessage = (event) => {
-      console.log("[ActivityLogsCard] SSE Message received:", event.data);
       if (event.data === "refresh") {
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
@@ -75,14 +74,8 @@ export function ActivityLogsCard({ logs: initialLogs, selectedBarangay = "" }: A
       console.warn("[ActivityLogsCard] SSE stream reconnecting...", err);
     };
 
-    // Lightweight 5s interval fallback to guarantee real-time updates even if SSE is blocked
-    const fallbackInterval = setInterval(() => {
-      refreshActivityLogsOnly();
-    }, 5000);
-
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      clearInterval(fallbackInterval);
       eventSource.close();
     };
   }, [refreshActivityLogsOnly]);
