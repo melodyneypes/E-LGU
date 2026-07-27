@@ -392,7 +392,7 @@ export default function TicketsPage({
                 startY: currentY,
                 head: tableHeaders,
                 body: tableRows,
-                margin: { left: MARGIN, right: MARGIN },
+                margin: { left: MARGIN, right: MARGIN, top: MARGIN, bottom: MARGIN },
                 styles: { fontSize: 7.5, cellPadding: 2.5 },
                 headStyles: { fillColor: [225, 29, 72], textColor: 255, fontStyle: "bold" },
                 alternateRowStyles: { fillColor: [248, 250, 252] },
