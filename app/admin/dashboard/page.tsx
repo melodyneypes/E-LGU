@@ -702,7 +702,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     {/* Activity Logs (Col-span 1) */}
                     <div className="space-y-6">
                         <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Activity Logs</h3>
-                        <ActivityLogsCard logs={activityLogs} />
+                        <ActivityLogsCard logs={activityLogs} selectedBarangay={selectedBarangay} />
                     </div>
                 </div>
 
