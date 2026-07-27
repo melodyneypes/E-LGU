@@ -304,13 +304,15 @@ export async function getTickets(params: {
     isImpounded?: boolean;
     from?: string;
     to?: string;
+    exportAll?: boolean;
 } = {}) {
     try {
         await verifyAdminOrStaff();
 
         const page = params.page || 1;
         const pageSize = params.limit || 10;
-        const skip = (page - 1) * pageSize;
+        const skip = params.exportAll ? undefined : (page - 1) * pageSize;
+        const take = params.exportAll ? undefined : pageSize;
 
         const penaltySettingsRes = await getPosoPenaltySettings();
         const posoDueDays = penaltySettingsRes.settings?.dueDays || 7;
@@ -399,10 +401,16 @@ export async function getTickets(params: {
                     isImpounded: true,
                     impoundFee: true,
                     vehicleClass: true,
+                    details: {
+                        select: {
+                            violationName: true,
+                            amount: true,
+                        }
+                    }
                 },
                 orderBy: { createdAt: "desc" },
                 skip,
-                take: pageSize,
+                take,
             }),
             (prisma as any).ticketHeader.count({ where }),
         ]);

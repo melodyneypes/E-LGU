@@ -26,6 +26,7 @@ import {
     RefreshCw,
     X,
     FileSpreadsheet,
+    FileText,
     CheckCircle2,
     ChevronLeft,
     ChevronRight,
@@ -251,7 +252,293 @@ export default function TicketsPage({
         }
     };
 
+    // Export Loading States
+    const [isExportingPdf, setIsExportingPdf] = useState(false);
+    const [isExportingExcel, setIsExportingExcel] = useState(false);
 
+    // Export helper for Option 3 Violation Summary
+    const formatViolationSummary = (details?: { violationName: string; amount: number }[]) => {
+        if (!details || details.length === 0) return "No specific violation listed";
+        const count = details.length;
+        const names = details.map((d) => d.violationName).join(", ");
+        return `${count} Violation${count > 1 ? "s" : ""} (${names})`;
+    };
+
+    // --- LTO OVERDUE REPORT PDF EXPORT ---
+    const handleExportLtoPdf = async () => {
+        setIsExportingPdf(true);
+        try {
+            toast.loading("Generating LTO Transmittal PDF report...", { id: "lto-pdf" });
+            const res = await getTickets({
+                search,
+                status: statusFilter,
+                from: fromDate,
+                to: toDate,
+                exportAll: true,
+            });
+
+            if (!res.success || !res.tickets || res.tickets.length === 0) {
+                toast.error("No ticket records found for the selected filters.", { id: "lto-pdf" });
+                setIsExportingPdf(false);
+                return;
+            }
+
+            const exportTickets: (TicketItem & { details?: { violationName: string; amount: number }[] })[] = res.tickets;
+
+            const { default: jsPDF } = await import("jspdf");
+            const { default: autoTable } = await import("jspdf-autotable");
+
+            // Branding fetch
+            let logoUrl = "";
+            let brand1 = "MUNICIPALITY OF MAPANDAN";
+            let brand2 = "PUBLIC ORDER & SAFETY OFFICE (POSO)";
+            try {
+                const sRes = await fetch("/api/settings");
+                if (sRes.ok) {
+                    const sData = await sRes.json();
+                    if (sData.logoUrl) logoUrl = sData.logoUrl;
+                }
+            } catch { /* defaults */ }
+
+            const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+            const PAGE_W = doc.internal.pageSize.getWidth();
+            const MARGIN = 14;
+            let currentY = 12;
+
+            if (logoUrl) {
+                try {
+                    const imgRes = await fetch(logoUrl);
+                    const imgBlob = await imgRes.blob();
+                    const imgDataUrl = await new Promise<string>((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result as string);
+                        reader.readAsDataURL(imgBlob);
+                    });
+                    doc.addImage(imgDataUrl, "PNG", PAGE_W / 2 - 8, currentY, 16, 16);
+                    currentY += 18;
+                } catch { currentY += 2; }
+            }
+
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(80, 80, 80);
+            doc.text("REPUBLIC OF THE PHILIPPINES | PROVINCE OF PANGASINAN", PAGE_W / 2, currentY, { align: "center" });
+            currentY += 4;
+
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(15, 23, 42);
+            doc.text(brand1.toUpperCase(), PAGE_W / 2, currentY, { align: "center" });
+            currentY += 4.5;
+
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(225, 29, 72); // Rose-600
+            doc.text(brand2.toUpperCase(), PAGE_W / 2, currentY, { align: "center" });
+            currentY += 5;
+
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(15, 23, 42);
+            doc.text("LTO TRANSMITTAL REPORT - CITATION TICKETS & OVERDUE ALARMS", PAGE_W / 2, currentY, { align: "center" });
+            currentY += 4;
+
+            const dateStr = fromDate && toDate
+                ? `Filter Period: ${fromDate} to ${toDate}`
+                : `Generated Date: ${new Date().toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}`;
+            const statusStr = statusFilter !== "All" ? ` | Status: ${statusFilter}` : "";
+
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(100, 116, 139);
+            doc.text(`${dateStr}${statusStr} | Total Items: ${exportTickets.length}`, PAGE_W / 2, currentY, { align: "center" });
+            currentY += 6;
+
+            // Table Columns
+            const tableHeaders = [
+                ["#", "Ticket No.", "Apprehended", "Violator Name", "Driver License", "Plate / Vehicle", "Violations Summary (Option 3)", "Amount", "Status"]
+            ];
+
+            const tableRows = exportTickets.map((t, idx) => {
+                const appDate = new Date(t.dateTime || t.createdAt);
+                const itemDueDate = new Date(appDate.getTime() + posoDueDays * 24 * 60 * 60 * 1000);
+                const isOverdue = !t.isPaid && t.status !== "SETTLED" && t.status !== "PAID" && new Date() > itemDueDate;
+                const totalAmt = t.totalAmount + (t.isImpounded ? Number(t.impoundFee || 0) : 0);
+
+                let statusDisplay = t.status === "SETTLED" ? "SETTLED" : t.isPaid || t.status === "PAID" ? "PAID" : isOverdue ? "OVERDUE (ALARM)" : "UNPAID";
+
+                return [
+                    (idx + 1).toString(),
+                    t.ticketNo,
+                    appDate.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }),
+                    t.violatorName.toUpperCase(),
+                    t.licenseNo || "N/A",
+                    t.plateNo || "N/A",
+                    formatViolationSummary(t.details),
+                    `PHP ${totalAmt.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`,
+                    statusDisplay
+                ];
+            });
+
+            autoTable(doc, {
+                startY: currentY,
+                head: tableHeaders,
+                body: tableRows,
+                margin: { left: MARGIN, right: MARGIN },
+                styles: { fontSize: 7.5, cellPadding: 2.5 },
+                headStyles: { fillColor: [225, 29, 72], textColor: 255, fontStyle: "bold" },
+                alternateRowStyles: { fillColor: [248, 250, 252] },
+                columnStyles: {
+                    0: { cellWidth: 8, halign: "center" },
+                    1: { cellWidth: 24, fontStyle: "bold" },
+                    2: { cellWidth: 24 },
+                    3: { cellWidth: 38, fontStyle: "bold" },
+                    4: { cellWidth: 28 },
+                    5: { cellWidth: 24 },
+                    6: { cellWidth: 70 },
+                    7: { cellWidth: 26, halign: "right" },
+                    8: { cellWidth: 24, halign: "center", fontStyle: "bold" }
+                }
+            });
+
+            const pdfBlobUrl = doc.output("bloburl");
+            window.open(pdfBlobUrl, "_blank");
+            toast.success("LTO Transmittal PDF report opened in new tab!", { id: "lto-pdf" });
+        } catch (err: any) {
+            toast.error(err.message || "Failed to generate PDF.", { id: "lto-pdf" });
+        } finally {
+            setIsExportingPdf(false);
+        }
+    };
+
+    // --- LTO OVERDUE REPORT EXCEL EXPORT ---
+    const handleExportLtoExcel = async () => {
+        setIsExportingExcel(true);
+        try {
+            toast.loading("Generating LTO Transmittal Excel file...", { id: "lto-excel" });
+            const res = await getTickets({
+                search,
+                status: statusFilter,
+                from: fromDate,
+                to: toDate,
+                exportAll: true,
+            });
+
+            if (!res.success || !res.tickets || res.tickets.length === 0) {
+                toast.error("No ticket records found for the selected filters.", { id: "lto-excel" });
+                setIsExportingExcel(false);
+                return;
+            }
+
+            const exportTickets: (TicketItem & { details?: { violationName: string; amount: number }[] })[] = res.tickets;
+
+            const ExcelJS = await import("exceljs");
+            const workbook = new ExcelJS.Workbook();
+            workbook.creator = "POSO System";
+            workbook.created = new Date();
+
+            const sheet = workbook.addWorksheet("LTO Overdue Report", {
+                pageSetup: { orientation: "landscape", fitToPage: true }
+            });
+
+            // Title Block
+            sheet.mergeCells("A1:I1");
+            sheet.getCell("A1").value = "REPUBLIC OF THE PHILIPPINES - MUNICIPALITY OF MAPANDAN";
+            sheet.getCell("A1").font = { bold: true, size: 10, color: { argb: "FF475569" } };
+            sheet.getCell("A1").alignment = { horizontal: "center" };
+
+            sheet.mergeCells("A2:I2");
+            sheet.getCell("A2").value = "PUBLIC ORDER & SAFETY OFFICE (POSO) - LTO TRANSMITTAL REPORT";
+            sheet.getCell("A2").font = { bold: true, size: 13, color: { argb: "FFE11D48" } };
+            sheet.getCell("A2").alignment = { horizontal: "center" };
+
+            sheet.mergeCells("A3:I3");
+            const rangeText = fromDate && toDate ? `Period: ${fromDate} to ${toDate}` : `Generated: ${new Date().toLocaleDateString()}`;
+            sheet.getCell("A3").value = `${rangeText} | Total Citation Tickets: ${exportTickets.length}`;
+            sheet.getCell("A3").font = { italic: true, size: 9, color: { argb: "FF64748B" } };
+            sheet.getCell("A3").alignment = { horizontal: "center" };
+
+            sheet.addRow([]); // empty row
+
+            // Headers
+            const headerRow = sheet.addRow([
+                "#",
+                "Ticket No.",
+                "Date Apprehended",
+                "Violator Full Name",
+                "Driver License No.",
+                "Plate / Vehicle No.",
+                "Violations Summary (Option 3)",
+                "Total Amount (PHP)",
+                "Citation Status"
+            ]);
+
+            headerRow.eachCell((cell) => {
+                cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+                cell.fill = {
+                    type: "pattern",
+                    pattern: "solid",
+                    fgColor: { argb: "FFE11D48" } // Rose background
+                };
+                cell.alignment = { vertical: "middle", horizontal: "center" };
+            });
+
+            sheet.columns = [
+                { width: 6 },   // #
+                { width: 18 },  // Ticket No
+                { width: 18 },  // Date
+                { width: 28 },  // Name
+                { width: 22 },  // License
+                { width: 18 },  // Plate
+                { width: 50 },  // Violations Option 3 Summary
+                { width: 20 },  // Amount
+                { width: 20 },  // Status
+            ];
+
+            exportTickets.forEach((t, idx) => {
+                const appDate = new Date(t.dateTime || t.createdAt);
+                const itemDueDate = new Date(appDate.getTime() + posoDueDays * 24 * 60 * 60 * 1000);
+                const isOverdue = !t.isPaid && t.status !== "SETTLED" && t.status !== "PAID" && new Date() > itemDueDate;
+                const totalAmt = t.totalAmount + (t.isImpounded ? Number(t.impoundFee || 0) : 0);
+                const statusDisplay = t.status === "SETTLED" ? "SETTLED" : t.isPaid || t.status === "PAID" ? "PAID" : isOverdue ? "OVERDUE (LTO ALARM)" : "UNPAID";
+
+                const row = sheet.addRow([
+                    idx + 1,
+                    t.ticketNo,
+                    appDate.toLocaleDateString("en-PH"),
+                    t.violatorName.toUpperCase(),
+                    t.licenseNo || "N/A",
+                    t.plateNo || "N/A",
+                    formatViolationSummary(t.details),
+                    totalAmt,
+                    statusDisplay
+                ]);
+
+                // Cell styling
+                row.getCell(8).numFmt = '"₱"#,##0.00';
+                row.getCell(8).alignment = { horizontal: "right" };
+                row.getCell(9).alignment = { horizontal: "center" };
+                if (isOverdue) {
+                    row.getCell(9).font = { bold: true, color: { argb: "FFE11D48" } };
+                }
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `LTO_Overdue_Report_${fromDate || "all"}_to_${toDate || "all"}.xlsx`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+
+            toast.success("LTO Transmittal Excel exported successfully!", { id: "lto-excel" });
+        } catch (err: any) {
+            toast.error(err.message || "Failed to export Excel.", { id: "lto-excel" });
+        } finally {
+            setIsExportingExcel(false);
+        }
+    };
 
     const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
@@ -268,6 +555,28 @@ export default function TicketsPage({
                         Real-time tracking of traffic apprehensions, violator citation tickets, and treasury payment status.
                     </p>
                 </div>
+
+                {/* Export LTO Overdue Transmittal Buttons - Only visible when statusFilter is OVERDUE */}
+                {statusFilter === "OVERDUE" && (
+                    <div className="flex items-center gap-3 animate-in fade-in zoom-in-95 duration-300">
+                        <Button
+                            onClick={handleExportLtoExcel}
+                            disabled={isExportingExcel || isPending}
+                            className="h-11 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center gap-2 cursor-pointer"
+                        >
+                            <FileSpreadsheet className="w-4 h-4" />
+                            {isExportingExcel ? "Exporting Excel..." : "LTO Report (Excel)"}
+                        </Button>
+                        <Button
+                            onClick={handleExportLtoPdf}
+                            disabled={isExportingPdf || isPending}
+                            className="h-11 px-4 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-2xl shadow-lg shadow-rose-600/20 transition-all flex items-center gap-2 cursor-pointer"
+                        >
+                            <FileText className="w-4 h-4" />
+                            {isExportingPdf ? "Generating PDF..." : "LTO Transmittal (PDF)"}
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {/* Main Table Card */}
@@ -449,6 +758,11 @@ export default function TicketsPage({
                                                     <span className="text-xs text-slate-500 italic">
                                                         License: {item.licenseNo || "N/A"}
                                                     </span>
+                                                    {(item as any).details && (item as any).details.length > 0 && (
+                                                        <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md w-fit border border-rose-200 dark:border-rose-900/50">
+                                                            {formatViolationSummary((item as any).details)}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </TableCell>
 
