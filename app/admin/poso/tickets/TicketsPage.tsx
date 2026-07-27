@@ -340,7 +340,7 @@ export default function TicketsPage({
             doc.setFontSize(12);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(15, 23, 42);
-            doc.text("LTO TRANSMITTAL REPORT - CITATION TICKETS & OVERDUE ALARMS", PAGE_W / 2, currentY, { align: "center" });
+            doc.text("LTO TRANSMITTAL REPORT - OVERDUE CITATION TICKETS", PAGE_W / 2, currentY, { align: "center" });
             currentY += 4;
 
             const dateStr = fromDate && toDate
@@ -362,10 +362,18 @@ export default function TicketsPage({
             const tableRows = exportTickets.map((t, idx) => {
                 const appDate = new Date(t.dateTime || t.createdAt);
                 const itemDueDate = new Date(appDate.getTime() + posoDueDays * 24 * 60 * 60 * 1000);
-                const isOverdue = !t.isPaid && t.status !== "SETTLED" && t.status !== "PAID" && new Date() > itemDueDate;
+                const diffMs = new Date().getTime() - itemDueDate.getTime();
+                const overdueDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                const isOverdue = !t.isPaid && t.status !== "SETTLED" && t.status !== "PAID" && diffMs > 0;
                 const totalAmt = t.totalAmount + (t.isImpounded ? Number(t.impoundFee || 0) : 0);
 
-                let statusDisplay = t.status === "SETTLED" ? "SETTLED" : t.isPaid || t.status === "PAID" ? "PAID" : isOverdue ? "OVERDUE (ALARM)" : "UNPAID";
+                let statusDisplay = t.status === "SETTLED"
+                    ? "SETTLED"
+                    : t.isPaid || t.status === "PAID"
+                    ? "PAID"
+                    : isOverdue
+                    ? `OVERDUE\n(${overdueDays} DAY${overdueDays > 1 ? "S" : ""})`
+                    : "UNPAID";
 
                 return [
                     (idx + 1).toString(),
@@ -395,9 +403,9 @@ export default function TicketsPage({
                     3: { cellWidth: 38, fontStyle: "bold" },
                     4: { cellWidth: 28 },
                     5: { cellWidth: 24 },
-                    6: { cellWidth: 70 },
+                    6: { cellWidth: 64 },
                     7: { cellWidth: 26, halign: "right" },
-                    8: { cellWidth: 24, halign: "center", fontStyle: "bold" }
+                    8: { cellWidth: 33, halign: "center", fontStyle: "normal" }
                 }
             });
 
@@ -498,9 +506,17 @@ export default function TicketsPage({
             exportTickets.forEach((t, idx) => {
                 const appDate = new Date(t.dateTime || t.createdAt);
                 const itemDueDate = new Date(appDate.getTime() + posoDueDays * 24 * 60 * 60 * 1000);
-                const isOverdue = !t.isPaid && t.status !== "SETTLED" && t.status !== "PAID" && new Date() > itemDueDate;
+                const diffMs = new Date().getTime() - itemDueDate.getTime();
+                const overdueDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                const isOverdue = !t.isPaid && t.status !== "SETTLED" && t.status !== "PAID" && diffMs > 0;
                 const totalAmt = t.totalAmount + (t.isImpounded ? Number(t.impoundFee || 0) : 0);
-                const statusDisplay = t.status === "SETTLED" ? "SETTLED" : t.isPaid || t.status === "PAID" ? "PAID" : isOverdue ? "OVERDUE (LTO ALARM)" : "UNPAID";
+                const statusDisplay = t.status === "SETTLED"
+                    ? "SETTLED"
+                    : t.isPaid || t.status === "PAID"
+                    ? "PAID"
+                    : isOverdue
+                    ? `OVERDUE (${overdueDays} DAY${overdueDays > 1 ? "S" : ""})`
+                    : "UNPAID";
 
                 const row = sheet.addRow([
                     idx + 1,
@@ -725,7 +741,9 @@ export default function TicketsPage({
                                 tickets.map((item) => {
                                     const appDate = new Date(item.dateTime || item.createdAt);
                                     const itemDueDate = new Date(appDate.getTime() + posoDueDays * 24 * 60 * 60 * 1000);
-                                    const isOverdue = !item.isPaid && item.status !== "SETTLED" && item.status !== "PAID" && new Date() > itemDueDate;
+                                    const diffMs = new Date().getTime() - itemDueDate.getTime();
+                                    const overdueDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                                    const isOverdue = !item.isPaid && item.status !== "SETTLED" && item.status !== "PAID" && diffMs > 0;
 
                                     return (
                                         <TableRow
@@ -806,7 +824,7 @@ export default function TicketsPage({
                                                     </span>
                                                     {isOverdue && (
                                                         <span className="inline-flex items-center px-2 py-0.5 rounded bg-rose-600 text-white font-black text-[9px] uppercase tracking-wider animate-pulse">
-                                                            OVERDUE
+                                                            OVERDUE ({overdueDays} DAY{overdueDays > 1 ? "S" : ""})
                                                         </span>
                                                     )}
                                                 </div>
