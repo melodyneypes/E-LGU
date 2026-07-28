@@ -8,7 +8,6 @@ async function main() {
     // 1. Target Officer & Violator IDs provided by user
     const officerId = "cmryliald0006vpx01w577hz2";
     const officerName = "JhonEmil Nilo";
-    const officerEmail = "jhon_officer@mapandan.gov.ph";
 
     const violatorUserId = "cmqnw0x430002ji047x24wkaf";
     const violatorName = "JUAN DELA CRUZ";

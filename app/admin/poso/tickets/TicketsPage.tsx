@@ -290,8 +290,8 @@ export default function TicketsPage({
 
             // Branding fetch
             let logoUrl = "";
-            let brand1 = "MUNICIPALITY OF MAPANDAN";
-            let brand2 = "PUBLIC ORDER & SAFETY OFFICE (POSO)";
+            const brand1 = "MUNICIPALITY OF MAPANDAN";
+            const brand2 = "PUBLIC ORDER & SAFETY OFFICE (POSO)";
             try {
                 const sRes = await fetch("/api/settings");
                 if (sRes.ok) {
@@ -367,7 +367,7 @@ export default function TicketsPage({
                 const isOverdue = !t.isPaid && t.status !== "SETTLED" && t.status !== "PAID" && diffMs > 0;
                 const totalAmt = t.totalAmount + (t.isImpounded ? Number(t.impoundFee || 0) : 0);
 
-                let statusDisplay = t.status === "SETTLED"
+                const statusDisplay = t.status === "SETTLED"
                     ? "SETTLED"
                     : t.isPaid || t.status === "PAID"
                     ? "PAID"

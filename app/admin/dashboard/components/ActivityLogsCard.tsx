@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { Activity, UserPlus, FileText, CheckCircle2, AlertTriangle, Radio } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 
 interface ActivityLogItem {
   id: string;
