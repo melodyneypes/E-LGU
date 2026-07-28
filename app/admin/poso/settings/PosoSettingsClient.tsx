@@ -1,24 +1,44 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { updatePosoPenaltySettings, POSOPenaltySettings } from "@/app/admin/poso/actions";
+import { updatePosoPenaltySettings, updatePosoPortalInfoSettings, POSOPenaltySettings } from "@/app/admin/poso/actions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Settings, History, RefreshCw, CheckCircle2, ShieldAlert, Percent, Scale } from "lucide-react";
+import {
+    Settings, RefreshCw, CheckCircle2, ShieldAlert, Scale,
+    Building2, MapPin, Phone, Clock, Mail, Globe
+} from "lucide-react";
 import { toast } from "sonner";
 
 export default function PosoSettingsClient({
     initialSettings,
+    initialPortalInfo,
 }: {
     initialSettings: POSOPenaltySettings;
+    initialPortalInfo?: {
+        posoLocation?: string;
+        posoHotline?: string;
+        posoHours?: string;
+        posoEmail?: string;
+        posoFacebook?: string;
+    };
 }) {
     const [settings, setSettings] = useState<POSOPenaltySettings>(initialSettings);
     const [dueDaysVal, setDueDaysVal] = useState<string>(String(initialSettings.dueDays));
     const [surchargeVal, setSurchargeVal] = useState<string>(String(initialSettings.surchargeRate));
     const [interestVal, setInterestVal] = useState<string>(String(initialSettings.monthlyInterestRate));
-    const [isPending, startTransition] = useTransition();
 
-    const handleSave = () => {
+    // POSO Public Portal Settings Form States
+    const [locationVal, setLocationVal] = useState<string>(initialPortalInfo?.posoLocation || "Municipal Hall Complex, Poblacion, Mapandan, Pangasinan, 2429 Philippines");
+    const [hotlineVal, setHotlineVal] = useState<string>(initialPortalInfo?.posoHotline || "(075) 529-XXXX / +63 917 123 4567");
+    const [hoursVal, setHoursVal] = useState<string>(initialPortalInfo?.posoHours || "Monday - Friday: 8:00 AM - 5:00 PM");
+    const [emailVal, setEmailVal] = useState<string>(initialPortalInfo?.posoEmail || "poso@mapandan.gov.ph");
+    const [facebookVal, setFacebookVal] = useState<string>(initialPortalInfo?.posoFacebook || "https://facebook.com/MapandanPOSO");
+
+    const [isPending, startTransition] = useTransition();
+    const [isPendingPortal, startTransitionPortal] = useTransition();
+
+    const handleSavePenaltySettings = () => {
         const parsedDays = parseInt(dueDaysVal, 10);
         const parsedSurcharge = parseFloat(surchargeVal);
         const parsedInterest = parseFloat(interestVal);
@@ -62,6 +82,45 @@ export default function PosoSettingsClient({
         });
     };
 
+    const handleSavePortalInfo = () => {
+        if (!locationVal.trim()) {
+            toast.error("Please enter POSO office location.");
+            return;
+        }
+        if (!hotlineVal.trim()) {
+            toast.error("Please enter POSO hotline number.");
+            return;
+        }
+        if (!hoursVal.trim()) {
+            toast.error("Please enter office operating hours.");
+            return;
+        }
+        if (!emailVal.trim()) {
+            toast.error("Please enter official POSO email.");
+            return;
+        }
+
+        startTransitionPortal(async () => {
+            try {
+                const res = await updatePosoPortalInfoSettings({
+                    location: locationVal,
+                    hotline: hotlineVal,
+                    operatingHours: hoursVal,
+                    officialEmail: emailVal,
+                    facebookUrl: facebookVal,
+                });
+
+                if (res.success) {
+                    toast.success("Public POSO Portal Office settings successfully updated!");
+                } else {
+                    toast.error(res.error || "Failed to update POSO portal info settings.");
+                }
+            } catch {
+                toast.error("An error occurred while updating POSO portal settings.");
+            }
+        });
+    };
+
     // Live preview computation example for a ₱1,000 fine overdue by 1 month
     const sampleFine = 1000;
     const previewSurcharge = (sampleFine * (parseFloat(surchargeVal) || 0)) / 100;
@@ -69,7 +128,7 @@ export default function PosoSettingsClient({
     const previewGrandTotal = sampleFine + previewSurcharge + previewInterest;
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-5xl">
+        <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-5xl mx-auto">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-[#2a3040] pb-6">
                 <div>
@@ -78,12 +137,110 @@ export default function PosoSettingsClient({
                         POSO Department Settings
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium italic">
-                        Configure citation grace period, late payment surcharges, and monthly interest rates (RA 7160).
+                        Configure POSO public portal contact details, citation grace period, and late payment surcharges.
                     </p>
                 </div>
             </div>
 
-            {/* Main Policy Card */}
+            {/* Public POSO Portal Contact & Info Settings Card */}
+            <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] p-6 md:p-8 shadow-xl space-y-6">
+                <div className="flex items-center space-x-3.5 pb-4 border-b border-slate-100 dark:border-[#2a3040]">
+                    <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-600">
+                        <Building2 className="w-6 h-6 stroke-[2]" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
+                            Public POSO Portal Office Information Settings
+                        </h2>
+                        <p className="text-xs text-slate-500 font-medium italic">
+                            Configure contact info displayed on public ticket lookup portal (/poso/mapandan)
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                    {/* Location Input */}
+                    <div className="space-y-2 md:col-span-2">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <MapPin className="w-4 h-4 text-rose-600" /> POSO Office Location / Address
+                        </label>
+                        <Input
+                            type="text"
+                            value={locationVal}
+                            onChange={(e) => setLocationVal(e.target.value)}
+                            placeholder="e.g. Municipal Hall Complex, Poblacion, Mapandan, Pangasinan"
+                            className="bg-slate-50 dark:bg-[#0c111d] border-slate-200 dark:border-[#2a3040] text-slate-900 dark:text-white h-12 text-sm font-medium"
+                        />
+                    </div>
+
+                    {/* Hotline Input */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <Phone className="w-4 h-4 text-rose-600" /> POSO Emergency Hotline
+                        </label>
+                        <Input
+                            type="text"
+                            value={hotlineVal}
+                            onChange={(e) => setHotlineVal(e.target.value)}
+                            placeholder="e.g. (075) 529-XXXX / +63 917 123 4567"
+                            className="bg-slate-50 dark:bg-[#0c111d] border-slate-200 dark:border-[#2a3040] text-slate-900 dark:text-white h-12 text-sm font-mono font-bold"
+                        />
+                    </div>
+
+                    {/* Operating Hours Input */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <Clock className="w-4 h-4 text-rose-600" /> Office Operating Hours
+                        </label>
+                        <Input
+                            type="text"
+                            value={hoursVal}
+                            onChange={(e) => setHoursVal(e.target.value)}
+                            placeholder="e.g. Monday - Friday: 8:00 AM - 5:00 PM"
+                            className="bg-slate-50 dark:bg-[#0c111d] border-slate-200 dark:border-[#2a3040] text-slate-900 dark:text-white h-12 text-sm font-medium"
+                        />
+                    </div>
+
+                    {/* Official Email Input */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <Mail className="w-4 h-4 text-rose-600" /> POSO Official Email
+                        </label>
+                        <Input
+                            type="email"
+                            value={emailVal}
+                            onChange={(e) => setEmailVal(e.target.value)}
+                            placeholder="e.g. poso@mapandan.gov.ph"
+                            className="bg-slate-50 dark:bg-[#0c111d] border-slate-200 dark:border-[#2a3040] text-slate-900 dark:text-white h-12 text-sm font-medium"
+                        />
+                    </div>
+
+                    {/* Facebook Page Link Input */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <Globe className="w-4 h-4 text-rose-600" /> Facebook Page URL
+                        </label>
+                        <Input
+                            type="url"
+                            value={facebookVal}
+                            onChange={(e) => setFacebookVal(e.target.value)}
+                            placeholder="e.g. https://facebook.com/MapandanPOSO"
+                            className="bg-slate-50 dark:bg-[#0c111d] border-slate-200 dark:border-[#2a3040] text-slate-900 dark:text-white h-12 text-sm font-medium"
+                        />
+                    </div>
+                </div>
+
+                <Button
+                    onClick={handleSavePortalInfo}
+                    disabled={isPendingPortal}
+                    className="w-full h-12 bg-rose-600 hover:opacity-95 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all mt-4"
+                >
+                    {isPendingPortal ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                    <span>Save POSO Public Portal Settings</span>
+                </Button>
+            </div>
+
+            {/* Main Penalty Policy Settings Card */}
             <div className="bg-white dark:bg-[#151b2b] rounded-3xl border border-slate-200 dark:border-[#2a3040] p-6 md:p-8 shadow-xl space-y-6">
                 <div className="flex items-center space-x-3.5 pb-4 border-b border-slate-100 dark:border-[#2a3040]">
                     <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-600">
@@ -99,92 +256,66 @@ export default function PosoSettingsClient({
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                    {/* Inputs Column */}
-                    <div className="lg:col-span-2 space-y-5">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            {/* Grace Period Input */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                    <History className="w-3.5 h-3.5 text-rose-600" />
-                                    Grace Period
-                                </label>
-                                <div className="relative">
-                                    <Input
-                                        type="number"
-                                        min={1}
-                                        max={365}
-                                        value={dueDaysVal}
-                                        onChange={(e) => setDueDaysVal(e.target.value)}
-                                        placeholder="7"
-                                        className="h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] font-bold text-base rounded-xl pr-12"
-                                    />
-                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                                        Days
-                                    </span>
-                                </div>
-                                <p className="text-[10px] text-slate-500 italic">
-                                    Days before ticket becomes OVERDUE.
-                                </p>
-                            </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Settings Input Form */}
+                    <div className="space-y-5">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                                Citation Grace Period (Days)
+                            </label>
+                            <Input
+                                type="number"
+                                min={1}
+                                max={365}
+                                value={dueDaysVal}
+                                onChange={(e) => setDueDaysVal(e.target.value)}
+                                className="bg-slate-50 dark:bg-[#0c111d] border-slate-200 dark:border-[#2a3040] text-slate-900 dark:text-white h-12 font-mono text-base"
+                            />
+                            <p className="text-[11px] text-slate-400 italic">
+                                Standard period before citation becomes overdue (Default: 7 days).
+                            </p>
+                        </div>
 
-                            {/* Surcharge Input */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                    <Percent className="w-3.5 h-3.5 text-amber-600" />
-                                    Late Penalty Rate
-                                </label>
-                                <div className="relative">
-                                    <Input
-                                        type="number"
-                                        step="0.1"
-                                        min={0}
-                                        max={100}
-                                        value={surchargeVal}
-                                        onChange={(e) => setSurchargeVal(e.target.value)}
-                                        placeholder="25"
-                                        className="h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] font-bold text-base rounded-xl pr-10"
-                                    />
-                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                                        %
-                                    </span>
-                                </div>
-                                <p className="text-[10px] text-slate-500 italic">
-                                    One-time penalty rate (Standard: 25%).
-                                </p>
-                            </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                                Late Payment Surcharge Rate (%)
+                            </label>
+                            <Input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={0.1}
+                                value={surchargeVal}
+                                onChange={(e) => setSurchargeVal(e.target.value)}
+                                className="bg-slate-50 dark:bg-[#0c111d] border-slate-200 dark:border-[#2a3040] text-slate-900 dark:text-white h-12 font-mono text-base"
+                            />
+                            <p className="text-[11px] text-slate-400 italic">
+                                Mandatory one-time penalty surcharge for overdue citations under RA 7160 (Default: 25%).
+                            </p>
+                        </div>
 
-                            {/* Monthly Interest Input */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                    <Percent className="w-3.5 h-3.5 text-purple-600" />
-                                    Monthly Interest
-                                </label>
-                                <div className="relative">
-                                    <Input
-                                        type="number"
-                                        step="0.1"
-                                        min={0}
-                                        max={100}
-                                        value={interestVal}
-                                        onChange={(e) => setInterestVal(e.target.value)}
-                                        placeholder="2"
-                                        className="h-12 bg-slate-50 dark:bg-[#1a1f2e] border-slate-200 dark:border-[#2a3040] font-bold text-base rounded-xl pr-14"
-                                    />
-                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                                        %/Mo
-                                    </span>
-                                </div>
-                                <p className="text-[10px] text-slate-500 italic">
-                                    Accrued interest per month (Standard: 2%).
-                                </p>
-                            </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                                Monthly Interest Rate (%)
+                            </label>
+                            <Input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={0.1}
+                                value={interestVal}
+                                onChange={(e) => setInterestVal(e.target.value)}
+                                className="bg-slate-50 dark:bg-[#0c111d] border-slate-200 dark:border-[#2a3040] text-slate-900 dark:text-white h-12 font-mono text-base"
+                            />
+                            <p className="text-[11px] text-slate-400 italic">
+                                Monthly compounding interest accrued per overdue month (Default: 2%).
+                            </p>
                         </div>
 
                         <Button
-                            onClick={handleSave}
+                            onClick={handleSavePenaltySettings}
                             disabled={isPending}
-                            className="w-full h-12 bg-rose-600 hover:opacity-95 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all mt-2"
+                            className="w-full h-12 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all mt-2"
                         >
                             {isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                             <span>Save Policy Configurations</span>
