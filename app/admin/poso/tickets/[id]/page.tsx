@@ -36,6 +36,31 @@ export default function TicketDetailsPage() {
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
     const [penaltySettings, setPenaltySettings] = useState<{ dueDays: number; surchargeRate: number; monthlyInterestRate: number }>({ dueDays: 7, surchargeRate: 25, monthlyInterestRate: 2 });
     const [penaltyBreakdown, setPenaltyBreakdown] = useState<POSOPenaltyBreakdown | null>(null);
+    const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+    const [isGeocoding, setIsGeocoding] = useState(false);
+
+    useEffect(() => {
+        if (!ticket?.latitude || !ticket?.longitude) return;
+        let isMounted = true;
+        async function reverseGeocode() {
+            setIsGeocoding(true);
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${ticket.latitude}&lon=${ticket.longitude}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.display_name && isMounted) {
+                        setResolvedAddress(data.display_name);
+                    }
+                }
+            } catch {
+                // Silently fallback if offline
+            } finally {
+                if (isMounted) setIsGeocoding(false);
+            }
+        }
+        reverseGeocode();
+        return () => { isMounted = false; };
+    }, [ticket?.latitude, ticket?.longitude]);
 
     useEffect(() => {
         if (!id) return;
@@ -370,6 +395,16 @@ export default function TicketDetailsPage() {
                                 <p className="text-base font-bold text-slate-800 dark:text-slate-200 mt-0.5 font-mono">
                                     {ticket.licenseNo || "N/A (Unlicensed)"}
                                 </p>
+                                {ticket.licenseImage && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedPhoto(ticket.licenseImage)}
+                                        className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-bold transition-all border border-blue-500/20"
+                                    >
+                                        <Camera className="w-3.5 h-3.5" />
+                                        <span>View License Card</span>
+                                    </button>
+                                )}
                             </div>
 
                             <div>
@@ -408,11 +443,13 @@ export default function TicketDetailsPage() {
                                 <p className="text-base font-black text-slate-900 dark:text-white uppercase italic mt-0.5">
                                     {ticket.plateNo || "No Plate"} ({ticket.typeOfVehicle || "N/A"})
                                 </p>
-                                {ticket.vehicleClass && (
-                                    <span className="inline-block mt-1 px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-black uppercase">
-                                        {ticket.vehicleClass === "CLASS_A" ? "Class A (Motorcycle/Tricycle)" : ticket.vehicleClass === "CLASS_B" ? "Class B (Light 4-Wheel)" : ticket.vehicleClass === "CLASS_C" ? "Class C (Heavy 4-Wheel+)" : ticket.vehicleClass}
-                                    </span>
-                                )}
+                            </div>
+
+                            <div>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Registered Vehicle Owner</span>
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-0.5 uppercase italic">
+                                    {ticket.ownerName || ticket.violatorName || "Same as Violator / Unregistered"}
+                                </p>
                             </div>
 
                             {ticket.puvBodyName && (
@@ -426,17 +463,29 @@ export default function TicketDetailsPage() {
 
                             <div>
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Apprehension Location</span>
-                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mt-0.5 flex items-center">
-                                    <MapPin className="w-4 h-4 mr-1 text-rose-500" />
-                                    {ticket.location || "Mapandan"}, Barangay {ticket.barangay || "N/A"}
-                                </p>
+                                <div className="mt-0.5">
+                                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-start">
+                                        <MapPin className="w-4 h-4 mr-1.5 text-rose-500 shrink-0 mt-0.5" />
+                                        <span>
+                                            {resolvedAddress || (ticket.location ? `${ticket.location}${ticket.barangay ? `, Barangay ${ticket.barangay}` : ""}` : "Mapandan, Pangasinan")}
+                                            {isGeocoding && <span className="text-xs text-slate-400 italic ml-2">(Converting coordinates...)</span>}
+                                        </span>
+                                    </p>
+                                </div>
                             </div>
 
                             <div>
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Apprehending POSO Officer</span>
-                                <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-0.5 flex items-center">
-                                    <Shield className="w-4 h-4 mr-1 text-slate-400" />
-                                    {ticket.officerName || "POSO Enforcer"}
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-0.5 flex items-center flex-wrap gap-2">
+                                    <span className="flex items-center">
+                                        <Shield className="w-4 h-4 mr-1 text-slate-400" />
+                                        {ticket.officerName || "POSO Enforcer"}
+                                    </span>
+                                    {ticket.badgeNo && (
+                                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold uppercase">
+                                            Badge #{ticket.badgeNo}
+                                        </span>
+                                    )}
                                 </p>
                             </div>
                         </div>

@@ -46,6 +46,8 @@ export interface TicketItem {
     licenseNo: string | null;
     plateNo: string | null;
     location: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
     dateTime: Date;
     officerName: string | null;
     totalAmount: number;

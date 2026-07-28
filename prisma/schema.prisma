@@ -1095,6 +1095,8 @@ model TicketHeader {
   puvBodyNo       String?
   location        String?
   barangay        String?
+  latitude        Float?
+  longitude       Float?
   dateTime        DateTime       @default(now())
   officerName     String?
   badgeNo         String?
