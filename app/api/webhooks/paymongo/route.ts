@@ -278,6 +278,16 @@ export async function POST(request: Request) {
         txUpdate.status = "PAID";
         txUpdate.isPaid = true;
         txUpdate.paymentReference = paymentId;
+        try {
+          await prisma.ticketHeader.updateMany({
+            where: { transactionId },
+            data: { status: "PAID", isPaid: true, updatedAt: new Date() },
+          });
+          revalidatePath("/admin/poso/tickets");
+          revalidatePath("/poso/mapandan");
+        } catch (tErr) {
+          console.warn("[PayMongo Webhook] TicketHeader sync error:", tErr);
+        }
       }
 
       const updatedTx = await prisma.transaction.update({ where: { id: transactionId }, data: txUpdate });
@@ -402,6 +412,16 @@ export async function POST(request: Request) {
           txUpdate.status = "PAID";
           txUpdate.isPaid = true;
           txUpdate.paymentReference = paymentId;
+          try {
+            await prisma.ticketHeader.updateMany({
+              where: { transactionId },
+              data: { status: "PAID", isPaid: true, updatedAt: new Date() },
+            });
+            revalidatePath("/admin/poso/tickets");
+            revalidatePath("/poso/mapandan");
+          } catch (tErr) {
+            console.warn("[PayMongo Webhook] TicketHeader sync error:", tErr);
+          }
         }
 
 
@@ -487,6 +507,16 @@ export async function POST(request: Request) {
         txUpdate.status = "PAID";
         txUpdate.isPaid = true;
         txUpdate.paymentReference = paymentId;
+        try {
+          await prisma.ticketHeader.updateMany({
+            where: { transactionId },
+            data: { status: "PAID", isPaid: true, updatedAt: new Date() },
+          });
+          revalidatePath("/admin/poso/tickets");
+          revalidatePath("/poso/mapandan");
+        } catch (tErr) {
+          console.warn("[PayMongo Webhook] TicketHeader sync error:", tErr);
+        }
       }
 
       const updatedTx = await prisma.transaction.update({ where: { id: transactionId }, data: txUpdate });
