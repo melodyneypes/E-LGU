@@ -2,6 +2,53 @@
 
 import prisma from "@/lib/db/prisma";
 import { getPosoPenaltySettings, calculatePosoTicketPenalty, POSOPenaltyBreakdown } from "@/app/admin/poso/actions";
+import { getMultipleSystemSettings } from "@/lib/settings";
+
+export async function getPosoPortalSettings() {
+    try {
+        const settingsMap = await getMultipleSystemSettings([
+            "site_logo",
+            "poso_location",
+            "poso_hotline",
+            "poso_email",
+            "poso_hours",
+            "poso_facebook"
+        ]);
+
+        return {
+            siteLogo: settingsMap.get("site_logo") || "",
+            posoLocation: settingsMap.get("poso_location") || "Municipal Hall Complex, Poblacion, Mapandan, Pangasinan, 2429 Philippines",
+            posoHotline: settingsMap.get("poso_hotline") || "(075) 529-XXXX / +63 917 123 4567",
+            posoEmail: settingsMap.get("poso_email") || "poso@mapandan.gov.ph",
+            posoHours: settingsMap.get("poso_hours") || "Monday - Friday: 8:00 AM - 5:00 PM",
+            posoFacebook: settingsMap.get("poso_facebook") || "https://facebook.com/MapandanPOSO",
+        };
+    } catch (error) {
+        console.error("Failed to fetch POSO portal settings:", error);
+        return {
+            siteLogo: "",
+            posoLocation: "Municipal Hall Complex, Poblacion, Mapandan, Pangasinan, 2429 Philippines",
+            posoHotline: "(075) 529-XXXX / +63 917 123 4567",
+            posoEmail: "poso@mapandan.gov.ph",
+            posoHours: "Monday - Friday: 8:00 AM - 5:00 PM",
+            posoFacebook: "https://facebook.com/MapandanPOSO",
+        };
+    }
+}
+
+export async function getAllTrafficViolations() {
+    try {
+        const violations = await (prisma as any).trafficViolation.findMany({
+            where: { isActive: true },
+            orderBy: { violationName: "asc" },
+        });
+
+        return { success: true, violations: JSON.parse(JSON.stringify(violations)) };
+    } catch (error: any) {
+        console.error("Failed to fetch traffic violations:", error);
+        return { success: false, violations: [] };
+    }
+}
 
 export async function searchPublicTicket(query: string) {
     try {

@@ -1,13 +1,16 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-    Shield, Search, QrCode, ShieldCheck, Phone, Building2, X, RefreshCw
+    Shield, Search, QrCode, ShieldCheck, Phone, Building2, X, RefreshCw,
+    Clock, Mail, Globe, MapPin
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { getPosoPortalSettings, getAllTrafficViolations } from "./actions";
 
 export default function PosoMapandanPublicPage() {
     const router = useRouter();
@@ -18,6 +21,17 @@ export default function PosoMapandanPublicPage() {
 
     const [searchQuery, setSearchQuery] = useState(initialTicketQuery);
     const [loading, setLoading] = useState(false);
+
+    // Settings & Violations State
+    const [settings, setSettings] = useState<any>({
+        siteLogo: "",
+        posoLocation: "Municipal Hall Complex, Poblacion, Mapandan, Pangasinan, 2429 Philippines",
+        posoHotline: "(075) 529-XXXX / +63 917 123 4567",
+        posoEmail: "poso@mapandan.gov.ph",
+        posoHours: "Monday - Friday: 8:00 AM - 5:00 PM",
+        posoFacebook: "https://facebook.com/MapandanPOSO",
+    });
+    const [trafficViolations, setTrafficViolations] = useState<any[]>([]);
 
     // QR Code Modal state
     const [showQrModal, setShowQrModal] = useState(false);
@@ -36,6 +50,28 @@ export default function PosoMapandanPublicPage() {
     }, [router]);
 
     useEffect(() => {
+        let isMounted = true;
+        async function loadPortalData() {
+            try {
+                const [portalSettings, violationsRes] = await Promise.all([
+                    getPosoPortalSettings(),
+                    getAllTrafficViolations(),
+                ]);
+                if (isMounted) {
+                    if (portalSettings) setSettings(portalSettings);
+                    if (violationsRes.success && violationsRes.violations) {
+                        setTrafficViolations(violationsRes.violations);
+                    }
+                }
+            } catch {
+                /* silent fallback */
+            }
+        }
+        loadPortalData();
+        return () => { isMounted = false; };
+    }, []);
+
+    useEffect(() => {
         if (initialTicketQuery) {
             performSearch(initialTicketQuery);
         }
@@ -47,200 +83,252 @@ export default function PosoMapandanPublicPage() {
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-rose-500 selection:text-white">
             {/* Top Municipal Navigation Header */}
-            <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl">
+            <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
                     <div className="flex items-center space-x-3 cursor-pointer" onClick={() => router.push("/poso/mapandan")}>
-                        <div className="p-2.5 rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 text-white shadow-lg shadow-rose-500/20">
-                            <Shield className="w-6 h-6 stroke-[2.5]" />
-                        </div>
+                        {settings.siteLogo ? (
+                            <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-slate-800 border border-slate-700/60 shadow-md">
+                                <Image
+                                    src={settings.siteLogo}
+                                    alt="Mapandan Seal"
+                                    fill
+                                    className="object-contain p-1"
+                                    sizes="44px"
+                                />
+                            </div>
+                        ) : (
+                            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 text-white shadow-lg shadow-rose-500/20">
+                                <Shield className="w-6 h-6 stroke-[2.5]" />
+                            </div>
+                        )}
                         <div>
-                            <span className="text-xs font-black tracking-widest uppercase text-rose-500 italic block">
+                            <span className="text-[10px] sm:text-xs font-black tracking-widest uppercase text-rose-500 italic block">
                                 MUNICIPALITY OF MAPANDAN
                             </span>
-                            <h1 className="text-lg font-black tracking-tight text-white uppercase italic flex items-center gap-1.5">
-                                <span>POSO Citation Portal</span>
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-sans not-italic font-bold">
-                                    Official
-                                </span>
+                            <h1 className="text-base sm:text-lg font-black tracking-tight text-white uppercase italic">
+                                POSO Citation Portal
                             </h1>
                         </div>
                     </div>
 
-                    <div className="hidden md:flex items-center space-x-6 text-xs font-bold uppercase tracking-wider text-slate-300">
+                    <div className="hidden lg:flex items-center space-x-8 text-xs font-bold uppercase tracking-wider text-slate-300">
                         <a href="#search-section" className="hover:text-rose-400 transition-colors">Ticket Search</a>
-                        <a href="#ordinance-section" className="hover:text-rose-400 transition-colors">Fines & Ordinances</a>
-                        <a href="#contact-section" className="hover:text-rose-400 transition-colors">POSO Office Info</a>
+                        <a href="#ordinance-section" className="hover:text-rose-400 transition-colors">Traffic Ordinances</a>
+                        <a href="#contact-section" className="hover:text-rose-400 transition-colors">POSO Info & Hotlines</a>
                     </div>
-
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push("/admin/poso/tickets")}
-                        className="bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700 text-xs font-bold rounded-xl"
-                    >
-                        Official Portal
-                    </Button>
                 </div>
             </header>
 
             {/* Hero Banner Section */}
-            <section className="relative overflow-hidden pt-16 pb-24 bg-gradient-to-b from-slate-900 via-slate-900/90 to-slate-950 border-b border-slate-800/60">
+            <section className="relative overflow-hidden pt-12 sm:pt-16 pb-20 sm:pb-24 bg-gradient-to-b from-slate-900 via-slate-900/90 to-slate-950 border-b border-slate-800/60">
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-rose-500/10 via-transparent to-transparent pointer-events-none"></div>
 
-                <div className="max-w-4xl mx-auto px-4 text-center space-y-6 relative z-10">
+                <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center space-y-6 relative z-10">
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-black uppercase tracking-widest italic animate-pulse">
                         <ShieldCheck className="w-4 h-4" />
                         <span>Public Order & Safety Office • E-Services</span>
                     </div>
 
-                    <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white uppercase italic leading-tight">
+                    <h2 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-white uppercase italic leading-tight">
                         Check & Settle Traffic Violations <br className="hidden sm:block" />
                         <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-rose-400 to-amber-400">
-                            Online via QRPh in Mapandan
+                            Online in Mapandan
                         </span>
                     </h2>
 
-                    <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto font-medium italic">
-                        Verify your POSO Traffic Citation Ticket, check overdue penalty surcharges, and securely pay fines online using QRPh (GCash, Maya, ShopeePay, or Banks).
+                    <p className="text-xs sm:text-sm md:text-base text-slate-400 max-w-2xl mx-auto font-medium italic leading-relaxed">
+                        Verify your POSO Traffic Citation Ticket, check overdue penalty surcharges, and securely pay fines online.
                     </p>
 
                     {/* Quick Search Box Card */}
-                    <div id="search-section" className="pt-6 max-w-2xl mx-auto">
-                        <div className="p-3 sm:p-4 rounded-3xl bg-slate-900/90 border border-slate-700/80 shadow-2xl backdrop-blur-xl flex flex-col sm:flex-row items-center gap-3">
-                            <div className="relative w-full flex-1">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <div id="search-section" className="pt-4 sm:pt-6 w-full max-w-2xl mx-auto px-1">
+                        <div className="p-2 sm:p-3 rounded-2xl sm:rounded-3xl bg-slate-900/95 border border-slate-700/90 shadow-2xl backdrop-blur-xl flex flex-row items-center gap-2 w-full">
+                            {/* Input Box without inner search icon */}
+                            <div className="relative flex-1 min-w-0">
                                 <Input
                                     id="ticket-search-input"
                                     type="text"
-                                    placeholder="Enter Ticket No. (e.g. T-2026-001) or Plate No."
+                                    placeholder="Enter Ticket No. or Plate No."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onKeyDown={(e) => e.key === "Enter" && performSearch(searchQuery)}
-                                    className="pl-12 pr-10 h-14 bg-slate-950/80 border-slate-800 text-white font-mono text-sm uppercase rounded-2xl focus:border-rose-500 focus:ring-rose-500/20"
+                                    className="pl-4 pr-9 h-12 sm:h-14 bg-slate-950/90 border-slate-800 text-white font-mono text-xs sm:text-sm uppercase rounded-xl sm:rounded-2xl focus:border-rose-500 focus:ring-rose-500/20 w-full"
                                 />
                                 {searchQuery && (
                                     <button
                                         type="button"
                                         onClick={() => setSearchQuery("")}
-                                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
                                     >
-                                        <X className="w-4 h-4" />
+                                        <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                     </button>
                                 )}
                             </div>
 
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                            {/* Action Buttons: Scan QR Icon + Search Icon Button */}
+                            <div className="flex items-center gap-1.5 shrink-0">
                                 <Button
                                     type="button"
                                     variant="outline"
                                     onClick={() => setShowQrModal(true)}
-                                    className="h-14 px-4 bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200 font-bold rounded-2xl flex items-center justify-center gap-2 shrink-0"
-                                    title="Scan QR Code on Ticket"
+                                    className="h-12 w-12 sm:h-14 sm:w-14 bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200 font-bold rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 p-0"
+                                    title="Scan Ticket QR Code"
                                 >
                                     <QrCode className="w-5 h-5 text-rose-400" />
-                                    <span className="sm:hidden lg:inline text-xs">Scan QR</span>
                                 </Button>
 
                                 <Button
                                     type="button"
                                     onClick={() => performSearch(searchQuery)}
                                     disabled={loading}
-                                    className="h-14 px-8 w-full sm:w-auto bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-600 text-white font-black italic uppercase text-xs tracking-widest rounded-2xl shadow-lg shadow-rose-500/25 flex items-center justify-center gap-2"
+                                    className="h-12 w-12 sm:h-14 sm:w-14 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-600 text-white font-black italic rounded-xl sm:rounded-2xl shadow-lg shadow-rose-500/25 flex items-center justify-center shrink-0 p-0"
+                                    title="Verify Citation Ticket"
                                 >
-                                    {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                                    <span>Verify Ticket</span>
+                                    {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
                                 </Button>
                             </div>
                         </div>
 
-                        {/* Sample Ticket Pills */}
-                        <div className="mt-4 flex items-center justify-center gap-2 flex-wrap text-xs text-slate-400 font-medium">
-                            <span className="text-[11px] text-slate-500 italic">Try searching sample tickets:</span>
-                            {["T-2026-001", "T-2026-006", "T-2026-007"].map((sampleNo) => (
-                                <button
-                                    key={sampleNo}
-                                    type="button"
-                                    onClick={() => {
-                                        setSearchQuery(sampleNo);
-                                        performSearch(sampleNo);
-                                    }}
-                                    className="px-3 py-1 rounded-xl bg-slate-800/80 border border-slate-700/60 hover:border-rose-500 text-slate-300 font-mono text-[11px] hover:text-white transition-all shadow-sm"
-                                >
-                                    {sampleNo}
-                                </button>
-                            ))}
+                        {/* Single Sample Ticket Pill */}
+                        <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-400 font-medium">
+                            <span className="text-[11px] text-slate-500 italic">Sample ticket:</span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSearchQuery("T-2026-001");
+                                    performSearch("T-2026-001");
+                                }}
+                                className="px-3 py-1 rounded-xl bg-slate-800/80 border border-slate-700/60 hover:border-rose-500 text-slate-300 font-mono text-[11px] hover:text-white transition-all shadow-sm"
+                            >
+                                T-2026-001
+                            </button>
                         </div>
                     </div>
                 </div>
             </section>
 
             {/* Main Content Hub */}
-            <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 flex-1 w-full space-y-16">
-                {/* POSO Fines Reference & Ordinance Section */}
+            <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 flex-1 w-full space-y-16">
+                {/* Municipal Traffic Code Guide (Compact Card Grid Layout) */}
                 <section id="ordinance-section" className="space-y-6">
-                    <div className="text-center space-y-2">
+                    <div className="text-center space-y-2 max-w-2xl mx-auto">
                         <span className="text-xs font-black tracking-widest uppercase text-rose-500 italic">
                             Municipal Traffic Code Guide
                         </span>
-                        <h3 className="text-2xl font-black tracking-tight text-white uppercase italic">
-                            Common Traffic Violations & Standard Fines
+                        <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-white uppercase italic">
+                            Traffic Violations & Penalties Schedule
                         </h3>
+                        <p className="text-xs text-slate-400 italic">
+                            Official municipal traffic fines schedule per offense tier.
+                        </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {[
-                            {
-                                title: "No Helmet / Safety Gear",
-                                desc: "Riding motorcycle or tricycle without prescribed helmet.",
-                                fine: "₱ 500.00",
-                                class: "Class A",
-                            },
-                            {
-                                title: "Driving Without License",
-                                desc: "Operating a motor vehicle without a valid DTO/LTO driver license.",
-                                fine: "₱ 1,000.00",
-                                class: "Class A / B",
-                            },
-                            {
-                                title: "Illegal Parking / Obstruction",
-                                desc: "Parking on national highway, sidewalk, or designated clear zones.",
-                                fine: "₱ 1,500.00",
-                                class: "Class B / C",
-                            },
-                        ].map((item, idx) => (
-                            <div key={idx} className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-3 shadow-lg">
-                                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-mono font-bold uppercase">
-                                    {item.class}
-                                </span>
-                                <h4 className="text-base font-bold text-white">{item.title}</h4>
-                                <p className="text-xs text-slate-400">{item.desc}</p>
-                                <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-xs">
-                                    <span className="text-slate-500 uppercase font-black text-[10px]">Standard Fine</span>
-                                    <span className="font-mono font-black text-rose-400">{item.fine}</span>
-                                </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {trafficViolations.length === 0 ? (
+                            <div className="col-span-full p-8 text-center bg-slate-900 border border-slate-800 rounded-3xl text-xs text-slate-400 italic">
+                                Loading official traffic violation schedules...
                             </div>
-                        ))}
+                        ) : (
+                            trafficViolations.map((v: any) => (
+                                <div
+                                    key={v.id}
+                                    className="p-5 rounded-2xl bg-slate-900 border border-slate-800/90 hover:border-rose-500/40 shadow-xl transition-all hover:scale-[1.01] flex flex-col justify-between space-y-4"
+                                >
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="px-2.5 py-0.5 rounded-lg bg-rose-500/10 text-rose-400 font-mono text-[10px] font-bold border border-rose-500/20">
+                                                {v.violationCode || "TV-CODE"}
+                                            </span>
+                                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                                                Penalty Tier
+                                            </span>
+                                        </div>
+                                        <h4 className="text-sm font-bold text-white leading-snug">{v.violationName}</h4>
+                                        {v.remarks && (
+                                            <p className="text-[11px] text-slate-400 italic line-clamp-2">{v.remarks}</p>
+                                        )}
+                                    </div>
+
+                                    {/* 3-Tier Offense Fine Grid */}
+                                    <div className="grid grid-cols-3 gap-1.5 pt-3 border-t border-slate-800/80 text-center font-mono">
+                                        <div className="p-2 rounded-xl bg-emerald-950/40 border border-emerald-500/20">
+                                            <span className="text-[9px] font-sans font-black uppercase text-emerald-400 block">1st</span>
+                                            <span className="text-xs font-bold text-emerald-300">₱{Number(v.firstOffenseFee || 0).toLocaleString("en-PH")}</span>
+                                        </div>
+                                        <div className="p-2 rounded-xl bg-amber-950/40 border border-amber-500/20">
+                                            <span className="text-[9px] font-sans font-black uppercase text-amber-400 block">2nd</span>
+                                            <span className="text-xs font-bold text-amber-300">₱{Number(v.secondOffenseFee || 0).toLocaleString("en-PH")}</span>
+                                        </div>
+                                        <div className="p-2 rounded-xl bg-rose-950/40 border border-rose-500/20">
+                                            <span className="text-[9px] font-sans font-black uppercase text-rose-400 block">3rd</span>
+                                            <span className="text-xs font-bold text-rose-300">₱{Number(v.thirdOffenseFee || 0).toLocaleString("en-PH")}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </section>
 
-                {/* Contact & POSO Office Location Section */}
-                <section id="contact-section" className="p-8 rounded-3xl bg-gradient-to-r from-slate-900 to-slate-950 border border-slate-800 space-y-6 shadow-2xl">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                {/* Contact & POSO Portal Settings Section */}
+                <section id="contact-section" className="p-6 sm:p-10 rounded-3xl bg-gradient-to-r from-slate-900 to-slate-950 border border-slate-800 space-y-8 shadow-2xl">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-800/80 pb-6">
                         <div className="space-y-2">
-                            <h3 className="text-xl font-black tracking-tight text-white uppercase italic flex items-center gap-2">
-                                <Building2 className="w-5 h-5 text-rose-500" />
-                                <span>Public Order & Safety Office (POSO) - Mapandan</span>
+                            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white uppercase italic flex items-center gap-2.5">
+                                <Building2 className="w-6 h-6 text-rose-500 shrink-0" />
+                                <span>Public Order & Safety Office (POSO)</span>
                             </h3>
-                            <p className="text-xs text-slate-400 font-medium italic">
-                                Municipal Hall Complex, Poblacion, Mapandan, Pangasinan, 2429 Philippines
+                            <p className="text-xs sm:text-sm text-slate-400 font-medium italic">
+                                Official Municipal Traffic Enforcement & Public Safety Center
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-xs">
+                        <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+                            <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                                <MapPin className="w-3.5 h-3.5 text-rose-400" /> Municipal Office Location
+                            </span>
+                            <p className="font-semibold text-slate-200 leading-relaxed">
+                                {settings.posoLocation}
                             </p>
                         </div>
 
-                        <div className="flex items-center gap-4 text-xs font-bold">
-                            <div className="flex items-center gap-2 text-rose-400">
-                                <Phone className="w-4 h-4" />
-                                <span>POSO Hotline: (075) 529-XXXX</span>
-                            </div>
+                        <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+                            <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                                <Phone className="w-3.5 h-3.5 text-rose-400" /> POSO Emergency Hotline
+                            </span>
+                            <p className="font-bold font-mono text-rose-400 text-sm">
+                                {settings.posoHotline}
+                            </p>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+                            <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5 text-rose-400" /> Operating Office Hours
+                            </span>
+                            <p className="font-semibold text-slate-200">
+                                {settings.posoHours}
+                            </p>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+                            <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                                <Mail className="w-3.5 h-3.5 text-rose-400" /> Official Email & Social
+                            </span>
+                            <p className="font-semibold text-slate-200 break-all">
+                                {settings.posoEmail}
+                            </p>
+                            {settings.posoFacebook && (
+                                <a
+                                    href={settings.posoFacebook}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 hover:underline mt-1"
+                                >
+                                    <Globe className="w-3 h-3" /> Facebook Page
+                                </a>
+                            )}
                         </div>
                     </div>
                 </section>

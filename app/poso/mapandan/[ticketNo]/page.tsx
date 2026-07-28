@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import {
     Shield, ArrowLeft, QrCode, AlertTriangle, CheckCircle2, MapPin,
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { searchPublicTicket } from "../actions";
+import { searchPublicTicket, getPosoPortalSettings } from "../actions";
 
 export default function TicketDetailsPublicPage() {
     const router = useRouter();
@@ -25,6 +26,28 @@ export default function TicketDetailsPublicPage() {
     const [penaltyBreakdown, setPenaltyBreakdown] = useState<any>(null);
     const [isPaying, setIsPaying] = useState(false);
     const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+
+    // Settings state
+    const [settings, setSettings] = useState<any>({
+        siteLogo: "",
+        posoLocation: "Municipal Hall Complex, Poblacion, Mapandan, Pangasinan, 2429 Philippines",
+        posoHotline: "(075) 529-XXXX / +63 917 123 4567",
+        posoEmail: "poso@mapandan.gov.ph",
+        posoHours: "Monday - Friday: 8:00 AM - 5:00 PM",
+        posoFacebook: "https://facebook.com/MapandanPOSO",
+    });
+
+    useEffect(() => {
+        let isMounted = true;
+        async function loadSettings() {
+            try {
+                const s = await getPosoPortalSettings();
+                if (isMounted && s) setSettings(s);
+            } catch { /* silent fallback */ }
+        }
+        loadSettings();
+        return () => { isMounted = false; };
+    }, []);
 
     const fetchTicketDetails = useCallback(async () => {
         if (!ticketNo) return;
@@ -94,10 +117,10 @@ export default function TicketDetailsPublicPage() {
                 toast.loading("Redirecting to PayMongo QRPh Secure Checkout...", { duration: 3000 });
                 window.location.href = checkoutUrl;
             } else {
-                toast.error(data.error || data.message || "Failed to initiate QRPh online payment.");
+                toast.error(data.error || data.message || "Failed to initiate online payment.");
             }
         } catch (err: any) {
-            toast.error(err.message || "Unexpected error starting QRPh payment.");
+            toast.error(err.message || "Unexpected error starting payment.");
         } finally {
             setIsPaying(false);
         }
@@ -150,10 +173,22 @@ export default function TicketDetailsPublicPage() {
                         <span>Back to Ticket Search</span>
                     </button>
 
-                    <div className="flex items-center space-x-3">
-                        <div className="p-2 rounded-xl bg-gradient-to-br from-rose-500 to-amber-500 text-white">
-                            <Shield className="w-5 h-5 stroke-[2.5]" />
-                        </div>
+                    <div className="flex items-center space-x-3 cursor-pointer" onClick={() => router.push("/poso/mapandan")}>
+                        {settings.siteLogo ? (
+                            <div className="relative w-10 h-10 rounded-xl overflow-hidden bg-slate-800 border border-slate-700/60 shadow-md">
+                                <Image
+                                    src={settings.siteLogo}
+                                    alt="Mapandan Seal"
+                                    fill
+                                    className="object-contain p-1"
+                                    sizes="40px"
+                                />
+                            </div>
+                        ) : (
+                            <div className="p-2 rounded-xl bg-gradient-to-br from-rose-500 to-amber-500 text-white">
+                                <Shield className="w-5 h-5 stroke-[2.5]" />
+                            </div>
+                        )}
                         <span className="text-sm font-black tracking-tight text-white uppercase italic hidden sm:inline">
                             Mapandan POSO Portal
                         </span>
@@ -162,7 +197,7 @@ export default function TicketDetailsPublicPage() {
             </header>
 
             {/* Main Ticket Details Content */}
-            <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full space-y-8">
+            <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 flex-1 w-full space-y-8">
                 {/* Header Status Banner */}
                 <div
                     className={`p-6 sm:p-8 rounded-3xl border-2 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 ${
@@ -366,10 +401,10 @@ export default function TicketDetailsPublicPage() {
                                 <div>
                                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 text-[10px] font-black uppercase tracking-widest italic">
                                         <QrCode className="w-3.5 h-3.5" />
-                                        <span>Exclusive Payment Method</span>
+                                        <span>Exclusive Payment Channel</span>
                                     </div>
                                     <h3 className="text-xl font-black uppercase italic tracking-tight text-white mt-2">
-                                        Pay Online via QRPh
+                                        Pay Online
                                     </h3>
                                     <p className="text-xs text-slate-400 font-medium italic mt-1">
                                         Scan & pay instantly using any QRPh compliant banking or e-wallet app (GCash, Maya, ShopeePay, Banks).
@@ -392,7 +427,7 @@ export default function TicketDetailsPublicPage() {
                                         </div>
                                     </div>
                                     <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                                        QRPh ONLY
+                                        QRPh
                                     </span>
                                 </div>
 
@@ -404,7 +439,7 @@ export default function TicketDetailsPublicPage() {
                                     className="w-full h-14 bg-gradient-to-r from-purple-600 via-rose-600 to-amber-500 hover:from-purple-500 hover:to-rose-500 text-white font-black italic uppercase tracking-widest text-xs rounded-2xl shadow-xl shadow-purple-600/20 flex items-center justify-center space-x-2 transition-all active:scale-95 disabled:opacity-50"
                                 >
                                     {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-                                    <span>Pay ₱ {(penaltyBreakdown?.grandTotalPayable || Number(ticket.totalAmount || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })} via QRPh</span>
+                                    <span>Pay ₱ {(penaltyBreakdown?.grandTotalPayable || Number(ticket.totalAmount || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
                                 </Button>
 
                                 <p className="text-[10px] text-slate-500 text-center italic">
