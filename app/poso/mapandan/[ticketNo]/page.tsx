@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { searchPublicTicket, getPosoPortalSettings } from "../actions";
@@ -74,10 +75,10 @@ export default function TicketDetailsPublicPage() {
                     } catch { /* silent fallback */ }
                 }
             } else {
-                toast.error(res.error || "Citation Ticket not found.");
+                toast.error(res.error || `Ticket "${ticketNo}" not found in POSO database. Please re-scan or verify your citation receipt.`, { duration: 6000 });
             }
         } catch {
-            toast.error("Failed to load citation ticket details.");
+            toast.error("Failed to load citation ticket details. Please try re-scanning.");
         } finally {
             setLoading(false);
         }
@@ -99,28 +100,25 @@ export default function TicketDetailsPublicPage() {
 
         setIsPaying(true);
         try {
-            const res = await fetch("/api/paymongo", {
+            const res = await fetch("/api/webhooks/paymongo", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
+                    ticketId: ticket.id,
+                    transactionId,
                     amount: totalPayable,
-                    type: "qrph", // Exclusively QRPh payment channel
-                    reference: `POSO Citation #${ticket.ticketNo}`,
-                    transactionId: transactionId,
+                    description: `POSO Citation Ticket Fine Settlement - ${ticket.ticketNo}`,
                 }),
             });
 
             const data = await res.json();
-
-            if (res.ok && (data.checkoutUrl || data.checkout_url || data.url)) {
-                const checkoutUrl = data.checkoutUrl || data.checkout_url || data.url;
-                toast.loading("Redirecting to PayMongo QRPh Secure Checkout...", { duration: 3000 });
-                window.location.href = checkoutUrl;
+            if (data.checkoutUrl) {
+                window.location.href = data.checkoutUrl;
             } else {
-                toast.error(data.error || data.message || "Failed to initiate online payment.");
+                toast.error(data.error || "Failed to initiate online payment session.");
             }
-        } catch (err: any) {
-            toast.error(err.message || "Unexpected error starting payment.");
+        } catch {
+            toast.error("Payment connection error. Please try again.");
         } finally {
             setIsPaying(false);
         }
@@ -128,11 +126,42 @@ export default function TicketDetailsPublicPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-12 flex flex-col items-center justify-center space-y-4">
-                <RefreshCw className="w-10 h-10 text-rose-500 animate-spin" />
-                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest animate-pulse">
-                    Retrieving Ticket #{ticketNo}...
-                </p>
+            <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+                <header className="sticky top-0 z-40 bg-slate-900/90 border-b border-slate-800/80">
+                    <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
+                        <Skeleton className="h-6 w-36 bg-slate-800 rounded-md" />
+                        <Skeleton className="h-10 w-10 bg-slate-800 rounded-xl" />
+                    </div>
+                </header>
+
+                <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full space-y-8">
+                    {/* Ticket Header Skeleton */}
+                    <div className="p-8 rounded-3xl bg-slate-900 border border-slate-800 space-y-6">
+                        <div className="flex items-center justify-between">
+                            <Skeleton className="h-7 w-28 bg-slate-800 rounded-full" />
+                            <Skeleton className="h-6 w-36 bg-slate-800 rounded-md" />
+                        </div>
+                        <div className="space-y-3">
+                            <Skeleton className="h-10 w-64 bg-slate-800 rounded-xl" />
+                            <Skeleton className="h-5 w-48 bg-slate-800/60 rounded-md" />
+                        </div>
+                    </div>
+
+                    {/* Violations Table Skeleton */}
+                    <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+                        <Skeleton className="h-6 w-48 bg-slate-800 rounded-md" />
+                        <div className="space-y-3">
+                            <Skeleton className="h-12 w-full bg-slate-800/60 rounded-xl" />
+                            <Skeleton className="h-12 w-full bg-slate-800/60 rounded-xl" />
+                        </div>
+                    </div>
+
+                    {/* Fine Calculation Breakdown Skeleton */}
+                    <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+                        <Skeleton className="h-6 w-56 bg-slate-800 rounded-md" />
+                        <Skeleton className="h-20 w-full bg-slate-800/60 rounded-2xl" />
+                    </div>
+                </main>
             </div>
         );
     }
@@ -145,15 +174,15 @@ export default function TicketDetailsPublicPage() {
                 </div>
                 <div className="space-y-2 max-w-md">
                     <h2 className="text-2xl font-black uppercase italic tracking-tight text-white">Ticket Not Found</h2>
-                    <p className="text-xs text-slate-400">
-                        No POSO Citation Record was found matching ticket number <strong className="text-rose-400 font-mono">{ticketNo}</strong>.
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                        No POSO Citation Record was found matching <strong className="text-rose-400 font-mono">{ticketNo}</strong>. Please check your citation receipt or re-scan your ticket.
                     </p>
                 </div>
                 <Button
                     onClick={() => router.push("/poso/mapandan")}
-                    className="bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-6 h-12 rounded-2xl"
+                    className="bg-rose-600 hover:bg-rose-500 text-white font-black text-xs px-6 h-12 rounded-2xl uppercase tracking-wider shadow-lg"
                 >
-                    <ArrowLeft className="w-4 h-4 mr-2" /> Return to Search Portal
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Re-scan / Search Another Ticket
                 </Button>
             </div>
         );

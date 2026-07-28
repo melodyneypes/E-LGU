@@ -48,6 +48,7 @@
     "react-hook-form": "^7.71.2",
     "react-leaflet": "^5.0.0",
     "react-leaflet-cluster": "^4.0.0",
+    "react-qr-barcode-scanner": "^2.1.25",
     "react-webcam": "^7.2.0",
     "recharts": "^3.8.0",
     "resend": "^6.12.4",

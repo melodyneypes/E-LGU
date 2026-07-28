@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { getPosoPortalSettings, getAllTrafficViolations } from "./actions";
+import PosoQrScannerModal from "./components/PosoQrScannerModal";
 
 export default function PosoMapandanPublicPage() {
     const router = useRouter();
@@ -37,18 +38,33 @@ export default function PosoMapandanPublicPage() {
 
     // QR Code Modal state
     const [showQrModal, setShowQrModal] = useState(false);
-    const [qrScannerInput, setQrScannerInput] = useState("");
 
-    const performSearch = useCallback((queryToSearch: string) => {
-        const clean = queryToSearch.trim();
+    const performSearch = useCallback(async (queryToSearch: string) => {
+        let clean = queryToSearch.trim();
         if (!clean) {
             toast.error("Please enter a ticket number, license no, or plate no.");
             return;
         }
 
+        // Auto extract ticket code if full URL was scanned from POSO QR code
+        if (clean.includes("/poso/mapandan/")) {
+            clean = clean.split("/poso/mapandan/").pop()?.split("?")[0] || clean;
+        }
+
         setLoading(true);
-        // Navigate to dedicated Ticket Details page (/poso/mapandan/[ticketNo])
-        router.push(`/poso/mapandan/${encodeURIComponent(clean)}`);
+        try {
+            const res = await searchPublicTicket(clean);
+            if (res.success && res.ticket) {
+                router.push(`/poso/mapandan/${encodeURIComponent(clean)}`);
+            } else {
+                toast.error(res.error || `Citation Ticket "${clean}" not found in POSO records. Please re-scan or verify your ticket.`, { duration: 6000 });
+            }
+        } catch {
+            toast.error("Failed to verify citation ticket details. Please try re-scanning.");
+        } finally {
+            toast.dismiss("poso-qr-scan-toast");
+            setLoading(false);
+        }
     }, [router]);
 
     useEffect(() => {
@@ -130,88 +146,104 @@ export default function PosoMapandanPublicPage() {
             <section className="relative overflow-hidden pt-12 sm:pt-16 pb-20 sm:pb-24 bg-gradient-to-b from-slate-900 via-slate-900/90 to-slate-950 border-b border-slate-800/60">
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-rose-500/10 via-transparent to-transparent pointer-events-none"></div>
 
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center space-y-6 relative z-10">
-                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-black uppercase tracking-widest italic animate-pulse">
-                        <ShieldCheck className="w-4 h-4" />
-                        <span>Public Order & Safety Office • E-Services</span>
+                {loadingPortalData ? (
+                    <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center space-y-6 relative z-10">
+                        <Skeleton className="h-7 w-64 bg-slate-800 rounded-full mx-auto" />
+                        <Skeleton className="h-10 sm:h-14 w-4/5 bg-slate-800 rounded-2xl mx-auto" />
+                        <Skeleton className="h-4 sm:h-5 w-2/3 bg-slate-800/60 rounded-lg mx-auto" />
+
+                        <div id="search-section" className="pt-4 sm:pt-6 w-full max-w-xl mx-auto px-1">
+                            <Skeleton className="h-14 sm:h-16 w-full bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl" />
+                            <div className="mt-3 flex items-center justify-center gap-2">
+                                <Skeleton className="h-4 w-20 bg-slate-800 rounded-md" />
+                                <Skeleton className="h-6 w-24 bg-slate-800 rounded-xl" />
+                            </div>
+                        </div>
                     </div>
+                ) : (
+                    <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center space-y-6 relative z-10">
+                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-black uppercase tracking-widest italic animate-pulse">
+                            <ShieldCheck className="w-4 h-4" />
+                            <span>Public Order & Safety Office • E-Services</span>
+                        </div>
 
-                    <h2 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-white uppercase italic leading-tight">
-                        Check & Settle Traffic Violations <br className="hidden sm:block" />
-                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-rose-400 to-amber-400">
-                            Online in Mapandan
-                        </span>
-                    </h2>
+                        <h2 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-white uppercase italic leading-tight">
+                            Check & Settle Traffic Violations <br className="hidden sm:block" />
+                            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-rose-400 to-amber-400">
+                                Online in Mapandan
+                            </span>
+                        </h2>
 
-                    <p className="text-xs sm:text-sm md:text-base text-slate-400 max-w-2xl mx-auto font-medium italic leading-relaxed">
-                        Verify your POSO Traffic Citation Ticket, check overdue penalty surcharges, and securely pay fines online.
-                    </p>
+                        <p className="text-xs sm:text-sm md:text-base text-slate-400 max-w-2xl mx-auto font-medium italic leading-relaxed">
+                            Verify your POSO Traffic Citation Ticket, check overdue penalty surcharges, and securely pay fines online.
+                        </p>
 
-                    {/* Quick Search Box Card */}
-                    <div id="search-section" className="pt-4 sm:pt-6 w-full max-w-xl mx-auto px-1">
-                        <div className="p-1.5 sm:p-2.5 rounded-2xl sm:rounded-3xl bg-slate-900/95 border border-slate-700/90 shadow-2xl backdrop-blur-xl flex flex-row items-center gap-2 w-full">
-                            {/* Input Box with search button embedded inside right edge */}
-                            <div className="relative flex-1 min-w-0 flex items-center">
-                                <Input
-                                    id="ticket-search-input"
-                                    type="text"
-                                    placeholder="Enter Ticket No. or Plate No."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    onKeyDown={(e) => e.key === "Enter" && performSearch(searchQuery)}
-                                    className="pl-4 pr-14 h-12 sm:h-14 bg-slate-950/90 border-slate-800 text-white font-mono text-xs sm:text-sm uppercase rounded-xl sm:rounded-2xl focus:border-rose-500 focus:ring-rose-500/20 w-full"
-                                />
+                        {/* Quick Search Box Card */}
+                        <div id="search-section" className="pt-4 sm:pt-6 w-full max-w-xl mx-auto px-1">
+                            <div className="p-1.5 sm:p-2.5 rounded-2xl sm:rounded-3xl bg-slate-900/95 border border-slate-700/90 shadow-2xl backdrop-blur-xl flex flex-row items-center gap-2 w-full">
+                                {/* Input Box with search button embedded inside right edge */}
+                                <div className="relative flex-1 min-w-0 flex items-center">
+                                    <Input
+                                        id="ticket-search-input"
+                                        type="text"
+                                        placeholder="Enter Ticket No. or Plate No."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        onKeyDown={(e) => e.key === "Enter" && performSearch(searchQuery)}
+                                        className="pl-4 pr-14 h-12 sm:h-14 bg-slate-950/90 border-slate-800 text-white font-mono text-xs sm:text-sm uppercase rounded-xl sm:rounded-2xl focus:border-rose-500 focus:ring-rose-500/20 w-full"
+                                    />
 
-                                {searchQuery && (
+                                    {searchQuery && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setSearchQuery("")}
+                                            className="absolute right-14 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
+                                        >
+                                            <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                        </button>
+                                    )}
+
+                                    {/* Search Button Embedded INSIDE Input Bar */}
                                     <button
                                         type="button"
-                                        onClick={() => setSearchQuery("")}
-                                        className="absolute right-14 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
+                                        onClick={() => performSearch(searchQuery)}
+                                        disabled={loading}
+                                        className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 sm:h-11 sm:w-11 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-600 text-white rounded-lg sm:rounded-xl shadow-md flex items-center justify-center transition-all active:scale-95 disabled:opacity-50"
+                                        title="Verify Ticket"
                                     >
-                                        <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                        {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4 sm:w-5 sm:h-5" />}
                                     </button>
-                                )}
+                                </div>
 
-                                {/* Search Button Embedded INSIDE Input Bar */}
-                                <button
+                                {/* Scan QR Icon Button */}
+                                <Button
                                     type="button"
-                                    onClick={() => performSearch(searchQuery)}
-                                    disabled={loading}
-                                    className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 sm:h-11 sm:w-11 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-600 text-white rounded-lg sm:rounded-xl shadow-md flex items-center justify-center transition-all active:scale-95 disabled:opacity-50"
-                                    title="Verify Ticket"
+                                    variant="outline"
+                                    onClick={() => setShowQrModal(true)}
+                                    className="h-12 w-12 sm:h-14 sm:w-14 bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200 font-bold rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 p-0"
+                                    title="Scan Ticket QR Code"
                                 >
-                                    {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4 sm:w-5 sm:h-5" />}
-                                </button>
+                                    <QrCode className="w-5 h-5 text-rose-400" />
+                                </Button>
                             </div>
 
-                            {/* Scan QR Icon Button */}
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setShowQrModal(true)}
-                                className="h-12 w-12 sm:h-14 sm:w-14 bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200 font-bold rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 p-0"
-                                title="Scan Ticket QR Code"
-                            >
-                                <QrCode className="w-5 h-5 text-rose-400" />
-                            </Button>
-                        </div>
-
-                        {/* Single Sample Ticket Pill */}
-                        <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-400 font-medium">
-                            <span className="text-[11px] text-slate-500 italic">Sample ticket:</span>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setSearchQuery("T-2026-001");
-                                    performSearch("T-2026-001");
-                                }}
-                                className="px-3 py-1 rounded-xl bg-slate-800/80 border border-slate-700/60 hover:border-rose-500 text-slate-300 font-mono text-[11px] hover:text-white transition-all shadow-sm"
-                            >
-                                T-2026-001
-                            </button>
+                            {/* Single Sample Ticket Pill */}
+                            <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-400 font-medium">
+                                <span className="text-[11px] text-slate-500 italic">Sample ticket:</span>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSearchQuery("T-2026-001");
+                                        performSearch("T-2026-001");
+                                    }}
+                                    className="px-3 py-1 rounded-xl bg-slate-800/80 border border-slate-700/60 hover:border-rose-500 text-slate-300 font-mono text-[11px] hover:text-white transition-all shadow-sm"
+                                >
+                                    T-2026-001
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
             </section>
 
             {/* Main Content Hub */}
@@ -369,48 +401,11 @@ export default function PosoMapandanPublicPage() {
                 </section>
             </main>
 
-            {/* QR Scanner Camera Modal */}
-            {showQrModal && (
-                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-                    <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
-                        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                            <h3 className="text-base font-black uppercase italic tracking-tight text-white flex items-center gap-2">
-                                <QrCode className="w-5 h-5 text-rose-500" /> Scan Ticket QR Code
-                            </h3>
-                            <button onClick={() => setShowQrModal(false)} className="text-slate-400 hover:text-white">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <p className="text-xs text-slate-400 italic">
-                            Align the QR Code printed on your POSO Citation Ticket in front of your camera, or paste the scanned string below:
-                        </p>
-
-                        <div className="space-y-3">
-                            <Input
-                                type="text"
-                                placeholder="Paste or type scanned QR string (e.g. T-2026-001)"
-                                value={qrScannerInput}
-                                onChange={(e) => setQrScannerInput(e.target.value)}
-                                className="bg-slate-950 border-slate-800 text-white font-mono text-sm uppercase"
-                            />
-
-                            <Button
-                                type="button"
-                                onClick={() => {
-                                    if (qrScannerInput.trim()) {
-                                        setShowQrModal(false);
-                                        performSearch(qrScannerInput.trim());
-                                    }
-                                }}
-                                className="w-full h-12 bg-rose-600 hover:bg-rose-500 text-white font-black uppercase text-xs rounded-xl"
-                            >
-                                Verify Scanned Ticket
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Live Camera WebRTC QR Scanner Modal */}
+            <PosoQrScannerModal
+                isOpen={showQrModal}
+                onClose={() => setShowQrModal(false)}
+            />
 
             {/* Footer */}
             <footer className="bg-slate-950 border-t border-slate-900 py-8 text-center text-xs text-slate-500">
