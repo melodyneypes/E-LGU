@@ -50,6 +50,23 @@ export async function getAllTrafficViolations() {
     }
 }
 
+export async function getTrafficViolationById(id: string) {
+    try {
+        const violation = await (prisma as any).trafficViolation.findUnique({
+            where: { id },
+        });
+
+        if (!violation) {
+            return { success: false, error: "Traffic Violation Ordinance record not found." };
+        }
+
+        return { success: true, violation: JSON.parse(JSON.stringify(violation)) };
+    } catch (error: any) {
+        console.error("Failed to fetch traffic violation by ID:", error);
+        return { success: false, error: error.message || "Failed to load traffic violation record." };
+    }
+}
+
 export async function searchPublicTicket(query: string) {
     try {
         const cleanQuery = query.trim();

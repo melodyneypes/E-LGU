@@ -141,10 +141,10 @@ export default function PosoMapandanPublicPage() {
                     </p>
 
                     {/* Quick Search Box Card */}
-                    <div id="search-section" className="pt-4 sm:pt-6 w-full max-w-2xl mx-auto px-1">
-                        <div className="p-2 sm:p-3 rounded-2xl sm:rounded-3xl bg-slate-900/95 border border-slate-700/90 shadow-2xl backdrop-blur-xl flex flex-row items-center gap-2 w-full">
-                            {/* Input Box without inner search icon */}
-                            <div className="relative flex-1 min-w-0">
+                    <div id="search-section" className="pt-4 sm:pt-6 w-full max-w-xl mx-auto px-1">
+                        <div className="p-1.5 sm:p-2.5 rounded-2xl sm:rounded-3xl bg-slate-900/95 border border-slate-700/90 shadow-2xl backdrop-blur-xl flex flex-row items-center gap-2 w-full">
+                            {/* Input Box with search button embedded inside right edge */}
+                            <div className="relative flex-1 min-w-0 flex items-center">
                                 <Input
                                     id="ticket-search-input"
                                     type="text"
@@ -152,41 +152,41 @@ export default function PosoMapandanPublicPage() {
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onKeyDown={(e) => e.key === "Enter" && performSearch(searchQuery)}
-                                    className="pl-4 pr-9 h-12 sm:h-14 bg-slate-950/90 border-slate-800 text-white font-mono text-xs sm:text-sm uppercase rounded-xl sm:rounded-2xl focus:border-rose-500 focus:ring-rose-500/20 w-full"
+                                    className="pl-4 pr-14 h-12 sm:h-14 bg-slate-950/90 border-slate-800 text-white font-mono text-xs sm:text-sm uppercase rounded-xl sm:rounded-2xl focus:border-rose-500 focus:ring-rose-500/20 w-full"
                                 />
+
                                 {searchQuery && (
                                     <button
                                         type="button"
                                         onClick={() => setSearchQuery("")}
-                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
+                                        className="absolute right-14 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
                                     >
                                         <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                     </button>
                                 )}
-                            </div>
 
-                            {/* Action Buttons: Scan QR Icon + Search Icon Button */}
-                            <div className="flex items-center gap-1.5 shrink-0">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => setShowQrModal(true)}
-                                    className="h-12 w-12 sm:h-14 sm:w-14 bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200 font-bold rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 p-0"
-                                    title="Scan Ticket QR Code"
-                                >
-                                    <QrCode className="w-5 h-5 text-rose-400" />
-                                </Button>
-
-                                <Button
+                                {/* Search Button Embedded INSIDE Input Bar */}
+                                <button
                                     type="button"
                                     onClick={() => performSearch(searchQuery)}
                                     disabled={loading}
-                                    className="h-12 w-12 sm:h-14 sm:w-14 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-600 text-white font-black italic rounded-xl sm:rounded-2xl shadow-lg shadow-rose-500/25 flex items-center justify-center shrink-0 p-0"
-                                    title="Verify Citation Ticket"
+                                    className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 sm:h-11 sm:w-11 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-600 text-white rounded-lg sm:rounded-xl shadow-md flex items-center justify-center transition-all active:scale-95 disabled:opacity-50"
+                                    title="Verify Ticket"
                                 >
-                                    {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
-                                </Button>
+                                    {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4 sm:w-5 sm:h-5" />}
+                                </button>
                             </div>
+
+                            {/* Scan QR Icon Button */}
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setShowQrModal(true)}
+                                className="h-12 w-12 sm:h-14 sm:w-14 bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200 font-bold rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 p-0"
+                                title="Scan Ticket QR Code"
+                            >
+                                <QrCode className="w-5 h-5 text-rose-400" />
+                            </Button>
                         </div>
 
                         {/* Single Sample Ticket Pill */}
@@ -229,44 +229,49 @@ export default function PosoMapandanPublicPage() {
                                 Loading official traffic violation schedules...
                             </div>
                         ) : (
-                            trafficViolations.map((v: any) => (
+                            trafficViolations.slice(0, 3).map((v: any) => (
                                 <div
                                     key={v.id}
-                                    className="p-5 rounded-2xl bg-slate-900 border border-slate-800/90 hover:border-rose-500/40 shadow-xl transition-all hover:scale-[1.01] flex flex-col justify-between space-y-4"
+                                    onClick={() => router.push(`/poso/mapandan/violations/${v.id}`)}
+                                    className="p-5 rounded-2xl bg-slate-900 border border-slate-800/90 hover:border-rose-500/50 hover:bg-slate-900/80 shadow-xl transition-all cursor-pointer group flex flex-col justify-between space-y-4"
                                 >
-                                    <div className="space-y-2">
+                                    <div className="space-y-2.5">
                                         <div className="flex items-center justify-between">
                                             <span className="px-2.5 py-0.5 rounded-lg bg-rose-500/10 text-rose-400 font-mono text-[10px] font-bold border border-rose-500/20">
                                                 {v.violationCode || "TV-CODE"}
                                             </span>
-                                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                                                Penalty Tier
+                                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider group-hover:text-rose-400 transition-colors">
+                                                Tap for Fines →
                                             </span>
                                         </div>
-                                        <h4 className="text-sm font-bold text-white leading-snug">{v.violationName}</h4>
+                                        <h4 className="text-sm font-bold text-white leading-snug group-hover:text-rose-300 transition-colors">
+                                            {v.violationName}
+                                        </h4>
                                         {v.remarks && (
                                             <p className="text-[11px] text-slate-400 italic line-clamp-2">{v.remarks}</p>
                                         )}
                                     </div>
 
-                                    {/* 3-Tier Offense Fine Grid */}
-                                    <div className="grid grid-cols-3 gap-1.5 pt-3 border-t border-slate-800/80 text-center font-mono">
-                                        <div className="p-2 rounded-xl bg-emerald-950/40 border border-emerald-500/20">
-                                            <span className="text-[9px] font-sans font-black uppercase text-emerald-400 block">1st</span>
-                                            <span className="text-xs font-bold text-emerald-300">₱{Number(v.firstOffenseFee || 0).toLocaleString("en-PH")}</span>
-                                        </div>
-                                        <div className="p-2 rounded-xl bg-amber-950/40 border border-amber-500/20">
-                                            <span className="text-[9px] font-sans font-black uppercase text-amber-400 block">2nd</span>
-                                            <span className="text-xs font-bold text-amber-300">₱{Number(v.secondOffenseFee || 0).toLocaleString("en-PH")}</span>
-                                        </div>
-                                        <div className="p-2 rounded-xl bg-rose-950/40 border border-rose-500/20">
-                                            <span className="text-[9px] font-sans font-black uppercase text-rose-400 block">3rd</span>
-                                            <span className="text-xs font-bold text-rose-300">₱{Number(v.thirdOffenseFee || 0).toLocaleString("en-PH")}</span>
-                                        </div>
+                                    <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400 font-semibold group-hover:text-rose-400 transition-colors">
+                                        <span>View Offense Schedule</span>
+                                        <span className="text-rose-500 font-bold">→</span>
                                     </div>
                                 </div>
                             ))
                         )}
+                    </div>
+
+                    {/* View All Violations Page Button */}
+                    <div className="flex justify-center pt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => router.push("/poso/mapandan/violations")}
+                            className="h-12 px-8 bg-slate-900 hover:bg-slate-800 border-slate-800 hover:border-rose-500/50 text-slate-200 hover:text-white text-xs font-black uppercase italic tracking-wider rounded-2xl flex items-center gap-2 shadow-xl transition-all group"
+                        >
+                            <span>View All Municipal Traffic Violations Directory</span>
+                            <span className="text-rose-500 font-bold group-hover:translate-x-1 transition-transform">→</span>
+                        </Button>
                     </div>
                 </section>
 
