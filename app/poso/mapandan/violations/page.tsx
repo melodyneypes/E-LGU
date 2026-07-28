@@ -4,10 +4,11 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
-    Shield, ArrowLeft, Search, Scale, FileText, RefreshCw, X, ShieldCheck
+    Shield, ArrowLeft, Search, Scale, FileText, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { getAllTrafficViolations, getPosoPortalSettings } from "../actions";
 
@@ -141,11 +142,19 @@ export default function AllTrafficViolationsPublicPage() {
 
                 {/* Violations Cards Grid */}
                 {loading ? (
-                    <div className="py-16 text-center space-y-3">
-                        <RefreshCw className="w-8 h-8 text-rose-500 animate-spin mx-auto" />
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                            Loading Municipal Traffic Ordinances...
-                        </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                            <div
+                                key={i}
+                                className="p-6 rounded-3xl bg-slate-900 border border-slate-800/90 space-y-4 shadow-xl"
+                            >
+                                <div className="space-y-3">
+                                    <Skeleton className="h-6 w-24 bg-slate-800 rounded-xl" />
+                                    <Skeleton className="h-5 w-4/5 bg-slate-800 rounded-md" />
+                                    <Skeleton className="h-4 w-full bg-slate-800/60 rounded-md" />
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 ) : filteredViolations.length === 0 ? (
                     <div className="p-12 text-center bg-slate-900 border border-slate-800 rounded-3xl space-y-3">
@@ -167,15 +176,12 @@ export default function AllTrafficViolationsPublicPage() {
                             <div
                                 key={v.id}
                                 onClick={() => router.push(`/poso/mapandan/violations/${v.id}`)}
-                                className="p-6 rounded-3xl bg-slate-900 border border-slate-800/90 hover:border-rose-500/50 hover:bg-slate-900/80 shadow-xl transition-all cursor-pointer group flex flex-col justify-between space-y-4"
+                                className="p-6 rounded-3xl bg-slate-900 border border-slate-800/90 hover:border-rose-500/50 hover:bg-slate-900/80 shadow-xl transition-all cursor-pointer group flex flex-col justify-between space-y-3"
                             >
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between">
                                         <span className="px-3 py-1 rounded-xl bg-rose-500/10 text-rose-400 font-mono text-xs font-bold border border-rose-500/20">
                                             {v.violationCode || "TV-CODE"}
-                                        </span>
-                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider group-hover:text-rose-400 transition-colors">
-                                            View Schedule →
                                         </span>
                                     </div>
 
@@ -189,37 +195,10 @@ export default function AllTrafficViolationsPublicPage() {
                                         </p>
                                     )}
                                 </div>
-
-                                <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400 font-semibold group-hover:text-rose-400 transition-colors">
-                                    <span>Offense Rates & Guidelines</span>
-                                    <span className="text-rose-500 font-bold">→</span>
-                                </div>
                             </div>
                         ))}
                     </div>
                 )}
-
-                {/* Bottom POSO Note Card */}
-                <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 shrink-0">
-                            <ShieldCheck className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-bold text-white uppercase italic">Official Ordinance Schedule</h4>
-                            <p className="text-slate-400 italic">
-                                Fines prescribed by Municipal Traffic Code. Unsettled tickets accrue statutory surcharges under RA 7160.
-                            </p>
-                        </div>
-                    </div>
-
-                    <Button
-                        onClick={() => router.push("/poso/mapandan")}
-                        className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs px-6 h-11 rounded-2xl shrink-0 uppercase italic tracking-wider"
-                    >
-                        Check Citation Ticket
-                    </Button>
-                </div>
             </main>
 
             {/* Footer */}

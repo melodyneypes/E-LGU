@@ -4,10 +4,11 @@ import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import {
-    Shield, ArrowLeft, AlertTriangle, FileText, RefreshCw,
+    Shield, ArrowLeft, AlertTriangle, FileText,
     ShieldCheck, CheckCircle2, ChevronRight, Scale
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { getTrafficViolationById, getPosoPortalSettings } from "../../actions";
 
@@ -61,11 +62,37 @@ export default function ViolationDetailsPublicPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-12 flex flex-col items-center justify-center space-y-4">
-                <RefreshCw className="w-10 h-10 text-rose-500 animate-spin" />
-                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest animate-pulse">
-                    Loading Traffic Ordinance Details...
-                </p>
+            <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+                <header className="sticky top-0 z-40 bg-slate-900/90 border-b border-slate-800/80">
+                    <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
+                        <Skeleton className="h-6 w-36 bg-slate-800 rounded-md" />
+                        <Skeleton className="h-10 w-10 bg-slate-800 rounded-xl" />
+                    </div>
+                </header>
+
+                <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full space-y-8">
+                    <div className="p-8 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <Skeleton className="h-6 w-24 bg-slate-800 rounded-xl" />
+                            <Skeleton className="h-5 w-32 bg-slate-800 rounded-md" />
+                        </div>
+                        <Skeleton className="h-9 w-3/4 bg-slate-800 rounded-lg" />
+                        <Skeleton className="h-16 w-full bg-slate-800/60 rounded-2xl" />
+                    </div>
+
+                    <div className="space-y-4">
+                        <Skeleton className="h-6 w-48 bg-slate-800 rounded-md" />
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+                                    <Skeleton className="h-5 w-20 bg-slate-800 rounded-xl" />
+                                    <Skeleton className="h-9 w-28 bg-slate-800 rounded-lg" />
+                                    <Skeleton className="h-4 w-full bg-slate-800/60 rounded-md" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </main>
             </div>
         );
     }
@@ -83,10 +110,10 @@ export default function ViolationDetailsPublicPage() {
                     </p>
                 </div>
                 <Button
-                    onClick={() => router.push("/poso/mapandan#ordinance-section")}
+                    onClick={() => router.push("/poso/mapandan/violations")}
                     className="bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-6 h-12 rounded-2xl"
                 >
-                    <ArrowLeft className="w-4 h-4 mr-2" /> Return to Ordinance Guide
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Back to All Violations
                 </Button>
             </div>
         );
@@ -99,11 +126,11 @@ export default function ViolationDetailsPublicPage() {
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
                     <button
                         type="button"
-                        onClick={() => router.push("/poso/mapandan#ordinance-section")}
+                        onClick={() => router.push("/poso/mapandan/violations")}
                         className="flex items-center gap-2 text-xs font-bold text-slate-300 hover:text-white transition-colors"
                     >
                         <ArrowLeft className="w-4 h-4 text-rose-500" />
-                        <span>Back to Traffic Code Guide</span>
+                        <span>Back to All Violations</span>
                     </button>
 
                     <div className="flex items-center space-x-3 cursor-pointer" onClick={() => router.push("/poso/mapandan")}>
@@ -149,8 +176,8 @@ export default function ViolationDetailsPublicPage() {
                     </h1>
 
                     {violation.remarks && (
-                        <p className="text-xs sm:text-sm text-slate-300 italic bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 leading-relaxed">
-                            &quot;{violation.remarks}&quot;
+                        <p className="text-xs sm:text-sm text-slate-300 italic leading-relaxed pt-1">
+                            {violation.remarks}
                         </p>
                     )}
                 </div>

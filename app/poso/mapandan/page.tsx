@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { getPosoPortalSettings, getAllTrafficViolations } from "./actions";
 
@@ -22,7 +23,8 @@ export default function PosoMapandanPublicPage() {
     const [searchQuery, setSearchQuery] = useState(initialTicketQuery);
     const [loading, setLoading] = useState(false);
 
-    // Settings & Violations State
+    // Data Loading & Skeleton States
+    const [loadingPortalData, setLoadingPortalData] = useState(true);
     const [settings, setSettings] = useState<any>({
         siteLogo: "",
         posoLocation: "Municipal Hall Complex, Poblacion, Mapandan, Pangasinan, 2429 Philippines",
@@ -52,6 +54,7 @@ export default function PosoMapandanPublicPage() {
     useEffect(() => {
         let isMounted = true;
         async function loadPortalData() {
+            setLoadingPortalData(true);
             try {
                 const [portalSettings, violationsRes] = await Promise.all([
                     getPosoPortalSettings(),
@@ -65,6 +68,8 @@ export default function PosoMapandanPublicPage() {
                 }
             } catch {
                 /* silent fallback */
+            } finally {
+                if (isMounted) setLoadingPortalData(false);
             }
         }
         loadPortalData();
@@ -86,7 +91,9 @@ export default function PosoMapandanPublicPage() {
             <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
                     <div className="flex items-center space-x-3 cursor-pointer" onClick={() => router.push("/poso/mapandan")}>
-                        {settings.siteLogo ? (
+                        {loadingPortalData ? (
+                            <Skeleton className="w-11 h-11 rounded-xl bg-slate-800" />
+                        ) : settings.siteLogo ? (
                             <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-slate-800 border border-slate-700/60 shadow-md">
                                 <Image
                                     src={settings.siteLogo}
@@ -209,7 +216,7 @@ export default function PosoMapandanPublicPage() {
 
             {/* Main Content Hub */}
             <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 flex-1 w-full space-y-16">
-                {/* Municipal Traffic Code Guide (Compact Card Grid Layout) */}
+                {/* Municipal Traffic Code Guide (Compact Cards Grid Layout with Skeleton Loading) */}
                 <section id="ordinance-section" className="space-y-6">
                     <div className="text-center space-y-2 max-w-2xl mx-auto">
                         <span className="text-xs font-black tracking-widest uppercase text-rose-500 italic">
@@ -224,24 +231,42 @@ export default function PosoMapandanPublicPage() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {trafficViolations.length === 0 ? (
+                        {loadingPortalData ? (
+                            // Render 3 Skeleton Cards while loading
+                            [1, 2, 3].map((i) => (
+                                <div
+                                    key={i}
+                                    className="p-5 rounded-2xl bg-slate-900 border border-slate-800/90 space-y-4 shadow-xl"
+                                >
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <Skeleton className="h-5 w-20 bg-slate-800 rounded-lg" />
+                                            <Skeleton className="h-3 w-24 bg-slate-800 rounded-md" />
+                                        </div>
+                                        <Skeleton className="h-5 w-3/4 bg-slate-800 rounded-md" />
+                                        <Skeleton className="h-3 w-full bg-slate-800/60 rounded-md" />
+                                    </div>
+                                    <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                                        <Skeleton className="h-4 w-32 bg-slate-800 rounded-md" />
+                                        <Skeleton className="h-4 w-6 bg-slate-800 rounded-md" />
+                                    </div>
+                                </div>
+                            ))
+                        ) : trafficViolations.length === 0 ? (
                             <div className="col-span-full p-8 text-center bg-slate-900 border border-slate-800 rounded-3xl text-xs text-slate-400 italic">
-                                Loading official traffic violation schedules...
+                                No traffic violation schedules found.
                             </div>
                         ) : (
                             trafficViolations.slice(0, 3).map((v: any) => (
                                 <div
                                     key={v.id}
                                     onClick={() => router.push(`/poso/mapandan/violations/${v.id}`)}
-                                    className="p-5 rounded-2xl bg-slate-900 border border-slate-800/90 hover:border-rose-500/50 hover:bg-slate-900/80 shadow-xl transition-all cursor-pointer group flex flex-col justify-between space-y-4"
+                                    className="p-5 rounded-2xl bg-slate-900 border border-slate-800/90 hover:border-rose-500/50 hover:bg-slate-900/80 shadow-xl transition-all cursor-pointer group flex flex-col justify-between space-y-3"
                                 >
                                     <div className="space-y-2.5">
                                         <div className="flex items-center justify-between">
                                             <span className="px-2.5 py-0.5 rounded-lg bg-rose-500/10 text-rose-400 font-mono text-[10px] font-bold border border-rose-500/20">
                                                 {v.violationCode || "TV-CODE"}
-                                            </span>
-                                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider group-hover:text-rose-400 transition-colors">
-                                                Tap for Fines →
                                             </span>
                                         </div>
                                         <h4 className="text-sm font-bold text-white leading-snug group-hover:text-rose-300 transition-colors">
@@ -250,11 +275,6 @@ export default function PosoMapandanPublicPage() {
                                         {v.remarks && (
                                             <p className="text-[11px] text-slate-400 italic line-clamp-2">{v.remarks}</p>
                                         )}
-                                    </div>
-
-                                    <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400 font-semibold group-hover:text-rose-400 transition-colors">
-                                        <span>View Offense Schedule</span>
-                                        <span className="text-rose-500 font-bold">→</span>
                                     </div>
                                 </div>
                             ))
@@ -267,15 +287,14 @@ export default function PosoMapandanPublicPage() {
                             type="button"
                             variant="outline"
                             onClick={() => router.push("/poso/mapandan/violations")}
-                            className="h-12 px-8 bg-slate-900 hover:bg-slate-800 border-slate-800 hover:border-rose-500/50 text-slate-200 hover:text-white text-xs font-black uppercase italic tracking-wider rounded-2xl flex items-center gap-2 shadow-xl transition-all group"
+                            className="h-12 px-8 bg-slate-900 hover:bg-slate-800 border-slate-800 hover:border-rose-500/50 text-slate-200 hover:text-white text-xs font-black uppercase italic tracking-wider rounded-2xl shadow-xl transition-all"
                         >
                             <span>View All Municipal Traffic Violations Directory</span>
-                            <span className="text-rose-500 font-bold group-hover:translate-x-1 transition-transform">→</span>
                         </Button>
                     </div>
                 </section>
 
-                {/* Contact & POSO Portal Settings Section */}
+                {/* Contact & POSO Portal Settings Section (with Skeletons for Loading) */}
                 <section id="contact-section" className="p-6 sm:p-10 rounded-3xl bg-gradient-to-r from-slate-900 to-slate-950 border border-slate-800 space-y-8 shadow-2xl">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-800/80 pb-6">
                         <div className="space-y-2">
@@ -290,51 +309,62 @@ export default function PosoMapandanPublicPage() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-xs">
-                        <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
-                            <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                                <MapPin className="w-3.5 h-3.5 text-rose-400" /> Municipal Office Location
-                            </span>
-                            <p className="font-semibold text-slate-200 leading-relaxed">
-                                {settings.posoLocation}
-                            </p>
-                        </div>
+                        {loadingPortalData ? (
+                            [1, 2, 3, 4].map((i) => (
+                                <div key={i} className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-3">
+                                    <Skeleton className="h-3 w-28 bg-slate-800 rounded-md" />
+                                    <Skeleton className="h-5 w-full bg-slate-800/60 rounded-md" />
+                                </div>
+                            ))
+                        ) : (
+                            <>
+                                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+                                    <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                                        <MapPin className="w-3.5 h-3.5 text-rose-400" /> Municipal Office Location
+                                    </span>
+                                    <p className="font-semibold text-slate-200 leading-relaxed">
+                                        {settings.posoLocation}
+                                    </p>
+                                </div>
 
-                        <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
-                            <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                                <Phone className="w-3.5 h-3.5 text-rose-400" /> POSO Emergency Hotline
-                            </span>
-                            <p className="font-bold font-mono text-rose-400 text-sm">
-                                {settings.posoHotline}
-                            </p>
-                        </div>
+                                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+                                    <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                                        <Phone className="w-3.5 h-3.5 text-rose-400" /> POSO Emergency Hotline
+                                    </span>
+                                    <p className="font-bold font-mono text-rose-400 text-sm">
+                                        {settings.posoHotline}
+                                    </p>
+                                </div>
 
-                        <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
-                            <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                                <Clock className="w-3.5 h-3.5 text-rose-400" /> Operating Office Hours
-                            </span>
-                            <p className="font-semibold text-slate-200">
-                                {settings.posoHours}
-                            </p>
-                        </div>
+                                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+                                    <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                                        <Clock className="w-3.5 h-3.5 text-rose-400" /> Operating Office Hours
+                                    </span>
+                                    <p className="font-semibold text-slate-200">
+                                        {settings.posoHours}
+                                    </p>
+                                </div>
 
-                        <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
-                            <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                                <Mail className="w-3.5 h-3.5 text-rose-400" /> Official Email & Social
-                            </span>
-                            <p className="font-semibold text-slate-200 break-all">
-                                {settings.posoEmail}
-                            </p>
-                            {settings.posoFacebook && (
-                                <a
-                                    href={settings.posoFacebook}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 hover:underline mt-1"
-                                >
-                                    <Globe className="w-3 h-3" /> Facebook Page
-                                </a>
-                            )}
-                        </div>
+                                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+                                    <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                                        <Mail className="w-3.5 h-3.5 text-rose-400" /> Official Email & Social
+                                    </span>
+                                    <p className="font-semibold text-slate-200 break-all">
+                                        {settings.posoEmail}
+                                    </p>
+                                    {settings.posoFacebook && (
+                                        <a
+                                            href={settings.posoFacebook}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 hover:underline mt-1"
+                                        >
+                                            <Globe className="w-3 h-3" /> Facebook Page
+                                        </a>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </div>
                 </section>
             </main>
