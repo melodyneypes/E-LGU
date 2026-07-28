@@ -10,6 +10,8 @@ export async function getPosoPortalSettings() {
             "site_logo",
             "poso_location",
             "poso_hotline",
+            "poso_operating_hour",
+            "poso_official_email",
             "poso_email",
             "poso_hours",
             "poso_facebook"
@@ -19,8 +21,8 @@ export async function getPosoPortalSettings() {
             siteLogo: settingsMap.get("site_logo") || "",
             posoLocation: settingsMap.get("poso_location") || "Municipal Hall Complex, Poblacion, Mapandan, Pangasinan, 2429 Philippines",
             posoHotline: settingsMap.get("poso_hotline") || "(075) 529-XXXX / +63 917 123 4567",
-            posoEmail: settingsMap.get("poso_email") || "poso@mapandan.gov.ph",
-            posoHours: settingsMap.get("poso_hours") || "Monday - Friday: 8:00 AM - 5:00 PM",
+            posoEmail: settingsMap.get("poso_official_email") || settingsMap.get("poso_email") || "poso@mapandan.gov.ph",
+            posoHours: settingsMap.get("poso_operating_hour") || settingsMap.get("poso_hours") || "Monday - Friday: 8:00 AM - 5:00 PM",
             posoFacebook: settingsMap.get("poso_facebook") || "https://facebook.com/MapandanPOSO",
         };
     } catch (error) {

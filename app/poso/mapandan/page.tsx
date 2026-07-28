@@ -308,48 +308,48 @@ export default function PosoMapandanPublicPage() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 text-xs">
                         {loadingPortalData ? (
                             [1, 2, 3, 4].map((i) => (
-                                <div key={i} className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-3">
+                                <div key={i} className="space-y-2">
                                     <Skeleton className="h-3 w-28 bg-slate-800 rounded-md" />
                                     <Skeleton className="h-5 w-full bg-slate-800/60 rounded-md" />
                                 </div>
                             ))
                         ) : (
                             <>
-                                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
-                                    <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                                        <MapPin className="w-3.5 h-3.5 text-rose-400" /> Municipal Office Location
+                                <div className="space-y-1.5">
+                                    <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1.5 tracking-wider">
+                                        <MapPin className="w-3.5 h-3.5 text-rose-500" /> Municipal Office Location
                                     </span>
-                                    <p className="font-semibold text-slate-200 leading-relaxed">
+                                    <p className="font-semibold text-slate-200 leading-relaxed text-xs">
                                         {settings.posoLocation}
                                     </p>
                                 </div>
 
-                                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
-                                    <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                                        <Phone className="w-3.5 h-3.5 text-rose-400" /> POSO Emergency Hotline
+                                <div className="space-y-1.5">
+                                    <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1.5 tracking-wider">
+                                        <Phone className="w-3.5 h-3.5 text-rose-500" /> POSO Emergency Hotline
                                     </span>
                                     <p className="font-bold font-mono text-rose-400 text-sm">
                                         {settings.posoHotline}
                                     </p>
                                 </div>
 
-                                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
-                                    <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                                        <Clock className="w-3.5 h-3.5 text-rose-400" /> Operating Office Hours
+                                <div className="space-y-1.5">
+                                    <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1.5 tracking-wider">
+                                        <Clock className="w-3.5 h-3.5 text-rose-500" /> Operating Office Hours
                                     </span>
-                                    <p className="font-semibold text-slate-200">
+                                    <p className="font-semibold text-slate-200 text-xs">
                                         {settings.posoHours}
                                     </p>
                                 </div>
 
-                                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
-                                    <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1.5">
-                                        <Mail className="w-3.5 h-3.5 text-rose-400" /> Official Email & Social
+                                <div className="space-y-1.5">
+                                    <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1.5 tracking-wider">
+                                        <Mail className="w-3.5 h-3.5 text-rose-500" /> Official Email & Social
                                     </span>
-                                    <p className="font-semibold text-slate-200 break-all">
+                                    <p className="font-semibold text-slate-200 break-all text-xs">
                                         {settings.posoEmail}
                                     </p>
                                     {settings.posoFacebook && (
@@ -357,7 +357,7 @@ export default function PosoMapandanPublicPage() {
                                             href={settings.posoFacebook}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 hover:underline mt-1"
+                                            className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 hover:text-rose-300 transition-colors mt-0.5"
                                         >
                                             <Globe className="w-3 h-3" /> Facebook Page
                                         </a>
