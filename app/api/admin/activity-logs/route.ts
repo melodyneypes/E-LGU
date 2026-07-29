@@ -55,19 +55,19 @@ export async function GET(req: NextRequest) {
         const whereBarangayFilter = selectedBarangay ? { barangay: selectedBarangay } : {};
 
         const [recentResidents, recentReports, recentPayments, recentTransactions] = await Promise.all([
-            prisma.user.findMany({
+            (prisma as any).user.findMany({
                 where: { role: "USER", ...whereBarangayFilter },
                 orderBy: { createdAt: "desc" },
                 take: 5,
-                select: { id: true, firstName: true, lastName: true, createdAt: true }
+                select: { id: true, name: true, createdAt: true }
             }),
-            prisma.report.findMany({
+            (prisma as any).report.findMany({
                 where: selectedBarangay ? { user: { barangay: selectedBarangay } } : {},
                 orderBy: { createdAt: "desc" },
                 take: 5,
                 select: { id: true, category: true, createdAt: true, user: { select: { name: true } } }
             }),
-            prisma.payment.findMany({
+            (prisma as any).payment.findMany({
                 where: selectedBarangay ? { transaction: { user: { barangay: selectedBarangay } } } : {},
                 orderBy: { createdAt: "desc" },
                 take: 5,
@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
                     }
                 }
             }),
-            prisma.transaction.findMany({
+            (prisma as any).transaction.findMany({
                 where: selectedBarangay ? { user: { barangay: selectedBarangay } } : {},
                 orderBy: { createdAt: "desc" },
                 take: 5,
@@ -101,16 +101,16 @@ export async function GET(req: NextRequest) {
         ]);
 
         const activityLogs = [
-            ...recentResidents.map((r) => ({
+            ...recentResidents.map((r: any) => ({
                 id: r.id,
                 type: "resident" as const,
-                user: `${r.firstName} ${r.lastName}`,
+                user: r.name || "A Resident",
                 action: "registered as a new",
                 details: "Resident Profile",
                 time: formatTimeAgo(r.createdAt),
                 createdAt: r.createdAt.toISOString()
             })),
-            ...recentReports.map((rp) => ({
+            ...recentReports.map((rp: any) => ({
                 id: rp.id,
                 type: "report" as const,
                 user: rp.user?.name || "A Resident",
@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
                 time: formatTimeAgo(rp.createdAt),
                 createdAt: rp.createdAt.toISOString()
             })),
-            ...recentPayments.map((p) => {
+            ...recentPayments.map((p: any) => {
                 const tx = p.transaction;
                 let resSnap: any = {};
                 let addData: any = {};
@@ -141,7 +141,7 @@ export async function GET(req: NextRequest) {
                     createdAt: p.createdAt.toISOString()
                 };
             }),
-            ...recentTransactions.map((t) => {
+            ...recentTransactions.map((t: any) => {
                 let resSnap: any = {};
                 let addData: any = {};
                 try {
