@@ -71,6 +71,8 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
         });
     };
 
+
+
     const handleMouseUp = () => {
         setIsDragging(false);
     };
@@ -82,7 +84,7 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
     };
 
     return (
-        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-transparent shadow-none flex flex-col items-center justify-center gap-6 outline-none">
+        <DialogContent aria-describedby={undefined} className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-transparent shadow-none flex flex-col items-center justify-center gap-6 outline-none">
             <DialogHeader className="sr-only">
                 <DialogTitle>{label}</DialogTitle>
             </DialogHeader>
@@ -116,6 +118,7 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
                             className="object-contain"
                             priority
                             draggable={false}
+                            unoptimized={true}
                         />
                     )}
                 </div>
@@ -195,7 +198,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     // Zoning is in read-only mode if the transaction is not yet passed to Zoning (i.e. not EVALUATED status)
     const isZoningReadonly = userRole === "MPDC_ZONING" && !isZoningActive;
 
-    const isViewOnly = isForcedView || 
+    const isViewOnly = isForcedView || transaction?.isCancelled || 
         isZoningReadonly || 
         (userRole === "MPDC_ZONING" && isZoningActive && zoningStatus !== "FOR_REQUESTING" && zoningStatus !== "FOR_REVISION") ||
         (userRole !== "MPDC_ZONING" && transaction && transaction.status !== "FOR_REQUESTING" && transaction.status !== "FOR_REVISION");

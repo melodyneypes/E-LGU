@@ -493,7 +493,45 @@ export default function OccupancyPermitPage() {
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [idChoice, setIdChoice] = useState<"PROFILE" | "UPLOAD">("PROFILE");
   const [activeDocTab, setActiveDocTab] = useState<"REQUIREMENTS" | "PERMITS">("REQUIREMENTS");
-  const [uploadedRequirements, setUploadedRequirements] = useState<Record<number, File>>({});
+  const [uploadedRequirements, setUploadedRequirements] = useState<Record<number, any>>({});
+  const [abandonedFiles, setAbandonedFiles] = useState<string[]>([]);
+
+  useEffect(() => {
+    return () => {
+      if (abandonedFiles.length > 0) {
+        navigator.sendBeacon("/api/upload/cleanup", JSON.stringify({ urls: abandonedFiles }));
+      }
+    };
+  }, [abandonedFiles]);
+
+  const handleAsyncUpload = async (file: File, isRequirement: boolean, idx?: number, otherField?: string) => {
+    const fieldName = otherField || (isRequirement ? `req_${idx}` : `permit_${idx}`);
+    const toastId = toast.loading("Uploading document...", { id: `upload-${fieldName}` });
+    try {
+      const extension = file.name.split(".").pop() || "bin";
+      const allocation = await getSecureUploadUrlsAction(
+        [{ fieldName, fileExt: extension }],
+        "occupancy_permits"
+      );
+      const target = allocation.success ? allocation.data?.[0] : undefined;
+      const url = target ? await uploadFileClientSide(file, fieldName, target) : null;
+      if (url) {
+        setAbandonedFiles(prev => [...prev, url]);
+        if (otherField) {
+          setFormData(prev => ({ ...prev, [otherField]: url }));
+        } else if (isRequirement && idx !== undefined) {
+          setUploadedRequirements(prev => ({ ...prev, [idx]: url }));
+        } else if (idx !== undefined) {
+          setUploadedPermits(prev => ({ ...prev, [idx]: url }));
+        }
+        toast.success("Document uploaded successfully!", { id: toastId });
+      } else {
+        toast.error("Failed to upload document.", { id: toastId });
+      }
+    } catch {
+      toast.error("An error occurred during upload.", { id: toastId });
+    }
+  };
 
   const [formData, setFormData] = useState({
     descriptionOfWork: "",
@@ -523,14 +561,14 @@ export default function OccupancyPermitPage() {
     locationBarangay: "",
     isLotOwner: "",
     totalFloors: "",
-    newIdFile: null as File | null,
-    newIdFileBack: null as File | null,
-    tctFile: null as File | null,
+    newIdFile: null as any | null,
+    newIdFileBack: null as any | null,
+    tctFile: null as any | null,
     occupancyUse: "Residential (Single Family)",
     otherOccupancyUse: "",
   });
 
-  const [uploadedPermits, setUploadedPermits] = useState<Record<number, File>>({});
+  const [uploadedPermits, setUploadedPermits] = useState<Record<number, any>>({});
   const [customRequirements, setCustomRequirements] = useState<{ label: string }[]>([]);
   const [customPermits, setCustomPermits] = useState<{ label: string }[]>([]);
   const [isAddCustomDocOpen, setIsAddCustomDocOpen] = useState(false);
@@ -1227,13 +1265,17 @@ export default function OccupancyPermitPage() {
       let idFileUrl: string | null = null;
       let idBackFileUrl: string | null = null;
       if (idChoice === "UPLOAD") {
-        if (formData.newIdFile) {
-          queueUpload(formData.newIdFile, "ids", "newIdFile", url => { idFileUrl = url; });
+        if (formData.newIdFile instanceof File) {
+          queueUpload(formData.newIdFile, "ids", "newIdFile", url => { if (url) idFileUrl = url; });
+        } else if (typeof formData.newIdFile === 'string') {
+          idFileUrl = formData.newIdFile;
         } else if (effectiveDocuments?.newIdFile) {
           idFileUrl = effectiveDocuments.newIdFile;
         }
-        if (formData.newIdFileBack) {
-          queueUpload(formData.newIdFileBack, "ids", "newIdFileBack", url => { idBackFileUrl = url; });
+        if (formData.newIdFileBack instanceof File) {
+          queueUpload(formData.newIdFileBack, "ids", "newIdFileBack", url => { if (url) idBackFileUrl = url; });
+        } else if (typeof formData.newIdFileBack === 'string') {
+          idBackFileUrl = formData.newIdFileBack;
         } else if (effectiveDocuments?.newIdFileBack) {
           idBackFileUrl = effectiveDocuments.newIdFileBack;
         }
@@ -1264,8 +1306,10 @@ export default function OccupancyPermitPage() {
 
       // 2. Upload TCT
       let tctFileUrl: string | null = null;
-      if (formData.tctFile) {
-        queueUpload(formData.tctFile, "tct", "tctFile", url => { tctFileUrl = url; });
+      if (formData.tctFile instanceof File) {
+        queueUpload(formData.tctFile, "tct", "tctFile", url => { if (url) tctFileUrl = url; });
+      } else if (typeof formData.tctFile === 'string') {
+        tctFileUrl = formData.tctFile;
       } else if (effectiveDocuments?.tctFile) {
         tctFileUrl = effectiveDocuments.tctFile;
       }
@@ -1278,25 +1322,24 @@ export default function OccupancyPermitPage() {
         if (isAffidavitOfConsentRequired && [21, 22].includes(i)) continue;
         if (!hasMultipleFloors && [23, 24].includes(i)) continue;
         
-        const file = uploadedRequirements[i];
-        if (file) {
-          queueUpload(file, "requirements", `req_${i}`, url => {
-            if (url) finalReqUrls[`req_${i}`] = url;
-          });
-        } else {
-          const existingUrl = effectiveDocuments?.[`req_${i}`];
-          if (existingUrl) finalReqUrls[`req_${i}`] = existingUrl;
+        const fileOrUrl = uploadedRequirements[i];
+        if (fileOrUrl instanceof File) {
+          queueUpload(fileOrUrl, "requirements", `req_${i}`, url => { if (url) finalReqUrls[`req_${i}`] = url; });
+        } else if (typeof fileOrUrl === 'string') {
+          finalReqUrls[`req_${i}`] = fileOrUrl;
+        } else if (effectiveDocuments?.[`req_${i}`]) {
+          finalReqUrls[`req_${i}`] = effectiveDocuments[`req_${i}`];
         }
       }
       // Process custom requirements (index >= 25)
       for (const idxStr of Object.keys(uploadedRequirements)) {
         const idx = parseInt(idxStr, 10);
         if (idx >= 25) {
-          const file = uploadedRequirements[idx];
-          if (file) {
-            queueUpload(file, "requirements", `req_${idx}`, url => {
-              if (url) finalReqUrls[`req_${idx}`] = url;
-            });
+          const fileOrUrl = uploadedRequirements[idx];
+          if (fileOrUrl instanceof File) {
+            queueUpload(fileOrUrl, "requirements", `req_${idx}`, url => { if (url) finalReqUrls[`req_${idx}`] = url; });
+          } else if (typeof fileOrUrl === 'string') {
+            finalReqUrls[`req_${idx}`] = fileOrUrl;
           }
         }
       }
@@ -1314,25 +1357,24 @@ export default function OccupancyPermitPage() {
       // 4. Upload Permits
       const finalPermitUrls: Record<string, string> = {};
       for (let i = 0; i < 7; i++) {
-        const file = uploadedPermits[i];
-        if (file) {
-          queueUpload(file, "permits", `permit_${i}`, url => {
-            if (url) finalPermitUrls[`permit_${i}`] = url;
-          });
-        } else {
-          const existingUrl = effectiveDocuments?.[`permit_${i}`];
-          if (existingUrl) finalPermitUrls[`permit_${i}`] = existingUrl;
+        const fileOrUrl = uploadedPermits[i];
+        if (fileOrUrl instanceof File) {
+          queueUpload(fileOrUrl, "permits", `permit_${i}`, url => { if (url) finalPermitUrls[`permit_${i}`] = url; });
+        } else if (typeof fileOrUrl === 'string') {
+          finalPermitUrls[`permit_${i}`] = fileOrUrl;
+        } else if (effectiveDocuments?.[`permit_${i}`]) {
+          finalPermitUrls[`permit_${i}`] = effectiveDocuments[`permit_${i}`];
         }
       }
       // Process custom permits (index >= 7)
       for (const idxStr of Object.keys(uploadedPermits)) {
         const idx = parseInt(idxStr, 10);
         if (idx >= 7) {
-          const file = uploadedPermits[idx];
-          if (file) {
-            queueUpload(file, "permits", `permit_${idx}`, url => {
-              if (url) finalPermitUrls[`permit_${idx}`] = url;
-            });
+          const fileOrUrl = uploadedPermits[idx];
+          if (fileOrUrl instanceof File) {
+            queueUpload(fileOrUrl, "permits", `permit_${idx}`, url => { if (url) finalPermitUrls[`permit_${idx}`] = url; });
+          } else if (typeof fileOrUrl === 'string') {
+            finalPermitUrls[`permit_${idx}`] = fileOrUrl;
           }
         }
       }
@@ -2111,9 +2153,10 @@ export default function OccupancyPermitPage() {
                               <PremiumDocumentUpload
                                 label="Front Side"
                                 required={true}
-                                file={formData.newIdFile}
+                                file={typeof formData.newIdFile === 'string' ? null : formData.newIdFile}
+                                previewUrl={typeof formData.newIdFile === 'string' ? formData.newIdFile : undefined}
                                 existingUrl={effectiveDocuments?.newIdFile}
-                                onFileSelect={(file) => setFormData({ ...formData, newIdFile: file })}
+                                onFileSelect={(file) => handleAsyncUpload(file, false, undefined, 'newIdFile')}
                                 onView={() => {
                                   if (formData.newIdFile) {
                                     setViewerFile(formData.newIdFile);
@@ -2134,9 +2177,10 @@ export default function OccupancyPermitPage() {
                               <PremiumDocumentUpload
                                 label="Back Side (Optional)"
                                 required={false}
-                                file={formData.newIdFileBack}
+                                file={typeof formData.newIdFileBack === 'string' ? null : formData.newIdFileBack}
+                                previewUrl={typeof formData.newIdFileBack === 'string' ? formData.newIdFileBack : undefined}
                                 existingUrl={effectiveDocuments?.newIdFileBack}
-                                onFileSelect={(file) => setFormData({ ...formData, newIdFileBack: file })}
+                                onFileSelect={(file) => handleAsyncUpload(file, false, undefined, 'newIdFileBack')}
                                 onView={() => {
                                   if (formData.newIdFileBack) {
                                     setViewerFile(formData.newIdFileBack);
@@ -2422,9 +2466,10 @@ export default function OccupancyPermitPage() {
                         <PremiumDocumentUpload
                           label="Certified True Copy of TCT"
                           required={true}
-                          file={formData.tctFile}
+                          file={typeof formData.tctFile === 'string' ? null : formData.tctFile}
+                          previewUrl={typeof formData.tctFile === 'string' ? formData.tctFile : undefined}
                           existingUrl={effectiveDocuments?.tctFile}
-                          onFileSelect={(file) => setFormData({ ...formData, tctFile: file })}
+                          onFileSelect={(file) => handleAsyncUpload(file, false, undefined, 'tctFile')}
                           onView={() => {
                             if (formData.tctFile) {
                               setViewerFile(formData.tctFile);
@@ -2993,19 +3038,22 @@ export default function OccupancyPermitPage() {
                       <PremiumDocumentUpload
                         label="Document File"
                         required={isRequired}
-                        file={activeDocTab === "REQUIREMENTS" ? (uploadedRequirements[idx] || null) : (uploadedPermits[idx] || null)}
+                        file={(() => {
+                          const data = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
+                          return typeof data === 'string' ? null : (data || null);
+                        })()}
+                        previewUrl={(() => {
+                          const data = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
+                          return typeof data === 'string' ? data : undefined;
+                        })()}
                         existingUrl={fileUrl}
-                        onFileSelect={(file) => {
-                          if (activeDocTab === "REQUIREMENTS") {
-                            setUploadedRequirements(prev => ({ ...prev, [idx]: file }));
-                          } else {
-                            setUploadedPermits(prev => ({ ...prev, [idx]: file }));
-                          }
-                        }}
+                        onFileSelect={(file) => handleAsyncUpload(file, activeDocTab === "REQUIREMENTS", idx)}
                         onView={() => {
-                          const currentFile = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
-                          if (currentFile) {
-                            setViewerFile(currentFile);
+                          const currentData = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
+                          if (currentData && typeof currentData !== 'string') {
+                            setViewerFile(currentData);
+                          } else if (currentData && typeof currentData === 'string') {
+                            setViewerUrl(currentData);
                           } else if (fileUrl) {
                             setViewerUrl(fileUrl);
                           }

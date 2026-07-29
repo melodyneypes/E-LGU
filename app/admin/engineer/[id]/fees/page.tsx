@@ -104,7 +104,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         () => (transaction?.additionalData?.feeAssessment?.zoningMunicipalCharges || []).reduce((sum: number, fee: any) => sum + Number(fee.amount || 0), 0),
         [transaction]
     );
-    const isViewOnly = isForcedView || isEndorsed || (transaction && transaction.status !== "EVALUATED");
+    const isViewOnly = isForcedView || transaction?.isCancelled || isEndorsed || (transaction && transaction.status !== "EVALUATED");
 
     const [now, setNow] = useState(() => Date.now());
     useEffect(() => {

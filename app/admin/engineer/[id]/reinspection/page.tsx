@@ -178,7 +178,7 @@ export default function BuildingPermitReinspectionPage({ params }: PageProps) {
     const backUrl = userRole === "ENGINEER" ? "/admin/engineer" : userRole === "MPDC_ZONING" ? "/admin/zoning" : "/admin/treasury";
 
     const [transaction, setTransaction] = useState<any>(null);
-    const isViewOnly = isForcedView || (transaction && transaction.status !== "FOR_REINSPECTION");
+    const isViewOnly = isForcedView || transaction?.isCancelled || (transaction && transaction.status !== "FOR_REINSPECTION");
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [remarks, setRemarks] = useState("");
