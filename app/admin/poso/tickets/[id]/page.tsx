@@ -744,9 +744,18 @@ export default function TicketDetailsPage() {
                         </div>
 
                         {ticket.driverSignature ? (
-                            <div className="p-4 bg-slate-50 dark:bg-[#0c111d] rounded-2xl border border-slate-200 dark:border-[#2a3040] flex flex-col items-center justify-center">
-                                <Image src={ticket.driverSignature} alt="Driver Signature" width={200} height={96} className="max-h-24 object-contain filter dark:invert" />
-                                <span className="text-[10px] font-bold text-slate-400 uppercase mt-2">Verified Digital Signature</span>
+                            <div className="p-4 bg-slate-950 dark:bg-black/90 rounded-2xl border border-slate-800 dark:border-white/10 flex flex-col items-center justify-center shadow-inner relative overflow-hidden group">
+                                <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:12px_12px] opacity-40 pointer-events-none" />
+                                <Image
+                                    src={ticket.driverSignature}
+                                    alt="Driver Signature"
+                                    width={220}
+                                    height={100}
+                                    className="max-h-28 object-contain filter drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] brightness-125 relative z-10"
+                                />
+                                <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase mt-2 italic flex items-center gap-1.5 relative z-10">
+                                    <Award className="w-3.5 h-3.5 text-emerald-400" /> Verified Digital Signature
+                                </span>
                             </div>
                         ) : (
                             <div className="p-6 text-center bg-slate-50 dark:bg-[#0c111d] rounded-2xl border border-dashed border-slate-200 dark:border-white/10 text-slate-400">
