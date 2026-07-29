@@ -494,17 +494,22 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
 
     const [staffTickets, staffTx] = (staffLogsRaw || [[], []]) as [any[], any[]];
     const staffLogs = [
-        ...staffTickets.map((t) => ({
-            id: `ticket-${t.id}`,
-            userName: t.officerName || "POSO Enforcer",
-            userRole: "POSO_OFFICER",
-            department: "POSO",
-            action: "issued citation ticket",
-            module: "POSO Citation",
-            details: `#${t.ticketNo} to ${t.violatorName} (₱${t.totalAmount.toLocaleString()})`,
-            time: formatTimeAgo(t.createdAt),
-            createdAt: t.createdAt.toISOString(),
-        })),
+        ...staffTickets.map((t) => {
+            const name = (t.officerName && !t.officerName.startsWith("c") && t.officerName.length < 24)
+                ? t.officerName
+                : "POSO Officer";
+            return {
+                id: `ticket-${t.id}`,
+                userName: name,
+                userRole: "POSO_OFFICER",
+                department: "POSO",
+                action: "issued citation ticket",
+                module: "POSO Citation",
+                details: `#${t.ticketNo} to ${t.violatorName} (₱${t.totalAmount.toLocaleString()})`,
+                time: formatTimeAgo(t.createdAt),
+                createdAt: t.createdAt.toISOString(),
+            };
+        }),
         ...staffTx.map((tx) => {
             const addData = typeof tx.additionalData === "string" ? JSON.parse(tx.additionalData || "{}") : tx.additionalData || {};
             let dept = tx.user?.department;
@@ -523,19 +528,37 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                 dept = tx.type?.category || "LGU Staff";
             }
 
+            const st = String(tx.status);
+            const isApprovedOrPaid = st === "APPROVED" || st === "RELEASED" || st === "PAID" || st === "DELIVERED";
+            const isRejected = st === "REJECTED";
+
+            let staffName = tx.processedBy;
+            if (!staffName || staffName.startsWith("cm") || staffName.length > 20) {
+                staffName = addData.processedByStaff || addData.officerName || tx.user?.name || "Municipal Staff";
+            }
+
             return {
                 id: `tx-${tx.id}`,
-                userName: tx.processedBy || "Municipal Staff",
+                userName: staffName,
                 userRole: "STAFF",
                 department: String(dept).toUpperCase(),
-                action: tx.status === "APPROVED" || tx.status === "RELEASED" || tx.status === "PAID" ? "processed payment / approved" : tx.status === "REJECTED" ? "rejected request for" : "updated status for",
+                action: isApprovedOrPaid ? "processed payment / approved" : isRejected ? "rejected request for" : "updated status for",
                 module: tx.type?.name || "Service Request",
                 details: `${tx.type?.name || "Document"} for ${tx.user?.name || addData.violatorName || "Resident"}`,
                 time: formatTimeAgo(tx.updatedAt),
                 createdAt: tx.updatedAt.toISOString(),
             };
         }),
-    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    ].sort((a, b) => {
+        const getMs = (input: any) => {
+            const dateObj = new Date(input);
+            let ms = dateObj.getTime();
+            if (isNaN(ms)) return 0;
+            if (ms > Date.now() + 60000) ms -= 8 * 60 * 60 * 1000;
+            return ms;
+        };
+        return getMs(b.createdAt) - getMs(a.createdAt);
+    });
 
     const themeColor = settings.get("theme_color") || "#2563eb";
     const categories = categoriesList.map((c) => c.category).filter(Boolean);

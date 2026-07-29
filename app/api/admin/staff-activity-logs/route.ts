@@ -29,6 +29,19 @@ function formatTimeAgo(input: Date | string) {
     return `${days} day${days > 1 ? "s" : ""} ago`;
 }
 
+function parseDateMs(input: any): number {
+    if (!input) return 0;
+    const rawStr = String(input).trim();
+    const dateObj = new Date(rawStr);
+    if (isNaN(dateObj.getTime())) return 0;
+    let ms = dateObj.getTime();
+    const nowMs = Date.now();
+    if (ms > nowMs + 60000) {
+        ms -= 8 * 60 * 60 * 1000;
+    }
+    return ms;
+}
+
 export async function GET(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
@@ -73,20 +86,24 @@ export async function GET(req: NextRequest) {
         ]);
 
         const staffLogs = [
-            ...recentTickets.map((t) => ({
-                id: `ticket-${t.id}`,
-                userName: t.officerName || "POSO Enforcer",
-                userRole: "POSO_OFFICER",
-                department: "POSO",
-                action: "issued citation ticket",
-                module: "POSO Citation",
-                details: `#${t.ticketNo} to ${t.violatorName} (₱${t.totalAmount.toLocaleString()})`,
-                time: formatTimeAgo(new Date(t.createdAt)),
-                createdAt: t.createdAt.toISOString(),
-            })),
+            ...recentTickets.map((t) => {
+                const name = (t.officerName && !t.officerName.startsWith("c") && t.officerName.length < 24)
+                    ? t.officerName
+                    : "POSO Officer";
+                return {
+                    id: `ticket-${t.id}`,
+                    userName: name,
+                    userRole: "POSO_OFFICER",
+                    department: "POSO",
+                    action: "issued citation ticket",
+                    module: "POSO Citation",
+                    details: `#${t.ticketNo} to ${t.violatorName} (₱${t.totalAmount.toLocaleString()})`,
+                    time: formatTimeAgo(t.createdAt),
+                    createdAt: t.createdAt.toISOString(),
+                };
+            }),
             ...processedTransactions.map((tx) => {
-                const addData = (tx.additionalData as any) || {};
-                // Priority for Department: User department > additionalData.servingDepartment > processedBy string matching
+                const addData = typeof tx.additionalData === "string" ? JSON.parse(tx.additionalData || "{}") : tx.additionalData || {};
                 let dept = tx.user?.department;
                 if (!dept && addData.servingDepartment) {
                     dept = addData.servingDepartment;
@@ -103,20 +120,30 @@ export async function GET(req: NextRequest) {
                     dept = tx.type?.category || "LGU Staff";
                 }
 
+                const st = String(tx.status);
+                const isApprovedOrPaid = st === "APPROVED" || st === "RELEASED" || st === "PAID" || st === "DELIVERED";
+                const isRejected = st === "REJECTED";
+
+                // Ensure userName is a human name and not a CUID/userId
+                let staffName = tx.processedBy;
+                if (!staffName || staffName.startsWith("cm") || staffName.length > 20) {
+                    staffName = addData.processedByStaff || addData.officerName || tx.user?.name || "Municipal Staff";
+                }
+
                 return {
                     id: `tx-${tx.id}`,
-                    userName: tx.processedBy || "Municipal Staff",
+                    userName: staffName,
                     userRole: "STAFF",
                     department: String(dept).toUpperCase(),
-                    action: tx.status === "APPROVED" || tx.status === "RELEASED" || tx.status === "PAID" ? "processed payment / approved" : tx.status === "REJECTED" ? "rejected request for" : "updated status for",
+                    action: isApprovedOrPaid ? "processed payment / approved" : isRejected ? "rejected request for" : "updated status for",
                     module: tx.type?.name || "Service Request",
                     details: `${tx.type?.name || "Document"} for ${tx.user?.name || addData.violatorName || "Resident"}`,
-                    time: formatTimeAgo(new Date(tx.updatedAt)),
+                    time: formatTimeAgo(tx.updatedAt),
                     createdAt: tx.updatedAt.toISOString(),
                 };
             }),
         ]
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .sort((a, b) => parseDateMs(b.createdAt) - parseDateMs(a.createdAt))
             .slice(0, 7);
 
         return NextResponse.json({ success: true, logs: staffLogs });
