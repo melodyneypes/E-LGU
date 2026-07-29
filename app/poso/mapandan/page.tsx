@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { getPosoPortalSettings, getAllTrafficViolations } from "./actions";
+import { getPosoPortalSettings, getAllTrafficViolations, searchPublicTicket } from "./actions";
 import PosoQrScannerModal from "./components/PosoQrScannerModal";
 
 export default function PosoMapandanPublicPage() {
@@ -39,7 +39,7 @@ export default function PosoMapandanPublicPage() {
     // QR Code Modal state
     const [showQrModal, setShowQrModal] = useState(false);
 
-    const performSearch = useCallback(async (queryToSearch: string) => {
+    const performSearch = useCallback(async (queryToSearch: string, isFromQrScan: boolean = false) => {
         let clean = queryToSearch.trim();
         if (!clean) {
             toast.error("Please enter a ticket number, license no, or plate no.");
@@ -57,10 +57,18 @@ export default function PosoMapandanPublicPage() {
             if (res.success && res.ticket) {
                 router.push(`/poso/mapandan/${encodeURIComponent(clean)}`);
             } else {
-                toast.error(res.error || `Citation Ticket "${clean}" not found in POSO records. Please re-scan or verify your ticket.`, { duration: 6000 });
+                if (isFromQrScan) {
+                    toast.error(`Scanned QR: "${clean}" • Citation Ticket not found in POSO records. Please re-scan your ticket.`, { duration: 6000 });
+                } else {
+                    toast.error(res.error || `Citation Ticket "${clean}" not found in POSO records. Please check your ticket number and try again.`, { duration: 6000 });
+                }
             }
-        } catch {
-            toast.error("Failed to verify citation ticket details. Please try re-scanning.");
+        } catch (err: any) {
+            if (isFromQrScan) {
+                toast.error(`Scanned QR: "${clean}" • ${err?.message || "Failed to verify ticket. Please try re-scanning."}`);
+            } else {
+                toast.error(`Ticket: "${clean}" • ${err?.message || "Failed to verify ticket details. Please try again."}`);
+            }
         } finally {
             toast.dismiss("poso-qr-scan-toast");
             setLoading(false);
@@ -405,6 +413,10 @@ export default function PosoMapandanPublicPage() {
             <PosoQrScannerModal
                 isOpen={showQrModal}
                 onClose={() => setShowQrModal(false)}
+                onScanSuccess={(scannedText) => {
+                    setShowQrModal(false);
+                    performSearch(scannedText, true);
+                }}
             />
 
             {/* Footer */}

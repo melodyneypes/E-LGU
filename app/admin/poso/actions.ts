@@ -148,7 +148,6 @@ export interface POSOPenaltyBreakdown {
 
 export async function getPosoPenaltySettings(): Promise<{ success: boolean; settings: POSOPenaltySettings; error?: string }> {
     try {
-        await verifyAdminOrStaff();
         const settingsList = await (prisma as any).systemSetting.findMany({
             where: {
                 key: {

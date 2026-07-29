@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import BarcodeScannerComponent from "react-qr-barcode-scanner";
 import { QrCode, X, AlertCircle } from "lucide-react";
 
@@ -18,8 +18,13 @@ export default function PosoQrScannerModal({
     const [cameraError, setCameraError] = useState<string | null>(null);
     const isHandlingRef = useRef<boolean>(false);
 
+    useEffect(() => {
+        if (!isOpen) {
+            isHandlingRef.current = false;
+        }
+    }, [isOpen]);
+
     if (!isOpen) {
-        isHandlingRef.current = false;
         return null;
     }
 
@@ -56,6 +61,11 @@ export default function PosoQrScannerModal({
                         <BarcodeScannerComponent
                             width="100%"
                             height={280}
+                            videoConstraints={{
+                                facingMode: "environment",
+                                width: { ideal: 1920 },
+                                height: { ideal: 1080 },
+                            }}
                             onUpdate={(err, result) => {
                                 if (result && result.getText()) {
                                     const text = result.getText().trim();

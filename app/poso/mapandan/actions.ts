@@ -76,29 +76,37 @@ export async function searchPublicTicket(query: string) {
             return { success: false, error: "Please enter a valid Citation Ticket Number, License No., or Plate No." };
         }
 
-        // Try match on TicketNo, PlateNo, or LicenseNo
+        // Search strictly by ticketNo only
         const ticket = await (prisma as any).ticketHeader.findFirst({
             where: {
-                OR: [
-                    { ticketNo: { equals: cleanQuery, mode: "insensitive" } },
-                    { plateNo: { equals: cleanQuery, mode: "insensitive" } },
-                    { licenseNo: { equals: cleanQuery, mode: "insensitive" } },
-                ],
+                ticketNo: { equals: cleanQuery, mode: "insensitive" },
             },
             include: {
-                details: true,
-                ticketPhotos: true,
-                transaction: {
+                details: {
                     include: {
-                        payment: true,
+                        violation: true,
                     },
                 },
+                ticketPhotos: true,
             },
             orderBy: { createdAt: "desc" },
         });
 
         if (!ticket) {
             return { success: false, error: `No POSO Citation Ticket found for "${cleanQuery}". Please check the ticket number and try again.` };
+        }
+
+        // Fetch optional transaction safely if transactionId is present
+        if (ticket.transactionId) {
+            try {
+                const tx = await (prisma as any).transaction.findUnique({
+                    where: { id: ticket.transactionId },
+                    include: { payment: true },
+                });
+                if (tx) {
+                    ticket.transaction = tx;
+                }
+            } catch { /* silent fallback if transactionId is dangling */ }
         }
 
         // Fetch POSO penalty settings and calculate overdue penalty breakdown

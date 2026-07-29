@@ -192,19 +192,19 @@ export default function TicketDetailsPublicPage() {
         <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-rose-500 selection:text-white">
             {/* Top Navigation Header */}
             <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
                     <button
                         type="button"
                         onClick={() => router.push("/poso/mapandan")}
-                        className="flex items-center gap-2 text-xs font-bold text-slate-300 hover:text-white transition-colors"
+                        className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-bold text-slate-300 hover:text-white transition-colors"
                     >
-                        <ArrowLeft className="w-4 h-4 text-rose-500" />
+                        <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-500" />
                         <span>Back to Ticket Search</span>
                     </button>
 
-                    <div className="flex items-center space-x-3 cursor-pointer" onClick={() => router.push("/poso/mapandan")}>
+                    <div className="flex items-center space-x-2 sm:space-x-3 cursor-pointer" onClick={() => router.push("/poso/mapandan")}>
                         {settings.siteLogo ? (
-                            <div className="relative w-10 h-10 rounded-xl overflow-hidden bg-slate-800 border border-slate-700/60 shadow-md">
+                            <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-xl overflow-hidden bg-slate-800 border border-slate-700/60 shadow-md">
                                 <Image
                                     src={settings.siteLogo}
                                     alt="Mapandan Seal"
@@ -214,11 +214,11 @@ export default function TicketDetailsPublicPage() {
                                 />
                             </div>
                         ) : (
-                            <div className="p-2 rounded-xl bg-gradient-to-br from-rose-500 to-amber-500 text-white">
-                                <Shield className="w-5 h-5 stroke-[2.5]" />
+                            <div className="p-1.5 sm:p-2 rounded-xl bg-gradient-to-br from-rose-500 to-amber-500 text-white">
+                                <Shield className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
                             </div>
                         )}
-                        <span className="text-sm font-black tracking-tight text-white uppercase italic hidden sm:inline">
+                        <span className="text-xs sm:text-sm font-black tracking-tight text-white uppercase italic hidden sm:inline">
                             Mapandan POSO Portal
                         </span>
                     </div>
@@ -226,10 +226,10 @@ export default function TicketDetailsPublicPage() {
             </header>
 
             {/* Main Ticket Details Content */}
-            <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 flex-1 w-full space-y-8">
+            <main className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-10 flex-1 w-full space-y-5 sm:space-y-8">
                 {/* Header Status Banner */}
                 <div
-                    className={`p-6 sm:p-8 rounded-3xl border-2 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 ${
+                    className={`p-4 sm:p-8 rounded-2xl sm:rounded-3xl border-2 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6 ${
                         ticket.isPaid || ticket.status === "SETTLED" || ticket.status === "PAID"
                             ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-100"
                             : penaltyBreakdown?.isOverdue
@@ -237,9 +237,9 @@ export default function TicketDetailsPublicPage() {
                             : "bg-amber-950/40 border-amber-500/50 text-amber-100"
                     }`}
                 >
-                    <div className="flex items-start space-x-4">
+                    <div className="flex items-start space-x-3 sm:space-x-4">
                         <div
-                            className={`p-3.5 rounded-2xl shadow-lg shrink-0 mt-0.5 ${
+                            className={`p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl shadow-lg shrink-0 mt-0.5 ${
                                 ticket.isPaid || ticket.status === "SETTLED" || ticket.status === "PAID"
                                     ? "bg-emerald-500 text-white shadow-emerald-500/20"
                                     : penaltyBreakdown?.isOverdue
@@ -248,19 +248,19 @@ export default function TicketDetailsPublicPage() {
                             }`}
                         >
                             {ticket.isPaid || ticket.status === "SETTLED" || ticket.status === "PAID" ? (
-                                <CheckCircle2 className="w-8 h-8 stroke-[2.5]" />
+                                <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 stroke-[2.5]" />
                             ) : (
-                                <AlertTriangle className="w-8 h-8 animate-pulse" />
+                                <AlertTriangle className="w-6 h-6 sm:w-8 sm:h-8 animate-pulse" />
                             )}
                         </div>
 
                         <div className="space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <h1 className="text-xl sm:text-2xl font-black uppercase italic tracking-tight">
+                            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                <h1 className="text-base sm:text-2xl font-black uppercase italic tracking-tight">
                                     Citation Ticket #{ticket.ticketNo}
                                 </h1>
                                 <Badge
-                                    className={`font-black text-xs px-3 py-1 uppercase rounded-xl ${
+                                    className={`font-black text-[10px] sm:text-xs px-2 py-0.5 sm:px-3 sm:py-1 uppercase rounded-lg sm:rounded-xl ${
                                         ticket.isPaid || ticket.status === "SETTLED" || ticket.status === "PAID"
                                             ? "bg-emerald-500 text-white"
                                             : penaltyBreakdown?.isOverdue
@@ -278,7 +278,7 @@ export default function TicketDetailsPublicPage() {
                                 </Badge>
                             </div>
 
-                            <p className="text-xs font-medium italic text-slate-300">
+                            <p className="text-[11px] sm:text-xs font-medium italic text-slate-300">
                                 Apprehended on{" "}
                                 {new Date(ticket.dateTime).toLocaleString("en-PH", {
                                     month: "long",
@@ -292,55 +292,55 @@ export default function TicketDetailsPublicPage() {
                     </div>
 
                     {/* Total Fine Display */}
-                    <div className="text-left md:text-right border-t md:border-t-0 pt-4 md:pt-0 border-slate-700/60">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
+                    <div className="text-left md:text-right border-t md:border-t-0 pt-3 md:pt-0 border-slate-700/60 flex md:block items-baseline justify-between">
+                        <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400 block">
                             {ticket.isPaid || ticket.status === "SETTLED" || ticket.status === "PAID" ? "Amount Settled" : "Total Payable Amount"}
                         </span>
-                        <span className="text-3xl font-black italic text-white">
+                        <span className="text-xl sm:text-3xl font-black italic text-white">
                             ₱ {(penaltyBreakdown?.grandTotalPayable || Number(ticket.totalAmount || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                         </span>
                     </div>
                 </div>
 
                 {/* Main Particulars Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-8">
                     {/* Left 2 Cols: Details & Violation Table */}
-                    <div className="md:col-span-2 space-y-6">
+                    <div className="md:col-span-2 space-y-4 sm:space-y-6">
                         {/* Apprehended Driver Info */}
-                        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
-                            <h2 className="text-sm font-black uppercase italic tracking-wider text-rose-400 flex items-center gap-2 border-b border-slate-800 pb-3">
-                                <Car className="w-4 h-4" /> Apprehension & Driver Details
+                        <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-900 border border-slate-800 space-y-3 sm:space-y-4">
+                            <h2 className="text-xs sm:text-sm font-black uppercase italic tracking-wider text-rose-400 flex items-center gap-2 border-b border-slate-800 pb-2.5 sm:pb-3">
+                                <Car className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Apprehension & Driver Details
                             </h2>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs">
                                 <div>
-                                    <span className="text-[10px] font-black uppercase text-slate-500">Apprehended Driver</span>
-                                    <p className="font-bold text-white text-sm uppercase mt-0.5">{ticket.violatorName}</p>
+                                    <span className="text-[9px] sm:text-[10px] font-black uppercase text-slate-500">Apprehended Driver</span>
+                                    <p className="font-bold text-white text-xs sm:text-sm uppercase mt-0.5">{ticket.violatorName}</p>
                                 </div>
 
                                 <div>
-                                    <span className="text-[10px] font-black uppercase text-slate-500">Driver License No.</span>
-                                    <p className="font-mono font-bold text-slate-200 text-sm mt-0.5">{ticket.licenseNo || "N/A"}</p>
+                                    <span className="text-[9px] sm:text-[10px] font-black uppercase text-slate-500">Driver License No.</span>
+                                    <p className="font-mono font-bold text-slate-200 text-xs sm:text-sm mt-0.5">{ticket.licenseNo || "N/A"}</p>
                                 </div>
 
                                 <div>
-                                    <span className="text-[10px] font-black uppercase text-slate-500">Vehicle / Plate No.</span>
-                                    <p className="font-bold text-white uppercase italic text-sm mt-0.5">
+                                    <span className="text-[9px] sm:text-[10px] font-black uppercase text-slate-500">Vehicle / Plate No.</span>
+                                    <p className="font-bold text-white uppercase italic text-xs sm:text-sm mt-0.5">
                                         {ticket.plateNo || "No Plate"} ({ticket.typeOfVehicle || "N/A"})
                                     </p>
                                 </div>
 
                                 <div>
-                                    <span className="text-[10px] font-black uppercase text-slate-500">POSO Enforcer</span>
-                                    <p className="font-bold text-slate-200 text-sm mt-0.5">
+                                    <span className="text-[9px] sm:text-[10px] font-black uppercase text-slate-500">POSO Enforcer</span>
+                                    <p className="font-bold text-slate-200 text-xs sm:text-sm mt-0.5">
                                         {ticket.officerName || "POSO Enforcer"} {ticket.badgeNo ? `(#${ticket.badgeNo})` : ""}
                                     </p>
                                 </div>
 
                                 <div className="sm:col-span-2">
-                                    <span className="text-[10px] font-black uppercase text-slate-500">Location of Offense</span>
-                                    <p className="font-semibold text-slate-300 mt-0.5 flex items-start">
-                                        <MapPin className="w-4 h-4 mr-1 text-rose-500 shrink-0 mt-0.5" />
+                                    <span className="text-[9px] sm:text-[10px] font-black uppercase text-slate-500">Location of Offense</span>
+                                    <p className="font-semibold text-slate-300 text-xs mt-0.5 flex items-start">
+                                        <MapPin className="w-3.5 h-3.5 mr-1 text-rose-500 shrink-0 mt-0.5" />
                                         <span>{resolvedAddress || (ticket.location ? `${ticket.location}, Barangay ${ticket.barangay || "N/A"}` : "Mapandan, Pangasinan")}</span>
                                     </p>
                                 </div>
@@ -348,39 +348,62 @@ export default function TicketDetailsPublicPage() {
                         </div>
 
                         {/* Charged Violations Table */}
-                        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
-                            <h2 className="text-sm font-black uppercase italic tracking-wider text-rose-400 flex items-center gap-2 border-b border-slate-800 pb-3">
-                                <FileText className="w-4 h-4" /> Charged Violations Breakdown
+                        <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-900 border border-slate-800 space-y-3 sm:space-y-4 overflow-hidden">
+                            <h2 className="text-xs sm:text-sm font-black uppercase italic tracking-wider text-rose-400 flex items-center gap-2 border-b border-slate-800 pb-2.5 sm:pb-3">
+                                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Charged Violations Breakdown
                             </h2>
 
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="border-b border-slate-800 text-[11px] uppercase">
-                                        <TableHead className="text-slate-400 font-black">Violation Description</TableHead>
-                                        <TableHead className="text-center text-slate-400 font-black">Offense Tier</TableHead>
-                                        <TableHead className="text-right text-slate-400 font-black">Fine</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {(ticket.details || []).map((item: any) => (
-                                        <TableRow key={item.id} className="border-b border-slate-800/60 text-xs">
-                                            <TableCell className="font-bold text-white">{item.violationName}</TableCell>
-                                            <TableCell className="text-center">
-                                                <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-black text-[10px]">
-                                                    {item.offenseLevel === 1 ? "1st Offense" : item.offenseLevel === 2 ? "2nd Offense" : "3rd Offense"}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono font-bold text-rose-400">
+                            {/* Mobile View: Clean Card Items */}
+                            <div className="block sm:hidden space-y-2.5">
+                                {(ticket.details || []).map((item: any) => (
+                                    <div key={item.id} className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <p className="font-bold text-white text-xs leading-snug">{item.violationName}</p>
+                                            <span className="font-mono font-black text-rose-400 text-xs shrink-0">
                                                 ₱ {Number(item.amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                                            </TableCell>
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-[10px]">
+                                            <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-bold">
+                                                {item.offenseLevel === 1 ? "1st Offense" : item.offenseLevel === 2 ? "2nd Offense" : "3rd Offense"}
+                                            </span>
+                                            <span className="text-slate-500 font-medium italic">Fine Amount</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Desktop View: Full Table */}
+                            <div className="hidden sm:block overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="border-b border-slate-800 text-[11px] uppercase">
+                                            <TableHead className="text-slate-400 font-black">Violation Description</TableHead>
+                                            <TableHead className="text-center text-slate-400 font-black">Offense Tier</TableHead>
+                                            <TableHead className="text-right text-slate-400 font-black">Fine</TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {(ticket.details || []).map((item: any) => (
+                                            <TableRow key={item.id} className="border-b border-slate-800/60 text-xs">
+                                                <TableCell className="font-bold text-white py-3">{item.violationName}</TableCell>
+                                                <TableCell className="text-center py-3">
+                                                    <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-black text-[10px]">
+                                                        {item.offenseLevel === 1 ? "1st Offense" : item.offenseLevel === 2 ? "2nd Offense" : "3rd Offense"}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono font-bold text-rose-400 py-3">
+                                                    ₱ {Number(item.amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
 
                             {/* Penalty Surcharge Summary if Overdue */}
                             {penaltyBreakdown?.isOverdue && (
-                                <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/30 space-y-2 text-xs font-semibold">
+                                <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-rose-950/40 border border-rose-500/30 space-y-1.5 sm:space-y-2 text-[11px] sm:text-xs font-semibold">
                                     <div className="flex justify-between text-slate-300">
                                         <span>Base Fines Subtotal:</span>
                                         <span className="font-mono">₱ {penaltyBreakdown.subtotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
@@ -393,7 +416,7 @@ export default function TicketDetailsPublicPage() {
                                         <span>+ Accrued Interest ({penaltyBreakdown.monthsOverdue} mo @ {penaltyBreakdown.monthlyInterestRate}%):</span>
                                         <span className="font-mono">+ ₱ {penaltyBreakdown.interestAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
                                     </div>
-                                    <div className="pt-2 border-t border-rose-500/30 flex justify-between font-black text-rose-400 text-sm">
+                                    <div className="pt-2 border-t border-rose-500/30 flex justify-between font-black text-rose-400 text-xs sm:text-sm">
                                         <span>Total Payable Fine:</span>
                                         <span className="font-mono">₱ {penaltyBreakdown.grandTotalPayable.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
                                     </div>
@@ -403,18 +426,18 @@ export default function TicketDetailsPublicPage() {
                     </div>
 
                     {/* Right 1 Col: Exclusive QRPh PayMongo Checkout Box */}
-                    <div className="space-y-6">
+                    <div className="space-y-4 sm:space-y-6">
                         {ticket.isPaid || ticket.status === "SETTLED" || ticket.status === "PAID" ? (
-                            <div className="p-6 rounded-3xl bg-emerald-950/30 border border-emerald-500/30 space-y-4">
-                                <div className="flex items-center gap-2 text-emerald-400 font-black text-sm uppercase">
-                                    <ShieldCheck className="w-5 h-5" /> Digital Receipt Verified
+                            <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-emerald-950/30 border border-emerald-500/30 space-y-3 sm:space-y-4">
+                                <div className="flex items-center gap-2 text-emerald-400 font-black text-xs sm:text-sm uppercase">
+                                    <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5" /> Digital Receipt Verified
                                 </div>
 
-                                <p className="text-xs text-emerald-200/80 leading-relaxed italic">
+                                <p className="text-[11px] sm:text-xs text-emerald-200/80 leading-relaxed italic">
                                     This citation ticket has been officially settled. Fine payment is completed.
                                 </p>
 
-                                <div className="space-y-2 pt-3 border-t border-emerald-500/20 text-xs font-mono">
+                                <div className="space-y-1.5 sm:space-y-2 pt-2.5 sm:pt-3 border-t border-emerald-500/20 text-[11px] sm:text-xs font-mono">
                                     <div className="flex justify-between text-slate-300">
                                         <span className="text-emerald-400 font-bold uppercase">Payment Ref:</span>
                                         <span>{ticket.transaction?.paymentReference || "QRPH-ONLINE"}</span>
@@ -426,38 +449,18 @@ export default function TicketDetailsPublicPage() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="p-6 rounded-3xl bg-slate-900 border-2 border-rose-500/40 shadow-2xl space-y-6">
+                            <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-900 border-2 border-rose-500/40 shadow-2xl space-y-4 sm:space-y-6">
                                 <div>
-                                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 text-[10px] font-black uppercase tracking-widest italic">
-                                        <QrCode className="w-3.5 h-3.5" />
+                                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 text-[9px] sm:text-[10px] font-black uppercase tracking-widest italic">
+                                        <QrCode className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                         <span>Exclusive Payment Channel</span>
                                     </div>
-                                    <h3 className="text-xl font-black uppercase italic tracking-tight text-white mt-2">
+                                    <h3 className="text-lg sm:text-xl font-black uppercase italic tracking-tight text-white mt-1.5 sm:mt-2">
                                         Pay Online
                                     </h3>
-                                    <p className="text-xs text-slate-400 font-medium italic mt-1">
+                                    <p className="text-[11px] sm:text-xs text-slate-400 font-medium italic mt-0.5 sm:mt-1">
                                         Scan & pay instantly using any QRPh compliant banking or e-wallet app (GCash, Maya, ShopeePay, Banks).
                                     </p>
-                                </div>
-
-                                {/* QRPh Official Badge Box */}
-                                <div className="p-4 rounded-2xl bg-purple-950/30 border border-purple-500/30 flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2.5 rounded-xl bg-purple-600 text-white shadow-lg shadow-purple-600/20">
-                                            <QrCode className="w-6 h-6" />
-                                        </div>
-                                        <div>
-                                            <span className="text-xs font-black uppercase tracking-wider text-white block">
-                                                QRPh National Standard
-                                            </span>
-                                            <span className="text-[10px] text-purple-300 font-semibold italic block">
-                                                Powered by PayMongo Gateway
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                                        QRPh
-                                    </span>
                                 </div>
 
                                 {/* Pay Button */}
@@ -465,13 +468,13 @@ export default function TicketDetailsPublicPage() {
                                     type="button"
                                     onClick={handlePayMongoQRPhCheckout}
                                     disabled={isPaying}
-                                    className="w-full h-14 bg-gradient-to-r from-purple-600 via-rose-600 to-amber-500 hover:from-purple-500 hover:to-rose-500 text-white font-black italic uppercase tracking-widest text-xs rounded-2xl shadow-xl shadow-purple-600/20 flex items-center justify-center space-x-2 transition-all active:scale-95 disabled:opacity-50"
+                                    className="w-full h-11 sm:h-14 bg-gradient-to-r from-purple-600 via-rose-600 to-amber-500 hover:from-purple-500 hover:to-rose-500 text-white font-black italic uppercase tracking-widest text-[11px] sm:text-xs rounded-xl sm:rounded-2xl shadow-xl shadow-purple-600/20 flex items-center justify-center space-x-2 transition-all active:scale-95 disabled:opacity-50"
                                 >
-                                    {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                                    {isPaying ? <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                                     <span>Pay ₱ {(penaltyBreakdown?.grandTotalPayable || Number(ticket.totalAmount || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
                                 </Button>
 
-                                <p className="text-[10px] text-slate-500 text-center italic">
+                                <p className="text-[9px] sm:text-[10px] text-slate-500 text-center italic">
                                     Official BSP QRPh Merchant. Instant notification upon transaction approval.
                                 </p>
                             </div>
@@ -480,8 +483,7 @@ export default function TicketDetailsPublicPage() {
                 </div>
             </main>
 
-            {/* Footer */}
-            <footer className="bg-slate-950 border-t border-slate-900 py-8 text-center text-xs text-slate-500">
+            <footer className="bg-slate-950 border-t border-slate-900/80 py-4 sm:py-8 px-4 text-center text-[9px] sm:text-xs text-slate-500 font-medium tracking-wide">
                 <p>© 2026 EMapandan Municipal Portal • Public Order & Safety Office (POSO). All Rights Reserved.</p>
             </footer>
         </div>

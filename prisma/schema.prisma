@@ -1080,7 +1080,7 @@ model TicketPhoto {
 
 model TicketHeader {
   id              String         @id @default(cuid())
-  ticketNo        String
+  ticketNo        String         @unique
   localId         Int?
   deviceId        String?
   violatorName    String
