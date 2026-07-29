@@ -29,7 +29,7 @@ function getProgressColor(progress: number) {
 
 export function LGUProjectsCard({ projects }: LGUProjectsCardProps) {
   return (
-    <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl">
+    <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl flex flex-col justify-between h-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -52,11 +52,15 @@ export function LGUProjectsCard({ projects }: LGUProjectsCardProps) {
       </div>
 
       {/* List */}
-      <div>
+      <div className="flex-1 flex flex-col justify-between divide-y divide-slate-100 dark:divide-[#2a3040]/50">
         {projects.length === 0 ? (
-          <p className="text-center text-slate-400 dark:text-slate-500 text-sm italic py-10">
-            No projects found.
-          </p>
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center my-auto rounded-2xl bg-slate-50/50 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-[#2a3040]">
+            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-500 flex items-center justify-center mb-3">
+              <Hammer className="w-6 h-6 opacity-80" />
+            </div>
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-200 italic">No Active Projects</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-[200px]">Infrastructure and development projects will be displayed here.</p>
+          </div>
         ) : (
           projects.map((item) => {
             const badgeClass = statusStyles[item.status] || statusStyles.Ongoing;

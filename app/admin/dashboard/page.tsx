@@ -758,33 +758,33 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
 
                 {/* Strategic Operations & Activity Logs 3-Column Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    {/* Quick Actions (Col-span 1: Compact View) */}
-                    <div className="space-y-4 flex flex-col">
+                    {/* Quick Actions (Col-span 1: Executive View) */}
+                    <div className="space-y-4 flex flex-col h-full">
                         <h3 className="text-base font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Administrative Services</h3>
-                        <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] shadow-xl overflow-hidden divide-y divide-slate-100 dark:divide-[#2a3040] flex-1">
+                        <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] shadow-xl overflow-hidden divide-y divide-slate-100 dark:divide-[#2a3040] flex-1 flex flex-col justify-between p-2">
                             {[
-                                { title: "Kainan Hub", desc: "Dining & culinary spots.", icon: Utensils, color: "orange", action: "Manage", path: "/admin/dining" },
-                                { title: "Tuluyan Hub", desc: "Lodging & accommodations.", icon: Hotel, color: "blue", action: "Manage", path: "/admin/accommodation" },
-                                { title: "Tourism Gallery", desc: "Tourism & spot highlights.", icon: Image, color: "emerald", action: "Manage", path: "/admin/tourism" },
-                                { title: "Incident Reports", desc: "Public incident files.", icon: Flag, color: "rose", action: "Review", path: "/admin/reports" },
-                                { title: "Emergency Hotlines", desc: "Emergency hotlines list.", icon: Phone, color: "purple", action: "Manage", path: "/admin/hotlines" }
+                                { title: "Kainan Hub", desc: "Manage local dining & culinary spots.", icon: Utensils, color: "orange", action: "Manage", path: "/admin/dining" },
+                                { title: "Tuluyan Hub", desc: "Lodging & accommodation records.", icon: Hotel, color: "blue", action: "Manage", path: "/admin/accommodation" },
+                                { title: "Tourism Gallery", desc: "Showcase spots & gallery highlights.", icon: Image, color: "emerald", action: "Manage", path: "/admin/tourism" },
+                                { title: "Incident Reports", desc: "Monitor & review public incident files.", icon: Flag, color: "rose", action: "Review", path: "/admin/reports" },
+                                { title: "Emergency Hotlines", desc: "Update critical emergency list.", icon: Phone, color: "purple", action: "Manage", path: "/admin/hotlines" }
                             ].map((item, idx) => (
                                 <Link
                                     key={idx}
                                     href={item.path}
-                                    className="p-4 sm:p-5 flex items-center justify-between transition-colors hover:bg-slate-50/50 dark:hover:bg-white/5 cursor-pointer group"
+                                    className="px-5 py-4 flex-1 flex items-center justify-between transition-colors hover:bg-slate-50/50 dark:hover:bg-white/5 cursor-pointer rounded-2xl group"
                                 >
-                                    <div className="flex items-center space-x-3.5 min-w-0">
-                                        <div className={`w-10 h-10 rounded-xl bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-50 dark:bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-500/10 flex items-center justify-center shrink-0`}>
-                                            <item.icon className={`w-5 h-5 text-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-600`} />
+                                    <div className="flex items-center space-x-4 min-w-0">
+                                        <div className={`w-12 h-12 rounded-2xl bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-50 dark:bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-500/10 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform`}>
+                                            <item.icon className={`w-6 h-6 text-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-600`} />
                                         </div>
-                                        <div className="min-w-0">
-                                            <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-tight uppercase italic truncate">{item.title}</h4>
-                                            <p className="text-slate-500 dark:text-slate-400 text-[11px] font-medium italic mt-0.5 truncate">{item.desc}</p>
+                                        <div className="min-w-0 space-y-0.5">
+                                            <h4 className="text-base font-black text-slate-900 dark:text-white leading-tight uppercase italic truncate">{item.title}</h4>
+                                            <p className="text-slate-500 dark:text-slate-400 text-xs font-medium italic truncate">{item.desc}</p>
                                         </div>
                                     </div>
                                     <span
-                                        className="text-center whitespace-nowrap px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase italic transition-all shadow-md hover:shadow-lg active:scale-95 text-white shrink-0 ml-2"
+                                        className="text-center whitespace-nowrap px-4 py-2 rounded-xl text-xs font-black uppercase italic transition-all shadow-md hover:shadow-lg active:scale-95 text-white shrink-0 ml-3"
                                         style={{ backgroundColor: themeColor }}
                                     >
                                         {item.action}
@@ -860,13 +860,13 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                 </div>
 
                 {/* Recent Announcements & Latest News Side-by-Side */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch animate-in fade-in slide-in-from-bottom-4 duration-1000">
                     <RecentAnnouncementsCard announcements={recentAnnouncements} />
                     <LatestNewsCard news={latestNews} />
                 </div>
 
                 {/* Upcoming Events & LGU Projects Side-by-Side */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch animate-in fade-in slide-in-from-bottom-4 duration-1000">
                     <UpcomingEventsCard events={upcomingEvents} pastEvents={pastEvents} />
                     <LGUProjectsCard projects={activeProjects} />
                 </div>

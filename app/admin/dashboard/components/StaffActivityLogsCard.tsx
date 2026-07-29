@@ -87,9 +87,9 @@ export function StaffActivityLogsCard({ initialLogs = [] }: StaffActivityLogsCar
       </div>
 
       {/* Timeline List */}
-      <div className="space-y-5 relative before:absolute before:inset-y-0 before:left-[19px] before:w-[2px] before:bg-slate-100 dark:before:bg-[#2a3040]/50 flex-1">
+      <div className="relative before:absolute before:inset-y-0 before:left-[23px] before:w-[2px] before:bg-slate-100 dark:before:bg-[#2a3040]/50 flex-1 flex flex-col justify-between py-1">
         {logs.length === 0 ? (
-          <div className="text-center py-12 space-y-2">
+          <div className="text-center py-12 space-y-2 flex-1 flex flex-col items-center justify-center">
             <UserCheck className="w-8 h-8 mx-auto text-slate-400 opacity-40" />
             <p className="text-slate-400 dark:text-slate-500 text-xs italic">
               No staff activities recorded yet.
@@ -97,29 +97,29 @@ export function StaffActivityLogsCard({ initialLogs = [] }: StaffActivityLogsCar
           </div>
         ) : (
           logs.slice(0, 7).map((log) => (
-            <div key={log.id} className="relative pl-12 group">
+            <div key={log.id} className="relative pl-14 flex-1 flex items-start py-1.5 group">
               {/* Timeline Icon */}
-              <div className="absolute left-0 top-0.5 w-10 h-10 rounded-xl flex items-center justify-center shadow-md transition-transform group-hover:scale-110 bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
-                <Building2 className="w-4 h-4" />
+              <div className="absolute left-0 top-1 w-11 h-11 rounded-2xl flex items-center justify-center shadow-md transition-transform group-hover:scale-105 bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                <Building2 className="w-5 h-5" />
               </div>
 
               {/* Content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                  <span className="font-bold text-slate-900 dark:text-white text-xs">{log.userName}</span>
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-black text-slate-900 dark:text-white text-sm">{log.userName}</span>
                   {log.department && (
-                    <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-mono text-[9px] font-bold uppercase">
+                    <span className="px-2.5 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold text-[10px] uppercase tracking-wider border border-indigo-500/20">
                       {log.department}
                     </span>
                   )}
                 </div>
 
-                <p className="text-xs font-medium text-slate-600 dark:text-slate-300 leading-snug">
-                  <span className="font-bold text-indigo-500 dark:text-indigo-400 mr-1">{log.action}</span>
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 leading-snug">
+                  <span className="font-black text-indigo-500 dark:text-indigo-400 mr-1.5 uppercase italic">{log.action}</span>
                   {log.details}
                 </p>
 
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-1 italic">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 italic">
                   {log.time}
                 </p>
               </div>
