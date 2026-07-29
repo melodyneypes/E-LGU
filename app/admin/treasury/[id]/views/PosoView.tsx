@@ -56,8 +56,8 @@ export default function PosoView({
     const [paymentReference, setPaymentReference] = useState("");
     const [orNumberInput, setOrNumberInput] = useState(additional?.orNumber || transaction?.paymentReference || "");
 
-    const grandTotal = transaction?.totalAmount || 0;
-    const baseFineTotal = fiscal?.baseFineTotal ?? (additional?.violations ? additional.violations.reduce((sum: number, v: any) => sum + Number(v.amount ?? v.fine ?? v.baseFine ?? 0), 0) : grandTotal);
+    const rawTotal = transaction?.totalAmount || 0;
+    const baseFineTotal = fiscal?.baseFineTotal ?? (additional?.violations ? additional.violations.reduce((sum: number, v: any) => sum + Number(v.amount ?? v.fine ?? v.baseFine ?? 0), 0) : rawTotal);
     const impoundFee = fiscal?.impoundFee ?? Number(additional?.impoundFee || 0);
 
     const pb = additional?.penaltyBreakdown || {};
@@ -67,9 +67,9 @@ export default function PosoView({
     const monthlyInterestRate = pb?.monthlyInterestRate ?? 2;
     const monthsOverdue = pb?.monthsOverdue ?? 1;
 
-    const displayGrandTotal = (surchargeAmount > 0 || interestAmount > 0)
-        ? (baseFineTotal + impoundFee + surchargeAmount + interestAmount)
-        : grandTotal;
+    const calculatedTotal = baseFineTotal + impoundFee;
+    const grandTotal = Math.max(rawTotal, calculatedTotal);
+    const displayGrandTotal = grandTotal + surchargeAmount + interestAmount;
 
     const isPaid = transaction?.isPaid || transaction?.status === "PAID" || transaction?.status === "SETTLED" || transaction?.status === "RELEASED";
 
