@@ -1095,7 +1095,7 @@ model TicketPhoto {
 
 model TicketHeader {
   id              String         @id @default(cuid())
-  ticketNo        String
+  ticketNo        String         @unique
   localId         Int?
   deviceId        String?
   violatorName    String
@@ -1110,6 +1110,8 @@ model TicketHeader {
   puvBodyNo       String?
   location        String?
   barangay        String?
+  latitude        Float?
+  longitude       Float?
   dateTime        DateTime       @default(now())
   officerName     String?
   badgeNo         String?
@@ -1237,4 +1239,5 @@ enum PaymentStatus {
   FAILED
   REFUNDED
 }
+
 

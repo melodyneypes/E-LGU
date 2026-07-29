@@ -148,7 +148,6 @@ export interface POSOPenaltyBreakdown {
 
 export async function getPosoPenaltySettings(): Promise<{ success: boolean; settings: POSOPenaltySettings; error?: string }> {
     try {
-        await verifyAdminOrStaff();
         const settingsList = await (prisma as any).systemSetting.findMany({
             where: {
                 key: {
@@ -233,6 +232,53 @@ export async function updatePosoPenaltySettings(data: {
     }
 }
 
+export async function updatePosoPortalInfoSettings(data: {
+    location: string;
+    hotline: string;
+    operatingHours: string;
+    officialEmail: string;
+    facebookUrl?: string;
+}) {
+    try {
+        await verifyAdminOrStaff();
+        await Promise.all([
+            (prisma as any).systemSetting.upsert({
+                where: { key: "poso_location" },
+                update: { value: data.location.trim() },
+                create: { key: "poso_location", value: data.location.trim(), description: "Official POSO Office Address" },
+            }),
+            (prisma as any).systemSetting.upsert({
+                where: { key: "poso_hotline" },
+                update: { value: data.hotline.trim() },
+                create: { key: "poso_hotline", value: data.hotline.trim(), description: "POSO Emergency & Incident Hotline Numbers" },
+            }),
+            (prisma as any).systemSetting.upsert({
+                where: { key: "poso_operating_hour" },
+                update: { value: data.operatingHours.trim() },
+                create: { key: "poso_operating_hour", value: data.operatingHours.trim(), description: "POSO Office Operating Hours" },
+            }),
+            (prisma as any).systemSetting.upsert({
+                where: { key: "poso_official_email" },
+                update: { value: data.officialEmail.trim() },
+                create: { key: "poso_official_email", value: data.officialEmail.trim(), description: "POSO Official Public Contact Email" },
+            }),
+            (prisma as any).systemSetting.upsert({
+                where: { key: "poso_facebook" },
+                update: { value: (data.facebookUrl || "").trim() },
+                create: { key: "poso_facebook", value: (data.facebookUrl || "").trim(), description: "POSO Official Facebook Page Link" },
+            }),
+        ]);
+
+        revalidatePath("/poso/mapandan");
+        revalidatePath("/poso/mapandan/violations");
+        revalidatePath("/admin/poso/settings");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Failed to update POSO portal info settings:", error);
+        return { success: false, error: error.message || "Failed to update POSO portal info settings." };
+    }
+}
+
 export async function calculatePosoTicketPenalty(
     ticket: {
         totalAmount?: number;
@@ -247,7 +293,7 @@ export async function calculatePosoTicketPenalty(
 ): Promise<POSOPenaltyBreakdown> {
     const baseFine = Number(ticket.totalAmount || 0);
     const impoundFee = ticket.isImpounded ? Number(ticket.impoundFee || 0) : 0;
-    const subtotal = baseFine + impoundFee;
+    const subtotal = baseFine;
 
     const apprehensionDate = ticket.dateTime ? new Date(ticket.dateTime) : new Date();
     const dueDate = new Date(apprehensionDate.getTime() + settings.dueDays * 24 * 60 * 60 * 1000);
@@ -304,13 +350,15 @@ export async function getTickets(params: {
     isImpounded?: boolean;
     from?: string;
     to?: string;
+    exportAll?: boolean;
 } = {}) {
     try {
         await verifyAdminOrStaff();
 
         const page = params.page || 1;
         const pageSize = params.limit || 10;
-        const skip = (page - 1) * pageSize;
+        const skip = params.exportAll ? undefined : (page - 1) * pageSize;
+        const take = params.exportAll ? undefined : pageSize;
 
         const penaltySettingsRes = await getPosoPenaltySettings();
         const posoDueDays = penaltySettingsRes.settings?.dueDays || 7;
@@ -399,10 +447,16 @@ export async function getTickets(params: {
                     isImpounded: true,
                     impoundFee: true,
                     vehicleClass: true,
+                    details: {
+                        select: {
+                            violationName: true,
+                            amount: true,
+                        }
+                    }
                 },
                 orderBy: { createdAt: "desc" },
                 skip,
-                take: pageSize,
+                take,
             }),
             (prisma as any).ticketHeader.count({ where }),
         ]);

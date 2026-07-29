@@ -18,7 +18,7 @@ interface LatestNewsCardProps {
 
 export function LatestNewsCard({ news }: LatestNewsCardProps) {
   return (
-    <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl">
+    <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl flex flex-col justify-between h-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -41,11 +41,15 @@ export function LatestNewsCard({ news }: LatestNewsCardProps) {
       </div>
 
       {/* List */}
-      <div className="space-y-0 divide-y divide-slate-100 dark:divide-[#2a3040]/50">
+      <div className="flex-1 flex flex-col justify-between divide-y divide-slate-100 dark:divide-[#2a3040]/50">
         {news.length === 0 ? (
-          <p className="text-center text-slate-400 dark:text-slate-500 text-sm italic py-10">
-            No news articles found.
-          </p>
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center my-auto rounded-2xl bg-slate-50/50 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-[#2a3040]">
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center mb-3">
+              <Newspaper className="w-6 h-6 opacity-80" />
+            </div>
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-200 italic">No News Articles Yet</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-[200px]">Published news and press releases will be listed here.</p>
+          </div>
         ) : (
           news.map((item) => {
             const dateStr = new Date(item.publishDate).toLocaleDateString("en-US", {
@@ -59,7 +63,7 @@ export function LatestNewsCard({ news }: LatestNewsCardProps) {
               <Link
                 key={item.id}
                 href="/admin/news"
-                className="flex items-center gap-4 py-4 first:pt-0 last:pb-0 group cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 -mx-3 px-3 rounded-xl transition-colors"
+                className="flex-1 flex items-center gap-4 py-3 group cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 -mx-2 px-3 rounded-xl transition-colors"
               >
                 {/* Thumbnail */}
                 <div className="shrink-0 w-12 h-12 rounded-xl bg-slate-100 dark:bg-[#1e2330] border border-slate-200/50 dark:border-[#2a3040]/50 overflow-hidden flex items-center justify-center">

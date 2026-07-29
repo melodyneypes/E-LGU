@@ -60,6 +60,13 @@ async function main() {
     { key: "bank_name", value: "LANDBANK OF THE PHILIPPINES", description: "Official bank partner name" },
     { key: "bank_account_name", value: "MUNICIPALITY OF MAPANDAN", description: "Official bank account name" },
     { key: "bank_account_number", value: "0541-2345-67", description: "Official bank account number" },
+
+    // POSO Public Portal Settings
+    { key: "poso_location", value: "Municipal Hall Complex, Poblacion, Mapandan, Pangasinan, 2429 Philippines", description: "Official POSO Office Address" },
+    { key: "poso_hotline", value: "(075) 529-XXXX / +63 917 123 4567", description: "POSO Emergency & Incident Hotline Numbers" },
+    { key: "poso_operating_hour", value: "Monday - Friday: 8:00 AM - 5:00 PM", description: "POSO Office Operating Hours" },
+    { key: "poso_official_email", value: "poso@mapandan.gov.ph", description: "POSO Official Public Contact Email" },
+    { key: "poso_facebook", value: "https://facebook.com/MapandanPOSO", description: "POSO Official Facebook Page Link" },
   ];
 
   for (const s of settings) {

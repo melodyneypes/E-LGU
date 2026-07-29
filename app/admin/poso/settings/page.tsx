@@ -4,11 +4,12 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Metadata } from "next";
 import { getPosoPenaltySettings } from "@/app/admin/poso/actions";
+import { getPosoPortalSettings } from "@/app/poso/mapandan/actions";
 import PosoSettingsClient from "./PosoSettingsClient";
 
 export const metadata: Metadata = {
     title: "POSO Settings | Mapandan Portal",
-    description: "System settings, late payment surcharges, and citation grace period configuration for POSO.",
+    description: "System settings, late payment surcharges, and public portal office info configuration for POSO.",
 };
 
 export default async function PosoSettingsPage() {
@@ -19,8 +20,17 @@ export default async function PosoSettingsPage() {
         redirect("/admin/dashboard");
     }
 
-    const settingsRes = await getPosoPenaltySettings();
+    const [settingsRes, portalInfoRes] = await Promise.all([
+        getPosoPenaltySettings(),
+        getPosoPortalSettings(),
+    ]);
+
     const initialSettings = settingsRes.settings || { dueDays: 7, surchargeRate: 25, monthlyInterestRate: 2 };
 
-    return <PosoSettingsClient initialSettings={initialSettings} />;
+    return (
+        <PosoSettingsClient
+            initialSettings={initialSettings}
+            initialPortalInfo={portalInfoRes}
+        />
+    );
 }

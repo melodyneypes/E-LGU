@@ -32,7 +32,9 @@ export default function CounterSelectorHeader({
     userRole: propRole,
     userDepartment: propDept
 }: CounterSelectorHeaderProps) {
-    const { data: session } = useSession();
+    const sessionRes = useSession();
+    const session = sessionRes?.data;
+
     const userRole = propRole || (session?.user as any)?.role || "ADMIN";
     const userDepartment = propDept !== undefined ? propDept : ((session?.user as any)?.department || "RHU");
     const [counterName, setCounterName] = useState<string | null>(null);
