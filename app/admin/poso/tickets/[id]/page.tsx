@@ -8,8 +8,9 @@ import { useSession } from "next-auth/react";
 import {
     ArrowLeft, MapPin, UserCheck, Shield, Award,
     FileText, Camera, RefreshCw, Car, ShieldAlert, Clock, Truck, Building2, CheckCircle2,
-    AlertTriangle, ExternalLink, History
+    AlertTriangle, ExternalLink, History, Eye
 } from "lucide-react";
+import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -34,6 +35,7 @@ export default function TicketDetailsPage() {
     const [themeColor, setThemeColor] = useState<string | null>(null);
     const [settling, setSettling] = useState(false);
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+    const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
     const [penaltySettings, setPenaltySettings] = useState<{ dueDays: number; surchargeRate: number; monthlyInterestRate: number }>({ dueDays: 7, surchargeRate: 25, monthlyInterestRate: 2 });
     const [penaltyBreakdown, setPenaltyBreakdown] = useState<POSOPenaltyBreakdown | null>(null);
     const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
@@ -699,16 +701,27 @@ export default function TicketDetailsPage() {
                                 <p className="text-[10px] mt-0.5 text-slate-400">No photographic evidence attached to this ticket.</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-2 gap-3">
-                                {photosList.map((photo: any) => (
+                            <div className={
+                                photosList.length === 1
+                                    ? "grid grid-cols-1 gap-3"
+                                    : photosList.length === 2
+                                    ? "grid grid-cols-2 gap-3"
+                                    : photosList.length === 3
+                                    ? "grid grid-cols-3 gap-2"
+                                    : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5"
+                            }>
+                                {photosList.map((photo: any, pIdx: number) => (
                                     <div
-                                        key={photo.id}
-                                        onClick={() => setSelectedPhoto(photo.photoUrl)}
+                                        key={photo.id || pIdx}
+                                        onClick={() => {
+                                            setSelectedPhoto(photo.photoUrl);
+                                            setSelectedPhotoIndex(pIdx);
+                                        }}
                                         className="group relative aspect-video rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 cursor-pointer shadow-sm hover:scale-[1.02] transition-transform"
                                     >
-                                        <Image src={photo.photoUrl} alt="Evidence photo" fill sizes="(max-width: 768px) 50vw, 33vw" className="object-cover" />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold uppercase tracking-wider">
-                                            Preview
+                                        <Image src={photo.photoUrl} alt={`Evidence photo ${pIdx + 1}`} fill sizes="(max-width: 768px) 50vw, 33vw" className="object-cover" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold uppercase tracking-wider gap-1">
+                                            <Eye className="w-3.5 h-3.5" /> View Photo #{pIdx + 1}
                                         </div>
                                     </div>
                                 ))}
@@ -863,20 +876,20 @@ export default function TicketDetailsPage() {
                 </div>
             </div>
 
-            {/* Photo Lightbox Modal */}
-            {selectedPhoto && (
-                <div
-                    onClick={() => setSelectedPhoto(null)}
-                    className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer animate-in fade-in duration-200"
-                >
-                    <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl shadow-2xl w-full aspect-video">
-                        <Image src={selectedPhoto} alt="Enlarged Evidence" fill sizes="100vw" className="object-contain rounded-3xl" />
-                        <span className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs font-bold px-4 py-2 rounded-full backdrop-blur-md">
-                            Click anywhere to close
-                        </span>
-                    </div>
-                </div>
-            )}
+            {/* Photo Viewer Modal using DocumentViewerModal */}
+            <DocumentViewerModal
+                isOpen={Boolean(selectedPhoto)}
+                onClose={() => setSelectedPhoto(null)}
+                file={null}
+                fileUrl={selectedPhoto}
+                title={`Ticket #${ticket.ticketNo} - Photographic Evidence`}
+                themeColor={themeColor || "#f43f5e"}
+                documents={photosList.map((p: any, idx: number) => ({
+                    url: p.photoUrl,
+                    label: `Evidence Photo #${idx + 1}`
+                }))}
+                initialIndex={selectedPhotoIndex}
+            />
         </div>
     );
 }

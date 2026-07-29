@@ -97,7 +97,7 @@ export async function GET() {
                     department: "POSO",
                     action: "issued citation ticket",
                     module: "POSO Citation",
-                    details: `#${t.ticketNo} to ${t.violatorName} (₱${t.totalAmount.toLocaleString()})`,
+                    details: `POSO Traffic Violation Citation for ${t.violatorName} (₱${t.totalAmount.toLocaleString()})`,
                     time: formatTimeAgo(t.createdAt),
                     createdAt: t.createdAt.toISOString(),
                 };

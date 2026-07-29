@@ -775,14 +775,14 @@ export default function TicketsPage({
                                                     <span className="text-sm font-black dark:text-white uppercase italic tracking-tight leading-tight">
                                                         {item.violatorName}
                                                     </span>
-                                                    <span className="text-xs text-slate-500 italic">
-                                                        License: {item.licenseNo || "N/A"}
-                                                    </span>
-                                                    {(item as any).details && (item as any).details.length > 0 && (
-                                                        <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md w-fit border border-rose-200 dark:border-rose-900/50">
-                                                            {formatViolationSummary((item as any).details)}
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs text-slate-500 italic">
+                                                            License: {item.licenseNo || "N/A"}
                                                         </span>
-                                                    )}
+                                                        <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md border border-rose-200 dark:border-rose-900/50">
+                                                            {((item as any).details?.length || 1)} {((item as any).details?.length || 1) === 1 ? "Violation" : "Violations"}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </TableCell>
 

@@ -17,7 +17,7 @@ export async function getPosoPaymentsLedger(params: {
         const session = await getServerSession(authOptions);
         const user = session?.user as any;
 
-        if (!user || user.role !== "ADMIN" || user.department !== "POSO") {
+        if (!user || (user.role !== "ADMIN" && user.role !== "POSO_OFFICER" && user.role !== "TREASURY_STAFF" && user.department !== "POSO")) {
             return { success: false, error: "Unauthorized — POSO Admin access required." };
         }
 
@@ -29,11 +29,16 @@ export async function getPosoPaymentsLedger(params: {
         const limit = params.limit || 10;
         const exportAll = params.exportAll || false;
 
-        // Base where clause: ALWAYS filter by POSO_TRAFFIC_FINE
+        // Base where clause: Filter by POSO category or POSO_CITATION / POSO_TRAFFIC_FINE codes
         const whereClause: any = {
             transaction: {
                 type: {
-                    code: "POSO_TRAFFIC_FINE"
+                    OR: [
+                        { category: "POSO" },
+                        { code: "POSO_CITATION" },
+                        { code: "POSO_TRAFFIC_FINE" },
+                        { code: "POSO" }
+                    ]
                 }
             }
         };
