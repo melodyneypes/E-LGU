@@ -3,7 +3,7 @@ import prisma from '@/lib/db/prisma';
 
 export async function POST(request: Request) {
     try {
-        const { amount, type, reference, transactionId } = await request.json();
+        const { amount, type, reference, transactionId, successUrl, cancelUrl } = await request.json();
 
         const secret = process.env.PAYMONGO_SECRET_KEY;
         if (!secret) {
@@ -36,8 +36,11 @@ export async function POST(request: Request) {
             baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
         }
 
-        const successRedirect = transactionId ? `${baseUrl}/user/services/requests/${transactionId}` : `${baseUrl}/user/services/requests`;
-        const failedRedirect = transactionId ? `${baseUrl}/user/services/requests/${transactionId}` : `${baseUrl}/user/services/requests`;
+        const defaultSuccess = transactionId ? `${baseUrl}/user/services/requests/${transactionId}` : `${baseUrl}/user/services/requests`;
+        const defaultCancel = transactionId ? `${baseUrl}/user/services/requests/${transactionId}` : `${baseUrl}/user/services/requests`;
+
+        const successRedirect = successUrl || defaultSuccess;
+        const failedRedirect = cancelUrl || defaultCancel;
 
         let paymentMethodTypes = ['gcash'];
         if (type === 'qrph') {

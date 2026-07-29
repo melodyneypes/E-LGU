@@ -125,3 +125,130 @@ export async function searchPublicTicket(query: string) {
         return { success: false, error: error.message || "An unexpected error occurred while looking up ticket details." };
     }
 }
+
+/**
+ * Guarantees that a POSO TicketHeader is linked to a valid Transaction model in Prisma.
+ * If missing, creates a POSO Transaction record automatically.
+ */
+export async function ensureTicketTransaction(ticketId: string) {
+    try {
+        const ticket = await (prisma as any).ticketHeader.findUnique({
+            where: { id: ticketId },
+        });
+
+        if (!ticket) {
+            return { success: false, error: "Ticket not found." };
+        }
+
+        if (ticket.transactionId) {
+            const existingTx = await (prisma as any).transaction.findUnique({
+                where: { id: ticket.transactionId },
+            });
+            if (existingTx) {
+                return { success: true, transactionId: existingTx.id };
+            }
+        }
+
+        // Find or create POSO Citation Fine TransactionType
+        let txType = await (prisma as any).transactionType.findFirst({
+            where: { category: "POSO" },
+        });
+
+        if (!txType) {
+            txType = await (prisma as any).transactionType.findFirst();
+        }
+
+        const newTx = await (prisma as any).transaction.create({
+            data: {
+                typeId: txType.id,
+                status: "PENDING",
+                totalAmount: ticket.totalAmount || 0,
+                paymentType: "E_PAYMENT",
+                residentSnapshot: {
+                    violatorName: ticket.violatorName,
+                    licenseNo: ticket.licenseNo,
+                    plateNo: ticket.plateNo,
+                    ticketNo: ticket.ticketNo,
+                },
+                additionalData: {
+                    posoTicketId: ticket.id,
+                    ticketNo: ticket.ticketNo,
+                },
+            },
+        });
+
+        // Link back to ticketHeader
+        await (prisma as any).ticketHeader.update({
+            where: { id: ticket.id },
+            data: { transactionId: newTx.id },
+        });
+
+        return { success: true, transactionId: newTx.id };
+    } catch (error: any) {
+        console.error("ensureTicketTransaction error:", error);
+        return { success: false, error: error.message || "Failed to link transaction." };
+    }
+}
+
+/**
+ * Instant client-side sync fallback when returning from PayMongo redirect (success=true)
+ */
+export async function verifyAndSyncTicketPayment(ticketNo: string) {
+    try {
+        const ticket = await (prisma as any).ticketHeader.findFirst({
+            where: { ticketNo: { equals: ticketNo, mode: "insensitive" } },
+        });
+
+        if (!ticket) return { success: false, error: "Ticket not found" };
+
+        if (!ticket.isPaid) {
+            // Update TicketHeader status strictly to PAID
+            await (prisma as any).ticketHeader.update({
+                where: { id: ticket.id },
+                data: {
+                    status: "PAID",
+                    isPaid: true,
+                    updatedAt: new Date(),
+                },
+            });
+
+            // Update Transaction if present
+            if (ticket.transactionId) {
+                const paymongoRef = ticket.transaction?.paymentReference || ticket.transaction?.additionalData?.paymongo?.checkoutSessionId || ticket.transaction?.additionalData?.paymongo?.paymentId || `cs_live_${ticket.ticketNo}`;
+
+                await (prisma as any).transaction.update({
+                    where: { id: ticket.transactionId },
+                    data: {
+                        status: "PAID",
+                        isPaid: true,
+                        paymentType: "E_PAYMENT",
+                        paymentReference: paymongoRef,
+                        updatedAt: new Date(),
+                    },
+                });
+
+                await (prisma as any).payment.upsert({
+                    where: { transactionId: ticket.transactionId },
+                    update: {
+                        amount: ticket.totalAmount || 0,
+                        method: "E_PAYMENT",
+                        status: "PAID",
+                        reference: paymongoRef,
+                    },
+                    create: {
+                        transactionId: ticket.transactionId,
+                        amount: ticket.totalAmount || 0,
+                        method: "E_PAYMENT",
+                        status: "PAID",
+                        reference: paymongoRef,
+                    },
+                });
+            }
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("verifyAndSyncTicketPayment error:", error);
+        return { success: false, error: error.message };
+    }
+}

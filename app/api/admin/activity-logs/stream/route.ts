@@ -52,6 +52,11 @@ export async function GET(req: NextRequest) {
                     { event: "*", schema: "public", table: "Resident" },
                     () => controller.enqueue("data: refresh\n\n")
                 )
+                .on(
+                    "postgres_changes",
+                    { event: "*", schema: "public", table: "TicketHeader" },
+                    () => controller.enqueue("data: refresh\n\n")
+                )
                 .subscribe();
 
             req.signal.addEventListener("abort", () => {

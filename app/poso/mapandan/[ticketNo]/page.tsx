@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { searchPublicTicket, getPosoPortalSettings } from "../actions";
+import { searchPublicTicket, getPosoPortalSettings, ensureTicketTransaction, verifyAndSyncTicketPayment } from "../actions";
 
 export default function TicketDetailsPublicPage() {
     const router = useRouter();
@@ -85,37 +85,65 @@ export default function TicketDetailsPublicPage() {
     }, [ticketNo]);
 
     useEffect(() => {
-        fetchTicketDetails();
-        if (isSuccessPayment) {
-            toast.success("Payment verified! Citation ticket fine successfully settled.", { duration: 6000 });
+        let isMounted = true;
+        async function handleLoadAndSync() {
+            if (isSuccessPayment && ticketNo) {
+                await verifyAndSyncTicketPayment(ticketNo);
+                if (isMounted) {
+                    toast.success("Payment verified! Citation ticket fine successfully settled.", { duration: 6000 });
+                }
+            }
+            await fetchTicketDetails();
         }
-    }, [fetchTicketDetails, isSuccessPayment]);
+        handleLoadAndSync();
+        return () => { isMounted = false; };
+    }, [fetchTicketDetails, isSuccessPayment, ticketNo]);
 
-    // Handle PayMongo Online Payment Checkout Session creation (QRPh exclusively)
+    // Handle PayMongo Online Payment Checkout Session creation (QRPh / GCash)
     const handlePayMongoQRPhCheckout = async () => {
         if (!ticket) return;
 
-        const totalPayable = penaltyBreakdown?.grandTotalPayable || Number(ticket.totalAmount || 0);
-        const transactionId = ticket.transactionId || ticket.id;
-
         setIsPaying(true);
         try {
-            const res = await fetch("/api/webhooks/paymongo", {
+            // 1. Ensure ticket is linked to a valid Transaction row in Prisma
+            let txId = ticket.transactionId;
+            if (!txId) {
+                const txRes = await ensureTicketTransaction(ticket.id);
+                if (txRes.success && txRes.transactionId) {
+                    txId = txRes.transactionId;
+                }
+            }
+
+            const totalPayable = penaltyBreakdown?.grandTotalPayable || Number(ticket.totalAmount || 0);
+            const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
+
+            // 2. Trigger PayMongo Checkout Session
+            const res = await fetch("/api/paymongo", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    ticketId: ticket.id,
-                    transactionId,
                     amount: totalPayable,
-                    description: `POSO Citation Ticket Fine Settlement - ${ticket.ticketNo}`,
+                    type: "gcash",
+                    transactionId: txId || ticket.id,
+                    reference: `POSO Citation #${ticket.ticketNo}`,
+                    successUrl: `${currentOrigin}/poso/mapandan/${ticket.ticketNo}?success=true`,
+                    cancelUrl: `${currentOrigin}/poso/mapandan/${ticket.ticketNo}?cancelled=true`,
                 }),
             });
 
             const data = await res.json();
-            if (data.checkoutUrl) {
-                window.location.href = data.checkoutUrl;
+            if (!res.ok) {
+                const err = data?.error || data?.errors || "Failed to initialize payment";
+                toast.error(typeof err === "string" ? err : (err[0]?.detail || "Failed to initialize payment"));
+                return;
+            }
+
+            const checkoutUrl = data?.data?.attributes?.checkout_url || data?.data?.attributes?.redirect?.checkout_url || data?.data?.attributes?.redirect?.url;
+
+            if (checkoutUrl) {
+                window.location.href = checkoutUrl;
             } else {
-                toast.error(data.error || "Failed to initiate online payment session.");
+                toast.error("Failed to initiate QRPh online payment session.");
             }
         } catch {
             toast.error("Payment connection error. Please try again.");
@@ -440,7 +468,7 @@ export default function TicketDetailsPublicPage() {
                                 <div className="space-y-1.5 sm:space-y-2 pt-2.5 sm:pt-3 border-t border-emerald-500/20 text-[11px] sm:text-xs font-mono">
                                     <div className="flex justify-between text-slate-300">
                                         <span className="text-emerald-400 font-bold uppercase">Payment Ref:</span>
-                                        <span>{ticket.transaction?.paymentReference || "QRPH-ONLINE"}</span>
+                                        <span className="font-mono text-white select-all">{ticket.transaction?.paymentReference || ticket.transaction?.additionalData?.paymongo?.checkoutSessionId || ticket.transaction?.payment?.reference || "PAYMONGO-ONLINE"}</span>
                                     </div>
                                     <div className="flex justify-between text-slate-300">
                                         <span className="text-emerald-400 font-bold uppercase">Status:</span>

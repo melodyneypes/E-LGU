@@ -17,6 +17,7 @@ import { LatestNewsCard } from "./components/LatestNewsCard";
 import { UpcomingEventsCard } from "./components/UpcomingEventsCard";
 import { LGUProjectsCard } from "./components/LGUProjectsCard";
 import { ActivityLogsCard } from "./components/ActivityLogsCard";
+import { StaffActivityLogsCard } from "./components/StaffActivityLogsCard";
 import { ReportsOverviewCard } from "./components/ReportsOverviewCard";
 import { DashboardClientWrapper } from "./components/DashboardClientWrapper";
 
@@ -35,6 +36,17 @@ function getPhilippineDisplayString(date: Date): string {
         month: "short",
         day: "numeric",
     });
+}
+
+function formatTimeAgo(date: Date): string {
+    const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
+    if (seconds < 60) return "Just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} min${minutes > 1 ? "s" : ""} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hr${hours > 1 ? "s" : ""} ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} day${days > 1 ? "s" : ""} ago`;
 }
 
 export default async function AdminDashboard(props: { searchParams: Promise<{ barangay?: string; from?: string; to?: string; category?: string; payFrom?: string; payTo?: string; payCategory?: string; payMethod?: string; resFrom?: string; resTo?: string; resGender?: string; resCivil?: string; resSector?: string }> }) {
@@ -155,7 +167,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         }
     }
 
-    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays, transactionsList, categoriesList, paymentsList, residentsList, recentAnnouncements, latestNews, upcomingEvents, pastEvents, activeProjects, recentResidents, recentReports, recentPayments, recentTransactions, , , , , , , , recentReportsDetailed] = await Promise.all([
+    const [settings, residentsCount, jobsCount, reportsCount, projectsCount, activeBarangays, transactionsList, categoriesList, paymentsList, residentsList, recentAnnouncements, latestNews, upcomingEvents, pastEvents, activeProjects, recentResidents, recentReports, recentPayments, recentTransactions, , , , , , , , recentReportsDetailed, staffLogsRaw] = await Promise.all([
         getMultipleSystemSettings(["theme_color"]),
         prisma.resident.count({
             where: {
@@ -378,7 +390,9 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                 createdAt: true,
                 transaction: {
                     select: {
-                        user: { select: { name: true } }
+                        user: { select: { name: true } },
+                        residentSnapshot: true,
+                        additionalData: true,
                     }
                 }
             }
@@ -396,6 +410,8 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
             select: {
                 id: true,
                 createdAt: true,
+                residentSnapshot: true,
+                additionalData: true,
                 type: { select: { name: true } },
                 user: { select: { name: true } }
             }
@@ -429,8 +445,72 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                 user: { select: { name: true } },
                 barangay: { select: { name: true } }
             }
-        })
+        }),
+        // Staff & Enforcer Operational Activity Logs (Query-Based)
+        Promise.all([
+            prisma.ticketHeader.findMany({
+                orderBy: { createdAt: "desc" },
+                take: 5,
+                select: {
+                    id: true,
+                    ticketNo: true,
+                    officerName: true,
+                    badgeNo: true,
+                    violatorName: true,
+                    totalAmount: true,
+                    status: true,
+                    createdAt: true,
+                },
+            }),
+            prisma.transaction.findMany({
+                where: { processedBy: { not: null } },
+                orderBy: { updatedAt: "desc" },
+                take: 5,
+                select: {
+                    id: true,
+                    status: true,
+                    processedBy: true,
+                    updatedAt: true,
+                    type: { select: { name: true, category: true } },
+                    user: { select: { name: true } },
+                },
+            }),
+        ])
     ]);
+
+    const [staffTickets, staffTx] = (staffLogsRaw || [[], []]) as [any[], any[]];
+    const staffLogs = [
+        ...staffTickets.map((t) => {
+            const sec = Math.floor((new Date().getTime() - new Date(t.createdAt).getTime()) / 1000);
+            const timeAgo = sec < 60 ? "Just now" : sec < 3600 ? `${Math.floor(sec / 60)} mins ago` : sec < 86400 ? `${Math.floor(sec / 3600)} hrs ago` : `${Math.floor(sec / 86400)} days ago`;
+            return {
+                id: `ticket-${t.id}`,
+                userName: t.officerName || "POSO Enforcer",
+                userRole: "POSO_OFFICER",
+                department: "POSO",
+                action: "issued citation ticket",
+                module: "POSO Citation",
+                details: `#${t.ticketNo} to ${t.violatorName} (₱${t.totalAmount.toLocaleString()})`,
+                time: timeAgo,
+                createdAt: t.createdAt.toISOString(),
+            };
+        }),
+        ...staffTx.map((tx) => {
+            const sec = Math.floor((new Date().getTime() - new Date(tx.updatedAt).getTime()) / 1000);
+            const timeAgo = sec < 60 ? "Just now" : sec < 3600 ? `${Math.floor(sec / 60)} mins ago` : sec < 86400 ? `${Math.floor(sec / 3600)} hrs ago` : `${Math.floor(sec / 86400)} days ago`;
+            return {
+                id: `tx-${tx.id}`,
+                userName: tx.processedBy || "Municipal Staff",
+                userRole: "STAFF",
+                department: tx.type?.category || "LGU Staff",
+                action: tx.status === "APPROVED" || tx.status === "RELEASED" ? "approved & processed" : tx.status === "REJECTED" ? "rejected request for" : "updated status for",
+                module: tx.type?.name || "Service Request",
+                details: `${tx.type?.name || "Document"} for ${tx.user?.name || "Resident"}`,
+                time: timeAgo,
+                createdAt: tx.updatedAt.toISOString(),
+            };
+        }),
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     const themeColor = settings.get("theme_color") || "#2563eb";
     const categories = categoriesList.map((c) => c.category).filter(Boolean);
@@ -531,17 +611,7 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         .sort()
         .map((key) => residentDataMap[key]);
 
-    // Format Philippine Time difference for activity logs
-    const formatTimeAgo = (date: Date) => {
-        const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
-        if (seconds < 60) return "Just now";
-        const minutes = Math.floor(seconds / 60);
-        if (minutes < 60) return `${minutes} min${minutes > 1 ? "s" : ""} ago`;
-        const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `${hours} hr${hours > 1 ? "s" : ""} ago`;
-        const days = Math.floor(hours / 24);
-        return `${days} day${days > 1 ? "s" : ""} ago`;
-    };
+
 
     // Combine and sort real-time activities chronologically
     const activityLogs = [
@@ -563,24 +633,49 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
             time: formatTimeAgo(rp.createdAt),
             createdAt: rp.createdAt
         })),
-        ...recentPayments.map((p) => ({
-            id: p.id,
-            type: "payment" as const,
-            user: p.transaction?.user?.name || "A Resident",
-            action: `paid ₱${p.amount.toLocaleString()} via`,
-            details: p.method,
-            time: formatTimeAgo(p.createdAt),
-            createdAt: p.createdAt
-        })),
-        ...recentTransactions.map((t) => ({
-            id: t.id,
-            type: "transaction" as const,
-            user: t.user?.name || "A Resident",
-            action: "requested service for",
-            details: t.type?.name || "Certificate",
-            time: formatTimeAgo(t.createdAt),
-            createdAt: t.createdAt
-        }))
+        ...recentPayments.map((p) => {
+            const tx = p.transaction;
+            let resSnap: any = {};
+            let addData: any = {};
+            try {
+                resSnap = typeof tx?.residentSnapshot === "string" ? JSON.parse(tx.residentSnapshot) : tx?.residentSnapshot || {};
+            } catch { resSnap = {}; }
+            try {
+                addData = typeof tx?.additionalData === "string" ? JSON.parse(tx.additionalData) : tx?.additionalData || {};
+            } catch { addData = {}; }
+
+            const name = tx?.user?.name || resSnap.fullName || resSnap.name || addData.violatorName || addData.fullName || addData.name || "A Resident";
+            return {
+                id: p.id,
+                type: "payment" as const,
+                user: name,
+                action: `paid ₱${p.amount.toLocaleString()} via`,
+                details: p.method,
+                time: formatTimeAgo(p.createdAt),
+                createdAt: p.createdAt
+            };
+        }),
+        ...recentTransactions.map((t) => {
+            let resSnap: any = {};
+            let addData: any = {};
+            try {
+                resSnap = typeof t?.residentSnapshot === "string" ? JSON.parse(t.residentSnapshot) : t?.residentSnapshot || {};
+            } catch { resSnap = {}; }
+            try {
+                addData = typeof t?.additionalData === "string" ? JSON.parse(t.additionalData) : t?.additionalData || {};
+            } catch { addData = {}; }
+
+            const name = t.user?.name || resSnap.fullName || resSnap.name || addData.violatorName || addData.fullName || addData.name || "A Resident";
+            return {
+                id: t.id,
+                type: "transaction" as const,
+                user: name,
+                action: "requested service for",
+                details: t.type?.name || "Certificate",
+                time: formatTimeAgo(t.createdAt),
+                createdAt: t.createdAt
+            };
+        })
     ]
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
         .slice(0, 7);
@@ -661,35 +756,35 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     </div>
                 </div>
 
-                {/* Strategic Operations & Activity Logs Side-by-Side (Below Cards) */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    {/* Quick Actions (Col-span 2) */}
-                    <div className="lg:col-span-2 space-y-6">
-                        <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Administrative Services</h3>
-                        <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[3rem] shadow-xl overflow-hidden">
+                {/* Strategic Operations & Activity Logs 3-Column Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                    {/* Quick Actions (Col-span 1: Compact View) */}
+                    <div className="space-y-4 flex flex-col">
+                        <h3 className="text-base font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Administrative Services</h3>
+                        <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] shadow-xl overflow-hidden divide-y divide-slate-100 dark:divide-[#2a3040] flex-1">
                             {[
-                                { title: "Kainan Hub", desc: "Manage local dining and culinary spots.", icon: Utensils, color: "orange", action: "Manage Dining", path: "/admin/dining" },
-                                { title: "Tuluyan Hub", desc: "Update local accommodation and lodging records.", icon: Hotel, color: "blue", action: "Manage Lodging", path: "/admin/accommodation" },
-                                { title: "Tourism Gallery", desc: "Showcase local spots and gallery highlights.", icon: Image, color: "emerald", action: "Manage Gallery", path: "/admin/tourism" },
-                                { title: "Incident Reports", desc: "Monitor and respond to public incident files.", icon: Flag, color: "rose", action: "Review Reports", path: "/admin/reports" },
-                                { title: "Emergency Hotlines", desc: "Update critical emergency hotlines list.", icon: Phone, color: "purple", action: "Manage Hotlines", path: "/admin/hotlines" }
+                                { title: "Kainan Hub", desc: "Dining & culinary spots.", icon: Utensils, color: "orange", action: "Manage", path: "/admin/dining" },
+                                { title: "Tuluyan Hub", desc: "Lodging & accommodations.", icon: Hotel, color: "blue", action: "Manage", path: "/admin/accommodation" },
+                                { title: "Tourism Gallery", desc: "Tourism & spot highlights.", icon: Image, color: "emerald", action: "Manage", path: "/admin/tourism" },
+                                { title: "Incident Reports", desc: "Public incident files.", icon: Flag, color: "rose", action: "Review", path: "/admin/reports" },
+                                { title: "Emergency Hotlines", desc: "Emergency hotlines list.", icon: Phone, color: "purple", action: "Manage", path: "/admin/hotlines" }
                             ].map((item, idx) => (
                                 <Link
                                     key={idx}
                                     href={item.path}
-                                    className="p-8 flex flex-col sm:flex-row sm:items-center justify-between border-b last:border-0 border-slate-100 dark:border-[#2a3040] gap-4 transition-colors hover:bg-slate-50/50 dark:hover:bg-white/5 cursor-pointer block"
+                                    className="p-4 sm:p-5 flex items-center justify-between transition-colors hover:bg-slate-50/50 dark:hover:bg-white/5 cursor-pointer group"
                                 >
-                                    <div className="flex items-start space-x-6">
-                                        <div className={`w-14 h-14 rounded-2xl bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-50 dark:bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-500/10 flex items-center justify-center shrink-0`}>
-                                            <item.icon className={`w-7 h-7 text-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-600`} />
+                                    <div className="flex items-center space-x-3.5 min-w-0">
+                                        <div className={`w-10 h-10 rounded-xl bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-50 dark:bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-500/10 flex items-center justify-center shrink-0`}>
+                                            <item.icon className={`w-5 h-5 text-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-600`} />
                                         </div>
-                                        <div>
-                                            <h4 className="text-xl font-bold text-slate-900 dark:text-white leading-tight uppercase italic">{item.title}</h4>
-                                            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic mt-1">{item.desc}</p>
+                                        <div className="min-w-0">
+                                            <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-tight uppercase italic truncate">{item.title}</h4>
+                                            <p className="text-slate-500 dark:text-slate-400 text-[11px] font-medium italic mt-0.5 truncate">{item.desc}</p>
                                         </div>
                                     </div>
                                     <span
-                                        className="text-center whitespace-nowrap px-6 py-3 rounded-2xl text-xs font-black uppercase italic transition-all shadow-lg hover:shadow-xl active:scale-95 border border-slate-200 dark:border-none text-white hover:opacity-90 inline-block"
+                                        className="text-center whitespace-nowrap px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase italic transition-all shadow-md hover:shadow-lg active:scale-95 text-white shrink-0 ml-2"
                                         style={{ backgroundColor: themeColor }}
                                     >
                                         {item.action}
@@ -699,10 +794,20 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                         </div>
                     </div>
 
-                    {/* Activity Logs (Col-span 1) */}
-                    <div className="space-y-6">
-                        <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Activity Logs</h3>
-                        <ActivityLogsCard logs={activityLogs} selectedBarangay={selectedBarangay} />
+                    {/* Resident Activity Logs (Col-span 1) */}
+                    <div className="space-y-4 flex flex-col">
+                        <h3 className="text-base font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Resident Activity</h3>
+                        <div className="flex-1">
+                            <ActivityLogsCard logs={activityLogs} selectedBarangay={selectedBarangay} />
+                        </div>
+                    </div>
+
+                    {/* Staff Audit Logs (Col-span 1) */}
+                    <div className="space-y-4 flex flex-col">
+                        <h3 className="text-base font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Staff Audit Logs</h3>
+                        <div className="flex-1">
+                            <StaffActivityLogsCard initialLogs={staffLogs} />
+                        </div>
                     </div>
                 </div>
 

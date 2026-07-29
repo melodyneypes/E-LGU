@@ -76,7 +76,9 @@ export async function GET(req: NextRequest) {
                     createdAt: true,
                     transaction: {
                         select: {
-                            user: { select: { name: true } }
+                            user: { select: { name: true } },
+                            residentSnapshot: true,
+                            additionalData: true,
                         }
                     }
                 }
@@ -94,6 +96,8 @@ export async function GET(req: NextRequest) {
                 select: {
                     id: true,
                     createdAt: true,
+                    residentSnapshot: true,
+                    additionalData: true,
                     type: { select: { name: true } },
                     user: { select: { name: true } }
                 }
@@ -119,24 +123,49 @@ export async function GET(req: NextRequest) {
                 time: formatTimeAgo(new Date(rp.createdAt)),
                 createdAt: rp.createdAt
             })),
-            ...recentPayments.map((p) => ({
-                id: p.id,
-                type: "payment" as const,
-                user: p.transaction?.user?.name || "A Resident",
-                action: `paid ₱${p.amount.toLocaleString()} via`,
-                details: p.method,
-                time: formatTimeAgo(new Date(p.createdAt)),
-                createdAt: p.createdAt
-            })),
-            ...recentTransactions.map((t) => ({
-                id: t.id,
-                type: "transaction" as const,
-                user: t.user?.name || "A Resident",
-                action: "requested service for",
-                details: t.type?.name || "Certificate",
-                time: formatTimeAgo(new Date(t.createdAt)),
-                createdAt: t.createdAt
-            }))
+            ...recentPayments.map((p) => {
+                const tx = p.transaction;
+                let resSnap: any = {};
+                let addData: any = {};
+                try {
+                    resSnap = typeof tx?.residentSnapshot === "string" ? JSON.parse(tx.residentSnapshot) : tx?.residentSnapshot || {};
+                } catch { resSnap = {}; }
+                try {
+                    addData = typeof tx?.additionalData === "string" ? JSON.parse(tx.additionalData) : tx?.additionalData || {};
+                } catch { addData = {}; }
+
+                const name = tx?.user?.name || resSnap.fullName || resSnap.name || addData.violatorName || addData.fullName || addData.name || "A Resident";
+                return {
+                    id: p.id,
+                    type: "payment" as const,
+                    user: name,
+                    action: `paid ₱${p.amount.toLocaleString()} via`,
+                    details: p.method,
+                    time: formatTimeAgo(new Date(p.createdAt)),
+                    createdAt: p.createdAt
+                };
+            }),
+            ...recentTransactions.map((t) => {
+                let resSnap: any = {};
+                let addData: any = {};
+                try {
+                    resSnap = typeof t?.residentSnapshot === "string" ? JSON.parse(t.residentSnapshot) : t?.residentSnapshot || {};
+                } catch { resSnap = {}; }
+                try {
+                    addData = typeof t?.additionalData === "string" ? JSON.parse(t.additionalData) : t?.additionalData || {};
+                } catch { addData = {}; }
+
+                const name = t.user?.name || resSnap.fullName || resSnap.name || addData.violatorName || addData.fullName || addData.name || "A Resident";
+                return {
+                    id: t.id,
+                    type: "transaction" as const,
+                    user: name,
+                    action: "requested service for",
+                    details: t.type?.name || "Certificate",
+                    time: formatTimeAgo(new Date(t.createdAt)),
+                    createdAt: t.createdAt
+                };
+            })
         ]
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .slice(0, 7);
