@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import {
     Shield, ArrowLeft, QrCode, AlertTriangle, CheckCircle2, MapPin,
-    CreditCard, ShieldCheck, Car, FileText, RefreshCw
+    CreditCard, ShieldCheck, Car, FileText, RefreshCw, Copy, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,7 @@ export default function TicketDetailsPublicPage() {
     const [penaltyBreakdown, setPenaltyBreakdown] = useState<any>(null);
     const [isPaying, setIsPaying] = useState(false);
     const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+    const [copiedRef, setCopiedRef] = useState(false);
 
     // Settings state
     const [settings, setSettings] = useState<any>({
@@ -90,7 +91,12 @@ export default function TicketDetailsPublicPage() {
             if (isSuccessPayment && ticketNo) {
                 await verifyAndSyncTicketPayment(ticketNo);
                 if (isMounted) {
-                    toast.success("Payment verified! Citation ticket fine successfully settled.", { duration: 6000 });
+                    toast.success("Payment verified! Citation ticket fine successfully settled.", { id: "poso-pay-success", duration: 6000 });
+                    // Clean up ?success=true from URL query string so refreshes don't re-trigger the toast
+                    if (typeof window !== "undefined") {
+                        const newUrl = window.location.pathname;
+                        window.history.replaceState(null, "", newUrl);
+                    }
                 }
             }
             await fetchTicketDetails();
@@ -399,6 +405,25 @@ export default function TicketDetailsPublicPage() {
                                         </div>
                                     </div>
                                 ))}
+
+                                {ticket.isImpounded && (
+                                    <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-500/30 space-y-2">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <p className="font-bold text-amber-200 text-xs leading-snug">
+                                                Vehicle Impounding Fee ({ticket.vehicleClass === "CLASS_A" ? "Class A" : ticket.vehicleClass === "CLASS_B" ? "Class B" : ticket.vehicleClass === "CLASS_C" ? "Class C" : ticket.vehicleClass || "Impound"})
+                                            </p>
+                                            <span className="font-mono font-black text-amber-400 text-xs shrink-0">
+                                                ₱ {Number(ticket.impoundFee || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-[10px]">
+                                            <span className="px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-300 font-bold">
+                                                Impounded
+                                            </span>
+                                            <span className="text-amber-400/80 font-medium italic">Impound Fee</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Desktop View: Full Table */}
@@ -425,6 +450,22 @@ export default function TicketDetailsPublicPage() {
                                                 </TableCell>
                                             </TableRow>
                                         ))}
+
+                                        {ticket.isImpounded && (
+                                            <TableRow className="border-b border-amber-500/20 bg-amber-950/20 text-xs">
+                                                <TableCell className="font-bold text-amber-200 py-3">
+                                                    Vehicle Impounding Fee ({ticket.vehicleClass === "CLASS_A" ? "Class A: Motorcycles/Tricycles" : ticket.vehicleClass === "CLASS_B" ? "Class B: Light 4-Wheeled" : ticket.vehicleClass === "CLASS_C" ? "Class C: Heavy 4-Wheeled+" : ticket.vehicleClass || "Standard Impound"})
+                                                </TableCell>
+                                                <TableCell className="text-center py-3">
+                                                    <span className="px-2.5 py-0.5 rounded-full bg-amber-900/40 text-amber-300 font-black text-[10px]">
+                                                        Impounded
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono font-bold text-amber-400 py-3">
+                                                    ₱ {Number(ticket.impoundFee || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
                                     </TableBody>
                                 </Table>
                             </div>
@@ -466,9 +507,27 @@ export default function TicketDetailsPublicPage() {
                                 </p>
 
                                 <div className="space-y-1.5 sm:space-y-2 pt-2.5 sm:pt-3 border-t border-emerald-500/20 text-[11px] sm:text-xs font-mono">
-                                    <div className="flex justify-between text-slate-300">
-                                        <span className="text-emerald-400 font-bold uppercase">Payment Ref:</span>
-                                        <span className="font-mono text-white select-all">{ticket.transaction?.paymentReference || ticket.transaction?.additionalData?.paymongo?.checkoutSessionId || ticket.transaction?.payment?.reference || "PAYMONGO-ONLINE"}</span>
+                                    <div className="flex justify-between items-center text-slate-300 gap-2">
+                                        <span className="text-emerald-400 font-bold uppercase shrink-0">Payment Ref:</span>
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                            <span className="font-mono text-white select-all truncate">
+                                                {ticket.transaction?.paymentReference || ticket.transaction?.additionalData?.paymongo?.checkoutSessionId || ticket.transaction?.payment?.reference || "PAYMONGO-ONLINE"}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const refText = ticket.transaction?.paymentReference || ticket.transaction?.additionalData?.paymongo?.checkoutSessionId || ticket.transaction?.payment?.reference || "PAYMONGO-ONLINE";
+                                                    navigator.clipboard.writeText(refText);
+                                                    setCopiedRef(true);
+                                                    toast.success("Payment reference copied!");
+                                                    setTimeout(() => setCopiedRef(false), 2000);
+                                                }}
+                                                className="p-1 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 transition-colors shrink-0"
+                                                title="Copy Reference Number"
+                                            >
+                                                {copiedRef ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="flex justify-between text-slate-300">
                                         <span className="text-emerald-400 font-bold uppercase">Status:</span>

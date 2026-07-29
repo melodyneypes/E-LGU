@@ -367,7 +367,7 @@ export default function TicketsPage({
                 const diffMs = new Date().getTime() - itemDueDate.getTime();
                 const overdueDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
                 const isOverdue = !t.isPaid && t.status !== "SETTLED" && t.status !== "PAID" && diffMs > 0;
-                const totalAmt = t.totalAmount + (t.isImpounded ? Number(t.impoundFee || 0) : 0);
+                const totalAmt = Number(t.totalAmount || 0);
 
                 const statusDisplay = t.status === "SETTLED"
                     ? "SETTLED"
@@ -511,7 +511,7 @@ export default function TicketsPage({
                 const diffMs = new Date().getTime() - itemDueDate.getTime();
                 const overdueDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
                 const isOverdue = !t.isPaid && t.status !== "SETTLED" && t.status !== "PAID" && diffMs > 0;
-                const totalAmt = t.totalAmount + (t.isImpounded ? Number(t.impoundFee || 0) : 0);
+                const totalAmt = Number(t.totalAmount || 0);
                 const statusDisplay = t.status === "SETTLED"
                     ? "SETTLED"
                     : t.isPaid || t.status === "PAID"
@@ -800,7 +800,7 @@ export default function TicketsPage({
                                             </TableCell>
 
                                             <TableCell className="text-center font-black text-sm text-rose-600 dark:text-rose-400 italic">
-                                                ₱ {(item.totalAmount + (item.isImpounded ? Number(item.impoundFee || 0) : 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                                ₱ {Number(item.totalAmount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                                             </TableCell>
 
                                             <TableCell className="text-center">

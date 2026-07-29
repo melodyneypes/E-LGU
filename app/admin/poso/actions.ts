@@ -293,7 +293,7 @@ export async function calculatePosoTicketPenalty(
 ): Promise<POSOPenaltyBreakdown> {
     const baseFine = Number(ticket.totalAmount || 0);
     const impoundFee = ticket.isImpounded ? Number(ticket.impoundFee || 0) : 0;
-    const subtotal = baseFine + impoundFee;
+    const subtotal = baseFine;
 
     const apprehensionDate = ticket.dateTime ? new Date(ticket.dateTime) : new Date();
     const dueDate = new Date(apprehensionDate.getTime() + settings.dueDays * 24 * 60 * 60 * 1000);

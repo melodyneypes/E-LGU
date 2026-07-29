@@ -279,7 +279,7 @@ export default function TicketDetailsPage() {
                             Paid Tickets:
                         </span>
                         {otherPaidTickets.map((pt: any) => {
-                            const total = (pt.totalAmount || 0) + (pt.isImpounded ? Number(pt.impoundFee || 0) : 0);
+                            const total = Number(pt.totalAmount || 0);
                             return (
                                 <button
                                     key={pt.id}
@@ -341,7 +341,7 @@ export default function TicketDetailsPage() {
                             Other Unpaid Tickets:
                         </span>
                         {otherUnpaidTickets.map((ot: any) => {
-                            const total = (ot.totalAmount || 0) + (ot.isImpounded ? Number(ot.impoundFee || 0) : 0);
+                            const total = Number(ot.totalAmount || 0);
                             return (
                                 <button
                                     key={ot.id}
@@ -672,7 +672,7 @@ export default function TicketDetailsPage() {
                                 </p>
                             </div>
                             <span className="font-black text-2xl text-rose-600 dark:text-rose-400 italic">
-                                ₱ {(penaltyBreakdown?.grandTotalPayable || (Number(ticket.totalAmount || 0) + (ticket.isImpounded ? Number(ticket.impoundFee || 0) : 0))).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                ₱ {(penaltyBreakdown?.grandTotalPayable || Number(ticket.totalAmount || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                             </span>
                         </div>
                     </div>

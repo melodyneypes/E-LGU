@@ -197,6 +197,7 @@ export async function verifyAndSyncTicketPayment(ticketNo: string) {
     try {
         const ticket = await (prisma as any).ticketHeader.findFirst({
             where: { ticketNo: { equals: ticketNo, mode: "insensitive" } },
+            include: { transaction: true },
         });
 
         if (!ticket) return { success: false, error: "Ticket not found" };
@@ -214,7 +215,38 @@ export async function verifyAndSyncTicketPayment(ticketNo: string) {
 
             // Update Transaction if present
             if (ticket.transactionId) {
-                const paymongoRef = ticket.transaction?.paymentReference || ticket.transaction?.additionalData?.paymongo?.checkoutSessionId || ticket.transaction?.additionalData?.paymongo?.paymentId || `cs_live_${ticket.ticketNo}`;
+                let actualPaymentId = ticket.transaction?.additionalData?.paymongo?.paymentId || ticket.transaction?.paymentReference;
+
+                // If reference is still checkoutSessionId (cs_...) or fallback, query PayMongo Checkout Session API to retrieve real pay_... Payment ID
+                const csId = ticket.transaction?.additionalData?.paymongo?.checkoutSessionId;
+                if ((!actualPaymentId || !actualPaymentId.startsWith("pay_")) && csId && process.env.PAYMONGO_SECRET_KEY) {
+                    try {
+                        const secretKeyBase64 = Buffer.from(process.env.PAYMONGO_SECRET_KEY + ":").toString("base64");
+                        const pmRes = await fetch(`https://api.paymongo.com/v1/checkout_sessions/${csId}`, {
+                            headers: {
+                                Authorization: `Basic ${secretKeyBase64}`,
+                                Accept: "application/json",
+                            },
+                        });
+
+                        if (pmRes.ok) {
+                            const pmData = await pmRes.json();
+                            const paymentsArr = pmData?.data?.attributes?.payments;
+                            if (Array.isArray(paymentsArr) && paymentsArr.length > 0) {
+                                const realPayId = paymentsArr[0]?.id;
+                                if (realPayId) {
+                                    actualPaymentId = realPayId;
+                                }
+                            }
+                        }
+                    } catch (pmErr) {
+                        console.warn("Could not query PayMongo API for payment ID:", pmErr);
+                    }
+                }
+
+                const paymongoRef = (actualPaymentId && actualPaymentId.startsWith("pay_")) 
+                    ? actualPaymentId 
+                    : (ticket.transaction?.additionalData?.paymongo?.paymentId || ticket.transaction?.paymentReference || `cs_live_${ticket.ticketNo}`);
 
                 await (prisma as any).transaction.update({
                     where: { id: ticket.transactionId },
