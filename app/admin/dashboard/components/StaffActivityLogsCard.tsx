@@ -23,32 +23,41 @@ interface StaffActivityLogsCardProps {
 export function StaffActivityLogsCard({ initialLogs = [] }: StaffActivityLogsCardProps) {
   const [logs, setLogs] = useState<StaffActivityItem[]>(initialLogs);
 
+  // Sync state with initialLogs prop when server re-renders
+  useEffect(() => {
+    setLogs(initialLogs);
+  }, [initialLogs]);
+
   const refreshLogs = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/staff-activity-logs", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.logs) {
+          console.log("[StaffActivityLogsCard] Realtime updated logs count:", data.logs.length);
           setLogs(data.logs);
         }
       }
     } catch (err) {
-      console.warn("Failed to fetch staff logs:", err);
+      console.warn("Failed to fetch staff logs silently:", err);
     }
   }, []);
 
   useEffect(() => {
-    refreshLogs();
-    console.log("[StaffActivityLogsCard] Connecting to live SSE stream...");
+    console.log("[StaffActivityLogsCard] Connecting to SSE stream...");
     const eventSource = new EventSource("/api/admin/activity-logs/stream");
     let debounceTimer: NodeJS.Timeout | null = null;
 
+    const handleRefresh = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        refreshLogs();
+      }, 300);
+    };
+
     eventSource.onmessage = (event) => {
       if (event.data === "refresh") {
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-          refreshLogs();
-        }, 300);
+        handleRefresh();
       }
     };
 
@@ -56,11 +65,17 @@ export function StaffActivityLogsCard({ initialLogs = [] }: StaffActivityLogsCar
       console.warn("[StaffActivityLogsCard] SSE stream reconnecting...", err);
     };
 
+    // Window focus & custom event listeners for instant zero-polling updates
+    window.addEventListener("focus", handleRefresh);
+    window.addEventListener("staff_activity_updated", handleRefresh);
+
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       eventSource.close();
+      window.removeEventListener("focus", handleRefresh);
+      window.removeEventListener("staff_activity_updated", handleRefresh);
     };
-  }, []);
+  }, [refreshLogs]);
 
   return (
     <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl flex flex-col h-full">
@@ -120,7 +135,24 @@ export function StaffActivityLogsCard({ initialLogs = [] }: StaffActivityLogsCar
                 </p>
 
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 italic">
-                  {log.time}
+                  {(() => {
+                    const rawStr = String(log.createdAt || "").trim();
+                    const createdDate = new Date(rawStr);
+                    if (isNaN(createdDate.getTime())) return log.time;
+                    let dateMs = createdDate.getTime();
+                    const nowMs = Date.now();
+                    if (dateMs > nowMs + 60000) {
+                      dateMs -= 8 * 60 * 60 * 1000;
+                    }
+                    const sec = Math.floor((nowMs - dateMs) / 1000);
+                    if (sec < 60) return "Just now";
+                    const min = Math.floor(sec / 60);
+                    if (min < 60) return `${min} min${min > 1 ? "s" : ""} ago`;
+                    const hr = Math.floor(min / 60);
+                    if (hr < 24) return `${hr} hr${hr > 1 ? "s" : ""} ago`;
+                    const day = Math.floor(hr / 24);
+                    return `${day} day${day > 1 ? "s" : ""} ago`;
+                  })()}
                 </p>
               </div>
             </div>

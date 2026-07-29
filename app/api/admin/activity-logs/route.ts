@@ -5,9 +5,20 @@ import prisma from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
 
-function formatTimeAgo(date: Date) {
-    const now = new Date();
-    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+function formatTimeAgo(input: Date | string) {
+    if (!input) return "Just now";
+    const dateObj = new Date(input);
+    if (isNaN(dateObj.getTime())) return "Just now";
+
+    let dateMs = dateObj.getTime();
+    const nowMs = new Date().getTime();
+
+    // Adjust 8-hour offset if database timestamp evaluates to future
+    if (dateMs > nowMs + 60000) {
+        dateMs -= 8 * 60 * 60 * 1000;
+    }
+
+    const seconds = Math.floor((nowMs - dateMs) / 1000);
 
     if (seconds < 60) return "Just now";
     const minutes = Math.floor(seconds / 60);

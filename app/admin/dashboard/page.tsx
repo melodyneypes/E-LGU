@@ -38,8 +38,21 @@ function getPhilippineDisplayString(date: Date): string {
     });
 }
 
-function formatTimeAgo(date: Date): string {
-    const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
+function formatTimeAgo(input: Date | string): string {
+    if (!input) return "Just now";
+    const dateObj = new Date(input);
+    if (isNaN(dateObj.getTime())) return "Just now";
+
+    let dateMs = dateObj.getTime();
+    const nowMs = new Date().getTime();
+
+    // If dateMs is in the future because database stored Philippine time string without offset, adjust by 8 hours
+    if (dateMs > nowMs + 60000) {
+        dateMs -= 8 * 60 * 60 * 1000;
+    }
+
+    const seconds = Math.floor((nowMs - dateMs) / 1000);
+
     if (seconds < 60) return "Just now";
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) return `${minutes} min${minutes > 1 ? "s" : ""} ago`;
@@ -470,9 +483,10 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     id: true,
                     status: true,
                     processedBy: true,
+                    additionalData: true,
                     updatedAt: true,
                     type: { select: { name: true, category: true } },
-                    user: { select: { name: true } },
+                    user: { select: { name: true, department: true } },
                 },
             }),
         ])
@@ -480,33 +494,44 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
 
     const [staffTickets, staffTx] = (staffLogsRaw || [[], []]) as [any[], any[]];
     const staffLogs = [
-        ...staffTickets.map((t) => {
-            const sec = Math.floor((new Date().getTime() - new Date(t.createdAt).getTime()) / 1000);
-            const timeAgo = sec < 60 ? "Just now" : sec < 3600 ? `${Math.floor(sec / 60)} mins ago` : sec < 86400 ? `${Math.floor(sec / 3600)} hrs ago` : `${Math.floor(sec / 86400)} days ago`;
-            return {
-                id: `ticket-${t.id}`,
-                userName: t.officerName || "POSO Enforcer",
-                userRole: "POSO_OFFICER",
-                department: "POSO",
-                action: "issued citation ticket",
-                module: "POSO Citation",
-                details: `#${t.ticketNo} to ${t.violatorName} (₱${t.totalAmount.toLocaleString()})`,
-                time: timeAgo,
-                createdAt: t.createdAt.toISOString(),
-            };
-        }),
+        ...staffTickets.map((t) => ({
+            id: `ticket-${t.id}`,
+            userName: t.officerName || "POSO Enforcer",
+            userRole: "POSO_OFFICER",
+            department: "POSO",
+            action: "issued citation ticket",
+            module: "POSO Citation",
+            details: `#${t.ticketNo} to ${t.violatorName} (₱${t.totalAmount.toLocaleString()})`,
+            time: formatTimeAgo(t.createdAt),
+            createdAt: t.createdAt.toISOString(),
+        })),
         ...staffTx.map((tx) => {
-            const sec = Math.floor((new Date().getTime() - new Date(tx.updatedAt).getTime()) / 1000);
-            const timeAgo = sec < 60 ? "Just now" : sec < 3600 ? `${Math.floor(sec / 60)} mins ago` : sec < 86400 ? `${Math.floor(sec / 3600)} hrs ago` : `${Math.floor(sec / 86400)} days ago`;
+            const addData = typeof tx.additionalData === "string" ? JSON.parse(tx.additionalData || "{}") : tx.additionalData || {};
+            let dept = tx.user?.department;
+            if (!dept && addData.servingDepartment) {
+                dept = addData.servingDepartment;
+            }
+            if (!dept && tx.processedBy) {
+                const pLower = tx.processedBy.toLowerCase();
+                if (pLower.includes("treasury")) dept = "Treasury";
+                else if (pLower.includes("bplo") || pLower.includes("business")) dept = "BPLO";
+                else if (pLower.includes("registrar") || pLower.includes("civil")) dept = "Civil Registry";
+                else if (pLower.includes("poso")) dept = "POSO";
+                else if (pLower.includes("engineer")) dept = "Engineering";
+            }
+            if (!dept) {
+                dept = tx.type?.category || "LGU Staff";
+            }
+
             return {
                 id: `tx-${tx.id}`,
                 userName: tx.processedBy || "Municipal Staff",
                 userRole: "STAFF",
-                department: tx.type?.category || "LGU Staff",
-                action: tx.status === "APPROVED" || tx.status === "RELEASED" ? "approved & processed" : tx.status === "REJECTED" ? "rejected request for" : "updated status for",
+                department: String(dept).toUpperCase(),
+                action: tx.status === "APPROVED" || tx.status === "RELEASED" || tx.status === "PAID" ? "processed payment / approved" : tx.status === "REJECTED" ? "rejected request for" : "updated status for",
                 module: tx.type?.name || "Service Request",
-                details: `${tx.type?.name || "Document"} for ${tx.user?.name || "Resident"}`,
-                time: timeAgo,
+                details: `${tx.type?.name || "Document"} for ${tx.user?.name || addData.violatorName || "Resident"}`,
+                time: formatTimeAgo(tx.updatedAt),
                 createdAt: tx.updatedAt.toISOString(),
             };
         }),
