@@ -725,8 +725,17 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
             };
         })
     ]
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-        .slice(0, 7);
+        .sort((a, b) => {
+        const getMs = (input: any) => {
+            if (!input) return 0;
+            const dateObj = new Date(input);
+            let ms = dateObj.getTime();
+            if (isNaN(ms)) return 0;
+            if (ms > Date.now() + 60000) ms -= 8 * 60 * 60 * 1000;
+            return ms;
+        };
+        return getMs(b.createdAt) - getMs(a.createdAt);
+    }).slice(0, 7);
 
     return (
         <div className="p-8 w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">

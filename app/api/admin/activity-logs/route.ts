@@ -29,6 +29,19 @@ function formatTimeAgo(input: Date | string) {
     return `${days} day${days > 1 ? "s" : ""} ago`;
 }
 
+function parseDateMs(input: any): number {
+    if (!input) return 0;
+    const rawStr = typeof input === "string" ? input.trim() : input.toISOString();
+    const dateObj = new Date(rawStr);
+    if (isNaN(dateObj.getTime())) return 0;
+    let ms = dateObj.getTime();
+    const nowMs = Date.now();
+    if (ms > nowMs + 60000) {
+        ms -= 8 * 60 * 60 * 1000;
+    }
+    return ms;
+}
+
 export async function GET(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
@@ -39,45 +52,23 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const selectedBarangay = searchParams.get("barangay") || "";
 
+        const whereBarangayFilter = selectedBarangay ? { barangay: selectedBarangay } : {};
+
         const [recentResidents, recentReports, recentPayments, recentTransactions] = await Promise.all([
-            prisma.resident.findMany({
-                where: {
-                    registrationStatus: "APPROVED",
-                    ...(selectedBarangay ? { barangay: selectedBarangay } : {})
-                },
+            prisma.user.findMany({
+                where: { role: "USER", ...whereBarangayFilter },
                 orderBy: { createdAt: "desc" },
                 take: 5,
-                select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true,
-                    createdAt: true
-                }
+                select: { id: true, firstName: true, lastName: true, createdAt: true }
             }),
             prisma.report.findMany({
-                where: selectedBarangay ? { barangay: { name: selectedBarangay } } : {},
+                where: selectedBarangay ? { user: { barangay: selectedBarangay } } : {},
                 orderBy: { createdAt: "desc" },
                 take: 5,
-                select: {
-                    id: true,
-                    category: true,
-                    createdAt: true,
-                    user: { select: { name: true } }
-                }
+                select: { id: true, category: true, createdAt: true, user: { select: { name: true } } }
             }),
             prisma.payment.findMany({
-                where: {
-                    status: "PAID",
-                    ...(selectedBarangay ? {
-                        transaction: {
-                            user: {
-                                residentProfile: {
-                                    barangay: selectedBarangay
-                                }
-                            }
-                        }
-                    } : {})
-                },
+                where: selectedBarangay ? { transaction: { user: { barangay: selectedBarangay } } } : {},
                 orderBy: { createdAt: "desc" },
                 take: 5,
                 select: {
@@ -87,21 +78,15 @@ export async function GET(req: NextRequest) {
                     createdAt: true,
                     transaction: {
                         select: {
-                            user: { select: { name: true } },
                             residentSnapshot: true,
                             additionalData: true,
+                            user: { select: { name: true } }
                         }
                     }
                 }
             }),
             prisma.transaction.findMany({
-                where: selectedBarangay ? {
-                    user: {
-                        residentProfile: {
-                            barangay: selectedBarangay
-                        }
-                    }
-                } : {},
+                where: selectedBarangay ? { user: { barangay: selectedBarangay } } : {},
                 orderBy: { createdAt: "desc" },
                 take: 5,
                 select: {
@@ -109,8 +94,8 @@ export async function GET(req: NextRequest) {
                     createdAt: true,
                     residentSnapshot: true,
                     additionalData: true,
-                    type: { select: { name: true } },
-                    user: { select: { name: true } }
+                    user: { select: { name: true } },
+                    type: { select: { name: true } }
                 }
             })
         ]);
@@ -122,8 +107,8 @@ export async function GET(req: NextRequest) {
                 user: `${r.firstName} ${r.lastName}`,
                 action: "registered as a new",
                 details: "Resident Profile",
-                time: formatTimeAgo(new Date(r.createdAt)),
-                createdAt: r.createdAt
+                time: formatTimeAgo(r.createdAt),
+                createdAt: r.createdAt.toISOString()
             })),
             ...recentReports.map((rp) => ({
                 id: rp.id,
@@ -131,8 +116,8 @@ export async function GET(req: NextRequest) {
                 user: rp.user?.name || "A Resident",
                 action: "filed a public report on",
                 details: rp.category,
-                time: formatTimeAgo(new Date(rp.createdAt)),
-                createdAt: rp.createdAt
+                time: formatTimeAgo(rp.createdAt),
+                createdAt: rp.createdAt.toISOString()
             })),
             ...recentPayments.map((p) => {
                 const tx = p.transaction;
@@ -152,8 +137,8 @@ export async function GET(req: NextRequest) {
                     user: name,
                     action: `paid ₱${p.amount.toLocaleString()} via`,
                     details: p.method,
-                    time: formatTimeAgo(new Date(p.createdAt)),
-                    createdAt: p.createdAt
+                    time: formatTimeAgo(p.createdAt),
+                    createdAt: p.createdAt.toISOString()
                 };
             }),
             ...recentTransactions.map((t) => {
@@ -173,12 +158,12 @@ export async function GET(req: NextRequest) {
                     user: name,
                     action: "requested service for",
                     details: t.type?.name || "Certificate",
-                    time: formatTimeAgo(new Date(t.createdAt)),
-                    createdAt: t.createdAt
+                    time: formatTimeAgo(t.createdAt),
+                    createdAt: t.createdAt.toISOString()
                 };
             })
         ]
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .sort((a, b) => parseDateMs(b.createdAt) - parseDateMs(a.createdAt))
             .slice(0, 7);
 
         return NextResponse.json({ success: true, logs: activityLogs });
