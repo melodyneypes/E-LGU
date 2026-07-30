@@ -16,7 +16,10 @@ export default async function PosoSettingsPage() {
     const session = await getServerSession(authOptions);
     const user = session?.user as any;
 
-    if (!user || user.role !== "ADMIN" || user.department !== "POSO") {
+    const isLguAdmin = user?.role === "ADMIN" && (user?.department === "LGU" || !user?.department);
+    const isPosoStaff = user?.role === "ADMIN" || user?.department === "POSO";
+
+    if (!user || (!isLguAdmin && !isPosoStaff)) {
         redirect("/admin/dashboard");
     }
 

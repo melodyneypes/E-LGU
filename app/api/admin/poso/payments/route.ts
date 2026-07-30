@@ -10,7 +10,10 @@ export async function GET(req: NextRequest) {
         const session = await getServerSession(authOptions);
         const user = (session?.user as any);
 
-        if (!user || user.role !== "ADMIN" || user.department !== "POSO") {
+        const isLguAdmin = user?.role === "ADMIN" && (user?.department === "LGU" || !user?.department);
+        const isPosoAuthorized = user?.role === "ADMIN" || user?.role === "POSO_OFFICER" || user?.role === "TREASURY_STAFF" || user?.department === "POSO";
+
+        if (!user || (!isLguAdmin && !isPosoAuthorized)) {
             return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
         }
 

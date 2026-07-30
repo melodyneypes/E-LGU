@@ -139,11 +139,13 @@ export function AdminShell({
             } else if (deptUpper === "POSO" && !pathname.startsWith("/admin/poso")) {
                 isRestricted = true;
             } else if (deptUpper === "LGU") {
-                // LGU admins are restricted from registrar specialized sub-sections, queues, and POSO enforcement
-                // BUT allowed to access /admin/poso/tickets (Citations & Tickets)
+                // LGU admins: allowed specific POSO pages for executive oversight (view-only)
+                const lguAllowedPoso = ["/admin/poso/tickets", "/admin/poso/vehicle-classes", "/admin/poso/leaderboard", "/admin/poso/payment-ledger", "/admin/poso/settings", "/admin/poso/violations"];
+                const isAllowedPoso = lguAllowedPoso.some(p => pathname.startsWith(p));
+
                 if (
                     pathname.startsWith("/admin/registrar") ||
-                    (pathname.startsWith("/admin/poso") && !pathname.startsWith("/admin/poso/tickets")) ||
+                    (pathname.startsWith("/admin/poso") && !isAllowedPoso) ||
                     pathname === "/admin/bplo/queue" ||
                     pathname === "/admin/treasury/queue"
                 ) {
