@@ -25,7 +25,7 @@ export default function TicketDetailsPage() {
     const { data: session } = useSession();
     const userRole = (session?.user as any)?.role;
     const userDept = (session?.user as any)?.department;
-    const isPosoStaff = userRole === "ADMIN" || userRole === "POSO_OFFICER" || userDept === "POSO";
+    const isPosoStaff = (userRole === "ADMIN" && userDept !== "LGU") || userRole === "POSO_OFFICER" || userDept === "POSO";
 
     const [loading, setLoading] = useState(true);
     const [ticket, setTicket] = useState<any>(null);
