@@ -20,6 +20,7 @@ import { ActivityLogsCard } from "./components/ActivityLogsCard";
 import { StaffActivityLogsCard } from "./components/StaffActivityLogsCard";
 import { ReportsOverviewCard } from "./components/ReportsOverviewCard";
 import { DashboardClientWrapper } from "./components/DashboardClientWrapper";
+import { ConfigurableMetricCardsSection } from "./components/ConfigurableMetricCardsSection";
 
 function getPhilippineDateString(date: Date): string {
     return new Intl.DateTimeFormat("en-CA", {
@@ -726,16 +727,16 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         })
     ]
         .sort((a, b) => {
-        const getMs = (input: any) => {
-            if (!input) return 0;
-            const dateObj = new Date(input);
-            let ms = dateObj.getTime();
-            if (isNaN(ms)) return 0;
-            if (ms > Date.now() + 60000) ms -= 8 * 60 * 60 * 1000;
-            return ms;
-        };
-        return getMs(b.createdAt) - getMs(a.createdAt);
-    }).slice(0, 7);
+            const getMs = (input: any) => {
+                if (!input) return 0;
+                const dateObj = new Date(input);
+                let ms = dateObj.getTime();
+                if (isNaN(ms)) return 0;
+                if (ms > Date.now() + 60000) ms -= 8 * 60 * 60 * 1000;
+                return ms;
+            };
+            return getMs(b.createdAt) - getMs(a.createdAt);
+        }).slice(0, 7);
 
     return (
         <div className="p-8 w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -762,56 +763,13 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
             </div>
 
             <DashboardClientWrapper>
-                {/* Stat Cards Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {/* Residents Card */}
-                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
-                        <div className="absolute -top-4 -right-4 text-blue-100 dark:text-blue-500/10 transition-transform group-hover:scale-110">
-                            <Users size={120} strokeWidth={1} />
-                        </div>
-                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Total Residents</p>
-                        <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{residentsCount.toLocaleString()}</h2>
-                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-blue-600 italic">
-                            <span className="bg-blue-50 dark:bg-blue-500/10 px-2 py-1 rounded-full">Registered Registry</span>
-                        </div>
-                    </div>
-
-                    {/* Jobs Card */}
-                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
-                        <div className="absolute -top-4 -right-4 text-emerald-100 dark:text-emerald-500/10 transition-transform group-hover:scale-110">
-                            <Briefcase size={120} strokeWidth={1} />
-                        </div>
-                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Jobs Posted</p>
-                        <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{jobsCount.toLocaleString()}</h2>
-                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-emerald-600 italic">
-                            <span className="bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-full">Available Openings</span>
-                        </div>
-                    </div>
-
-                    {/* Reports Card */}
-                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
-                        <div className="absolute -top-4 -right-4 text-orange-100 dark:text-orange-500/10 transition-transform group-hover:scale-110">
-                            <AlertTriangle size={120} strokeWidth={1} />
-                        </div>
-                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Pending Reports</p>
-                        <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{reportsCount.toLocaleString()}</h2>
-                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-orange-600 italic">
-                            <span className="bg-orange-50 dark:bg-orange-500/10 px-2 py-1 rounded-full">Needs Response</span>
-                        </div>
-                    </div>
-
-                    {/* Projects Card */}
-                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
-                        <div className="absolute -top-4 -right-4 text-purple-100 dark:text-purple-500/10 transition-transform group-hover:scale-110">
-                            <Hammer size={120} strokeWidth={1} />
-                        </div>
-                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">LGU Projects</p>
-                        <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{projectsCount.toLocaleString()}</h2>
-                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-purple-600 italic">
-                            <span className="bg-purple-50 dark:bg-purple-500/10 px-2 py-1 rounded-full">Infrastructure Works</span>
-                        </div>
-                    </div>
-                </div>
+                {/* Configurable 4 Stat Cards Grid (Top Metric Section Only) */}
+                <ConfigurableMetricCardsSection
+                    residentsCount={residentsCount}
+                    jobsCount={jobsCount}
+                    reportsCount={reportsCount}
+                    projectsCount={projectsCount}
+                />
 
                 {/* Strategic Operations & Activity Logs 3-Column Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch animate-in fade-in slide-in-from-bottom-4 duration-1000">
