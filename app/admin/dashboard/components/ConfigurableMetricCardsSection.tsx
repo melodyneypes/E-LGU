@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Eye, EyeOff, RotateCcw, Users, Briefcase, AlertTriangle, Hammer } from "lucide-react";
+import { Eye, EyeOff, RotateCcw, Users, Briefcase, AlertTriangle, Hammer, GripVertical } from "lucide-react";
 import { MetricCardGridPicker } from "./MetricCardGridPicker";
 import { DashboardSettingsSidebar } from "./DashboardSettingsSidebar";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,8 @@ interface ConfigurableMetricCardsSectionProps {
     projectsCount: number;
 }
 
+const DEFAULT_KEYS = ["residents", "jobs", "reports", "projects"];
+
 const DEFAULT_CONFIGS: Record<string, { defaultCols: number; defaultRows: number }> = {
     residents: { defaultCols: 3, defaultRows: 1 },
     jobs: { defaultCols: 3, defaultRows: 1 },
@@ -28,7 +30,8 @@ const DEFAULT_CONFIGS: Record<string, { defaultCols: number; defaultRows: number
     projects: { defaultCols: 3, defaultRows: 1 },
 };
 
-const STORAGE_KEY = "emapandan_metric_cards_individual_grid_v4";
+const STORAGE_KEY = "emapandan_metric_cards_individual_grid_v5";
+const ORDER_STORAGE_KEY = "emapandan_metric_cards_order_v5";
 
 export function ConfigurableMetricCardsSection({
     residentsCount,
@@ -36,11 +39,11 @@ export function ConfigurableMetricCardsSection({
     reportsCount,
     projectsCount,
 }: ConfigurableMetricCardsSectionProps) {
-    const cardKeys = Object.keys(DEFAULT_CONFIGS);
+    const [cardOrder, setCardOrder] = useState<string[]>(DEFAULT_KEYS);
 
     const [configs, setConfigs] = useState<Record<string, MetricCardConfig>>(() => {
         const initial: Record<string, MetricCardConfig> = {};
-        cardKeys.forEach((key) => {
+        DEFAULT_KEYS.forEach((key) => {
             initial[key] = {
                 id: key,
                 colSpan: DEFAULT_CONFIGS[key].defaultCols,
@@ -52,14 +55,16 @@ export function ConfigurableMetricCardsSection({
         return initial;
     });
 
+    const [draggedKey, setDraggedKey] = useState<string | null>(null);
+    const [dragOverKey, setDragOverKey] = useState<string | null>(null);
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
         setIsMounted(true);
         try {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-                const parsed: Record<string, MetricCardConfig> = JSON.parse(saved);
+            const savedConfigs = localStorage.getItem(STORAGE_KEY);
+            if (savedConfigs) {
+                const parsed: Record<string, MetricCardConfig> = JSON.parse(savedConfigs);
                 setConfigs((prev) => {
                     const next = { ...prev };
                     Object.keys(parsed).forEach((k) => {
@@ -70,6 +75,14 @@ export function ConfigurableMetricCardsSection({
                     return next;
                 });
             }
+
+            const savedOrder = localStorage.getItem(ORDER_STORAGE_KEY);
+            if (savedOrder) {
+                const parsedOrder: string[] = JSON.parse(savedOrder);
+                const validOrder = parsedOrder.filter((k) => DEFAULT_KEYS.includes(k));
+                const missingKeys = DEFAULT_KEYS.filter((k) => !validOrder.includes(k));
+                setCardOrder([...validOrder, ...missingKeys]);
+            }
         } catch {
             /* Fallback */
         }
@@ -79,6 +92,15 @@ export function ConfigurableMetricCardsSection({
         setConfigs(newConfigs);
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(newConfigs));
+        } catch {
+            /* Fail gracefully */
+        }
+    };
+
+    const saveOrder = (newOrder: string[]) => {
+        setCardOrder(newOrder);
+        try {
+            localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(newOrder));
         } catch {
             /* Fail gracefully */
         }
@@ -101,7 +123,7 @@ export function ConfigurableMetricCardsSection({
         const targetWillHide = !configs[key].hidden;
 
         // Calculate remaining visible keys after toggle
-        const visibleAfterToggle = cardKeys.filter((k) =>
+        const visibleAfterToggle = DEFAULT_KEYS.filter((k) =>
             k === key ? !targetWillHide : !configs[k].hidden
         );
 
@@ -128,7 +150,7 @@ export function ConfigurableMetricCardsSection({
     };
 
     const resetCardSize = (key: string) => {
-        const visibleKeys = cardKeys.filter((k) => !configs[k].hidden);
+        const visibleKeys = DEFAULT_KEYS.filter((k) => !configs[k].hidden);
         const visibleCount = visibleKeys.length;
         const autoCalculatedCols = visibleCount > 0 ? Math.floor(12 / visibleCount) : 3;
 
@@ -146,7 +168,7 @@ export function ConfigurableMetricCardsSection({
 
     const resetAllConfigs = () => {
         const initial: Record<string, MetricCardConfig> = {};
-        cardKeys.forEach((key) => {
+        DEFAULT_KEYS.forEach((key) => {
             initial[key] = {
                 id: key,
                 colSpan: DEFAULT_CONFIGS[key].defaultCols,
@@ -156,27 +178,65 @@ export function ConfigurableMetricCardsSection({
             };
         });
         setConfigs(initial);
+        setCardOrder(DEFAULT_KEYS);
         try {
             localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(ORDER_STORAGE_KEY);
         } catch {
             /* Fail gracefully */
         }
     };
 
+    // HTML5 Drag & Drop Event Handlers
+    const onDragStart = (e: React.DragEvent, key: string) => {
+        e.dataTransfer.setData("text/plain", key);
+        e.dataTransfer.effectAllowed = "move";
+        setDraggedKey(key);
+    };
+
+    const onDragOver = (e: React.DragEvent, key: string) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (dragOverKey !== key) {
+            setDragOverKey(key);
+        }
+    };
+
+    const onDragLeave = () => {
+        setDragOverKey(null);
+    };
+
+    const onDrop = (e: React.DragEvent, targetKey: string) => {
+        e.preventDefault();
+        const sourceKey = e.dataTransfer.getData("text/plain") || draggedKey;
+        setDraggedKey(null);
+        setDragOverKey(null);
+
+        if (!sourceKey || sourceKey === targetKey) return;
+
+        const currentOrder = [...cardOrder];
+        const fromIndex = currentOrder.indexOf(sourceKey);
+        const toIndex = currentOrder.indexOf(targetKey);
+
+        if (fromIndex !== -1 && toIndex !== -1) {
+            currentOrder.splice(fromIndex, 1);
+            currentOrder.splice(toIndex, 0, sourceKey);
+            saveOrder(currentOrder);
+        }
+    };
+
     const cardVisibilityMap: Record<string, boolean> = {};
-    cardKeys.forEach((k) => {
+    DEFAULT_KEYS.forEach((k) => {
         cardVisibilityMap[k] = !configs[k]?.hidden;
     });
 
-    const hiddenKeys = cardKeys.filter((k) => configs[k]?.hidden);
+    const hiddenKeys = DEFAULT_KEYS.filter((k) => configs[k]?.hidden);
 
     const renderCardInner = (key: string, cfg: MetricCardConfig) => {
         const isWide = cfg.colSpan > 6;
         const isTall = cfg.rowSpan > 1;
 
-        // Dynamic min-height per row step (Row 1 = 180px, Row 2 = 300px, Row 3 = 420px, etc.)
         const calculatedMinHeight = Math.max(180, 180 + (cfg.rowSpan - 1) * 120);
-        // Dynamic icon size scaling based on both width and height
         const calculatedIconSize = Math.min(260, Math.max(120, 120 + (cfg.colSpan > 6 ? 40 : 0) + (cfg.rowSpan - 1) * 35));
         const calculatedFontSize = isTall && isWide ? "text-7xl" : isTall ? "text-6xl" : isWide ? "text-6xl" : "text-5xl";
 
@@ -303,27 +363,46 @@ export function ConfigurableMetricCardsSection({
                 </div>
             </div>
 
-            {/* 12-Column CSS Grid Container for the 4 Stat Cards with Independent Height & Reflow */}
+            {/* 12-Column CSS Grid Container for the 4 Stat Cards with Drag & Drop */}
             <div className="grid grid-cols-12 gap-6 items-start transition-all duration-500 ease-in-out">
-                {cardKeys.map((key) => {
+                {cardOrder.map((key) => {
                     const cfg = configs[key] || { id: key, colSpan: 3, rowSpan: 1, hidden: false };
                     if (cfg.hidden) return null;
 
                     const currentClass = colSpanClasses[cfg.colSpan] || "col-span-12 sm:col-span-6 md:col-span-6 lg:col-span-3";
+                    const isBeingDragged = draggedKey === key;
+                    const isOver = dragOverKey === key;
 
                     return (
                         <div
                             key={key}
-                            className={`group relative transition-all duration-500 ease-in-out ${currentClass}`}
+                            draggable
+                            onDragStart={(e) => onDragStart(e, key)}
+                            onDragOver={(e) => onDragOver(e, key)}
+                            onDragLeave={onDragLeave}
+                            onDrop={(e) => onDrop(e, key)}
+                            className={`group relative transition-all duration-300 rounded-[2.5rem] ${currentClass} ${
+                                isBeingDragged ? "opacity-40 scale-[0.99] border-2 border-dashed border-blue-500" : ""
+                            } ${
+                                isOver ? "ring-2 ring-blue-500/80 scale-[1.01] shadow-2xl" : ""
+                            }`}
                         >
-                            {/* ONLY Grid Sizing Icon Inside Main Card Header (NO Hide Icon) */}
-                            <div className="absolute top-4 right-4 z-20 opacity-60 group-hover:opacity-100 transition-opacity">
+                            {/* Card Header Overlay Controls: Grid Matrix Picker + Drag Handle */}
+                            <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
                                 <MetricCardGridPicker
                                     currentCols={cfg.colSpan}
                                     currentRowSpan={cfg.rowSpan}
                                     onSelectSize={(cols, rows) => updateCardSize(key, cols, rows)}
                                     onReset={() => resetCardSize(key)}
                                 />
+
+                                {/* Drag Handle Icon */}
+                                <div
+                                    className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-500 hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700/60 shadow-sm cursor-grab active:cursor-grabbing"
+                                    title="Click and drag to reposition metric card"
+                                >
+                                    <GripVertical className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
+                                </div>
                             </div>
 
                             {/* Render Card UI Directly */}
