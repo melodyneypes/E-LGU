@@ -305,77 +305,85 @@ export default function BFPEvaluationPage({ params }: PageProps) {
                 { key: "newIdFile", url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)" },
                 { key: "newIdFileBack", url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)" },
                 { key: "tctFile", url: additional?.documents?.tctFile, label: "TCT / Land Title" },
-                ...[
-                    "Barangay Clearance/Certification",
-                    "Tax Declaration",
-                    "Land Title",
-                    "Community Tax Certificate",
-                    "Latest Tax Receipts",
-                    "Adjoining Owners Confirmation",
-                    "Locational Clearance",
-                    "Affidavit of Consent",
-                    "Affidavit of Adjoining Owners",
-                    "Signed & Sealed Plans",
-                    "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
-                    "Cedula of Lot Owner",
-                    "ID of Lot Owner",
-                    "Death Certificate of Lot Owner (Optional)",
-                    "Birth Certificate of Heirs of Deceased Owner (Optional)",
-                    "Valid Licenses (PRC I.D.) of Involved Professionals",
-                    "Duly Notarized Estimated Value of Building/Structure",
-                    "Duly Notarized Technical Specification",
-                    "Construction Safety and Health Program From DOLE",
-                    "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
-                    "Affidavit of Undertaking",
-                    "Cedula of Applicant",
-                    "ID of applicant with 3 signatures",
-                    "Structural Analysis and Design",
-                    "Soil Boring Test"
-                ]
-                  .map((label, idx) => ({ key: `req_${idx}`, url: additional?.documents?.[`req_${idx}`], label, idx }))
-                  .filter(({ idx }) => {
-                      if (additional?.isLotOwner === "Yes" && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
-                      if (additional?.isLotOwner === "No" && [21, 22].includes(idx)) return false;
-                      const hasMultipleFloors = parseInt(additional?.totalFloors || "0", 10) > 1;
-                      if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
-                      return true;
-                  }),
-                ...Object.keys(additional?.documents || {})
-                    .filter(key => key.startsWith("req_"))
-                    .map(key => {
-                        const idx = parseInt(key.replace("req_", ""), 10);
-                        if (idx >= 25) {
-                            const label = additional?.customLabels?.[key] || `Additional Document ${idx - 24}`;
-                            return { key, url: additional.documents[key], label };
-                        }
-                        return null;
-                    })
-                    .filter(Boolean) as { key: string; url: string; label: string }[],
-                ...[
-                    "1. Electrical Permit",
-                    "2. Plumbing Permit",
-                    "3. Sanitary Permit",
-                    "4. Excavation & Ground Preparation Permit",
-                    "5. Fencing Permit",
-                    "6. Scaffolding Permit",
-                    "7. Mechanical Permit",
-                    "8. Architectural Documents",
-                    "9. Civil/Structural Documents",
-                    "10. Electronics Documents",
-                    "11. Geodetic Documents",
-                    "12. Fire Protection Plan"
-                ].map((label, idx) => ({ key: `permit_${idx}`, url: additional?.documents?.[`permit_${idx}`], label })),
-                ...Object.keys(additional?.documents || {})
-                    .filter(key => key.startsWith("permit_"))
-                    .map(key => {
-                        const idx = parseInt(key.replace("permit_", ""), 10);
-                        if (idx >= 12) {
-                            const label = additional?.customLabels?.[key] || `Additional Permit ${idx - 11}`;
-                            return { key, url: additional.documents[key], label };
-                        }
-                        return null;
-                    })
-                    .filter(Boolean) as { key: string; url: string; label: string }[]
+            ...(transaction?.type?.code === "OCCUPANCY_PERMIT" ? [
+                "Duly Notarized Certificate of Completion",
+                "Construction Logbook, signed and sealed by Owner's Architect and Civil Engineer",
+                "As-Built Plans, signed and sealed by the Owner's Architect and Civil Engineer",
+                "Valid Licenses of All Involved Professionals",
+                "Captioned Photographs of Site and Completed Building/Structure (Front, Sides, and Rear Areas)",
+                "Duly Notarized Affidavit of Undertaking (Optional)"
+            ].map((label, idx) => ({ key: `req_${idx}`, url: additional?.documents?.[`req_${idx}`], label, idx })) : [
+                "Barangay Clearance/Certification",
+                "Tax Declaration",
+                "Land Title",
+                "Community Tax Certificate",
+                "Latest Tax Receipts",
+                "Adjoining Owners Confirmation",
+                "Locational Clearance",
+                "Affidavit of Consent",
+                "Affidavit of Adjoining Owners",
+                "Signed & Sealed Plans",
+                "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
+                "Cedula of Lot Owner",
+                "ID of Lot Owner",
+                "Death Certificate of Lot Owner (Optional)",
+                "Birth Certificate of Heirs of Deceased Owner (Optional)",
+                "Valid Licenses (PRC I.D.) of Involved Professionals",
+                "Duly Notarized Estimated Value of Building/Structure",
+                "Duly Notarized Technical Specification",
+                "Construction Safety and Health Program From DOLE",
+                "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
+                "Affidavit of Undertaking",
+                "Cedula of Applicant",
+                "ID of applicant with 3 signatures",
+                "Structural Analysis and Design",
+                "Soil Boring Test"
+            ]
+              .map((label, idx) => ({ key: `req_${idx}`, url: additional?.documents?.[`req_${idx}`], label, idx }))
+              .filter(({ idx }) => {
+                  if (additional?.isLotOwner === "Yes" && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
+                  if (additional?.isLotOwner === "No" && [21, 22].includes(idx)) return false;
+                  const hasMultipleFloors = parseInt(additional?.totalFloors || "0", 10) > 1;
+                  if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
+                  return true;
+              })),
+            ...Object.keys(additional?.documents || {})
+                .filter(key => key.startsWith("req_"))
+                .map(key => {
+                    const idx = parseInt(key.replace("req_", ""), 10);
+                    const threshold = transaction?.type?.code === "OCCUPANCY_PERMIT" ? 6 : 25;
+                    if (idx >= threshold) {
+                        const label = additional?.customLabels?.[key] || `Additional Document ${idx - threshold + 1}`;
+                        return { key, url: additional.documents[key], label };
+                    }
+                    return null;
+                })
+                .filter(Boolean) as { key: string; url: string; label: string }[],
+            ...(transaction?.type?.code === "OCCUPANCY_PERMIT" ? [] : [
+                "1. Electrical Permit",
+                "2. Plumbing Permit",
+                "3. Sanitary Permit",
+                "4. Excavation & Ground Preparation Permit",
+                "5. Fencing Permit",
+                "6. Scaffolding Permit",
+                "7. Mechanical Permit",
+                "8. Architectural Documents",
+                "9. Civil/Structural Documents",
+                "10. Electronics Documents",
+                "11. Geodetic Documents",
+                "12. Fire Protection Plan"
+            ].map((label, idx) => ({ key: `permit_${idx}`, url: additional?.documents?.[`permit_${idx}`], label }))),
+            ...Object.keys(additional?.documents || {})
+                .filter(key => key.startsWith("permit_"))
+                .map(key => {
+                    const idx = parseInt(key.replace("permit_", ""), 10);
+                    if (idx >= 12) {
+                        const label = additional?.customLabels?.[key] || `Additional Permit ${idx - 11}`;
+                        return { key, url: additional.documents[key], label };
+                    }
+                    return null;
+                })
+                .filter(Boolean) as { key: string; url: string; label: string }[]
             ].filter(doc => doc.url && (bfpVisibleDocKeys.length === 0 || bfpVisibleDocKeys.includes(doc.key))).map((doc, i) => (
                 <Dialog key={i}>
                     <DialogTrigger asChild>
@@ -386,7 +394,7 @@ export default function BFPEvaluationPage({ params }: PageProps) {
                                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">PDF</span>
                                 </div>
                             ) : (
-                                <Image src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} fill className="object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
+                                <img src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
                             )}
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                 <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
