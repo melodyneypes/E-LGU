@@ -6,20 +6,12 @@ import { getMultipleSystemSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 import { BarangaySwitcher } from "../components/BarangaySwitcher";
-import { Users, Briefcase, AlertTriangle, Hammer, Utensils, Hotel, Image, Flag, Phone } from "lucide-react";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { TransactionDashboardView } from "./components/TransactionDashboardView";
-import { PaymentDashboardView } from "./components/PaymentDashboardView";
-import { ResidentDashboardView } from "./components/ResidentDashboardView";
-import { RecentAnnouncementsCard } from "./components/RecentAnnouncementsCard";
-import { LatestNewsCard } from "./components/LatestNewsCard";
-import { UpcomingEventsCard } from "./components/UpcomingEventsCard";
-import { LGUProjectsCard } from "./components/LGUProjectsCard";
-import { ActivityLogsCard } from "./components/ActivityLogsCard";
-import { StaffActivityLogsCard } from "./components/StaffActivityLogsCard";
-import { ReportsOverviewCard } from "./components/ReportsOverviewCard";
 import { DashboardClientWrapper } from "./components/DashboardClientWrapper";
+import { ConfigurableMetricCardsSection } from "./components/ConfigurableMetricCardsSection";
+import { ConfigurableStrategicOpsSection } from "./components/ConfigurableStrategicOpsSection";
+import { ConfigurableAnalyticsSection } from "./components/ConfigurableAnalyticsSection";
+import { ConfigurableCommunitySection } from "./components/ConfigurableCommunitySection";
 
 function getPhilippineDateString(date: Date): string {
     return new Intl.DateTimeFormat("en-CA", {
@@ -726,16 +718,16 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
         })
     ]
         .sort((a, b) => {
-        const getMs = (input: any) => {
-            if (!input) return 0;
-            const dateObj = new Date(input);
-            let ms = dateObj.getTime();
-            if (isNaN(ms)) return 0;
-            if (ms > Date.now() + 60000) ms -= 8 * 60 * 60 * 1000;
-            return ms;
-        };
-        return getMs(b.createdAt) - getMs(a.createdAt);
-    }).slice(0, 7);
+            const getMs = (input: any) => {
+                if (!input) return 0;
+                const dateObj = new Date(input);
+                let ms = dateObj.getTime();
+                if (isNaN(ms)) return 0;
+                if (ms > Date.now() + 60000) ms -= 8 * 60 * 60 * 1000;
+                return ms;
+            };
+            return getMs(b.createdAt) - getMs(a.createdAt);
+        }).slice(0, 7);
 
     return (
         <div className="p-8 w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -762,171 +754,54 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
             </div>
 
             <DashboardClientWrapper>
-                {/* Stat Cards Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {/* Residents Card */}
-                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
-                        <div className="absolute -top-4 -right-4 text-blue-100 dark:text-blue-500/10 transition-transform group-hover:scale-110">
-                            <Users size={120} strokeWidth={1} />
-                        </div>
-                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Total Residents</p>
-                        <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{residentsCount.toLocaleString()}</h2>
-                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-blue-600 italic">
-                            <span className="bg-blue-50 dark:bg-blue-500/10 px-2 py-1 rounded-full">Registered Registry</span>
-                        </div>
-                    </div>
+                {/* Configurable 4 Stat Cards Grid (Top Metric Section Only) */}
+                <ConfigurableMetricCardsSection
+                    residentsCount={residentsCount}
+                    jobsCount={jobsCount}
+                    reportsCount={reportsCount}
+                    projectsCount={projectsCount}
+                />
 
-                    {/* Jobs Card */}
-                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
-                        <div className="absolute -top-4 -right-4 text-emerald-100 dark:text-emerald-500/10 transition-transform group-hover:scale-110">
-                            <Briefcase size={120} strokeWidth={1} />
-                        </div>
-                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Jobs Posted</p>
-                        <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{jobsCount.toLocaleString()}</h2>
-                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-emerald-600 italic">
-                            <span className="bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-full">Available Openings</span>
-                        </div>
-                    </div>
-
-                    {/* Reports Card */}
-                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
-                        <div className="absolute -top-4 -right-4 text-orange-100 dark:text-orange-500/10 transition-transform group-hover:scale-110">
-                            <AlertTriangle size={120} strokeWidth={1} />
-                        </div>
-                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Pending Reports</p>
-                        <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{reportsCount.toLocaleString()}</h2>
-                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-orange-600 italic">
-                            <span className="bg-orange-50 dark:bg-orange-500/10 px-2 py-1 rounded-full">Needs Response</span>
-                        </div>
-                    </div>
-
-                    {/* Projects Card */}
-                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1">
-                        <div className="absolute -top-4 -right-4 text-purple-100 dark:text-purple-500/10 transition-transform group-hover:scale-110">
-                            <Hammer size={120} strokeWidth={1} />
-                        </div>
-                        <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">LGU Projects</p>
-                        <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4">{projectsCount.toLocaleString()}</h2>
-                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-purple-600 italic">
-                            <span className="bg-purple-50 dark:bg-purple-500/10 px-2 py-1 rounded-full">Infrastructure Works</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Strategic Operations & Activity Logs 3-Column Layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    {/* Quick Actions (Col-span 1: Executive View) */}
-                    <div className="space-y-4 flex flex-col h-full">
-                        <h3 className="text-base font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Administrative Services</h3>
-                        <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] shadow-xl overflow-hidden divide-y divide-slate-100 dark:divide-[#2a3040] flex-1 flex flex-col justify-between p-2">
-                            {[
-                                { title: "Kainan Hub", desc: "Manage local dining & culinary spots.", icon: Utensils, color: "orange", action: "Manage", path: "/admin/dining" },
-                                { title: "Tuluyan Hub", desc: "Lodging & accommodation records.", icon: Hotel, color: "blue", action: "Manage", path: "/admin/accommodation" },
-                                { title: "Tourism Gallery", desc: "Showcase spots & gallery highlights.", icon: Image, color: "emerald", action: "Manage", path: "/admin/tourism" },
-                                { title: "Incident Reports", desc: "Monitor & review public incident files.", icon: Flag, color: "rose", action: "Review", path: "/admin/reports" },
-                                { title: "Emergency Hotlines", desc: "Update critical emergency list.", icon: Phone, color: "purple", action: "Manage", path: "/admin/hotlines" }
-                            ].map((item, idx) => (
-                                <Link
-                                    key={idx}
-                                    href={item.path}
-                                    className="px-5 py-4 flex-1 flex items-center justify-between transition-colors hover:bg-slate-50/50 dark:hover:bg-white/5 cursor-pointer rounded-2xl group"
-                                >
-                                    <div className="flex items-center space-x-4 min-w-0">
-                                        <div className={`w-12 h-12 rounded-2xl bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-50 dark:bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-500/10 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform`}>
-                                            <item.icon className={`w-6 h-6 text-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-600`} />
-                                        </div>
-                                        <div className="min-w-0 space-y-0.5">
-                                            <h4 className="text-base font-black text-slate-900 dark:text-white leading-tight uppercase italic truncate">{item.title}</h4>
-                                            <p className="text-slate-500 dark:text-slate-400 text-xs font-medium italic truncate">{item.desc}</p>
-                                        </div>
-                                    </div>
-                                    <span
-                                        className="text-center whitespace-nowrap px-4 py-2 rounded-xl text-xs font-black uppercase italic transition-all shadow-md hover:shadow-lg active:scale-95 text-white shrink-0 ml-3"
-                                        style={{ backgroundColor: themeColor }}
-                                    >
-                                        {item.action}
-                                    </span>
-                                </Link>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Resident Activity Logs (Col-span 1) */}
-                    <div className="space-y-4 flex flex-col">
-                        <h3 className="text-base font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Resident Activity</h3>
-                        <div className="flex-1">
-                            <ActivityLogsCard logs={activityLogs} selectedBarangay={selectedBarangay} />
-                        </div>
-                    </div>
-
-                    {/* Staff Audit Logs (Col-span 1) */}
-                    <div className="space-y-4 flex flex-col">
-                        <h3 className="text-base font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Staff Audit Logs</h3>
-                        <div className="flex-1">
-                            <StaffActivityLogsCard initialLogs={staffLogs} />
-                        </div>
-                    </div>
-                </div>
+                {/* Strategic Operations (Administrative Services, Resident Activity, Staff Audit Logs Grid) */}
+                <ConfigurableStrategicOpsSection
+                    themeColor={themeColor}
+                    activityLogs={activityLogs}
+                    staffLogs={staffLogs}
+                    selectedBarangay={selectedBarangay}
+                />
 
 
 
-                {/* Chart Section */}
-                <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    <TransactionDashboardView
-                        data={chartData}
-                        initialFrom={fromDate.toISOString().split("T")[0]}
-                        initialTo={toDate.toISOString().split("T")[0]}
-                        categories={categories}
-                        activeCategory={selectedCategory}
-                        themeColor={themeColor}
-                    />
-                </div>
+                {/* Configurable Analytical Charts & Reports Section (Daily Requests, Collections Ledger, Resident Analytics, Citizen Reports Grid) */}
+                <ConfigurableAnalyticsSection
+                    chartData={chartData}
+                    fromDate={fromDate}
+                    toDate={toDate}
+                    categories={categories}
+                    selectedCategory={selectedCategory}
+                    themeColor={themeColor}
+                    paymentChartData={paymentChartData}
+                    payFromDate={payFromDate}
+                    payToDate={payToDate}
+                    payCategory={payCategory}
+                    payMethod={payMethod}
+                    residentChartData={residentChartData}
+                    resFromDate={resFromDate}
+                    resToDate={resToDate}
+                    resGender={resGender}
+                    resCivil={resCivil}
+                    resSector={resSector}
+                    recentReportsDetailed={recentReportsDetailed}
+                />
 
-                {/* Payment Revenue Chart Section */}
-                <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    <PaymentDashboardView
-                        data={paymentChartData}
-                        initialFrom={payFromDate.toISOString().split("T")[0]}
-                        initialTo={payToDate.toISOString().split("T")[0]}
-                        categories={categories}
-                        activeCategory={payCategory}
-                        activeMethod={payMethod}
-                    />
-                </div>
-
-                {/* Resident Onboarding Chart Section */}
-                <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    <ResidentDashboardView
-                        data={residentChartData}
-                        initialFrom={resFromDate.toISOString().split("T")[0]}
-                        initialTo={resToDate.toISOString().split("T")[0]}
-                        activeGender={resGender}
-                        activeCivilStatus={resCivil}
-                        activeSector={resSector}
-                    />
-                </div>
-
-                {/* Citizen Reports Overview Section */}
-                <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    <ReportsOverviewCard
-                        initialReports={recentReportsDetailed.map((r: { id: string; category: string; status: string; description: string; createdAt: Date; user: { name: string | null } | null; barangay: { name: string } | null }) => ({
-                            ...r,
-                            createdAt: r.createdAt.toISOString()
-                        }))}
-                    />
-                </div>
-
-                {/* Recent Announcements & Latest News Side-by-Side */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    <RecentAnnouncementsCard announcements={recentAnnouncements} />
-                    <LatestNewsCard news={latestNews} />
-                </div>
-
-                {/* Upcoming Events & LGU Projects Side-by-Side */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    <UpcomingEventsCard events={upcomingEvents} pastEvents={pastEvents} />
-                    <LGUProjectsCard projects={activeProjects} />
-                </div>
+                {/* Configurable Community Updates & Events Section (Announcements, News, Events, Projects Grid) */}
+                <ConfigurableCommunitySection
+                    announcements={recentAnnouncements}
+                    news={latestNews}
+                    events={upcomingEvents}
+                    pastEvents={pastEvents}
+                    projects={activeProjects}
+                />
 
 
             </DashboardClientWrapper>

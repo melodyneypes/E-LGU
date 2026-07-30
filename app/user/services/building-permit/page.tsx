@@ -543,6 +543,16 @@ export default function BuildingPermitPage() {
   const [duplicatePropertyWarning, setDuplicatePropertyWarning] = useState<{ isProcessing: boolean; applicantName?: string } | null>(null);
 
   useEffect(() => {
+    const handleUnload = () => {
+      if (abandonedFilesRef.current.length > 0) {
+        navigator.sendBeacon("/api/upload/cleanup", JSON.stringify({ urls: abandonedFilesRef.current }));
+      }
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, []);
+
+  useEffect(() => {
     if (!formData.locationOfConstruction || formData.locationOfConstruction.trim().length < 5) {
       setDuplicatePropertyWarning(null);
       return;

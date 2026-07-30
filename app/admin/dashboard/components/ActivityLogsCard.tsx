@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Activity, UserPlus, FileText, CheckCircle2, AlertTriangle, Radio } from "lucide-react";
+import { Activity, UserPlus, FileText, CheckCircle2, AlertTriangle } from "lucide-react";
 
 interface ActivityLogItem {
   id: string;
@@ -16,6 +16,7 @@ interface ActivityLogItem {
 interface ActivityLogsCardProps {
   logs: ActivityLogItem[];
   selectedBarangay?: string;
+  maxItems?: number;
 }
 
 const typeIcons = {
@@ -32,7 +33,7 @@ const typeColors = {
   report: "text-amber-500 bg-amber-500/10",
 };
 
-export function ActivityLogsCard({ logs: initialLogs, selectedBarangay = "" }: ActivityLogsCardProps) {
+export function ActivityLogsCard({ logs: initialLogs, selectedBarangay = "", maxItems = 7 }: ActivityLogsCardProps) {
   const [currentLogs, setCurrentLogs] = useState<ActivityLogItem[]>(initialLogs);
 
   useEffect(() => {
@@ -82,7 +83,7 @@ export function ActivityLogsCard({ logs: initialLogs, selectedBarangay = "" }: A
   return (
     <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 pr-20">
         <div>
           <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white flex items-center gap-2">
             <Activity className="w-5 h-5 text-rose-500" />
@@ -96,11 +97,6 @@ export function ActivityLogsCard({ logs: initialLogs, selectedBarangay = "" }: A
             Resident Analytics
           </p>
         </div>
-
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest italic">
-          <Radio className="w-3.5 h-3.5 animate-pulse" />
-          <span>Live Sync</span>
-        </div>
       </div>
 
       {/* Timeline List */}
@@ -113,7 +109,7 @@ export function ActivityLogsCard({ logs: initialLogs, selectedBarangay = "" }: A
             </p>
           </div>
         ) : (
-          currentLogs.slice(0, 7).map((log) => {
+          currentLogs.slice(0, maxItems).map((log) => {
             const Icon = typeIcons[log.type];
             const colorClass = typeColors[log.type];
 
@@ -126,8 +122,8 @@ export function ActivityLogsCard({ logs: initialLogs, selectedBarangay = "" }: A
 
                 {/* Content */}
                 <div className="flex-1 min-w-0 space-y-1">
-                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 leading-snug">
-                    <span className="font-black text-slate-900 dark:text-white text-sm mr-1.5">{log.user}</span>
+                  <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 leading-snug break-words">
+                    <span className="font-black text-slate-900 dark:text-white text-xs mr-1">{log.user}</span>
                     <span className="text-slate-500 dark:text-slate-400 italic mr-1">{log.action}</span>
                     <span className="font-black text-rose-500 dark:text-rose-400 uppercase italic">{log.details}</span>
                   </p>

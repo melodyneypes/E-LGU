@@ -70,6 +70,8 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
         });
     };
 
+
+
     const handleMouseUp = () => {
         setIsDragging(false);
     };
@@ -81,7 +83,7 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
     };
 
     return (
-        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-transparent shadow-none flex flex-col items-center justify-center gap-6 outline-none">
+        <DialogContent aria-describedby={undefined} className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-transparent shadow-none flex flex-col items-center justify-center gap-6 outline-none">
             <DialogHeader className="sr-only">
                 <DialogTitle>{label}</DialogTitle>
             </DialogHeader>
@@ -115,6 +117,7 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
                             className="object-contain"
                             priority
                             draggable={false}
+                            unoptimized={true}
                         />
                     )}
                 </div>
