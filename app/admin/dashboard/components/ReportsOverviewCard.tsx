@@ -28,6 +28,7 @@ interface RecentReport {
 interface ReportsOverviewCardProps {
     initialReports: RecentReport[];
     isCompact?: boolean;
+    rowSpan?: number;
 }
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: React.ElementType }> = {
@@ -38,7 +39,7 @@ const statusConfig: Record<string, { label: string; color: string; bgColor: stri
     REJECTED: { label: "Rejected", color: "text-red-500", bgColor: "bg-red-500/10", icon: XCircle },
 };
 
-export function ReportsOverviewCard({ initialReports }: ReportsOverviewCardProps) {
+export function ReportsOverviewCard({ initialReports, rowSpan = 1 }: ReportsOverviewCardProps) {
     const { themeColor } = useSystemTheme();
     const searchParams = useSearchParams();
     const barangay = searchParams.get("barangay") || "";
@@ -94,8 +95,12 @@ export function ReportsOverviewCard({ initialReports }: ReportsOverviewCardProps
     }, [barangay, fetchReports]);
 
     return (
-        <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl h-full flex flex-col justify-between"
-            style={{ boxShadow: `0 25px 50px -12px color-mix(in srgb, ${themeColor} 8%, transparent)` }}
+        <div
+            className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl h-full flex flex-col justify-between transition-all duration-300"
+            style={{
+                minHeight: `${420 + (rowSpan - 1) * 140}px`,
+                boxShadow: `0 25px 50px -12px color-mix(in srgb, ${themeColor} 8%, transparent)`
+            }}
         >
             {/* Header */}
             <div className="flex items-center justify-between mb-6">

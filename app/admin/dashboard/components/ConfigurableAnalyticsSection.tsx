@@ -242,6 +242,7 @@ export function ConfigurableAnalyticsSection({
                         activeCategory={selectedCategory}
                         themeColor={themeColor}
                         isCompact={isCompact}
+                        rowSpan={cfg.rowSpan}
                     />
                 );
 
@@ -255,6 +256,7 @@ export function ConfigurableAnalyticsSection({
                         activeCategory={payCategory}
                         activeMethod={payMethod}
                         isCompact={isCompact}
+                        rowSpan={cfg.rowSpan}
                     />
                 );
 
@@ -268,6 +270,7 @@ export function ConfigurableAnalyticsSection({
                         activeCivilStatus={resCivil}
                         activeSector={resSector}
                         isCompact={isCompact}
+                        rowSpan={cfg.rowSpan}
                     />
                 );
 
@@ -279,6 +282,7 @@ export function ConfigurableAnalyticsSection({
                             createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
                         }))}
                         isCompact={isCompact}
+                        rowSpan={cfg.rowSpan}
                     />
                 );
 
