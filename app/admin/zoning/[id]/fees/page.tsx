@@ -92,6 +92,7 @@ export default function BuildingPermitFeesPage({ params }: PageProps) {
         engineerEndorsedToZoning &&
         !isEndorsed &&
         !isForcedView &&
+        !transaction?.isCancelled &&
         transaction?.status !== "REJECTED";
 
     const isViewOnly = !canEditZoningClearance;

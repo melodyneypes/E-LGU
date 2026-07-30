@@ -189,7 +189,7 @@ export default function BFPEvaluationPage({ params }: PageProps) {
     
     // BFP read-only only for non-BFP roles.
     const isBfpReadonly = userRole !== "BFP";
-    const isViewOnly = isForcedView || isBfpReadonly;
+    const isViewOnly = isForcedView || transaction?.isCancelled || isBfpReadonly;
     
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);

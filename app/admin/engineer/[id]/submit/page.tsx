@@ -54,7 +54,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
     const [viewerUrl, setViewerUrl] = useState<string | null>(null);
     const [viewerTitle, setViewerTitle] = useState("");
     const isSubmitted = ["FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(transaction?.status || "");
-    const isViewOnly = isForcedView || isSubmitted || transaction?.status !== "FOR_PROCESSING";
+    const isViewOnly = isForcedView || transaction?.isCancelled || isSubmitted || transaction?.status !== "FOR_PROCESSING";
 
     const fetchTransaction = useCallback(async () => {
         setLoading(true);

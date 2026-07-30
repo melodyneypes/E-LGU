@@ -47,13 +47,14 @@ export default function BuildingPermitInspectionPage({ params }: PageProps) {
     const [transaction, setTransaction] = useState<any>(null);
     const addData = (transaction?.additionalData as any) || {};
     const zoningStatus = addData.zoningStatus;
+
     const isZoningActive = userRole === "MPDC_ZONING" && transaction?.status === "EVALUATED" && (
         transaction?.additionalData?.feeAssessment?.engineerEndorsedToZoning === true ||
         transaction?.additionalData?.feeAssessment?.endorsed === true
     );
     const isZoningReadonly = userRole === "MPDC_ZONING" && !isZoningActive;
 
-    const isViewOnly = isForcedView || 
+    const isViewOnly = isForcedView || transaction?.isCancelled || 
         isZoningReadonly || 
         (userRole === "MPDC_ZONING" && isZoningActive && zoningStatus !== "FOR_INSPECTION") ||
         (userRole !== "MPDC_ZONING" && transaction && transaction.status !== "FOR_INSPECTION");

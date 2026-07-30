@@ -195,7 +195,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
 
     const [transaction, setTransaction] = useState<any>(null);
     const permitLabel = getEngineeringPermitLabel(transaction?.type?.code) || "Building Permit";
-    const isViewOnly = isForcedView || (transaction && transaction.status !== "FOR_REQUESTING" && transaction.status !== "FOR_REVISION");
+    const isViewOnly = isForcedView || transaction?.isCancelled || (transaction && transaction.status !== "FOR_REQUESTING" && transaction.status !== "FOR_REVISION");
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [remarks, setRemarks] = useState("");
