@@ -731,29 +731,27 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
 
     return (
         <div className="p-8 w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* Header Section */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-200 dark:border-[#2a3040]">
-                <div>
-                    <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">
-                        Municipal Overview
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic">
-                        Welcome, Municipal Admin. Viewing data for <span className="text-slate-900 dark:text-white font-bold">{selectedBarangay || "Mapandan"}</span>.
-                    </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-4">
-                    {isAdmin && (
+            <DashboardClientWrapper
+                headerAction={
+                    <div>
+                        <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">
+                            Executive Dashboard
+                        </h1>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm font-medium italic">
+                            Office of the Municipal Mayor — Jurisdiction: <span className="text-slate-900 dark:text-white font-bold">{selectedBarangay || "Municipality of Mapandan"}</span>
+                        </p>
+                    </div>
+                }
+                headerControls={
+                    isAdmin ? (
                         <BarangaySwitcher
                             availableBarangays={activeBarangays.map(b => b.name)}
                             currentBarangay={selectedBarangay}
                             themeColor={themeColor}
                         />
-                    )}
-                </div>
-            </div>
-
-            <DashboardClientWrapper>
+                    ) : null
+                }
+            >
                 {/* Configurable 4 Stat Cards Grid (Top Metric Section Only) */}
                 <ConfigurableMetricCardsSection
                     residentsCount={residentsCount}
@@ -769,8 +767,6 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     staffLogs={staffLogs}
                     selectedBarangay={selectedBarangay}
                 />
-
-
 
                 {/* Configurable Analytical Charts & Reports Section (Daily Requests, Collections Ledger, Resident Analytics, Citizen Reports Grid) */}
                 <ConfigurableAnalyticsSection
@@ -802,8 +798,6 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     pastEvents={pastEvents}
                     projects={activeProjects}
                 />
-
-
             </DashboardClientWrapper>
         </div>
     );
