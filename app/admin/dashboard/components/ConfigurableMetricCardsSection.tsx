@@ -172,21 +172,35 @@ export function ConfigurableMetricCardsSection({
 
     const renderCardInner = (key: string, cfg: MetricCardConfig) => {
         const isWide = cfg.colSpan > 6;
+        const isTall = cfg.rowSpan > 1;
+
+        // Dynamic min-height per row step (Row 1 = 180px, Row 2 = 300px, Row 3 = 420px, etc.)
+        const calculatedMinHeight = Math.max(180, 180 + (cfg.rowSpan - 1) * 120);
+        // Dynamic icon size scaling based on both width and height
+        const calculatedIconSize = Math.min(260, Math.max(120, 120 + (cfg.colSpan > 6 ? 40 : 0) + (cfg.rowSpan - 1) * 35));
+        const calculatedFontSize = isTall && isWide ? "text-7xl" : isTall ? "text-6xl" : isWide ? "text-6xl" : "text-5xl";
+
+        const containerStyle: React.CSSProperties = {
+            minHeight: `${calculatedMinHeight}px`,
+        };
 
         switch (key) {
             case "residents":
                 return (
-                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1 h-full flex flex-col justify-between">
+                    <div
+                        style={containerStyle}
+                        className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1 h-full flex flex-col justify-between"
+                    >
                         <div className="absolute -top-4 -right-4 text-blue-100 dark:text-blue-500/10 transition-transform group-hover:scale-110 pointer-events-none">
-                            <Users size={isWide ? 160 : 120} strokeWidth={1} />
+                            <Users size={calculatedIconSize} strokeWidth={1} />
                         </div>
-                        <div>
+                        <div className="z-10">
                             <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Total Residents</p>
-                            <h2 className={`font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4 transition-all ${isWide ? "text-6xl" : "text-5xl"}`}>
+                            <h2 className={`font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4 transition-all ${calculatedFontSize}`}>
                                 {residentsCount.toLocaleString()}
                             </h2>
                         </div>
-                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-blue-600 italic">
+                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-blue-600 italic z-10">
                             <span className="bg-blue-50 dark:bg-blue-500/10 px-2.5 py-1 rounded-full border border-blue-500/20">Registered Registry</span>
                         </div>
                     </div>
@@ -194,17 +208,20 @@ export function ConfigurableMetricCardsSection({
 
             case "jobs":
                 return (
-                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1 h-full flex flex-col justify-between">
+                    <div
+                        style={containerStyle}
+                        className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1 h-full flex flex-col justify-between"
+                    >
                         <div className="absolute -top-4 -right-4 text-emerald-100 dark:text-emerald-500/10 transition-transform group-hover:scale-110 pointer-events-none">
-                            <Briefcase size={isWide ? 160 : 120} strokeWidth={1} />
+                            <Briefcase size={calculatedIconSize} strokeWidth={1} />
                         </div>
-                        <div>
+                        <div className="z-10">
                             <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Jobs Posted</p>
-                            <h2 className={`font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4 transition-all ${isWide ? "text-6xl" : "text-5xl"}`}>
+                            <h2 className={`font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4 transition-all ${calculatedFontSize}`}>
                                 {jobsCount.toLocaleString()}
                             </h2>
                         </div>
-                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-emerald-600 italic">
+                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-emerald-600 italic z-10">
                             <span className="bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">Available Openings</span>
                         </div>
                     </div>
@@ -212,17 +229,20 @@ export function ConfigurableMetricCardsSection({
 
             case "reports":
                 return (
-                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1 h-full flex flex-col justify-between">
+                    <div
+                        style={containerStyle}
+                        className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1 h-full flex flex-col justify-between"
+                    >
                         <div className="absolute -top-4 -right-4 text-orange-100 dark:text-orange-500/10 transition-transform group-hover:scale-110 pointer-events-none">
-                            <AlertTriangle size={isWide ? 160 : 120} strokeWidth={1} />
+                            <AlertTriangle size={calculatedIconSize} strokeWidth={1} />
                         </div>
-                        <div>
+                        <div className="z-10">
                             <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">Pending Reports</p>
-                            <h2 className={`font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4 transition-all ${isWide ? "text-6xl" : "text-5xl"}`}>
+                            <h2 className={`font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4 transition-all ${calculatedFontSize}`}>
                                 {reportsCount.toLocaleString()}
                             </h2>
                         </div>
-                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-orange-600 italic">
+                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-orange-600 italic z-10">
                             <span className="bg-orange-50 dark:bg-orange-500/10 px-2.5 py-1 rounded-full border border-orange-500/20">Needs Response</span>
                         </div>
                     </div>
@@ -230,17 +250,20 @@ export function ConfigurableMetricCardsSection({
 
             case "projects":
                 return (
-                    <div className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1 h-full flex flex-col justify-between">
+                    <div
+                        style={containerStyle}
+                        className="bg-white dark:bg-[#1e2330] rounded-[2.5rem] p-8 border border-slate-200 dark:border-[#2a3040] relative overflow-hidden group shadow-xl transition-all hover:-translate-y-1 h-full flex flex-col justify-between"
+                    >
                         <div className="absolute -top-4 -right-4 text-purple-100 dark:text-purple-500/10 transition-transform group-hover:scale-110 pointer-events-none">
-                            <Hammer size={isWide ? 160 : 120} strokeWidth={1} />
+                            <Hammer size={calculatedIconSize} strokeWidth={1} />
                         </div>
-                        <div>
+                        <div className="z-10">
                             <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1 italic">LGU Projects</p>
-                            <h2 className={`font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4 transition-all ${isWide ? "text-6xl" : "text-5xl"}`}>
+                            <h2 className={`font-black text-slate-900 dark:text-white tracking-tighter italic leading-none mb-4 transition-all ${calculatedFontSize}`}>
                                 {projectsCount.toLocaleString()}
                             </h2>
                         </div>
-                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-purple-600 italic">
+                        <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-purple-600 italic z-10">
                             <span className="bg-purple-50 dark:bg-purple-500/10 px-2.5 py-1 rounded-full border border-purple-500/20">Infrastructure Works</span>
                         </div>
                     </div>
@@ -269,17 +292,7 @@ export function ConfigurableMetricCardsSection({
     return (
         <div className="space-y-4">
             {/* Top Bar Section Header Toolbar with Settings Sidebar Icon */}
-            <div className="flex items-center justify-between px-2 py-1">
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">
-                        Core Performance Metrics
-                    </span>
-                    {hiddenKeys.length > 0 && (
-                        <span className="text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full italic">
-                            Auto-Reflowed ({cardKeys.length - hiddenKeys.length}/{cardKeys.length} Visible)
-                        </span>
-                    )}
-                </div>
+            <div className="flex items-center justify-end px-2 py-1">
                 <div className="flex items-center gap-2">
                     {/* Appbar Workspace Settings Drawer Trigger Icon */}
                     <DashboardSettingsSidebar
@@ -290,8 +303,8 @@ export function ConfigurableMetricCardsSection({
                 </div>
             </div>
 
-            {/* 12-Column CSS Grid Container for the 4 Stat Cards with Smooth Transition Reflow */}
-            <div className="grid grid-cols-12 gap-6 items-stretch transition-all duration-500 ease-in-out">
+            {/* 12-Column CSS Grid Container for the 4 Stat Cards with Independent Height & Reflow */}
+            <div className="grid grid-cols-12 gap-6 items-start transition-all duration-500 ease-in-out">
                 {cardKeys.map((key) => {
                     const cfg = configs[key] || { id: key, colSpan: 3, rowSpan: 1, hidden: false };
                     if (cfg.hidden) return null;
