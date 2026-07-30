@@ -48,10 +48,7 @@ export function ConfigurableStrategicOpsSection({
         return initial;
     });
 
-    const [isMounted, setIsMounted] = useState(false);
-
     useEffect(() => {
-        setIsMounted(true);
         try {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {

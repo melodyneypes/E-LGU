@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Eye, EyeOff, RotateCcw, Users, Briefcase, AlertTriangle, Hammer, GripVertical } from "lucide-react";
+import { Users, Briefcase, AlertTriangle, Hammer, GripVertical } from "lucide-react";
 import { MetricCardGridPicker } from "./MetricCardGridPicker";
 import { DashboardSettingsSidebar } from "./DashboardSettingsSidebar";
-import { Button } from "@/components/ui/button";
 
 export interface MetricCardConfig {
     id: string;
@@ -57,10 +56,8 @@ export function ConfigurableMetricCardsSection({
 
     const [draggedKey, setDraggedKey] = useState<string | null>(null);
     const [dragOverKey, setDragOverKey] = useState<string | null>(null);
-    const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
-        setIsMounted(true);
         try {
             const savedConfigs = localStorage.getItem(STORAGE_KEY);
             if (savedConfigs) {
@@ -229,8 +226,6 @@ export function ConfigurableMetricCardsSection({
     DEFAULT_KEYS.forEach((k) => {
         cardVisibilityMap[k] = !configs[k]?.hidden;
     });
-
-    const hiddenKeys = DEFAULT_KEYS.filter((k) => configs[k]?.hidden);
 
     const renderCardInner = (key: string, cfg: MetricCardConfig) => {
         const isWide = cfg.colSpan > 6;

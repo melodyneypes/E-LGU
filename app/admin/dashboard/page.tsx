@@ -6,8 +6,6 @@ import { getMultipleSystemSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 import { BarangaySwitcher } from "../components/BarangaySwitcher";
-import { Users, Briefcase, AlertTriangle, Hammer, Utensils, Hotel, Image, Flag, Phone } from "lucide-react";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TransactionDashboardView } from "./components/TransactionDashboardView";
 import { PaymentDashboardView } from "./components/PaymentDashboardView";
@@ -16,8 +14,6 @@ import { RecentAnnouncementsCard } from "./components/RecentAnnouncementsCard";
 import { LatestNewsCard } from "./components/LatestNewsCard";
 import { UpcomingEventsCard } from "./components/UpcomingEventsCard";
 import { LGUProjectsCard } from "./components/LGUProjectsCard";
-import { ActivityLogsCard } from "./components/ActivityLogsCard";
-import { StaffActivityLogsCard } from "./components/StaffActivityLogsCard";
 import { ReportsOverviewCard } from "./components/ReportsOverviewCard";
 import { DashboardClientWrapper } from "./components/DashboardClientWrapper";
 import { ConfigurableMetricCardsSection } from "./components/ConfigurableMetricCardsSection";

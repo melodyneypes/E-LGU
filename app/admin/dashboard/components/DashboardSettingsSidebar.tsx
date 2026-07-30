@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { SlidersHorizontal, Eye, EyeOff, LayoutGrid, RotateCcw, X } from "lucide-react";
+import { SlidersHorizontal, Eye, EyeOff, LayoutGrid, RotateCcw } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 

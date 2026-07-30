@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { ShieldCheck, UserCheck, Radio, Building2 } from "lucide-react";
+import { ShieldCheck, UserCheck, Building2 } from "lucide-react";
 
 export interface StaffActivityItem {
   id: string;
