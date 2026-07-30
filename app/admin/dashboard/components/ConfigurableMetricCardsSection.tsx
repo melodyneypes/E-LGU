@@ -195,6 +195,30 @@ export function ConfigurableMetricCardsSection({
         }
     };
 
+    // Global Auto-Scroll Listener while dragging any card
+    useEffect(() => {
+        if (!draggedKey) return;
+
+        const handleGlobalDragOver = (e: DragEvent) => {
+            const threshold = 140;
+            const speed = 25;
+
+            // Find scrollable main container in AdminShell or window
+            const scrollContainer = document.querySelector("main.overflow-y-auto") || window;
+
+            if (e.clientY < threshold) {
+                scrollContainer.scrollBy({ top: -speed, behavior: "auto" });
+            } else if (window.innerHeight - e.clientY < threshold) {
+                scrollContainer.scrollBy({ top: speed, behavior: "auto" });
+            }
+        };
+
+        window.addEventListener("dragover", handleGlobalDragOver);
+        return () => {
+            window.removeEventListener("dragover", handleGlobalDragOver);
+        };
+    }, [draggedKey]);
+
     // HTML5 Drag & Drop Event Handlers
     const onDragStart = (e: React.DragEvent, key: string) => {
         e.dataTransfer.setData("text/plain", key);
@@ -224,7 +248,7 @@ export function ConfigurableMetricCardsSection({
 
         if (!DEFAULT_KEYS.includes(sourceKey)) {
             toast.error("Cross-Section Drag Restricted", {
-                description: "Executive Stat Cards can only be reordered within the Core Performance Metrics section.",
+                description: "Core Performance Metric Cards can only be reordered within their own section.",
             });
             return;
         }

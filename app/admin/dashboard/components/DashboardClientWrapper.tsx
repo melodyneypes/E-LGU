@@ -26,11 +26,23 @@ export function DashboardClientWrapper({ children }: DashboardClientWrapperProps
     citizen_reports: true,
   });
 
+  // Community Cards Visibility State
+  const [communityVisibilityMap, setCommunityVisibilityMap] = useState<Record<string, boolean>>({
+    recent_announcements: true,
+    latest_news: true,
+    upcoming_events: true,
+    lgu_projects: true,
+  });
+
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("emapandan_analytics_visibility_v1");
-      if (saved) {
-        setAnalyticsVisibilityMap((prev) => ({ ...prev, ...JSON.parse(saved) }));
+      const savedAnalytics = localStorage.getItem("emapandan_analytics_visibility_v1");
+      if (savedAnalytics) {
+        setAnalyticsVisibilityMap((prev) => ({ ...prev, ...JSON.parse(savedAnalytics) }));
+      }
+      const savedCommunity = localStorage.getItem("emapandan_community_visibility_v1");
+      if (savedCommunity) {
+        setCommunityVisibilityMap((prev) => ({ ...prev, ...JSON.parse(savedCommunity) }));
       }
     } catch {
       /* Fallback */
@@ -42,6 +54,18 @@ export function DashboardClientWrapper({ children }: DashboardClientWrapperProps
       const updated = { ...prev, [key]: !prev[key] };
       try {
         localStorage.setItem("emapandan_analytics_visibility_v1", JSON.stringify(updated));
+      } catch {
+        /* Fail gracefully */
+      }
+      return updated;
+    });
+  };
+
+  const toggleCommunityVisibility = (key: string) => {
+    setCommunityVisibilityMap((prev) => {
+      const updated = { ...prev, [key]: !prev[key] };
+      try {
+        localStorage.setItem("emapandan_community_visibility_v1", JSON.stringify(updated));
       } catch {
         /* Fail gracefully */
       }
@@ -124,14 +148,29 @@ export function DashboardClientWrapper({ children }: DashboardClientWrapperProps
     return <DashboardLoading />;
   }
 
+  const mergedVisibilityMap: Record<string, boolean> = {
+    ...analyticsVisibilityMap,
+    ...communityVisibilityMap,
+  };
+
+  const handleToggleCommunityOrAnalytics = (key: string) => {
+    if (["recent_announcements", "latest_news", "upcoming_events", "lgu_projects"].includes(key)) {
+      toggleCommunityVisibility(key);
+    } else {
+      toggleAnalyticsVisibility(key);
+    }
+  };
+
   return (
     <>
       {React.Children.map(children, (child) => {
         if (React.isValidElement(child)) {
           return React.cloneElement(child as React.ReactElement<any>, {
             analyticsVisibilityMap,
-            onToggleAnalyticsVisibility: toggleAnalyticsVisibility,
-            cardVisibility: analyticsVisibilityMap,
+            onToggleAnalyticsVisibility: handleToggleCommunityOrAnalytics,
+            communityVisibilityMap,
+            onToggleCommunityVisibility: toggleCommunityVisibility,
+            cardVisibility: mergedVisibilityMap,
           });
         }
         return child;

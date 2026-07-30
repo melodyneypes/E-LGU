@@ -31,6 +31,13 @@ const ANALYTICS_CARDS: Record<string, { label: string; desc: string; category: s
     citizen_reports: { label: "Citizen Reports Overview", desc: "Live community report feed & resolution status", category: "Public Safety" },
 };
 
+const COMMUNITY_CARDS: Record<string, { label: string; desc: string; category: string }> = {
+    recent_announcements: { label: "Recent Announcements", desc: "Latest municipal announcements for residents", category: "Public Notice" },
+    latest_news: { label: "Latest News", desc: "Published LGU articles & press releases", category: "Media" },
+    upcoming_events: { label: "Upcoming Events", desc: "Town hall, live & upcoming municipal events", category: "Events" },
+    lgu_projects: { label: "LGU Infrastructure Projects", desc: "Infrastructure & development progress tracker", category: "Development" },
+};
+
 export function DashboardSettingsSidebar({
     cardVisibility,
     onToggleVisibility,
@@ -39,7 +46,8 @@ export function DashboardSettingsSidebar({
     const topKeys = Object.keys(TOP_CARDS);
     const strategicKeys = Object.keys(STRATEGIC_CARDS);
     const analyticsKeys = Object.keys(ANALYTICS_CARDS);
-    const allKeys = [...topKeys, ...strategicKeys, ...analyticsKeys];
+    const communityKeys = Object.keys(COMMUNITY_CARDS);
+    const allKeys = [...topKeys, ...strategicKeys, ...analyticsKeys, ...communityKeys];
 
     const hiddenCount = allKeys.filter((k) => cardVisibility[k] === false).length;
 
@@ -186,6 +194,56 @@ export function DashboardSettingsSidebar({
 
                         {analyticsKeys.map((key) => {
                             const info = ANALYTICS_CARDS[key];
+                            const isVisible = cardVisibility[key] !== false;
+
+                            return (
+                                <div
+                                    key={key}
+                                    className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                                        isVisible
+                                            ? "bg-slate-900/80 border-slate-800 hover:border-slate-700"
+                                            : "bg-slate-900/30 border-slate-800/40 opacity-50"
+                                    }`}
+                                >
+                                    <div className="min-w-0 space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-black uppercase italic tracking-tight text-white truncate">
+                                                {info.label}
+                                            </span>
+                                            <span className="text-[9px] font-mono uppercase bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-md">
+                                                {info.category}
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-slate-400 truncate italic">
+                                            {info.desc}
+                                        </p>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => onToggleVisibility(key)}
+                                        className={`p-2 rounded-xl transition-all border ${
+                                            isVisible
+                                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/30"
+                                                : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white"
+                                        }`}
+                                        title={isVisible ? "Hide Card" : "Show Card"}
+                                    >
+                                        {isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Community & Public Affairs Category */}
+                    <div className="space-y-3 pt-2 border-t border-slate-800/60">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">
+                            Community & Public Affairs ({communityKeys.filter(k => cardVisibility[k] !== false).length}/{communityKeys.length} Visible)
+                        </div>
+
+                        {communityKeys.map((key) => {
+                            const info = COMMUNITY_CARDS[key];
                             const isVisible = cardVisibility[key] !== false;
 
                             return (

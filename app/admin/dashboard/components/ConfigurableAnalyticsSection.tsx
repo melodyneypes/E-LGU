@@ -7,6 +7,7 @@ import { TransactionDashboardView } from "./TransactionDashboardView";
 import { PaymentDashboardView } from "./PaymentDashboardView";
 import { ResidentDashboardView } from "./ResidentDashboardView";
 import { ReportsOverviewCard } from "./ReportsOverviewCard";
+import { toast } from "sonner";
 
 export interface AnalyticsCardConfig {
     id: string;
@@ -174,6 +175,30 @@ export function ConfigurableAnalyticsSection({
         saveConfigs(updated);
     };
 
+    // Global Auto-Scroll Listener while dragging any card
+    useEffect(() => {
+        if (!draggedKey) return;
+
+        const handleGlobalDragOver = (e: DragEvent) => {
+            const threshold = 140;
+            const speed = 25;
+
+            // Find scrollable main container in AdminShell or window
+            const scrollContainer = document.querySelector("main.overflow-y-auto") || window;
+
+            if (e.clientY < threshold) {
+                scrollContainer.scrollBy({ top: -speed, behavior: "auto" });
+            } else if (window.innerHeight - e.clientY < threshold) {
+                scrollContainer.scrollBy({ top: speed, behavior: "auto" });
+            }
+        };
+
+        window.addEventListener("dragover", handleGlobalDragOver);
+        return () => {
+            window.removeEventListener("dragover", handleGlobalDragOver);
+        };
+    }, [draggedKey]);
+
     // HTML5 Drag & Drop Handlers
     const onDragStart = (e: React.DragEvent, key: string) => {
         e.dataTransfer.setData("text/plain", key);
@@ -200,6 +225,13 @@ export function ConfigurableAnalyticsSection({
         setDragOverKey(null);
 
         if (!sourceKey || sourceKey === targetKey) return;
+
+        if (!DEFAULT_KEYS.includes(sourceKey)) {
+            toast.error("Cross-Section Drag Restricted", {
+                description: "Analytics & Intelligence Cards can only be reordered within the Analytics section.",
+            });
+            return;
+        }
 
         const currentOrder = [...cardOrder];
         const fromIndex = currentOrder.indexOf(sourceKey);
