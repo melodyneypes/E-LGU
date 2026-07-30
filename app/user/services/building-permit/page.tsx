@@ -483,7 +483,20 @@ export default function BuildingPermitPage() {
   const [idChoice, setIdChoice] = useState<"PROFILE" | "UPLOAD">("PROFILE");
   const [activeDocTab, setActiveDocTab] = useState<"REQUIREMENTS" | "PERMITS">("REQUIREMENTS");
   const [uploadedRequirements, setUploadedRequirements] = useState<Record<number, any>>({});
-  const [abandonedFiles, setAbandonedFiles] = useState<string[]>([]);
+  const abandonedFilesRef = React.useRef<string[]>([]);
+
+  useEffect(() => {
+    const handleUnload = () => {
+      if (abandonedFilesRef.current.length > 0) {
+        navigator.sendBeacon("/api/upload/cleanup", JSON.stringify({ urls: abandonedFilesRef.current }));
+      }
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+      handleUnload();
+    };
+  }, []);
 
   const [formData, setFormData] = useState({
     descriptionOfWork: "",
@@ -528,16 +541,6 @@ export default function BuildingPermitPage() {
 
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [duplicatePropertyWarning, setDuplicatePropertyWarning] = useState<{ isProcessing: boolean; applicantName?: string } | null>(null);
-
-  useEffect(() => {
-    const handleUnload = () => {
-      if (abandonedFiles.length > 0) {
-        navigator.sendBeacon("/api/upload/cleanup", JSON.stringify({ urls: abandonedFiles }));
-      }
-    };
-    window.addEventListener("beforeunload", handleUnload);
-    return () => window.removeEventListener("beforeunload", handleUnload);
-  }, [abandonedFiles]);
 
   useEffect(() => {
     if (!formData.locationOfConstruction || formData.locationOfConstruction.trim().length < 5) {
@@ -1437,6 +1440,7 @@ export default function BuildingPermitPage() {
         if (signatureUrl) {
           await saveTransactionSignature(result.transactionId!, signatureUrl);
         }
+        abandonedFilesRef.current = [];
         // Fetch the updated data so the application becomes read-only and back button works
         const permitsRes = await getExistingBuildingPermits();
         if (permitsRes.success) {
@@ -2865,7 +2869,7 @@ export default function BuildingPermitPage() {
               isPrivacyModalOpen={isPrivacyModalOpen}
               setIsPrivacyModalOpen={setIsPrivacyModalOpen}
               setCurrentStep={setCurrentStep}
-              setAbandonedFiles={setAbandonedFiles}
+              addAbandonedFile={(url) => abandonedFilesRef.current.push(url)}
             />
             <button
               id="submitBtn"

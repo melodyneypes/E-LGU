@@ -489,20 +489,19 @@ export default function OccupancyPermitPage() {
     }
     return filtered;
   })();
-
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [idChoice, setIdChoice] = useState<"PROFILE" | "UPLOAD">("PROFILE");
   const [activeDocTab, setActiveDocTab] = useState<"REQUIREMENTS" | "PERMITS">("REQUIREMENTS");
   const [uploadedRequirements, setUploadedRequirements] = useState<Record<number, any>>({});
-  const [abandonedFiles, setAbandonedFiles] = useState<string[]>([]);
+  const abandonedFilesRef = React.useRef<string[]>([]);
 
   useEffect(() => {
     return () => {
-      if (abandonedFiles.length > 0) {
-        navigator.sendBeacon("/api/upload/cleanup", JSON.stringify({ urls: abandonedFiles }));
+      if (abandonedFilesRef.current.length > 0) {
+        navigator.sendBeacon("/api/upload/cleanup", JSON.stringify({ urls: abandonedFilesRef.current }));
       }
     };
-  }, [abandonedFiles]);
+  }, []);
 
   const handleAsyncUpload = async (file: File, isRequirement: boolean, idx?: number, otherField?: string) => {
     const fieldName = otherField || (isRequirement ? `req_${idx}` : `permit_${idx}`);
@@ -516,7 +515,7 @@ export default function OccupancyPermitPage() {
       const target = allocation.success ? allocation.data?.[0] : undefined;
       const url = target ? await uploadFileClientSide(file, fieldName, target) : null;
       if (url) {
-        setAbandonedFiles(prev => [...prev, url]);
+        abandonedFilesRef.current.push(url);
         if (otherField) {
           setFormData(prev => ({ ...prev, [otherField]: url }));
         } else if (isRequirement && idx !== undefined) {
@@ -570,7 +569,7 @@ export default function OccupancyPermitPage() {
 
   const [uploadedPermits, setUploadedPermits] = useState<Record<number, any>>({});
   const [customRequirements, setCustomRequirements] = useState<{ label: string }[]>([]);
-  const [customPermits, setCustomPermits] = useState<{ label: string }[]>([]);
+  const [, setCustomPermits] = useState<{ label: string }[]>([]);
   const [isAddCustomDocOpen, setIsAddCustomDocOpen] = useState(false);
   const [customDocName, setCustomDocName] = useState("");
 
@@ -655,14 +654,7 @@ export default function OccupancyPermitPage() {
 
   const isAffidavitOfConsentRequired = formData.isLotOwner === "No";
   const hasMultipleFloors = parseInt(formData.totalFloors || "0", 10) > 1;
-  const requiredRequirementIndexes = Array.from({ length: 25 }, (_, index) => index)
-    .filter(index => {
-      if ([2, 5, 8, 13, 14].includes(index)) return false;
-      if (!isAffidavitOfConsentRequired && [7, 10, 11, 12, 13, 14].includes(index)) return false;
-      if (isAffidavitOfConsentRequired && [21, 22].includes(index)) return false;
-      if (!hasMultipleFloors && [23, 24].includes(index)) return false;
-      return true;
-    });
+  const requiredRequirementIndexes = [0, 1, 2, 3, 4];
   const requiredRequirementsCount = requiredRequirementIndexes.length;
   const uploadedRequirementKeys = new Set([
     ...Object.keys(effectiveDocuments || {}).filter(k => k.startsWith("req_")),
@@ -671,62 +663,22 @@ export default function OccupancyPermitPage() {
   const requirementsProgress = requiredRequirementIndexes
     .filter(index => uploadedRequirementKeys.has(`req_${index}`)).length;
 
-  const requiredPermitIndexes: number[] = [];
-  const requiredPermitsCount = 4;
-  const uploadedPermitKeys = new Set([
-    ...Object.keys(effectiveDocuments || {}).filter(k => k.startsWith("permit_")),
-    ...Object.keys(uploadedPermits).map(k => `permit_${k}`)
-  ]);
-  const uploadedPermitsCount = uploadedPermitKeys.size;
   const uploadedRequirementsCount = uploadedRequirementKeys.size;
-  const totalRequiredItems = requiredRequirementsCount + requiredPermitsCount;
   // UPDATED: Exclude CANCELLED and isCancelled from blocking new applications
   const hasActiveApplication = existingApplications.some(app =>
     !["RELEASED", "REJECTED", "DELIVERED", "CANCELLED"].includes(app.status) && !app.isCancelled
   );
 
   const documentRequirementsList = [
-    "Barangay Clearance/Certification",
-    "Tax Declaration",
-    "Land Title",
-    "Community Tax Certificate",
-    "Latest Tax Receipts",
-    "Adjoining Owners Confirmation",
-    "Locational Clearance",
-    "Affidavit of Consent",
-    "Affidavit of Adjoining Owners",
-    "Signed & Sealed Plans",
-    "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
-    "Cedula of Lot Owner",
-    "ID of Lot Owner",
-    "Death Certificate of Lot Owner (Optional)",
-    "Birth Certificate of Heirs of Deceased Owner (Optional)",
-    "Valid Licenses (PRC I.D.) of Involved Professionals",
-    "Duly Notarized Estimated Value of Building/Structure",
-    "Duly Notarized Technical Specification",
-    "Construction Safety and Health Program From DOLE",
-    "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
-    "Affidavit of Undertaking",
-    "Cedula of Applicant",
-    "ID of applicant with 3 signatures",
-    "Structural Analysis and Design",
-    "Soil Boring Test"
+    "Duly Notarized Certificate of Completion",
+    "Construction Logbook, signed and sealed by Owner's Architect and Civil Engineer",
+    "As-Built Plans, signed and sealed by the Owner's Architect and Civil Engineer",
+    "Valid Licenses of All Involved Professionals",
+    "Captioned Photographs of Site and Completed Building/Structure (Front, Sides, and Rear Areas)",
+    "Duly Notarized Affidavit of Undertaking (Optional)"
   ];
 
-  const permitTypesList = [
-    "Electrical Documents",
-    "Plumbing Documents",
-    "Sanitary Documents",
-    "Excavation & Ground Preparation Documents",
-    "Fencing Documents",
-    "Scaffolding Documents",
-    "Mechanical Documents",
-    "Architectural Documents",
-    "Civil/Structural Documents",
-    "Electronics Documents",
-    "Geodetic Documents",
-    "Fire Protection Plan"
-  ];
+  const permitTypesList: string[] = [];
 
   useEffect(() => {
     async function init() {
@@ -1220,14 +1172,11 @@ export default function OccupancyPermitPage() {
   };
 
   const handleSubmit = async () => {
-    if (requirementsProgress < requiredRequirementsCount || uploadedPermitsCount < 4 || !signatureUrl || !privacyAccepted) {
+    if (requirementsProgress < requiredRequirementsCount || !signatureUrl || !privacyAccepted) {
       setShowValidationErrors(true);
       if (requirementsProgress < requiredRequirementsCount) {
         toast.warning(`Please ensure ALL ${requiredRequirementsCount} required documents are provided.`);
         setActiveDocTab("REQUIREMENTS");
-      } else if (uploadedPermitsCount < 4) {
-        toast.warning(`Please upload 4 or more permits to proceed.`);
-        setActiveDocTab("PERMITS");
       } else if (!signatureUrl) {
         toast.warning("Please provide your digital signature before submitting.");
       } else {
@@ -1355,39 +1304,6 @@ export default function OccupancyPermitPage() {
       }
 
       // 4. Upload Permits
-      const finalPermitUrls: Record<string, string> = {};
-      for (let i = 0; i < 7; i++) {
-        const fileOrUrl = uploadedPermits[i];
-        if (fileOrUrl instanceof File) {
-          queueUpload(fileOrUrl, "permits", `permit_${i}`, url => { if (url) finalPermitUrls[`permit_${i}`] = url; });
-        } else if (typeof fileOrUrl === 'string') {
-          finalPermitUrls[`permit_${i}`] = fileOrUrl;
-        } else if (effectiveDocuments?.[`permit_${i}`]) {
-          finalPermitUrls[`permit_${i}`] = effectiveDocuments[`permit_${i}`];
-        }
-      }
-      // Process custom permits (index >= 7)
-      for (const idxStr of Object.keys(uploadedPermits)) {
-        const idx = parseInt(idxStr, 10);
-        if (idx >= 7) {
-          const fileOrUrl = uploadedPermits[idx];
-          if (fileOrUrl instanceof File) {
-            queueUpload(fileOrUrl, "permits", `permit_${idx}`, url => { if (url) finalPermitUrls[`permit_${idx}`] = url; });
-          } else if (typeof fileOrUrl === 'string') {
-            finalPermitUrls[`permit_${idx}`] = fileOrUrl;
-          }
-        }
-      }
-      if (effectiveDocuments) {
-        Object.entries(effectiveDocuments).forEach(([key, url]) => {
-          if (key.startsWith("permit_")) {
-            const idx = parseInt(key.replace("permit_", ""), 10);
-            if (idx >= 7 && !finalPermitUrls[key] && url) {
-              finalPermitUrls[key] = url as string;
-            }
-          }
-        });
-      }
 
       if (uploadRequests.length > 0) {
         const batchResult = await getSecureUploadUrlsAction(uploadRequests, "occupancy_permits");
@@ -1404,9 +1320,6 @@ export default function OccupancyPermitPage() {
       Object.assign(customLabels, existingLabels);
       customRequirements.forEach((req, idx) => {
         customLabels[`req_${10 + idx}`] = req.label;
-      });
-      customPermits.forEach((permit, idx) => {
-        customLabels[`permit_${7 + idx}`] = permit.label;
       });
 
       const data = new FormData();
@@ -1447,9 +1360,6 @@ export default function OccupancyPermitPage() {
       Object.entries(finalReqUrls).forEach(([key, url]) => {
         data.append(key, url);
       });
-      Object.entries(finalPermitUrls).forEach(([key, url]) => {
-        data.append(key, url);
-      });
       data.append("customLabels", JSON.stringify(customLabels));
 
       let result;
@@ -1463,6 +1373,7 @@ export default function OccupancyPermitPage() {
         if (signatureUrl) {
           await saveTransactionSignature(result.transactionId!, signatureUrl);
         }
+        abandonedFilesRef.current = [];
         // Fetch the updated data so the application becomes read-only and back button works
         const permitsRes = await getExistingOccupancyPermits();
         if (permitsRes.success) {
@@ -2874,53 +2785,11 @@ export default function OccupancyPermitPage() {
 
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
-              <button
-                onClick={() => setActiveDocTab("REQUIREMENTS")}
-                className={cn(
-                  "flex-1 py-4 px-6 rounded-full font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center justify-center gap-3 transition-all border w-full",
-                  activeDocTab === "REQUIREMENTS"
-                    ? "text-white shadow-xl"
-                    : "bg-white dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
-                )}
-                style={activeDocTab === "REQUIREMENTS" ? {
-                  backgroundColor: themeColor,
-                  borderColor: themeColor,
-                  boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
-                } : undefined}
-              >
-                <FileText className="w-4 h-4" />
-                Requirements ({requiredRequirementsCount} items)
-              </button>
-              <button
-                onClick={() => setActiveDocTab("PERMITS")}
-                className={cn(
-                  "flex-1 py-4 px-6 rounded-full font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center justify-center gap-3 transition-all border w-full",
-                  activeDocTab === "PERMITS"
-                    ? "text-white shadow-xl"
-                    : "bg-white dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
-                )}
-                style={activeDocTab === "PERMITS" ? {
-                  backgroundColor: themeColor,
-                  borderColor: themeColor,
-                  boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
-                } : undefined}
-              >
-                <FileSignature className="w-4 h-4" />
-                Documents (Upload 4 or more)
-              </button>
-            </div>
-
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-6 mt-8">
               <div className="flex flex-col">
                 <h3 className="text-xl font-black text-slate-800 dark:text-white">
-                  {activeDocTab === "REQUIREMENTS" ? "Requirements" : "Documents"}
+                  Requirements
                 </h3>
-                {activeDocTab === "PERMITS" && (
-                  <span className="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full w-fit mt-1">
-                    Upload at least 4 to proceed
-                  </span>
-                )}
               </div>
               {isEditable && (
                 <Button
@@ -2930,41 +2799,24 @@ export default function OccupancyPermitPage() {
                   onClick={handleAddCustomDocument}
                   className="rounded-full border-slate-300 hover:bg-slate-50 dark:border-white/20 dark:hover:bg-white/10 flex items-center gap-2"
                 >
-                  <span>+</span> Add Custom {activeDocTab === "REQUIREMENTS" ? "Requirement" : "Document"}
+                  <span>+</span> Add Custom Requirement
                 </Button>
               )}
             </div>
 
             {/* Document Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-              {(activeDocTab === "REQUIREMENTS"
-                ? [
-                    ...documentRequirementsList
-                      .map((docName, idx) => ({ docName, idx, kind: "base" as const })),
-                    ...customRequirements.map((req, idx) => ({ docName: req.label, idx: documentRequirementsList.length + idx, kind: "custom" as const }))
-                  ].filter(({ idx, kind }) => {
-                    if (kind === "custom") return true;
-                    if (idx === 5) return false;
-                    if (!isAffidavitOfConsentRequired && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
-                    if (isAffidavitOfConsentRequired && [21, 22].includes(idx)) return false;
-                    if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
-                    return true;
-                  })
-                : [
-                    ...permitTypesList.map((docName, idx) => ({ docName, idx, kind: "base" as const })),
-                    ...customPermits.map((permit, idx) => ({ docName: permit.label, idx: permitTypesList.length + idx, kind: "custom" as const }))
-                  ]
+              {([
+                  ...documentRequirementsList.map((docName, idx) => ({ docName, idx, kind: "base" as const })),
+                  ...customRequirements.map((req, idx) => ({ docName: req.label, idx: documentRequirementsList.length + idx, kind: "custom" as const }))
+                ]
               ).map(({ docName, idx, kind }) => {
                 const isCustomItem = kind === "custom";
-                const key = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;
+                const key = `req_${idx}`;
                 const fileUrl = effectiveDocuments?.[key];
-                const newlyUploaded = activeDocTab === "REQUIREMENTS" ? !!uploadedRequirements[idx] : !!uploadedPermits[idx];
+                const newlyUploaded = !!uploadedRequirements[idx];
                 const isUploaded = !isEditable ? !!fileUrl : (!!fileUrl || newlyUploaded);
-                const isRequired = isCustomItem
-                  ? false
-                  : (activeDocTab === "PERMITS"
-                    ? requiredPermitIndexes.includes(idx)
-                    : requiredRequirementIndexes.includes(idx));
+                const isRequired = isCustomItem ? false : requiredRequirementIndexes.includes(idx);
                 const hasError = showValidationErrors && isRequired && !isUploaded;
                 return (
                   <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group", hasError ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
@@ -2976,9 +2828,7 @@ export default function OccupancyPermitPage() {
                           {isRequired ? (
                             <span className="text-red-500 ml-1 text-base align-top">*</span>
                           ) : (
-                            activeDocTab !== "PERMITS" && (
-                              <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1 align-middle">Optional</span>
-                            )
+                            <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1 align-middle">Optional</span>
                           )}
                         </div>
                       </h4>
@@ -2996,35 +2846,19 @@ export default function OccupancyPermitPage() {
                           <button
                             type="button"
                             onClick={() => {
-                              if (activeDocTab === "REQUIREMENTS") {
-                                setCustomRequirements(prev => prev.filter((_, i) => i !== (idx - documentRequirementsList.length)));
-                                setUploadedRequirements(prev => {
-                                  const nextReqs: Record<number, File> = {};
-                                  Object.entries(prev).forEach(([kStr, file]) => {
-                                    const k = parseInt(kStr, 10);
-                                    if (k < idx) {
-                                      nextReqs[k] = file;
-                                    } else if (k > idx) {
-                                      nextReqs[k - 1] = file;
-                                    }
-                                  });
-                                  return nextReqs;
+                              setCustomRequirements(prev => prev.filter((_, i) => i !== (idx - documentRequirementsList.length)));
+                              setUploadedRequirements(prev => {
+                                const nextReqs: Record<number, File> = {};
+                                Object.entries(prev).forEach(([kStr, file]) => {
+                                  const k = parseInt(kStr, 10);
+                                  if (k < idx) {
+                                    nextReqs[k] = file;
+                                  } else if (k > idx) {
+                                    nextReqs[k - 1] = file;
+                                  }
                                 });
-                              } else {
-                                setCustomPermits(prev => prev.filter((_, i) => i !== (idx - permitTypesList.length)));
-                                setUploadedPermits(prev => {
-                                  const nextPermits: Record<number, File> = {};
-                                  Object.entries(prev).forEach(([kStr, file]) => {
-                                    const k = parseInt(kStr, 10);
-                                    if (k < idx) {
-                                      nextPermits[k] = file;
-                                    } else if (k > idx) {
-                                      nextPermits[k - 1] = file;
-                                    }
-                                  });
-                                  return nextPermits;
-                                });
-                              }
+                                return nextReqs;
+                              });
                             }}
                             className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-[10px] font-bold transition-colors border border-red-200 dark:border-red-500/20 px-2 py-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10"
                           >
@@ -3087,20 +2921,18 @@ export default function OccupancyPermitPage() {
                   className="text-xs md:text-sm font-bold"
                   style={{ color: themeColor }}
                 >
-                  {activeDocTab === "REQUIREMENTS"
-                    ? `Requirements Progress: ${uploadedRequirementsCount}/${requiredRequirementsCount} documents uploaded`
-                    : `Permits Progress: ${uploadedPermitsCount} uploaded (min. 4 required)`}
+                  {`Requirements Progress: ${uploadedRequirementsCount}/${requiredRequirementsCount} documents uploaded`}
                 </p>
               </div>
               <div className="bg-blue-50 dark:bg-blue-500/5 border-l-4 border-blue-500 p-4 rounded-r-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <CheckCircle className="w-5 h-5 text-blue-700 dark:text-blue-400 shrink-0" />
                   <p className="text-xs md:text-sm font-bold text-blue-800 dark:text-blue-300">
-                    Total Progress: {uploadedRequirementsCount + uploadedPermitsCount}/{totalRequiredItems} items uploaded
+                    Total Progress: {uploadedRequirementsCount}/{requiredRequirementsCount} items uploaded
                   </p>
                 </div>
                 {!selectedApplication && (
-                  <span className="text-[10px] text-blue-600/60 dark:text-blue-400/60 font-medium uppercase tracking-widest hidden sm:block">All requirements and at least 4 permits must be uploaded</span>
+                  <span className="text-[10px] text-blue-600/60 dark:text-blue-400/60 font-medium uppercase tracking-widest hidden sm:block">All requirements must be uploaded</span>
                 )}
               </div>
             </div>
