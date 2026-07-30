@@ -21,6 +21,7 @@ import { StaffActivityLogsCard } from "./components/StaffActivityLogsCard";
 import { ReportsOverviewCard } from "./components/ReportsOverviewCard";
 import { DashboardClientWrapper } from "./components/DashboardClientWrapper";
 import { ConfigurableMetricCardsSection } from "./components/ConfigurableMetricCardsSection";
+import { ConfigurableStrategicOpsSection } from "./components/ConfigurableStrategicOpsSection";
 
 function getPhilippineDateString(date: Date): string {
     return new Intl.DateTimeFormat("en-CA", {
@@ -771,60 +772,13 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
                     projectsCount={projectsCount}
                 />
 
-                {/* Strategic Operations & Activity Logs 3-Column Layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    {/* Quick Actions (Col-span 1: Executive View) */}
-                    <div className="space-y-4 flex flex-col h-full">
-                        <h3 className="text-base font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Administrative Services</h3>
-                        <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] shadow-xl overflow-hidden divide-y divide-slate-100 dark:divide-[#2a3040] flex-1 flex flex-col justify-between p-2">
-                            {[
-                                { title: "Kainan Hub", desc: "Manage local dining & culinary spots.", icon: Utensils, color: "orange", action: "Manage", path: "/admin/dining" },
-                                { title: "Tuluyan Hub", desc: "Lodging & accommodation records.", icon: Hotel, color: "blue", action: "Manage", path: "/admin/accommodation" },
-                                { title: "Tourism Gallery", desc: "Showcase spots & gallery highlights.", icon: Image, color: "emerald", action: "Manage", path: "/admin/tourism" },
-                                { title: "Incident Reports", desc: "Monitor & review public incident files.", icon: Flag, color: "rose", action: "Review", path: "/admin/reports" },
-                                { title: "Emergency Hotlines", desc: "Update critical emergency list.", icon: Phone, color: "purple", action: "Manage", path: "/admin/hotlines" }
-                            ].map((item, idx) => (
-                                <Link
-                                    key={idx}
-                                    href={item.path}
-                                    className="px-5 py-4 flex-1 flex items-center justify-between transition-colors hover:bg-slate-50/50 dark:hover:bg-white/5 cursor-pointer rounded-2xl group"
-                                >
-                                    <div className="flex items-center space-x-4 min-w-0">
-                                        <div className={`w-12 h-12 rounded-2xl bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-50 dark:bg-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-500/10 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform`}>
-                                            <item.icon className={`w-6 h-6 text-${item.color === 'orange' ? 'amber' : item.color === 'rose' ? 'red' : item.color}-600`} />
-                                        </div>
-                                        <div className="min-w-0 space-y-0.5">
-                                            <h4 className="text-base font-black text-slate-900 dark:text-white leading-tight uppercase italic truncate">{item.title}</h4>
-                                            <p className="text-slate-500 dark:text-slate-400 text-xs font-medium italic truncate">{item.desc}</p>
-                                        </div>
-                                    </div>
-                                    <span
-                                        className="text-center whitespace-nowrap px-4 py-2 rounded-xl text-xs font-black uppercase italic transition-all shadow-md hover:shadow-lg active:scale-95 text-white shrink-0 ml-3"
-                                        style={{ backgroundColor: themeColor }}
-                                    >
-                                        {item.action}
-                                    </span>
-                                </Link>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Resident Activity Logs (Col-span 1) */}
-                    <div className="space-y-4 flex flex-col">
-                        <h3 className="text-base font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Resident Activity</h3>
-                        <div className="flex-1">
-                            <ActivityLogsCard logs={activityLogs} selectedBarangay={selectedBarangay} />
-                        </div>
-                    </div>
-
-                    {/* Staff Audit Logs (Col-span 1) */}
-                    <div className="space-y-4 flex flex-col">
-                        <h3 className="text-base font-black uppercase italic tracking-tighter text-slate-900 dark:text-white">Staff Audit Logs</h3>
-                        <div className="flex-1">
-                            <StaffActivityLogsCard initialLogs={staffLogs} />
-                        </div>
-                    </div>
-                </div>
+                {/* Strategic Operations (Administrative Services, Resident Activity, Staff Audit Logs Grid) */}
+                <ConfigurableStrategicOpsSection
+                    themeColor={themeColor}
+                    activityLogs={activityLogs}
+                    staffLogs={staffLogs}
+                    selectedBarangay={selectedBarangay}
+                />
 
 
 

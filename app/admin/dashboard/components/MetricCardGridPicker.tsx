@@ -31,6 +31,8 @@ export function MetricCardGridPicker({
     };
 
     const handleReset = () => {
+        setHoverCols(null);
+        setHoverRows(null);
         onReset();
         setOpen(false);
     };
