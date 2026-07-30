@@ -601,7 +601,7 @@ export function Sidebar({
                     menuItems = allMenuItems.filter(item => item.category === "Rural Health Unit");
                 } else if (deptUpper === "LGU") {
                     menuItems = allMenuItems.filter(item =>
-                        !["Registrar Hub", "Transaction Ledger", "Registrar Queue", "BPLO Queue", "Treasury Queue", "Citations & Tickets", "Violations Masterlist", "POSO Officers"].includes(item.label) &&
+                        !["Registrar Hub", "Transaction Ledger", "Registrar Queue", "BPLO Queue", "Treasury Queue", "Violations Masterlist", "POSO Officers"].includes(item.label) &&
                         !(item.label === "Appointment Settings" && item.category === "Registrar")
                     );
                 } else {

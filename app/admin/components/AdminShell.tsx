@@ -140,9 +140,10 @@ export function AdminShell({
                 isRestricted = true;
             } else if (deptUpper === "LGU") {
                 // LGU admins are restricted from registrar specialized sub-sections, queues, and POSO enforcement
+                // BUT allowed to access /admin/poso/tickets (Citations & Tickets)
                 if (
                     pathname.startsWith("/admin/registrar") ||
-                    pathname.startsWith("/admin/poso") ||
+                    (pathname.startsWith("/admin/poso") && !pathname.startsWith("/admin/poso/tickets")) ||
                     pathname === "/admin/bplo/queue" ||
                     pathname === "/admin/treasury/queue"
                 ) {
