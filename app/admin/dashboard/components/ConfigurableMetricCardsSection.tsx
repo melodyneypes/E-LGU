@@ -21,6 +21,8 @@ interface ConfigurableMetricCardsSectionProps {
     projectsCount: number;
     strategicVisibilityMap?: Record<string, boolean>;
     onToggleStrategicVisibility?: (key: string) => void;
+    analyticsVisibilityMap?: Record<string, boolean>;
+    onToggleAnalyticsVisibility?: (key: string) => void;
     onResetAllDashboard?: () => void;
 }
 
@@ -43,6 +45,8 @@ export function ConfigurableMetricCardsSection({
     projectsCount,
     strategicVisibilityMap = {},
     onToggleStrategicVisibility,
+    analyticsVisibilityMap = {},
+    onToggleAnalyticsVisibility,
     onResetAllDashboard,
 }: ConfigurableMetricCardsSectionProps) {
     const [cardOrder, setCardOrder] = useState<string[]>(DEFAULT_KEYS);
@@ -238,6 +242,7 @@ export function ConfigurableMetricCardsSection({
 
     const cardVisibilityMap: Record<string, boolean> = {
         ...strategicVisibilityMap,
+        ...analyticsVisibilityMap,
     };
     DEFAULT_KEYS.forEach((k) => {
         cardVisibilityMap[k] = !configs[k]?.hidden;
@@ -246,6 +251,8 @@ export function ConfigurableMetricCardsSection({
     const handleGlobalToggleVisibility = (key: string) => {
         if (DEFAULT_KEYS.includes(key)) {
             toggleCardVisibility(key);
+        } else if (["daily_requests", "collections_ledger", "resident_analytics", "citizen_reports"].includes(key)) {
+            if (onToggleAnalyticsVisibility) onToggleAnalyticsVisibility(key);
         } else if (onToggleStrategicVisibility) {
             onToggleStrategicVisibility(key);
         }

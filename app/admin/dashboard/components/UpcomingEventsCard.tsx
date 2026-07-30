@@ -14,9 +14,10 @@ interface EventItem {
 interface UpcomingEventsCardProps {
   events: EventItem[];
   pastEvents: EventItem[];
+  rowSpan?: number;
 }
 
-export function UpcomingEventsCard({ events, pastEvents }: UpcomingEventsCardProps) {
+export function UpcomingEventsCard({ events, pastEvents, rowSpan = 1 }: UpcomingEventsCardProps) {
   const now = new Date();
 
   const happeningNow = events.filter(
@@ -38,9 +39,12 @@ export function UpcomingEventsCard({ events, pastEvents }: UpcomingEventsCardPro
   };
 
   return (
-    <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl flex flex-col justify-between h-full">
+    <div
+      className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl flex flex-col justify-between h-full transition-all duration-300"
+      style={{ minHeight: `${420 + (rowSpan - 1) * 140}px` }}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4 border-b border-slate-100 dark:border-[#2a3040]/50 pb-4">
         <div>
           <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-violet-500" />
@@ -53,16 +57,6 @@ export function UpcomingEventsCard({ events, pastEvents }: UpcomingEventsCardPro
                 ? `${upcoming.length} upcoming events`
                 : `${pastEvents.length} recent past events`}
           </p>
-        </div>
-
-        <div className="pr-0 lg:pr-16">
-          <Link
-            href="/admin/events"
-            className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-[#1e2330] border border-slate-200/50 dark:border-[#2a3040]/50 rounded-xl text-xs font-black uppercase italic tracking-wider text-slate-600 dark:text-slate-300 hover:text-violet-600 dark:hover:text-violet-400 transition-colors shadow-sm"
-          >
-            <span>View All</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
         </div>
       </div>
 
@@ -180,6 +174,17 @@ export function UpcomingEventsCard({ events, pastEvents }: UpcomingEventsCardPro
             )}
           </>
         )}
+      </div>
+
+      {/* Bottom Right View All Action Button */}
+      <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-[#2a3040]/30 mt-4">
+        <Link
+          href="/admin/events"
+          className="px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-2 hover:opacity-90 cursor-pointer"
+        >
+          <span>View All Events</span>
+          <ArrowRight className="w-4 h-4" />
+        </Link>
       </div>
     </div>
   );

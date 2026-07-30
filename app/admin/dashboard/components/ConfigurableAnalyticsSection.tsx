@@ -40,6 +40,9 @@ interface ConfigurableAnalyticsSectionProps {
 
     // Reports Overview Props
     recentReportsDetailed: any[];
+
+    // Visibility toggles from Sidebar Modal
+    cardVisibility?: Record<string, boolean>;
 }
 
 const DEFAULT_KEYS = [
@@ -78,6 +81,7 @@ export function ConfigurableAnalyticsSection({
     resCivil,
     resSector,
     recentReportsDetailed,
+    cardVisibility = {},
 }: ConfigurableAnalyticsSectionProps) {
     const [cardOrder, setCardOrder] = useState<string[]>(DEFAULT_KEYS);
 
@@ -291,9 +295,13 @@ export function ConfigurableAnalyticsSection({
         }
     };
 
+    const visibleCardOrder = cardOrder.filter((key) => cardVisibility[key] !== false);
+
+    if (visibleCardOrder.length === 0) return null;
+
     return (
         <div className="grid grid-cols-12 gap-8 items-stretch transition-all duration-500 ease-in-out">
-            {cardOrder.map((key) => {
+            {visibleCardOrder.map((key) => {
                 const cfg = configs[key] || { id: key, colSpan: 12, rowSpan: 1 };
                 const currentClass = colSpanClasses[cfg.colSpan] || "col-span-12";
                 const isBeingDragged = draggedKey === key;

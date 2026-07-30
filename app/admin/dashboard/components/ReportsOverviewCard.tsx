@@ -96,14 +96,14 @@ export function ReportsOverviewCard({ initialReports, rowSpan = 1 }: ReportsOver
 
     return (
         <div
-            className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl h-full flex flex-col justify-between transition-all duration-300"
+            className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl h-full flex flex-col justify-start gap-4 transition-all duration-300"
             style={{
                 minHeight: `${420 + (rowSpan - 1) * 140}px`,
                 boxShadow: `0 25px 50px -12px color-mix(in srgb, ${themeColor} 8%, transparent)`
             }}
         >
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#2a3040]/50 pb-4">
                 <div>
                     <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white flex items-center gap-2">
                         <ShieldAlert className="w-5 h-5" style={{ color: themeColor }} />
@@ -129,21 +129,21 @@ export function ReportsOverviewCard({ initialReports, rowSpan = 1 }: ReportsOver
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="overflow-x-auto">
+            {/* Table Container - Fills vertical space dynamically */}
+            <div className="overflow-x-auto flex-1 flex flex-col justify-start">
                 <table className="w-full">
                     <thead>
                         <tr className="border-b border-slate-100 dark:border-[#2a3040]/50">
-                            <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 italic py-3 px-2 w-10">#</th>
-                            <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 italic py-3 px-2">Reporter</th>
-                            <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 italic py-3 px-2">Category</th>
-                            <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 italic py-3 px-2">Description</th>
-                            <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 italic py-3 px-2">Barangay</th>
-                            <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 italic py-3 px-2">Status</th>
-                            <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 italic py-3 px-2">Date</th>
+                            <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 italic py-3.5 px-3 w-10">#</th>
+                            <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 italic py-3.5 px-3">Reporter</th>
+                            <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 italic py-3.5 px-3">Category</th>
+                            <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 italic py-3.5 px-3">Description</th>
+                            <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 italic py-3.5 px-3">Barangay</th>
+                            <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 italic py-3.5 px-3">Status</th>
+                            <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 italic py-3.5 px-3">Date</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-slate-100 dark:divide-[#2a3040]/30">
                         {reports.length === 0 ? (
                             <tr>
                                 <td colSpan={7} className="text-center text-sm text-slate-400 italic py-10">
@@ -158,36 +158,36 @@ export function ReportsOverviewCard({ initialReports, rowSpan = 1 }: ReportsOver
                                 return (
                                     <tr
                                         key={report.id}
-                                        className="border-b border-slate-50 dark:border-[#2a3040]/30 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors"
+                                        className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors"
                                     >
                                         {/* # */}
-                                        <td className="py-3.5 px-2">
+                                        <td className="py-4 px-3">
                                             <span className="text-xs font-black text-slate-400 italic">{idx + 1}</span>
                                         </td>
 
                                         {/* Reporter */}
-                                        <td className="py-3.5 px-2">
+                                        <td className="py-4 px-3 whitespace-nowrap">
                                             <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
                                                 {report.user?.name || "Anonymous"}
                                             </span>
                                         </td>
 
                                         {/* Category */}
-                                        <td className="py-3.5 px-2">
-                                            <span className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-lg italic">
+                                        <td className="py-4 px-3 whitespace-nowrap">
+                                            <span className="inline-block text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-lg italic whitespace-nowrap">
                                                 {report.category}
                                             </span>
                                         </td>
 
                                         {/* Description */}
-                                        <td className="py-3.5 px-2 max-w-[200px]">
+                                        <td className="py-4 px-3 max-w-[280px]">
                                             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                                                 {report.description}
                                             </p>
                                         </td>
 
                                         {/* Barangay */}
-                                        <td className="py-3.5 px-2">
+                                        <td className="py-4 px-3 whitespace-nowrap">
                                             {report.barangay ? (
                                                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
                                                     <MapPin className="w-3 h-3 shrink-0" />
@@ -199,15 +199,15 @@ export function ReportsOverviewCard({ initialReports, rowSpan = 1 }: ReportsOver
                                         </td>
 
                                         {/* Status */}
-                                        <td className="py-3.5 px-2">
-                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${config.bgColor} ${config.color}`}>
+                                        <td className="py-4 px-3 whitespace-nowrap">
+                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full whitespace-nowrap ${config.bgColor} ${config.color}`}>
                                                 {config.label}
                                             </span>
                                         </td>
 
                                         {/* Date */}
-                                        <td className="py-3.5 px-2">
-                                            <span className="text-xs font-medium text-slate-400 italic">{timeAgo}</span>
+                                        <td className="py-4 px-3 whitespace-nowrap">
+                                            <span className="text-xs font-medium text-slate-400 italic whitespace-nowrap">{timeAgo}</span>
                                         </td>
                                     </tr>
                                 );

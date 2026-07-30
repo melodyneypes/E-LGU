@@ -195,19 +195,19 @@ export function ConfigurableCommunitySection({
         12: "col-span-12",
     };
 
-    const renderCardInner = (key: string) => {
+    const renderCardInner = (key: string, cfg: CommunityCardConfig) => {
         switch (key) {
             case "recent_announcements":
-                return <RecentAnnouncementsCard announcements={announcements} />;
+                return <RecentAnnouncementsCard announcements={announcements} rowSpan={cfg.rowSpan} />;
 
             case "latest_news":
-                return <LatestNewsCard news={news} />;
+                return <LatestNewsCard news={news} rowSpan={cfg.rowSpan} />;
 
             case "upcoming_events":
-                return <UpcomingEventsCard events={events} pastEvents={pastEvents} />;
+                return <UpcomingEventsCard events={events} pastEvents={pastEvents} rowSpan={cfg.rowSpan} />;
 
             case "lgu_projects":
-                return <LGUProjectsCard projects={projects} />;
+                return <LGUProjectsCard projects={projects} rowSpan={cfg.rowSpan} />;
 
             default:
                 return null;
@@ -254,7 +254,7 @@ export function ConfigurableCommunitySection({
                             </div>
                         </div>
 
-                        {renderCardInner(key)}
+                        {renderCardInner(key, cfg)}
                     </div>
                 );
             })}

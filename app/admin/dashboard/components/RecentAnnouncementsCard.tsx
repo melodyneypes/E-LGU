@@ -12,6 +12,7 @@ interface AnnouncementItem {
 
 interface RecentAnnouncementsCardProps {
   announcements: AnnouncementItem[];
+  rowSpan?: number;
 }
 
 const priorityColors: Record<string, string> = {
@@ -20,11 +21,14 @@ const priorityColors: Record<string, string> = {
   Normal: "bg-blue-500/10 text-blue-500",
 };
 
-export function RecentAnnouncementsCard({ announcements }: RecentAnnouncementsCardProps) {
+export function RecentAnnouncementsCard({ announcements, rowSpan = 1 }: RecentAnnouncementsCardProps) {
   return (
-    <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl flex flex-col justify-between h-full">
+    <div
+      className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl flex flex-col justify-between h-full transition-all duration-300"
+      style={{ minHeight: `${420 + (rowSpan - 1) * 140}px` }}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4 border-b border-slate-100 dark:border-[#2a3040]/50 pb-4">
         <div>
           <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white flex items-center gap-2">
             <Megaphone className="w-5 h-5 text-amber-500" />
@@ -33,16 +37,6 @@ export function RecentAnnouncementsCard({ announcements }: RecentAnnouncementsCa
           <p className="text-slate-500 dark:text-slate-400 text-xs font-medium italic mt-1">
             Latest {announcements.length} published announcements
           </p>
-        </div>
-
-        <div className="pr-0 lg:pr-16">
-          <Link
-            href="/admin/announcements"
-            className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-[#1e2330] border border-slate-200/50 dark:border-[#2a3040]/50 rounded-xl text-xs font-black uppercase italic tracking-wider text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors shadow-sm"
-          >
-            <span>View All</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
         </div>
       </div>
 
@@ -99,6 +93,17 @@ export function RecentAnnouncementsCard({ announcements }: RecentAnnouncementsCa
             );
           })
         )}
+      </div>
+
+      {/* Bottom Right View All Action Button */}
+      <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-[#2a3040]/30 mt-4">
+        <Link
+          href="/admin/announcements"
+          className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-2 hover:opacity-90 cursor-pointer"
+        >
+          <span>View All Announcements</span>
+          <ArrowRight className="w-4 h-4" />
+        </Link>
       </div>
     </div>
   );

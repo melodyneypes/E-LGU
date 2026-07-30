@@ -18,6 +18,37 @@ export function DashboardClientWrapper({ children }: DashboardClientWrapperProps
   const [localLoading, setLocalLoading] = useState(false);
   useBarangay(); // Access BarangayContext trigger
 
+  // Analytics Cards Visibility State
+  const [analyticsVisibilityMap, setAnalyticsVisibilityMap] = useState<Record<string, boolean>>({
+    daily_requests: true,
+    collections_ledger: true,
+    resident_analytics: true,
+    citizen_reports: true,
+  });
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("emapandan_analytics_visibility_v1");
+      if (saved) {
+        setAnalyticsVisibilityMap((prev) => ({ ...prev, ...JSON.parse(saved) }));
+      }
+    } catch {
+      /* Fallback */
+    }
+  }, []);
+
+  const toggleAnalyticsVisibility = (key: string) => {
+    setAnalyticsVisibilityMap((prev) => {
+      const updated = { ...prev, [key]: !prev[key] };
+      try {
+        localStorage.setItem("emapandan_analytics_visibility_v1", JSON.stringify(updated));
+      } catch {
+        /* Fail gracefully */
+      }
+      return updated;
+    });
+  };
+
   // Real-time updates subscription using Server-Sent Events (SSE) for Dashboard (Daily Requests & Payments)
   useEffect(() => {
     const dailyRequestsStream = new EventSource("/api/admin/reports/daily-requests/stream");
@@ -93,5 +124,18 @@ export function DashboardClientWrapper({ children }: DashboardClientWrapperProps
     return <DashboardLoading />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {React.Children.map(children, (child) => {
+        if (React.isValidElement(child)) {
+          return React.cloneElement(child as React.ReactElement<any>, {
+            analyticsVisibilityMap,
+            onToggleAnalyticsVisibility: toggleAnalyticsVisibility,
+            cardVisibility: analyticsVisibilityMap,
+          });
+        }
+        return child;
+      })}
+    </>
+  );
 }
