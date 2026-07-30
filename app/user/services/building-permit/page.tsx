@@ -544,13 +544,13 @@ export default function BuildingPermitPage() {
 
   useEffect(() => {
     const handleUnload = () => {
-      if (abandonedFiles.length > 0) {
-        navigator.sendBeacon("/api/upload/cleanup", JSON.stringify({ urls: abandonedFiles }));
+      if (abandonedFilesRef.current.length > 0) {
+        navigator.sendBeacon("/api/upload/cleanup", JSON.stringify({ urls: abandonedFilesRef.current }));
       }
     };
     window.addEventListener("beforeunload", handleUnload);
     return () => window.removeEventListener("beforeunload", handleUnload);
-  }, [abandonedFiles]);
+  }, []);
 
   useEffect(() => {
     if (!formData.locationOfConstruction || formData.locationOfConstruction.trim().length < 5) {

@@ -7,17 +7,11 @@ import { getMultipleSystemSettings } from "@/lib/settings";
 export const dynamic = "force-dynamic";
 import { BarangaySwitcher } from "../components/BarangaySwitcher";
 import { redirect } from "next/navigation";
-import { TransactionDashboardView } from "./components/TransactionDashboardView";
-import { PaymentDashboardView } from "./components/PaymentDashboardView";
-import { ResidentDashboardView } from "./components/ResidentDashboardView";
-import { RecentAnnouncementsCard } from "./components/RecentAnnouncementsCard";
-import { LatestNewsCard } from "./components/LatestNewsCard";
-import { UpcomingEventsCard } from "./components/UpcomingEventsCard";
-import { LGUProjectsCard } from "./components/LGUProjectsCard";
-import { ReportsOverviewCard } from "./components/ReportsOverviewCard";
 import { DashboardClientWrapper } from "./components/DashboardClientWrapper";
 import { ConfigurableMetricCardsSection } from "./components/ConfigurableMetricCardsSection";
 import { ConfigurableStrategicOpsSection } from "./components/ConfigurableStrategicOpsSection";
+import { ConfigurableAnalyticsSection } from "./components/ConfigurableAnalyticsSection";
+import { ConfigurableCommunitySection } from "./components/ConfigurableCommunitySection";
 
 function getPhilippineDateString(date: Date): string {
     return new Intl.DateTimeFormat("en-CA", {
@@ -778,63 +772,36 @@ export default async function AdminDashboard(props: { searchParams: Promise<{ ba
 
 
 
-                {/* Chart Section */}
-                <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    <TransactionDashboardView
-                        data={chartData}
-                        initialFrom={fromDate.toISOString().split("T")[0]}
-                        initialTo={toDate.toISOString().split("T")[0]}
-                        categories={categories}
-                        activeCategory={selectedCategory}
-                        themeColor={themeColor}
-                    />
-                </div>
+                {/* Configurable Analytical Charts & Reports Section (Daily Requests, Collections Ledger, Resident Analytics, Citizen Reports Grid) */}
+                <ConfigurableAnalyticsSection
+                    chartData={chartData}
+                    fromDate={fromDate}
+                    toDate={toDate}
+                    categories={categories}
+                    selectedCategory={selectedCategory}
+                    themeColor={themeColor}
+                    paymentChartData={paymentChartData}
+                    payFromDate={payFromDate}
+                    payToDate={payToDate}
+                    payCategory={payCategory}
+                    payMethod={payMethod}
+                    residentChartData={residentChartData}
+                    resFromDate={resFromDate}
+                    resToDate={resToDate}
+                    resGender={resGender}
+                    resCivil={resCivil}
+                    resSector={resSector}
+                    recentReportsDetailed={recentReportsDetailed}
+                />
 
-                {/* Payment Revenue Chart Section */}
-                <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    <PaymentDashboardView
-                        data={paymentChartData}
-                        initialFrom={payFromDate.toISOString().split("T")[0]}
-                        initialTo={payToDate.toISOString().split("T")[0]}
-                        categories={categories}
-                        activeCategory={payCategory}
-                        activeMethod={payMethod}
-                    />
-                </div>
-
-                {/* Resident Onboarding Chart Section */}
-                <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    <ResidentDashboardView
-                        data={residentChartData}
-                        initialFrom={resFromDate.toISOString().split("T")[0]}
-                        initialTo={resToDate.toISOString().split("T")[0]}
-                        activeGender={resGender}
-                        activeCivilStatus={resCivil}
-                        activeSector={resSector}
-                    />
-                </div>
-
-                {/* Citizen Reports Overview Section */}
-                <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    <ReportsOverviewCard
-                        initialReports={recentReportsDetailed.map((r: { id: string; category: string; status: string; description: string; createdAt: Date; user: { name: string | null } | null; barangay: { name: string } | null }) => ({
-                            ...r,
-                            createdAt: r.createdAt.toISOString()
-                        }))}
-                    />
-                </div>
-
-                {/* Recent Announcements & Latest News Side-by-Side */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    <RecentAnnouncementsCard announcements={recentAnnouncements} />
-                    <LatestNewsCard news={latestNews} />
-                </div>
-
-                {/* Upcoming Events & LGU Projects Side-by-Side */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                    <UpcomingEventsCard events={upcomingEvents} pastEvents={pastEvents} />
-                    <LGUProjectsCard projects={activeProjects} />
-                </div>
+                {/* Configurable Community Updates & Events Section (Announcements, News, Events, Projects Grid) */}
+                <ConfigurableCommunitySection
+                    announcements={recentAnnouncements}
+                    news={latestNews}
+                    events={upcomingEvents}
+                    pastEvents={pastEvents}
+                    projects={activeProjects}
+                />
 
 
             </DashboardClientWrapper>

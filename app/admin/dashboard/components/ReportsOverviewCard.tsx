@@ -27,6 +27,7 @@ interface RecentReport {
 
 interface ReportsOverviewCardProps {
     initialReports: RecentReport[];
+    isCompact?: boolean;
 }
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: React.ElementType }> = {
@@ -93,7 +94,7 @@ export function ReportsOverviewCard({ initialReports }: ReportsOverviewCardProps
     }, [barangay, fetchReports]);
 
     return (
-        <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl"
+        <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl h-full flex flex-col justify-between"
             style={{ boxShadow: `0 25px 50px -12px color-mix(in srgb, ${themeColor} 8%, transparent)` }}
         >
             {/* Header */}
@@ -107,18 +108,20 @@ export function ReportsOverviewCard({ initialReports }: ReportsOverviewCardProps
                         5 most recent community reports — <span className="font-bold" style={{ color: themeColor }}>Live</span>
                     </p>
                 </div>
-                <Link
-                    href="/admin/reports"
-                    prefetch={false}
-                    className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest italic px-4 py-2 rounded-xl text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
-                    style={{ 
-                        backgroundColor: themeColor,
-                        boxShadow: `0 8px 16px -4px ${themeColor}40`
-                    }}
-                >
-                    <span>View All</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
+                <div className="pr-0 lg:pr-20">
+                    <Link
+                        href="/admin/reports"
+                        prefetch={false}
+                        className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest italic px-4 py-2 rounded-xl text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
+                        style={{ 
+                            backgroundColor: themeColor,
+                            boxShadow: `0 8px 16px -4px ${themeColor}40`
+                        }}
+                    >
+                        <span>View All</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                </div>
             </div>
 
             {/* Table */}

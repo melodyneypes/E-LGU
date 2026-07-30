@@ -35,13 +35,15 @@ export function RecentAnnouncementsCard({ announcements }: RecentAnnouncementsCa
           </p>
         </div>
 
-        <Link
-          href="/admin/announcements"
-          className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-[#1e2330] border border-slate-200/50 dark:border-[#2a3040]/50 rounded-xl text-xs font-black uppercase italic tracking-wider text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors shadow-sm"
-        >
-          <span>View All</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
+        <div className="pr-0 lg:pr-16">
+          <Link
+            href="/admin/announcements"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-[#1e2330] border border-slate-200/50 dark:border-[#2a3040]/50 rounded-xl text-xs font-black uppercase italic tracking-wider text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors shadow-sm"
+          >
+            <span>View All</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
       </div>
 
       {/* List */}
