@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { Users, Briefcase, AlertTriangle, Hammer, GripVertical } from "lucide-react";
 import { MetricCardGridPicker } from "./MetricCardGridPicker";
-import { DashboardSettingsSidebar } from "./DashboardSettingsSidebar";
 import { toast } from "sonner";
 
 export interface MetricCardConfig {
@@ -19,9 +18,6 @@ interface ConfigurableMetricCardsSectionProps {
     jobsCount: number;
     reportsCount: number;
     projectsCount: number;
-    strategicVisibilityMap?: Record<string, boolean>;
-    onToggleStrategicVisibility?: (key: string) => void;
-    onResetAllDashboard?: () => void;
 }
 
 const DEFAULT_KEYS = ["residents", "jobs", "reports", "projects"];
@@ -41,9 +37,6 @@ export function ConfigurableMetricCardsSection({
     jobsCount,
     reportsCount,
     projectsCount,
-    strategicVisibilityMap = {},
-    onToggleStrategicVisibility,
-    onResetAllDashboard,
 }: ConfigurableMetricCardsSectionProps) {
     const [cardOrder, setCardOrder] = useState<string[]>(DEFAULT_KEYS);
 
@@ -123,36 +116,6 @@ export function ConfigurableMetricCardsSection({
         saveConfigs(updated);
     };
 
-    const toggleCardVisibility = (key: string) => {
-        const targetWillHide = !configs[key].hidden;
-
-        // Calculate remaining visible keys after toggle
-        const visibleAfterToggle = DEFAULT_KEYS.filter((k) =>
-            k === key ? !targetWillHide : !configs[k].hidden
-        );
-
-        const visibleCount = visibleAfterToggle.length;
-        const autoCalculatedCols = visibleCount > 0 ? Math.floor(12 / visibleCount) : 12;
-
-        const updated = { ...configs };
-        updated[key] = {
-            ...configs[key],
-            hidden: targetWillHide,
-        };
-
-        // Recalculate auto-adapted column span for visible cards without manual override
-        visibleAfterToggle.forEach((k) => {
-            if (!updated[k].isManualOverride) {
-                updated[k] = {
-                    ...updated[k],
-                    colSpan: autoCalculatedCols,
-                };
-            }
-        });
-
-        saveConfigs(updated);
-    };
-
     const resetCardSize = (key: string) => {
         const visibleKeys = DEFAULT_KEYS.filter((k) => !configs[k].hidden);
         const visibleCount = visibleKeys.length;
@@ -170,26 +133,29 @@ export function ConfigurableMetricCardsSection({
         saveConfigs(updated);
     };
 
-    const resetAllConfigs = () => {
-        const initial: Record<string, MetricCardConfig> = {};
-        DEFAULT_KEYS.forEach((key) => {
-            initial[key] = {
-                id: key,
-                colSpan: DEFAULT_CONFIGS[key].defaultCols,
-                rowSpan: DEFAULT_CONFIGS[key].defaultRows,
-                hidden: false,
-                isManualOverride: false,
-            };
-        });
-        setConfigs(initial);
-        setCardOrder(DEFAULT_KEYS);
-        try {
-            localStorage.removeItem(STORAGE_KEY);
-            localStorage.removeItem(ORDER_STORAGE_KEY);
-        } catch {
-            /* Fail gracefully */
-        }
-    };
+    // Global Auto-Scroll Listener while dragging any card
+    useEffect(() => {
+        if (!draggedKey) return;
+
+        const handleGlobalDragOver = (e: DragEvent) => {
+            const threshold = 140;
+            const speed = 25;
+
+            // Find scrollable main container in AdminShell or window
+            const scrollContainer = document.querySelector("main.overflow-y-auto") || window;
+
+            if (e.clientY < threshold) {
+                scrollContainer.scrollBy({ top: -speed, behavior: "auto" });
+            } else if (window.innerHeight - e.clientY < threshold) {
+                scrollContainer.scrollBy({ top: speed, behavior: "auto" });
+            }
+        };
+
+        window.addEventListener("dragover", handleGlobalDragOver);
+        return () => {
+            window.removeEventListener("dragover", handleGlobalDragOver);
+        };
+    }, [draggedKey]);
 
     // HTML5 Drag & Drop Event Handlers
     const onDragStart = (e: React.DragEvent, key: string) => {
@@ -220,7 +186,7 @@ export function ConfigurableMetricCardsSection({
 
         if (!DEFAULT_KEYS.includes(sourceKey)) {
             toast.error("Cross-Section Drag Restricted", {
-                description: "Executive Stat Cards can only be reordered within the Core Performance Metrics section.",
+                description: "Core Performance Metric Cards can only be reordered within their own section.",
             });
             return;
         }
@@ -236,27 +202,7 @@ export function ConfigurableMetricCardsSection({
         }
     };
 
-    const cardVisibilityMap: Record<string, boolean> = {
-        ...strategicVisibilityMap,
-    };
-    DEFAULT_KEYS.forEach((k) => {
-        cardVisibilityMap[k] = !configs[k]?.hidden;
-    });
 
-    const handleGlobalToggleVisibility = (key: string) => {
-        if (DEFAULT_KEYS.includes(key)) {
-            toggleCardVisibility(key);
-        } else if (onToggleStrategicVisibility) {
-            onToggleStrategicVisibility(key);
-        }
-    };
-
-    const handleGlobalResetAll = () => {
-        resetAllConfigs();
-        if (onResetAllDashboard) {
-            onResetAllDashboard();
-        }
-    };
 
     const renderCardInner = (key: string, cfg: MetricCardConfig) => {
         const isWide = cfg.colSpan > 6;
@@ -377,18 +323,6 @@ export function ConfigurableMetricCardsSection({
 
     return (
         <div className="space-y-4">
-            {/* Top Bar Section Header Toolbar with Settings Sidebar Icon */}
-            <div className="flex items-center justify-end px-2 py-1">
-                <div className="flex items-center gap-2">
-                    {/* Appbar Workspace Settings Drawer Trigger Icon */}
-                    <DashboardSettingsSidebar
-                        cardVisibility={cardVisibilityMap}
-                        onToggleVisibility={handleGlobalToggleVisibility}
-                        onResetAll={handleGlobalResetAll}
-                    />
-                </div>
-            </div>
-
             {/* 12-Column CSS Grid Container for the 4 Stat Cards with Drag & Drop */}
             <div className="grid grid-cols-12 gap-6 items-start transition-all duration-500 ease-in-out">
                 {cardOrder.map((key) => {

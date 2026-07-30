@@ -7,6 +7,7 @@ import { TransactionDashboardView } from "./TransactionDashboardView";
 import { PaymentDashboardView } from "./PaymentDashboardView";
 import { ResidentDashboardView } from "./ResidentDashboardView";
 import { ReportsOverviewCard } from "./ReportsOverviewCard";
+import { toast } from "sonner";
 
 export interface AnalyticsCardConfig {
     id: string;
@@ -40,6 +41,9 @@ interface ConfigurableAnalyticsSectionProps {
 
     // Reports Overview Props
     recentReportsDetailed: any[];
+
+    // Visibility toggles from Sidebar Modal
+    cardVisibility?: Record<string, boolean>;
 }
 
 const DEFAULT_KEYS = [
@@ -78,6 +82,7 @@ export function ConfigurableAnalyticsSection({
     resCivil,
     resSector,
     recentReportsDetailed,
+    cardVisibility = {},
 }: ConfigurableAnalyticsSectionProps) {
     const [cardOrder, setCardOrder] = useState<string[]>(DEFAULT_KEYS);
 
@@ -170,6 +175,30 @@ export function ConfigurableAnalyticsSection({
         saveConfigs(updated);
     };
 
+    // Global Auto-Scroll Listener while dragging any card
+    useEffect(() => {
+        if (!draggedKey) return;
+
+        const handleGlobalDragOver = (e: DragEvent) => {
+            const threshold = 140;
+            const speed = 25;
+
+            // Find scrollable main container in AdminShell or window
+            const scrollContainer = document.querySelector("main.overflow-y-auto") || window;
+
+            if (e.clientY < threshold) {
+                scrollContainer.scrollBy({ top: -speed, behavior: "auto" });
+            } else if (window.innerHeight - e.clientY < threshold) {
+                scrollContainer.scrollBy({ top: speed, behavior: "auto" });
+            }
+        };
+
+        window.addEventListener("dragover", handleGlobalDragOver);
+        return () => {
+            window.removeEventListener("dragover", handleGlobalDragOver);
+        };
+    }, [draggedKey]);
+
     // HTML5 Drag & Drop Handlers
     const onDragStart = (e: React.DragEvent, key: string) => {
         e.dataTransfer.setData("text/plain", key);
@@ -196,6 +225,13 @@ export function ConfigurableAnalyticsSection({
         setDragOverKey(null);
 
         if (!sourceKey || sourceKey === targetKey) return;
+
+        if (!DEFAULT_KEYS.includes(sourceKey)) {
+            toast.error("Cross-Section Drag Restricted", {
+                description: "Analytics & Intelligence Cards can only be reordered within the Analytics section.",
+            });
+            return;
+        }
 
         const currentOrder = [...cardOrder];
         const fromIndex = currentOrder.indexOf(sourceKey);
@@ -242,6 +278,7 @@ export function ConfigurableAnalyticsSection({
                         activeCategory={selectedCategory}
                         themeColor={themeColor}
                         isCompact={isCompact}
+                        rowSpan={cfg.rowSpan}
                     />
                 );
 
@@ -255,6 +292,7 @@ export function ConfigurableAnalyticsSection({
                         activeCategory={payCategory}
                         activeMethod={payMethod}
                         isCompact={isCompact}
+                        rowSpan={cfg.rowSpan}
                     />
                 );
 
@@ -268,6 +306,7 @@ export function ConfigurableAnalyticsSection({
                         activeCivilStatus={resCivil}
                         activeSector={resSector}
                         isCompact={isCompact}
+                        rowSpan={cfg.rowSpan}
                     />
                 );
 
@@ -279,6 +318,7 @@ export function ConfigurableAnalyticsSection({
                             createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
                         }))}
                         isCompact={isCompact}
+                        rowSpan={cfg.rowSpan}
                     />
                 );
 
@@ -287,9 +327,13 @@ export function ConfigurableAnalyticsSection({
         }
     };
 
+    const visibleCardOrder = cardOrder.filter((key) => cardVisibility[key] !== false);
+
+    if (visibleCardOrder.length === 0) return null;
+
     return (
         <div className="grid grid-cols-12 gap-8 items-stretch transition-all duration-500 ease-in-out">
-            {cardOrder.map((key) => {
+            {visibleCardOrder.map((key) => {
                 const cfg = configs[key] || { id: key, colSpan: 12, rowSpan: 1 };
                 const currentClass = colSpanClasses[cfg.colSpan] || "col-span-12";
                 const isBeingDragged = draggedKey === key;

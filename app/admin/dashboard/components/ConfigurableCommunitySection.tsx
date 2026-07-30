@@ -7,6 +7,7 @@ import { RecentAnnouncementsCard } from "./RecentAnnouncementsCard";
 import { LatestNewsCard } from "./LatestNewsCard";
 import { UpcomingEventsCard } from "./UpcomingEventsCard";
 import { LGUProjectsCard } from "./LGUProjectsCard";
+import { toast } from "sonner";
 
 export interface CommunityCardConfig {
     id: string;
@@ -20,6 +21,7 @@ interface ConfigurableCommunitySectionProps {
     events: any[];
     pastEvents: any[];
     projects: any[];
+    cardVisibility?: Record<string, boolean>;
 }
 
 const DEFAULT_KEYS = [
@@ -45,6 +47,7 @@ export function ConfigurableCommunitySection({
     events,
     pastEvents,
     projects,
+    cardVisibility = {},
 }: ConfigurableCommunitySectionProps) {
     const [cardOrder, setCardOrder] = useState<string[]>(DEFAULT_KEYS);
 
@@ -137,6 +140,30 @@ export function ConfigurableCommunitySection({
         saveConfigs(updated);
     };
 
+    // Global Auto-Scroll Listener while dragging any card
+    useEffect(() => {
+        if (!draggedKey) return;
+
+        const handleGlobalDragOver = (e: DragEvent) => {
+            const threshold = 140;
+            const speed = 25;
+
+            // Find scrollable main container in AdminShell or window
+            const scrollContainer = document.querySelector("main.overflow-y-auto") || window;
+
+            if (e.clientY < threshold) {
+                scrollContainer.scrollBy({ top: -speed, behavior: "auto" });
+            } else if (window.innerHeight - e.clientY < threshold) {
+                scrollContainer.scrollBy({ top: speed, behavior: "auto" });
+            }
+        };
+
+        window.addEventListener("dragover", handleGlobalDragOver);
+        return () => {
+            window.removeEventListener("dragover", handleGlobalDragOver);
+        };
+    }, [draggedKey]);
+
     // HTML5 Drag & Drop Handlers
     const onDragStart = (e: React.DragEvent, key: string) => {
         e.dataTransfer.setData("text/plain", key);
@@ -163,6 +190,13 @@ export function ConfigurableCommunitySection({
         setDragOverKey(null);
 
         if (!sourceKey || sourceKey === targetKey) return;
+
+        if (!DEFAULT_KEYS.includes(sourceKey)) {
+            toast.error("Cross-Section Drag Restricted", {
+                description: "Community & Public Affairs Cards can only be reordered within the Community section.",
+            });
+            return;
+        }
 
         const currentOrder = [...cardOrder];
         const fromIndex = currentOrder.indexOf(sourceKey);
@@ -195,28 +229,32 @@ export function ConfigurableCommunitySection({
         12: "col-span-12",
     };
 
-    const renderCardInner = (key: string) => {
+    const renderCardInner = (key: string, cfg: CommunityCardConfig) => {
         switch (key) {
             case "recent_announcements":
-                return <RecentAnnouncementsCard announcements={announcements} />;
+                return <RecentAnnouncementsCard announcements={announcements} rowSpan={cfg.rowSpan} />;
 
             case "latest_news":
-                return <LatestNewsCard news={news} />;
+                return <LatestNewsCard news={news} rowSpan={cfg.rowSpan} />;
 
             case "upcoming_events":
-                return <UpcomingEventsCard events={events} pastEvents={pastEvents} />;
+                return <UpcomingEventsCard events={events} pastEvents={pastEvents} rowSpan={cfg.rowSpan} />;
 
             case "lgu_projects":
-                return <LGUProjectsCard projects={projects} />;
+                return <LGUProjectsCard projects={projects} rowSpan={cfg.rowSpan} />;
 
             default:
                 return null;
         }
     };
 
+    const visibleCardOrder = cardOrder.filter((key) => cardVisibility[key] !== false);
+
+    if (visibleCardOrder.length === 0) return null;
+
     return (
         <div className="grid grid-cols-12 gap-8 items-stretch transition-all duration-500 ease-in-out">
-            {cardOrder.map((key) => {
+            {visibleCardOrder.map((key) => {
                 const cfg = configs[key] || { id: key, colSpan: 6, rowSpan: 1 };
                 const currentClass = colSpanClasses[cfg.colSpan] || "col-span-12 lg:col-span-6";
                 const isBeingDragged = draggedKey === key;
@@ -254,7 +292,7 @@ export function ConfigurableCommunitySection({
                             </div>
                         </div>
 
-                        {renderCardInner(key)}
+                        {renderCardInner(key, cfg)}
                     </div>
                 );
             })}

@@ -49,7 +49,7 @@ export function BarangaySwitcher({ availableBarangays = [], currentBarangay, the
 
                 <MapPin size={16} className="text-primary" style={{ color: themeColor }} />
                 <div className="flex flex-col text-left">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 italic leading-none mb-1">Viewing Context</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 italic leading-none mb-1">Jurisdiction Scope</p>
                     <div className="flex items-center gap-1">
                         <span className="text-xs font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none pr-4">
                             {currentBarangay || "Mapandan"}

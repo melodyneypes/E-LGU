@@ -31,6 +31,7 @@ interface TransactionDashboardViewProps {
   activeCategory: string;
   themeColor?: string;
   isCompact?: boolean;
+  rowSpan?: number;
 }
 
 type FilterType = "requests" | "evaluation" | "processing" | "released" | "rejected";
@@ -71,6 +72,7 @@ export function TransactionDashboardView({
   initialTo,
   categories,
   activeCategory,
+  rowSpan = 1,
 }: TransactionDashboardViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -259,11 +261,14 @@ export function TransactionDashboardView({
         )}
       </div>
 
-      {/* Recharts Render Area / Skeleton Loader */}
+      {/* Dynamic Height Recharts Render Area / Skeleton Loader */}
       {isPending ? (
         <ChartSkeleton />
       ) : (
-        <div className="h-[320px] w-full mt-4">
+        <div
+          style={{ height: `${280 + (rowSpan - 1) * 140}px` }}
+          className="w-full mt-4 transition-all duration-300"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
