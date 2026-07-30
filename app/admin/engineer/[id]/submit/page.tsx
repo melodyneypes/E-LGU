@@ -11,7 +11,6 @@ import {
     Check,
     ZoomIn
 } from "lucide-react";
-import Image from "next/image";
 import { isValidUrl } from "@/utils/image";
 import { toast } from "sonner";
 import {
@@ -315,7 +314,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
                                                         <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
                                                             <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID</p>
                                                             <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(newIdFile) ? newIdFile : "/placeholder.png"} alt="Government ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                                <img src={isValidUrl(newIdFile) ? newIdFile : "/placeholder.png"} alt="Government ID" className="absolute inset-0 w-full h-full object-contain p-2 group-hover:scale-105 transition-transform" />
                                                             </div>
                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                                 <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
@@ -351,7 +350,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
                                                         <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
                                                             <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Front ID</p>
                                                             <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(idFront) ? idFront : "/placeholder.png"} alt="Front ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                                <img src={isValidUrl(idFront) ? idFront : "/placeholder.png"} alt="Front ID" className="absolute inset-0 w-full h-full object-contain p-2 group-hover:scale-105 transition-transform" />
                                                             </div>
                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                                 <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
@@ -369,7 +368,7 @@ export default function BuildingPermitSubmitPage({ params }: PageProps) {
                                                         <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
                                                             <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Back ID</p>
                                                             <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(idBack) ? idBack : "/placeholder.png"} alt="Back ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                                <img src={isValidUrl(idBack) ? idBack : "/placeholder.png"} alt="Back ID" className="absolute inset-0 w-full h-full object-contain p-2 group-hover:scale-105 transition-transform" />
                                                             </div>
                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                                 <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">

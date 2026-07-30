@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useState, useEffect, use, useCallback } from "react";
+import React, { useState, useEffect, use, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -13,7 +13,6 @@ import {
     ZoomOut,
     RotateCw,
     RefreshCcw,
-    Camera,
     AlertCircle,
     BadgeCheck,
     FileText
@@ -135,6 +134,7 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
                         size="icon"
                         className="w-10 h-10 rounded-full hover:bg-white/10 text-white transition-all"
                         onClick={() => setScale(s => Math.max(s - 0.2, 0.5))}
+                        title="Zoom Out"
                     >
                         <ZoomOut className="w-4 h-4" />
                     </Button>
@@ -146,6 +146,7 @@ function LightboxView({ src, alt, label }: { src: string; alt: string; label: st
                         size="icon"
                         className="w-10 h-10 rounded-full hover:bg-white/10 text-white transition-all"
                         onClick={() => setScale(s => Math.min(s + 0.2, 5))}
+                        title="Zoom In"
                     >
                         <ZoomIn className="w-4 h-4" />
                     </Button>
@@ -217,6 +218,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     const canScheduleInspection = userRole === "MPDC_ZONING" 
         ? (isZoningActive && zoningStatus === "FOR_REQUESTING")
         : (transaction?.status === "FOR_REQUESTING");
+
     const fetchTransaction = useCallback(async () => {
         setLoading(true);
         try {
@@ -264,6 +266,127 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
         setActionLoading(false);
     };
 
+    const additional = useMemo(() => transaction?.additionalData || {}, [transaction]);
+    const resident = useMemo(() => transaction?.user?.residentProfile || transaction?.residentSnapshot || {}, [transaction]);
+
+    const renderRequirementsGrid = () => {
+        const vaultDocs = [
+            { key: "newIdFile", url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)" },
+            { key: "newIdFileBack", url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)" },
+            { key: "tctFile", url: additional?.documents?.tctFile, label: "TCT / Land Title" },
+            ...(transaction?.type?.code === "OCCUPANCY_PERMIT" ? [
+                "Duly Notarized Certificate of Completion",
+                "Construction Logbook, signed and sealed by Owner's Architect and Civil Engineer",
+                "As-Built Plans, signed and sealed by the Owner's Architect and Civil Engineer",
+                "Valid Licenses of All Involved Professionals",
+                "Captioned Photographs of Site and Completed Building/Structure (Front, Sides, and Rear Areas)",
+                "Duly Notarized Affidavit of Undertaking (Optional)"
+            ].map((label, idx) => ({ key: `req_${idx}`, url: additional?.documents?.[`req_${idx}`], label, idx })) : [
+                "Barangay Clearance/Certification",
+                "Tax Declaration",
+                "Land Title",
+                "Community Tax Certificate",
+                "Latest Tax Receipts",
+                "Adjoining Owners Confirmation",
+                "Locational Clearance",
+                "Affidavit of Consent",
+                "Affidavit of Adjoining Owners",
+                "Signed & Sealed Plans",
+                "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
+                "Cedula of Lot Owner",
+                "ID of Lot Owner",
+                "Death Certificate of Lot Owner (Optional)",
+                "Birth Certificate of Heirs of Deceased Owner (Optional)",
+                "Valid Licenses (PRC I.D.) of Involved Professionals",
+                "Duly Notarized Estimated Value of Building/Structure",
+                "Duly Notarized Technical Specification",
+                "Construction Safety and Health Program From DOLE",
+                "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
+                "Affidavit of Undertaking",
+                "Cedula of Applicant",
+                "ID of applicant with 3 signatures",
+                "Structural Analysis and Design",
+                "Soil Boring Test"
+            ]
+              .map((label, idx) => ({ key: `req_${idx}`, url: additional?.documents?.[`req_${idx}`], label, idx }))
+              .filter(({ idx }) => {
+                  if (additional?.isLotOwner === "Yes" && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
+                  if (additional?.isLotOwner === "No" && [21, 22].includes(idx)) return false;
+                  const hasMultipleFloors = parseInt(additional?.totalFloors || "0", 10) > 1;
+                  if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
+                  return true;
+              })),
+            ...Object.keys(additional?.documents || {})
+                .filter(key => key.startsWith("req_"))
+                .map(key => {
+                    const idx = parseInt(key.replace("req_", ""), 10);
+                    const threshold = transaction?.type?.code === "OCCUPANCY_PERMIT" ? 6 : 25;
+                    if (idx >= threshold) {
+                        const label = additional?.customLabels?.[key] || `Additional Document ${idx - threshold + 1}`;
+                        return { key, url: additional.documents[key], label };
+                    }
+                    return null;
+                })
+                .filter(Boolean) as { key: string; url: string; label: string }[],
+            ...(transaction?.type?.code === "OCCUPANCY_PERMIT" ? [] : [
+                "1. Electrical Permit",
+                "2. Plumbing Permit",
+                "3. Sanitary Permit",
+                "4. Excavation & Ground Preparation Permit",
+                "5. Fencing Permit",
+                "6. Scaffolding Permit",
+                "7. Mechanical Permit",
+                "8. Architectural Documents",
+                "9. Civil/Structural Documents",
+                "10. Electronics Documents",
+                "11. Geodetic Documents",
+                "12. Fire Protection Plan"
+            ].map((label, idx) => ({ key: `permit_${idx}`, url: additional?.documents?.[`permit_${idx}`], label }))),
+            ...Object.keys(additional?.documents || {})
+                .filter(key => key.startsWith("permit_"))
+                .map(key => {
+                    const idx = parseInt(key.replace("permit_", ""), 10);
+                    if (idx >= 12) {
+                        const label = additional?.customLabels?.[key] || `Additional Permit ${idx - 11}`;
+                        return { key, url: additional.documents[key], label };
+                    }
+                    return null;
+                })
+                .filter(Boolean) as { key: string; url: string; label: string }[]
+        ].filter(doc => doc.url);
+
+        return (
+            <div className="grid grid-cols-2 gap-4">
+                {vaultDocs.map((doc, i) => (
+                    <Dialog key={i}>
+                        <DialogTrigger asChild>
+                            <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 flex items-center justify-center cursor-zoom-in">
+                                {doc.url?.toLowerCase().includes('.pdf') ? (
+                                    <div className="flex flex-col items-center justify-center w-full h-full bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-primary transition-colors">
+                                        <FileText className="w-8 h-8 mb-1" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">PDF</span>
+                                    </div>
+                                ) : (
+                                    <img src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
+                                )}
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                                        <ZoomIn className="w-5 h-5 text-white" />
+                                    </div>
+                                </div>
+                                <div className="absolute bottom-2 left-2 right-2 z-10">
+                                    <span className="text-[8px] font-black uppercase tracking-wider text-white bg-slate-950/80 px-2.5 py-1 rounded-lg backdrop-blur-md truncate block max-w-full text-center italic shadow-sm">
+                                        {doc.label}
+                                    </span>
+                                </div>
+                            </div>
+                        </DialogTrigger>
+                        <LightboxView src={doc.url as string} alt={doc.label} label={doc.label} />
+                    </Dialog>
+                ))}
+            </div>
+        );
+    };
 
     if (loading) {
         return (
@@ -274,116 +397,6 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
     }
 
     if (!transaction) return <div className="p-20 text-center dark:text-white">Protocol Error: Transaction Inaccessible</div>;
-
-    const additional = transaction.additionalData || {};
-    const resident = transaction.user?.residentProfile || transaction.residentSnapshot || {};
-
-    const renderRequirementsGrid = () => (
-        <div className="grid grid-cols-2 gap-4">
-            {[
-                { key: "newIdFile", url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)" },
-                { key: "newIdFileBack", url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)" },
-                { key: "tctFile", url: additional?.documents?.tctFile, label: "TCT / Land Title" },
-                ...[
-                    "Barangay Clearance/Certification",
-                    "Tax Declaration",
-                    "Land Title",
-                    "Community Tax Certificate",
-                    "Latest Tax Receipts",
-                    "Adjoining Owners Confirmation",
-                    "Locational Clearance",
-                    "Affidavit of Consent",
-                    "Affidavit of Adjoining Owners",
-                    "Signed & Sealed Plans",
-                    "Notarized Deed of Sale/Lot Locational Plan/ Contract of Lease",
-                    "Cedula of Lot Owner",
-                    "ID of Lot Owner",
-                    "Death Certificate of Lot Owner (Optional)",
-                    "Birth Certificate of Heirs of Deceased Owner (Optional)",
-                    "Valid Licenses (PRC I.D.) of Involved Professionals",
-                    "Duly Notarized Estimated Value of Building/Structure",
-                    "Duly Notarized Technical Specification",
-                    "Construction Safety and Health Program From DOLE",
-                    "Construction Logbook duly signed by Civil Engineer/Architect in-charge of Construction",
-                    "Affidavit of Undertaking",
-                    "Cedula of Applicant",
-                    "ID of applicant with 3 signatures",
-                    "Structural Analysis and Design",
-                    "Soil Boring Test"
-                ]
-                  .map((label, idx) => ({ key: `req_${idx}`, url: additional?.documents?.[`req_${idx}`], label, idx }))
-                  .filter(({ idx }) => {
-                      if (additional?.isLotOwner === "Yes" && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
-                      if (additional?.isLotOwner === "No" && [21, 22].includes(idx)) return false;
-                      const hasMultipleFloors = parseInt(additional?.totalFloors || "0", 10) > 1;
-                      if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
-                      return true;
-                  }),
-                ...Object.keys(additional?.documents || {})
-                    .filter(key => key.startsWith("req_"))
-                    .map(key => {
-                        const idx = parseInt(key.replace("req_", ""), 10);
-                        if (idx >= 25) {
-                            const label = additional?.customLabels?.[key] || `Additional Document ${idx - 24}`;
-                            return { key, url: additional.documents[key], label };
-                        }
-                        return null;
-                    })
-                    .filter(Boolean) as { key: string; url: string; label: string }[],
-                ...[
-                    "1. Electrical Permit",
-                    "2. Plumbing Permit",
-                    "3. Sanitary Permit",
-                    "4. Excavation & Ground Preparation Permit",
-                    "5. Fencing Permit",
-                    "6. Scaffolding Permit",
-                    "7. Mechanical Permit",
-                    "8. Architectural Documents",
-                    "9. Civil/Structural Documents",
-                    "10. Electronics Documents",
-                    "11. Geodetic Documents",
-                    "12. Fire Protection Plan"
-                ].map((label, idx) => ({ key: `permit_${idx}`, url: additional?.documents?.[`permit_${idx}`], label })),
-                ...Object.keys(additional?.documents || {})
-                    .filter(key => key.startsWith("permit_"))
-                    .map(key => {
-                        const idx = parseInt(key.replace("permit_", ""), 10);
-                        if (idx >= 12) {
-                            const label = additional?.customLabels?.[key] || `Additional Permit ${idx - 11}`;
-                            return { key, url: additional.documents[key], label };
-                        }
-                        return null;
-                    })
-                    .filter(Boolean) as { key: string; url: string; label: string }[]
-            ].filter(doc => doc.url && (!additional?.zoningVisibleDocs || additional.zoningVisibleDocs.includes(doc.key))).map((doc, i) => (
-                <Dialog key={i}>
-                    <DialogTrigger asChild>
-                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 flex items-center justify-center cursor-zoom-in">
-                            {doc.url?.toLowerCase().includes('.pdf') ? (
-                                <div className="flex flex-col items-center justify-center w-full h-full bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-primary transition-colors">
-                                    <FileText className="w-8 h-8 mb-1" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">PDF</span>
-                                </div>
-                            ) : (
-                                <Image src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} fill className="object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
-                            )}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                    <ZoomIn className="w-5 h-5 text-white" />
-                                </div>
-                            </div>
-                            <div className="absolute bottom-2 left-2 right-2 z-10">
-                                <span className="text-[8px] font-black uppercase tracking-wider text-white bg-slate-950/80 px-2.5 py-1 rounded-lg backdrop-blur-md truncate block max-w-full text-center italic shadow-sm">
-                                    {doc.label}
-                                </span>
-                            </div>
-                        </div>
-                    </DialogTrigger>
-                    <LightboxView src={doc.url} alt={doc.label} label={doc.label} />
-                </Dialog>
-            ))}
-        </div>
-    );
 
     const steps = [
         { id: "FOR_REQUESTING", label: "EVALUATION" },
@@ -396,9 +409,9 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
         if (status === "FOR_INSPECTION") return 1;
         if (status === "FOR_REINSPECTION") return 2;
         if (status === "EVALUATED" || status === "UNPAID" || status === "PAYMENT_SUBMITTED" || status === "PAID") return 3;
-        return 4;
+        return 4; // PAID, FOR_PROCESSING, FOR_CLAIM, RELEASED
     };
-    const currentStepIdx = getStepIndex(zoningStatus || "FOR_REQUESTING");
+    const currentStepIdx = getStepIndex(zoningStatus || transaction.status);
 
     return (
         <div
@@ -413,9 +426,6 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                 </Link>
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 mr-2">
-                        <Badge className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 border border-orange-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
-                            Revision Count: {transaction?.additionalData?.zoningRevisionCount || 0} / 3
-                        </Badge>
                         <Badge className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 border border-blue-500/20 text-[9px] font-black italic uppercase tracking-widest px-3 py-1 rounded-xl">
                             Re-inspection Count: {transaction?.additionalData?.zoningReinspectionCount || 0} / 3
                         </Badge>
@@ -494,203 +504,59 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                     {resident?.dateOfBirth ? new Date(resident.dateOfBirth).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "--"}
                                 </div>
                             </div>
-                            <div className="col-span-12 md:col-span-2 space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Age</label>
-                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">
-                                    {resident?.age ?? (resident?.dateOfBirth ? Math.floor((new Date().getTime() - new Date(resident.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : "--")}
-                                </div>
+                            <div className="col-span-12 md:col-span-3 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Gender</label>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 capitalize">{resident?.gender || "--"}</div>
                             </div>
                             <div className="col-span-12 md:col-span-3 space-y-2">
                                 <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Civil Status</label>
-                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 uppercase">{resident?.civilStatus || "--"}</div>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 capitalize">{resident?.civilStatus || "--"}</div>
                             </div>
-                            <div className="col-span-12 md:col-span-4 space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Contact Number</label>
-                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.contactNumber || "--"}</div>
-                            </div>
-
-                            <div className="col-span-12 md:col-span-6 space-y-2">
+                            <div className="col-span-12 md:col-span-3 space-y-2">
                                 <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Occupation</label>
-                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.occupation || "--"}</div>
+                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">{resident?.occupation || "N/A"}</div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-12 gap-6 pt-6 border-t border-slate-100 dark:border-white/5">
+                            <div className="col-span-12 md:col-span-6 space-y-2">
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Address Details</label>
+                                <div className="min-h-[3rem] p-4 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 break-words leading-relaxed">
+                                    {[
+                                        resident?.unitNumber,
+                                        resident?.houseNumber,
+                                        resident?.streetName,
+                                        resident?.subdivision,
+                                        resident?.purok,
+                                        resident?.barangay,
+                                        resident?.municipality,
+                                        resident?.province,
+                                        resident?.zipCode
+                                    ].filter(Boolean).join(", ")}
+                                </div>
                             </div>
                             <div className="col-span-12 md:col-span-6 space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Barangay & Complete Address</label>
-                                <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
-                                    {resident?.houseNumber || ""} {resident?.street || ""} {resident?.barangay ? `${resident.barangay}, Mapandan, Pangasinan` : "--"}
+                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Contact Information</label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100">{resident?.contactNumber || "--"}</div>
+                                    <div className="h-12 flex items-center px-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 truncate" title={resident?.emailAddress}>{resident?.emailAddress || "--"}</div>
                                 </div>
-                            </div>
-
-                            {/* Government ID Section */}
-                            {(() => {
-                                const newIdFile = additional?.documents?.newIdFile;
-                                const newIdFileBack = additional?.documents?.newIdFileBack;
-                                if (newIdFile) {
-                                    return (
-                                        <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
-                                            <div className="flex items-center gap-2">
-                                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Uploaded Government ID</label>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-6 max-w-2xl">
-                                                <Dialog>
-                                                    <DialogTrigger asChild>
-                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
-                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Front)</p>
-                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(newIdFile) ? newIdFile : "/placeholder.png"} alt="Government ID Front" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                            </div>
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                                    <ZoomIn className="w-4 h-4 text-white" />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </DialogTrigger>
-                                                    <LightboxView src={newIdFile} alt="Government ID Front" label="Government ID Front" />
-                                                </Dialog>
-
-                                                {newIdFileBack && (
-                                                    <Dialog>
-                                                        <DialogTrigger asChild>
-                                                            <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
-                                                                <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Back)</p>
-                                                                <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                    <Image src={isValidUrl(newIdFileBack) ? newIdFileBack : "/placeholder.png"} alt="Government ID Back" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                                </div>
-                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                    <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                                        <ZoomIn className="w-4 h-4 text-white" />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </DialogTrigger>
-                                                        <LightboxView src={newIdFileBack} alt="Government ID Back" label="Government ID Back" />
-                                                    </Dialog>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                }
-
-                                const idFront = additional?.validIdFront || additional?.idFrontUrl || resident?.idFrontUrl || resident?.idFileUrl;
-                                const idBack = additional?.validIdBack || additional?.idBackUrl || resident?.idBackUrl;
-                                if (!idFront && !idBack) return null;
-                                return (
-                                    <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
-                                        <div className="flex items-center gap-2">
-                                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Resident ID Verification Documents</label>
-                                            {resident?.idType && (
-                                                <Badge variant="outline" className="text-[9px] font-bold uppercase border-primary/20 text-primary py-0 px-2 h-5">
-                                                    ID Type: {resident.idType}
-                                                </Badge>
-                                            )}
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-6 max-w-2xl">
-                                            {idFront && (
-                                                <Dialog>
-                                                    <DialogTrigger asChild>
-                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
-                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Front ID</p>
-                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(idFront) ? idFront : "/placeholder.png"} alt="Front ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                            </div>
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                                    <ZoomIn className="w-4 h-4 text-white" />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </DialogTrigger>
-                                                    <LightboxView src={idFront} alt="Front ID" label="Front ID" />
-                                                </Dialog>
-                                            )}
-                                            {idBack && (
-                                                <Dialog>
-                                                    <DialogTrigger asChild>
-                                                        <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
-                                                            <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Back ID</p>
-                                                            <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(idBack) ? idBack : "/placeholder.png"} alt="Back ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                            </div>
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                                    <ZoomIn className="w-4 h-4 text-white" />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </DialogTrigger>
-                                                    <LightboxView src={idBack} alt="Back ID" label="Back ID" />
-                                                </Dialog>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* Applicant E-Signature Section */}
-                            {additional?.signature && (
-                                <div className="col-span-12 space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
-                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Applicant Digital E-Signature</label>
-                                    <div className="max-w-[240px] bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 p-4">
-                                        <Dialog>
-                                            <DialogTrigger asChild>
-                                                <div className="group relative aspect-video rounded-xl overflow-hidden flex items-center justify-center cursor-zoom-in bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5">
-                                                    <img src={additional.signature} alt="E-Signature" className="max-h-20 object-contain p-2 group-hover:scale-105 transition-transform" />
-                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                        <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                                                            <ZoomIn className="w-4 h-4 text-white" />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </DialogTrigger>
-                                            <LightboxView src={additional.signature} alt="E-Signature" label="Applicant E-Signature" />
-                                        </Dialog>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Card 1: Application Details */}
-                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
-                        <div>
-                            <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
-                                Application <span className="text-primary">Details</span>
-                            </h2>
-                            <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">Zoning Permit Questionnaire</p>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Description of Work</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.descriptionOfWork || "--"}</div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Occupancy Use</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.occupancyUse || "--"}</div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Total Floor(s)</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.totalFloors || "--"}</div>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Is applicant lot owner?</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.isLotOwner || "--"}</div>
-                            </div>
-                            <div className="space-y-2 md:col-span-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Location of Construction</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-bold text-sm text-slate-800 dark:text-slate-100 min-h-[48px]">{additional?.locationOfConstruction || additional?.location || "--"}</div>
-                            </div>
-                            <div className="space-y-2 md:col-span-2">
-                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">Estimated Cost</label>
-                                <div className="p-5 bg-[#f8fafd] dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl font-black text-sm text-primary min-h-[48px]">₱{Number(additional?.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Card 2: Requirements Plans & Submissions */}
-                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary/10 rounded-lg"><Camera className="text-primary w-4 h-4" /></div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Submitted Requirements</span>
+                    {/* Requirements Vault */}
+                    <div className="bg-white dark:bg-[#151b28] rounded-[2rem] p-12 shadow-[0_2px_40px_rgba(0,0,0,0.02)] border border-slate-50 dark:border-white/5 space-y-8 animate-in fade-in duration-500 delay-100">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#1e293b] dark:text-white leading-none">
+                                    Requirements <span className="text-primary">Vault</span>
+                                </h2>
+                                <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] italic mt-2">Submitted Documents & Clearances</p>
+                            </div>
+                            <Badge variant="outline" className="text-xs font-bold bg-primary/5 text-primary border-primary/20 px-4 py-1.5 rounded-xl">
+                                {(transaction?.additionalData as any)?.documents ? Object.keys((transaction?.additionalData as any).documents).length + 1 : 1} Files Attached
+                            </Badge>
                         </div>
                         {renderRequirementsGrid()}
                     </div>

@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useState, useRef, useEffect, use, useCallback } from "react";
@@ -1733,7 +1734,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
                                                                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">PDF</span>
                                                                 </div>
                                                             ) : (
-                                                                <Image src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} fill className="object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
+                                                                <img src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
                                                             )}
                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                                 <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
@@ -1791,7 +1792,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
                                                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">PDF</span>
                                                                     </div>
                                                                 ) : (
-                                                                    <Image src={isValidUrl(transaction.paymentReference) ? transaction.paymentReference : "/placeholder.png"} alt="Payment" fill className="object-cover group-hover:scale-105 transition-transform" />
+                                                                    <img src={isValidUrl(transaction.paymentReference) ? transaction.paymentReference : "/placeholder.png"} alt="Payment" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform" />
                                                                 )}
                                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                                     <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
@@ -1850,7 +1851,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
                                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">PDF</span>
                                                             </div>
                                                         ) : (
-                                                            <Image src={isValidUrl(transaction.podUrl) ? transaction.podUrl : "/placeholder.png"} alt="POD" fill className="object-cover group-hover:scale-105 transition-transform" />
+                                                            <img src={isValidUrl(transaction.podUrl) ? transaction.podUrl : "/placeholder.png"} alt="POD" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform" />
                                                         )}
                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                             <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
@@ -1908,7 +1909,7 @@ export default function EngineerDetailPage({ params }: PageProps) {
                                                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">PDF</span>
                                                             </div>
                                                         ) : (
-                                                            <Image src={isValidUrl(transaction.disputeProofUrl) ? transaction.disputeProofUrl : "/placeholder.png"} alt="Proof" fill className="object-cover group-hover:scale-105 transition-transform" />
+                                                            <img src={isValidUrl(transaction.disputeProofUrl) ? transaction.disputeProofUrl : "/placeholder.png"} alt="Proof" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform" />
                                                         )}
                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                             <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
@@ -2839,7 +2840,6 @@ export default function EngineerDetailPage({ params }: PageProps) {
                     <div className="flex-1 flex flex-col items-center justify-center p-4 gap-4 border-b-[2px] border-black border-dashed">
                         <div className="relative w-40 h-40 bg-white p-2 border border-slate-100 shadow-sm flex items-center justify-center">
                             {/* Standard img tag used for reliable print rendering */}
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${transaction.id}`}
                                 alt="Tracking QR"

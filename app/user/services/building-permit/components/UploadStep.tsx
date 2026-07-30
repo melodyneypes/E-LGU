@@ -49,7 +49,7 @@ interface UploadStepProps {
   isPrivacyModalOpen: boolean;
   setIsPrivacyModalOpen: (open: boolean) => void;
   setCurrentStep: (step: string) => void;
-  setAbandonedFiles: React.Dispatch<React.SetStateAction<string[]>>;
+  addAbandonedFile: (url: string) => void;
 }
 
 export function UploadStep({
@@ -93,7 +93,7 @@ export function UploadStep({
   isPrivacyModalOpen,
   setIsPrivacyModalOpen,
   setCurrentStep,
-  setAbandonedFiles
+  addAbandonedFile
 }: UploadStepProps) {
 
   const handleAsyncUpload = async (file: File, idx: number, isRequirement: boolean) => {
@@ -111,7 +111,7 @@ export function UploadStep({
       const url = target ? await uploadFileClientSide(file, fieldName, target) : null;
       
       if (url) {
-        setAbandonedFiles(prev => [...prev, url]);
+        addAbandonedFile(url);
         if (isRequirement) {
           setUploadedRequirements(prev => ({ ...prev, [idx]: url }));
         } else {

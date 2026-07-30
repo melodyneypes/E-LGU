@@ -228,7 +228,14 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
             { key: "newIdFile", url: additional?.documents?.newIdFile || resident?.idFileUrl, label: "Applicant Valid ID (Front)", type: "REQUIREMENTS" },
             { key: "newIdFileBack", url: additional?.documents?.newIdFileBack, label: "Applicant Valid ID (Back)", type: "REQUIREMENTS" },
             { key: "tctFile", url: additional?.documents?.tctFile, label: "TCT / Land Title", type: "REQUIREMENTS" },
-            ...[
+            ...(transaction?.type?.code === "OCCUPANCY_PERMIT" ? [
+                "Duly Notarized Certificate of Completion",
+                "Construction Logbook, signed and sealed by Owner's Architect and Civil Engineer",
+                "As-Built Plans, signed and sealed by the Owner's Architect and Civil Engineer",
+                "Valid Licenses of All Involved Professionals",
+                "Captioned Photographs of Site and Completed Building/Structure (Front, Sides, and Rear Areas)",
+                "Duly Notarized Affidavit of Undertaking (Optional)"
+            ].map((label, idx) => ({ key: `req_${idx}`, url: additional?.documents?.[`req_${idx}`], label, idx, type: "REQUIREMENTS" })) : [
                 "Barangay Clearance/Certification",
                 "Tax Declaration",
                 "Land Title",
@@ -262,19 +269,20 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                   const hasMultipleFloors = parseInt(additional?.totalFloors || "0", 10) > 1;
                   if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
                   return true;
-              }),
+              })),
             ...Object.keys(additional?.documents || {})
                 .filter(key => key.startsWith("req_"))
                 .map(key => {
                     const idx = parseInt(key.replace("req_", ""), 10);
-                    if (idx >= 25) {
-                        const label = additional?.customLabels?.[key] || `Additional Document ${idx - 24}`;
+                    const threshold = transaction?.type?.code === "OCCUPANCY_PERMIT" ? 6 : 25;
+                    if (idx >= threshold) {
+                        const label = additional?.customLabels?.[key] || `Additional Document ${idx - threshold + 1}`;
                         return { key, url: additional.documents[key], label, type: "REQUIREMENTS" };
                     }
                     return null;
                 })
                 .filter(Boolean) as { key: string, url: string; label: string; type: string }[],
-            ...[
+            ...(transaction?.type?.code === "OCCUPANCY_PERMIT" ? [] : [
                 "1. Electrical Permit",
                 "2. Plumbing Permit",
                 "3. Sanitary Permit",
@@ -287,7 +295,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                 "10. Electronics Documents",
                 "11. Geodetic Documents",
                 "12. Fire Protection Plan"
-            ].map((label, idx) => ({ key: `permit_${idx}`, url: additional?.documents?.[`permit_${idx}`], label, type: "PERMITS" })),
+            ].map((label, idx) => ({ key: `permit_${idx}`, url: additional?.documents?.[`permit_${idx}`], label, type: "PERMITS" }))),
             ...Object.keys(additional?.documents || {})
                 .filter(key => key.startsWith("permit_"))
                 .map(key => {
@@ -298,7 +306,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                     }
                     return null;
                 })
-                .filter(Boolean) as { key: string; url: string; label: string; type: string }[]
+                .filter(Boolean) as { key: string, url: string; label: string; type: string }[]
         ].filter(doc => doc.url);
     }, [transaction, additional, resident]);
 
@@ -421,7 +429,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">PDF</span>
                                 </div>
                             ) : (
-                                <Image src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} fill className="object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
+                                <img src={isValidUrl(doc.url) ? doc.url : "/placeholder.png"} alt={doc.label} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform animate-in fade-in duration-300" />
                             )}
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                 <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
@@ -583,7 +591,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                                         <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
                                                             <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Front)</p>
                                                             <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(newIdFile) ? newIdFile : "/placeholder.png"} alt="Government ID Front" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                                <img src={isValidUrl(newIdFile) ? newIdFile : "/placeholder.png"} alt="Government ID Front" className="absolute inset-0 w-full h-full object-contain p-2 group-hover:scale-105 transition-transform" />
                                                             </div>
                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                                 <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
@@ -601,7 +609,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                                             <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
                                                                 <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Government ID (Back)</p>
                                                                 <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                    <Image src={isValidUrl(newIdFileBack) ? newIdFileBack : "/placeholder.png"} alt="Government ID Back" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                                    <img src={isValidUrl(newIdFileBack) ? newIdFileBack : "/placeholder.png"} alt="Government ID Back" className="absolute inset-0 w-full h-full object-contain p-2 group-hover:scale-105 transition-transform" />
                                                                 </div>
                                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                                     <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
@@ -638,7 +646,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                                         <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
                                                             <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Front ID</p>
                                                             <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(idFront) ? idFront : "/placeholder.png"} alt="Front ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                                <img src={isValidUrl(idFront) ? idFront : "/placeholder.png"} alt="Front ID" className="absolute inset-0 w-full h-full object-contain p-2 group-hover:scale-105 transition-transform" />
                                                             </div>
                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                                 <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
@@ -656,7 +664,7 @@ export default function BuildingPermitEvaluationPage({ params }: PageProps) {
                                                         <div className="group relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 flex flex-col cursor-zoom-in">
                                                             <p className="text-[9px] font-black text-center py-1.5 text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">Back ID</p>
                                                             <div className="relative flex-1 w-full h-full min-h-[120px]">
-                                                                <Image src={isValidUrl(idBack) ? idBack : "/placeholder.png"} alt="Back ID" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
+                                                                <img src={isValidUrl(idBack) ? idBack : "/placeholder.png"} alt="Back ID" className="absolute inset-0 w-full h-full object-contain p-2 group-hover:scale-105 transition-transform" />
                                                             </div>
                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                                 <div className="p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
