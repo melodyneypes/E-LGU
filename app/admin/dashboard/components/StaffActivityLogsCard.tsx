@@ -81,7 +81,7 @@ export function StaffActivityLogsCard({ initialLogs = [], maxItems = 7 }: StaffA
   return (
     <div className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 pr-10">
+      <div className="flex items-center justify-between mb-6 pr-20">
         <div>
           <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-indigo-500" />

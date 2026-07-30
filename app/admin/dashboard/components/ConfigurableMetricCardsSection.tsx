@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Users, Briefcase, AlertTriangle, Hammer, GripVertical } from "lucide-react";
 import { MetricCardGridPicker } from "./MetricCardGridPicker";
 import { DashboardSettingsSidebar } from "./DashboardSettingsSidebar";
+import { toast } from "sonner";
 
 export interface MetricCardConfig {
     id: string;
@@ -18,6 +19,9 @@ interface ConfigurableMetricCardsSectionProps {
     jobsCount: number;
     reportsCount: number;
     projectsCount: number;
+    strategicVisibilityMap?: Record<string, boolean>;
+    onToggleStrategicVisibility?: (key: string) => void;
+    onResetAllDashboard?: () => void;
 }
 
 const DEFAULT_KEYS = ["residents", "jobs", "reports", "projects"];
@@ -37,6 +41,9 @@ export function ConfigurableMetricCardsSection({
     jobsCount,
     reportsCount,
     projectsCount,
+    strategicVisibilityMap = {},
+    onToggleStrategicVisibility,
+    onResetAllDashboard,
 }: ConfigurableMetricCardsSectionProps) {
     const [cardOrder, setCardOrder] = useState<string[]>(DEFAULT_KEYS);
 
@@ -211,6 +218,13 @@ export function ConfigurableMetricCardsSection({
 
         if (!sourceKey || sourceKey === targetKey) return;
 
+        if (!DEFAULT_KEYS.includes(sourceKey)) {
+            toast.error("Cross-Section Drag Restricted", {
+                description: "Executive Stat Cards can only be reordered within the Core Performance Metrics section.",
+            });
+            return;
+        }
+
         const currentOrder = [...cardOrder];
         const fromIndex = currentOrder.indexOf(sourceKey);
         const toIndex = currentOrder.indexOf(targetKey);
@@ -222,10 +236,27 @@ export function ConfigurableMetricCardsSection({
         }
     };
 
-    const cardVisibilityMap: Record<string, boolean> = {};
+    const cardVisibilityMap: Record<string, boolean> = {
+        ...strategicVisibilityMap,
+    };
     DEFAULT_KEYS.forEach((k) => {
         cardVisibilityMap[k] = !configs[k]?.hidden;
     });
+
+    const handleGlobalToggleVisibility = (key: string) => {
+        if (DEFAULT_KEYS.includes(key)) {
+            toggleCardVisibility(key);
+        } else if (onToggleStrategicVisibility) {
+            onToggleStrategicVisibility(key);
+        }
+    };
+
+    const handleGlobalResetAll = () => {
+        resetAllConfigs();
+        if (onResetAllDashboard) {
+            onResetAllDashboard();
+        }
+    };
 
     const renderCardInner = (key: string, cfg: MetricCardConfig) => {
         const isWide = cfg.colSpan > 6;
@@ -352,8 +383,8 @@ export function ConfigurableMetricCardsSection({
                     {/* Appbar Workspace Settings Drawer Trigger Icon */}
                     <DashboardSettingsSidebar
                         cardVisibility={cardVisibilityMap}
-                        onToggleVisibility={toggleCardVisibility}
-                        onResetAll={resetAllConfigs}
+                        onToggleVisibility={handleGlobalToggleVisibility}
+                        onResetAll={handleGlobalResetAll}
                     />
                 </div>
             </div>

@@ -2,15 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Utensils, Hotel, Image, Flag, Phone } from "lucide-react";
+import { Utensils, Hotel, Image, Flag, Phone, GripVertical } from "lucide-react";
 import { MetricCardGridPicker } from "./MetricCardGridPicker";
 import { ActivityLogsCard } from "./ActivityLogsCard";
 import { StaffActivityLogsCard } from "./StaffActivityLogsCard";
+import { toast } from "sonner";
 
 export interface StrategicOpsConfig {
     id: string;
     colSpan: number; // 1 to 12
     rowSpan: number; // 1 to 6
+    hidden: boolean;
+    isManualOverride?: boolean;
 }
 
 interface ConfigurableStrategicOpsSectionProps {
@@ -18,7 +21,11 @@ interface ConfigurableStrategicOpsSectionProps {
     activityLogs: any[];
     staffLogs: any[];
     selectedBarangay?: string;
+    visibilityMap?: Record<string, boolean>;
+    onToggleVisibility?: (key: string) => void;
 }
+
+const DEFAULT_KEYS = ["admin_services", "resident_activity", "staff_audit"];
 
 const DEFAULT_CONFIGS: Record<string, { defaultCols: number; defaultRows: number }> = {
     admin_services: { defaultCols: 4, defaultRows: 1 },
@@ -26,27 +33,34 @@ const DEFAULT_CONFIGS: Record<string, { defaultCols: number; defaultRows: number
     staff_audit: { defaultCols: 4, defaultRows: 1 },
 };
 
-const STORAGE_KEY = "emapandan_strategic_ops_grid_v1";
+const STORAGE_KEY = "emapandan_strategic_ops_grid_v2";
+const ORDER_STORAGE_KEY = "emapandan_strategic_ops_order_v1";
 
 export function ConfigurableStrategicOpsSection({
     themeColor,
     activityLogs,
     staffLogs,
     selectedBarangay,
+    visibilityMap,
 }: ConfigurableStrategicOpsSectionProps) {
-    const cardKeys = Object.keys(DEFAULT_CONFIGS);
+    const [cardOrder, setCardOrder] = useState<string[]>(DEFAULT_KEYS);
 
     const [configs, setConfigs] = useState<Record<string, StrategicOpsConfig>>(() => {
         const initial: Record<string, StrategicOpsConfig> = {};
-        cardKeys.forEach((key) => {
+        DEFAULT_KEYS.forEach((key) => {
             initial[key] = {
                 id: key,
                 colSpan: DEFAULT_CONFIGS[key].defaultCols,
                 rowSpan: DEFAULT_CONFIGS[key].defaultRows,
+                hidden: false,
+                isManualOverride: false,
             };
         });
         return initial;
     });
+
+    const [draggedKey, setDraggedKey] = useState<string | null>(null);
+    const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
     useEffect(() => {
         try {
@@ -63,15 +77,68 @@ export function ConfigurableStrategicOpsSection({
                     return next;
                 });
             }
+
+            const savedOrder = localStorage.getItem(ORDER_STORAGE_KEY);
+            if (savedOrder) {
+                const parsedOrder: string[] = JSON.parse(savedOrder);
+                if (Array.isArray(parsedOrder) && parsedOrder.length > 0) {
+                    const validKeys = parsedOrder.filter((k) => DEFAULT_KEYS.includes(k));
+                    DEFAULT_KEYS.forEach((k) => {
+                        if (!validKeys.includes(k)) validKeys.push(k);
+                    });
+                    setCardOrder(validKeys);
+                }
+            }
         } catch {
             /* Fallback */
         }
     }, []);
 
+    // Sync external visibilityMap from parent if passed
+    useEffect(() => {
+        if (visibilityMap) {
+            setConfigs((prev) => {
+                let updated = false;
+                const next = { ...prev };
+                DEFAULT_KEYS.forEach((k) => {
+                    if (visibilityMap[k] !== undefined) {
+                        const targetHidden = !visibilityMap[k];
+                        if (next[k].hidden !== targetHidden) {
+                            next[k] = { ...next[k], hidden: targetHidden };
+                            updated = true;
+                        }
+                    }
+                });
+
+                if (updated) {
+                    const visibleAfter = DEFAULT_KEYS.filter((k) => !next[k].hidden);
+                    const visibleCount = visibleAfter.length;
+                    const autoCols = visibleCount > 0 ? Math.floor(12 / visibleCount) : 12;
+
+                    visibleAfter.forEach((k) => {
+                        if (!next[k].isManualOverride) {
+                            next[k] = { ...next[k], colSpan: autoCols };
+                        }
+                    });
+                }
+                return updated ? next : prev;
+            });
+        }
+    }, [visibilityMap]);
+
     const saveConfigs = (newConfigs: Record<string, StrategicOpsConfig>) => {
         setConfigs(newConfigs);
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(newConfigs));
+        } catch {
+            /* Fail gracefully */
+        }
+    };
+
+    const saveOrder = (newOrder: string[]) => {
+        setCardOrder(newOrder);
+        try {
+            localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(newOrder));
         } catch {
             /* Fail gracefully */
         }
@@ -84,26 +151,78 @@ export function ConfigurableStrategicOpsSection({
                 ...configs[key],
                 colSpan: cols,
                 rowSpan: rows,
+                isManualOverride: true,
             },
         };
         saveConfigs(updated);
     };
 
     const resetCardSize = (key: string) => {
+        const visibleKeys = cardOrder.filter((k) => !configs[k].hidden);
+        const visibleCount = visibleKeys.length;
+        const autoCalculatedCols = visibleCount > 0 ? Math.floor(12 / visibleCount) : 4;
+
         const updated = {
             ...configs,
             [key]: {
                 id: key,
-                colSpan: DEFAULT_CONFIGS[key].defaultCols,
+                colSpan: autoCalculatedCols,
                 rowSpan: DEFAULT_CONFIGS[key].defaultRows,
+                isManualOverride: false,
+                hidden: configs[key].hidden,
             },
         };
-        setConfigs({ ...updated });
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-        } catch {
-            /* Fail gracefully */
+        saveConfigs(updated);
+    };
+
+    // HTML5 Drag & Drop Event Handlers
+    const onDragStart = (e: React.DragEvent, key: string) => {
+        e.dataTransfer.setData("text/plain", key);
+        e.dataTransfer.effectAllowed = "move";
+        setDraggedKey(key);
+    };
+
+    const onDragOver = (e: React.DragEvent, key: string) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (dragOverKey !== key) {
+            setDragOverKey(key);
         }
+    };
+
+    const onDragLeave = () => {
+        setDragOverKey(null);
+    };
+
+    const onDrop = (e: React.DragEvent, targetKey: string) => {
+        e.preventDefault();
+        const sourceKey = e.dataTransfer.getData("text/plain") || draggedKey;
+        setDraggedKey(null);
+        setDragOverKey(null);
+
+        if (!sourceKey || sourceKey === targetKey) return;
+
+        if (!DEFAULT_KEYS.includes(sourceKey)) {
+            toast.error("Cross-Section Drag Restricted", {
+                description: "Strategic Operations Cards can only be reordered within the Strategic Operations section.",
+            });
+            return;
+        }
+
+        const currentOrder = [...cardOrder];
+        const fromIndex = currentOrder.indexOf(sourceKey);
+        const toIndex = currentOrder.indexOf(targetKey);
+
+        if (fromIndex !== -1 && toIndex !== -1) {
+            currentOrder.splice(fromIndex, 1);
+            currentOrder.splice(toIndex, 0, sourceKey);
+            saveOrder(currentOrder);
+        }
+    };
+
+    const onDragEnd = () => {
+        setDraggedKey(null);
+        setDragOverKey(null);
     };
 
     const colSpanClasses: Record<number, string> = {
@@ -121,8 +240,10 @@ export function ConfigurableStrategicOpsSection({
         12: "col-span-12",
     };
 
+    const visibleKeys = cardOrder.filter((k) => !configs[k]?.hidden);
+    if (visibleKeys.length === 0) return null;
+
     const renderCardInner = (key: string, cfg: StrategicOpsConfig) => {
-        // Compute exact card height for Row 1 = 540px, Row 2 = 680px, Row 3 = 820px, etc.
         const calculatedHeight = 540 + (cfg.rowSpan - 1) * 140;
         const containerStyle: React.CSSProperties = {
             height: `${calculatedHeight}px`,
@@ -132,20 +253,25 @@ export function ConfigurableStrategicOpsSection({
             case "admin_services":
                 return (
                     <div style={containerStyle} className="bg-white dark:bg-[#151b2b] border border-slate-200 dark:border-[#2a3040] rounded-[2.5rem] p-6 lg:p-8 shadow-xl flex flex-col justify-between relative h-full">
-                        {/* ⚙️ Grid Settings Icon Inside Card Header */}
-                        <div className="absolute top-6 right-6 z-20 opacity-60 hover:opacity-100 transition-opacity">
+                        {/* ⚙️ Grid Settings Icon & Grip Handle Inside Header */}
+                        <div className="absolute top-6 right-6 z-20 flex items-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
                             <MetricCardGridPicker
                                 currentCols={cfg.colSpan}
                                 currentRowSpan={cfg.rowSpan}
                                 onSelectSize={(cols, rows) => updateCardSize(key, cols, rows)}
                                 onReset={() => resetCardSize(key)}
                             />
+                            <div className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-indigo-500 transition-colors" title="Drag to reorder card">
+                                <GripVertical className="w-5 h-5" />
+                            </div>
                         </div>
 
                         <div className="flex-1 flex flex-col justify-between h-full">
-                            <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white mb-4 pr-12">
-                                Administrative Services
-                            </h3>
+                            <div className="flex items-center gap-2 mb-4 pr-20">
+                                <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white truncate">
+                                    Administrative Services
+                                </h3>
+                            </div>
                             <div className="overflow-hidden divide-y divide-slate-100 dark:divide-[#2a3040] flex-1 flex flex-col justify-between">
                                 {[
                                     { title: "Kainan Hub", desc: "Manage local dining & culinary spots.", icon: Utensils, color: "orange", action: "Manage", path: "/admin/dining" },
@@ -184,14 +310,16 @@ export function ConfigurableStrategicOpsSection({
             case "resident_activity":
                 return (
                     <div style={containerStyle} className="relative h-full flex flex-col">
-                        {/* ⚙️ Grid Settings Icon Inside Card Header */}
-                        <div className="absolute top-6 right-6 z-20 opacity-60 hover:opacity-100 transition-opacity">
+                        <div className="absolute top-6 right-6 z-20 flex items-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
                             <MetricCardGridPicker
                                 currentCols={cfg.colSpan}
                                 currentRowSpan={cfg.rowSpan}
                                 onSelectSize={(cols, rows) => updateCardSize(key, cols, rows)}
                                 onReset={() => resetCardSize(key)}
                             />
+                            <div className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-indigo-500 transition-colors" title="Drag to reorder card">
+                                <GripVertical className="w-5 h-5" />
+                            </div>
                         </div>
                         <div className="h-full flex-1 flex flex-col">
                             <ActivityLogsCard logs={activityLogs} selectedBarangay={selectedBarangay} maxItems={5} />
@@ -202,14 +330,16 @@ export function ConfigurableStrategicOpsSection({
             case "staff_audit":
                 return (
                     <div style={containerStyle} className="relative h-full flex flex-col">
-                        {/* ⚙️ Grid Settings Icon Inside Card Header */}
-                        <div className="absolute top-6 right-6 z-20 opacity-60 hover:opacity-100 transition-opacity">
+                        <div className="absolute top-6 right-6 z-20 flex items-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
                             <MetricCardGridPicker
                                 currentCols={cfg.colSpan}
                                 currentRowSpan={cfg.rowSpan}
                                 onSelectSize={(cols, rows) => updateCardSize(key, cols, rows)}
                                 onReset={() => resetCardSize(key)}
                             />
+                            <div className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-indigo-500 transition-colors" title="Drag to reorder card">
+                                <GripVertical className="w-5 h-5" />
+                            </div>
                         </div>
                         <div className="h-full flex-1 flex flex-col">
                             <StaffActivityLogsCard initialLogs={staffLogs} maxItems={5} />
@@ -224,16 +354,27 @@ export function ConfigurableStrategicOpsSection({
 
     return (
         <div className="grid grid-cols-12 gap-6 items-stretch transition-all duration-500 ease-in-out">
-            {cardKeys.map((key) => {
-                const cfg = configs[key] || { id: key, colSpan: 4, rowSpan: 1 };
+            {cardOrder.map((key) => {
+                const cfg = configs[key] || { id: key, colSpan: 4, rowSpan: 1, hidden: false };
+                if (cfg.hidden) return null;
+
                 const currentClass = colSpanClasses[cfg.colSpan] || "col-span-12 lg:col-span-4";
+                const isBeingDragged = draggedKey === key;
+                const isOver = dragOverKey === key;
 
                 return (
                     <div
                         key={key}
-                        className={`group relative transition-all duration-500 ease-in-out ${currentClass}`}
+                        draggable
+                        onDragStart={(e) => onDragStart(e, key)}
+                        onDragOver={(e) => onDragOver(e, key)}
+                        onDragLeave={onDragLeave}
+                        onDrop={(e) => onDrop(e, key)}
+                        onDragEnd={onDragEnd}
+                        className={`group relative transition-all duration-500 ease-in-out ${currentClass} ${
+                            isBeingDragged ? "opacity-40 scale-[0.98]" : ""
+                        } ${isOver ? "ring-2 ring-indigo-500/50 rounded-[2.5rem] scale-[1.01]" : ""}`}
                     >
-                        {/* Render Section Card Content */}
                         {renderCardInner(key, cfg)}
                     </div>
                 );
