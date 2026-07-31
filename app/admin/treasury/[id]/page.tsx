@@ -1586,10 +1586,10 @@ export default function TreasuryDetailPage() {
             toast.success("Transaction Marked as Paid & Released successfully!");
             setIsNavigatingToQueue(true);
 
-            if (typeCode.includes("CEDULA") || ["UNPAID", "FOR_PROCESSING", "PAID"].includes(transaction.status)) {
-                router.push("/admin/treasury/queue");
+            if (typeCode.includes("CEDULA") || ["UNPAID", "FOR_REQUESTING", "FOR_PROCESSING", "PAID"].includes(transaction.status)) {
+                router.replace("/admin/treasury/queue");
             } else {
-                router.push(backUrl);
+                router.replace(backUrl);
             }
             return;
 
