@@ -186,6 +186,7 @@ export async function evaluateBusinessPermitTransaction(
 
         const updatedAdditionalData = { ...additionalData };
         delete updatedAdditionalData.counterName;
+        delete updatedAdditionalData.checkedInAt;
         updatedAdditionalData.checkedIn = false;
 
         const bploCalc = (transaction as any).bploCalc;
