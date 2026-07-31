@@ -49,6 +49,7 @@ import { getCedulaSettings } from "@/app/admin/transactions/cedula-actions";
 import { calculateBusinessPermit } from "@/lib/business-permit";
 import { Button } from "@/components/ui/button";
 import DocumentViewerModal from "./components/DocumentViewerModal";
+import TreasuryDetailSkeleton from "./components/TreasuryDetailSkeleton";
 
 import BusinessPermitView from "./views/BusinessPermitView";
 import BuildingPermitView from "./views/BuildingPermitView";
@@ -594,32 +595,48 @@ export default function TreasuryDetailPage() {
     useEffect(() => {
         fetchTransaction();
 
-        // Fetch theme color
-        getSystemSettingAction("theme_color", "#2563eb").then(res => {
-            if (res.success && res.data) {
-                setThemeColor(res.data);
-            }
-        });
+        // 1. Theme Color (Read from localStorage cache or fetch if missing)
+        const cachedTheme = typeof window !== "undefined" ? localStorage.getItem("app_theme_color") : null;
+        if (cachedTheme) {
+            setThemeColor(cachedTheme);
+        } else {
+            getSystemSettingAction("theme_color", "#2563eb").then(res => {
+                if (res.success && res.data) {
+                    setThemeColor(res.data);
+                    localStorage.setItem("app_theme_color", res.data);
+                }
+            });
+        }
 
-        // Fetch Cedula settings
+        // 2. Cedula Settings
         getCedulaSettings().then(res => {
             if (res.success && res.data) {
                 setCedulaSettings(res.data);
             }
         });
 
-        // Fetch branding settings
-        Promise.all([
-            getSystemSettingAction("brand_word_1", "Mapandan"),
-            getSystemSettingAction("brand_word_2", "Express"),
-            getSystemSettingAction("site_logo", "")
-        ]).then(([w1, w2, logo]) => {
-            setBranding({
-                word1: w1.data || "Mapandan",
-                word2: w2.data || "Express",
-                logo: logo.data || ""
+        // 3. Branding (Read from localStorage cache or fetch if missing)
+        const cachedW1 = typeof window !== "undefined" ? localStorage.getItem("app_brand_word_1") : null;
+        const cachedW2 = typeof window !== "undefined" ? localStorage.getItem("app_brand_word_2") : null;
+        const cachedLogo = typeof window !== "undefined" ? localStorage.getItem("app_site_logo") : null;
+
+        if (cachedW1 && cachedW2) {
+            setBranding({ word1: cachedW1, word2: cachedW2, logo: cachedLogo || "" });
+        } else {
+            Promise.all([
+                getSystemSettingAction("brand_word_1", "Mapandan"),
+                getSystemSettingAction("brand_word_2", "Express"),
+                getSystemSettingAction("site_logo", "")
+            ]).then(([w1, w2, logo]) => {
+                const word1 = w1.data || "Mapandan";
+                const word2 = w2.data || "Express";
+                const logoUrl = logo.data || "";
+                setBranding({ word1, word2, logo: logoUrl });
+                localStorage.setItem("app_brand_word_1", word1);
+                localStorage.setItem("app_brand_word_2", word2);
+                localStorage.setItem("app_site_logo", logoUrl);
             });
-        });
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
@@ -856,11 +873,7 @@ export default function TreasuryDetailPage() {
     }, [transaction, loading, handleRelease]);
 
     if (loading || isNavigatingToQueue) {
-        return (
-            <div className="min-h-screen bg-[#f8fafd] dark:bg-[#0c111d] flex flex-col items-center justify-center gap-4">
-                <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-            </div>
-        );
+        return <TreasuryDetailSkeleton />;
     }
 
     if (!transaction) return <div className="p-20 text-center dark:text-white">Protocol Error: Transaction Inaccessible</div>;
@@ -2115,6 +2128,10 @@ export default function TreasuryDetailPage() {
         renderView = <BirthRegistrationView {...viewProps} />;
     } else {
         renderView = <GenericServiceView {...viewProps} />;
+    }
+
+    if (loading) {
+        return <TreasuryDetailSkeleton />;
     }
 
     return (

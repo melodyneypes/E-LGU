@@ -39,6 +39,7 @@ export default function CounterSelectorHeader({
     const userDepartment = propDept !== undefined ? propDept : ((session?.user as any)?.department || "RHU");
     const [counterName, setCounterName] = useState<string | null>(null);
     const [prompted, setPrompted] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const [customValue, setCustomValue] = useState("");
     const dropdownRef = React.useRef<HTMLDivElement>(null);
@@ -57,26 +58,21 @@ export default function CounterSelectorHeader({
     );
 
     useEffect(() => {
+        setIsMounted(true);
         if (!isAuthorized) return;
 
         // Load initial counter name from localStorage or default to Counter 1
         const saved = localStorage.getItem("activeCounterName");
-        if (saved) {
-            setCounterName(saved);
-        } else {
-            // Default to Counter 1 if not explicitly set yet
-            setCounterName("Counter 1");
+        const effectiveCounter = saved || "Counter 1";
+        setCounterName(effectiveCounter);
+        if (!saved) {
             localStorage.setItem("activeCounterName", "Counter 1");
         }
 
-        const savedPrompted = localStorage.getItem("counterSetPrompted") === "true" || sessionStorage.getItem("counterSetPrompted") === "true";
-        if (savedPrompted) {
-            setPrompted(true);
-        } else if (saved) {
-            // If counter is already set in localStorage, don't prompt
-            localStorage.setItem("counterSetPrompted", "true");
-            setPrompted(true);
-        }
+        // Always treat as prompted if counterName exists or was previously set
+        localStorage.setItem("counterSetPrompted", "true");
+        sessionStorage.setItem("counterSetPrompted", "true");
+        setPrompted(true);
     }, [isAuthorized]);
 
     // Close dropdown on click outside
@@ -90,7 +86,7 @@ export default function CounterSelectorHeader({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    if (!isAuthorized) return null;
+    if (!isAuthorized || !isMounted) return null;
 
     const handleSelectCounter = (name: string) => {
         localStorage.setItem("activeCounterName", name);
@@ -118,7 +114,7 @@ export default function CounterSelectorHeader({
         setPrompted(true);
     };
 
-    const isEnforcerOpen = isAuthorized && counterName === null && !prompted;
+    const isEnforcerOpen = isMounted && isAuthorized && counterName === null && !prompted;
 
     return (
         <div className="relative" ref={dropdownRef}>
