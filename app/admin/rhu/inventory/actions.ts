@@ -15,6 +15,19 @@ async function checkAuth() {
     return session;
 }
 
+async function checkPharmacyAuth() {
+    const session = await checkAuth();
+    const role = (session.user as any)?.role || "";
+    const department = ((session.user as any)?.department || "").toUpperCase();
+    const isLguAdmin = role === "ADMIN" && (department === "LGU" || !department);
+    const isPharmacy = role === "RHU_PHARMACY" || department.includes("PHARMACY") || isLguAdmin;
+
+    if (!isPharmacy) {
+        throw new Error("Only RHU Pharmacy can add or adjust inventory.");
+    }
+    return session;
+}
+
 export interface RHUInventoryInput {
     name: string;
     genericName?: string;
@@ -27,6 +40,7 @@ export interface RHUInventoryInput {
     expirationDate?: string;
     batchNumber?: string;
     remarks?: string;
+    healthCenterId?: string | null;
 }
 
 export interface RHUStockBatchInput {
@@ -35,6 +49,7 @@ export interface RHUStockBatchInput {
     expirationDate?: string;
     quantity: number;
     remarks?: string;
+    healthCenterId?: string | null;
 }
 
 export interface RHUBatchData {
@@ -46,6 +61,8 @@ export interface RHUBatchData {
     initialQuantity: number;
     receivedDate: Date | string;
     remarks?: string | null;
+    healthCenterId?: string | null;
+    healthCenterName?: string | null;
 }
 
 function getInventoryModel() {
@@ -62,13 +79,58 @@ function getBatchModel() {
     return p.rHUInventoryBatch || p.rHUInventoryBatch || p.rhuInventoryBatch || p.RHUInventoryBatch || null;
 }
 
+export async function ensureInventoryTablesExist() {
+    try {
+        await prisma.$executeRaw`
+            CREATE TABLE IF NOT EXISTS "RHUInventoryItem" (
+                "id" TEXT NOT NULL PRIMARY KEY,
+                "name" TEXT NOT NULL,
+                "genericName" TEXT,
+                "brandName" TEXT,
+                "category" TEXT NOT NULL DEFAULT 'MEDICINE',
+                "dosage" TEXT,
+                "unit" TEXT NOT NULL DEFAULT 'pcs',
+                "quantity" INTEGER NOT NULL DEFAULT 0,
+                "reorderLevel" INTEGER NOT NULL DEFAULT 10,
+                "expirationDate" TIMESTAMP(3),
+                "batchNumber" TEXT,
+                "remarks" TEXT,
+                "healthCenterId" TEXT,
+                "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+        `;
+        await prisma.$executeRaw`
+            CREATE TABLE IF NOT EXISTS "RHUInventoryBatch" (
+                "id" TEXT NOT NULL PRIMARY KEY,
+                "itemId" TEXT NOT NULL,
+                "batchNumber" TEXT NOT NULL,
+                "expirationDate" TIMESTAMP(3),
+                "quantity" INTEGER NOT NULL DEFAULT 0,
+                "initialQuantity" INTEGER NOT NULL DEFAULT 0,
+                "receivedDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "remarks" TEXT,
+                "healthCenterId" TEXT,
+                "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+        `;
+        await prisma.$executeRaw`ALTER TABLE "RHUInventoryItem" ADD COLUMN IF NOT EXISTS "healthCenterId" TEXT;`;
+        await prisma.$executeRaw`ALTER TABLE "RHUInventoryBatch" ADD COLUMN IF NOT EXISTS "healthCenterId" TEXT;`;
+    } catch (e) {
+        console.error("Error in ensureInventoryTablesExist:", e);
+    }
+}
+
 export async function getRHUInventoryItems(params?: {
     category?: string;
     search?: string;
     stockStatus?: string;
+    healthCenterId?: string;
 }) {
     try {
         await checkAuth();
+        await ensureInventoryTablesExist();
 
         const categoryFilter = params?.category && params.category !== "ALL" 
             ? (params.category as InventoryCategory) 
@@ -76,25 +138,11 @@ export async function getRHUInventoryItems(params?: {
 
         const search = params?.search?.trim() || "";
 
-        const whereClause: any = {};
-
-        if (categoryFilter) {
-            whereClause.category = categoryFilter;
-        }
-
-        if (search) {
-            whereClause.OR = [
-                { name: { contains: search, mode: "insensitive" } },
-                { genericName: { contains: search, mode: "insensitive" } },
-                { brandName: { contains: search, mode: "insensitive" } },
-                { batchNumber: { contains: search, mode: "insensitive" } },
-            ];
-        }
-
         let items: any[] = [];
         try {
             items = await prisma.$queryRaw`
                 SELECT i.*, 
+                    hc."name" as "healthCenterName",
                     COALESCE(
                         json_agg(
                             json_build_object(
@@ -105,31 +153,38 @@ export async function getRHUInventoryItems(params?: {
                                 'quantity', b.quantity,
                                 'initialQuantity', b."initialQuantity",
                                 'receivedDate', b."receivedDate",
-                                'remarks', b.remarks
+                                'remarks', b.remarks,
+                                'healthCenterId', b."healthCenterId",
+                                'healthCenterName', bhc."name"
                             )
                         ) FILTER (WHERE b.id IS NOT NULL), '[]'
                     ) as batches
                 FROM "RHUInventoryItem" i
+                LEFT JOIN "RHUHealthCenter" hc ON hc.id = i."healthCenterId"
                 LEFT JOIN "RHUInventoryBatch" b ON b."itemId" = i.id
-                GROUP BY i.id
+                LEFT JOIN "RHUHealthCenter" bhc ON bhc.id = b."healthCenterId"
+                GROUP BY i.id, hc."name"
                 ORDER BY i.name ASC
             `;
-        } catch (rawErr) {
-            console.warn("Raw SQL query failed, attempting Prisma delegate:", rawErr);
+        } catch {
             const model = getInventoryModel();
-            items = await model.findMany({ where: whereClause, orderBy: { name: "asc" } });
+            items = await model.findMany({ orderBy: { name: "asc" } });
         }
 
-        // Process items to calculate total stock quantity and FEFO earliest expiration date
+        // Process items to calculate total stock quantity and FEFO earliest expiration date per health center scope
         const processedItems = items.map((item: any) => {
-            const batches: RHUBatchData[] = item.batches || [];
-            let totalQuantity = item.quantity || 0;
-            let earliestExpiration = item.expirationDate ? new Date(item.expirationDate) : null;
+            let batches: RHUBatchData[] = item.batches || [];
+
+            if (params?.healthCenterId && params.healthCenterId !== "ALL") {
+                batches = batches.filter((b: any) => b.healthCenterId === params.healthCenterId);
+            }
+
+            let totalQuantity = 0;
+            let earliestExpiration = null;
 
             if (batches.length > 0) {
                 totalQuantity = batches.reduce((sum, b) => sum + (b.quantity || 0), 0);
                 
-                // Find earliest non-expired/active batch with stock for FEFO
                 const activeBatchesWithExpiry = batches
                     .filter(b => (b.quantity || 0) > 0 && b.expirationDate)
                     .sort((a, b) => new Date(a.expirationDate!).getTime() - new Date(b.expirationDate!).getTime());
@@ -137,7 +192,6 @@ export async function getRHUInventoryItems(params?: {
                 if (activeBatchesWithExpiry.length > 0) {
                     earliestExpiration = new Date(activeBatchesWithExpiry[0].expirationDate!);
                 } else if (batches.some(b => b.expirationDate)) {
-                    // Fallback to earliest batch expiry even if stock 0
                     const allExpiries = batches
                         .filter(b => b.expirationDate)
                         .sort((a, b) => new Date(a.expirationDate!).getTime() - new Date(b.expirationDate!).getTime());
@@ -145,6 +199,12 @@ export async function getRHUInventoryItems(params?: {
                         earliestExpiration = new Date(allExpiries[0].expirationDate!);
                     }
                 }
+            } else if (params?.healthCenterId && params.healthCenterId !== "ALL") {
+                totalQuantity = 0;
+                earliestExpiration = null;
+            } else {
+                totalQuantity = item.quantity || 0;
+                earliestExpiration = item.expirationDate ? new Date(item.expirationDate) : null;
             }
 
             return {
@@ -155,10 +215,32 @@ export async function getRHUInventoryItems(params?: {
             };
         });
 
-        // Filter stock status
         let filteredItems = processedItems;
+
+        if (params?.healthCenterId && params.healthCenterId !== "ALL") {
+            filteredItems = filteredItems.filter((item: any) => 
+                item.healthCenterId === params.healthCenterId ||
+                (item.batches && item.batches.some((b: any) => b.healthCenterId === params.healthCenterId))
+            );
+        }
+
+        if (categoryFilter) {
+            filteredItems = filteredItems.filter((item: any) => item.category === categoryFilter);
+        }
+
+        if (search) {
+            const sLower = search.toLowerCase();
+            filteredItems = filteredItems.filter((item: any) =>
+                item.name?.toLowerCase().includes(sLower) ||
+                item.genericName?.toLowerCase().includes(sLower) ||
+                item.brandName?.toLowerCase().includes(sLower) ||
+                item.batchNumber?.toLowerCase().includes(sLower) ||
+                item.healthCenterName?.toLowerCase().includes(sLower)
+            );
+        }
+
         if (params?.stockStatus && params.stockStatus !== "ALL") {
-            filteredItems = processedItems.filter((item: any) => {
+            filteredItems = filteredItems.filter((item: any) => {
                 if (params.stockStatus === "OUT_OF_STOCK") return item.quantity <= 0;
                 if (params.stockStatus === "LOW_STOCK") return item.quantity > 0 && item.quantity <= item.reorderLevel;
                 if (params.stockStatus === "IN_STOCK") return item.quantity > item.reorderLevel;
@@ -175,7 +257,8 @@ export async function getRHUInventoryItems(params?: {
 
 export async function createRHUInventoryItem(input: RHUInventoryInput) {
     try {
-        await checkAuth();
+        await checkPharmacyAuth();
+        await ensureInventoryTablesExist();
 
         if (!input.name || !input.name.trim()) {
             return { success: false, error: "Item name is required" };
@@ -184,6 +267,7 @@ export async function createRHUInventoryItem(input: RHUInventoryInput) {
         const quantityNum = Number(input.quantity) || 0;
         const expDate = input.expirationDate ? new Date(input.expirationDate) : null;
         const batchNo = input.batchNumber?.trim() || null;
+        const hcId = input.healthCenterId?.trim() || null;
         const itemId = `cmr${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
 
         let newItem: any = null;
@@ -202,14 +286,15 @@ export async function createRHUInventoryItem(input: RHUInventoryInput) {
                     expirationDate: expDate,
                     batchNumber: batchNo,
                     remarks: input.remarks?.trim() || null,
+                    healthCenterId: hcId
                 }
             });
         } catch {
             await prisma.$executeRaw`
                 INSERT INTO "RHUInventoryItem" (
-                    "id", "name", "genericName", "brandName", "category", "dosage", "unit", "quantity", "reorderLevel", "expirationDate", "batchNumber", "remarks", "createdAt", "updatedAt"
+                    "id", "name", "genericName", "brandName", "category", "dosage", "unit", "quantity", "reorderLevel", "expirationDate", "batchNumber", "remarks", "healthCenterId", "createdAt", "updatedAt"
                 ) VALUES (
-                    ${itemId}, ${input.name.trim()}, ${input.genericName?.trim() || null}, ${input.brandName?.trim() || null}, ${input.category || "MEDICINE"}::"InventoryCategory", ${input.dosage?.trim() || null}, ${input.unit?.trim() || "pcs"}, ${quantityNum}, ${Number(input.reorderLevel) || 10}, ${expDate}, ${batchNo}, ${input.remarks?.trim() || null}, NOW(), NOW()
+                    ${itemId}, ${input.name.trim()}, ${input.genericName?.trim() || null}, ${input.brandName?.trim() || null}, ${input.category || "MEDICINE"}::"InventoryCategory", ${input.dosage?.trim() || null}, ${input.unit?.trim() || "pcs"}, ${quantityNum}, ${Number(input.reorderLevel) || 10}, ${expDate}, ${batchNo}, ${input.remarks?.trim() || null}, ${hcId}, NOW(), NOW()
                 )
             `;
             newItem = { id: itemId };
@@ -233,7 +318,8 @@ export async function createRHUInventoryItem(input: RHUInventoryInput) {
                             quantity: quantityNum,
                             initialQuantity: quantityNum,
                             receivedDate: new Date(),
-                            remarks: input.remarks?.trim() || "Initial Batch Creation"
+                            remarks: input.remarks?.trim() || "Initial Batch Creation",
+                            healthCenterId: hcId
                         }
                     });
                     batchCreated = true;
@@ -245,9 +331,9 @@ export async function createRHUInventoryItem(input: RHUInventoryInput) {
             if (!batchCreated) {
                 await prisma.$executeRaw`
                     INSERT INTO "RHUInventoryBatch" (
-                        "id", "itemId", "batchNumber", "expirationDate", "quantity", "initialQuantity", "receivedDate", "remarks", "createdAt", "updatedAt"
+                        "id", "itemId", "batchNumber", "expirationDate", "quantity", "initialQuantity", "receivedDate", "remarks", "healthCenterId", "createdAt", "updatedAt"
                     ) VALUES (
-                        ${batchId}, ${newItem.id}, ${bNo}, ${expDate}, ${quantityNum}, ${quantityNum}, NOW(), ${input.remarks?.trim() || "Initial Batch Creation"}, NOW(), NOW()
+                        ${batchId}, ${newItem.id}, ${bNo}, ${expDate}, ${quantityNum}, ${quantityNum}, NOW(), ${input.remarks?.trim() || "Initial Batch Creation"}, ${hcId}, NOW(), NOW()
                     )
                 `;
             }
@@ -263,7 +349,8 @@ export async function createRHUInventoryItem(input: RHUInventoryInput) {
 
 export async function receiveRHUStockBatch(input: RHUStockBatchInput) {
     try {
-        await checkAuth();
+        await checkPharmacyAuth();
+        await ensureInventoryTablesExist();
 
         if (!input.itemId) {
             return { success: false, error: "Target item ID is required" };
@@ -276,6 +363,7 @@ export async function receiveRHUStockBatch(input: RHUStockBatchInput) {
         const quantityNum = Math.max(1, Number(input.quantity) || 0);
         const expDate = input.expirationDate ? new Date(input.expirationDate) : null;
         const batchNo = input.batchNumber.trim();
+        const hcId = input.healthCenterId?.trim() || null;
         const batchId = `cmr${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
 
         let createdSuccess = false;
@@ -291,7 +379,8 @@ export async function receiveRHUStockBatch(input: RHUStockBatchInput) {
                         quantity: quantityNum,
                         initialQuantity: quantityNum,
                         receivedDate: new Date(),
-                        remarks: input.remarks?.trim() || "Stock In Delivery"
+                        remarks: input.remarks?.trim() || "Stock In Delivery",
+                        healthCenterId: hcId
                     }
                 });
                 createdSuccess = true;
@@ -303,9 +392,9 @@ export async function receiveRHUStockBatch(input: RHUStockBatchInput) {
         if (!createdSuccess) {
             await prisma.$executeRaw`
                 INSERT INTO "RHUInventoryBatch" (
-                    "id", "itemId", "batchNumber", "expirationDate", "quantity", "initialQuantity", "receivedDate", "remarks", "createdAt", "updatedAt"
+                    "id", "itemId", "batchNumber", "expirationDate", "quantity", "initialQuantity", "receivedDate", "remarks", "healthCenterId", "createdAt", "updatedAt"
                 ) VALUES (
-                    ${batchId}, ${input.itemId}, ${batchNo}, ${expDate}, ${quantityNum}, ${quantityNum}, NOW(), ${input.remarks?.trim() || "Stock In Delivery"}, NOW(), NOW()
+                    ${batchId}, ${input.itemId}, ${batchNo}, ${expDate}, ${quantityNum}, ${quantityNum}, NOW(), ${input.remarks?.trim() || "Stock In Delivery"}, ${hcId}, NOW(), NOW()
                 )
             `;
         }
@@ -337,7 +426,7 @@ export async function receiveRHUStockBatch(input: RHUStockBatchInput) {
 
 export async function updateRHUInventoryItem(id: string, input: Partial<RHUInventoryInput>) {
     try {
-        await checkAuth();
+        await checkPharmacyAuth();
 
         if (!id) {
             return { success: false, error: "Item ID is required" };
@@ -371,7 +460,7 @@ export async function updateRHUInventoryItem(id: string, input: Partial<RHUInven
 
 export async function adjustRHUBatchQuantity(batchId: string, delta: number) {
     try {
-        await checkAuth();
+        await checkPharmacyAuth();
 
         const batchModel = getBatchModel();
         if (batchModel) {
@@ -422,7 +511,7 @@ export async function adjustRHUBatchQuantity(batchId: string, delta: number) {
 
 export async function deleteRHUInventoryBatch(batchId: string) {
     try {
-        await checkAuth();
+        await checkPharmacyAuth();
 
         const batchModel = getBatchModel();
         if (!batchModel) {
@@ -453,9 +542,65 @@ export async function deleteRHUInventoryBatch(batchId: string) {
     }
 }
 
+export async function updateRHUInventoryBatch(
+    batchId: string,
+    input: { healthCenterId?: string | null; batchNumber?: string; expirationDate?: string | Date | null; remarks?: string }
+) {
+    try {
+        await checkPharmacyAuth();
+        await ensureInventoryTablesExist();
+
+        if (!batchId) {
+            return { success: false, error: "Batch ID is required" };
+        }
+
+        const hcId = input.healthCenterId !== undefined ? (input.healthCenterId?.trim() || null) : undefined;
+        const batchModel = getBatchModel();
+
+        if (batchModel) {
+            try {
+                const updateData: any = {};
+                if (hcId !== undefined) updateData.healthCenterId = hcId;
+                if (input.batchNumber !== undefined) updateData.batchNumber = input.batchNumber.trim();
+                if (input.expirationDate !== undefined) updateData.expirationDate = input.expirationDate ? new Date(input.expirationDate) : null;
+                if (input.remarks !== undefined) updateData.remarks = input.remarks.trim();
+
+                await batchModel.update({
+                    where: { id: batchId },
+                    data: updateData
+                });
+
+                revalidatePath("/admin/rhu/inventory");
+                return { success: true };
+            } catch (err) {
+                console.warn("Prisma batchModel update failed, using raw SQL:", err);
+            }
+        }
+
+        // Raw SQL fallback
+        if (hcId !== undefined) {
+            await prisma.$executeRaw`UPDATE "RHUInventoryBatch" SET "healthCenterId" = ${hcId}, "updatedAt" = NOW() WHERE "id" = ${batchId}`;
+        }
+        if (input.batchNumber !== undefined) {
+            await prisma.$executeRaw`UPDATE "RHUInventoryBatch" SET "batchNumber" = ${input.batchNumber.trim()}, "updatedAt" = NOW() WHERE "id" = ${batchId}`;
+        }
+        if (input.expirationDate !== undefined) {
+            const expDate = input.expirationDate ? new Date(input.expirationDate) : null;
+            await prisma.$executeRaw`UPDATE "RHUInventoryBatch" SET "expirationDate" = ${expDate}, "updatedAt" = NOW() WHERE "id" = ${batchId}`;
+        }
+
+        revalidatePath("/admin/rhu/inventory");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error updating batch:", error);
+        return { success: false, error: error?.message || "Failed to update batch details" };
+    }
+}
+
+
 export async function adjustRHUStockQuantity(id: string, delta: number) {
     try {
-        await checkAuth();
+        await checkPharmacyAuth();
 
         const currentItem = await getInventoryModel().findUnique({ where: { id } });
         if (!currentItem) {
@@ -479,7 +624,7 @@ export async function adjustRHUStockQuantity(id: string, delta: number) {
 
 export async function deleteRHUInventoryItem(id: string) {
     try {
-        await checkAuth();
+        await checkPharmacyAuth();
 
         await getInventoryModel().delete({
             where: { id }

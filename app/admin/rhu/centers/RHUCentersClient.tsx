@@ -1610,11 +1610,17 @@ export default function RHUCentersClient({
                                         <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Operating Hours</Label>
                                         <Input
                                             type="text"
+                                            disabled={!isCenterAdmin}
                                             placeholder="e.g., Mon-Fri 8:00 AM - 5:00 PM"
                                             value={formData.operatingHours}
-                                            onChange={(e) => setFormData({ ...formData, operatingHours: e.target.value })}
-                                            className="h-10 text-xs rounded-xl"
+                                            onChange={(e) => isCenterAdmin && setFormData({ ...formData, operatingHours: e.target.value })}
+                                            className="h-10 text-xs rounded-xl disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed"
                                         />
+                                        {!isCenterAdmin && (
+                                            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
+                                                Center operating schedule is managed directly by the Health Center Admin.
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="space-y-1.5">
