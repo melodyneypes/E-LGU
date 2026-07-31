@@ -1,3 +1,5 @@
+
+
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
@@ -482,56 +484,88 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                             </div>
                         </div>
                         {isRequirementsOpen && (
-                            <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                                {evidenceDocs.map((doc, idx) => (
-                                    <div
-                                        key={idx}
-                                        onClick={() => doc.url && handleViewFile?.(doc.url, doc.label, evidenceDocs, idx)}
-                                        className="relative aspect-[4/3] rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 overflow-hidden group cursor-pointer hover:border-primary/50 transition-all select-none"
-                                    >
-                                        {doc.url ? (
-                                            isImageFile(doc.url) ? (
-                                                // eslint-disable-next-line @next/next/no-img-element
-                                                <img src={doc.url} alt={doc.label} className="w-full h-full object-cover group-hover:scale-105 transition-all" />
-                                            ) : (
-                                                <>
-                                                    <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-white dark:from-[#111827] dark:to-[#0b1220]" />
-                                                    <div className="relative h-full w-full flex flex-col items-center justify-center gap-3 p-6">
-                                                        <div className="w-14 h-14 rounded-2xl bg-white dark:bg-white/10 border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-center">
-                                                            <FileText className="w-7 h-7 text-primary" />
-                                                        </div>
-                                                        <div className="text-center min-w-0">
-                                                            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                                                                {getFileExtension(doc.url).toUpperCase() || "DOC"} File
-                                                            </p>
-                                                            <p className="mt-1 text-sm font-black italic uppercase tracking-tight text-slate-800 dark:text-white truncate max-w-[220px]">
-                                                                {doc.label}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="absolute inset-x-3 bottom-3 rounded-xl bg-slate-950/75 backdrop-blur-md px-3 py-2 text-center text-white font-black italic uppercase tracking-widest text-[9px] opacity-90 group-hover:opacity-100 transition-opacity">
-                                                        Open Document
-                                                    </div>
-                                                </>
-                                            )
-                                        ) : (
-                                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 gap-1.5 p-4">
-                                                <Camera className="w-6 h-6 mx-auto" />
-                                                <span className="text-[8px] font-black uppercase text-center tracking-widest leading-none">{doc.label}</span>
-                                            </div>
-                                        )}
-                                        {doc.url && isImageFile(doc.url) && (
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
-                                                <div
-                                                    style={{ backgroundColor: themeColor }}
-                                                    className="backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px]"
-                                                >
-                                                    <span>View</span>
+                            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                {(() => {
+                                    const hasValidDoc = evidenceDocs.some(d => Boolean(d.url));
+                                    if (!hasValidDoc) {
+                                        return (
+                                            <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-3 text-amber-700 dark:text-amber-400">
+                                                <AlertCircle className="w-5 h-5 shrink-0" />
+                                                <div className="space-y-0.5 text-left">
+                                                    <p className="text-[10px] font-black uppercase tracking-wider italic">No Requirements Provided</p>
+                                                    <p className="text-xs font-bold leading-relaxed italic text-slate-600 dark:text-slate-300">
+                                                        The resident did not attach any Valid ID or Income Verification documents for this request.
+                                                    </p>
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
-                                ))}
+                                        );
+                                    }
+                                    return null;
+                                })()}
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    {evidenceDocs.map((doc, idx) => (
+                                        <div
+                                            key={idx}
+                                            onClick={() => doc.url && handleViewFile?.(doc.url, doc.label, evidenceDocs, idx)}
+                                            className={cn(
+                                                "relative aspect-[4/3] rounded-2xl border transition-all select-none overflow-hidden group",
+                                                doc.url
+                                                    ? "bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/5 cursor-pointer hover:border-primary/50"
+                                                    : "bg-amber-500/[0.03] dark:bg-amber-500/5 border-amber-500/20 cursor-default"
+                                            )}
+                                        >
+                                            {doc.url ? (
+                                                isImageFile(doc.url) ? (
+                                                    // eslint-disable-next-line @next/next/no-img-element
+                                                    <img src={doc.url} alt={doc.label} className="w-full h-full object-cover group-hover:scale-105 transition-all" />
+                                                ) : (
+                                                    <>
+                                                        <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-white dark:from-[#111827] dark:to-[#0b1220]" />
+                                                        <div className="relative h-full w-full flex flex-col items-center justify-center gap-3 p-6">
+                                                            <div className="w-14 h-14 rounded-2xl bg-white dark:bg-white/10 border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-center">
+                                                                <FileText className="w-7 h-7 text-primary" />
+                                                            </div>
+                                                            <div className="text-center min-w-0">
+                                                                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                                                                    {getFileExtension(doc.url).toUpperCase() || "DOC"} File
+                                                                </p>
+                                                                <p className="mt-1 text-sm font-black italic uppercase tracking-tight text-slate-800 dark:text-white truncate max-w-[220px]">
+                                                                    {doc.label}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="absolute inset-x-3 bottom-3 rounded-xl bg-slate-950/75 backdrop-blur-md px-3 py-2 text-center text-white font-black italic uppercase tracking-widest text-[9px] opacity-90 group-hover:opacity-100 transition-opacity">
+                                                            Open Document
+                                                        </div>
+                                                    </>
+                                                )
+                                            ) : (
+                                                <div className="w-full h-full flex flex-col items-center justify-center text-amber-600/80 dark:text-amber-400/80 gap-2 p-4 text-center">
+                                                    <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                                                        <AlertCircle className="w-5 h-5 text-amber-500" />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <span className="text-[9px] font-black uppercase tracking-wider block text-slate-700 dark:text-slate-200">{doc.label}</span>
+                                                        <span className="text-[8px] font-bold uppercase tracking-widest leading-tight block text-amber-600 dark:text-amber-400 italic">
+                                                            Not Provided by Resident
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {doc.url && isImageFile(doc.url) && (
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                                                    <div
+                                                        style={{ backgroundColor: themeColor }}
+                                                        className="backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 flex items-center justify-center text-white font-black italic uppercase tracking-widest text-[9px]"
+                                                    >
+                                                        <span>View</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -684,39 +718,33 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                     {/* ACTION BUTTONS — below the card, no card wrapper */}
                     {((transaction.status === "FOR_REQUESTING" || transaction.status === "EVALUATED" || transaction.status === "UNPAID" || (transaction.status === "FOR_PROCESSING" && !transaction.orSeriesNumber && !transaction.paymentType)) && (userRole === "TREASURY_STAFF" || userRole === "ADMIN") && !isReadOnlyAide) && (
                         <div className="space-y-3">
-                            {/* If status is FOR_REQUESTING: Show Evaluation stage (Approve, Request Revision, Decline) */}
+                            {/* If status is FOR_REQUESTING: Show Queue notice and optional Request Revision */}
                             {transaction.status === "FOR_REQUESTING" && (
                                 <div className="space-y-4">
-                                    <Button
-                                        onClick={handleEvaluate}
-                                        disabled={actionLoading}
-                                        className="w-full h-14 bg-primary hover:opacity-90 text-white font-black italic uppercase tracking-widest text-[11px] rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all"
-                                    >
-                                        {actionLoading ? "Processing..." : "Approve"}
-                                    </Button>
-
-                                    {/* REVISION + REJECT — side by side */}
-                                    <div className="flex gap-3">
-                                        {!isCedula && transaction.revisionCount < 3 && (
-                                            <Button
-                                                onClick={() => {
-                                                    setRemarks("");
-                                                    setIsRequestingRevision(true);
-                                                }}
-                                                disabled={actionLoading}
-                                                className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-amber-500/10 active:scale-95 transition-all"
-                                            >
-                                                {transaction.status === "PAID" ? "Decline Payment Proof" : "Request Revision"}
-                                            </Button>
-                                        )}
-                                        <Button
-                                            onClick={() => { setRemarks(""); setIsRejecting(true); }}
-                                            disabled={actionLoading}
-                                            className="flex-1 h-12 bg-red-600 hover:bg-red-700 text-white font-black italic uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-red-600/10 active:scale-95 transition-all"
-                                        >
-                                            Decline
-                                        </Button>
+                                    {/* Notice Banner */}
+                                    <div className="p-6 rounded-3xl bg-amber-500/10 border border-amber-500/20 text-slate-800 dark:text-slate-200 space-y-2">
+                                        <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500">
+                                            <AlertCircle className="w-5 h-5 shrink-0" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest italic">Awaiting Queue Arrival</span>
+                                        </div>
+                                        <p className="text-xs font-bold leading-relaxed italic text-slate-600 dark:text-slate-300">
+                                            Please wait for the resident to arrive on-site and enter the physical queue before processing and marking this request as paid.
+                                        </p>
                                     </div>
+
+                                    {/* Optional Request Revision button */}
+                                    {!isCedula && transaction.revisionCount < 3 && (
+                                        <Button
+                                            onClick={() => {
+                                                setRemarks("");
+                                                setIsRequestingRevision(true);
+                                            }}
+                                            disabled={actionLoading}
+                                            className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-white font-black italic uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-amber-500/10 active:scale-95 transition-all"
+                                        >
+                                            Request Revision
+                                        </Button>
+                                    )}
                                 </div>
                             )}
 
@@ -857,8 +885,8 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                         </div>
                     )}
 
-                    {/* INTERACTIVE RELEASE HUB FOR PROCESSING PHASES */}
-                    {(["PAID", "FOR_CLAIM", "FOR_PICKING"].includes(transaction.status) || (transaction.status === "FOR_PROCESSING" && (!!transaction.orSeriesNumber || !!transaction.paymentType))) && (
+                    {/* INTERACTIVE RELEASE HUB FOR PROCESSING PHASES — Temporarily hidden per request */}
+                    {false && (["PAID", "FOR_CLAIM", "FOR_PICKING"].includes(transaction.status) || (transaction.status === "FOR_PROCESSING" && (!!transaction.orSeriesNumber || !!transaction.paymentType))) && (
                         <div className="space-y-6">
                             <div>
                                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 block italic leading-none">Document Issuance</span>
@@ -909,9 +937,11 @@ export default function GenericServiceView(props: TreasuryViewProps) {
                                         {(eCopyPreview || (transaction.eCopyUrl && transaction.eCopyUrl !== "null" && transaction.eCopyUrl !== "undefined" && transaction.eCopyUrl !== "")) && (
                                             <div className="mt-2">
                                                 {(() => {
-                                                    const isECopyPdf = eCopyFile
-                                                        ? (eCopyFile.type === "application/pdf" || eCopyFile.name.toLowerCase().endsWith(".pdf"))
-                                                        : (transaction.eCopyUrl?.toLowerCase()?.includes(".pdf") || false);
+                                                    const isECopyPdf = Boolean(
+                                                        eCopyFile?.type === "application/pdf" ||
+                                                        eCopyFile?.name?.toLowerCase()?.endsWith(".pdf") ||
+                                                        (!eCopyFile && transaction.eCopyUrl?.toLowerCase()?.includes(".pdf"))
+                                                    );
 
                                                     if (isECopyPdf) {
                                                         return (
@@ -1124,3 +1154,4 @@ export default function GenericServiceView(props: TreasuryViewProps) {
         </div>
     );
 }
+

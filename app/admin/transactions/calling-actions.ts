@@ -462,7 +462,7 @@ export async function getTreasuryQueueTickets(counterName: string) {
         // Filter in JS: checked-in tickets that have not yet been assigned to a counter
         const waiting = allRawWaiting.filter(tx => {
             const addData = (tx.additionalData as any) || {};
-            const isCheckedIn = Boolean(addData.checkedIn || addData.checkedInAt || addData.checkInData || addData.kioskCheckIn);
+            const isCheckedIn = Boolean(addData.checkedIn === true);
             return isCheckedIn && !addData.counterName;
         });
 

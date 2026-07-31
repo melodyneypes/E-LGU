@@ -1495,10 +1495,10 @@ export default function BploDetailPage({ params }: PageProps) {
                                     );
                                 })()}
 
-                                {transaction.status === "FOR_REQUESTING" ? (
+                                {(transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REQUESTING") ? (
                                     !additional?.checkedIn ? (
-                                        <div className="bg-amber-50 dark:bg-amber-500/5 p-4 rounded-2xl border border-amber-200 dark:border-amber-500/30 text-xs font-bold text-center text-amber-800 dark:text-amber-300 italic">
-                                            Awaiting Citizen Check-in at Kiosk
+                                        <div className="bg-amber-50 dark:bg-amber-500/5 p-5 rounded-2xl border border-amber-200 dark:border-amber-500/30 text-xs font-bold text-center text-amber-800 dark:text-amber-300 italic">
+                                            Please wait for the resident to arrive on-site and enter the physical queue (Check-in at Kiosk) before processing this request.
                                         </div>
                                     ) : !additional?.counterName ? (
                                         <div className="bg-slate-50 dark:bg-white/[0.02] p-4 rounded-2xl border border-slate-200 dark:border-white/10 text-xs font-bold text-center text-slate-500 italic">
@@ -1524,14 +1524,16 @@ export default function BploDetailPage({ params }: PageProps) {
                                 )}
 
                                 {transaction.status !== "FOR_REINSPECTION" && transaction.status !== "FOR_PROCESSING" && (
-                                    <div className="flex gap-2">
-                                        <Button
-                                            onClick={() => { setIsRejecting(true); setRemarks(""); }}
-                                            className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase"
-                                        >
-                                            Decline
-                                        </Button>
-                                    </div>
+                                    (!additional?.checkedIn && (transaction.status === "FOR_INSPECTION" || transaction.status === "FOR_REQUESTING")) ? null : (
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={() => { setIsRejecting(true); setRemarks(""); }}
+                                                className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase"
+                                            >
+                                                Decline
+                                            </Button>
+                                        </div>
+                                    )
                                 )}
                             </div>
                         )}
