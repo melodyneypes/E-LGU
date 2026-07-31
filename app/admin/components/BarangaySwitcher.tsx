@@ -34,7 +34,7 @@ export function BarangaySwitcher({ availableBarangays = [], currentBarangay, the
 
     return (
         <div className="relative flex items-center group">
-            <div className={`relative bg-white dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-2xl px-5 py-2.5 flex items-center gap-3 shadow-xl transition-all cursor-pointer ring-1 ring-slate-200 dark:ring-white/5 group-hover:shadow-primary/10 transition-shadow duration-300 ${isPending ? "opacity-50" : ""}`}>
+            <div className={`relative bg-white dark:bg-[#1e2330] border border-slate-200 dark:border-[#2a3040] rounded-xl px-4 py-2 flex items-center gap-3 shadow-xl transition-all cursor-pointer ring-1 ring-slate-200 dark:ring-white/5 group-hover:shadow-primary/10 transition-shadow duration-300 ${isPending ? "opacity-50" : ""}`}>
                 {/* Invisible select covering the whole card */}
                 <select 
                     value={currentBarangay || ""} 
