@@ -25,7 +25,7 @@ export default async function PosoPaymentLedgerPage(props: {
     const session = await getServerSession(authOptions);
     const user = session?.user as any;
 
-    if (!user || user.role !== "ADMIN" || user.department !== "POSO") {
+    if (!user || (user.role !== "ADMIN" && user.role !== "POSO_OFFICER" && user.role !== "TREASURY_STAFF" && user.department !== "POSO")) {
         redirect("/admin/dashboard");
     }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useTransition, useMemo } from "react";
+import React, { useState, useEffect, useRef, useTransition, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
     Table,
@@ -138,7 +138,7 @@ export default function PosoPaymentsClient({
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const router = useRouter();
 
-    const fetchPaymentsData = (pageNumber = 1, currentLimit = limit) => {
+    const fetchPaymentsData = useCallback((pageNumber = 1, currentLimit = limit) => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
@@ -192,7 +192,37 @@ export default function PosoPaymentsClient({
                 }
             }
         });
-    };
+    }, [limit, search, methodFilter, fromDate, toDate]);
+
+    // Setup Realtime SSE EventStream Listener
+    useEffect(() => {
+        let eventSource: EventSource | null = null;
+        try {
+            eventSource = new EventSource("/api/admin/poso/payment-ledger/stream");
+
+            eventSource.onmessage = (event) => {
+                if (event.data === "refresh") {
+                    fetchPaymentsData(currentPage, limit);
+                }
+            };
+
+            eventSource.onerror = () => {
+                if (eventSource?.readyState === EventSource.CLOSED) {
+                    eventSource.close();
+                }
+            };
+        } catch {
+            // EventSource fallback handle
+        }
+
+        return () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+        };
+    }, [currentPage, limit, fetchPaymentsData]);
+
+
 
     const handleRefresh = () => {
         const d = new Date();

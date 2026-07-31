@@ -4,12 +4,40 @@ import React, { useEffect, useState, useTransition } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useBarangay } from "@/components/providers/BarangayProvider";
 import DashboardLoading from "../loading";
+import { LayoutGrid, Shield, BarChart3, Users2 } from "lucide-react";
+
+import { DashboardSettingsSidebar } from "./DashboardSettingsSidebar";
+
+const SECTION_META: Record<string, { title: string; description: string; icon: React.ElementType }> = {
+  top_metrics: {
+    title: "Executive Summary",
+    description: "Municipal key performance indicators and governance metrics",
+    icon: LayoutGrid,
+  },
+  strategic_ops: {
+    title: "Operations Command",
+    description: "Administrative services, audit compliance, and operational oversight",
+    icon: Shield,
+  },
+  analytics: {
+    title: "Intelligence & Fiscal Reports",
+    description: "Revenue trends, service demand analytics, and demographic intelligence",
+    icon: BarChart3,
+  },
+  community: {
+    title: "Public Affairs & Engagement",
+    description: "Official communications, civic events, and infrastructure program tracking",
+    icon: Users2,
+  },
+};
 
 interface DashboardClientWrapperProps {
+  headerAction?: React.ReactNode;
+  headerControls?: React.ReactNode;
   children: React.ReactNode;
 }
 
-export function DashboardClientWrapper({ children }: DashboardClientWrapperProps) {
+export function DashboardClientWrapper({ headerAction, headerControls, children }: DashboardClientWrapperProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const barangay = searchParams.get("barangay") || "";
@@ -17,6 +45,85 @@ export function DashboardClientWrapper({ children }: DashboardClientWrapperProps
   const [activeBarangay, setActiveBarangay] = useState(barangay);
   const [localLoading, setLocalLoading] = useState(false);
   useBarangay(); // Access BarangayContext trigger
+
+  // Analytics Cards Visibility State
+  const [analyticsVisibilityMap, setAnalyticsVisibilityMap] = useState<Record<string, boolean>>({
+    daily_requests: true,
+    collections_ledger: true,
+    resident_analytics: true,
+    citizen_reports: true,
+  });
+
+  // Community Cards Visibility State
+  const [communityVisibilityMap, setCommunityVisibilityMap] = useState<Record<string, boolean>>({
+    recent_announcements: true,
+    latest_news: true,
+    upcoming_events: true,
+    lgu_projects: true,
+  });
+
+  // Main Section Order State (Default: ["top_metrics", "strategic_ops", "analytics", "community"])
+  const [sectionOrder, setSectionOrder] = useState<string[]>([
+    "top_metrics",
+    "strategic_ops",
+    "analytics",
+    "community",
+  ]);
+
+  useEffect(() => {
+    try {
+      const savedAnalytics = localStorage.getItem("emapandan_analytics_visibility_v1");
+      if (savedAnalytics) {
+        setAnalyticsVisibilityMap((prev) => ({ ...prev, ...JSON.parse(savedAnalytics) }));
+      }
+      const savedCommunity = localStorage.getItem("emapandan_community_visibility_v1");
+      if (savedCommunity) {
+        setCommunityVisibilityMap((prev) => ({ ...prev, ...JSON.parse(savedCommunity) }));
+      }
+      const savedSectionOrder = localStorage.getItem("emapandan_dashboard_section_order_v1");
+      if (savedSectionOrder) {
+        const parsed: string[] = JSON.parse(savedSectionOrder);
+        if (Array.isArray(parsed) && parsed.length === 4) {
+          setSectionOrder(parsed);
+        }
+      }
+    } catch {
+      /* Fallback */
+    }
+  }, []);
+
+  const handleReorderSections = (newOrder: string[]) => {
+    setSectionOrder(newOrder);
+    try {
+      localStorage.setItem("emapandan_dashboard_section_order_v1", JSON.stringify(newOrder));
+    } catch {
+      /* Fail gracefully */
+    }
+  };
+
+  const toggleAnalyticsVisibility = (key: string) => {
+    setAnalyticsVisibilityMap((prev) => {
+      const updated = { ...prev, [key]: !prev[key] };
+      try {
+        localStorage.setItem("emapandan_analytics_visibility_v1", JSON.stringify(updated));
+      } catch {
+        /* Fail gracefully */
+      }
+      return updated;
+    });
+  };
+
+  const toggleCommunityVisibility = (key: string) => {
+    setCommunityVisibilityMap((prev) => {
+      const updated = { ...prev, [key]: !prev[key] };
+      try {
+        localStorage.setItem("emapandan_community_visibility_v1", JSON.stringify(updated));
+      } catch {
+        /* Fail gracefully */
+      }
+      return updated;
+    });
+  };
 
   // Real-time updates subscription using Server-Sent Events (SSE) for Dashboard (Daily Requests & Payments)
   useEffect(() => {
@@ -93,5 +200,93 @@ export function DashboardClientWrapper({ children }: DashboardClientWrapperProps
     return <DashboardLoading />;
   }
 
-  return <>{children}</>;
+  const mergedVisibilityMap: Record<string, boolean> = {
+    ...analyticsVisibilityMap,
+    ...communityVisibilityMap,
+  };
+
+  const handleToggleCommunityOrAnalytics = (key: string) => {
+    if (["recent_announcements", "latest_news", "upcoming_events", "lgu_projects"].includes(key)) {
+      toggleCommunityVisibility(key);
+    } else {
+      toggleAnalyticsVisibility(key);
+    }
+  };
+
+  const settingsSidebarNode = (
+    <DashboardSettingsSidebar
+      cardVisibility={mergedVisibilityMap}
+      onToggleVisibility={handleToggleCommunityOrAnalytics}
+      onResetAll={() => {
+        localStorage.removeItem("emapandan_analytics_visibility_v1");
+        localStorage.removeItem("emapandan_community_visibility_v1");
+        localStorage.removeItem("emapandan_dashboard_section_order_v1");
+        window.location.reload();
+      }}
+      sectionOrder={sectionOrder}
+      onReorderSections={handleReorderSections}
+    />
+  );
+
+  const childrenArray = React.Children.toArray(children);
+
+  const sectionComponentMap: Record<string, React.ReactNode> = {
+    top_metrics: childrenArray[0],
+    strategic_ops: childrenArray[1],
+    analytics: childrenArray[2],
+    community: childrenArray[3],
+  };
+
+  return (
+    <>
+      {headerAction && (
+        <div className="sticky top-0 z-30 bg-slate-50/95 dark:bg-[#0f1117]/95 backdrop-blur-md pb-6 pt-2 border-b border-slate-200 dark:border-[#2a3040] flex flex-col lg:flex-row lg:items-center justify-between gap-6 transition-colors duration-300">
+          {headerAction}
+          <div className="flex items-center gap-2 shrink-0">
+            {headerControls}
+            {settingsSidebarNode}
+          </div>
+        </div>
+      )}
+
+      {sectionOrder.map((sectionKey) => {
+        const child = sectionComponentMap[sectionKey];
+        const meta = SECTION_META[sectionKey];
+        if (React.isValidElement(child)) {
+          const Icon = meta?.icon;
+          return (
+            <section key={sectionKey} className="mt-8">
+              {meta && (
+                <div className="flex items-center gap-3 mb-5">
+                  {Icon && (
+                    <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-[#1e2330] dark:to-[#252b3b] border border-slate-200 dark:border-[#2a3040] shadow-sm">
+                      <Icon className="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                  )}
+                  <div>
+                    <h2 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white italic leading-none">
+                      {meta.title}
+                    </h2>
+                    <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 italic tracking-wide mt-0.5">
+                      {meta.description}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {React.cloneElement(child as React.ReactElement<any>, {
+                analyticsVisibilityMap,
+                onToggleAnalyticsVisibility: handleToggleCommunityOrAnalytics,
+                communityVisibilityMap,
+                onToggleCommunityVisibility: toggleCommunityVisibility,
+                cardVisibility: mergedVisibilityMap,
+                sectionOrder,
+                onReorderSections: handleReorderSections,
+              })}
+            </section>
+          );
+        }
+        return child;
+      })}
+    </>
+  );
 }

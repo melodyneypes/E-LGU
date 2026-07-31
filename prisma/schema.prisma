@@ -624,6 +624,7 @@ model Transaction {
   marriageLicenseApplication    MarriageLicenseApplication?
   marriagePsaEndorsementRequest MarriagePsaEndorsementRequest?
   marriageRegistration          MarriageRegistration?
+  occupancyPermit               OccupancyPermit?
   payment                       Payment?
   ticketHeaders                 TicketHeader[]
   driver                        User?                          @relation("DriverTransactions", fields: [driverId], references: [id])
@@ -755,6 +756,21 @@ model BuildingPermit {
   transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 }
 
+model OccupancyPermit {
+  id             String      @id @default(cuid())
+  transactionId  String      @unique
+  permitNumber   String      @unique
+  dateIssued     DateTime    @default(now())
+  applicantName  String
+  projectType    String
+  occupancyUse   String
+  location       String?
+  estimatedCost  Float
+  documentUrl    String?
+  issuedBy       String
+  verificationId String      @unique @default(cuid())
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
 model BirthCertificateRequest {
   id             String      @id @default(cuid())
   transactionId  String      @unique
@@ -1075,7 +1091,6 @@ enum TicketStatus {
   CONTESTED
   UNPAID
 }
-
 model TrafficViolation {
   id               String         @id @default(cuid())
   violationCode    String?
@@ -1102,7 +1117,7 @@ model TicketPhoto {
 
 model TicketHeader {
   id              String         @id @default(cuid())
-  ticketNo        String
+  ticketNo        String         @unique
   localId         Int?
   deviceId        String?
   violatorName    String
@@ -1117,6 +1132,8 @@ model TicketHeader {
   puvBodyNo       String?
   location        String?
   barangay        String?
+  latitude        Float?
+  longitude       Float?
   dateTime        DateTime       @default(now())
   officerName     String?
   badgeNo         String?
@@ -1244,4 +1261,5 @@ enum PaymentStatus {
   FAILED
   REFUNDED
 }
+
 

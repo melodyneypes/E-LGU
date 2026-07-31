@@ -1,0 +1,174 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import prisma from "@/lib/db/prisma";
+
+export const dynamic = "force-dynamic";
+
+function formatTimeAgo(input: Date | string) {
+    if (!input) return "Just now";
+    const dateObj = new Date(input);
+    if (isNaN(dateObj.getTime())) return "Just now";
+
+    let dateMs = dateObj.getTime();
+    const nowMs = new Date().getTime();
+
+    // Adjust 8-hour offset if database timestamp evaluates to future
+    if (dateMs > nowMs + 60000) {
+        dateMs -= 8 * 60 * 60 * 1000;
+    }
+
+    const seconds = Math.floor((nowMs - dateMs) / 1000);
+
+    if (seconds < 60) return "Just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} min${minutes > 1 ? "s" : ""} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hr${hours > 1 ? "s" : ""} ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} day${days > 1 ? "s" : ""} ago`;
+}
+
+function parseDateMs(input: any): number {
+    if (!input) return 0;
+    const rawStr = typeof input === "string" ? input.trim() : input.toISOString();
+    const dateObj = new Date(rawStr);
+    if (isNaN(dateObj.getTime())) return 0;
+    let ms = dateObj.getTime();
+    const nowMs = Date.now();
+    if (ms > nowMs + 60000) {
+        ms -= 8 * 60 * 60 * 1000;
+    }
+    return ms;
+}
+
+export async function GET(req: NextRequest) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(req.url);
+        const selectedBarangay = searchParams.get("barangay") || "";
+
+        const whereBarangayFilter = selectedBarangay ? { barangay: selectedBarangay } : {};
+
+        const [recentResidents, recentReports, recentPayments, recentTransactions] = await Promise.all([
+            (prisma as any).user.findMany({
+                where: { role: "USER", ...whereBarangayFilter },
+                orderBy: { createdAt: "desc" },
+                take: 5,
+                select: { id: true, name: true, createdAt: true }
+            }),
+            (prisma as any).report.findMany({
+                where: selectedBarangay ? { user: { barangay: selectedBarangay } } : {},
+                orderBy: { createdAt: "desc" },
+                take: 5,
+                select: { id: true, category: true, createdAt: true, user: { select: { name: true } } }
+            }),
+            (prisma as any).payment.findMany({
+                where: selectedBarangay ? { transaction: { user: { barangay: selectedBarangay } } } : {},
+                orderBy: { createdAt: "desc" },
+                take: 5,
+                select: {
+                    id: true,
+                    amount: true,
+                    method: true,
+                    createdAt: true,
+                    transaction: {
+                        select: {
+                            residentSnapshot: true,
+                            additionalData: true,
+                            user: { select: { name: true } }
+                        }
+                    }
+                }
+            }),
+            (prisma as any).transaction.findMany({
+                where: selectedBarangay ? { user: { barangay: selectedBarangay } } : {},
+                orderBy: { createdAt: "desc" },
+                take: 5,
+                select: {
+                    id: true,
+                    createdAt: true,
+                    residentSnapshot: true,
+                    additionalData: true,
+                    user: { select: { name: true } },
+                    type: { select: { name: true } }
+                }
+            })
+        ]);
+
+        const activityLogs = [
+            ...recentResidents.map((r: any) => ({
+                id: r.id,
+                type: "resident" as const,
+                user: r.name || "A Resident",
+                action: "registered as a new",
+                details: "Resident Profile",
+                time: formatTimeAgo(r.createdAt),
+                createdAt: r.createdAt.toISOString()
+            })),
+            ...recentReports.map((rp: any) => ({
+                id: rp.id,
+                type: "report" as const,
+                user: rp.user?.name || "A Resident",
+                action: "filed a public report on",
+                details: rp.category,
+                time: formatTimeAgo(rp.createdAt),
+                createdAt: rp.createdAt.toISOString()
+            })),
+            ...recentPayments.map((p: any) => {
+                const tx = p.transaction;
+                let resSnap: any = {};
+                let addData: any = {};
+                try {
+                    resSnap = typeof tx?.residentSnapshot === "string" ? JSON.parse(tx.residentSnapshot) : tx?.residentSnapshot || {};
+                } catch { resSnap = {}; }
+                try {
+                    addData = typeof tx?.additionalData === "string" ? JSON.parse(tx.additionalData) : tx?.additionalData || {};
+                } catch { addData = {}; }
+
+                const name = tx?.user?.name || resSnap.fullName || resSnap.name || addData.violatorName || addData.fullName || addData.name || "A Resident";
+                return {
+                    id: p.id,
+                    type: "payment" as const,
+                    user: name,
+                    action: `paid ₱${p.amount.toLocaleString()} via`,
+                    details: p.method,
+                    time: formatTimeAgo(p.createdAt),
+                    createdAt: p.createdAt.toISOString()
+                };
+            }),
+            ...recentTransactions.map((t: any) => {
+                let resSnap: any = {};
+                let addData: any = {};
+                try {
+                    resSnap = typeof t?.residentSnapshot === "string" ? JSON.parse(t.residentSnapshot) : t?.residentSnapshot || {};
+                } catch { resSnap = {}; }
+                try {
+                    addData = typeof t?.additionalData === "string" ? JSON.parse(t.additionalData) : t?.additionalData || {};
+                } catch { addData = {}; }
+
+                const name = t.user?.name || resSnap.fullName || resSnap.name || addData.violatorName || addData.fullName || addData.name || "A Resident";
+                return {
+                    id: t.id,
+                    type: "transaction" as const,
+                    user: name,
+                    action: "requested service for",
+                    details: t.type?.name || "Certificate",
+                    time: formatTimeAgo(t.createdAt),
+                    createdAt: t.createdAt.toISOString()
+                };
+            })
+        ]
+            .sort((a, b) => parseDateMs(b.createdAt) - parseDateMs(a.createdAt))
+            .slice(0, 7);
+
+        return NextResponse.json({ success: true, logs: activityLogs });
+    } catch (err: any) {
+        console.error("Error fetching activity logs:", err);
+        return NextResponse.json({ error: err.message || "Failed to fetch logs" }, { status: 500 });
+    }
+}

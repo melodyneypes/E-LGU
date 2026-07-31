@@ -3,7 +3,10 @@
 
 import React, { useState, useEffect } from "react";
 import SecureIdleTimer from "@/components/shared/SecureIdleTimer";
-import PrivacyTermsModal from "@/components/shared/PrivacyTermsModal";
+import { SubmitStep } from "./components/SubmitStep";
+import { BFPStep } from "./components/BFPStep";
+import { EvaluationStep } from "./components/EvaluationStep";
+import { UploadStep } from "./components/UploadStep";
 import {
   Book,
   CheckCircle,
@@ -13,7 +16,6 @@ import {
   Flame,
   Handshake,
   Home,
-  CreditCard,
   Landmark,
   MapPin,
   PenTool,
@@ -24,7 +26,6 @@ import {
   Users,
   Wallet,
   Zap,
-  Clock,
   AlertCircle,
   FileWarning,
   Building2,
@@ -32,23 +33,11 @@ import {
   Upload,
   Shield,
   Hourglass,
-  Receipt,
   Check,
   Hash,
   UserCheck,
   ChevronDown
 } from "lucide-react";
-
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -493,7 +482,21 @@ export default function BuildingPermitPage() {
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [idChoice, setIdChoice] = useState<"PROFILE" | "UPLOAD">("PROFILE");
   const [activeDocTab, setActiveDocTab] = useState<"REQUIREMENTS" | "PERMITS">("REQUIREMENTS");
-  const [uploadedRequirements, setUploadedRequirements] = useState<Record<number, File>>({});
+  const [uploadedRequirements, setUploadedRequirements] = useState<Record<number, any>>({});
+  const abandonedFilesRef = React.useRef<string[]>([]);
+
+  useEffect(() => {
+    const handleUnload = () => {
+      if (abandonedFilesRef.current.length > 0) {
+        navigator.sendBeacon("/api/upload/cleanup", JSON.stringify({ urls: abandonedFilesRef.current }));
+      }
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+      handleUnload();
+    };
+  }, []);
 
   const [formData, setFormData] = useState({
     descriptionOfWork: "",
@@ -530,7 +533,7 @@ export default function BuildingPermitPage() {
     otherOccupancyUse: "",
   });
 
-  const [uploadedPermits, setUploadedPermits] = useState<Record<number, File>>({});
+  const [uploadedPermits, setUploadedPermits] = useState<Record<number, any>>({});
   const [customRequirements, setCustomRequirements] = useState<{ label: string }[]>([]);
   const [customPermits, setCustomPermits] = useState<{ label: string }[]>([]);
   const [isAddCustomDocOpen, setIsAddCustomDocOpen] = useState(false);
@@ -538,6 +541,16 @@ export default function BuildingPermitPage() {
 
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [duplicatePropertyWarning, setDuplicatePropertyWarning] = useState<{ isProcessing: boolean; applicantName?: string } | null>(null);
+
+  useEffect(() => {
+    const handleUnload = () => {
+      if (abandonedFilesRef.current.length > 0) {
+        navigator.sendBeacon("/api/upload/cleanup", JSON.stringify({ urls: abandonedFilesRef.current }));
+      }
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, []);
 
   useEffect(() => {
     if (!formData.locationOfConstruction || formData.locationOfConstruction.trim().length < 5) {
@@ -1280,9 +1293,13 @@ export default function BuildingPermitPage() {
         
         const file = uploadedRequirements[i];
         if (file) {
-          queueUpload(file, "requirements", `req_${i}`, url => {
-            if (url) finalReqUrls[`req_${i}`] = url;
-          });
+          if (typeof file === "string") {
+            finalReqUrls[`req_${i}`] = file;
+          } else {
+            queueUpload(file, "requirements", `req_${i}`, url => {
+              if (url) finalReqUrls[`req_${i}`] = url;
+            });
+          }
         } else {
           const existingUrl = effectiveDocuments?.[`req_${i}`];
           if (existingUrl) finalReqUrls[`req_${i}`] = existingUrl;
@@ -1294,9 +1311,13 @@ export default function BuildingPermitPage() {
         if (idx >= 25) {
           const file = uploadedRequirements[idx];
           if (file) {
-            queueUpload(file, "requirements", `req_${idx}`, url => {
-              if (url) finalReqUrls[`req_${idx}`] = url;
-            });
+            if (typeof file === "string") {
+              finalReqUrls[`req_${idx}`] = file;
+            } else {
+              queueUpload(file, "requirements", `req_${idx}`, url => {
+                if (url) finalReqUrls[`req_${idx}`] = url;
+              });
+            }
           }
         }
       }
@@ -1316,9 +1337,13 @@ export default function BuildingPermitPage() {
       for (let i = 0; i < 7; i++) {
         const file = uploadedPermits[i];
         if (file) {
-          queueUpload(file, "permits", `permit_${i}`, url => {
-            if (url) finalPermitUrls[`permit_${i}`] = url;
-          });
+          if (typeof file === "string") {
+            finalPermitUrls[`permit_${i}`] = file;
+          } else {
+            queueUpload(file, "permits", `permit_${i}`, url => {
+              if (url) finalPermitUrls[`permit_${i}`] = url;
+            });
+          }
         } else {
           const existingUrl = effectiveDocuments?.[`permit_${i}`];
           if (existingUrl) finalPermitUrls[`permit_${i}`] = existingUrl;
@@ -1330,9 +1355,13 @@ export default function BuildingPermitPage() {
         if (idx >= 7) {
           const file = uploadedPermits[idx];
           if (file) {
-            queueUpload(file, "permits", `permit_${idx}`, url => {
-              if (url) finalPermitUrls[`permit_${idx}`] = url;
-            });
+            if (typeof file === "string") {
+              finalPermitUrls[`permit_${idx}`] = file;
+            } else {
+              queueUpload(file, "permits", `permit_${idx}`, url => {
+                if (url) finalPermitUrls[`permit_${idx}`] = url;
+              });
+            }
           }
         }
       }
@@ -1421,6 +1450,7 @@ export default function BuildingPermitPage() {
         if (signatureUrl) {
           await saveTransactionSignature(result.transactionId!, signatureUrl);
         }
+        abandonedFilesRef.current = [];
         // Fetch the updated data so the application becomes read-only and back button works
         const permitsRes = await getExistingBuildingPermits();
         if (permitsRes.success) {
@@ -2807,1179 +2837,94 @@ export default function BuildingPermitPage() {
         })()}
 
         {!loading && currentStep === "DOCUMENTS" && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-            {/* Header */}
-            <div className="space-y-3 md:space-y-4 mb-8">
-              <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter leading-tight flex items-center gap-4">
-                <UploadCloud className="w-10 h-10 md:w-12 md:h-12 text-slate-800 dark:text-white" />
-                <span className="text-slate-800 dark:text-white">Upload Requirements & Documents</span>
-              </h2>
-              <p className="text-slate-500 font-medium text-xs md:text-sm uppercase tracking-widest">
-                Upload all required requirements and documents. Files must be PDF, JPG, or PNG (max 5MB each).
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-3 mb-8">
-              <div className="bg-slate-100/50 dark:bg-white/5 border-l-4 border-slate-800 dark:border-white p-4 rounded-r-xl flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-slate-800 dark:text-white shrink-0" />
-                <p className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300">
-                  <b>File Upload Rules:</b> Max 5MB per file · Allowed: .pdf, .jpg, .jpeg, .png only
-                </p>
-              </div>
-
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
-              <button
-                onClick={() => setActiveDocTab("REQUIREMENTS")}
-                className={cn(
-                  "flex-1 py-4 px-6 rounded-full font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center justify-center gap-3 transition-all border w-full",
-                  activeDocTab === "REQUIREMENTS"
-                    ? "text-white shadow-xl"
-                    : "bg-white dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
-                )}
-                style={activeDocTab === "REQUIREMENTS" ? {
-                  backgroundColor: themeColor,
-                  borderColor: themeColor,
-                  boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
-                } : undefined}
-              >
-                <FileText className="w-4 h-4" />
-                Requirements ({requiredRequirementsCount} items)
-              </button>
-              <button
-                onClick={() => setActiveDocTab("PERMITS")}
-                className={cn(
-                  "flex-1 py-4 px-6 rounded-full font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center justify-center gap-3 transition-all border w-full",
-                  activeDocTab === "PERMITS"
-                    ? "text-white shadow-xl"
-                    : "bg-white dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10"
-                )}
-                style={activeDocTab === "PERMITS" ? {
-                  backgroundColor: themeColor,
-                  borderColor: themeColor,
-                  boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
-                } : undefined}
-              >
-                <FileSignature className="w-4 h-4" />
-                Documents (Upload 4 or more)
-              </button>
-            </div>
-
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex flex-col">
-                <h3 className="text-xl font-black text-slate-800 dark:text-white">
-                  {activeDocTab === "REQUIREMENTS" ? "Requirements" : "Documents"}
-                </h3>
-                {activeDocTab === "PERMITS" && (
-                  <span className="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full w-fit mt-1">
-                    Upload at least 4 to proceed
-                  </span>
-                )}
-              </div>
-              {isEditable && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddCustomDocument}
-                  className="rounded-full border-slate-300 hover:bg-slate-50 dark:border-white/20 dark:hover:bg-white/10 flex items-center gap-2"
-                >
-                  <span>+</span> Add Custom {activeDocTab === "REQUIREMENTS" ? "Requirement" : "Document"}
-                </Button>
-              )}
-            </div>
-
-            {/* Document Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-              {(activeDocTab === "REQUIREMENTS"
-                ? [
-                    ...documentRequirementsList
-                      .map((docName, idx) => ({ docName, idx, kind: "base" as const })),
-                    ...customRequirements.map((req, idx) => ({ docName: req.label, idx: documentRequirementsList.length + idx, kind: "custom" as const }))
-                  ].filter(({ idx, kind }) => {
-                    if (kind === "custom") return true;
-                    if (idx === 5) return false;
-                    if (!isAffidavitOfConsentRequired && [7, 10, 11, 12, 13, 14].includes(idx)) return false;
-                    if (isAffidavitOfConsentRequired && [21, 22].includes(idx)) return false;
-                    if (!hasMultipleFloors && [23, 24].includes(idx)) return false;
-                    return true;
-                  })
-                : [
-                    ...permitTypesList.map((docName, idx) => ({ docName, idx, kind: "base" as const })),
-                    ...customPermits.map((permit, idx) => ({ docName: permit.label, idx: permitTypesList.length + idx, kind: "custom" as const }))
-                  ]
-              ).map(({ docName, idx, kind }) => {
-                const isCustomItem = kind === "custom";
-                const key = activeDocTab === "REQUIREMENTS" ? `req_${idx}` : `permit_${idx}`;
-                const fileUrl = effectiveDocuments?.[key];
-                const newlyUploaded = activeDocTab === "REQUIREMENTS" ? !!uploadedRequirements[idx] : !!uploadedPermits[idx];
-                const isUploaded = !isEditable ? !!fileUrl : (!!fileUrl || newlyUploaded);
-                const isRequired = isCustomItem
-                  ? false
-                  : (activeDocTab === "PERMITS"
-                    ? requiredPermitIndexes.includes(idx)
-                    : requiredRequirementIndexes.includes(idx));
-                const hasError = showValidationErrors && isRequired && !isUploaded;
-                return (
-                  <div key={key} className={cn("bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-2xl p-5 shadow-sm transition-all group", hasError ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border-slate-200 dark:border-white/10 hover:border-primary/30")}>
-                    <div className="flex justify-between items-start gap-4 mb-4">
-                      <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm min-w-0 flex-1">
-                        <div className="min-h-[40px] leading-tight">
-                          <span className="text-lg mr-1.5 align-bottom">📄</span>
-                          <span className="break-words">{docName}</span>
-                          {isRequired ? (
-                            <span className="text-red-500 ml-1 text-base align-top">*</span>
-                          ) : (
-                            activeDocTab !== "PERMITS" && (
-                              <span className="text-[9px] uppercase tracking-wider text-slate-400 ml-1 align-middle">Optional</span>
-                            )
-                          )}
-                        </div>
-                      </h4>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {isUploaded ? (
-                          <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500 text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full">
-                            Uploaded
-                          </span>
-                        ) : (
-                          <span className="bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500 text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full">
-                            Pending
-                          </span>
-                        )}
-                        {isCustomItem && isEditable && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (activeDocTab === "REQUIREMENTS") {
-                                setCustomRequirements(prev => prev.filter((_, i) => i !== (idx - documentRequirementsList.length)));
-                                setUploadedRequirements(prev => {
-                                  const nextReqs: Record<number, File> = {};
-                                  Object.entries(prev).forEach(([kStr, file]) => {
-                                    const k = parseInt(kStr, 10);
-                                    if (k < idx) {
-                                      nextReqs[k] = file;
-                                    } else if (k > idx) {
-                                      nextReqs[k - 1] = file;
-                                    }
-                                  });
-                                  return nextReqs;
-                                });
-                              } else {
-                                setCustomPermits(prev => prev.filter((_, i) => i !== (idx - permitTypesList.length)));
-                                setUploadedPermits(prev => {
-                                  const nextPermits: Record<number, File> = {};
-                                  Object.entries(prev).forEach(([kStr, file]) => {
-                                    const k = parseInt(kStr, 10);
-                                    if (k < idx) {
-                                      nextPermits[k] = file;
-                                    } else if (k > idx) {
-                                      nextPermits[k - 1] = file;
-                                    }
-                                  });
-                                  return nextPermits;
-                                });
-                              }
-                            }}
-                            className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-[10px] font-bold transition-colors border border-red-200 dark:border-red-500/20 px-2 py-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mt-2">
-                      <PremiumDocumentUpload
-                        label="Document File"
-                        required={isRequired}
-                        file={activeDocTab === "REQUIREMENTS" ? (uploadedRequirements[idx] || null) : (uploadedPermits[idx] || null)}
-                        existingUrl={fileUrl}
-                        onFileSelect={(file) => {
-                          if (activeDocTab === "REQUIREMENTS") {
-                            setUploadedRequirements(prev => ({ ...prev, [idx]: file }));
-                          } else {
-                            setUploadedPermits(prev => ({ ...prev, [idx]: file }));
-                          }
-                        }}
-                        onView={() => {
-                          const currentFile = activeDocTab === "REQUIREMENTS" ? uploadedRequirements[idx] : uploadedPermits[idx];
-                          if (currentFile) {
-                            setViewerFile(currentFile);
-                          } else if (fileUrl) {
-                            setViewerUrl(fileUrl);
-                          }
-                          setViewerTitle(docName);
-                          setViewerOpen(true);
-                        }}
-                        error={hasError}
-                        infoText="PDF / Image (Max 5MB)"
-                        disabled={!isEditable || (isRevision && !isFieldRequested(key))}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Progress Summary */}
-            <div className="space-y-4 mt-8">
-              <div 
-                className="border-l-4 p-4 rounded-r-xl flex items-center gap-3"
-                style={{
-                  backgroundColor: themeColor.startsWith("#") ? `${themeColor}0d` : `rgba(var(--primary), 0.05)`,
-                  borderLeftColor: themeColor
-                }}
-              >
-                <UploadCloud 
-                  className="w-5 h-5 shrink-0" 
-                  style={{ color: themeColor }}
-                />
-                <p 
-                  className="text-xs md:text-sm font-bold"
-                  style={{ color: themeColor }}
-                >
-                  {activeDocTab === "REQUIREMENTS"
-                    ? `Requirements Progress: ${uploadedRequirementsCount}/${requiredRequirementsCount} documents uploaded`
-                    : `Permits Progress: ${uploadedPermitsCount} uploaded (min. 4 required)`}
-                </p>
-              </div>
-              <div className="bg-blue-50 dark:bg-blue-500/5 border-l-4 border-blue-500 p-4 rounded-r-xl flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5 text-blue-700 dark:text-blue-400 shrink-0" />
-                  <p className="text-xs md:text-sm font-bold text-blue-800 dark:text-blue-300">
-                    Total Progress: {uploadedRequirementsCount + uploadedPermitsCount}/{totalRequiredItems} items uploaded
-                  </p>
-                </div>
-                {!selectedApplication && (
-                  <span className="text-[10px] text-blue-600/60 dark:text-blue-400/60 font-medium uppercase tracking-widest hidden sm:block">All requirements and at least 4 permits must be uploaded</span>
-                )}
-              </div>
-            </div>
-
-            {/* Signature Block */}
-            <div className="bg-white dark:bg-black/20 rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-sm mt-8">
-              <div className="flex items-center gap-3">
-                <div 
-                  className="w-10 h-10 rounded-full flex items-center justify-center"
-                  style={{
-                    backgroundColor: themeColor.startsWith("#") ? `${themeColor}1a` : `rgba(var(--primary), 0.1)`
-                  }}
-                >
-                  <PenTool 
-                    className="w-5 h-5" 
-                    style={{ color: themeColor }}
-                  />
-                </div>
-                <div>
-                  <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tighter text-lg flex items-center gap-2">
-                    Digital Signature <span className="text-red-500 text-xl">*</span>
-                  </h3>
-                  <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500">Sign directly below</p>
-                </div>
-              </div>
-              {!isEditable ? (
-                <div className="space-y-4">
-                  <p className="text-sm text-slate-500">Your digital signature was recorded with this application submission:</p>
-                  {selectedApplication.additionalData?.signature ? (
-                    <div className="border border-slate-200 dark:border-white/10 rounded-xl p-4 bg-white max-w-md">
-                      <img src={selectedApplication.additionalData.signature} alt="Digital Signature" className="max-h-32 object-contain mx-auto" />
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-400 italic">No signature was saved for this application.</p>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm text-slate-500 mb-6">Please sign to acknowledge that all information provided is true and correct.</p>
-                  {isRevision && signatureUrl && (
-                    <div className="mb-4">
-                      <p 
-                        className="text-xs font-bold mb-2"
-                        style={{ color: themeColor }}
-                      >
-                        Previous Signature (You can resign below to update):
-                      </p>
-                      <div className="border border-slate-200 dark:border-white/10 rounded-xl p-4 bg-white max-w-md">
-                        <img src={signatureUrl} alt="Digital Signature" className="max-h-32 object-contain mx-auto" />
-                      </div>
-                    </div>
-                  )}
-                  <div className={cn("rounded-xl overflow-hidden bg-white transition-all", showValidationErrors && !signatureUrl ? "border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" : "border border-slate-200 dark:border-white/10")}>
-                  <SignaturePad
-                    themeColor={themeColor}
-                    onSave={async (file) => {
-                      if (!file) return;
-                      toast.loading("Uploading signature...", { id: "signature-upload-toast" });
-                      const extension = file.name.split(".").pop() || "bin";
-                      const allocation = await getSecureUploadUrlsAction(
-                        [{ fieldName: "signature_signature", fileExt: extension }],
-                        "building_permits"
-                      );
-                      const target = allocation.success ? allocation.data?.[0] : undefined;
-                      const url = target
-                        ? await uploadFileClientSide(file, "signature", target)
-                        : null;
-                      if (url) {
-                        setSignatureUrl(url);
-                        toast.success("Signature uploaded successfully. Ready to submit!", { id: "signature-upload-toast" });
-                      } else {
-                        toast.error("Failed to upload signature.", { id: "signature-upload-toast" });
-                      }
-                    }}
-                  />
-                  </div>
-                  {signatureUrl && (
-                    <div 
-                      className="mt-4 p-3 border rounded-xl flex items-center gap-2 text-sm font-bold"
-                      style={{
-                        backgroundColor: themeColor.startsWith("#") ? `${themeColor}0d` : `rgba(var(--primary), 0.05)`,
-                        borderColor: themeColor.startsWith("#") ? `${themeColor}33` : `rgba(var(--primary), 0.2)`,
-                        color: themeColor
-                      }}
-                    >
-                      <CheckCircle className="w-4 h-4" /> Signature captured successfully. Ready to submit!
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Data Privacy Agreement Block */}
-            <div className="mt-8">
-              <div
-                onClick={() => {
-                  if (privacyAccepted) {
-                    setPrivacyAccepted(false);
-                  } else {
-                    setIsPrivacyModalOpen(true);
-                  }
-                }}
-                className={cn(
-                  "p-5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-4 select-none",
-                  privacyAccepted ? "bg-primary/5 border-primary shadow-sm" : "bg-slate-50 dark:bg-white/[0.02] border-transparent hover:border-primary/20",
-                  showValidationErrors && !privacyAccepted && "border-red-500 bg-red-50/50"
-                )}
-              >
-                <div className={cn(
-                  "w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
-                  privacyAccepted ? "bg-primary border-primary text-white" : "border-slate-300 dark:border-white/10",
-                  showValidationErrors && !privacyAccepted && "border-red-400"
-                )}>
-                  {privacyAccepted && <Check className="w-3.5 h-3.5" />}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-black italic uppercase tracking-tight text-slate-900 dark:text-white">Data Privacy and Terms Agreement</p>
-                  <p className="text-[8px] md:text-[10px] text-slate-500 font-medium leading-relaxed italic uppercase tracking-widest">
-                    I officially accept the EMapandan Data Privacy Agreement & Terms. I declare under penalty of perjury that all submitted details are 100% legal and genuine. Click to review agreement.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <PrivacyTermsModal
-              isOpen={isPrivacyModalOpen}
-              onClose={() => setIsPrivacyModalOpen(false)}
-              onAccept={() => {
-                setPrivacyAccepted(true);
-                setIsPrivacyModalOpen(false);
-              }}
+          <>
+            <UploadStep
               themeColor={themeColor}
+              isEditable={isEditable}
+              isRevision={isRevision}
+              isFieldRequested={isFieldRequested}
+              activeDocTab={activeDocTab}
+              setActiveDocTab={setActiveDocTab}
+              requiredRequirementsCount={requiredRequirementsCount}
+              documentRequirementsList={documentRequirementsList}
+              customRequirements={customRequirements}
+              isAffidavitOfConsentRequired={isAffidavitOfConsentRequired}
+              hasMultipleFloors={hasMultipleFloors}
+              permitTypesList={permitTypesList}
+              customPermits={customPermits}
+              effectiveDocuments={effectiveDocuments}
+              uploadedRequirements={uploadedRequirements}
+              setUploadedRequirements={setUploadedRequirements}
+              uploadedPermits={uploadedPermits}
+              setUploadedPermits={setUploadedPermits}
+              requiredRequirementIndexes={requiredRequirementIndexes}
+              requiredPermitIndexes={requiredPermitIndexes}
+              showValidationErrors={showValidationErrors}
+              setCustomRequirements={setCustomRequirements}
+              setCustomPermits={setCustomPermits}
+              setViewerFile={setViewerFile}
+              setViewerUrl={setViewerUrl}
+              setViewerTitle={setViewerTitle}
+              setViewerOpen={setViewerOpen}
+              handleAddCustomDocument={handleAddCustomDocument}
+              uploadedRequirementsCount={uploadedRequirementsCount}
+              uploadedPermitsCount={uploadedPermitsCount}
+              totalRequiredItems={totalRequiredItems}
+              selectedApplication={selectedApplication}
+              signatureUrl={signatureUrl}
+              setSignatureUrl={setSignatureUrl}
+              uploadFileClientSide={uploadFileClientSide}
+              privacyAccepted={privacyAccepted}
+              setPrivacyAccepted={setPrivacyAccepted}
+              isPrivacyModalOpen={isPrivacyModalOpen}
+              setIsPrivacyModalOpen={setIsPrivacyModalOpen}
+              setCurrentStep={setCurrentStep}
+              addAbandonedFile={(url) => abandonedFilesRef.current.push(url)}
             />
-
-            {/* Footer Buttons */}
-            <div className="mt-12 flex flex-col md:flex-row justify-between items-center gap-6">
-              <button
-                onClick={() => {
-                  setCurrentStep("PROFILE");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-                className="bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-white hover:bg-slate-200 dark:hover:bg-white/20 font-bold uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-2 px-5 py-2.5 border-2 border-slate-200 dark:border-white/20 rounded-full transition-colors shadow-sm"
-              >
-                ← Back to Profile
-              </button>
-              {!isEditable ? (
-                <button
-                  onClick={() => {
-                    setCurrentStep("EVALUATION");
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }}
-                  className="bg-primary text-white hover:bg-primary/90 px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all shadow-xl shadow-primary/20 w-full md:w-auto"
-                >
-                  Next: Evaluation Status
-                  <span className="text-xl leading-none">→</span>
-                </button>
-              ) : (
-                <button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  className="text-white px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-3 transition-all shadow-xl w-full md:w-auto disabled:opacity-70 hover:opacity-90"
-                  style={{
-                    backgroundColor: themeColor,
-                    boxShadow: themeColor.startsWith("#") ? `0 20px 25px -5px ${themeColor}30` : `0 20px 25px -5px rgba(var(--primary), 0.2)`
-                  }}
-                >
-                  {isSubmitting ? "Submitting..." : (isRevision ? "Resubmit Application" : "Submit to Engineering for Review")}
-                  {!isSubmitting && <span className="text-xl leading-none">→</span>}
-                </button>
-              )}
-            </div>
-          </div>
+            <button
+              id="submitBtn"
+              className="hidden"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+            />
+          </>
         )}
 
         {!loading && currentStep === "EVALUATION" && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-            {selectedApplication?.isCancelled && (
-              <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-[2rem] flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-red-500/20 text-red-500 flex items-center justify-center shrink-0">
-                    <AlertCircle className="w-6 h-6 animate-pulse" />
-                  </div>
-                  <div className="text-left space-y-1">
-                    <h4 className="font-black text-red-500 uppercase tracking-wider text-sm">
-                      Application Cancelled
-                    </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      You cancelled this building permit application. You can still view your details, but it is strictly read-only.
-                    </p>
-                  </div>
-                </div>
-                <span className="bg-red-500 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full">
-                  CANCELLED
-                </span>
-              </div>
-            )}
-
-            <div className="bg-white dark:bg-black/20 rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-sm">
-              <h2 className="text-xl font-black text-slate-800 dark:text-white flex items-center gap-3 mb-6">
-                <ClipboardList className="w-6 h-6 text-primary" />
-                Evaluation Status
-              </h2>
-
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <h3 className="font-bold text-slate-700 dark:text-slate-300">Engineering Department Review</h3>
-                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col gap-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
-                      <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0 mt-0.5">
-                          <Clock className="w-5 h-5" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">
-                            {selectedApplication?.status === "FOR_INSPECTION"
-                              ? "Scheduled for Site Inspection"
-                              : selectedApplication?.status === "FOR_REINSPECTION"
-                                ? "Scheduled for Site Re-inspection"
-                                : ["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
-                                  ? "Evaluation Approved"
-                                  : "Documents Under Review"}
-                          </p>
-                          <p className="text-xs text-slate-500 leading-normal">
-                            {selectedApplication?.status === "FOR_INSPECTION"
-                              ? "Your application is scheduled for an upcoming site inspection."
-                              : selectedApplication?.status === "FOR_REINSPECTION"
-                                ? "Your application requires a site re-inspection. Please see the scheduled date below."
-                                : ["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
-                                  ? "Your application documents have been evaluated and approved by the Engineering Department."
-                                  : "Your documents are being reviewed by the Engineering Department"}
-                          </p>
-                        </div>
-                      </div>
-                      <span className={cn(
-                        "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
-                        selectedApplication?.isCancelled
-                          ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                          : selectedApplication?.status === "REJECTED"
-                            ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                            : selectedApplication?.status === "FOR_REVISION"
-                              ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                              : ["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
-                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
-                                : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                      )}>
-                        {selectedApplication?.isCancelled
-                          ? "Cancelled"
-                          : selectedApplication
-                            ? getEngineeringStatusLabel(selectedApplication.status)
-                            : "Pending Review"}
-                      </span>
-                    </div>
-
-                    {selectedApplication && (selectedApplication.status === "REJECTED" || selectedApplication.status === "FOR_REVISION") && selectedApplication.rejectionRemarks && (
-                      <div className="p-4 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-xl text-red-800 dark:text-red-400 text-sm">
-                        <p className="font-bold uppercase tracking-widest text-[10px] mb-1">
-                          {selectedApplication.status === "REJECTED" ? "Reason for Rejection" : "Revision Remarks"}
-                        </p>
-                        <p className="whitespace-pre-wrap font-medium">{selectedApplication.rejectionRemarks}</p>
-                        
-                        {selectedApplication.status === "FOR_REVISION" && selectedApplication.additionalData?.revisionRequests?.length > 0 && (
-                          <div className="mt-4 pt-4 border-t border-red-200 dark:border-red-500/20">
-                            <p className="font-bold uppercase tracking-widest text-[10px] mb-2 text-red-700 dark:text-red-400">Documents to Revise / Additional Attachments:</p>
-                            <ul className="list-disc pl-5 space-y-1">
-                              {selectedApplication.additionalData.revisionRequests.map((req: any, i: number) => (
-                                <li key={i} className="text-xs font-medium text-red-800 dark:text-red-300">
-                                  {req.name} <span className="text-[9px] uppercase tracking-widest text-red-600 dark:text-red-400/80 ml-1">({req.type === 'PERMITS' ? 'DOCUMENTS' : 'REQUIREMENTS'})</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {(selectedApplication?.status === "FOR_INSPECTION" || selectedApplication?.status === "FOR_REINSPECTION") && selectedApplication?.additionalData?.inspectionSchedule && (
-                      <div className="p-5 bg-purple-50 dark:bg-purple-500/5 border border-purple-200 dark:border-purple-500/20 rounded-2xl space-y-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">
-                          {selectedApplication.status === "FOR_REINSPECTION" ? "Re-Inspection Details" : "Inspection Details"}
-                        </h4>
-                        <div className="grid grid-cols-2 gap-4 text-xs text-purple-800 dark:text-purple-300 font-bold">
-                          <div>
-                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Date & Time</span>
-                            {selectedApplication.additionalData.inspectionSchedule.date} at {selectedApplication.additionalData.inspectionSchedule.time}
-                          </div>
-                          <div>
-                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Inspector</span>
-                            {selectedApplication.additionalData.inspectionSchedule.inspectorName}
-                          </div>
-                          <div className="col-span-2">
-                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Type</span>
-                            {selectedApplication.additionalData.inspectionSchedule.type}
-                          </div>
-                          {selectedApplication.additionalData.inspectionSchedule.notes && (
-                            <div className="col-span-2 mt-2 pt-3 border-t border-purple-200 dark:border-purple-500/20">
-                              <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-1">Notes / Reason for Re-inspection</span>
-                              <p className="italic text-purple-700 dark:text-purple-300 font-medium">"{selectedApplication.additionalData.inspectionSchedule.notes}"</p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Previous Schedules / Re-inspection History (User side) */}
-                        {selectedApplication.additionalData?.reinspectionHistory && selectedApplication.additionalData.reinspectionHistory.length > 0 && (
-                          <div className="pt-4 border-t border-dashed border-purple-200 dark:border-purple-500/20 space-y-3">
-                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-400 dark:text-purple-500 block">Previous Schedules & History</span>
-                            <div className="space-y-2">
-                              {selectedApplication.additionalData.reinspectionHistory.map((h: any, idx: number) => {
-                                const isOrig = h.count === 0 || h.isOriginal === true;
-                                return (
-                                  <div key={idx} className="p-3 bg-white/50 dark:bg-black/20 border border-purple-200/20 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] font-medium text-purple-800 dark:text-purple-300">
-                                    <div className="flex items-center gap-2">
-                                      <span className={cn(
-                                        "px-2 py-0.5 rounded text-[9px] font-black italic",
-                                        isOrig ? "bg-purple-200 text-purple-800 dark:bg-purple-500/30 dark:text-purple-300" : "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400"
-                                      )}>
-                                        {isOrig ? "Orig" : `#${h.count}`}
-                                      </span>
-                                      <span>
-                                        {isOrig ? "Original Inspection Schedule" : "Re-inspection Requested"}
-                                      </span>
-                                    </div>
-                                    <div className="text-left sm:text-right text-[10px] text-slate-500">
-                                      {isOrig ? `${h.date} @ ${h.time}` : (h.date ? new Date(h.date).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "N/A")}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="font-bold text-slate-700 dark:text-slate-300">MPDC Zoning Review</h3>
-                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col gap-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
-                      <div className="flex items-start gap-4">
-                        <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
-                          !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
-                            ? "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
-                            : "bg-blue-100 text-blue-500 dark:bg-blue-500/20"
-                        )}>
-                          {!["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") ? (
-                             <Clock className="w-5 h-5" />
-                          ) : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed ? (
-                             <Check className="w-5 h-5" />
-                          ) : (
-                             <MapPin className="w-5 h-5" />
-                          )}
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">
-                            {!["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
-                              ? "Awaiting Engineering Approval"
-                              : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
-                                ? "Scheduled for Zoning Site Inspection"
-                              : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
-                                  ? "Scheduled for Zoning Site Re-inspection"
-                                  : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
-                                    ? "Zoning Assessment Approved"
-                                    : "Zoning Clearance Under Review"}
-                          </p>
-                          <p className="text-xs text-slate-500 leading-normal">
-                            {!["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
-                              ? "Zoning review will commence once the Engineering Department approves your documents."
-                              : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION"
-                                ? "Your application is scheduled for an upcoming zoning site inspection."
-                                : selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
-                                  ? "Your application requires a zoning site re-inspection. Please check for updates."
-                                  : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
-                                    ? "Your zoning requirements have been evaluated and endorsed by MPDC."
-                                    : "Your documents are currently being reviewed by the MPDC Zoning Office."}
-                          </p>
-                        </div>
-                      </div>
-                      <span className={cn(
-                        "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
-                        selectedApplication?.isCancelled
-                          ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                          : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
-                            ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                            : selectedApplication?.additionalData?.zoningStatus === "REJECTED"
-                              ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                              : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
-                                ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                                : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
-                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
-                                  : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                      )}>
-                        {selectedApplication?.isCancelled
-                          ? "Cancelled"
-                          : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
-                            ? "Pending"
-                          : selectedApplication?.additionalData?.feeAssessment?.zoningEndorsed
-                              ? "APPROVED"
-                              : selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION"
-                                ? "For Inspection"
-                              : selectedApplication?.additionalData?.zoningStatus === "FOR_REVISION"
-                                  ? "For Revision"
-                                  : selectedApplication?.additionalData?.zoningStatus === "REJECTED"
-                                    ? "Rejected"
-                                    : "Pending Review"}
-                      </span>
-                    </div>
-
-                    {selectedApplication?.additionalData?.zoningStatus && (selectedApplication.additionalData.zoningStatus === "REJECTED" || selectedApplication.additionalData.zoningStatus === "FOR_REVISION") && selectedApplication.additionalData.zoningRejectionRemarks && (
-                      <div className="p-4 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-xl text-red-800 dark:text-red-400 text-sm">
-                        <p className="font-bold uppercase tracking-widest text-[10px] mb-1">
-                          {selectedApplication.additionalData.zoningStatus === "REJECTED" ? "Zoning Rejection Reason" : "Zoning Revision Remarks"}
-                        </p>
-                        <p className="whitespace-pre-wrap font-medium">{selectedApplication.additionalData.zoningRejectionRemarks}</p>
-                      </div>
-                    )}
-
-                    {(selectedApplication?.additionalData?.zoningStatus === "FOR_INSPECTION" || selectedApplication?.additionalData?.zoningStatus === "FOR_REINSPECTION") && (selectedApplication?.additionalData?.zoningInspectionSchedule || selectedApplication?.additionalData?.inspectionSchedule) && (
-                      <div className="p-5 bg-purple-50 dark:bg-purple-500/5 border border-purple-200 dark:border-purple-500/20 rounded-2xl space-y-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">
-                          {selectedApplication.additionalData.zoningStatus === "FOR_REINSPECTION" ? "Zoning Re-Inspection Details" : "Zoning Inspection Details"}
-                        </h4>
-                        <div className="grid grid-cols-2 gap-4 text-xs text-purple-800 dark:text-purple-300 font-bold">
-                          <div>
-                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Date & Time</span>
-                            {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).date} at {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).time}
-                          </div>
-                          <div>
-                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Inspector</span>
-                            {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).inspectorName}
-                          </div>
-                          <div className="col-span-2">
-                            <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-0.5">Type</span>
-                            {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).type}
-                          </div>
-                          {(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).notes && (
-                            <div className="col-span-2 mt-2 pt-3 border-t border-purple-200 dark:border-purple-500/20">
-                              <span className="text-purple-400 dark:text-purple-500 block text-[9px] uppercase tracking-wider mb-1">Notes / Instructions</span>
-                              <p className="italic text-purple-700 dark:text-purple-300 font-medium">"{(selectedApplication.additionalData.zoningInspectionSchedule || selectedApplication.additionalData.inspectionSchedule).notes}"</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="font-bold text-slate-700 dark:text-slate-300">Endorsement Status</h3>
-                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      <div className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5",
-                        ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
-                          ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500"
-                          : "bg-amber-100 dark:bg-amber-500/20 text-amber-500"
-                      )}>
-                        {["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED") ? (
-                          <Check className="w-5 h-5 text-emerald-500" />
-                        ) : (
-                          <Clock className="w-5 h-5 text-amber-500" />
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <p className="font-bold text-slate-800 dark:text-white text-sm leading-snug">Endorsement to BFP</p>
-                        <p className="text-xs text-slate-500 leading-normal">
-                          {selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED"
-                            ? "BFP has successfully acknowledged your application"
-                            : ["UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
-                              ? "Endorsed successfully to BFP"
-                            : !["EVALUATED", "UNPAID", "PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "")
-                              ? "Awaiting Engineering and Zoning approval"
-                              : "Awaiting BFP acknowledgement"}
-                        </p>
-                      </div>
-                    </div>
-                    <span className={cn(
-                      "text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shrink-0 w-fit sm:self-center self-start sm:ml-0 ml-14",
-                      selectedApplication?.isCancelled || selectedApplication?.status === "REJECTED"
-                        ? "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-500"
-                        : selectedApplication?.status === "UNPAID"
-                          ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                          : selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED" || ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
-                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
-                            : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500"
-                    )}>
-                      {selectedApplication?.isCancelled
-                        ? "Cancelled"
-                        : selectedApplication?.status === "REJECTED"
-                          ? "Rejected"
-                          : selectedApplication?.status === "UNPAID"
-                            ? "UNPAID"
-                            : selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED"
-                              ? "ACKNOWLEDGED"
-                              : ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") || (selectedApplication?.status === "EVALUATED" && selectedApplication?.additionalData?.zoningStatus === "EVALUATED")
-                              ? "ACKNOWLEDGED"
-                              : "PENDING"}
-                    </span>
-                  </div>
-                </div>
-
-                {selectedApplication?.fiscalSnapshot && (selectedApplication.fiscalSnapshot as any).lineItems && (
-                  <div className="mt-8 p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-4 animate-in fade-in-50 duration-500">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-primary italic">Endorsed Fees Summary</span>
-                    <div className="space-y-2">
-                      {(selectedApplication.fiscalSnapshot as any).lineItems.map((item: any, idx: number) => (
-                        <div key={idx} className="flex justify-between items-center text-xs font-bold text-slate-600 dark:text-slate-400">
-                          <span>{item.label}</span>
-                          <span className="font-mono">₱{Number(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="pt-4 border-t border-dashed border-slate-200 dark:border-white/10 flex justify-between items-center">
-                      <span className="text-xs font-black uppercase text-slate-800 dark:text-white">Total Amount</span>
-                      <span className="text-lg font-black text-primary font-mono">
-                        ₱{Number((selectedApplication.fiscalSnapshot as any).totalAmount || selectedApplication.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center mt-6">
-              <button
-                onClick={() => {
-                  if (selectedApplication) {
-                    setCurrentStep("DOCUMENTS");
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  } else if (existingApplications.length > 0) {
-                    setCurrentStep("EXISTING");
-                  } else {
-                    router.push("/user/transactions");
-                  }
-                }}
-                className="px-6 py-3 border border-slate-200 dark:border-white/10 rounded-full text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-white transition-colors"
-              >
-                ← Back
-              </button>
-
-              {/* Cancel Application Button */}
-              {selectedApplication && selectedApplication.status === "FOR_REQUESTING" && !selectedApplication.isCancelled && (
-                <button
-                  onClick={() => setShowCancelDialog(true)}
-                  disabled={isCancelling}
-                  className="px-6 py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 hover:border-transparent rounded-full text-xs font-bold transition-all disabled:opacity-50"
-                >
-                  {isCancelling ? "Cancelling..." : "Cancel Application"}
-                </button>
-              )}
-
-              {/* Edit for Revision Button */}
-              {selectedApplication && (selectedApplication.status === "FOR_REVISION" || selectedApplication.additionalData?.zoningStatus === "FOR_REVISION") && !selectedApplication.isCancelled && (
-                <button
-                  onClick={() => {
-                    if (selectedApplication.status === "FOR_REVISION") {
-                      setIsRevision(true);
-                    }
-                    if (selectedApplication.additionalData?.zoningStatus === "FOR_REVISION") {
-                      setIsZoningRevision(true);
-                    }
-                    setCurrentStep("PROFILE");
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }}
-                  className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white border border-amber-500 hover:border-transparent rounded-full text-xs font-bold transition-all shadow-xl shadow-amber-500/20"
-                >
-                  Edit and Resubmit Application
-                </button>
-              )}
-
-              {!(selectedApplication?.isCancelled || selectedApplication?.status === "CANCELLED" || selectedApplication?.status === "FOR_REVISION") && (
-                <button
-                  disabled={selectedApplication?.status !== "UNPAID"}
-                  onClick={() => {
-                    if (selectedApplication?.status !== "UNPAID") return;
-                    setCurrentStep("BFP");
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }}
-                  className="px-8 py-3 bg-emerald-500 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-emerald-600 shadow-xl shadow-emerald-500/20 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-800 dark:disabled:text-slate-600"
-                >
-                  {selectedApplication?.additionalData?.bfpStatus === "ACKNOWLEDGED"
-                    ? "AWAITING ENGINEER PAYMENT ENDORSEMENT"
-                    : selectedApplication?.status === "UNPAID"
-                      ? "OPEN PAYMENT ENDORSEMENT"
-                    : "Next: BFP →"}
-                </button>
-              )}
-            </div>
-
-            <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-              <AlertDialogContent className="bg-white dark:bg-[#11131a] border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl p-6">
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="font-black text-slate-800 dark:text-white uppercase tracking-wider italic text-lg flex items-center gap-2">
-                    <span className="text-red-500 font-sans">⚠️</span> Cancel Application
-                  </AlertDialogTitle>
-                  <AlertDialogDescription className="text-slate-500 dark:text-slate-400 font-medium text-sm leading-relaxed mt-2">
-                    Are you sure you want to cancel this application? This action is permanent and cannot be undone. Once cancelled, your application data will remain strictly read-only and a new permit application can be created.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter className="mt-6 flex gap-3">
-                  <AlertDialogCancel className="rounded-full border border-slate-200 dark:border-white/10 text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 font-bold px-6 py-2.5 transition-colors cursor-pointer text-xs uppercase tracking-widest">
-                    No, Keep Application
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={confirmCancel}
-                    className="bg-red-500 text-white hover:bg-red-600 rounded-full font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center justify-center gap-2 px-6 py-2.5 transition-all shadow-xl shadow-red-500/20 cursor-pointer"
-                  >
-                    Yes, Cancel Application
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
+          <EvaluationStep
+            selectedApplication={selectedApplication}
+            existingApplications={existingApplications}
+            router={router}
+            getEngineeringStatusLabel={getEngineeringStatusLabel}
+            setCurrentStep={setCurrentStep}
+            showCancelDialog={showCancelDialog}
+            setShowCancelDialog={setShowCancelDialog}
+            isCancelling={isCancelling}
+            confirmCancel={confirmCancel}
+            setIsRevision={setIsRevision}
+            setIsZoningRevision={setIsZoningRevision}
+          />
         )}
 
         {!loading && currentStep === "BFP" && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-            <div className="bg-white dark:bg-black/20 rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-sm">
-              <h2 className="text-xl font-black text-slate-800 dark:text-white flex items-center gap-3 mb-6">
-                <Landmark className="w-6 h-6 text-primary" />
-                BFP Acknowledgement Status
-              </h2>
-
-              <div className="border border-slate-200 dark:border-white/10 rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <Receipt className="w-6 h-6 text-slate-700 dark:text-slate-300" />
-                  <h3 className="font-bold text-slate-800 dark:text-white text-lg">BFP Review Processing</h3>
-                </div>
-
-                {selectedApplication?.fiscalSnapshot && (selectedApplication.fiscalSnapshot as any).lineItems && (
-                  <div className="mb-6 p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-4">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-primary italic">Endorsed Fees Summary</span>
-                    <div className="space-y-2">
-                      {(selectedApplication.fiscalSnapshot as any).lineItems.map((item: any, idx: number) => (
-                        <div key={idx} className="flex justify-between items-center text-xs font-bold text-slate-600 dark:text-slate-400">
-                          <span>{item.label}</span>
-                          <span className="font-mono">₱{Number(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="pt-4 border-t border-dashed border-slate-200 dark:border-white/10 flex justify-between items-center">
-                      <span className="text-xs font-black uppercase text-slate-800 dark:text-white">Total Amount</span>
-                      <span className="text-lg font-black text-primary font-mono">
-                        ₱{Number((selectedApplication.fiscalSnapshot as any).totalAmount || selectedApplication.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {selectedApplication?.status === "UNPAID" && !selectedApplication?.paymentReference ? (
-                  <>
-                    <div className="bg-amber-50 dark:bg-amber-500/5 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 border border-amber-100 dark:border-amber-500/10">
-                      <div className="flex items-center gap-3 text-amber-700 dark:text-amber-500">
-                        <Hourglass className="w-5 h-5 animate-pulse" />
-                        <span className="font-bold text-sm">Status: Pending Payment</span>
-                      </div>
-
-                      <button onClick={() => router.push(`/user/services/requests/${selectedApplication.id}`)} className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all w-full md:w-auto justify-center">
-                        <CreditCard className="w-4 h-4" /> {selectedApplication.rejectionRemarks ? "Upload New Receipt" : "Proceed to Payment"}
-                      </button>
-                    </div>
-
-                    {/* Show Revision Remarks if any */}
-                    {selectedApplication?.rejectionRemarks && (
-                      <div className="mt-4 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-2xl p-5 space-y-2 animate-in fade-in-50 duration-500">
-                        <div className="flex items-center gap-2 text-red-700 dark:text-red-500">
-                          <AlertCircle className="w-4.5 h-4.5 shrink-0" />
-                          <h4 className="font-black text-xs uppercase tracking-widest italic">Payment Revision Required</h4>
-                        </div>
-                        <p className="text-xs font-medium text-red-800 dark:text-red-400 leading-relaxed">
-                          {selectedApplication.rejectionRemarks}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Show Previous Uploaded Receipts if any */}
-                    {selectedApplication?.additionalData?.previousPaymentProofs && selectedApplication.additionalData.previousPaymentProofs.length > 0 && (
-                      <div className="mt-4 space-y-3">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Previous Submissions</span>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {selectedApplication.additionalData.previousPaymentProofs.map((proof: any, idx: number) => (
-                            <div key={idx} className="relative aspect-[3/4] rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 opacity-70 hover:opacity-100 transition-opacity">
-                              <img src={proof.url} alt={`Previous Proof ${idx + 1}`} className="object-cover w-full h-full" />
-                              <div className="absolute top-2 left-2 bg-red-500/90 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded">Rejected</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="mt-4 bg-amber-50 dark:bg-amber-500/5 border border-amber-100 dark:border-amber-500/10 text-amber-700 dark:text-amber-500 text-xs font-medium px-4 py-3 rounded-lg flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                      <p>Please proceed to the LGU Mapandan Treasury Office to pay the required fees. After payment, upload your official receipt here. Receipt verification takes 24 hours.</p>
-                    </div>
-                  </>
-                ) : selectedApplication?.status === "UNPAID" && selectedApplication?.paymentReference ? (
-                  <div className="bg-blue-50 dark:bg-blue-500/5 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 border border-blue-100 dark:border-blue-500/10">
-                    <div className="flex items-center gap-3 text-blue-700 dark:text-blue-500">
-                      <Hourglass className="w-5 h-5 animate-pulse" />
-                      <span className="font-bold text-sm">Status: Waiting Verification</span>
-                    </div>
-                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                      Receipt uploaded successfully. Treasury is verifying your payment.
-                    </div>
-                  </div>
-                ) : ["PAID", "FOR_PROCESSING", "FOR_CLAIM", "FOR_PICKING", "RELEASED", "DELIVERED"].includes(selectedApplication?.status || "") ? (
-                  <div className="space-y-6">
-                    <div className="bg-emerald-50 dark:bg-emerald-500/5 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 border border-emerald-100 dark:border-emerald-500/10">
-                      <div className="flex items-center gap-3 text-emerald-700 dark:text-emerald-500">
-                        <Check className="w-5 h-5 text-emerald-500" />
-                        <span className="font-bold text-sm">Status: Paid (Receipt Submitted)</span>
-                      </div>
-                      {selectedApplication?.additionalData?.treasuryReceiptUrl && (
-                        <button
-                          onClick={() => {
-                            setViewerUrl(selectedApplication.additionalData.treasuryReceiptUrl);
-                            setViewerTitle("Official Treasury Receipt");
-                            setViewerOpen(true);
-                          }}
-                          className="px-6 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2"
-                        >
-                          View Official Receipt
-                        </button>
-                      )}
-                    </div>
-                    {selectedApplication?.additionalData?.treasuryRemarks && (
-                      <div className="p-5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400 italic">
-                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 not-italic block mb-1">Treasury Notes:</span>
-                        &ldquo;{selectedApplication.additionalData.treasuryRemarks}&rdquo;
-                      </div>
-                    )}
-                    {selectedApplication?.additionalData?.clearanceRevisionReason && (!selectedApplication?.additionalData?.bfpClearanceUrl || !selectedApplication?.additionalData?.zoningClearanceUrl) && (
-                      <div className="bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-2xl p-5 space-y-2 animate-in fade-in-50 duration-500">
-                        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-500">
-                          <AlertCircle className="w-4.5 h-4.5 shrink-0" />
-                          <h4 className="font-black text-xs uppercase tracking-widest italic">Revision Required</h4>
-                        </div>
-                        <p className="text-xs font-medium text-amber-800 dark:text-amber-400 leading-relaxed">
-                          {selectedApplication.additionalData.clearanceRevisionReason}
-                        </p>
-                      </div>
-                    )}
-
-
-
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center mt-6">
-              <button
-                onClick={() => {
-                  setCurrentStep("EVALUATION");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-                className="bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-white hover:bg-slate-200 dark:hover:bg-white/20 font-bold uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-2 px-5 py-2.5 border-2 border-slate-200 dark:border-white/20 rounded-full transition-colors shadow-sm"
-              >
-                ← Back
-              </button>
-
-              <button
-                disabled={
-                  selectedApplication?.status === "UNPAID"
-                }
-                onClick={() => {
-                  setCurrentStep("SUBMIT");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-                className="px-8 py-3 bg-emerald-500 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-emerald-600 shadow-xl shadow-emerald-500/20 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-800 dark:disabled:text-slate-600"
-              >
-                Next: Submission →
-              </button>
-            </div>
-          </div>
+          <BFPStep
+            selectedApplication={selectedApplication}
+            router={router}
+            setViewerUrl={setViewerUrl}
+            setViewerTitle={setViewerTitle}
+            setViewerOpen={setViewerOpen}
+            setCurrentStep={setCurrentStep}
+          />
         )}
 
         {!loading && currentStep === "SUBMIT" && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-            <div className="bg-white dark:bg-black/20 rounded-2xl border border-slate-200 dark:border-white/10 p-10 shadow-sm text-center">
-              <div className="w-20 h-20 bg-[#1e293b] dark:bg-white text-white dark:text-slate-900 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
-                <CheckCircle2 className="w-10 h-10" />
-              </div>
-              <h2 className="text-2xl font-black text-slate-800 dark:text-white mb-2">Application Status</h2>
-              <p className="text-slate-500 text-sm font-medium mb-8">
-                {selectedApplication?.status === "FOR_CLAIM" && (
-                  <span className="text-emerald-500 font-black uppercase tracking-widest block text-lg mb-1">✅ Ready to Claim!</span>
-                )}
-                {selectedApplication?.status === "FOR_PICKING" && (
-                  <span className="text-blue-500 font-black uppercase tracking-widest block text-lg mb-1">🚚 The Rider is on its way!</span>
-                )}
-                {selectedApplication?.status === "RELEASED" && (
-                  <span className="text-emerald-500 font-black uppercase tracking-widest block text-lg mb-1">🎉 Released!</span>
-                )}
-                {["FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(selectedApplication?.status || "") ? (
-                  "Your building permit has been approved and the digital copy is now available below."
-                ) : (
-                  "Your application is being processed. You will be notified once your permit is ready for release."
-                )}
-              </p>
-
-              {selectedApplication?.eCopyUrl && ["FOR_CLAIM", "FOR_PICKING", "RELEASED"].includes(selectedApplication?.status || "") ? (
-                <div className="max-w-2xl mx-auto space-y-4 mb-6">
-                  {/* Official Permit */}
-                  <div className="border-2 border-emerald-500/50 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 bg-emerald-500/5">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
-                        <FileText className="w-6 h-6" />
-                      </div>
-                      <div className="text-center md:text-left">
-                        <p className="text-sm text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-widest">
-                          Official Permit E-Copy
-                        </p>
-                        <p className="text-xs text-slate-500 font-medium mt-1">
-                          Your approved building permit is ready for download.
-                          {selectedApplication?.updatedAt && (
-                            <span className="block mt-1.5 text-[9px] text-emerald-600/80 dark:text-emerald-400/80 font-bold uppercase tracking-widest">
-                              Released on: {new Date(selectedApplication.updatedAt).toLocaleDateString()} {new Date(selectedApplication.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setViewerUrl(selectedApplication.eCopyUrl);
-                        setViewerTitle("Official Permit E-Copy");
-                        setViewerOpen(true);
-                      }}
-                      className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 transition-all flex items-center gap-2 shrink-0"
-                    >
-                      <FileText className="w-4 h-4" /> Preview & Download
-                    </button>
-                  </div>
-
-                  {/* Zoning Clearance */}
-                  {selectedApplication?.additionalData?.zoningClearanceUrl && (
-                    <div className="border-2 border-emerald-500/50 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 bg-emerald-500/5">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
-                          <FileText className="w-6 h-6" />
-                        </div>
-                        <div className="text-center md:text-left">
-                          <p className="text-sm text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-widest">
-                            Zoning / Locational Clearance
-                          </p>
-                          <p className="text-xs text-slate-500 font-medium mt-1">
-                            Your approved zoning clearance is ready for download.
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setViewerUrl(selectedApplication.additionalData.zoningClearanceUrl);
-                          setViewerTitle("Zoning Clearance");
-                          setViewerOpen(true);
-                        }}
-                        className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 transition-all flex items-center gap-2 shrink-0"
-                      >
-                        <FileText className="w-4 h-4" /> Preview & Download
-                      </button>
-                    </div>
-                  )}
-
-                  {/* BFP Clearance */}
-                  {selectedApplication?.additionalData?.bfpClearanceUrl && (
-                    <div className="border-2 border-emerald-500/50 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 bg-emerald-500/5">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
-                          <FileText className="w-6 h-6" />
-                        </div>
-                        <div className="text-center md:text-left">
-                          <p className="text-sm text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-widest">
-                            BFP Fire Safety Clearance
-                          </p>
-                          <p className="text-xs text-slate-500 font-medium mt-1">
-                            Your approved fire safety clearance is ready for download.
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setViewerUrl(selectedApplication.additionalData.bfpClearanceUrl);
-                          setViewerTitle("BFP Clearance");
-                          setViewerOpen(true);
-                        }}
-                        className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 transition-all flex items-center gap-2 shrink-0"
-                      >
-                        <FileText className="w-4 h-4" /> Preview & Download
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="max-w-2xl mx-auto border-2 border-dashed border-[#1e293b] dark:border-white/50 rounded-xl p-6 flex flex-col md:flex-row items-center justify-center gap-4 bg-slate-50/50 dark:bg-white/5 mb-6">
-                  <div className="w-10 h-10 bg-[#1e293b] dark:bg-white text-white dark:text-slate-900 rounded-lg flex items-center justify-center shrink-0">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <div className="text-center md:text-left">
-                    <p className="text-sm text-slate-700 dark:text-slate-300">
-                      <span className="font-bold">Digital Copy</span> of your documents will be available here upon release
-                    </p>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">You can view and download your approved permit directly from this page.</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="max-w-2xl mx-auto bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg p-4 flex items-start gap-3 text-left">
-                <Shield className="w-5 h-5 text-slate-600 dark:text-slate-400 shrink-0 mt-0.5" />
-                <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-                  <span className="font-bold text-slate-700 dark:text-slate-300">RA 10173 (Data Privacy Act of 2012) Compliance:</span> Your personal information is collected for building permit processing only and will not be shared with third parties without your consent.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-start items-center mt-6">
-              <button
-                onClick={() => {
-                  setCurrentStep("BFP");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-                className="bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-white hover:bg-slate-200 dark:hover:bg-white/20 font-bold uppercase tracking-widest text-[10px] md:text-xs flex items-center gap-2 px-5 py-2.5 border-2 border-slate-200 dark:border-white/20 rounded-full transition-colors shadow-sm"
-              >
-                ← Back to Treasury & Zoning
-              </button>
-            </div>
-          </div>
+          <SubmitStep
+            selectedApplication={selectedApplication}
+            setCurrentStep={setCurrentStep}
+            setViewerUrl={setViewerUrl}
+            setViewerTitle={setViewerTitle}
+            setViewerOpen={setViewerOpen}
+          />
         )}
 
       </div>
@@ -4095,185 +3040,3 @@ export default function BuildingPermitPage() {
   );
 }
 
-const SignaturePad = ({ onSave, themeColor = "var(--primary-theme)" }: { onSave: (file: File | null) => void; themeColor?: string }) => {
-  const canvasRef = React.useRef<HTMLCanvasElement>(null);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [isDrawing, setIsDrawing] = React.useState(false);
-  const [isUploadedSignature, setIsUploadedSignature] = React.useState(false);
-
-  React.useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }, []);
-
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (isUploadedSignature) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#000000';
-
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    let clientX, clientY;
-    if ('touches' in e) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-
-    const offsetX = (clientX - rect.left) * scaleX;
-    const offsetY = (clientY - rect.top) * scaleY;
-
-    ctx.beginPath();
-    ctx.moveTo(offsetX, offsetY);
-    setIsDrawing(true);
-  };
-
-  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (isUploadedSignature || !isDrawing) return;
-    e.preventDefault(); // Prevent scrolling while signing on touch devices
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#000000';
-
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    let clientX, clientY;
-    if ('touches' in e) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-
-    const offsetX = (clientX - rect.left) * scaleX;
-    const offsetY = (clientY - rect.top) * scaleY;
-
-    ctx.lineTo(offsetX, offsetY);
-    ctx.stroke();
-  };
-
-  const stopDrawing = () => {
-    setIsDrawing(false);
-  };
-
-  const clearCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    setIsUploadedSignature(false);
-  };
-
-  const handleSave = () => {
-    if (isUploadedSignature) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    canvas.toBlob((blob) => {
-      if (!blob) return onSave(null);
-      onSave(new File([blob], `signature-${Date.now()}.png`, { type: "image/png" }));
-    }, "image/png", 0.92);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new window.Image();
-      img.onload = () => {
-        const canvas = canvasRef.current;
-        const ctx = canvas?.getContext('2d');
-        if (!canvas || !ctx) return;
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        const hRatio = canvas.width / img.width;
-        const vRatio = canvas.height / img.height;
-        const ratio = Math.min(hRatio, vRatio);
-        const centerShift_x = (canvas.width - img.width * ratio) / 2;
-        const centerShift_y = (canvas.height - img.height * ratio) / 2;
-        ctx.drawImage(img, 0, 0, img.width, img.height,
-          centerShift_x, centerShift_y, img.width * ratio, img.height * ratio);
-
-        canvas.toBlob((blob) => {
-          if (!blob) return onSave(null);
-          setIsUploadedSignature(true);
-          onSave(new File([blob], `signature-${Date.now()}.png`, { type: "image/png" }));
-        }, "image/png", 0.92);
-      }
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-    e.target.value = "";
-  };
-
-  return (
-    <div className="flex flex-col items-center w-full">
-      <canvas
-        ref={canvasRef}
-        width={800}
-        height={250}
-        className={cn(
-          "w-full h-[250px] cursor-crosshair touch-none transition-all",
-          isUploadedSignature && "pointer-events-none opacity-80"
-        )}
-        onMouseDown={startDrawing}
-        onMouseMove={draw}
-        onMouseUp={stopDrawing}
-        onMouseLeave={stopDrawing}
-        onTouchStart={startDrawing}
-        onTouchMove={draw}
-        onTouchEnd={stopDrawing}
-      />
-      <div className="p-4 bg-slate-50 dark:bg-black/40 w-full flex justify-center gap-4 border-t border-slate-200 dark:border-white/10 flex-wrap">
-        <button onClick={clearCanvas} className="px-6 py-2 rounded-full border border-slate-300 dark:border-white/20 text-slate-600 dark:text-slate-300 text-sm font-bold flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-          Clear
-        </button>
-        <button onClick={() => fileInputRef.current?.click()} className="px-6 py-2 rounded-full border border-blue-300 dark:border-blue-500/30 text-blue-600 dark:text-blue-400 text-sm font-bold flex items-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
-          <UploadCloud className="w-4 h-4" />
-          Upload E-Signature
-        </button>
-        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-        <button
-          onClick={handleSave}
-          disabled={isUploadedSignature}
-          className={cn(
-            "px-6 py-2 rounded-full text-white text-sm font-bold flex items-center gap-2 shadow-md transition-all hover:opacity-90",
-            isUploadedSignature && "opacity-50 cursor-not-allowed"
-          )}
-          style={!isUploadedSignature ? { backgroundColor: themeColor } : undefined}
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
-          Save Signature
-        </button>
-      </div>
-    </div>
-  );
-}

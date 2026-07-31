@@ -8,8 +8,9 @@ import { useSession } from "next-auth/react";
 import {
     ArrowLeft, MapPin, UserCheck, Shield, Award,
     FileText, Camera, RefreshCw, Car, ShieldAlert, Clock, Truck, Building2, CheckCircle2,
-    AlertTriangle, ExternalLink, History
+    AlertTriangle, ExternalLink, History, Eye
 } from "lucide-react";
+import DocumentViewerModal from "@/components/shared/DocumentViewerModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -24,7 +25,7 @@ export default function TicketDetailsPage() {
     const { data: session } = useSession();
     const userRole = (session?.user as any)?.role;
     const userDept = (session?.user as any)?.department;
-    const isPosoStaff = userRole === "ADMIN" || userRole === "POSO_OFFICER" || userDept === "POSO";
+    const isPosoStaff = (userRole === "ADMIN" && userDept !== "LGU") || userRole === "POSO_OFFICER" || userDept === "POSO";
 
     const [loading, setLoading] = useState(true);
     const [ticket, setTicket] = useState<any>(null);
@@ -34,8 +35,34 @@ export default function TicketDetailsPage() {
     const [themeColor, setThemeColor] = useState<string | null>(null);
     const [settling, setSettling] = useState(false);
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+    const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
     const [penaltySettings, setPenaltySettings] = useState<{ dueDays: number; surchargeRate: number; monthlyInterestRate: number }>({ dueDays: 7, surchargeRate: 25, monthlyInterestRate: 2 });
     const [penaltyBreakdown, setPenaltyBreakdown] = useState<POSOPenaltyBreakdown | null>(null);
+    const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+    const [isGeocoding, setIsGeocoding] = useState(false);
+
+    useEffect(() => {
+        if (!ticket?.latitude || !ticket?.longitude) return;
+        let isMounted = true;
+        async function reverseGeocode() {
+            setIsGeocoding(true);
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${ticket.latitude}&lon=${ticket.longitude}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.display_name && isMounted) {
+                        setResolvedAddress(data.display_name);
+                    }
+                }
+            } catch {
+                // Silently fallback if offline
+            } finally {
+                if (isMounted) setIsGeocoding(false);
+            }
+        }
+        reverseGeocode();
+        return () => { isMounted = false; };
+    }, [ticket?.latitude, ticket?.longitude]);
 
     useEffect(() => {
         if (!id) return;
@@ -252,7 +279,7 @@ export default function TicketDetailsPage() {
                             Paid Tickets:
                         </span>
                         {otherPaidTickets.map((pt: any) => {
-                            const total = (pt.totalAmount || 0) + (pt.isImpounded ? Number(pt.impoundFee || 0) : 0);
+                            const total = Number(pt.totalAmount || 0);
                             return (
                                 <button
                                     key={pt.id}
@@ -314,7 +341,7 @@ export default function TicketDetailsPage() {
                             Other Unpaid Tickets:
                         </span>
                         {otherUnpaidTickets.map((ot: any) => {
-                            const total = (ot.totalAmount || 0) + (ot.isImpounded ? Number(ot.impoundFee || 0) : 0);
+                            const total = Number(ot.totalAmount || 0);
                             return (
                                 <button
                                     key={ot.id}
@@ -370,6 +397,16 @@ export default function TicketDetailsPage() {
                                 <p className="text-base font-bold text-slate-800 dark:text-slate-200 mt-0.5 font-mono">
                                     {ticket.licenseNo || "N/A (Unlicensed)"}
                                 </p>
+                                {ticket.licenseImage && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedPhoto(ticket.licenseImage)}
+                                        className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-bold transition-all border border-blue-500/20"
+                                    >
+                                        <Camera className="w-3.5 h-3.5" />
+                                        <span>View License Card</span>
+                                    </button>
+                                )}
                             </div>
 
                             <div>
@@ -408,11 +445,13 @@ export default function TicketDetailsPage() {
                                 <p className="text-base font-black text-slate-900 dark:text-white uppercase italic mt-0.5">
                                     {ticket.plateNo || "No Plate"} ({ticket.typeOfVehicle || "N/A"})
                                 </p>
-                                {ticket.vehicleClass && (
-                                    <span className="inline-block mt-1 px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-black uppercase">
-                                        {ticket.vehicleClass === "CLASS_A" ? "Class A (Motorcycle/Tricycle)" : ticket.vehicleClass === "CLASS_B" ? "Class B (Light 4-Wheel)" : ticket.vehicleClass === "CLASS_C" ? "Class C (Heavy 4-Wheel+)" : ticket.vehicleClass}
-                                    </span>
-                                )}
+                            </div>
+
+                            <div>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Registered Vehicle Owner</span>
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-0.5 uppercase italic">
+                                    {ticket.ownerName || ticket.violatorName || "Same as Violator / Unregistered"}
+                                </p>
                             </div>
 
                             {ticket.puvBodyName && (
@@ -426,17 +465,29 @@ export default function TicketDetailsPage() {
 
                             <div>
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Apprehension Location</span>
-                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mt-0.5 flex items-center">
-                                    <MapPin className="w-4 h-4 mr-1 text-rose-500" />
-                                    {ticket.location || "Mapandan"}, Barangay {ticket.barangay || "N/A"}
-                                </p>
+                                <div className="mt-0.5">
+                                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-start">
+                                        <MapPin className="w-4 h-4 mr-1.5 text-rose-500 shrink-0 mt-0.5" />
+                                        <span>
+                                            {resolvedAddress || (ticket.location ? `${ticket.location}${ticket.barangay ? `, Barangay ${ticket.barangay}` : ""}` : "Mapandan, Pangasinan")}
+                                            {isGeocoding && <span className="text-xs text-slate-400 italic ml-2">(Converting coordinates...)</span>}
+                                        </span>
+                                    </p>
+                                </div>
                             </div>
 
                             <div>
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Apprehending POSO Officer</span>
-                                <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-0.5 flex items-center">
-                                    <Shield className="w-4 h-4 mr-1 text-slate-400" />
-                                    {ticket.officerName || "POSO Enforcer"}
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-0.5 flex items-center flex-wrap gap-2">
+                                    <span className="flex items-center">
+                                        <Shield className="w-4 h-4 mr-1 text-slate-400" />
+                                        {ticket.officerName || "POSO Enforcer"}
+                                    </span>
+                                    {ticket.badgeNo && (
+                                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold uppercase">
+                                            Badge #{ticket.badgeNo}
+                                        </span>
+                                    )}
                                 </p>
                             </div>
                         </div>
@@ -621,7 +672,7 @@ export default function TicketDetailsPage() {
                                 </p>
                             </div>
                             <span className="font-black text-2xl text-rose-600 dark:text-rose-400 italic">
-                                ₱ {(penaltyBreakdown?.grandTotalPayable || (Number(ticket.totalAmount || 0) + (ticket.isImpounded ? Number(ticket.impoundFee || 0) : 0))).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                ₱ {(penaltyBreakdown?.grandTotalPayable || Number(ticket.totalAmount || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                             </span>
                         </div>
                     </div>
@@ -650,16 +701,27 @@ export default function TicketDetailsPage() {
                                 <p className="text-[10px] mt-0.5 text-slate-400">No photographic evidence attached to this ticket.</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-2 gap-3">
-                                {photosList.map((photo: any) => (
+                            <div className={
+                                photosList.length === 1
+                                    ? "grid grid-cols-1 gap-3"
+                                    : photosList.length === 2
+                                    ? "grid grid-cols-2 gap-3"
+                                    : photosList.length === 3
+                                    ? "grid grid-cols-3 gap-2"
+                                    : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5"
+                            }>
+                                {photosList.map((photo: any, pIdx: number) => (
                                     <div
-                                        key={photo.id}
-                                        onClick={() => setSelectedPhoto(photo.photoUrl)}
+                                        key={photo.id || pIdx}
+                                        onClick={() => {
+                                            setSelectedPhoto(photo.photoUrl);
+                                            setSelectedPhotoIndex(pIdx);
+                                        }}
                                         className="group relative aspect-video rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 cursor-pointer shadow-sm hover:scale-[1.02] transition-transform"
                                     >
-                                        <Image src={photo.photoUrl} alt="Evidence photo" fill sizes="(max-width: 768px) 50vw, 33vw" className="object-cover" />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold uppercase tracking-wider">
-                                            Preview
+                                        <Image src={photo.photoUrl} alt={`Evidence photo ${pIdx + 1}`} fill sizes="(max-width: 768px) 50vw, 33vw" className="object-cover" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold uppercase tracking-wider gap-1">
+                                            <Eye className="w-3.5 h-3.5" /> View Photo #{pIdx + 1}
                                         </div>
                                     </div>
                                 ))}
@@ -682,9 +744,18 @@ export default function TicketDetailsPage() {
                         </div>
 
                         {ticket.driverSignature ? (
-                            <div className="p-4 bg-slate-50 dark:bg-[#0c111d] rounded-2xl border border-slate-200 dark:border-[#2a3040] flex flex-col items-center justify-center">
-                                <Image src={ticket.driverSignature} alt="Driver Signature" width={200} height={96} className="max-h-24 object-contain filter dark:invert" />
-                                <span className="text-[10px] font-bold text-slate-400 uppercase mt-2">Verified Digital Signature</span>
+                            <div className="p-4 bg-slate-950 dark:bg-black/90 rounded-2xl border border-slate-800 dark:border-white/10 flex flex-col items-center justify-center shadow-inner relative overflow-hidden group">
+                                <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:12px_12px] opacity-40 pointer-events-none" />
+                                <Image
+                                    src={ticket.driverSignature}
+                                    alt="Driver Signature"
+                                    width={220}
+                                    height={100}
+                                    className="max-h-28 object-contain filter drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] brightness-125 relative z-10"
+                                />
+                                <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase mt-2 italic flex items-center gap-1.5 relative z-10">
+                                    <Award className="w-3.5 h-3.5 text-emerald-400" /> Verified Digital Signature
+                                </span>
                             </div>
                         ) : (
                             <div className="p-6 text-center bg-slate-50 dark:bg-[#0c111d] rounded-2xl border border-dashed border-slate-200 dark:border-white/10 text-slate-400">
@@ -814,20 +885,20 @@ export default function TicketDetailsPage() {
                 </div>
             </div>
 
-            {/* Photo Lightbox Modal */}
-            {selectedPhoto && (
-                <div
-                    onClick={() => setSelectedPhoto(null)}
-                    className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer animate-in fade-in duration-200"
-                >
-                    <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl shadow-2xl w-full aspect-video">
-                        <Image src={selectedPhoto} alt="Enlarged Evidence" fill sizes="100vw" className="object-contain rounded-3xl" />
-                        <span className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs font-bold px-4 py-2 rounded-full backdrop-blur-md">
-                            Click anywhere to close
-                        </span>
-                    </div>
-                </div>
-            )}
+            {/* Photo Viewer Modal using DocumentViewerModal */}
+            <DocumentViewerModal
+                isOpen={Boolean(selectedPhoto)}
+                onClose={() => setSelectedPhoto(null)}
+                file={null}
+                fileUrl={selectedPhoto}
+                title={`Ticket #${ticket.ticketNo} - Photographic Evidence`}
+                themeColor={themeColor || "#f43f5e"}
+                documents={photosList.map((p: any, idx: number) => ({
+                    url: p.photoUrl,
+                    label: `Evidence Photo #${idx + 1}`
+                }))}
+                initialIndex={selectedPhotoIndex}
+            />
         </div>
     );
 }

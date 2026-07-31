@@ -56,8 +56,8 @@ export default function PosoView({
     const [paymentReference, setPaymentReference] = useState("");
     const [orNumberInput, setOrNumberInput] = useState(additional?.orNumber || transaction?.paymentReference || "");
 
-    const grandTotal = transaction?.totalAmount || 0;
-    const baseFineTotal = fiscal?.baseFineTotal ?? (additional?.violations ? additional.violations.reduce((sum: number, v: any) => sum + Number(v.fine || 0), 0) : grandTotal);
+    const rawTotal = transaction?.totalAmount || 0;
+    const baseFineTotal = fiscal?.baseFineTotal ?? (additional?.violations ? additional.violations.reduce((sum: number, v: any) => sum + Number(v.amount ?? v.fine ?? v.baseFine ?? 0), 0) : rawTotal);
     const impoundFee = fiscal?.impoundFee ?? Number(additional?.impoundFee || 0);
 
     const pb = additional?.penaltyBreakdown || {};
@@ -67,9 +67,9 @@ export default function PosoView({
     const monthlyInterestRate = pb?.monthlyInterestRate ?? 2;
     const monthsOverdue = pb?.monthsOverdue ?? 1;
 
-    const displayGrandTotal = (surchargeAmount > 0 || interestAmount > 0)
-        ? (baseFineTotal + impoundFee + surchargeAmount + interestAmount)
-        : grandTotal;
+    const calculatedTotal = baseFineTotal + impoundFee;
+    const grandTotal = Math.max(rawTotal, calculatedTotal);
+    const displayGrandTotal = grandTotal + surchargeAmount + interestAmount;
 
     const isPaid = transaction?.isPaid || transaction?.status === "PAID" || transaction?.status === "SETTLED" || transaction?.status === "RELEASED";
 
@@ -257,22 +257,27 @@ export default function PosoView({
                                                             </span>
                                                             <div className="space-y-1.5">
                                                                 {ticketViolations.length > 0 ? (
-                                                                    ticketViolations.map((v: any, vi: number) => (
-                                                                        <div key={vi} className="flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-xl bg-white dark:bg-[#151b2b] border border-slate-100 dark:border-white/5">
-                                                                            <div className="flex items-center gap-2">
-                                                                                <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
-                                                                                <span className="text-slate-800 dark:text-slate-200 font-bold">{v.name}</span>
-                                                                                {v.level && (
-                                                                                    <span className="text-[9px] px-2 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 font-black">
-                                                                                        Offense #{v.level}
-                                                                                    </span>
-                                                                                )}
+                                                                    ticketViolations.map((v: any, vi: number) => {
+                                                                        const finePrice = Number(v.amount ?? v.fine ?? v.baseFine ?? v.totalFine ?? 0);
+                                                                        const offenseLvl = v.offenseLevel || v.level;
+
+                                                                        return (
+                                                                            <div key={vi} className="flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-xl bg-white dark:bg-[#151b2b] border border-slate-100 dark:border-white/5">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                                                                                    <span className="text-slate-800 dark:text-slate-200 font-bold">{v.name}</span>
+                                                                                    {offenseLvl && (
+                                                                                        <span className="text-[9px] px-2 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 font-black">
+                                                                                            Offense #{offenseLvl}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                                <span className="font-mono text-slate-900 dark:text-white font-bold">
+                                                                                    ₱{finePrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                                                                </span>
                                                                             </div>
-                                                                            <span className="font-mono text-slate-900 dark:text-white font-bold">
-                                                                                ₱{Number(v.fine || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                                                                            </span>
-                                                                        </div>
-                                                                    ))
+                                                                        );
+                                                                    })
                                                                 ) : (
                                                                     <div className="text-xs text-slate-400 italic px-2">General Citation Violation</div>
                                                                 )}
@@ -303,22 +308,27 @@ export default function PosoView({
                                                     Charged Violations Breakdown:
                                                 </span>
                                                 <div className="space-y-1.5">
-                                                    {violations.map((v: any, vi: number) => (
-                                                        <div key={vi} className="flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-xl bg-white dark:bg-[#151b2b] border border-slate-100 dark:border-white/5">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
-                                                                <span className="text-slate-800 dark:text-slate-200 font-bold">{v.name}</span>
-                                                                {v.level && (
-                                                                    <span className="text-[9px] px-2 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 font-black">
-                                                                        Offense #{v.level}
-                                                                    </span>
-                                                                )}
+                                                    {violations.map((v: any, vi: number) => {
+                                                        const finePrice = Number(v.amount ?? v.fine ?? v.baseFine ?? v.totalFine ?? 0);
+                                                        const offenseLvl = v.offenseLevel || v.level;
+
+                                                        return (
+                                                            <div key={vi} className="flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-xl bg-white dark:bg-[#151b2b] border border-slate-100 dark:border-white/5">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                                                                    <span className="text-slate-800 dark:text-slate-200 font-bold">{v.name}</span>
+                                                                    {offenseLvl && (
+                                                                        <span className="text-[9px] px-2 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 font-black">
+                                                                            Offense #{offenseLvl}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <span className="font-mono text-slate-900 dark:text-white font-bold">
+                                                                    ₱{finePrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                                                </span>
                                                             </div>
-                                                            <span className="font-mono text-slate-900 dark:text-white font-bold">
-                                                                ₱{Number(v.fine || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                                                            </span>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         )}
