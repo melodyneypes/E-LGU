@@ -17,7 +17,21 @@ export default async function AdminLayout({
         redirect("/auth/login");
     }
     const role = (session.user as { role?: string })?.role;
-    if (role !== "ADMIN" && role !== "CONTENT_ADMIN" && role !== "BARANGAY_ADMIN" && role !== "TREASURY_STAFF" && role !== "ADMIN_AIDE" && role !== "ENGINEER" && role !== "MPDC_ZONING" && role !== "BFP") {
+    const isAllowedAdmin = [
+        "ADMIN",
+        "CONTENT_ADMIN",
+        "BARANGAY_ADMIN",
+        "TREASURY_STAFF",
+        "ADMIN_AIDE",
+        "ENGINEER",
+        "MPDC_ZONING",
+        "BFP",
+        "RHU_CENTER_ADMIN",
+        "RHU_DOCTOR",
+        "RHU_STAFF"
+    ].includes(role || "");
+
+    if (!isAllowedAdmin) {
         redirect("/auth/login");
     }
 

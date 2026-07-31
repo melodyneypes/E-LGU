@@ -643,6 +643,8 @@ export function Sidebar({
             ];
         } else if (role === "POSO_OFFICER") {
             menuItems = allMenuItems.filter(item => ["Citations & Tickets", "Violations Masterlist"].includes(item.label));
+        } else if (role === "RHU_CENTER_ADMIN" || role === "RHU_DOCTOR" || role === "RHU_STAFF") {
+            menuItems = allMenuItems.filter(item => item.category === "Rural Health Unit");
         }
     }
 

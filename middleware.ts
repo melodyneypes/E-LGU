@@ -57,6 +57,28 @@ export default withAuth(
       return NextResponse.redirect(redirectUrl);
     }
 
+    // Guard: RHU roles (RHU_CENTER_ADMIN, RHU_DOCTOR, RHU_STAFF)
+    const isRHURole =
+      token?.role === "RHU_CENTER_ADMIN" ||
+      token?.role === "RHU_DOCTOR" ||
+      token?.role === "RHU_STAFF" ||
+      (token?.department && (token.department.includes("RHU") || token.department.includes("Medical Admin")));
+
+    if (isRHURole && url.pathname.startsWith("/admin")) {
+      if (!url.pathname.startsWith("/admin/rhu")) {
+        const redirectUrl = new URL("/admin/rhu/centers", req.url);
+        return NextResponse.redirect(redirectUrl);
+      }
+      const requestHeaders = new Headers(req.headers);
+      requestHeaders.set("x-pathname", url.pathname);
+      requestHeaders.set("x-request-target", requestTarget);
+      return NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        }
+      });
+    }
+
     // Check custom page overrides if set
     const accessiblePages = token?.accessiblePages as string[] | undefined;
     if (accessiblePages && accessiblePages.length > 0 && url.pathname.startsWith("/admin")) {
